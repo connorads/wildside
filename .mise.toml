@@ -26,6 +26,9 @@ run = "cargo run -p kidcli -- verify-startup"
 [tasks.verify-level]
 run = "cargo run -p kidcli -- verify-level"
 
+[tasks.verify-audio-driver]
+run = "cargo run -p kidcli -- verify-audio-driver"
+
 [tasks.render-frame]
 run = "cargo run -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
 

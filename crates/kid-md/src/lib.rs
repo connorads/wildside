@@ -3,7 +3,9 @@ use r68k_emu::cpu::{ConfiguredCore, Cycles};
 use r68k_emu::interrupts::AutoInterruptController;
 use r68k_emu::ram::{AddressBus, AddressSpace};
 use std::cell::RefCell;
+use std::rc::Rc;
 use thiserror::Error;
+use z80::{Z80, Z80_io};
 
 const ADDRESS_MASK: u32 = 0x00FF_FFFF;
 const WORK_RAM_BASE: u32 = 0x00E0_0000;
@@ -50,6 +52,8 @@ pub struct CpuProbe {
     pub vram_nonzero_bytes: usize,
     pub cram_nonzero_bytes: usize,
     pub vsram_nonzero_bytes: usize,
+    pub ym2612_write_count: usize,
+    pub psg_write_count: usize,
     pub vdp: VdpSnapshot,
     pub steps: Vec<CpuStep>,
     pub accesses: Vec<BusAccess>,
@@ -95,8 +99,38 @@ struct WindowPlane {
     region: Option<WindowRegion>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Z80Shared {
+    ram: Vec<u8>,
+    busreq: bool,
+    reset: bool,
+    bank_address: u32,
+    ym2612_writes: Vec<(u16, u8)>,
+    psg_writes: Vec<u8>,
+}
+
+impl Default for Z80Shared {
+    fn default() -> Self {
+        Self {
+            ram: vec![0; Z80_RAM_LEN],
+            busreq: false,
+            reset: false,
+            bank_address: 0,
+            ym2612_writes: Vec::new(),
+            psg_writes: Vec::new(),
+        }
+    }
+}
+
+struct Z80Bus {
+    shared: Rc<RefCell<Z80Shared>>,
+    rom: Vec<u8>,
+}
+
 pub struct MdRuntime {
     core: ConfiguredCore<AutoInterruptController, MdBus>,
+    z80: Z80<Z80Bus>,
+    z80_reset_asserted: bool,
     cycles_until_vblank: i32,
     synthetic_vblanks: u32,
 }
@@ -188,6 +222,8 @@ pub fn probe_rom_with_script(
         vram_nonzero_bytes: runtime.core.mem.vram_nonzero_bytes(),
         cram_nonzero_bytes: runtime.core.mem.cram_nonzero_bytes(),
         vsram_nonzero_bytes: runtime.core.mem.vsram_nonzero_bytes(),
+        ym2612_write_count: runtime.core.mem.ym2612_write_count(),
+        psg_write_count: runtime.core.mem.psg_write_count(),
         vdp: runtime.core.mem.vdp_snapshot(),
         steps,
         accesses: runtime.core.mem.accesses(),
@@ -202,10 +238,22 @@ impl MdRuntime {
             return Err(ProbeError::RomTooSmall.into());
         }
 
-        let mut core = ConfiguredCore::new_with(0, AutoInterruptController::new(), MdBus::new(rom));
+        let z80_shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let mut core = ConfiguredCore::new_with(
+            0,
+            AutoInterruptController::new(),
+            MdBus::new(rom, z80_shared.clone()),
+        );
         core.reset();
+        let mut z80 = Z80::new(Z80Bus {
+            shared: z80_shared,
+            rom: rom.to_vec(),
+        });
+        z80.reset();
         Ok(Self {
             core,
+            z80,
+            z80_reset_asserted: false,
             cycles_until_vblank: SYNTHETIC_VBLANK_CYCLES,
             synthetic_vblanks: 0,
         })
@@ -217,6 +265,7 @@ impl MdRuntime {
 
     pub fn step(&mut self) -> i32 {
         let Cycles(cycles) = self.core.execute1();
+        self.step_z80(cycles);
         self.cycles_until_vblank -= cycles;
         while self.cycles_until_vblank <= 0 {
             self.cycles_until_vblank += SYNTHETIC_VBLANK_CYCLES;
@@ -260,11 +309,45 @@ impl MdRuntime {
             vram_nonzero_bytes: self.core.mem.vram_nonzero_bytes(),
             cram_nonzero_bytes: self.core.mem.cram_nonzero_bytes(),
             vsram_nonzero_bytes: self.core.mem.vsram_nonzero_bytes(),
+            ym2612_write_count: self.core.mem.ym2612_write_count(),
+            psg_write_count: self.core.mem.psg_write_count(),
             vdp: self.core.mem.vdp_snapshot(),
             steps: Vec::new(),
             accesses: self.core.mem.accesses(),
             vdp_control_writes: self.core.mem.vdp_control_writes(),
             vdp_data_writes: self.core.mem.vdp_data_writes(),
+        }
+    }
+
+    fn step_z80(&mut self, m68k_cycles: i32) {
+        let (busreq, reset) = {
+            let shared = self.core.mem.z80_shared.borrow();
+            (shared.busreq, shared.reset)
+        };
+
+        if reset {
+            if !self.z80_reset_asserted {
+                self.z80.reset();
+                self.z80_reset_asserted = true;
+            }
+            return;
+        }
+        self.z80_reset_asserted = false;
+
+        if busreq {
+            return;
+        }
+
+        let mut remaining_cycles = ((m68k_cycles.max(0) as u32) * 7) / 15;
+        if remaining_cycles == 0 {
+            remaining_cycles = 1;
+        }
+        while remaining_cycles > 0 {
+            let elapsed = self.z80.step();
+            if elapsed >= remaining_cycles {
+                break;
+            }
+            remaining_cycles -= elapsed;
         }
     }
 }
@@ -405,22 +488,27 @@ impl Default for VdpState {
 struct MdBus {
     rom: Vec<u8>,
     work_ram: Vec<u8>,
-    z80_ram: Vec<u8>,
+    z80_shared: Rc<RefCell<Z80Shared>>,
     io: IoState,
     vdp: VdpState,
     accesses: RefCell<Vec<BusAccess>>,
 }
 
 impl MdBus {
-    fn new(rom: &[u8]) -> Self {
+    fn new(rom: &[u8], z80_shared: Rc<RefCell<Z80Shared>>) -> Self {
         Self {
             rom: rom.to_vec(),
             work_ram: vec![0; WORK_RAM_LEN],
-            z80_ram: vec![0; Z80_RAM_LEN],
+            z80_shared,
             io: IoState::default(),
             vdp: VdpState::default(),
             accesses: RefCell::new(Vec::new()),
         }
+    }
+
+    #[cfg(test)]
+    fn with_fresh_z80(rom: &[u8]) -> Self {
+        Self::new(rom, Rc::new(RefCell::new(Z80Shared::default())))
     }
 
     fn accesses(&self) -> Vec<BusAccess> {
@@ -442,6 +530,14 @@ impl MdBus {
             cram: self.vdp.cram.clone(),
             vsram: self.vdp.vsram.clone(),
         }
+    }
+
+    fn ym2612_write_count(&self) -> usize {
+        self.z80_shared.borrow().ym2612_writes.len()
+    }
+
+    fn psg_write_count(&self) -> usize {
+        self.z80_shared.borrow().psg_writes.len()
     }
 
     fn vint_enabled(&self) -> bool {
@@ -529,6 +625,16 @@ impl MdBus {
 
     fn set_controller_1(&mut self, buttons: u8) {
         self.io.controller_1 = buttons;
+    }
+
+    fn set_z80_busreq(&mut self, requested: bool) {
+        self.io.z80_busreq = requested;
+        self.z80_shared.borrow_mut().busreq = requested;
+    }
+
+    fn set_z80_reset(&mut self, asserted: bool) {
+        self.io.z80_reset = asserted;
+        self.z80_shared.borrow_mut().reset = asserted;
     }
 
     fn controller_port_value(&self, latch: u8, buttons: u8) -> u8 {
@@ -700,7 +806,9 @@ impl MdBus {
     fn read_byte_internal(&self, address: u32) -> u8 {
         match address {
             0x000000..=0x009F_FFFF => self.read_rom_byte(address),
-            Z80_RAM_BASE..=Z80_RAM_END => self.z80_ram[Self::z80_ram_index(address)],
+            Z80_RAM_BASE..=Z80_RAM_END => {
+                self.z80_shared.borrow().ram[Self::z80_ram_index(address)]
+            }
             0x00A1_0000..=0x00A1_001F => self.read_io_register(address),
             0x00A1_1100..=0x00A1_1101 => u8::from(!self.io.z80_busreq),
             0x00A1_1200..=0x00A1_1201 => u8::from(!self.io.z80_reset),
@@ -714,11 +822,11 @@ impl MdBus {
         match address {
             Z80_RAM_BASE..=Z80_RAM_END => {
                 let index = Self::z80_ram_index(address);
-                self.z80_ram[index] = value;
+                self.z80_shared.borrow_mut().ram[index] = value;
             }
             0x00A1_0000..=0x00A1_001F => self.write_io_register(address, value),
-            0x00A1_1100..=0x00A1_1101 => self.io.z80_busreq = value & 1 != 0,
-            0x00A1_1200..=0x00A1_1201 => self.io.z80_reset = value & 1 == 0,
+            0x00A1_1100..=0x00A1_1101 => self.set_z80_busreq(value & 1 != 0),
+            0x00A1_1200..=0x00A1_1201 => self.set_z80_reset(value & 1 == 0),
             0x00C0_0000..=0x00C0_001F => self.write_vdp_byte(address, value),
             WORK_RAM_BASE..=WORK_RAM_END => {
                 let index = Self::work_ram_index(address);
@@ -752,8 +860,8 @@ impl MdBus {
     fn write_word_internal(&mut self, address: u32, value: u16) {
         match address {
             0x00A1_0000..=0x00A1_001F => self.write_io_register(address, value as u8),
-            0x00A1_1100..=0x00A1_1101 => self.io.z80_busreq = (value & 0x0100) != 0,
-            0x00A1_1200..=0x00A1_1201 => self.io.z80_reset = (value & 0x0100) == 0,
+            0x00A1_1100..=0x00A1_1101 => self.set_z80_busreq((value & 0x0100) != 0),
+            0x00A1_1200..=0x00A1_1201 => self.set_z80_reset((value & 0x0100) == 0),
             0x00C0_0000..=0x00C0_0003 => self.write_vdp_data_word(value),
             0x00C0_0004..=0x00C0_0007 => self.apply_vdp_control_write(value),
             WORK_RAM_BASE..=WORK_RAM_END => {
@@ -765,6 +873,73 @@ impl MdBus {
                 self.write_byte_internal(address, (value >> 8) as u8);
                 self.write_byte_internal(address.wrapping_add(1), value as u8);
             }
+        }
+    }
+}
+
+impl Z80Bus {
+    fn read_banked_68k_byte(&self, address: u16) -> u8 {
+        let shared = self.shared.borrow();
+        let banked_address = shared
+            .bank_address
+            .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
+        self.rom
+            .get(banked_address as usize)
+            .copied()
+            .unwrap_or(0xFF)
+    }
+
+    fn record_ym2612_write(&self, address: u16, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        if shared.ym2612_writes.len() < TRACE_LIMIT {
+            shared.ym2612_writes.push((address, value));
+        }
+    }
+
+    fn record_psg_write(&self, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        if shared.psg_writes.len() < TRACE_LIMIT {
+            shared.psg_writes.push(value);
+        }
+    }
+
+    fn write_bank_register(&self, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        let current_bank = shared.bank_address >> 15;
+        let next_bank = ((current_bank << 1) | u32::from(value & 1)) & 0x01FF;
+        shared.bank_address = next_bank << 15;
+    }
+}
+
+impl Z80_io for Z80Bus {
+    fn read_byte(&self, address: u16) -> u8 {
+        match address {
+            0x0000..=0x1FFF => self.shared.borrow().ram[usize::from(address) & (Z80_RAM_LEN - 1)],
+            0x4000..=0x4003 => 0,
+            0x8000..=0xFFFF => self.read_banked_68k_byte(address),
+            _ => 0xFF,
+        }
+    }
+
+    fn write_byte(&mut self, address: u16, value: u8) {
+        match address {
+            0x0000..=0x1FFF => {
+                self.shared.borrow_mut().ram[usize::from(address) & (Z80_RAM_LEN - 1)] = value;
+            }
+            0x4000..=0x4003 => self.record_ym2612_write(address, value),
+            0x6000 => self.write_bank_register(value),
+            0x7F11 => self.record_psg_write(value),
+            _ => {}
+        }
+    }
+
+    fn port_in(&self, _address: u16) -> u8 {
+        0xFF
+    }
+
+    fn port_out(&mut self, address: u16, value: u8) {
+        if address & 0x00FF == 0x7F {
+            self.record_psg_write(value);
         }
     }
 }
@@ -1098,7 +1273,7 @@ impl AddressBus for MdBus {
     fn copy_from(&mut self, other: &Self) {
         self.rom = other.rom.clone();
         self.work_ram = other.work_ram.clone();
-        self.z80_ram = other.z80_ram.clone();
+        self.z80_shared.replace(other.z80_shared.borrow().clone());
         self.io = other.io.clone();
         self.vdp = other.vdp.clone();
         self.accesses.replace(other.accesses());
@@ -1183,7 +1358,7 @@ mod tests {
 
     #[test]
     fn work_ram_is_mirrored_across_upper_address_space() {
-        let mut bus = MdBus::new(&[]);
+        let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE, 0x1234);
         assert_eq!(bus.read_word(SUPERVISOR_DATA, WORK_RAM_BASE), 0x1234);
         assert_eq!(bus.read_word(SUPERVISOR_DATA, 0x00FF_0000), 0x1234);
@@ -1191,7 +1366,7 @@ mod tests {
 
     #[test]
     fn controller_and_vdp_accesses_are_traced() {
-        let mut bus = MdBus::new(&[]);
+        let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_word(SUPERVISOR_DATA, 0x00A1_0003, 0x0040);
         bus.write_word(SUPERVISOR_DATA, 0x00C0_0004, 0x8134);
         let accesses = bus.accesses();
@@ -1206,7 +1381,7 @@ mod tests {
 
     #[test]
     fn z80_ram_is_mirrored() {
-        let mut bus = MdBus::new(&[]);
+        let mut bus = MdBus::with_fresh_z80(&[]);
         bus.write_byte(SUPERVISOR_DATA, Z80_RAM_BASE, 0x12);
         assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE), 0x12);
         assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE + 0x2000), 0x12);

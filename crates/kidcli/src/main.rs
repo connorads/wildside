@@ -62,6 +62,12 @@ enum Commands {
         #[arg(long, default_value_t = 8_000_000)]
         steps: u32,
     },
+    VerifyAudioDriver {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long, default_value_t = 8_000_000)]
+        steps: u32,
+    },
     RenderFrame {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -165,6 +171,20 @@ fn main() -> Result<()> {
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             verify_level_probe(&rom_bytes, steps)?;
             println!("level verification passed");
+        }
+        Commands::VerifyAudioDriver { rom, steps } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let verified = verify_rom(&rom_path)?;
+            if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
+                bail!(
+                    "verify-audio-driver currently supports only the known Kid Chameleon ROM dump"
+                );
+            }
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            verify_audio_driver_probe(&rom_bytes, steps)?;
+            println!("audio-driver verification passed");
         }
         Commands::RenderFrame {
             rom,
@@ -579,6 +599,8 @@ fn print_probe(
     println!("vram nonzero bytes: {}", probe.vram_nonzero_bytes);
     println!("cram nonzero bytes: {}", probe.cram_nonzero_bytes);
     println!("vsram nonzero bytes: {}", probe.vsram_nonzero_bytes);
+    println!("ym2612 writes: {}", probe.ym2612_write_count);
+    println!("psg writes: {}", probe.psg_write_count);
 
     if !summary_only {
         for step in probe.steps.iter().take(step_log_limit) {
@@ -934,6 +956,15 @@ fn verify_level_probe(rom_bytes: &[u8], steps: u32) -> Result<()> {
             entry_probe.camera_x_pos,
             movement_probe.camera_x_pos
         );
+    }
+
+    Ok(())
+}
+
+fn verify_audio_driver_probe(rom_bytes: &[u8], steps: u32) -> Result<()> {
+    let probe = probe_rom_with_script(rom_bytes, steps, &gameplay_entry_script()?)?;
+    if probe.psg_write_count == 0 {
+        bail!("expected the Z80 sound path to issue PSG writes by level entry");
     }
 
     Ok(())

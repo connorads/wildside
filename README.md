@@ -9,6 +9,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
 - `kidcli verify-startup` asserts that the current runtime can progress through the early boot loops, reach `GameProgram`, and continue into the later startup VRAM clear path.
 - `kidcli verify-level` asserts that the scripted front-end path can enter the first level and that holding `right` advances the in-level camera.
+- `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing PSG writes by first-level entry.
 - `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
 - `kidcli run-sdl` starts a minimal interactive desktop host using bundled SDL2 and the current software renderer.
 - `kidcli bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
@@ -33,6 +34,7 @@ mise run probe-cpu
 mise run verify-boot
 mise run verify-startup
 mise run verify-level
+mise run verify-audio-driver
 mise run render-frame
 mise run run-sdl
 mise run bootstrap-upstream
