@@ -44,6 +44,9 @@ const YM2612_SECOND_LPF_CUTOFF_HZ: f64 = 7_973.0;
 const DEFAULT_OUTPUT_SAMPLE_RATE_HZ: f64 = 44_100.0;
 const PSG_DIVIDER: f64 = 16.0;
 const PSG_DC_BLOCK_COEFFICIENT: f32 = 0.995;
+// jgenesis models mirrored YM2612 status reads decaying after roughly 12_000 output samples.
+// Convert that to input clocks so the Z80 sound driver does not see dead reads on $4001-$4003.
+const YM2612_STATUS_DECAY_CLOCKS: u32 = 1_728_000;
 const PSG_ATTENUATION_TO_VOLUME: [f32; 16] = [
     1.0,
     0.794_328_2,
@@ -419,25 +422,48 @@ struct AudioMixer {
 
 struct Ym2612Shadow {
     chip: Ym2612,
+    last_status_read: u8,
+    status_decay_clocks_remaining: u32,
 }
 
 impl Ym2612Shadow {
     fn new() -> Self {
         Self {
             chip: Ym2612::default(),
+            last_status_read: 0,
+            status_decay_clocks_remaining: 0,
         }
     }
 
     fn reset(&mut self) {
         self.chip.reset();
+        self.last_status_read = 0;
+        self.status_decay_clocks_remaining = 0;
     }
 
-    fn read_port(&self, port: u8) -> u8 {
-        self.chip.read_port(port)
+    fn read_port(&mut self, port: u8) -> u8 {
+        match port & 0x03 {
+            0 => {
+                let status = self.chip.read_port(0);
+                self.last_status_read = status;
+                self.status_decay_clocks_remaining = YM2612_STATUS_DECAY_CLOCKS;
+                status
+            }
+            1..=3 => {
+                if self.status_decay_clocks_remaining == 0 {
+                    0
+                } else {
+                    self.last_status_read
+                }
+            }
+            _ => unreachable!("port is masked to two bits"),
+        }
     }
 
     fn advance_clocks(&mut self, clocks: u32) {
         self.chip.advance_clocks(clocks);
+        self.status_decay_clocks_remaining =
+            self.status_decay_clocks_remaining.saturating_sub(clocks);
     }
 
     fn write_port(&mut self, port: u8, value: u8) {
@@ -1449,7 +1475,7 @@ impl Z80_io for Z80Bus {
             0x0000..=0x1FFF => self.shared.borrow().ram[usize::from(address) & (Z80_RAM_LEN - 1)],
             0x4000..=0x5FFF => self
                 .ym2612_shadow
-                .borrow()
+                .borrow_mut()
                 .read_port((address & 0x0003) as u8),
             0x8000..=0xFFFF => self.read_banked_68k_byte(address),
             _ => 0xFF,
@@ -1612,9 +1638,10 @@ impl AudioMixer {
 
             self.apply_events_up_to(output_cycle_end);
             let ym_sample = self.last_ym_sample;
-            let psg_sample = self
-                .psg_low_pass_filter
-                .filter(self.psg_synth.render_sample(&self.psg_registers, sample_rate));
+            let psg_sample = self.psg_low_pass_filter.filter(
+                self.psg_synth
+                    .render_sample(&self.psg_registers, sample_rate),
+            );
             let left = (ym_sample[0] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
             let right = (ym_sample[1] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
             mixed.push(left);
@@ -2086,8 +2113,8 @@ impl AddressBus for MdBus {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE, Ym2612Shadow, Z80_RAM_BASE,
-        Z80Bus, Z80Shared, probe_rom,
+        AudioEvent, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS,
+        Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, probe_rom,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2256,6 +2283,24 @@ mod tests {
             saw_change,
             "expected PSG tone writes to vary generated audio"
         );
+    }
+
+    #[test]
+    fn ym2612_shadow_mirrors_status_reads_across_all_ports() {
+        let mut shadow = Ym2612Shadow::new();
+        shadow.write_port(0, 0x30);
+        shadow.write_port(1, 0xFF);
+
+        let status = shadow.read_port(0);
+        assert_ne!(status & 0x80, 0, "expected busy flag after YM write");
+        assert_eq!(shadow.read_port(1), status);
+        assert_eq!(shadow.read_port(2), status);
+        assert_eq!(shadow.read_port(3), status);
+
+        shadow.advance_clocks(YM2612_STATUS_DECAY_CLOCKS);
+        assert_eq!(shadow.read_port(1), 0);
+        assert_eq!(shadow.read_port(2), 0);
+        assert_eq!(shadow.read_port(3), 0);
     }
 
     #[test]

@@ -101,10 +101,10 @@ Current oracle results on this machine:
 
 - `verify-frames --scenario boot-title-start-level1` passes.
 - `verify-frames --scenario boot-title-start-level1-move-right5s` passes.
-- `verify-audio-output --scenario boot-title-start-level1` still fails, but only on envelope correlation. Native onset is now close to the oracle; the remaining miss is roughly `0.748` versus the current `0.80` threshold.
-- `verify-audio-output --scenario boot-title-idle10s` still fails badly, which points to a remaining title/front-end audio-shape mismatch rather than a generic harness issue.
+- `verify-audio-output --scenario boot-title-start-level1` passes.
+- `verify-audio-output --scenario boot-title-idle10s` passes.
 
-Those failures are useful regression signals, not harness bugs. The emitted artefacts under `.cache/oracle-runs/` now include checkpoint `state.json` alongside WAV/PNG output, which is the intended debug loop for fixing the remaining audio and gameplay drift.
+The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw Pearson correlation, which better matches the positive-only envelope data emitted by the native and `jgenesis` captures. The emitted artefacts under `.cache/oracle-runs/` still include checkpoint `state.json` alongside WAV/PNG output for deeper debugging.
 
 ## Current controls
 
