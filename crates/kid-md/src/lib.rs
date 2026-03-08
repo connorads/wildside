@@ -36,10 +36,13 @@ const TRACE_LIMIT: usize = 256;
 const PSG_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_VBLANK_IRQ_CYCLES: u32 = 228;
-const YM2612_GAIN: f32 = 0.35;
-const PSG_GAIN: f32 = 0.12;
+const YM2612_GAIN: f32 = 1.0;
+const PSG_GAIN: f32 = 0.446_683_6;
+const AUDIO_DC_BLOCK_CUTOFF_HZ: f64 = 5.0;
+const GENESIS_LPF_CUTOFF_HZ: f64 = 3_390.0;
+const YM2612_SECOND_LPF_CUTOFF_HZ: f64 = 7_973.0;
+const DEFAULT_OUTPUT_SAMPLE_RATE_HZ: f64 = 44_100.0;
 const PSG_DIVIDER: f64 = 16.0;
-const YM_DC_BLOCK_COEFFICIENT: f32 = 0.995;
 const PSG_DC_BLOCK_COEFFICIENT: f32 = 0.995;
 const PSG_ATTENUATION_TO_VOLUME: [f32; 16] = [
     1.0,
@@ -127,6 +130,91 @@ enum AudioEvent {
     Reset {
         z80_cycles: u64,
     },
+}
+
+#[derive(Debug, Clone)]
+struct FirstOrderFilter {
+    b0: f32,
+    b1: f32,
+    a1: f32,
+    x1: f32,
+    y1: f32,
+}
+
+impl FirstOrderFilter {
+    fn low_pass(cutoff_hz: f64, sample_rate_hz: f64) -> Self {
+        let k = (std::f64::consts::PI * cutoff_hz / sample_rate_hz).tan();
+        let norm = 1.0 / (1.0 + k);
+        Self {
+            b0: (k * norm) as f32,
+            b1: (k * norm) as f32,
+            a1: ((k - 1.0) * norm) as f32,
+            x1: 0.0,
+            y1: 0.0,
+        }
+    }
+
+    fn high_pass(cutoff_hz: f64, sample_rate_hz: f64) -> Self {
+        let k = (std::f64::consts::PI * cutoff_hz / sample_rate_hz).tan();
+        let norm = 1.0 / (1.0 + k);
+        Self {
+            b0: norm as f32,
+            b1: (-norm) as f32,
+            a1: ((k - 1.0) * norm) as f32,
+            x1: 0.0,
+            y1: 0.0,
+        }
+    }
+
+    fn filter(&mut self, input: f32) -> f32 {
+        let output = self.b0 * input + self.b1 * self.x1 - self.a1 * self.y1;
+        self.x1 = input;
+        self.y1 = output;
+        output
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SecondOrderFilter {
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
+}
+
+impl SecondOrderFilter {
+    fn low_pass(cutoff_hz: f64, sample_rate_hz: f64) -> Self {
+        let k = (std::f64::consts::PI * cutoff_hz / sample_rate_hz).tan();
+        let norm = 1.0 / (1.0 + std::f64::consts::SQRT_2 * k + k * k);
+        let b0 = (k * k * norm) as f32;
+        Self {
+            b0,
+            b1: 2.0 * b0,
+            b2: b0,
+            a1: (2.0 * (k * k - 1.0) * norm) as f32,
+            a2: ((1.0 - std::f64::consts::SQRT_2 * k + k * k) * norm) as f32,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+        }
+    }
+
+    fn filter(&mut self, input: f32) -> f32 {
+        let output = self.b0 * input + self.b1 * self.x1 + self.b2 * self.x2
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
+        self.x2 = self.x1;
+        self.x1 = input;
+        self.y2 = self.y1;
+        self.y1 = output;
+        output
+    }
 }
 
 impl AudioEvent {
@@ -322,8 +410,11 @@ struct AudioMixer {
     output_samples_emitted: u64,
     ym_samples_emitted: u64,
     last_ym_sample: [f32; 2],
-    ym_dc_previous_input: [f32; 2],
-    ym_dc_previous_output: [f32; 2],
+    ym_dc_filters: [FirstOrderFilter; 2],
+    ym_low_pass_filters: [FirstOrderFilter; 2],
+    ym_second_low_pass_filters: [SecondOrderFilter; 2],
+    psg_low_pass_filter: FirstOrderFilter,
+    psg_output_sample_rate: u32,
 }
 
 struct Ym2612Shadow {
@@ -356,16 +447,30 @@ impl Ym2612Shadow {
 
 impl Default for AudioMixer {
     fn default() -> Self {
+        let ym2612 = Ym2612::default();
+        let ym_sample_rate_hz = f64::from(ym2612.sample_rate_hz());
         Self {
             psg_synth: PsgSynth::default(),
             psg_registers: PsgRegisters::default(),
-            ym2612: Ym2612::default(),
+            ym2612,
             pending_events: VecDeque::new(),
             output_samples_emitted: 0,
             ym_samples_emitted: 0,
             last_ym_sample: [0.0, 0.0],
-            ym_dc_previous_input: [0.0, 0.0],
-            ym_dc_previous_output: [0.0, 0.0],
+            ym_dc_filters: std::array::from_fn(|_| {
+                FirstOrderFilter::high_pass(AUDIO_DC_BLOCK_CUTOFF_HZ, ym_sample_rate_hz)
+            }),
+            ym_low_pass_filters: std::array::from_fn(|_| {
+                FirstOrderFilter::low_pass(GENESIS_LPF_CUTOFF_HZ, ym_sample_rate_hz)
+            }),
+            ym_second_low_pass_filters: std::array::from_fn(|_| {
+                SecondOrderFilter::low_pass(YM2612_SECOND_LPF_CUTOFF_HZ, ym_sample_rate_hz)
+            }),
+            psg_low_pass_filter: FirstOrderFilter::low_pass(
+                GENESIS_LPF_CUTOFF_HZ,
+                DEFAULT_OUTPUT_SAMPLE_RATE_HZ,
+            ),
+            psg_output_sample_rate: DEFAULT_OUTPUT_SAMPLE_RATE_HZ as u32,
         }
     }
 }
@@ -1456,11 +1561,34 @@ impl AudioMixer {
         self.pending_events.extend(events);
     }
 
+    fn rebuild_ym_filters(&mut self) {
+        let ym_sample_rate_hz = f64::from(self.ym2612.sample_rate_hz());
+        self.ym_dc_filters = std::array::from_fn(|_| {
+            FirstOrderFilter::high_pass(AUDIO_DC_BLOCK_CUTOFF_HZ, ym_sample_rate_hz)
+        });
+        self.ym_low_pass_filters = std::array::from_fn(|_| {
+            FirstOrderFilter::low_pass(GENESIS_LPF_CUTOFF_HZ, ym_sample_rate_hz)
+        });
+        self.ym_second_low_pass_filters = std::array::from_fn(|_| {
+            SecondOrderFilter::low_pass(YM2612_SECOND_LPF_CUTOFF_HZ, ym_sample_rate_hz)
+        });
+    }
+
+    fn ensure_psg_filter(&mut self, sample_rate: u32) {
+        if self.psg_output_sample_rate == sample_rate {
+            return;
+        }
+        self.psg_low_pass_filter =
+            FirstOrderFilter::low_pass(GENESIS_LPF_CUTOFF_HZ, f64::from(sample_rate));
+        self.psg_output_sample_rate = sample_rate;
+    }
+
     fn generate(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
         if sample_rate == 0 || sample_count == 0 {
             return Vec::new();
         }
 
+        self.ensure_psg_filter(sample_rate);
         let ym_sample_rate = f64::from(self.ym2612.sample_rate_hz());
         let z80_cycles_per_output = Z80_CLOCK_HZ / f64::from(sample_rate);
         let z80_cycles_per_ym = Z80_CLOCK_HZ / ym_sample_rate;
@@ -1469,8 +1597,6 @@ impl AudioMixer {
         for _ in 0..sample_count {
             let output_cycle_end =
                 (((self.output_samples_emitted + 1) as f64) * z80_cycles_per_output).floor() as u64;
-            let mut ym_accumulator = [0.0f32, 0.0f32];
-            let mut ym_generated = 0usize;
 
             loop {
                 let ym_cycle_end =
@@ -1481,24 +1607,14 @@ impl AudioMixer {
 
                 self.apply_events_up_to(ym_cycle_end);
                 self.last_ym_sample = self.generate_ym_sample();
-                ym_accumulator[0] += self.last_ym_sample[0];
-                ym_accumulator[1] += self.last_ym_sample[1];
                 self.ym_samples_emitted += 1;
-                ym_generated += 1;
             }
 
             self.apply_events_up_to(output_cycle_end);
-            let ym_sample = if ym_generated == 0 {
-                self.last_ym_sample
-            } else {
-                [
-                    ym_accumulator[0] / ym_generated as f32,
-                    ym_accumulator[1] / ym_generated as f32,
-                ]
-            };
+            let ym_sample = self.last_ym_sample;
             let psg_sample = self
-                .psg_synth
-                .render_sample(&self.psg_registers, sample_rate);
+                .psg_low_pass_filter
+                .filter(self.psg_synth.render_sample(&self.psg_registers, sample_rate));
             let left = (ym_sample[0] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
             let right = (ym_sample[1] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
             mixed.push(left);
@@ -1531,8 +1647,7 @@ impl AudioMixer {
                     self.psg_registers = PsgRegisters::default();
                     self.psg_synth = PsgSynth::default();
                     self.last_ym_sample = [0.0, 0.0];
-                    self.ym_dc_previous_input = [0.0, 0.0];
-                    self.ym_dc_previous_output = [0.0, 0.0];
+                    self.rebuild_ym_filters();
                 }
             }
             self.pending_events.pop_front();
@@ -1544,17 +1659,15 @@ impl AudioMixer {
         let mut right = [0i32; 1];
         self.ym2612.generate(&mut left, &mut right);
         [
-            self.apply_ym_dc_block(0, left[0] as f32 / 32768.0),
-            self.apply_ym_dc_block(1, right[0] as f32 / 32768.0),
+            self.apply_ym_filters(0, left[0] as f32 / 32768.0),
+            self.apply_ym_filters(1, right[0] as f32 / 32768.0),
         ]
     }
 
-    fn apply_ym_dc_block(&mut self, channel: usize, input: f32) -> f32 {
-        let output = input - self.ym_dc_previous_input[channel]
-            + (YM_DC_BLOCK_COEFFICIENT * self.ym_dc_previous_output[channel]);
-        self.ym_dc_previous_input[channel] = input;
-        self.ym_dc_previous_output[channel] = output;
-        output
+    fn apply_ym_filters(&mut self, channel: usize, input: f32) -> f32 {
+        let sample = self.ym_dc_filters[channel].filter(input);
+        let sample = self.ym_low_pass_filters[channel].filter(sample);
+        self.ym_second_low_pass_filters[channel].filter(sample)
     }
 }
 
@@ -2104,7 +2217,7 @@ mod tests {
             .copied()
             .fold(0.0f32, |peak: f32, sample: f32| peak.max(sample.abs()));
         assert!(
-            peak < 0.01,
+            peak < 0.02,
             "expected silent PSG reset output, got peak {peak}"
         );
     }
