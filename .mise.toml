@@ -1,6 +1,8 @@
 [tools]
 python = "3.14.3"
 rust = "1.94.0"
+# SDL2 0.38.0's CMakeLists.txt needs cmake_minimum_required < 3.5 compat (dropped in cmake 4.x)
+"vfox:mise-plugins/vfox-cmake" = "3.30"
 
 [tasks.fmt]
 run = "cargo fmt --all"
