@@ -12,5 +12,8 @@ image.workspace = true
 kid-md = { path = "../kid-md" }
 kid-rom = { path = "../kid-rom" }
 sdl2 = { version = "0.38.0", features = ["bundled"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+sha1.workspace = true
 tempfile.workspace = true
 ymfm-sys = { path = "../ymfm-sys" }

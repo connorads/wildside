@@ -1,0 +1,379 @@
+use anyhow::{Context, Result, anyhow};
+use bincode::{Decode, Encode};
+use genesis_config::{
+    GenesisAspectRatio, GenesisControllerType, GenesisInputs, GenesisJoypadState,
+    NATIVE_M68K_DIVIDER, Opn2BusyBehavior,
+};
+use genesis_core::{GenesisEmulator, GenesisEmulatorConfig};
+use hound::{SampleFormat, WavSpec, WavWriter};
+use image::{ColorType, ImageFormat};
+use jgenesis_common::frontend::{
+    AudioOutput, Color, EmulatorTrait, FrameSize, RenderFrameOptions, Renderer, SaveWriter,
+    TickEffect,
+};
+use serde::Serialize;
+use sha1::{Digest, Sha1};
+use std::env;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+const SAMPLE_RATE: u64 = 44_100;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scenario {
+    BootTitleIdle10s,
+    BootTitleStartLevel1,
+    BootTitleStartLevel1MoveRight5s,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FrameCheckpoint {
+    label: &'static str,
+    frame_index: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleManifest {
+    sample_rate: u32,
+    audio_path: PathBuf,
+    frames: Vec<OracleFrame>,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleFrame {
+    label: String,
+    frame_index: usize,
+    png_path: PathBuf,
+    sha1: String,
+}
+
+struct NullSaveWriter;
+
+impl SaveWriter for NullSaveWriter {
+    type Err = io::Error;
+
+    fn load_bytes(&mut self, _: &str) -> Result<Vec<u8>, Self::Err> {
+        Err(io::Error::other("save loading is disabled"))
+    }
+
+    fn persist_bytes(&mut self, _: &str, _: &[u8]) -> Result<(), Self::Err> {
+        Ok(())
+    }
+
+    fn load_serialized<D: Decode<()>>(&mut self, _: &str) -> Result<D, Self::Err> {
+        Err(io::Error::other("save loading is disabled"))
+    }
+
+    fn persist_serialized<E: Encode>(&mut self, _: &str, _: E) -> Result<(), Self::Err> {
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct CaptureRenderer {
+    width: u32,
+    height: u32,
+    rgb: Vec<u8>,
+}
+
+impl Renderer for CaptureRenderer {
+    type Err = io::Error;
+
+    fn render_frame(
+        &mut self,
+        frame_buffer: &[Color],
+        frame_size: FrameSize,
+        _: RenderFrameOptions,
+    ) -> Result<(), Self::Err> {
+        self.width = frame_size.width;
+        self.height = frame_size.height;
+        self.rgb.clear();
+        self.rgb.reserve_exact(frame_size.width as usize * frame_size.height as usize * 3);
+        for color in frame_buffer
+            .iter()
+            .take(frame_size.width as usize * frame_size.height as usize)
+        {
+            self.rgb.extend_from_slice(&[color.r, color.g, color.b]);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct AudioCollector {
+    samples: Vec<f32>,
+}
+
+impl AudioOutput for AudioCollector {
+    type Err = io::Error;
+
+    fn push_sample(&mut self, sample_l: f64, sample_r: f64) -> Result<(), Self::Err> {
+        self.samples.push(sample_l as f32);
+        self.samples.push(sample_r as f32);
+        Ok(())
+    }
+}
+
+fn main() -> Result<()> {
+    let mut args = env::args().skip(1);
+    let mut rom_path = None;
+    let mut out_dir = None;
+    let mut scenario = None;
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--rom" => rom_path = args.next().map(PathBuf::from),
+            "--out-dir" => out_dir = args.next().map(PathBuf::from),
+            "--scenario" => scenario = args.next().map(|value| parse_scenario(&value)),
+            other => return Err(anyhow!("unknown arg {other}")),
+        }
+    }
+
+    let rom_path = rom_path.context("missing --rom")?;
+    let out_dir = out_dir.context("missing --out-dir")?;
+    let scenario = scenario.transpose()?.context("missing --scenario")?;
+    fs::create_dir_all(&out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+
+    let rom = fs::read(&rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    let script = scenario_script(scenario);
+    let checkpoints = scenario_checkpoints(scenario);
+    let mut checkpoint_index = 0usize;
+
+    let mut save_writer = NullSaveWriter;
+    let mut emulator = GenesisEmulator::create(rom, genesis_config(), &mut save_writer);
+    emulator.update_audio_output_frequency(SAMPLE_RATE);
+    let mut renderer = CaptureRenderer::default();
+    let mut audio = AudioCollector::default();
+    let mut frame_index = 0usize;
+    let mut rendered_frames = Vec::new();
+
+    while frame_index < scenario_frame_count(scenario) {
+        let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
+        loop {
+            if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
+                TickEffect::FrameRendered
+            {
+                while checkpoint_index < checkpoints.len()
+                    && checkpoints[checkpoint_index].frame_index == frame_index
+                {
+                    let checkpoint = checkpoints[checkpoint_index];
+                    let png_path = out_dir.join(format!(
+                        "{:04}_{}.png",
+                        checkpoint.frame_index, checkpoint.label
+                    ));
+                    write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
+                    rendered_frames.push(OracleFrame {
+                        label: checkpoint.label.to_string(),
+                        frame_index: checkpoint.frame_index,
+                        sha1: sha1_hex(&renderer.rgb),
+                        png_path,
+                    });
+                    checkpoint_index += 1;
+                }
+                frame_index += 1;
+                break;
+            }
+        }
+    }
+
+    let audio_path = out_dir.join("audio.wav");
+    write_wav(&audio_path, &audio.samples)?;
+    let manifest = OracleManifest {
+        sample_rate: SAMPLE_RATE as u32,
+        audio_path,
+        frames: rendered_frames,
+    };
+    println!("{}", serde_json::to_string_pretty(&manifest)?);
+    Ok(())
+}
+
+fn parse_scenario(value: &str) -> Result<Scenario> {
+    match value {
+        "boot_title_idle_10s" => Ok(Scenario::BootTitleIdle10s),
+        "boot_title_start_level1" => Ok(Scenario::BootTitleStartLevel1),
+        "boot_title_start_level1_move_right_5s" => Ok(Scenario::BootTitleStartLevel1MoveRight5s),
+        _ => Err(anyhow!("unknown scenario {value}")),
+    }
+}
+
+fn scenario_frame_count(scenario: Scenario) -> usize {
+    match scenario {
+        Scenario::BootTitleIdle10s => 600,
+        Scenario::BootTitleStartLevel1 => 720,
+        Scenario::BootTitleStartLevel1MoveRight5s => 900,
+    }
+}
+
+fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
+    match scenario {
+        Scenario::BootTitleIdle10s => &[
+            FrameCheckpoint {
+                label: "title",
+                frame_index: 360,
+            },
+            FrameCheckpoint {
+                label: "title_tail",
+                frame_index: 599,
+            },
+        ],
+        Scenario::BootTitleStartLevel1 => &[
+            FrameCheckpoint {
+                label: "title",
+                frame_index: 360,
+            },
+            FrameCheckpoint {
+                label: "level_entry",
+                frame_index: 520,
+            },
+            FrameCheckpoint {
+                label: "level_settle",
+                frame_index: 719,
+            },
+        ],
+        Scenario::BootTitleStartLevel1MoveRight5s => &[
+            FrameCheckpoint {
+                label: "title",
+                frame_index: 360,
+            },
+            FrameCheckpoint {
+                label: "level_entry",
+                frame_index: 520,
+            },
+            FrameCheckpoint {
+                label: "move_mid",
+                frame_index: 650,
+            },
+            FrameCheckpoint {
+                label: "move_end",
+                frame_index: 799,
+            },
+        ],
+    }
+}
+
+fn scenario_script(scenario: Scenario) -> Vec<u8> {
+    let mut script = vec![0; scenario_frame_count(scenario).saturating_add(1)];
+    match scenario {
+        Scenario::BootTitleIdle10s => {}
+        Scenario::BootTitleStartLevel1 => {
+            apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
+            apply_range(&mut script, 460, 460, 0x80);
+        }
+        Scenario::BootTitleStartLevel1MoveRight5s => {
+            apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
+            apply_range(&mut script, 460, 460, 0x80);
+            apply_range(&mut script, 500, 799, 1 << 3);
+        }
+    }
+    script
+}
+
+fn apply_single_frames(script: &mut [u8], frames: &[usize], buttons: u8) {
+    for frame in frames {
+        if let Some(slot) = script.get_mut(*frame) {
+            *slot |= buttons;
+        }
+    }
+}
+
+fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
+    for slot in script
+        .iter_mut()
+        .take(end.saturating_add(1))
+        .skip(start)
+    {
+        *slot |= buttons;
+    }
+}
+
+fn inputs_from_mask(mask: u8) -> GenesisInputs {
+    let p1 = GenesisJoypadState {
+        up: mask & (1 << 0) != 0,
+        down: mask & (1 << 1) != 0,
+        left: mask & (1 << 2) != 0,
+        right: mask & (1 << 3) != 0,
+        b: mask & (1 << 4) != 0,
+        c: mask & (1 << 5) != 0,
+        a: mask & (1 << 6) != 0,
+        start: mask & (1 << 7) != 0,
+        ..GenesisJoypadState::default()
+    };
+    GenesisInputs {
+        p1,
+        p2: GenesisJoypadState::default(),
+    }
+}
+
+fn genesis_config() -> GenesisEmulatorConfig {
+    GenesisEmulatorConfig {
+        p1_controller_type: GenesisControllerType::SixButton,
+        p2_controller_type: GenesisControllerType::None,
+        forced_timing_mode: None,
+        forced_region: None,
+        aspect_ratio: GenesisAspectRatio::Auto,
+        force_square_pixels_in_h40: false,
+        adjust_aspect_ratio_in_2x_resolution: false,
+        anamorphic_widescreen: false,
+        remove_sprite_limits: false,
+        m68k_clock_divider: NATIVE_M68K_DIVIDER,
+        non_linear_color_scale: false,
+        deinterlace: false,
+        render_vertical_border: false,
+        render_horizontal_border: false,
+        plane_a_enabled: true,
+        plane_b_enabled: true,
+        sprites_enabled: true,
+        window_enabled: true,
+        backdrop_enabled: true,
+        quantize_ym2612_output: true,
+        emulate_ym2612_ladder_effect: true,
+        opn2_busy_behavior: Opn2BusyBehavior::Ym3438,
+        genesis_lpf_enabled: false,
+        genesis_lpf_cutoff: 3390,
+        ym2612_2nd_lpf_enabled: false,
+        ym2612_2nd_lpf_cutoff: 6725,
+        ym2612_channels_enabled: [true; 6],
+        ym2612_enabled: true,
+        psg_enabled: true,
+        ym2612_volume_adjustment_db: 0.0,
+        psg_volume_adjustment_db: 0.0,
+    }
+}
+
+fn write_png(path: &Path, width: u32, height: u32, rgb: &[u8]) -> Result<()> {
+    image::save_buffer_with_format(path, rgb, width, height, ColorType::Rgb8, ImageFormat::Png)
+        .with_context(|| format!("failed to write {}", path.display()))
+}
+
+fn write_wav(path: &Path, samples: &[f32]) -> Result<()> {
+    let spec = WavSpec {
+        channels: 2,
+        sample_rate: SAMPLE_RATE as u32,
+        bits_per_sample: 32,
+        sample_format: SampleFormat::Float,
+    };
+    let mut writer = WavWriter::create(path, spec)
+        .with_context(|| format!("failed to create {}", path.display()))?;
+    for sample in samples {
+        writer
+            .write_sample(*sample)
+            .with_context(|| format!("failed to write samples to {}", path.display()))?;
+    }
+    writer
+        .finalize()
+        .with_context(|| format!("failed to finalise {}", path.display()))
+}
+
+fn sha1_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    hex
+}
