@@ -31,6 +31,9 @@ run = "cargo run -p kidcli -- verify-startup"
 [tasks.verify-level]
 run = "cargo run -p kidcli -- verify-level"
 
+[tasks.verify-gameplay]
+run = "cargo run --release -p kidcli -- verify-gameplay --all"
+
 [tasks.verify-audio-driver]
 run = "cargo run -p kidcli -- verify-audio-driver"
 

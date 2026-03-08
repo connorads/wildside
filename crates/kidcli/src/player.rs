@@ -476,6 +476,22 @@ enum OptionsItem {
     Back,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MainMenuAction {
+    StartGame,
+    OpenOptions,
+    Quit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PauseMenuAction {
+    Resume,
+    RestartRun,
+    ReturnToTitle,
+    OpenOptions,
+    QuitToDesktop,
+}
+
 const OPTIONS_ITEMS: [OptionsItem; 16] = [
     OptionsItem::DisplayScale,
     OptionsItem::Fullscreen,
@@ -702,17 +718,16 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                     *selected = (*selected + 1).min(2);
                 }
                 if confirm {
-                    match *selected {
-                        0 => screen = ScreenState::Playing,
-                        1 => {
+                    match main_menu_action(*selected) {
+                        MainMenuAction::StartGame => screen = ScreenState::Playing,
+                        MainMenuAction::OpenOptions => {
                             screen = ScreenState::Options {
                                 origin: OptionsOrigin::MainMenu,
                                 selected: 0,
                                 capture: None,
                             }
                         }
-                        2 => break 'running,
-                        _ => {}
+                        MainMenuAction::Quit => break 'running,
                     }
                 }
                 if back {
@@ -732,9 +747,9 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                     *selected = (*selected + 1).min(4);
                 }
                 if confirm {
-                    match *selected {
-                        0 => screen = ScreenState::Playing,
-                        1 => {
+                    match pause_menu_action(*selected) {
+                        PauseMenuAction::Resume => screen = ScreenState::Playing,
+                        PauseMenuAction::RestartRun => {
                             runtime = match &launch {
                                 LaunchState::Ready { rom_bytes, .. } => {
                                     Some(MdRuntime::new(rom_bytes)?)
@@ -750,7 +765,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                                 frames_remaining: TOAST_DURATION_FRAMES / 2,
                             });
                         }
-                        2 => {
+                        PauseMenuAction::ReturnToTitle => {
                             runtime = match &launch {
                                 LaunchState::Ready { rom_bytes, .. } => {
                                     Some(MdRuntime::new(rom_bytes)?)
@@ -762,15 +777,14 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                             }
                             screen = ScreenState::MainMenu { selected: 0 };
                         }
-                        3 => {
+                        PauseMenuAction::OpenOptions => {
                             screen = ScreenState::Options {
                                 origin: OptionsOrigin::Pause,
                                 selected: 0,
                                 capture: None,
                             }
                         }
-                        4 => break 'running,
-                        _ => {}
+                        PauseMenuAction::QuitToDesktop => break 'running,
                     }
                 }
                 if back || pause_pressed {
@@ -1396,6 +1410,24 @@ fn adjust_volume(value: &mut u8, left: bool, right: bool) -> bool {
     *value != old
 }
 
+fn main_menu_action(selected: usize) -> MainMenuAction {
+    match selected {
+        0 => MainMenuAction::StartGame,
+        1 => MainMenuAction::OpenOptions,
+        _ => MainMenuAction::Quit,
+    }
+}
+
+fn pause_menu_action(selected: usize) -> PauseMenuAction {
+    match selected {
+        0 => PauseMenuAction::Resume,
+        1 => PauseMenuAction::RestartRun,
+        2 => PauseMenuAction::ReturnToTitle,
+        3 => PauseMenuAction::OpenOptions,
+        _ => PauseMenuAction::QuitToDesktop,
+    }
+}
+
 fn apply_window_settings(
     canvas: &mut WindowCanvas,
     video: &sdl2::VideoSubsystem,
@@ -1513,8 +1545,8 @@ fn controller_buttons(controller: Option<&GameController>) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        BindingAction, DisplayScale, KeyboardBindings, PlayerSettings, PlayerSettingsFile,
-        adjust_volume,
+        BindingAction, DisplayScale, KeyboardBindings, MainMenuAction, PauseMenuAction,
+        PlayerSettings, PlayerSettingsFile, adjust_volume, main_menu_action, pause_menu_action,
     };
 
     #[test]
@@ -1557,5 +1589,19 @@ mod tests {
         assert_eq!(value, 100);
         assert!(adjust_volume(&mut value, true, false));
         assert_eq!(value, 95);
+    }
+
+    #[test]
+    fn pause_menu_actions_cover_resume_restart_and_title() {
+        assert_eq!(pause_menu_action(0), PauseMenuAction::Resume);
+        assert_eq!(pause_menu_action(1), PauseMenuAction::RestartRun);
+        assert_eq!(pause_menu_action(2), PauseMenuAction::ReturnToTitle);
+    }
+
+    #[test]
+    fn main_menu_actions_cover_start_and_options() {
+        assert_eq!(main_menu_action(0), MainMenuAction::StartGame);
+        assert_eq!(main_menu_action(1), MainMenuAction::OpenOptions);
+        assert_eq!(main_menu_action(99), MainMenuAction::Quit);
     }
 }

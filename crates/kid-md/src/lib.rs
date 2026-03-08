@@ -27,8 +27,13 @@ const NUMBER_GFX_OBJECTS_ADDR: u32 = 0x00FF_F85C;
 const DEMO_MODE_FLAG_ADDR: u32 = 0x00FF_FBC9;
 const GAME_MODE_ADDR: u32 = 0x00FF_FBCA;
 const CURRENT_PLAYER_ADDR: u32 = 0x00FF_FC39;
+const NUMBER_LIVES_ADDR: u32 = 0x00FF_FC3E;
+const LEVEL_SKIP_CHEAT_ADDR: u32 = 0x00FF_FC37;
 const CURRENT_LEVEL_ID_ADDR: u32 = 0x00FF_FC44;
+const CURRENT_HELMET_ID_ADDR: u32 = 0x00FF_FC46;
 const PLAYER_1_LEVEL_ID_ADDR: u32 = 0x00FF_FC5A;
+const KID_X_POS_ADDR: u32 = 0x00FF_24FA;
+const KID_Y_POS_ADDR: u32 = 0x00FF_24FE;
 const VRAM_LEN: usize = 0x1_0000;
 const CRAM_LEN: usize = 0x80;
 const VSRAM_LEN: usize = 0x50;
@@ -96,10 +101,14 @@ pub struct CpuProbe {
     pub demo_mode_flag: u8,
     pub game_mode: u16,
     pub current_player: u8,
+    pub number_lives: u16,
     pub current_level_id: u16,
     pub player_1_level_id: u16,
+    pub current_helmet_id: u16,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub z80_interrupt_mode: u8,
@@ -608,10 +617,14 @@ pub fn probe_rom_with_script(
         demo_mode_flag: runtime.core.mem.read_work_ram_byte(DEMO_MODE_FLAG_ADDR),
         game_mode: runtime.core.mem.read_work_ram_word(GAME_MODE_ADDR),
         current_player: runtime.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
+        number_lives: runtime.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
         current_level_id: runtime.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
         player_1_level_id: runtime.core.mem.read_work_ram_word(PLAYER_1_LEVEL_ID_ADDR),
+        current_helmet_id: runtime.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
         camera_x_pos: runtime.core.mem.read_work_ram_long(CAMERA_X_POS_ADDR),
         camera_y_pos: runtime.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
+        kid_x_pos: runtime.core.mem.read_work_ram_long(KID_X_POS_ADDR),
+        kid_y_pos: runtime.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
         number_objects: runtime.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
         number_gfx_objects: runtime.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
         z80_interrupt_mode: runtime.z80.interrupt_mode,
@@ -669,6 +682,12 @@ impl MdRuntime {
         self.core.mem.set_controller_1(buttons);
     }
 
+    pub fn set_level_skip_cheat_enabled(&mut self, enabled: bool) {
+        self.core
+            .mem
+            .write_work_ram_byte(LEVEL_SKIP_CHEAT_ADDR, if enabled { u8::MAX } else { 0 });
+    }
+
     pub fn step(&mut self) -> i32 {
         let Cycles(cycles) = self.core.execute1();
         self.core.mem.advance_ym2612_shadow(cycles.max(0) as u32);
@@ -708,10 +727,14 @@ impl MdRuntime {
             demo_mode_flag: self.core.mem.read_work_ram_byte(DEMO_MODE_FLAG_ADDR),
             game_mode: self.core.mem.read_work_ram_word(GAME_MODE_ADDR),
             current_player: self.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
+            number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
             current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
             player_1_level_id: self.core.mem.read_work_ram_word(PLAYER_1_LEVEL_ID_ADDR),
+            current_helmet_id: self.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
             camera_x_pos: self.core.mem.read_work_ram_long(CAMERA_X_POS_ADDR),
             camera_y_pos: self.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
+            kid_x_pos: self.core.mem.read_work_ram_long(KID_X_POS_ADDR),
+            kid_y_pos: self.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
             number_objects: self.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
             number_gfx_objects: self.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
             z80_interrupt_mode: self.z80.interrupt_mode,

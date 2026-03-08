@@ -11,7 +11,7 @@ use oracle::{
     OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
 };
 use player::{PlayOptions, run_player};
-use scenarios::Scenario;
+use scenarios::{GameplayScenario, Scenario};
 use serde::Serialize;
 use std::env;
 use std::fs;
@@ -82,6 +82,14 @@ enum Commands {
         rom: Option<PathBuf>,
         #[arg(long, default_value_t = 8_000_000)]
         steps: u32,
+    },
+    VerifyGameplay {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long, value_enum)]
+        scenario: Option<GameplayScenario>,
+        #[arg(long, default_value_t = false)]
+        all: bool,
     },
     VerifyAudioDriver {
         #[arg(long)]
@@ -242,6 +250,35 @@ fn main() -> Result<()> {
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             verify_level_probe(&rom_bytes, steps)?;
             println!("level verification passed");
+        }
+        Commands::VerifyGameplay { rom, scenario, all } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let verified = verify_rom(&rom_path)?;
+            if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
+                bail!("verify-gameplay currently supports only the known Kid Chameleon ROM dump");
+            }
+            if all && scenario.is_some() {
+                bail!("pass either --scenario or --all to verify-gameplay, not both");
+            }
+            let scenarios = if all {
+                Vec::from([
+                    GameplayScenario::PauseResumeLevel1,
+                    GameplayScenario::DeathRespawnLevel1,
+                    GameplayScenario::ProgressTwoTransitions,
+                    GameplayScenario::SoakLevel10m,
+                ])
+            } else if let Some(scenario) = scenario {
+                vec![scenario]
+            } else {
+                bail!("verify-gameplay requires --scenario <name> or --all");
+            };
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            for scenario in scenarios {
+                verify_gameplay_scenario(&repo_root, &rom_bytes, scenario)?;
+                println!("gameplay verification passed: {}", scenario.slug());
+            }
         }
         Commands::VerifyAudioDriver { rom, steps } => {
             let repo_root = current_dir()?;
@@ -641,6 +678,15 @@ struct ScenarioCapture {
     audio_trace: AudioTrace,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct GameplayCapture {
+    scenario: String,
+    frame_count: usize,
+    missed_vblank_frames: usize,
+    states: Vec<GameplayState>,
+    checkpoints: Vec<GameplayState>,
+}
+
 #[derive(Debug, Clone)]
 struct CapturedFrame {
     label: String,
@@ -661,6 +707,24 @@ struct CapturedState {
     player_1_level_id: u16,
     camera_x_pos: u32,
     camera_y_pos: u32,
+    number_objects: u16,
+    number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct GameplayState {
+    label: String,
+    frame_index: usize,
+    game_mode: u16,
+    current_player: u8,
+    number_lives: u16,
+    current_level_id: u16,
+    player_1_level_id: u16,
+    current_helmet_id: u16,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    kid_x_pos: u32,
+    kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
 }
@@ -815,6 +879,70 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
         states,
         audio_trace,
     })
+}
+
+fn capture_gameplay_scenario(
+    rom_bytes: &[u8],
+    scenario: GameplayScenario,
+) -> Result<GameplayCapture> {
+    let mut runtime = MdRuntime::new(rom_bytes)?;
+    let script = scenario.script()?;
+    let checkpoints = scenario.checkpoints();
+    let mut checkpoint_index = 0usize;
+    let mut states = Vec::with_capacity(scenario.frame_count());
+    let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
+    let mut missed_vblank_frames = 0usize;
+
+    for frame_index in 0..scenario.frame_count() {
+        if scenario.uses_level_skip_cheat() && frame_index >= 720 {
+            runtime.set_level_skip_cheat_enabled(true);
+        }
+        let buttons = script.get(frame_index).copied().unwrap_or(0);
+        runtime.set_controller_1(buttons);
+        if !runtime.run_until_vblank(500_000) {
+            missed_vblank_frames += 1;
+        }
+        let snapshot = runtime.snapshot();
+        let state = gameplay_state_from_probe(frame_index, &snapshot);
+        while checkpoint_index < checkpoints.len()
+            && checkpoints[checkpoint_index].frame_index == frame_index
+        {
+            let checkpoint = checkpoints[checkpoint_index];
+            captured_checkpoints.push(GameplayState {
+                label: checkpoint.label.to_string(),
+                ..state.clone()
+            });
+            checkpoint_index += 1;
+        }
+        states.push(state);
+    }
+
+    Ok(GameplayCapture {
+        scenario: scenario.slug().to_string(),
+        frame_count: scenario.frame_count(),
+        missed_vblank_frames,
+        states,
+        checkpoints: captured_checkpoints,
+    })
+}
+
+fn gameplay_state_from_probe(frame_index: usize, snapshot: &kid_md::CpuProbe) -> GameplayState {
+    GameplayState {
+        label: format!("frame_{frame_index:05}"),
+        frame_index,
+        game_mode: snapshot.game_mode,
+        current_player: snapshot.current_player,
+        number_lives: snapshot.number_lives,
+        current_level_id: snapshot.current_level_id,
+        player_1_level_id: snapshot.player_1_level_id,
+        current_helmet_id: snapshot.current_helmet_id,
+        camera_x_pos: snapshot.camera_x_pos,
+        camera_y_pos: snapshot.camera_y_pos,
+        kid_x_pos: snapshot.kid_x_pos,
+        kid_y_pos: snapshot.kid_y_pos,
+        number_objects: snapshot.number_objects,
+        number_gfx_objects: snapshot.number_gfx_objects,
+    }
 }
 
 fn analyse_audio_samples(samples: &[f32], sample_rate: u32) -> AudioAnalysis {
@@ -1157,10 +1285,14 @@ fn print_probe(
     println!("game mode: 0x{:04X}", probe.game_mode);
     println!("demo mode flag: 0x{:02X}", probe.demo_mode_flag);
     println!("current player: 0x{:02X}", probe.current_player);
+    println!("number lives: {}", probe.number_lives);
     println!("current level id: 0x{:04X}", probe.current_level_id);
     println!("player 1 level id: 0x{:04X}", probe.player_1_level_id);
+    println!("current helmet id: 0x{:04X}", probe.current_helmet_id);
     println!("camera x: 0x{:08X}", probe.camera_x_pos);
     println!("camera y: 0x{:08X}", probe.camera_y_pos);
+    println!("kid x: 0x{:08X}", probe.kid_x_pos);
+    println!("kid y: 0x{:08X}", probe.kid_y_pos);
     println!("number objects: {}", probe.number_objects);
     println!("number gfx objects: {}", probe.number_gfx_objects);
     println!("z80 interrupt mode: {}", probe.z80_interrupt_mode);
@@ -1717,6 +1849,201 @@ fn verify_level_probe(rom_bytes: &[u8], steps: u32) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn verify_gameplay_scenario(
+    repo_root: &Path,
+    rom_bytes: &[u8],
+    scenario: GameplayScenario,
+) -> Result<()> {
+    let capture = capture_gameplay_scenario(rom_bytes, scenario)?;
+    write_gameplay_artifacts(repo_root, &capture)?;
+    match scenario {
+        GameplayScenario::PauseResumeLevel1 => verify_pause_resume_level_1(&capture),
+        GameplayScenario::DeathRespawnLevel1 => verify_death_respawn_level_1(&capture),
+        GameplayScenario::ProgressTwoTransitions => verify_progress_two_transitions(&capture),
+        GameplayScenario::SoakLevel10m => verify_soak_level_10m(&capture),
+    }
+}
+
+fn write_gameplay_artifacts(repo_root: &Path, capture: &GameplayCapture) -> Result<()> {
+    let out_dir = repo_root
+        .join(".cache/gameplay-runs")
+        .join(&capture.scenario);
+    fs::create_dir_all(&out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+    fs::write(
+        out_dir.join("summary.json"),
+        serde_json::to_vec_pretty(capture)?,
+    )
+    .with_context(|| format!("failed to write {}", out_dir.join("summary.json").display()))?;
+    fs::write(
+        out_dir.join("checkpoints.json"),
+        serde_json::to_vec_pretty(&capture.checkpoints)?,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            out_dir.join("checkpoints.json").display()
+        )
+    })?;
+    Ok(())
+}
+
+fn verify_pause_resume_level_1(capture: &GameplayCapture) -> Result<()> {
+    const PAUSE_DRIFT_TOLERANCE: u32 = 0x0010_0000;
+
+    if capture.missed_vblank_frames != 0 {
+        bail!(
+            "pause_resume_level1 missed {} vblank frames; artefacts in .cache/gameplay-runs/{}",
+            capture.missed_vblank_frames,
+            capture.scenario
+        );
+    }
+    let level_settle = gameplay_checkpoint(capture, "level_settle")?;
+    let pre_pause = gameplay_checkpoint(capture, "pre_pause")?;
+    let paused_tail = gameplay_checkpoint(capture, "paused_tail")?;
+    let resumed_tail = gameplay_checkpoint(capture, "resumed_tail")?;
+
+    if level_settle.game_mode != 0x000C || pre_pause.game_mode != 0x000C {
+        bail!("pause_resume_level1 never stabilised in gameplay mode before pause");
+    }
+    if pre_pause.camera_x_pos <= level_settle.camera_x_pos
+        || pre_pause.kid_x_pos <= level_settle.kid_x_pos
+    {
+        bail!("pause_resume_level1 did not advance before the pause point");
+    }
+    if paused_tail.camera_x_pos.abs_diff(pre_pause.camera_x_pos) > PAUSE_DRIFT_TOLERANCE
+        || paused_tail.kid_x_pos.abs_diff(pre_pause.kid_x_pos) > PAUSE_DRIFT_TOLERANCE
+    {
+        bail!("pause_resume_level1 kept advancing while paused");
+    }
+    if resumed_tail.camera_x_pos <= paused_tail.camera_x_pos
+        || resumed_tail.kid_x_pos <= paused_tail.kid_x_pos
+    {
+        bail!("pause_resume_level1 did not resume movement after unpausing");
+    }
+
+    Ok(())
+}
+
+fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<()> {
+    if capture.missed_vblank_frames != 0 {
+        bail!(
+            "death_respawn_level1 missed {} vblank frames; artefacts in .cache/gameplay-runs/{}",
+            capture.missed_vblank_frames,
+            capture.scenario
+        );
+    }
+    let level_settle = gameplay_checkpoint(capture, "level_settle")?;
+    let pre_death = gameplay_checkpoint(capture, "pre_death")?;
+    let death_tail = gameplay_checkpoint(capture, "death_tail")?;
+    let respawn_tail = gameplay_checkpoint(capture, "respawn_tail")?;
+    if level_settle.game_mode != 0x000C || pre_death.game_mode != 0x000C {
+        bail!("death_respawn_level1 never stabilised in gameplay before the death window");
+    }
+    if death_tail.number_lives >= pre_death.number_lives {
+        bail!(
+            "death_respawn_level1 did not lose a life (before {}, after {})",
+            pre_death.number_lives,
+            death_tail.number_lives
+        );
+    }
+    if respawn_tail.game_mode != 0x000C {
+        bail!(
+            "death_respawn_level1 did not return to gameplay mode after death: 0x{:04X}",
+            respawn_tail.game_mode
+        );
+    }
+    if respawn_tail.camera_x_pos == 0 && respawn_tail.kid_x_pos == 0 {
+        bail!("death_respawn_level1 respawned into an invalid position");
+    }
+
+    Ok(())
+}
+
+fn verify_progress_two_transitions(capture: &GameplayCapture) -> Result<()> {
+    if capture.missed_vblank_frames != 0 {
+        bail!(
+            "progress_two_transitions missed {} vblank frames; artefacts in .cache/gameplay-runs/{}",
+            capture.missed_vblank_frames,
+            capture.scenario
+        );
+    }
+    let level_settle = gameplay_checkpoint(capture, "level_settle")?;
+    let run_end = gameplay_checkpoint(capture, "run_end")?;
+    if level_settle.game_mode != 0x000C {
+        bail!("progress_two_transitions never reached stable in-level gameplay");
+    }
+    let distinct_levels = distinct_level_sequence(&capture.states);
+    if distinct_levels.len() < 3 {
+        bail!(
+            "progress_two_transitions saw only {:?}; expected at least three distinct level ids",
+            distinct_levels
+        );
+    }
+    if run_end.number_objects == 0 || run_end.number_gfx_objects == 0 {
+        bail!("progress_two_transitions ended without active gameplay objects");
+    }
+    if run_end.number_lives == 0 {
+        bail!("progress_two_transitions exhausted all lives before the run finished");
+    }
+    if run_end.current_level_id != *distinct_levels.last().unwrap_or(&run_end.current_level_id) {
+        bail!(
+            "progress_two_transitions ended on level {:04X} after visiting {:?}",
+            run_end.current_level_id,
+            distinct_levels
+        );
+    }
+
+    Ok(())
+}
+
+fn verify_soak_level_10m(capture: &GameplayCapture) -> Result<()> {
+    if capture.missed_vblank_frames != 0 {
+        bail!(
+            "soak_level_10m missed {} vblank frames; artefacts in .cache/gameplay-runs/{}",
+            capture.missed_vblank_frames,
+            capture.scenario
+        );
+    }
+    let soak_end = gameplay_checkpoint(capture, "soak_end")?;
+    if gameplay_checkpoint(capture, "level_settle")?.game_mode != 0x000C {
+        bail!("soak_level_10m never reached stable in-level gameplay");
+    }
+    if soak_end.game_mode == 0 || soak_end.number_objects == 0 || soak_end.number_gfx_objects == 0 {
+        bail!("soak_level_10m ended in an invalid gameplay state");
+    }
+    if soak_end.number_lives == 0 {
+        bail!("soak_level_10m exhausted all lives");
+    }
+    let distinct_levels = distinct_level_sequence(&capture.states);
+    if distinct_levels.len() < 8 {
+        bail!(
+            "soak_level_10m visited only {:?}; expected broad transition coverage",
+            distinct_levels
+        );
+    }
+
+    Ok(())
+}
+
+fn gameplay_checkpoint<'a>(capture: &'a GameplayCapture, label: &str) -> Result<&'a GameplayState> {
+    capture
+        .checkpoints
+        .iter()
+        .find(|state| state.label == label)
+        .ok_or_else(|| anyhow!("missing gameplay checkpoint {label}"))
+}
+
+fn distinct_level_sequence(states: &[GameplayState]) -> Vec<u16> {
+    let mut levels = Vec::new();
+    for state in states {
+        if levels.last().copied() != Some(state.current_level_id) {
+            levels.push(state.current_level_id);
+        }
+    }
+    levels
 }
 
 fn verify_audio_driver_probe(rom_bytes: &[u8], steps: u32) -> Result<()> {

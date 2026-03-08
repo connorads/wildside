@@ -10,6 +10,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
 - `kidcli verify-startup` asserts that the current runtime can progress through the early boot loops, reach `GameProgram`, and continue into the later startup VRAM clear path.
 - `kidcli verify-level` asserts that the scripted front-end path can enter the first level and that holding `right` advances the in-level camera.
+- `kidcli verify-gameplay` runs the longer gameplay-hardening scenarios for pause/resume, death/respawn, multi-level transition coverage, and a long transition soak.
 - `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
 - `kidcli oracle-setup` clones pinned external oracle repos under `.cache/oracles/`, builds a cache-local `jgenesis` helper, and clones `BlastEm` for optional manual debugger use.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
@@ -41,6 +42,7 @@ mise run probe-cpu
 mise run verify-boot
 mise run verify-startup
 mise run verify-level
+mise run verify-gameplay
 mise run verify-audio-driver
 mise run oracle-setup
 mise run verify-frames
@@ -130,6 +132,8 @@ Current oracle results on this machine:
 - `verify-audio-output --scenario boot-title-idle10s` passes.
 
 The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw Pearson correlation, which better matches the positive-only envelope data emitted by the native and `jgenesis` captures. The emitted artefacts under `.cache/oracle-runs/` still include checkpoint `state.json` alongside WAV/PNG output for deeper debugging.
+
+Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
 
 ## Current controls
 
