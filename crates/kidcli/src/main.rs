@@ -10,6 +10,7 @@ use oracle::{
     OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
 };
 use scenarios::Scenario;
+use serde::Serialize;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -77,6 +78,12 @@ enum Commands {
         steps: u32,
     },
     VerifyAudioOutput {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
+        scenario: Scenario,
+    },
+    TraceAudio {
         #[arg(long)]
         rom: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
@@ -234,6 +241,17 @@ fn main() -> Result<()> {
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             verify_audio_output(&repo_root, &rom_path, &rom_bytes, scenario)?;
             println!("audio-output verification passed");
+        }
+        Commands::TraceAudio { rom, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let verified = verify_rom(&rom_path)?;
+            if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
+                bail!("trace-audio currently supports only the known Kid Chameleon ROM dump");
+            }
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            trace_audio(&repo_root, &rom_bytes, scenario)?;
         }
         Commands::VerifyFrames { rom, scenario } => {
             let repo_root = current_dir()?;
@@ -591,6 +609,7 @@ struct ScenarioCapture {
     samples: Vec<f32>,
     frames: Vec<CapturedFrame>,
     states: Vec<CapturedState>,
+    audio_trace: AudioTrace,
 }
 
 #[derive(Debug, Clone)]
@@ -623,6 +642,36 @@ struct FrameDiff {
     max_channel_delta: u8,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct AudioTrace {
+    scenario: String,
+    sample_rate: u32,
+    frame_samples: usize,
+    z80_reset_count: usize,
+    first_ym2612_write_frame: Option<usize>,
+    first_ym2612_write_sample: Option<usize>,
+    first_ym2612_key_on_frame: Option<usize>,
+    first_ym2612_key_on_sample: Option<usize>,
+    first_psg_write_frame: Option<usize>,
+    first_psg_write_sample: Option<usize>,
+    first_non_silent_sample: Option<usize>,
+    first_significant_audio_sample: Option<usize>,
+    peak_left: f32,
+    peak_right: f32,
+    frames: Vec<AudioTraceFrame>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AudioTraceFrame {
+    frame_index: usize,
+    z80_reset_count: usize,
+    ym2612_write_count: usize,
+    ym2612_key_on_count: usize,
+    psg_write_count: usize,
+    peak_left: f32,
+    peak_right: f32,
+}
+
 fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapture> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
     let script = scenario.script()?;
@@ -631,6 +680,14 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
     let mut samples = Vec::with_capacity(scenario.frame_count() * AUDIO_FRAME_SAMPLES * 2);
     let mut frames = Vec::with_capacity(checkpoints.len());
     let mut states = Vec::with_capacity(checkpoints.len());
+    let mut audio_frames = Vec::with_capacity(scenario.frame_count());
+    let mut first_ym2612_write_frame = None;
+    let mut first_ym2612_key_on_frame = None;
+    let mut first_psg_write_frame = None;
+    let mut previous_z80_reset_count = 0usize;
+    let mut previous_ym2612_write_count = 0usize;
+    let mut previous_ym2612_key_on_count = 0usize;
+    let mut previous_psg_write_count = 0usize;
 
     for frame_index in 0..scenario.frame_count() {
         let buttons = script.get(frame_index).copied().unwrap_or(0);
@@ -664,13 +721,70 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
             });
             checkpoint_index += 1;
         }
-        samples.extend(runtime.generate_audio_samples(AUDIO_SAMPLE_RATE, AUDIO_FRAME_SAMPLES));
+        let z80_reset_count = snapshot.z80_reset_count;
+        let ym2612_write_count = snapshot.ym2612_write_count;
+        let ym2612_key_on_count = snapshot.ym2612_key_on_count;
+        let psg_write_count = snapshot.psg_write_count;
+        if first_ym2612_write_frame.is_none() && ym2612_write_count > 0 {
+            first_ym2612_write_frame = Some(frame_index);
+        }
+        if first_ym2612_key_on_frame.is_none() && ym2612_key_on_count > 0 {
+            first_ym2612_key_on_frame = Some(frame_index);
+        }
+        if first_psg_write_frame.is_none() && psg_write_count > 0 {
+            first_psg_write_frame = Some(frame_index);
+        }
+
+        let z80_reset_delta = z80_reset_count.saturating_sub(previous_z80_reset_count);
+        let ym2612_write_delta = ym2612_write_count.saturating_sub(previous_ym2612_write_count);
+        let ym2612_key_on_delta = ym2612_key_on_count.saturating_sub(previous_ym2612_key_on_count);
+        let psg_write_delta = psg_write_count.saturating_sub(previous_psg_write_count);
+        previous_z80_reset_count = z80_reset_count;
+        previous_ym2612_write_count = ym2612_write_count;
+        previous_ym2612_key_on_count = ym2612_key_on_count;
+        previous_psg_write_count = psg_write_count;
+
+        let frame_samples = runtime.generate_audio_samples(AUDIO_SAMPLE_RATE, AUDIO_FRAME_SAMPLES);
+        let (peak_left, peak_right) = stereo_peak(&frame_samples);
+        audio_frames.push(AudioTraceFrame {
+            frame_index,
+            z80_reset_count: z80_reset_delta,
+            ym2612_write_count: ym2612_write_delta,
+            ym2612_key_on_count: ym2612_key_on_delta,
+            psg_write_count: psg_write_delta,
+            peak_left,
+            peak_right,
+        });
+        samples.extend(frame_samples);
     }
+
+    let audio_analysis = analyse_audio_samples(&samples, AUDIO_SAMPLE_RATE);
+    let first_non_silent_sample = first_non_silent_sample(&samples);
+    let audio_trace = AudioTrace {
+        scenario: scenario.slug().to_string(),
+        sample_rate: AUDIO_SAMPLE_RATE,
+        frame_samples: AUDIO_FRAME_SAMPLES,
+        z80_reset_count: previous_z80_reset_count,
+        first_ym2612_write_sample: first_ym2612_write_frame
+            .map(|frame| frame * AUDIO_FRAME_SAMPLES),
+        first_ym2612_write_frame,
+        first_ym2612_key_on_sample: first_ym2612_key_on_frame
+            .map(|frame| frame * AUDIO_FRAME_SAMPLES),
+        first_ym2612_key_on_frame,
+        first_psg_write_sample: first_psg_write_frame.map(|frame| frame * AUDIO_FRAME_SAMPLES),
+        first_psg_write_frame,
+        first_non_silent_sample,
+        first_significant_audio_sample: audio_analysis.first_dynamic_frame,
+        peak_left: audio_analysis.peak_left,
+        peak_right: audio_analysis.peak_right,
+        frames: audio_frames,
+    };
 
     Ok(ScenarioCapture {
         samples,
         frames,
         states,
+        audio_trace,
     })
 }
 
@@ -760,7 +874,10 @@ fn analyse_audio_samples(samples: &[f32], sample_rate: u32) -> AudioAnalysis {
     }
 
     if first_dynamic_frame.is_some() {
-        let peak_activity = onset_activity_windows.iter().copied().fold(0.0f32, f32::max);
+        let peak_activity = onset_activity_windows
+            .iter()
+            .copied()
+            .fold(0.0f32, f32::max);
         let activity_threshold = (peak_activity * 0.15).max(5e-4);
         first_dynamic_frame = onset_activity_windows
             .windows(2)
@@ -778,6 +895,22 @@ fn analyse_audio_samples(samples: &[f32], sample_rate: u32) -> AudioAnalysis {
         tail_change_count_right,
         rms_windows,
     }
+}
+
+fn stereo_peak(samples: &[f32]) -> (f32, f32) {
+    let mut peak_left = 0.0f32;
+    let mut peak_right = 0.0f32;
+    for frame in samples.chunks_exact(2) {
+        peak_left = peak_left.max(frame[0].abs());
+        peak_right = peak_right.max(frame[1].abs());
+    }
+    (peak_left, peak_right)
+}
+
+fn first_non_silent_sample(samples: &[f32]) -> Option<usize> {
+    samples.chunks_exact(2).position(|frame| {
+        frame[0].abs() > AUDIO_ANALYSIS_EPSILON || frame[1].abs() > AUDIO_ANALYSIS_EPSILON
+    })
 }
 
 fn dump_audio(rom_bytes: &[u8], scenario: Scenario, out: &Path) -> Result<()> {
@@ -1002,10 +1135,12 @@ fn print_probe(
     println!("number objects: {}", probe.number_objects);
     println!("number gfx objects: {}", probe.number_gfx_objects);
     println!("z80 interrupt mode: {}", probe.z80_interrupt_mode);
+    println!("z80 reset count: {}", probe.z80_reset_count);
     println!("vram nonzero bytes: {}", probe.vram_nonzero_bytes);
     println!("cram nonzero bytes: {}", probe.cram_nonzero_bytes);
     println!("vsram nonzero bytes: {}", probe.vsram_nonzero_bytes);
     println!("ym2612 writes: {}", probe.ym2612_write_count);
+    println!("ym2612 key-on writes: {}", probe.ym2612_key_on_count);
     println!("psg writes: {}", probe.psg_write_count);
     let ym_register_writes = decode_ym2612_register_writes(&probe.ym2612_writes);
     if !ym_register_writes.is_empty() {
@@ -1595,6 +1730,41 @@ fn verify_audio_output(
     compare_audio_against_oracle(&comparison)
 }
 
+fn trace_audio(repo_root: &Path, rom_bytes: &[u8], scenario: Scenario) -> Result<()> {
+    let run_dir = repo_root.join(".cache/oracle-runs").join(scenario.slug());
+    let native_dir = run_dir.join("native");
+    fs::create_dir_all(&native_dir)
+        .with_context(|| format!("failed to create {}", native_dir.display()))?;
+    let capture = capture_scenario(rom_bytes, scenario)?;
+    write_native_artifacts(&native_dir, &capture)?;
+    let trace_path = native_dir.join("audio-trace.json");
+    println!("wrote audio trace to {}", trace_path.display());
+    println!("z80 reset count: {}", capture.audio_trace.z80_reset_count);
+    if let Some(onset) = capture.audio_trace.first_significant_audio_sample {
+        println!(
+            "first significant audio sample: {} ({:.3}s)",
+            onset,
+            onset as f32 / AUDIO_SAMPLE_RATE as f32
+        );
+    } else {
+        println!("first significant audio sample: none");
+    }
+    println!(
+        "first YM2612 write frame/sample: {:?}/{:?}",
+        capture.audio_trace.first_ym2612_write_frame, capture.audio_trace.first_ym2612_write_sample
+    );
+    println!(
+        "first YM2612 key-on frame/sample: {:?}/{:?}",
+        capture.audio_trace.first_ym2612_key_on_frame,
+        capture.audio_trace.first_ym2612_key_on_sample
+    );
+    println!(
+        "first PSG write frame/sample: {:?}/{:?}",
+        capture.audio_trace.first_psg_write_frame, capture.audio_trace.first_psg_write_sample
+    );
+    Ok(())
+}
+
 fn verify_frames(
     repo_root: &Path,
     rom_path: &Path,
@@ -1646,7 +1816,12 @@ fn capture_oracle_pair(
         oracle_dir.join("manifest.json"),
         serde_json::to_vec_pretty(&oracle)?,
     )
-    .with_context(|| format!("failed to write {}", oracle_dir.join("manifest.json").display()))?;
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            oracle_dir.join("manifest.json").display()
+        )
+    })?;
 
     Ok(OracleComparison {
         run_dir,
@@ -1659,18 +1834,21 @@ fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
     let native_analysis = analyse_audio_samples(&comparison.native.samples, AUDIO_SAMPLE_RATE);
     let oracle_samples = read_wav_f32(&comparison.oracle.audio_path)?;
     let oracle_analysis = analyse_audio_samples(&oracle_samples, comparison.oracle.sample_rate);
+    let trace_path = comparison.run_dir.join("native/audio-trace.json");
 
     if native_analysis.change_count_left == 0 && native_analysis.change_count_right == 0 {
         bail!(
-            "native audio remained constant across {}",
-            comparison.run_dir.display()
+            "native audio remained constant across {}; trace {}",
+            comparison.run_dir.display(),
+            trace_path.display()
         );
     }
     if native_analysis.peak_left < 0.01 && native_analysis.peak_right < 0.01 {
         bail!(
-            "native audio peak was too low (left {:.4}, right {:.4})",
+            "native audio peak was too low (left {:.4}, right {:.4}); trace {}",
             native_analysis.peak_left,
-            native_analysis.peak_right
+            native_analysis.peak_right,
+            trace_path.display()
         );
     }
     let native_onset = native_analysis
@@ -1683,17 +1861,23 @@ fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
         native_onset.abs_diff(oracle_onset) as f32 / comparison.oracle.sample_rate as f32;
     if onset_delta_seconds > 0.5 {
         bail!(
-            "audio onset drift was {:.3}s (native frame {}, oracle frame {}); artefacts in {}",
+            "audio onset drift was {:.3}s (native {:.3}s @ sample {}, oracle {:.3}s @ sample {}); native peaks {:.4}/{:.4}; artefacts in {}; trace {}",
             onset_delta_seconds,
+            native_onset as f32 / AUDIO_SAMPLE_RATE as f32,
             native_onset,
+            oracle_onset as f32 / comparison.oracle.sample_rate as f32,
             oracle_onset,
-            comparison.run_dir.display()
+            native_analysis.peak_left,
+            native_analysis.peak_right,
+            comparison.run_dir.display(),
+            trace_path.display()
         );
     }
     if native_analysis.tail_change_count_left == 0 && native_analysis.tail_change_count_right == 0 {
         bail!(
-            "native audio tail stayed constant; artefacts in {}",
-            comparison.run_dir.display()
+            "native audio tail stayed constant; artefacts in {}; trace {}",
+            comparison.run_dir.display(),
+            trace_path.display()
         );
     }
     let correlation = audio_envelope_correlation(
@@ -1705,9 +1889,12 @@ fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
     );
     if correlation < 0.80 {
         bail!(
-            "audio envelope correlation {:.3} was below 0.80; artefacts in {}",
+            "audio envelope correlation {:.3} was below 0.80; native peaks {:.4}/{:.4}; artefacts in {}; trace {}",
             correlation,
-            comparison.run_dir.display()
+            native_analysis.peak_left,
+            native_analysis.peak_right,
+            comparison.run_dir.display(),
+            trace_path.display()
         );
     }
 
@@ -1832,8 +2019,7 @@ fn compare_states_against_oracle(comparison: &OracleComparison) -> Result<()> {
         }
         let camera_delta_x = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
         let camera_delta_y = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
-        if camera_delta_x > CAMERA_POSITION_TOLERANCE
-            || camera_delta_y > CAMERA_POSITION_TOLERANCE
+        if camera_delta_x > CAMERA_POSITION_TOLERANCE || camera_delta_y > CAMERA_POSITION_TOLERANCE
         {
             bail!(
                 "state {}@{} diverged in camera position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
@@ -1874,6 +2060,16 @@ fn write_native_artifacts(out_dir: &Path, capture: &ScenarioCapture) -> Result<(
         AUDIO_SAMPLE_RATE,
         &capture.samples,
     )?;
+    fs::write(
+        out_dir.join("audio-trace.json"),
+        serde_json::to_vec_pretty(&capture.audio_trace)?,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            out_dir.join("audio-trace.json").display()
+        )
+    })?;
     fs::write(
         out_dir.join("state.json"),
         serde_json::to_vec_pretty(

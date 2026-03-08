@@ -33,11 +33,33 @@ const VRAM_LEN: usize = 0x1_0000;
 const CRAM_LEN: usize = 0x80;
 const VSRAM_LEN: usize = 0x50;
 const TRACE_LIMIT: usize = 256;
-const PSG_CLOCK_HZ: f32 = 3_579_545.0;
+const PSG_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_VBLANK_IRQ_CYCLES: u32 = 228;
 const YM2612_GAIN: f32 = 0.35;
 const PSG_GAIN: f32 = 0.12;
+const PSG_DIVIDER: f64 = 16.0;
+const YM_DC_BLOCK_COEFFICIENT: f32 = 0.995;
+const PSG_DC_BLOCK_COEFFICIENT: f32 = 0.995;
+const PSG_ATTENUATION_TO_VOLUME: [f32; 16] = [
+    1.0,
+    0.794_328_2,
+    0.630_957_37,
+    0.501_187_2,
+    0.398_107_17,
+    0.316_227_76,
+    0.251_188_64,
+    0.199_526_24,
+    0.158_489_32,
+    0.125_892_53,
+    0.1,
+    0.079_432_82,
+    0.063_095_73,
+    0.050_118_72,
+    0.039_810_72,
+    0.0,
+];
+const PSG_INITIAL_LFSR: u16 = 0x8000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuProbe {
@@ -61,7 +83,9 @@ pub struct CpuProbe {
     pub vram_nonzero_bytes: usize,
     pub cram_nonzero_bytes: usize,
     pub vsram_nonzero_bytes: usize,
+    pub z80_reset_count: usize,
     pub ym2612_write_count: usize,
+    pub ym2612_key_on_count: usize,
     pub psg_write_count: usize,
     pub ym2612_writes: Vec<(u16, u8)>,
     pub psg_writes: Vec<u8>,
@@ -146,6 +170,11 @@ struct Z80Shared {
     reset: bool,
     bank_address: u32,
     z80_cycles: u64,
+    z80_reset_count: usize,
+    ym2612_write_count: usize,
+    ym2612_key_on_count: usize,
+    psg_write_count: usize,
+    ym2612_port_latches: [Option<u16>; 2],
     audio_events: VecDeque<AudioEvent>,
     banked_68k_reads: Vec<(u32, u8)>,
     banked_68k_writes: Vec<(u32, u8)>,
@@ -163,6 +192,11 @@ impl Default for Z80Shared {
             reset: true,
             bank_address: 0,
             z80_cycles: 0,
+            z80_reset_count: 0,
+            ym2612_write_count: 0,
+            ym2612_key_on_count: 0,
+            psg_write_count: 0,
+            ym2612_port_latches: [None, None],
             audio_events: VecDeque::new(),
             banked_68k_reads: Vec::new(),
             banked_68k_writes: Vec::new(),
@@ -193,54 +227,84 @@ impl Default for PsgRegisters {
 }
 
 impl PsgRegisters {
-    fn apply_write(&mut self, value: u8) {
+    fn apply_write(&mut self, value: u8) -> bool {
         if value & 0x80 != 0 {
             self.latched_register = (value >> 4) & 0x07;
-            self.apply_latched_data(self.latched_register, value & 0x0F);
+            self.apply_latched_data(self.latched_register, value & 0x0F)
         } else {
-            self.apply_data(self.latched_register, value & 0x3F);
+            self.apply_data(self.latched_register, value & 0x3F)
         }
     }
 
-    fn apply_latched_data(&mut self, register: u8, data: u8) {
+    fn apply_latched_data(&mut self, register: u8, data: u8) -> bool {
         match register {
             0 | 2 | 4 => {
                 let channel = usize::from(register / 2);
                 self.tone_periods[channel] = (self.tone_periods[channel] & !0x0F) | u16::from(data);
+                false
             }
-            1 | 3 | 5 | 7 => self.volumes[usize::from(register / 2)] = data & 0x0F,
-            6 => self.noise_control = data & 0x07,
-            _ => {}
+            1 | 3 | 5 | 7 => {
+                self.volumes[usize::from(register / 2)] = data & 0x0F;
+                false
+            }
+            6 => {
+                self.noise_control = data & 0x07;
+                true
+            }
+            _ => false,
         }
     }
 
-    fn apply_data(&mut self, register: u8, data: u8) {
+    fn apply_data(&mut self, register: u8, data: u8) -> bool {
         match register {
             0 | 2 | 4 => {
                 let channel = usize::from(register / 2);
                 self.tone_periods[channel] =
                     (self.tone_periods[channel] & 0x0F) | (u16::from(data & 0x3F) << 4);
+                false
             }
-            6 => self.noise_control = data & 0x07,
-            _ => {}
+            6 => {
+                self.noise_control = data & 0x07;
+                true
+            }
+            _ => false,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 struct PsgSynth {
-    tone_phase: [f32; 3],
-    noise_phase: f32,
+    tone_counters: [u16; 3],
+    tone_outputs_high: [bool; 3],
+    noise_counter: u16,
+    noise_clock_high: bool,
     noise_lfsr: u16,
+    noise_output_high: bool,
+    pending_psg_clocks: f64,
+    dc_previous_input: f32,
+    dc_previous_output: f32,
 }
 
 impl Default for PsgSynth {
     fn default() -> Self {
         Self {
-            tone_phase: [0.0; 3],
-            noise_phase: 0.0,
-            noise_lfsr: 0x8000,
+            tone_counters: [1; 3],
+            tone_outputs_high: [false; 3],
+            noise_counter: 0x10,
+            noise_clock_high: false,
+            noise_lfsr: PSG_INITIAL_LFSR,
+            noise_output_high: false,
+            pending_psg_clocks: 0.0,
+            dc_previous_input: 0.0,
+            dc_previous_output: 0.0,
         }
+    }
+}
+
+impl PsgSynth {
+    fn reset_noise_lfsr(&mut self) {
+        self.noise_lfsr = PSG_INITIAL_LFSR;
+        self.noise_output_high = false;
     }
 }
 
@@ -258,6 +322,8 @@ struct AudioMixer {
     output_samples_emitted: u64,
     ym_samples_emitted: u64,
     last_ym_sample: [f32; 2],
+    ym_dc_previous_input: [f32; 2],
+    ym_dc_previous_output: [f32; 2],
 }
 
 struct Ym2612Shadow {
@@ -298,6 +364,8 @@ impl Default for AudioMixer {
             output_samples_emitted: 0,
             ym_samples_emitted: 0,
             last_ym_sample: [0.0, 0.0],
+            ym_dc_previous_input: [0.0, 0.0],
+            ym_dc_previous_output: [0.0, 0.0],
         }
     }
 }
@@ -400,7 +468,9 @@ pub fn probe_rom_with_script(
         vram_nonzero_bytes: runtime.core.mem.vram_nonzero_bytes(),
         cram_nonzero_bytes: runtime.core.mem.cram_nonzero_bytes(),
         vsram_nonzero_bytes: runtime.core.mem.vsram_nonzero_bytes(),
+        z80_reset_count: runtime.core.mem.z80_reset_count(),
         ym2612_write_count: runtime.core.mem.ym2612_write_count(),
+        ym2612_key_on_count: runtime.core.mem.ym2612_key_on_count(),
         psg_write_count: runtime.core.mem.psg_write_count(),
         ym2612_writes: runtime.core.mem.ym2612_writes(),
         psg_writes: runtime.core.mem.psg_writes(),
@@ -498,7 +568,9 @@ impl MdRuntime {
             vram_nonzero_bytes: self.core.mem.vram_nonzero_bytes(),
             cram_nonzero_bytes: self.core.mem.cram_nonzero_bytes(),
             vsram_nonzero_bytes: self.core.mem.vsram_nonzero_bytes(),
+            z80_reset_count: self.core.mem.z80_reset_count(),
             ym2612_write_count: self.core.mem.ym2612_write_count(),
+            ym2612_key_on_count: self.core.mem.ym2612_key_on_count(),
             psg_write_count: self.core.mem.psg_write_count(),
             ym2612_writes: self.core.mem.ym2612_writes(),
             psg_writes: self.core.mem.psg_writes(),
@@ -523,8 +595,15 @@ impl MdRuntime {
             let shared = self.core.mem.z80_shared.borrow();
             (shared.busreq, shared.reset)
         };
+        let mut remaining_cycles = ((m68k_cycles.max(0) as u32) * 7) / 15;
+        if remaining_cycles == 0 {
+            remaining_cycles = 1;
+        }
+        let mut audio_cycle_cursor = self.core.mem.z80_shared.borrow().z80_cycles;
+        let audio_cycle_end = audio_cycle_cursor.saturating_add(u64::from(remaining_cycles));
 
         if reset {
+            self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
             if !self.z80_reset_asserted {
                 self.z80.reset();
                 self.z80_reset_asserted = true;
@@ -536,31 +615,29 @@ impl MdRuntime {
         self.z80_reset_asserted = false;
 
         if busreq {
+            self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
             self.z80.clr_irq();
             return;
         }
-
-        let mut remaining_cycles = ((m68k_cycles.max(0) as u32) * 7) / 15;
-        if remaining_cycles == 0 {
-            remaining_cycles = 1;
-        }
         while remaining_cycles > 0 {
+            self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_cursor;
             if self.z80_vblank_irq_cycles_remaining != 0 {
                 self.z80.assert_irq(0xFF);
             } else {
                 self.z80.clr_irq();
             }
             let elapsed = self.z80.step();
-            let mut shared = self.core.mem.z80_shared.borrow_mut();
-            shared.z80_cycles = shared.z80_cycles.saturating_add(u64::from(elapsed));
-            drop(shared);
-            self.z80_vblank_irq_cycles_remaining =
-                self.z80_vblank_irq_cycles_remaining.saturating_sub(elapsed);
-            if elapsed >= remaining_cycles {
+            let elapsed_budget = elapsed.min(remaining_cycles);
+            audio_cycle_cursor = audio_cycle_cursor.saturating_add(u64::from(elapsed_budget));
+            self.z80_vblank_irq_cycles_remaining = self
+                .z80_vblank_irq_cycles_remaining
+                .saturating_sub(elapsed_budget);
+            if elapsed_budget >= remaining_cycles {
                 break;
             }
-            remaining_cycles -= elapsed;
+            remaining_cycles -= elapsed_budget;
         }
+        self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
         if self.z80_vblank_irq_cycles_remaining == 0 {
             self.z80.clr_irq();
         }
@@ -758,11 +835,19 @@ impl MdBus {
     }
 
     fn ym2612_write_count(&self) -> usize {
-        self.z80_shared.borrow().ym2612_writes.len()
+        self.z80_shared.borrow().ym2612_write_count
+    }
+
+    fn ym2612_key_on_count(&self) -> usize {
+        self.z80_shared.borrow().ym2612_key_on_count
     }
 
     fn psg_write_count(&self) -> usize {
-        self.z80_shared.borrow().psg_writes.len()
+        self.z80_shared.borrow().psg_write_count
+    }
+
+    fn z80_reset_count(&self) -> usize {
+        self.z80_shared.borrow().z80_reset_count
     }
 
     fn ym2612_writes(&self) -> Vec<(u16, u8)> {
@@ -893,20 +978,19 @@ impl MdBus {
     }
 
     fn set_z80_reset(&mut self, asserted: bool) {
+        let was_asserted = self.io.z80_reset;
         self.io.z80_reset = asserted;
         let mut shared = self.z80_shared.borrow_mut();
         shared.reset = asserted;
-        if asserted {
+        if !was_asserted && asserted {
             self.ym2612_shadow.borrow_mut().reset();
             let z80_cycles = shared.z80_cycles;
             shared.audio_events.clear();
             shared
                 .audio_events
                 .push_back(AudioEvent::Reset { z80_cycles });
-            shared.banked_68k_reads.clear();
-            shared.banked_68k_writes.clear();
-            shared.ym2612_writes.clear();
-            shared.psg_writes.clear();
+            shared.z80_reset_count = shared.z80_reset_count.saturating_add(1);
+            shared.ym2612_port_latches = [None, None];
             shared.psg_registers = PsgRegisters::default();
         }
     }
@@ -1207,6 +1291,22 @@ impl Z80Bus {
             .write_port((address & 0x0003) as u8, value);
         let mut shared = self.shared.borrow_mut();
         let z80_cycles = shared.z80_cycles;
+        match address & 0x0003 {
+            0 => shared.ym2612_port_latches[0] = Some(u16::from(value)),
+            1 => {
+                if shared.ym2612_port_latches[0] == Some(0x0028) {
+                    shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
+                }
+            }
+            2 => shared.ym2612_port_latches[1] = Some(0x0100 | u16::from(value)),
+            3 => {
+                if shared.ym2612_port_latches[1] == Some(0x0128) {
+                    shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
+                }
+            }
+            _ => {}
+        }
+        shared.ym2612_write_count = shared.ym2612_write_count.saturating_add(1);
         if shared.ym2612_writes.len() < TRACE_LIMIT {
             shared.ym2612_writes.push((address, value));
         }
@@ -1220,10 +1320,11 @@ impl Z80Bus {
     fn record_psg_write(&self, value: u8) {
         let mut shared = self.shared.borrow_mut();
         let z80_cycles = shared.z80_cycles;
+        shared.psg_write_count = shared.psg_write_count.saturating_add(1);
         if shared.psg_writes.len() < TRACE_LIMIT {
             shared.psg_writes.push(value);
         }
-        shared.psg_registers.apply_write(value);
+        let _ = shared.psg_registers.apply_write(value);
         shared
             .audio_events
             .push_back(AudioEvent::PsgWrite { z80_cycles, value });
@@ -1274,40 +1375,79 @@ impl Z80_io for Z80Bus {
 
 impl PsgSynth {
     fn render_sample(&mut self, registers: &PsgRegisters, sample_rate: u32) -> f32 {
-        let sample_rate = sample_rate as f32;
+        let psg_clocks_per_sample = (PSG_CLOCK_HZ / PSG_DIVIDER) / f64::from(sample_rate);
+        self.pending_psg_clocks += psg_clocks_per_sample;
+        while self.pending_psg_clocks >= 1.0 {
+            self.pending_psg_clocks -= 1.0;
+            self.clock(registers);
+        }
+
+        let mixed = self.sample(registers);
+        self.apply_dc_block(mixed).clamp(-0.25, 0.25)
+    }
+
+    fn clock(&mut self, registers: &PsgRegisters) {
+        for channel in 0..3 {
+            self.tone_counters[channel] = self.tone_counters[channel].saturating_sub(1);
+            if self.tone_counters[channel] == 0 {
+                self.tone_counters[channel] = registers.tone_periods[channel].max(1);
+                self.tone_outputs_high[channel] = !self.tone_outputs_high[channel];
+            }
+        }
+
+        self.noise_counter = self.noise_counter.saturating_sub(1);
+        if self.noise_counter != 0 {
+            return;
+        }
+
+        self.noise_counter = noise_reload(registers);
+        self.noise_clock_high = !self.noise_clock_high;
+        if self.noise_clock_high {
+            self.shift_noise_lfsr(registers.noise_control);
+        }
+    }
+
+    fn shift_noise_lfsr(&mut self, noise_control: u8) {
+        self.noise_output_high = self.noise_lfsr & 1 != 0;
+        let feedback = if noise_control & 0x04 != 0 {
+            (self.noise_lfsr & 1) ^ ((self.noise_lfsr >> 3) & 1)
+        } else {
+            self.noise_lfsr & 1
+        };
+        self.noise_lfsr = (self.noise_lfsr >> 1) | (feedback << 15);
+    }
+
+    fn sample(&self, registers: &PsgRegisters) -> f32 {
         let mut mixed = 0.0f32;
         for channel in 0..3 {
-            let period = registers.tone_periods[channel].max(1) as f32;
-            let frequency = PSG_CLOCK_HZ / (32.0 * period);
-            let phase_step = frequency / sample_rate;
-            self.tone_phase[channel] = (self.tone_phase[channel] + phase_step).fract();
-            let wave = if self.tone_phase[channel] < 0.5 {
-                1.0
-            } else {
-                -1.0
-            };
-            mixed += wave * psg_volume(registers.volumes[channel]);
-        }
-
-        let noise_frequency = match registers.noise_control & 0x03 {
-            0 => PSG_CLOCK_HZ / 512.0,
-            1 => PSG_CLOCK_HZ / 1024.0,
-            2 => PSG_CLOCK_HZ / 2048.0,
-            _ => {
-                let period = registers.tone_periods[2].max(1) as f32;
-                PSG_CLOCK_HZ / (32.0 * period)
+            let volume = psg_volume(registers.volumes[channel]);
+            if volume == 0.0 {
+                continue;
             }
-        };
-        self.noise_phase += noise_frequency / sample_rate;
-        while self.noise_phase >= 1.0 {
-            self.noise_phase -= 1.0;
-            let feedback = (self.noise_lfsr ^ (self.noise_lfsr >> 1)) & 1;
-            self.noise_lfsr = (self.noise_lfsr >> 1) | (feedback << 15);
+            mixed += if self.tone_outputs_high[channel] {
+                volume
+            } else {
+                -volume
+            };
         }
-        let noise_wave = if self.noise_lfsr & 1 == 0 { 1.0 } else { -1.0 };
-        mixed += noise_wave * psg_volume(registers.volumes[3]);
+        let noise_volume = psg_volume(registers.volumes[3]);
+        if noise_volume != 0.0 {
+            mixed += if self.noise_output_high {
+                noise_volume
+            } else {
+                -noise_volume
+            };
+        }
 
-        (mixed / 4.0).clamp(-0.25, 0.25)
+        mixed / 4.0
+    }
+
+    fn apply_dc_block(&mut self, input: f32) -> f32 {
+        let output =
+            input - self.dc_previous_input + (PSG_DC_BLOCK_COEFFICIENT * self.dc_previous_output);
+        self.dc_previous_input = input;
+        self.dc_previous_output = output;
+        output
     }
 }
 
@@ -1380,12 +1520,19 @@ impl AudioMixer {
 
             match event {
                 AudioEvent::Ym2612Write { port, value, .. } => self.ym2612.write_port(port, value),
-                AudioEvent::PsgWrite { value, .. } => self.psg_registers.apply_write(value),
+                AudioEvent::PsgWrite { value, .. } => {
+                    let noise_reset = self.psg_registers.apply_write(value);
+                    if noise_reset {
+                        self.psg_synth.reset_noise_lfsr();
+                    }
+                }
                 AudioEvent::Reset { .. } => {
                     self.ym2612.reset();
                     self.psg_registers = PsgRegisters::default();
                     self.psg_synth = PsgSynth::default();
                     self.last_ym_sample = [0.0, 0.0];
+                    self.ym_dc_previous_input = [0.0, 0.0];
+                    self.ym_dc_previous_output = [0.0, 0.0];
                 }
             }
             self.pending_events.pop_front();
@@ -1396,15 +1543,31 @@ impl AudioMixer {
         let mut left = [0i32; 1];
         let mut right = [0i32; 1];
         self.ym2612.generate(&mut left, &mut right);
-        [left[0] as f32 / 32768.0, right[0] as f32 / 32768.0]
+        [
+            self.apply_ym_dc_block(0, left[0] as f32 / 32768.0),
+            self.apply_ym_dc_block(1, right[0] as f32 / 32768.0),
+        ]
+    }
+
+    fn apply_ym_dc_block(&mut self, channel: usize, input: f32) -> f32 {
+        let output = input - self.ym_dc_previous_input[channel]
+            + (YM_DC_BLOCK_COEFFICIENT * self.ym_dc_previous_output[channel]);
+        self.ym_dc_previous_input[channel] = input;
+        self.ym_dc_previous_output[channel] = output;
+        output
     }
 }
 
 fn psg_volume(volume: u8) -> f32 {
-    if volume >= 0x0F {
-        0.0
-    } else {
-        10.0_f32.powf(-(f32::from(volume) * 2.0) / 20.0)
+    PSG_ATTENUATION_TO_VOLUME[usize::from(volume.min(0x0F))]
+}
+
+fn noise_reload(registers: &PsgRegisters) -> u16 {
+    match registers.noise_control & 0x03 {
+        0 => 0x10,
+        1 => 0x20,
+        2 => 0x40,
+        _ => registers.tone_periods[2].max(1),
     }
 }
 
@@ -1810,11 +1973,12 @@ impl AddressBus for MdBus {
 #[cfg(test)]
 mod tests {
     use super::{
-        BusAccessKind, MdBus, WORK_RAM_BASE, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
-        probe_rom,
+        AudioEvent, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE, Ym2612Shadow, Z80_RAM_BASE,
+        Z80Bus, Z80Shared, probe_rom,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
+    use std::collections::VecDeque;
     use std::rc::Rc;
     use z80::Z80_io;
 
@@ -1929,6 +2093,56 @@ mod tests {
         bus.port_out(0x007F, 0x90);
 
         assert!(shared.borrow().psg_writes.is_empty());
+    }
+
+    #[test]
+    fn psg_reset_stays_effectively_silent() {
+        let mut mixer = AudioMixer::default();
+        let samples = mixer.generate(44_100, 2_048);
+        let peak = samples
+            .iter()
+            .copied()
+            .fold(0.0f32, |peak: f32, sample: f32| peak.max(sample.abs()));
+        assert!(
+            peak < 0.01,
+            "expected silent PSG reset output, got peak {peak}"
+        );
+    }
+
+    #[test]
+    fn psg_tone_writes_produce_varying_output() {
+        let mut mixer = AudioMixer::default();
+        let mut events = VecDeque::new();
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x80,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x04,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x90,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x00,
+        });
+        mixer.push_events(events);
+
+        let samples = mixer.generate(44_100, 4_096);
+        let mut saw_change = false;
+        for pair in samples.windows(2) {
+            if (pair[0] - pair[1]).abs() > 1e-4 {
+                saw_change = true;
+                break;
+            }
+        }
+        assert!(
+            saw_change,
+            "expected PSG tone writes to vary generated audio"
+        );
     }
 
     #[test]
