@@ -65,6 +65,12 @@ cargo run -p kidcli -- probe-cpu --steps 8000000 \
 
 Button names are `up`, `down`, `left`, `right`, `a`, `b`, `c`, and `start`. You can also pass a raw mask such as `0x88`.
 
+To jump straight into the first level in the SDL host, use:
+
+```bash
+cargo run -p kidcli -- run-sdl --autostart-level
+```
+
 ## Current controls
 
 - `Arrow keys`: D-pad

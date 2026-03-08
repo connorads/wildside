@@ -79,6 +79,8 @@ enum Commands {
         rom: Option<PathBuf>,
         #[arg(long, default_value_t = 3)]
         scale: u32,
+        #[arg(long, default_value_t = false)]
+        autostart_level: bool,
     },
     BootstrapUpstream {
         #[arg(long)]
@@ -195,12 +197,16 @@ fn main() -> Result<()> {
             .with_context(|| format!("failed to write {}", out.display()))?;
             println!("rendered frame to {}", out.display());
         }
-        Commands::RunSdl { rom, scale } => {
+        Commands::RunSdl {
+            rom,
+            scale,
+            autostart_level,
+        } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let rom_bytes = fs::read(&rom_path)
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
-            run_sdl(&rom_bytes, scale)?;
+            run_sdl(&rom_bytes, scale, autostart_level)?;
         }
         Commands::BootstrapUpstream { dir } => {
             let repo_root = current_dir()?;
@@ -338,8 +344,13 @@ fn gameplay_move_right_script() -> Result<Vec<u8>> {
     )
 }
 
-fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
+fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
+    let autostart_script = if autostart_level {
+        Some(gameplay_entry_script()?)
+    } else {
+        None
+    };
     let sdl = sdl2::init().map_err(|error| anyhow!("failed to init SDL: {error}"))?;
     let video = sdl
         .video()
@@ -366,6 +377,7 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
     let frame_time = Duration::from_micros(16_667);
+    let mut frame_index = 0usize;
 
     'running: loop {
         let frame_started = Instant::now();
@@ -390,7 +402,13 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
                 _ => {}
             }
         }
-        let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+        let scripted_buttons = autostart_script
+            .as_ref()
+            .and_then(|script| script.get(frame_index))
+            .copied()
+            .unwrap_or(0);
+        let buttons =
+            scripted_buttons | keyboard_buttons(&events) | controller_buttons(controller.as_ref());
 
         runtime.set_controller_1(buttons);
         runtime.run_until_vblank(500_000);
@@ -409,6 +427,7 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
         if elapsed < frame_time {
             thread::sleep(frame_time - elapsed);
         }
+        frame_index = frame_index.saturating_add(1);
     }
 
     Ok(())
