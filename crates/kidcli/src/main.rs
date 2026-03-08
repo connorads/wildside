@@ -5,7 +5,7 @@ mod scenarios;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand};
 use image::{ColorType, ImageFormat};
-use kid_core::{GameMode as NativeGameMode, run_script as run_native_script};
+use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
 use kid_data::{
     AssetManifest, export_split_bundle, generated_bundle_dir, load_manifest,
     manifest_path as generated_manifest_path,
@@ -179,6 +179,24 @@ enum Commands {
         rom: Option<PathBuf>,
         #[arg(long)]
         dir: Option<PathBuf>,
+    },
+    CompareNativeOracle {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
+        scenario: Scenario,
+    },
+    PortLoop {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
+        scenario: Scenario,
+        #[arg(long, default_value_t = 1)]
+        iterations: u32,
     },
     ReferenceBuild {
         #[arg(long)]
@@ -449,6 +467,25 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             verify_native_bootstrap(&manifest)?;
+        }
+        Commands::CompareNativeOracle { rom, dir, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            compare_native_oracle(&repo_root, &rom_path, &manifest, scenario)?;
+        }
+        Commands::PortLoop {
+            rom,
+            dir,
+            scenario,
+            iterations,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            run_port_loop(&repo_root, &rom_path, &manifest, scenario, iterations)?;
         }
         Commands::ReferenceBuild {
             rom,
@@ -1746,25 +1783,26 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
         "final mode: {:?} (0x{:04X})",
         final_frame.game_mode, final_frame.game_mode_value
     );
-    if let Some(level_id) = final_frame.current_level {
-        println!("current level: 0x{:02X}", level_id.0);
-    }
+    println!("current level: 0x{:02X}", final_frame.current_level.0);
     if let Some(level_name) = &final_frame.current_level_name {
         println!("current level name: {level_name}");
     }
 
     for checkpoint in scenario.checkpoints() {
-        if let Some(frame) = trace.get(checkpoint.frame_index.saturating_sub(1)) {
+        if let Some(frame) =
+            native_trace_at_checkpoint(&trace, checkpoint.label, checkpoint.frame_index)
+        {
             println!(
-                "checkpoint {}@{}: {:?} level {} {}",
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} objects {}/{}",
                 checkpoint.label,
                 checkpoint.frame_index,
                 frame.game_mode,
-                frame
-                    .current_level
-                    .map(|level_id| format!("0x{:02X}", level_id.0))
-                    .unwrap_or_else(|| String::from("--")),
-                frame.current_level_name.as_deref().unwrap_or("")
+                frame.current_level.0,
+                frame.current_level_name.as_deref().unwrap_or(""),
+                frame.camera_x_pos,
+                frame.camera_y_pos,
+                frame.number_objects,
+                frame.number_gfx_objects
             );
         }
     }
@@ -1797,14 +1835,250 @@ fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
             final_frame.game_mode
         );
     }
-    if final_frame.current_level.map(|level_id| level_id.0) != Some(0) {
+    if final_frame.current_level.0 != 0 {
         bail!(
             "native bootstrap loaded the wrong first level: expected 0x00, got {:?}",
-            final_frame.current_level.map(|level_id| level_id.0)
+            final_frame.current_level.0
         );
     }
 
     println!("native bootstrap verification passed");
+    Ok(())
+}
+
+fn compare_native_oracle(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: Scenario,
+) -> Result<()> {
+    let run_dir = repo_root
+        .join(".cache/native-oracle-runs")
+        .join(scenario.slug());
+    let native_dir = run_dir.join("native");
+    let oracle_dir = run_dir.join("oracle");
+    if native_dir.exists() {
+        fs::remove_dir_all(&native_dir)
+            .with_context(|| format!("failed to remove {}", native_dir.display()))?;
+    }
+    if oracle_dir.exists() {
+        fs::remove_dir_all(&oracle_dir)
+            .with_context(|| format!("failed to remove {}", oracle_dir.display()))?;
+    }
+    fs::create_dir_all(&native_dir)
+        .with_context(|| format!("failed to create {}", native_dir.display()))?;
+    fs::create_dir_all(&oracle_dir)
+        .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
+
+    let script = scenario.script()?;
+    let native_trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let native_states = capture_native_checkpoint_states(&native_trace, scenario)?;
+    fs::write(
+        native_dir.join("state.json"),
+        serde_json::to_vec_pretty(&native_states)?,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            native_dir.join("state.json").display()
+        )
+    })?;
+
+    let env = ensure_oracles(repo_root)?;
+    let oracle = run_jgenesis_capture(&env, rom_path, scenario, &oracle_dir)?;
+    fs::write(
+        oracle_dir.join("manifest.json"),
+        serde_json::to_vec_pretty(&oracle)?,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            oracle_dir.join("manifest.json").display()
+        )
+    })?;
+
+    compare_native_states_against_oracle(&run_dir, &native_states, &oracle.states)?;
+    println!(
+        "native-oracle checkpoint comparison passed for {}",
+        scenario.slug()
+    );
+    Ok(())
+}
+
+fn run_port_loop(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: Scenario,
+    iterations: u32,
+) -> Result<()> {
+    let total_iterations = iterations.max(1);
+    for iteration in 1..=total_iterations {
+        println!(
+            "port loop iteration {iteration}/{total_iterations} for {}",
+            scenario.slug()
+        );
+        verify_native_bootstrap(manifest)?;
+        compare_native_oracle(repo_root, rom_path, manifest, scenario)?;
+    }
+    Ok(())
+}
+
+fn capture_native_checkpoint_states(
+    trace: &[NativeTraceFrame],
+    scenario: Scenario,
+) -> Result<Vec<OracleState>> {
+    scenario
+        .checkpoints()
+        .iter()
+        .map(|checkpoint| {
+            let frame = native_trace_at_checkpoint(trace, checkpoint.label, checkpoint.frame_index)
+                .ok_or_else(|| {
+                    anyhow!(
+                        "missing native checkpoint {}@{}",
+                        checkpoint.label,
+                        checkpoint.frame_index
+                    )
+                })?;
+            Ok(native_trace_to_oracle_state(
+                checkpoint.label,
+                checkpoint.frame_index,
+                frame,
+            ))
+        })
+        .collect()
+}
+
+fn native_trace_at_checkpoint<'a>(
+    trace: &'a [NativeTraceFrame],
+    checkpoint_label: &str,
+    checkpoint_frame_index: usize,
+) -> Option<&'a NativeTraceFrame> {
+    if checkpoint_label == "title" {
+        return checkpoint_frame_index
+            .checked_sub(1)
+            .and_then(|index| trace.get(index))
+            .or_else(|| trace.get(checkpoint_frame_index));
+    }
+    trace.get(checkpoint_frame_index).or_else(|| {
+        checkpoint_frame_index
+            .checked_sub(1)
+            .and_then(|index| trace.get(index))
+    })
+}
+
+fn native_trace_to_oracle_state(
+    label: &str,
+    frame_index: usize,
+    frame: &NativeTraceFrame,
+) -> OracleState {
+    OracleState {
+        label: label.to_owned(),
+        frame_index,
+        game_mode: frame.game_mode_value,
+        current_player: frame.current_player,
+        current_level_id: u16::from(frame.current_level.0),
+        player_1_level_id: u16::from(frame.player_1_level_id.0),
+        camera_x_pos: frame.camera_x_pos,
+        camera_y_pos: frame.camera_y_pos,
+        number_objects: frame.number_objects,
+        number_gfx_objects: frame.number_gfx_objects,
+    }
+}
+
+fn compare_native_states_against_oracle(
+    run_dir: &Path,
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+) -> Result<()> {
+    if native_states.len() != oracle_states.len() {
+        bail!(
+            "native captured {} states but oracle captured {}; artefacts in {}",
+            native_states.len(),
+            oracle_states.len(),
+            run_dir.display()
+        );
+    }
+
+    for (native, oracle) in native_states.iter().zip(oracle_states) {
+        if native.label != oracle.label || native.frame_index != oracle.frame_index {
+            bail!(
+                "state checkpoint mismatch: native {}@{} vs oracle {}@{}",
+                native.label,
+                native.frame_index,
+                oracle.label,
+                oracle.frame_index
+            );
+        }
+        if native.game_mode != oracle.game_mode {
+            bail!(
+                "state {}@{} diverged in game mode (native {:04X}, oracle {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.game_mode,
+                oracle.game_mode,
+                run_dir.display()
+            );
+        }
+        if native.current_player != oracle.current_player {
+            bail!(
+                "state {}@{} diverged in current player (native {:02X}, oracle {:02X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_player,
+                oracle.current_player,
+                run_dir.display()
+            );
+        }
+        if native.current_level_id != oracle.current_level_id
+            || native.player_1_level_id != oracle.player_1_level_id
+        {
+            bail!(
+                "state {}@{} diverged in level ids (native current {:04X} / p1 {:04X}, oracle current {:04X} / p1 {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_level_id,
+                native.player_1_level_id,
+                oracle.current_level_id,
+                oracle.player_1_level_id,
+                run_dir.display()
+            );
+        }
+
+        let camera_delta_x = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
+        let camera_delta_y = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
+        if camera_delta_x > CAMERA_POSITION_TOLERANCE || camera_delta_y > CAMERA_POSITION_TOLERANCE
+        {
+            bail!(
+                "state {}@{} diverged in camera position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.camera_x_pos,
+                native.camera_y_pos,
+                oracle.camera_x_pos,
+                oracle.camera_y_pos,
+                run_dir.display()
+            );
+        }
+        if native.number_objects.abs_diff(oracle.number_objects) > 1
+            || native
+                .number_gfx_objects
+                .abs_diff(oracle.number_gfx_objects)
+                > 1
+        {
+            bail!(
+                "state {}@{} diverged in object counts (native {} / {}, oracle {} / {}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.number_objects,
+                native.number_gfx_objects,
+                oracle.number_objects,
+                oracle.number_gfx_objects,
+                run_dir.display()
+            );
+        }
+    }
+
     Ok(())
 }
 

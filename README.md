@@ -16,6 +16,8 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli extract-assets` runs the upstream split flow for the local ROM and exports a typed generated asset bundle under `.cache/generated/<rom-sha1>/`.
 - `kidcli probe-native --scenario ...` runs the new native source-port bootstrap skeleton against an existing scripted scenario and prints semantic checkpoints.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
+- `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state directly against the `jgenesis` oracle without using `kid-md`.
+- `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -52,6 +54,8 @@ mise run oracle-setup
 mise run extract-assets
 mise run probe-native
 mise run verify-native-bootstrap
+mise run compare-native-oracle
+mise run port-loop
 mise run verify-frames
 mise run verify-audio-output
 mise run verify-oracle
@@ -141,6 +145,8 @@ Current oracle results on this machine:
 The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw Pearson correlation, which better matches the positive-only envelope data emitted by the native and `jgenesis` captures. The emitted artefacts under `.cache/oracle-runs/` still include checkpoint `state.json` alongside WAV/PNG output for deeper debugging.
 
 The new generated source-port bundle is written under `.cache/generated/<rom-sha1>/asset-manifest.json`. It is built from the public disassembly split output and indexed into typed metadata for levels, constants, RAM variables, enemy source files, and asset groups. The first native runtime path is intentionally narrow: it provides a deterministic boot/title/level-entry skeleton that can be exercised with the existing scripted scenarios while the real gameplay port is built out.
+
+The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
 Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
 
