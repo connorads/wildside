@@ -3,8 +3,10 @@ use r68k_emu::cpu::{ConfiguredCore, Cycles};
 use r68k_emu::interrupts::AutoInterruptController;
 use r68k_emu::ram::{AddressBus, AddressSpace};
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::rc::Rc;
 use thiserror::Error;
+use ymfm_sys::Ym2612;
 use z80::{Z80, Z80_io};
 
 const ADDRESS_MASK: u32 = 0x00FF_FFFF;
@@ -31,6 +33,9 @@ const CRAM_LEN: usize = 0x80;
 const VSRAM_LEN: usize = 0x50;
 const TRACE_LIMIT: usize = 256;
 const PSG_CLOCK_HZ: f32 = 3_579_545.0;
+const Z80_CLOCK_HZ: f64 = 3_579_545.0;
+const YM2612_GAIN: f32 = 0.35;
+const PSG_GAIN: f32 = 0.12;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuProbe {
@@ -50,11 +55,16 @@ pub struct CpuProbe {
     pub camera_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
+    pub z80_interrupt_mode: u8,
     pub vram_nonzero_bytes: usize,
     pub cram_nonzero_bytes: usize,
     pub vsram_nonzero_bytes: usize,
     pub ym2612_write_count: usize,
     pub psg_write_count: usize,
+    pub ym2612_writes: Vec<(u16, u8)>,
+    pub psg_writes: Vec<u8>,
+    pub banked_68k_reads: Vec<(u32, u8)>,
+    pub banked_68k_writes: Vec<(u32, u8)>,
     pub vdp: VdpSnapshot,
     pub steps: Vec<CpuStep>,
     pub accesses: Vec<BusAccess>,
@@ -75,6 +85,32 @@ pub struct FrameBuffer {
     pub width: usize,
     pub height: usize,
     pub rgb: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AudioEvent {
+    Ym2612Write {
+        z80_cycles: u64,
+        port: u8,
+        value: u8,
+    },
+    PsgWrite {
+        z80_cycles: u64,
+        value: u8,
+    },
+    Reset {
+        z80_cycles: u64,
+    },
+}
+
+impl AudioEvent {
+    fn z80_cycles(self) -> u64 {
+        match self {
+            Self::Ym2612Write { z80_cycles, .. }
+            | Self::PsgWrite { z80_cycles, .. }
+            | Self::Reset { z80_cycles } => z80_cycles,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,9 +139,14 @@ struct WindowPlane {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Z80Shared {
     ram: Vec<u8>,
+    m68k_work_ram: Vec<u8>,
     busreq: bool,
     reset: bool,
     bank_address: u32,
+    z80_cycles: u64,
+    audio_events: VecDeque<AudioEvent>,
+    banked_68k_reads: Vec<(u32, u8)>,
+    banked_68k_writes: Vec<(u32, u8)>,
     ym2612_writes: Vec<(u16, u8)>,
     psg_writes: Vec<u8>,
     psg_registers: PsgRegisters,
@@ -115,9 +156,14 @@ impl Default for Z80Shared {
     fn default() -> Self {
         Self {
             ram: vec![0; Z80_RAM_LEN],
+            m68k_work_ram: vec![0; WORK_RAM_LEN],
             busreq: false,
-            reset: false,
+            reset: true,
             bank_address: 0,
+            z80_cycles: 0,
+            audio_events: VecDeque::new(),
+            banked_68k_reads: Vec::new(),
+            banked_68k_writes: Vec::new(),
             ym2612_writes: Vec::new(),
             psg_writes: Vec::new(),
             psg_registers: PsgRegisters::default(),
@@ -198,14 +244,68 @@ impl Default for PsgSynth {
 
 struct Z80Bus {
     shared: Rc<RefCell<Z80Shared>>,
+    ym2612_shadow: Rc<RefCell<Ym2612Shadow>>,
     rom: Vec<u8>,
+}
+
+struct AudioMixer {
+    psg_synth: PsgSynth,
+    psg_registers: PsgRegisters,
+    ym2612: Ym2612,
+    pending_events: VecDeque<AudioEvent>,
+    output_samples_emitted: u64,
+    ym_samples_emitted: u64,
+    last_ym_sample: [f32; 2],
+}
+
+struct Ym2612Shadow {
+    chip: Ym2612,
+}
+
+impl Ym2612Shadow {
+    fn new() -> Self {
+        Self {
+            chip: Ym2612::default(),
+        }
+    }
+
+    fn reset(&mut self) {
+        self.chip.reset();
+    }
+
+    fn read_port(&self, port: u8) -> u8 {
+        self.chip.read_port(port)
+    }
+
+    fn advance_clocks(&mut self, clocks: u32) {
+        self.chip.advance_clocks(clocks);
+    }
+
+    fn write_port(&mut self, port: u8, value: u8) {
+        self.chip.write_port(port, value);
+    }
+}
+
+impl Default for AudioMixer {
+    fn default() -> Self {
+        Self {
+            psg_synth: PsgSynth::default(),
+            psg_registers: PsgRegisters::default(),
+            ym2612: Ym2612::default(),
+            pending_events: VecDeque::new(),
+            output_samples_emitted: 0,
+            ym_samples_emitted: 0,
+            last_ym_sample: [0.0, 0.0],
+        }
+    }
 }
 
 pub struct MdRuntime {
     core: ConfiguredCore<AutoInterruptController, MdBus>,
     z80: Z80<Z80Bus>,
     z80_reset_asserted: bool,
-    psg_synth: PsgSynth,
+    z80_vblank_irq_pending: bool,
+    audio_mixer: AudioMixer,
     cycles_until_vblank: i32,
     synthetic_vblanks: u32,
 }
@@ -294,11 +394,16 @@ pub fn probe_rom_with_script(
         camera_y_pos: runtime.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
         number_objects: runtime.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
         number_gfx_objects: runtime.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
+        z80_interrupt_mode: runtime.z80.interrupt_mode,
         vram_nonzero_bytes: runtime.core.mem.vram_nonzero_bytes(),
         cram_nonzero_bytes: runtime.core.mem.cram_nonzero_bytes(),
         vsram_nonzero_bytes: runtime.core.mem.vsram_nonzero_bytes(),
         ym2612_write_count: runtime.core.mem.ym2612_write_count(),
         psg_write_count: runtime.core.mem.psg_write_count(),
+        ym2612_writes: runtime.core.mem.ym2612_writes(),
+        psg_writes: runtime.core.mem.psg_writes(),
+        banked_68k_reads: runtime.core.mem.banked_68k_reads(),
+        banked_68k_writes: runtime.core.mem.banked_68k_writes(),
         vdp: runtime.core.mem.vdp_snapshot(),
         steps,
         accesses: runtime.core.mem.accesses(),
@@ -314,14 +419,16 @@ impl MdRuntime {
         }
 
         let z80_shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let ym2612_shadow = Rc::new(RefCell::new(Ym2612Shadow::new()));
         let mut core = ConfiguredCore::new_with(
             0,
             AutoInterruptController::new(),
-            MdBus::new(rom, z80_shared.clone()),
+            MdBus::new(rom, z80_shared.clone(), ym2612_shadow.clone()),
         );
         core.reset();
         let mut z80 = Z80::new(Z80Bus {
             shared: z80_shared,
+            ym2612_shadow,
             rom: rom.to_vec(),
         });
         z80.reset();
@@ -329,7 +436,8 @@ impl MdRuntime {
             core,
             z80,
             z80_reset_asserted: false,
-            psg_synth: PsgSynth::default(),
+            z80_vblank_irq_pending: false,
+            audio_mixer: AudioMixer::default(),
             cycles_until_vblank: SYNTHETIC_VBLANK_CYCLES,
             synthetic_vblanks: 0,
         })
@@ -341,10 +449,12 @@ impl MdRuntime {
 
     pub fn step(&mut self) -> i32 {
         let Cycles(cycles) = self.core.execute1();
+        self.core.mem.advance_ym2612_shadow(cycles.max(0) as u32);
         self.step_z80(cycles);
         self.cycles_until_vblank -= cycles;
         while self.cycles_until_vblank <= 0 {
             self.cycles_until_vblank += SYNTHETIC_VBLANK_CYCLES;
+            self.z80_vblank_irq_pending = true;
             if self.core.mem.vint_enabled() {
                 self.core.int_ctrl.request_interrupt(6);
                 self.synthetic_vblanks += 1;
@@ -382,11 +492,16 @@ impl MdRuntime {
             camera_y_pos: self.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
             number_objects: self.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
             number_gfx_objects: self.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
+            z80_interrupt_mode: self.z80.interrupt_mode,
             vram_nonzero_bytes: self.core.mem.vram_nonzero_bytes(),
             cram_nonzero_bytes: self.core.mem.cram_nonzero_bytes(),
             vsram_nonzero_bytes: self.core.mem.vsram_nonzero_bytes(),
             ym2612_write_count: self.core.mem.ym2612_write_count(),
             psg_write_count: self.core.mem.psg_write_count(),
+            ym2612_writes: self.core.mem.ym2612_writes(),
+            psg_writes: self.core.mem.psg_writes(),
+            banked_68k_reads: self.core.mem.banked_68k_reads(),
+            banked_68k_writes: self.core.mem.banked_68k_writes(),
             vdp: self.core.mem.vdp_snapshot(),
             steps: Vec::new(),
             accesses: self.core.mem.accesses(),
@@ -395,9 +510,10 @@ impl MdRuntime {
         }
     }
 
-    pub fn generate_psg_samples(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
-        let registers = self.core.mem.z80_shared.borrow().psg_registers.clone();
-        self.psg_synth.render(&registers, sample_rate, sample_count)
+    pub fn generate_audio_samples(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        self.audio_mixer
+            .push_events(self.core.mem.drain_audio_events());
+        self.audio_mixer.generate(sample_rate, sample_count)
     }
 
     fn step_z80(&mut self, m68k_cycles: i32) {
@@ -419,12 +535,19 @@ impl MdRuntime {
             return;
         }
 
+        if self.z80_vblank_irq_pending {
+            self.z80.pulse_irq(0xFF);
+            self.z80_vblank_irq_pending = false;
+        }
+
         let mut remaining_cycles = ((m68k_cycles.max(0) as u32) * 7) / 15;
         if remaining_cycles == 0 {
             remaining_cycles = 1;
         }
         while remaining_cycles > 0 {
             let elapsed = self.z80.step();
+            let mut shared = self.core.mem.z80_shared.borrow_mut();
+            shared.z80_cycles = shared.z80_cycles.saturating_add(u64::from(elapsed));
             if elapsed >= remaining_cycles {
                 break;
             }
@@ -529,7 +652,7 @@ impl Default for IoState {
             controller_1: 0,
             controller_2: 0,
             z80_busreq: false,
-            z80_reset: false,
+            z80_reset: true,
         }
     }
 }
@@ -565,22 +688,28 @@ impl Default for VdpState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 struct MdBus {
     rom: Vec<u8>,
     work_ram: Vec<u8>,
     z80_shared: Rc<RefCell<Z80Shared>>,
+    ym2612_shadow: Rc<RefCell<Ym2612Shadow>>,
     io: IoState,
     vdp: VdpState,
     accesses: RefCell<Vec<BusAccess>>,
 }
 
 impl MdBus {
-    fn new(rom: &[u8], z80_shared: Rc<RefCell<Z80Shared>>) -> Self {
+    fn new(
+        rom: &[u8],
+        z80_shared: Rc<RefCell<Z80Shared>>,
+        ym2612_shadow: Rc<RefCell<Ym2612Shadow>>,
+    ) -> Self {
         Self {
             rom: rom.to_vec(),
             work_ram: vec![0; WORK_RAM_LEN],
             z80_shared,
+            ym2612_shadow,
             io: IoState::default(),
             vdp: VdpState::default(),
             accesses: RefCell::new(Vec::new()),
@@ -589,7 +718,11 @@ impl MdBus {
 
     #[cfg(test)]
     fn with_fresh_z80(rom: &[u8]) -> Self {
-        Self::new(rom, Rc::new(RefCell::new(Z80Shared::default())))
+        Self::new(
+            rom,
+            Rc::new(RefCell::new(Z80Shared::default())),
+            Rc::new(RefCell::new(Ym2612Shadow::new())),
+        )
     }
 
     fn accesses(&self) -> Vec<BusAccess> {
@@ -619,6 +752,26 @@ impl MdBus {
 
     fn psg_write_count(&self) -> usize {
         self.z80_shared.borrow().psg_writes.len()
+    }
+
+    fn ym2612_writes(&self) -> Vec<(u16, u8)> {
+        self.z80_shared.borrow().ym2612_writes.clone()
+    }
+
+    fn psg_writes(&self) -> Vec<u8> {
+        self.z80_shared.borrow().psg_writes.clone()
+    }
+
+    fn banked_68k_reads(&self) -> Vec<(u32, u8)> {
+        self.z80_shared.borrow().banked_68k_reads.clone()
+    }
+
+    fn banked_68k_writes(&self) -> Vec<(u32, u8)> {
+        self.z80_shared.borrow().banked_68k_writes.clone()
+    }
+
+    fn drain_audio_events(&self) -> VecDeque<AudioEvent> {
+        std::mem::take(&mut self.z80_shared.borrow_mut().audio_events)
     }
 
     fn vint_enabled(&self) -> bool {
@@ -676,6 +829,17 @@ impl MdBus {
             | u32::from(self.read_work_ram_word(address.wrapping_add(2)))
     }
 
+    fn write_work_ram_byte(&mut self, address: u32, value: u8) {
+        let index = Self::work_ram_index(address);
+        self.work_ram[index] = value;
+        self.z80_shared.borrow_mut().m68k_work_ram[index] = value;
+    }
+
+    fn write_work_ram_word(&mut self, address: u32, value: u16) {
+        self.write_work_ram_byte(address, (value >> 8) as u8);
+        self.write_work_ram_byte(address.wrapping_add(1), value as u8);
+    }
+
     fn read_io_register(&self, address: u32) -> u8 {
         match address {
             0x00A1_0000 | 0x00A1_0001 => self.io.version_register,
@@ -708,6 +872,10 @@ impl MdBus {
         self.io.controller_1 = buttons;
     }
 
+    fn advance_ym2612_shadow(&mut self, clocks: u32) {
+        self.ym2612_shadow.borrow_mut().advance_clocks(clocks);
+    }
+
     fn set_z80_busreq(&mut self, requested: bool) {
         self.io.z80_busreq = requested;
         self.z80_shared.borrow_mut().busreq = requested;
@@ -715,7 +883,21 @@ impl MdBus {
 
     fn set_z80_reset(&mut self, asserted: bool) {
         self.io.z80_reset = asserted;
-        self.z80_shared.borrow_mut().reset = asserted;
+        let mut shared = self.z80_shared.borrow_mut();
+        shared.reset = asserted;
+        if asserted {
+            self.ym2612_shadow.borrow_mut().reset();
+            let z80_cycles = shared.z80_cycles;
+            shared.audio_events.clear();
+            shared
+                .audio_events
+                .push_back(AudioEvent::Reset { z80_cycles });
+            shared.banked_68k_reads.clear();
+            shared.banked_68k_writes.clear();
+            shared.ym2612_writes.clear();
+            shared.psg_writes.clear();
+            shared.psg_registers = PsgRegisters::default();
+        }
     }
 
     fn controller_port_value(&self, latch: u8, buttons: u8) -> u8 {
@@ -910,8 +1092,7 @@ impl MdBus {
             0x00A1_1200..=0x00A1_1201 => self.set_z80_reset(value & 1 == 0),
             0x00C0_0000..=0x00C0_001F => self.write_vdp_byte(address, value),
             WORK_RAM_BASE..=WORK_RAM_END => {
-                let index = Self::work_ram_index(address);
-                self.work_ram[index] = value;
+                self.write_work_ram_byte(address, value);
             }
             _ => {}
         }
@@ -946,9 +1127,7 @@ impl MdBus {
             0x00C0_0000..=0x00C0_0003 => self.write_vdp_data_word(value),
             0x00C0_0004..=0x00C0_0007 => self.apply_vdp_control_write(value),
             WORK_RAM_BASE..=WORK_RAM_END => {
-                let index = Self::work_ram_index(address);
-                self.work_ram[index] = (value >> 8) as u8;
-                self.work_ram[Self::work_ram_index(address.wrapping_add(1))] = value as u8;
+                self.write_work_ram_word(address, value);
             }
             _ => {
                 self.write_byte_internal(address, (value >> 8) as u8);
@@ -960,35 +1139,70 @@ impl MdBus {
 
 impl Z80Bus {
     fn read_banked_68k_byte(&self, address: u16) -> u8 {
-        let shared = self.shared.borrow();
+        let mut shared = self.shared.borrow_mut();
         let banked_address = shared
             .bank_address
             .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
-        self.rom
-            .get(banked_address as usize)
-            .copied()
-            .unwrap_or(0xFF)
+        let value = if (WORK_RAM_BASE..=WORK_RAM_END).contains(&banked_address) {
+            shared.m68k_work_ram[MdBus::work_ram_index(banked_address)]
+        } else {
+            self.rom
+                .get(banked_address as usize)
+                .copied()
+                .unwrap_or(0xFF)
+        };
+        if shared.banked_68k_reads.len() < TRACE_LIMIT {
+            shared.banked_68k_reads.push((banked_address, value));
+        }
+        value
+    }
+
+    fn write_banked_68k_byte(&self, address: u16, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        let banked_address = shared
+            .bank_address
+            .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
+        if (WORK_RAM_BASE..=WORK_RAM_END).contains(&banked_address) {
+            let index = MdBus::work_ram_index(banked_address);
+            shared.m68k_work_ram[index] = value;
+        }
+        if shared.banked_68k_writes.len() < TRACE_LIMIT {
+            shared.banked_68k_writes.push((banked_address, value));
+        }
     }
 
     fn record_ym2612_write(&self, address: u16, value: u8) {
+        self.ym2612_shadow
+            .borrow_mut()
+            .write_port((address & 0x0003) as u8, value);
         let mut shared = self.shared.borrow_mut();
+        let z80_cycles = shared.z80_cycles;
         if shared.ym2612_writes.len() < TRACE_LIMIT {
             shared.ym2612_writes.push((address, value));
         }
+        shared.audio_events.push_back(AudioEvent::Ym2612Write {
+            z80_cycles,
+            port: (address & 0x0003) as u8,
+            value,
+        });
     }
 
     fn record_psg_write(&self, value: u8) {
         let mut shared = self.shared.borrow_mut();
+        let z80_cycles = shared.z80_cycles;
         if shared.psg_writes.len() < TRACE_LIMIT {
             shared.psg_writes.push(value);
         }
         shared.psg_registers.apply_write(value);
+        shared
+            .audio_events
+            .push_back(AudioEvent::PsgWrite { z80_cycles, value });
     }
 
     fn write_bank_register(&self, value: u8) {
         let mut shared = self.shared.borrow_mut();
         let current_bank = shared.bank_address >> 15;
-        let next_bank = ((current_bank << 1) | u32::from(value & 1)) & 0x01FF;
+        let next_bank = ((current_bank >> 1) | (u32::from(value & 1) << 8)) & 0x01FF;
         shared.bank_address = next_bank << 15;
     }
 }
@@ -997,7 +1211,10 @@ impl Z80_io for Z80Bus {
     fn read_byte(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x1FFF => self.shared.borrow().ram[usize::from(address) & (Z80_RAM_LEN - 1)],
-            0x4000..=0x4003 => 0,
+            0x4000..=0x5FFF => self
+                .ym2612_shadow
+                .borrow()
+                .read_port((address & 0x0003) as u8),
             0x8000..=0xFFFF => self.read_banked_68k_byte(address),
             _ => 0xFF,
         }
@@ -1008,9 +1225,10 @@ impl Z80_io for Z80Bus {
             0x0000..=0x1FFF => {
                 self.shared.borrow_mut().ram[usize::from(address) & (Z80_RAM_LEN - 1)] = value;
             }
-            0x4000..=0x4003 => self.record_ym2612_write(address, value),
-            0x6000 => self.write_bank_register(value),
+            0x4000..=0x5FFF => self.record_ym2612_write(address & 0x0003, value),
+            0x6000..=0x60FF => self.write_bank_register(value),
             0x7F11 => self.record_psg_write(value),
+            0x8000..=0xFFFF => self.write_banked_68k_byte(address, value),
             _ => {}
         }
     }
@@ -1027,52 +1245,130 @@ impl Z80_io for Z80Bus {
 }
 
 impl PsgSynth {
-    fn render(
-        &mut self,
-        registers: &PsgRegisters,
-        sample_rate: u32,
-        sample_count: usize,
-    ) -> Vec<f32> {
-        let mut samples = Vec::with_capacity(sample_count);
+    fn render_sample(&mut self, registers: &PsgRegisters, sample_rate: u32) -> f32 {
         let sample_rate = sample_rate as f32;
-
-        for _ in 0..sample_count {
-            let mut mixed = 0.0f32;
-            for channel in 0..3 {
-                let period = registers.tone_periods[channel].max(1) as f32;
-                let frequency = PSG_CLOCK_HZ / (32.0 * period);
-                let phase_step = frequency / sample_rate;
-                self.tone_phase[channel] = (self.tone_phase[channel] + phase_step).fract();
-                let wave = if self.tone_phase[channel] < 0.5 {
-                    1.0
-                } else {
-                    -1.0
-                };
-                mixed += wave * psg_volume(registers.volumes[channel]);
-            }
-
-            let noise_frequency = match registers.noise_control & 0x03 {
-                0 => PSG_CLOCK_HZ / 512.0,
-                1 => PSG_CLOCK_HZ / 1024.0,
-                2 => PSG_CLOCK_HZ / 2048.0,
-                _ => {
-                    let period = registers.tone_periods[2].max(1) as f32;
-                    PSG_CLOCK_HZ / (32.0 * period)
-                }
+        let mut mixed = 0.0f32;
+        for channel in 0..3 {
+            let period = registers.tone_periods[channel].max(1) as f32;
+            let frequency = PSG_CLOCK_HZ / (32.0 * period);
+            let phase_step = frequency / sample_rate;
+            self.tone_phase[channel] = (self.tone_phase[channel] + phase_step).fract();
+            let wave = if self.tone_phase[channel] < 0.5 {
+                1.0
+            } else {
+                -1.0
             };
-            self.noise_phase += noise_frequency / sample_rate;
-            while self.noise_phase >= 1.0 {
-                self.noise_phase -= 1.0;
-                let feedback = (self.noise_lfsr ^ (self.noise_lfsr >> 1)) & 1;
-                self.noise_lfsr = (self.noise_lfsr >> 1) | (feedback << 15);
-            }
-            let noise_wave = if self.noise_lfsr & 1 == 0 { 1.0 } else { -1.0 };
-            mixed += noise_wave * psg_volume(registers.volumes[3]);
-
-            samples.push((mixed / 4.0).clamp(-0.25, 0.25));
+            mixed += wave * psg_volume(registers.volumes[channel]);
         }
 
-        samples
+        let noise_frequency = match registers.noise_control & 0x03 {
+            0 => PSG_CLOCK_HZ / 512.0,
+            1 => PSG_CLOCK_HZ / 1024.0,
+            2 => PSG_CLOCK_HZ / 2048.0,
+            _ => {
+                let period = registers.tone_periods[2].max(1) as f32;
+                PSG_CLOCK_HZ / (32.0 * period)
+            }
+        };
+        self.noise_phase += noise_frequency / sample_rate;
+        while self.noise_phase >= 1.0 {
+            self.noise_phase -= 1.0;
+            let feedback = (self.noise_lfsr ^ (self.noise_lfsr >> 1)) & 1;
+            self.noise_lfsr = (self.noise_lfsr >> 1) | (feedback << 15);
+        }
+        let noise_wave = if self.noise_lfsr & 1 == 0 { 1.0 } else { -1.0 };
+        mixed += noise_wave * psg_volume(registers.volumes[3]);
+
+        (mixed / 4.0).clamp(-0.25, 0.25)
+    }
+}
+
+impl AudioMixer {
+    fn push_events(&mut self, events: VecDeque<AudioEvent>) {
+        self.pending_events.extend(events);
+    }
+
+    fn generate(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        if sample_rate == 0 || sample_count == 0 {
+            return Vec::new();
+        }
+
+        let ym_sample_rate = f64::from(self.ym2612.sample_rate_hz());
+        let z80_cycles_per_output = Z80_CLOCK_HZ / f64::from(sample_rate);
+        let z80_cycles_per_ym = Z80_CLOCK_HZ / ym_sample_rate;
+        let mut mixed = Vec::with_capacity(sample_count * 2);
+
+        for _ in 0..sample_count {
+            let output_cycle_end =
+                (((self.output_samples_emitted + 1) as f64) * z80_cycles_per_output).floor() as u64;
+            let mut ym_accumulator = [0.0f32, 0.0f32];
+            let mut ym_generated = 0usize;
+
+            loop {
+                let ym_cycle_end =
+                    (((self.ym_samples_emitted + 1) as f64) * z80_cycles_per_ym).floor() as u64;
+                if ym_cycle_end > output_cycle_end {
+                    break;
+                }
+
+                self.apply_events_up_to(ym_cycle_end);
+                self.last_ym_sample = self.generate_ym_sample();
+                ym_accumulator[0] += self.last_ym_sample[0];
+                ym_accumulator[1] += self.last_ym_sample[1];
+                self.ym_samples_emitted += 1;
+                ym_generated += 1;
+            }
+
+            self.apply_events_up_to(output_cycle_end);
+            let ym_sample = if ym_generated == 0 {
+                self.last_ym_sample
+            } else {
+                [
+                    ym_accumulator[0] / ym_generated as f32,
+                    ym_accumulator[1] / ym_generated as f32,
+                ]
+            };
+            let psg_sample = self
+                .psg_synth
+                .render_sample(&self.psg_registers, sample_rate);
+            let left = (ym_sample[0] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
+            let right = (ym_sample[1] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
+            mixed.push(left);
+            mixed.push(right);
+            self.output_samples_emitted += 1;
+        }
+
+        mixed
+    }
+
+    fn apply_events_up_to(&mut self, z80_cycles: u64) {
+        loop {
+            let Some(event) = self.pending_events.front().copied() else {
+                break;
+            };
+            if event.z80_cycles() > z80_cycles {
+                break;
+            }
+
+            match event {
+                AudioEvent::Ym2612Write { port, value, .. } => self.ym2612.write_port(port, value),
+                AudioEvent::PsgWrite { value, .. } => self.psg_registers.apply_write(value),
+                AudioEvent::Reset { .. } => {
+                    self.ym2612.reset();
+                    self.psg_registers = PsgRegisters::default();
+                    self.psg_synth = PsgSynth::default();
+                    self.last_ym_sample = [0.0, 0.0];
+                }
+            }
+            self.pending_events.pop_front();
+        }
+    }
+
+    fn generate_ym_sample(&mut self) -> [f32; 2] {
+        let mut left = [0i32; 1];
+        let mut right = [0i32; 1];
+        self.ym2612.generate(&mut left, &mut right);
+        [left[0] as f32 / 32768.0, right[0] as f32 / 32768.0]
     }
 }
 
@@ -1414,6 +1710,14 @@ impl AddressBus for MdBus {
         self.rom = other.rom.clone();
         self.work_ram = other.work_ram.clone();
         self.z80_shared.replace(other.z80_shared.borrow().clone());
+        self.ym2612_shadow.borrow_mut().reset();
+        {
+            let writes = other.z80_shared.borrow().ym2612_writes.clone();
+            let mut shadow = self.ym2612_shadow.borrow_mut();
+            for (port, value) in writes {
+                shadow.write_port((port & 0x0003) as u8, value);
+            }
+        }
         self.io = other.io.clone();
         self.vdp = other.vdp.clone();
         self.accesses.replace(other.accesses());
@@ -1476,8 +1780,14 @@ impl AddressBus for MdBus {
 
 #[cfg(test)]
 mod tests {
-    use super::{BusAccessKind, MdBus, WORK_RAM_BASE, Z80_RAM_BASE, probe_rom};
+    use super::{
+        BusAccessKind, MdBus, WORK_RAM_BASE, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
+        probe_rom,
+    };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use z80::Z80_io;
 
     #[test]
     fn probes_reset_vector_and_steps_nops() {
@@ -1525,5 +1835,43 @@ mod tests {
         bus.write_byte(SUPERVISOR_DATA, Z80_RAM_BASE, 0x12);
         assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE), 0x12);
         assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE + 0x2000), 0x12);
+    }
+
+    #[test]
+    fn z80_reset_starts_asserted() {
+        let bus = MdBus::with_fresh_z80(&[]);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, 0x00A1_1200), 0x0000);
+    }
+
+    #[test]
+    fn z80_bank_register_shifts_in_bits_msb_first() {
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let mut bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        for bit in [1, 0, 1, 0, 0, 0, 0, 0, 0] {
+            bus.write_byte(0x6000, bit);
+        }
+
+        assert_eq!(shared.borrow().bank_address, 0x0002_8000);
+    }
+
+    #[test]
+    fn z80_banked_reads_can_see_68k_work_ram() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        let z80_shared = bus.z80_shared.clone();
+        bus.write_byte(SUPERVISOR_DATA, WORK_RAM_BASE, 0x5A);
+
+        z80_shared.borrow_mut().bank_address = WORK_RAM_BASE;
+        let z80_bus = Z80Bus {
+            shared: z80_shared,
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0x5A);
     }
 }

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
+use ymfm_sys::Ym2612;
 
 const ASL_REPO_URL: &str = "https://github.com/Macroassembler-AS/asl-releases.git";
 const UPSTREAM_URL: &str = "https://github.com/sonicretro/kid-chameleon-disasm";
@@ -68,6 +69,14 @@ enum Commands {
         #[arg(long, default_value_t = 8_000_000)]
         steps: u32,
     },
+    VerifyAudioOutput {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long, default_value_t = 8)]
+        seconds: u32,
+        #[arg(long, default_value_t = true)]
+        autostart_level: bool,
+    },
     RenderFrame {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -79,6 +88,16 @@ enum Commands {
         input: Vec<String>,
         #[arg(long)]
         out: PathBuf,
+    },
+    DumpAudio {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long, default_value_t = 5)]
+        seconds: u32,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = false)]
+        autostart_level: bool,
     },
     RunSdl {
         #[arg(long)]
@@ -186,6 +205,24 @@ fn main() -> Result<()> {
             verify_audio_driver_probe(&rom_bytes, steps)?;
             println!("audio-driver verification passed");
         }
+        Commands::VerifyAudioOutput {
+            rom,
+            seconds,
+            autostart_level,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let verified = verify_rom(&rom_path)?;
+            if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
+                bail!(
+                    "verify-audio-output currently supports only the known Kid Chameleon ROM dump"
+                );
+            }
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            verify_audio_output(&rom_bytes, seconds, autostart_level)?;
+            println!("audio-output verification passed");
+        }
         Commands::RenderFrame {
             rom,
             steps,
@@ -227,6 +264,18 @@ fn main() -> Result<()> {
             let rom_bytes = fs::read(&rom_path)
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             run_sdl(&rom_bytes, scale, autostart_level)?;
+        }
+        Commands::DumpAudio {
+            rom,
+            seconds,
+            out,
+            autostart_level,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            dump_audio(&rom_bytes, seconds, &out, autostart_level)?;
         }
         Commands::BootstrapUpstream { dir } => {
             let repo_root = current_dir()?;
@@ -405,6 +454,8 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
     let mut frame_index = 0usize;
     const AUDIO_SAMPLE_RATE: u32 = 44_100;
     const AUDIO_FRAME_SAMPLES: usize = 735;
+    const AUDIO_QUEUE_BYTES_LOW_WATERMARK: u32 =
+        (AUDIO_FRAME_SAMPLES * 2 * 3 * std::mem::size_of::<f32>()) as u32;
 
     'running: loop {
         let frame_started = Instant::now();
@@ -442,9 +493,9 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
         let snapshot = runtime.snapshot();
         let frame = render_frame(&snapshot);
         if let Some(audio_queue) = audio_queue.as_ref()
-            && audio_queue.size() < (AUDIO_FRAME_SAMPLES * 8 * std::mem::size_of::<f32>()) as u32
+            && audio_queue.size() < AUDIO_QUEUE_BYTES_LOW_WATERMARK
         {
-            let samples = runtime.generate_psg_samples(AUDIO_SAMPLE_RATE, AUDIO_FRAME_SAMPLES);
+            let samples = runtime.generate_audio_samples(AUDIO_SAMPLE_RATE, AUDIO_FRAME_SAMPLES);
             audio_queue
                 .queue_audio(&samples)
                 .map_err(|error| anyhow!("failed to queue SDL audio samples: {error}"))?;
@@ -471,7 +522,7 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
 fn open_audio_queue(audio: &sdl2::AudioSubsystem) -> Result<Option<sdl2::audio::AudioQueue<f32>>> {
     let desired = sdl2::audio::AudioSpecDesired {
         freq: Some(44_100),
-        channels: Some(1),
+        channels: Some(2),
         samples: Some(1024),
     };
     let queue = match audio.open_queue::<f32, _>(None, &desired) {
@@ -480,6 +531,110 @@ fn open_audio_queue(audio: &sdl2::AudioSubsystem) -> Result<Option<sdl2::audio::
     };
     queue.resume();
     Ok(Some(queue))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct AudioAnalysis {
+    peak_left: f32,
+    peak_right: f32,
+    change_count_left: usize,
+    change_count_right: usize,
+}
+
+fn generate_audio_capture(
+    rom_bytes: &[u8],
+    seconds: u32,
+    autostart_level: bool,
+) -> Result<Vec<f32>> {
+    let mut runtime = MdRuntime::new(rom_bytes)?;
+    let autostart_script = if autostart_level {
+        Some(gameplay_entry_script()?)
+    } else {
+        None
+    };
+    const SAMPLE_RATE: u32 = 44_100;
+    const FRAME_SAMPLES: usize = 735;
+    let frame_count = seconds.saturating_mul(60);
+    let mut samples = Vec::with_capacity(frame_count as usize * FRAME_SAMPLES * 2);
+
+    for frame_index in 0..frame_count as usize {
+        let buttons = autostart_script
+            .as_ref()
+            .and_then(|script| script.get(frame_index))
+            .copied()
+            .unwrap_or(0);
+        runtime.set_controller_1(buttons);
+        runtime.run_until_vblank(500_000);
+        samples.extend(runtime.generate_audio_samples(SAMPLE_RATE, FRAME_SAMPLES));
+    }
+
+    Ok(samples)
+}
+
+fn analyse_audio_samples(samples: &[f32]) -> AudioAnalysis {
+    let mut peak_left = 0.0f32;
+    let mut peak_right = 0.0f32;
+    let mut change_count_left = 0usize;
+    let mut change_count_right = 0usize;
+    let mut previous_left: Option<f32> = None;
+    let mut previous_right: Option<f32> = None;
+
+    for frame in samples.chunks_exact(2) {
+        let left = frame[0];
+        let right = frame[1];
+        peak_left = peak_left.max(left.abs());
+        peak_right = peak_right.max(right.abs());
+        if let Some(previous) = previous_left
+            && (left - previous).abs() > 1e-6f32
+        {
+            change_count_left += 1;
+        }
+        if let Some(previous) = previous_right
+            && (right - previous).abs() > 1e-6f32
+        {
+            change_count_right += 1;
+        }
+        previous_left = Some(left);
+        previous_right = Some(right);
+    }
+
+    AudioAnalysis {
+        peak_left,
+        peak_right,
+        change_count_left,
+        change_count_right,
+    }
+}
+
+fn dump_audio(rom_bytes: &[u8], seconds: u32, out: &Path, autostart_level: bool) -> Result<()> {
+    const SAMPLE_RATE: u32 = 44_100;
+    let samples = generate_audio_capture(rom_bytes, seconds, autostart_level)?;
+
+    if let Some(parent) = out.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: SAMPLE_RATE,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(out, spec)
+        .with_context(|| format!("failed to create {}", out.display()))?;
+    for sample in samples {
+        writer
+            .write_sample((sample.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16)
+            .with_context(|| format!("failed to write {}", out.display()))?;
+    }
+    writer
+        .finalize()
+        .with_context(|| format!("failed to finalise {}", out.display()))?;
+    println!("wrote audio to {}", out.display());
+    Ok(())
 }
 
 fn open_first_controller(
@@ -625,11 +780,51 @@ fn print_probe(
     println!("camera y: 0x{:08X}", probe.camera_y_pos);
     println!("number objects: {}", probe.number_objects);
     println!("number gfx objects: {}", probe.number_gfx_objects);
+    println!("z80 interrupt mode: {}", probe.z80_interrupt_mode);
     println!("vram nonzero bytes: {}", probe.vram_nonzero_bytes);
     println!("cram nonzero bytes: {}", probe.cram_nonzero_bytes);
     println!("vsram nonzero bytes: {}", probe.vsram_nonzero_bytes);
     println!("ym2612 writes: {}", probe.ym2612_write_count);
     println!("psg writes: {}", probe.psg_write_count);
+    let ym_register_writes = decode_ym2612_register_writes(&probe.ym2612_writes);
+    if !ym_register_writes.is_empty() {
+        let key_on_count = ym_register_writes
+            .iter()
+            .filter(|write| write.register == 0x0028)
+            .count();
+        println!(
+            "ym2612 register writes: {}",
+            format_ym2612_register_writes(&ym_register_writes)
+        );
+        println!("ym2612 key-on writes: {key_on_count}");
+        println!(
+            "ym2612 replay is audible: {}",
+            ym2612_register_writes_are_audible(&ym_register_writes)
+        );
+    } else if !probe.ym2612_writes.is_empty() {
+        println!(
+            "ym2612 write samples: {}",
+            format_ym2612_writes(&probe.ym2612_writes)
+        );
+    }
+    if !probe.psg_writes.is_empty() {
+        println!(
+            "psg write samples: {}",
+            format_u8_samples(&probe.psg_writes)
+        );
+    }
+    if !probe.banked_68k_reads.is_empty() {
+        println!(
+            "banked 68k read samples: {}",
+            format_banked_68k_accesses(&probe.banked_68k_reads)
+        );
+    }
+    if !probe.banked_68k_writes.is_empty() {
+        println!(
+            "banked 68k write samples: {}",
+            format_banked_68k_accesses(&probe.banked_68k_writes)
+        );
+    }
 
     if !summary_only {
         for step in probe.steps.iter().take(step_log_limit) {
@@ -698,6 +893,155 @@ fn format_u16_samples(values: &[u16]) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!("[{head}, ..., {tail}] ({} total)", values.len())
+}
+
+fn format_u8_samples(values: &[u8]) -> String {
+    const EDGE: usize = 8;
+
+    if values.len() <= EDGE * 2 {
+        return values
+            .iter()
+            .map(|value| format!("0x{value:02X}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+    }
+
+    let head = values
+        .iter()
+        .take(EDGE)
+        .map(|value| format!("0x{value:02X}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let tail = values
+        .iter()
+        .skip(values.len() - EDGE)
+        .map(|value| format!("0x{value:02X}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{head}, ..., {tail}] ({} total)", values.len())
+}
+
+fn format_ym2612_writes(values: &[(u16, u8)]) -> String {
+    const EDGE: usize = 8;
+
+    let render = |slice: &[(u16, u8)]| {
+        slice
+            .iter()
+            .map(|(port, value)| format!("(0x{port:04X}, 0x{value:02X})"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    if values.len() <= EDGE * 2 {
+        return render(values);
+    }
+
+    let head = render(&values[..EDGE]);
+    let tail = render(&values[values.len() - EDGE..]);
+    format!("[{head}, ..., {tail}] ({} total)", values.len())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Ym2612RegisterWrite {
+    register: u16,
+    value: u8,
+}
+
+fn decode_ym2612_register_writes(values: &[(u16, u8)]) -> Vec<Ym2612RegisterWrite> {
+    let mut latched = [None, None];
+    let mut decoded = Vec::new();
+
+    for (port, value) in values {
+        match port & 0x0003 {
+            0 => latched[0] = Some(u16::from(*value)),
+            2 => latched[1] = Some(0x0100 | u16::from(*value)),
+            1 => {
+                if let Some(register) = latched[0] {
+                    decoded.push(Ym2612RegisterWrite {
+                        register,
+                        value: *value,
+                    });
+                }
+            }
+            3 => {
+                if let Some(register) = latched[1] {
+                    decoded.push(Ym2612RegisterWrite {
+                        register,
+                        value: *value,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    decoded
+}
+
+fn format_ym2612_register_writes(values: &[Ym2612RegisterWrite]) -> String {
+    const EDGE: usize = 8;
+
+    let render = |slice: &[Ym2612RegisterWrite]| {
+        slice
+            .iter()
+            .map(|write| format!("(0x{:04X} <- 0x{:02X})", write.register, write.value))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    if values.len() <= EDGE * 2 {
+        return render(values);
+    }
+
+    let head = render(&values[..EDGE]);
+    let tail = render(&values[values.len() - EDGE..]);
+    format!("[{head}, ..., {tail}] ({} total)", values.len())
+}
+
+fn format_banked_68k_accesses(values: &[(u32, u8)]) -> String {
+    const EDGE: usize = 8;
+
+    let render = |slice: &[(u32, u8)]| {
+        slice
+            .iter()
+            .map(|(address, value)| format!("(0x{address:06X}, 0x{value:02X})"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    if values.len() <= EDGE * 2 {
+        return render(values);
+    }
+
+    let head = render(&values[..EDGE]);
+    let tail = render(&values[values.len() - EDGE..]);
+    format!("[{head}, ..., {tail}] ({} total)", values.len())
+}
+
+fn ym2612_register_writes_are_audible(values: &[Ym2612RegisterWrite]) -> bool {
+    if values.is_empty() {
+        return false;
+    }
+
+    let mut chip = Ym2612::default();
+    for write in values {
+        match write.register {
+            0x0000..=0x00FF => {
+                chip.write_port(0, write.register as u8);
+                chip.write_port(1, write.value);
+            }
+            0x0100..=0x01FF => {
+                chip.write_port(2, (write.register & 0x00FF) as u8);
+                chip.write_port(3, write.value);
+            }
+            _ => {}
+        }
+    }
+
+    let mut left = [0i32; 512];
+    let mut right = [0i32; 512];
+    chip.generate(&mut left, &mut right);
+    left.iter().any(|sample| *sample != left[0]) || right.iter().any(|sample| *sample != right[0])
 }
 
 fn bootstrap_upstream(dir: &Path) -> Result<()> {
@@ -992,8 +1336,28 @@ fn verify_level_probe(rom_bytes: &[u8], steps: u32) -> Result<()> {
 
 fn verify_audio_driver_probe(rom_bytes: &[u8], steps: u32) -> Result<()> {
     let probe = probe_rom_with_script(rom_bytes, steps, &gameplay_entry_script()?)?;
+    if probe.ym2612_write_count == 0 {
+        bail!("expected the Z80 sound path to issue YM2612 writes by level entry");
+    }
     if probe.psg_write_count == 0 {
         bail!("expected the Z80 sound path to issue PSG writes by level entry");
+    }
+
+    Ok(())
+}
+
+fn verify_audio_output(rom_bytes: &[u8], seconds: u32, autostart_level: bool) -> Result<()> {
+    let samples = generate_audio_capture(rom_bytes, seconds, autostart_level)?;
+    let analysis = analyse_audio_samples(&samples);
+    if analysis.change_count_left == 0 && analysis.change_count_right == 0 {
+        bail!("generated audio remained constant across the capture window");
+    }
+    if analysis.peak_left < 0.01 && analysis.peak_right < 0.01 {
+        bail!(
+            "generated audio peak was too low (left {:.4}, right {:.4})",
+            analysis.peak_left,
+            analysis.peak_right
+        );
     }
 
     Ok(())
@@ -1021,7 +1385,9 @@ fn render_command(command: &Command, cwd: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_controller_script, parse_button_mask, parse_input_spec};
+    use super::{
+        analyse_audio_samples, build_controller_script, parse_button_mask, parse_input_spec,
+    };
 
     #[test]
     fn parses_single_frame_input_spec() {
@@ -1059,5 +1425,23 @@ mod tests {
         assert_eq!(script[120], 0x80);
         assert_eq!(script[122], 1 << 3);
         assert_eq!(script[123], 1 << 3);
+    }
+
+    #[test]
+    fn detects_constant_audio() {
+        let analysis = analyse_audio_samples(&[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]);
+        assert_eq!(analysis.change_count_left, 0);
+        assert_eq!(analysis.change_count_right, 0);
+        assert_eq!(analysis.peak_left, 0.1);
+        assert_eq!(analysis.peak_right, 0.1);
+    }
+
+    #[test]
+    fn detects_changing_audio() {
+        let analysis = analyse_audio_samples(&[0.1, 0.1, 0.2, 0.1, 0.2, -0.3]);
+        assert!(analysis.change_count_left > 0);
+        assert!(analysis.change_count_right > 0);
+        assert_eq!(analysis.peak_left, 0.2);
+        assert_eq!(analysis.peak_right, 0.3);
     }
 }

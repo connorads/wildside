@@ -8,4 +8,5 @@ version.workspace = true
 anyhow.workspace = true
 r68k-emu = { git = "https://github.com/marhel/r68k", package = "r68k-emu", rev = "9119048282e81c8a2ad89dd4c6e9c24fceebccb1" }
 thiserror.workspace = true
+ymfm-sys = { path = "../ymfm-sys" }
 z80 = "1.0.2"

@@ -29,11 +29,17 @@ run = "cargo run -p kidcli -- verify-level"
 [tasks.verify-audio-driver]
 run = "cargo run -p kidcli -- verify-audio-driver"
 
+[tasks.verify-audio-output]
+run = "cargo run -p kidcli -- verify-audio-output"
+
 [tasks.render-frame]
 run = "cargo run -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
 
 [tasks.run-sdl]
 run = "cargo run -p kidcli -- run-sdl"
+
+[tasks.dump-audio]
+run = "cargo run -p kidcli -- dump-audio --seconds 8 --autostart-level --out .cache/audio.wav"
 
 [tasks.bootstrap-upstream]
 run = "cargo run -p kidcli -- bootstrap-upstream"

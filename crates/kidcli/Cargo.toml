@@ -7,8 +7,10 @@ version.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+hound.workspace = true
 image.workspace = true
 kid-md = { path = "../kid-md" }
 kid-rom = { path = "../kid-rom" }
 sdl2 = { version = "0.38.0", features = ["bundled"] }
 tempfile.workspace = true
+ymfm-sys = { path = "../ymfm-sys" }

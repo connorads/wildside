@@ -9,9 +9,11 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
 - `kidcli verify-startup` asserts that the current runtime can progress through the early boot loops, reach `GameProgram`, and continue into the later startup VRAM clear path.
 - `kidcli verify-level` asserts that the scripted front-end path can enter the first level and that holding `right` advances the in-level camera.
-- `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing PSG writes by first-level entry.
+- `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
+- `kidcli verify-audio-output` asserts that a scripted audio capture becomes non-constant and reaches a measurable peak.
 - `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
-- `kidcli run-sdl` starts a minimal interactive desktop host using bundled SDL2, the current software renderer, and a PSG-only audio path.
+- `kidcli dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
+- `kidcli run-sdl` starts a minimal interactive desktop host using bundled SDL2, the current software renderer, and the current mixed FM + PSG audio path.
 - `kidcli bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
 - `kidcli reference-build` replaces the upstream `kid.bin` with the local ROM, runs `split.py`, rebuilds the ROM with the bundled Linux assembler, and verifies whether the rebuilt ROM is bit-perfect.
 
@@ -35,7 +37,9 @@ mise run verify-boot
 mise run verify-startup
 mise run verify-level
 mise run verify-audio-driver
+mise run verify-audio-output
 mise run render-frame
+mise run dump-audio
 mise run run-sdl
 mise run bootstrap-upstream
 mise run reference-build
@@ -73,6 +77,12 @@ To jump straight into the first level in the SDL host, use:
 cargo run -p kidcli -- run-sdl --autostart-level
 ```
 
+To dump a longer capture for inspection, use:
+
+```bash
+cargo run -p kidcli -- dump-audio --seconds 15 --autostart-level --out .cache/long-audio.wav
+```
+
 ## Current controls
 
 - `Arrow keys`: D-pad
@@ -89,6 +99,8 @@ Bundled SDL2 currently needs `cmake` on this machine. This was installed with:
 sudo apt-get update
 sudo apt-get install -y cmake
 ```
+
+The FM core is vendored under `third_party/ymfm` from `aaronsgiles/ymfm` (BSD-3-Clause).
 
 ## Arm64 note
 
