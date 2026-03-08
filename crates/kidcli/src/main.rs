@@ -1,4 +1,5 @@
 mod oracle;
+mod player;
 mod scenarios;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -9,6 +10,7 @@ use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom
 use oracle::{
     OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
 };
+use player::{PlayOptions, run_player};
 use scenarios::Scenario;
 use serde::Serialize;
 use std::env;
@@ -36,6 +38,16 @@ enum Commands {
     VerifyRom {
         #[arg(long)]
         rom: Option<PathBuf>,
+    },
+    Play {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        fullscreen: bool,
+        #[arg(long)]
+        scale: Option<u32>,
+        #[arg(long, default_value_t = false)]
+        mute: bool,
     },
     ProbeCpu {
         #[arg(long)]
@@ -152,6 +164,23 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let verified = verify_rom(&rom_path)?;
             print_verified_rom(&verified);
+        }
+        Commands::Play {
+            rom,
+            fullscreen,
+            scale,
+            mute,
+        } => {
+            let repo_root = current_dir()?;
+            run_player(
+                &repo_root,
+                PlayOptions {
+                    rom,
+                    fullscreen,
+                    scale,
+                    mute,
+                },
+            )?;
         }
         Commands::ProbeCpu {
             rom,

@@ -67,6 +67,23 @@ const PSG_ATTENUATION_TO_VOLUME: [f32; 16] = [
 ];
 const PSG_INITIAL_LFSR: u16 = 0x8000;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AudioLevels {
+    pub master: f32,
+    pub ym2612: f32,
+    pub psg: f32,
+}
+
+impl Default for AudioLevels {
+    fn default() -> Self {
+        Self {
+            master: 1.0,
+            ym2612: 1.0,
+            psg: 1.0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuProbe {
     pub reset_sp: u32,
@@ -409,6 +426,7 @@ struct AudioMixer {
     psg_synth: PsgSynth,
     psg_registers: PsgRegisters,
     ym2612: Ym2612,
+    levels: AudioLevels,
     pending_events: VecDeque<AudioEvent>,
     output_samples_emitted: u64,
     ym_samples_emitted: u64,
@@ -479,6 +497,7 @@ impl Default for AudioMixer {
             psg_synth: PsgSynth::default(),
             psg_registers: PsgRegisters::default(),
             ym2612,
+            levels: AudioLevels::default(),
             pending_events: VecDeque::new(),
             output_samples_emitted: 0,
             ym_samples_emitted: 0,
@@ -719,6 +738,10 @@ impl MdRuntime {
         self.audio_mixer
             .push_events(self.core.mem.drain_audio_events());
         self.audio_mixer.generate(sample_rate, sample_count)
+    }
+
+    pub fn set_audio_levels(&mut self, levels: AudioLevels) {
+        self.audio_mixer.set_levels(levels);
     }
 
     fn step_z80(&mut self, m68k_cycles: i32) {
@@ -1583,6 +1606,14 @@ impl PsgSynth {
 }
 
 impl AudioMixer {
+    fn set_levels(&mut self, levels: AudioLevels) {
+        self.levels = AudioLevels {
+            master: levels.master.clamp(0.0, 1.0),
+            ym2612: levels.ym2612.clamp(0.0, 1.0),
+            psg: levels.psg.clamp(0.0, 1.0),
+        };
+    }
+
     fn push_events(&mut self, events: VecDeque<AudioEvent>) {
         self.pending_events.extend(events);
     }
@@ -1642,8 +1673,14 @@ impl AudioMixer {
                 self.psg_synth
                     .render_sample(&self.psg_registers, sample_rate),
             );
-            let left = (ym_sample[0] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
-            let right = (ym_sample[1] * YM2612_GAIN + psg_sample * PSG_GAIN).clamp(-1.0, 1.0);
+            let left = ((ym_sample[0] * YM2612_GAIN * self.levels.ym2612)
+                + (psg_sample * PSG_GAIN * self.levels.psg))
+                * self.levels.master;
+            let right = ((ym_sample[1] * YM2612_GAIN * self.levels.ym2612)
+                + (psg_sample * PSG_GAIN * self.levels.psg))
+                * self.levels.master;
+            let left = left.clamp(-1.0, 1.0);
+            let right = right.clamp(-1.0, 1.0);
             mixed.push(left);
             mixed.push(right);
             self.output_samples_emitted += 1;
@@ -2113,8 +2150,8 @@ impl AddressBus for MdBus {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE, YM2612_STATUS_DECAY_CLOCKS,
-        Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, probe_rom,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE,
+        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, probe_rom,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2283,6 +2320,37 @@ mod tests {
             saw_change,
             "expected PSG tone writes to vary generated audio"
         );
+    }
+
+    #[test]
+    fn audio_levels_can_mute_generated_output() {
+        let mut mixer = AudioMixer::default();
+        let mut events = VecDeque::new();
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x80,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x04,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x90,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x00,
+        });
+        mixer.push_events(events);
+        mixer.set_levels(AudioLevels {
+            master: 0.0,
+            ym2612: 1.0,
+            psg: 1.0,
+        });
+
+        let samples = mixer.generate(44_100, 512);
+        assert!(samples.iter().all(|sample| sample.abs() <= f32::EPSILON));
     }
 
     #[test]
