@@ -16,7 +16,8 @@ const WORK_RAM_LEN: usize = 0x1_0000;
 const Z80_RAM_BASE: u32 = 0x00A0_0000;
 const Z80_RAM_END: u32 = 0x00A0_FFFF;
 const Z80_RAM_LEN: usize = 0x2000;
-const SYNTHETIC_VBLANK_CYCLES: i32 = 120_000;
+// NTSC Genesis frame timing: 3420 master clocks/scanline * 262 scanlines / 7 m68k clocks.
+const SYNTHETIC_VBLANK_CYCLES: i32 = 128_006;
 const V_INT_COUNTER_ADDR: u32 = 0x00FF_F806;
 const V_INT_DONE_ADDR: u32 = 0x00FF_F80A;
 const CAMERA_X_POS_ADDR: u32 = 0x00FF_F81C;
@@ -900,6 +901,10 @@ impl MdBus {
         }
     }
 
+    fn z80_busack(&self) -> bool {
+        self.io.z80_busreq && !self.io.z80_reset
+    }
+
     fn controller_port_value(&self, latch: u8, buttons: u8) -> u8 {
         let th_high = latch & 0x40 != 0;
         let mut value = latch & 0x40;
@@ -1070,10 +1075,14 @@ impl MdBus {
         match address {
             0x000000..=0x009F_FFFF => self.read_rom_byte(address),
             Z80_RAM_BASE..=Z80_RAM_END => {
-                self.z80_shared.borrow().ram[Self::z80_ram_index(address)]
+                if self.z80_busack() {
+                    self.z80_shared.borrow().ram[Self::z80_ram_index(address)]
+                } else {
+                    0xFF
+                }
             }
             0x00A1_0000..=0x00A1_001F => self.read_io_register(address),
-            0x00A1_1100..=0x00A1_1101 => u8::from(!self.io.z80_busreq),
+            0x00A1_1100..=0x00A1_1101 => u8::from(!self.z80_busack()),
             0x00A1_1200..=0x00A1_1201 => u8::from(!self.io.z80_reset),
             0x00C0_0000..=0x00C0_001F => self.read_vdp_byte(address),
             WORK_RAM_BASE..=WORK_RAM_END => self.work_ram[Self::work_ram_index(address)],
@@ -1084,8 +1093,10 @@ impl MdBus {
     fn write_byte_internal(&mut self, address: u32, value: u8) {
         match address {
             Z80_RAM_BASE..=Z80_RAM_END => {
-                let index = Self::z80_ram_index(address);
-                self.z80_shared.borrow_mut().ram[index] = value;
+                if self.z80_busack() {
+                    let index = Self::z80_ram_index(address);
+                    self.z80_shared.borrow_mut().ram[index] = value;
+                }
             }
             0x00A1_0000..=0x00A1_001F => self.write_io_register(address, value),
             0x00A1_1100..=0x00A1_1101 => self.set_z80_busreq(value & 1 != 0),
@@ -1100,9 +1111,17 @@ impl MdBus {
 
     fn read_word_internal(&self, address: u32) -> u16 {
         match address {
+            Z80_RAM_BASE..=Z80_RAM_END => {
+                if self.z80_busack() {
+                    let byte = self.z80_shared.borrow().ram[Self::z80_ram_index(address)];
+                    u16::from_be_bytes([byte, byte])
+                } else {
+                    0xFF00
+                }
+            }
             0x00A1_0000..=0x00A1_001F => u16::from(self.read_io_register(address)),
             0x00A1_1100..=0x00A1_1101 => {
-                let byte = u8::from(!self.io.z80_busreq);
+                let byte = u8::from(!self.z80_busack());
                 u16::from_be_bytes([byte, byte])
             }
             0x00A1_1200..=0x00A1_1201 => {
@@ -1121,6 +1140,7 @@ impl MdBus {
 
     fn write_word_internal(&mut self, address: u32, value: u16) {
         match address {
+            Z80_RAM_BASE..=Z80_RAM_END => self.write_byte_internal(address, (value >> 8) as u8),
             0x00A1_0000..=0x00A1_001F => self.write_io_register(address, value as u8),
             0x00A1_1100..=0x00A1_1101 => self.set_z80_busreq((value & 0x0100) != 0),
             0x00A1_1200..=0x00A1_1201 => self.set_z80_reset((value & 0x0100) == 0),
@@ -1238,9 +1258,7 @@ impl Z80_io for Z80Bus {
     }
 
     fn port_out(&mut self, address: u16, value: u8) {
-        if address & 0x00FF == 0x7F {
-            self.record_psg_write(value);
-        }
+        let _ = (address, value);
     }
 }
 
@@ -1830,11 +1848,24 @@ mod tests {
     }
 
     #[test]
-    fn z80_ram_is_mirrored() {
+    fn z80_ram_is_mirrored_when_busack_is_asserted() {
         let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1100, 0x0100);
         bus.write_byte(SUPERVISOR_DATA, Z80_RAM_BASE, 0x12);
         assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE), 0x12);
         assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE + 0x2000), 0x12);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, Z80_RAM_BASE), 0x1212);
+    }
+
+    #[test]
+    fn z80_ram_is_hidden_from_68k_without_busack() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.z80_shared.borrow_mut().ram[0] = 0x34;
+        assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE), 0xFF);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, Z80_RAM_BASE), 0xFF00);
+        bus.write_byte(SUPERVISOR_DATA, Z80_RAM_BASE, 0x12);
+        assert_eq!(bus.z80_shared.borrow().ram[0], 0x34);
     }
 
     #[test]
@@ -1873,5 +1904,19 @@ mod tests {
         };
 
         assert_eq!(z80_bus.read_byte(0x8000), 0x5A);
+    }
+
+    #[test]
+    fn z80_io_ports_are_not_wired_to_the_psg() {
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let mut bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        bus.port_out(0x007F, 0x90);
+
+        assert!(shared.borrow().psg_writes.is_empty());
     }
 }

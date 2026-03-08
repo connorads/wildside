@@ -6,7 +6,9 @@ use clap::{Parser, Subcommand};
 use image::{ColorType, ImageFormat};
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
-use oracle::{OracleEnvironment, OracleManifest, ensure_oracles, run_jgenesis_capture};
+use oracle::{
+    OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
+};
 use scenarios::Scenario;
 use std::env;
 use std::fs;
@@ -587,6 +589,7 @@ struct AudioAnalysis {
 struct ScenarioCapture {
     samples: Vec<f32>,
     frames: Vec<CapturedFrame>,
+    states: Vec<CapturedState>,
 }
 
 #[derive(Debug, Clone)]
@@ -597,6 +600,20 @@ struct CapturedFrame {
     height: usize,
     rgb: Vec<u8>,
     sha1: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CapturedState {
+    label: String,
+    frame_index: usize,
+    game_mode: u16,
+    current_player: u8,
+    current_level_id: u16,
+    player_1_level_id: u16,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    number_objects: u16,
+    number_gfx_objects: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -612,6 +629,7 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
     let mut checkpoint_index = 0usize;
     let mut samples = Vec::with_capacity(scenario.frame_count() * AUDIO_FRAME_SAMPLES * 2);
     let mut frames = Vec::with_capacity(checkpoints.len());
+    let mut states = Vec::with_capacity(checkpoints.len());
 
     for frame_index in 0..scenario.frame_count() {
         let buttons = script.get(frame_index).copied().unwrap_or(0);
@@ -631,12 +649,28 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
                 height: rendered.height,
                 rgb: rendered.rgb,
             });
+            states.push(CapturedState {
+                label: checkpoint.label.to_string(),
+                frame_index,
+                game_mode: snapshot.game_mode,
+                current_player: snapshot.current_player,
+                current_level_id: snapshot.current_level_id,
+                player_1_level_id: snapshot.player_1_level_id,
+                camera_x_pos: snapshot.camera_x_pos,
+                camera_y_pos: snapshot.camera_y_pos,
+                number_objects: snapshot.number_objects,
+                number_gfx_objects: snapshot.number_gfx_objects,
+            });
             checkpoint_index += 1;
         }
         samples.extend(runtime.generate_audio_samples(AUDIO_SAMPLE_RATE, AUDIO_FRAME_SAMPLES));
     }
 
-    Ok(ScenarioCapture { samples, frames })
+    Ok(ScenarioCapture {
+        samples,
+        frames,
+        states,
+    })
 }
 
 fn analyse_audio_samples(samples: &[f32], sample_rate: u32) -> AudioAnalysis {
@@ -1641,6 +1675,8 @@ fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
 }
 
 fn compare_frames_against_oracle(comparison: &OracleComparison) -> Result<()> {
+    compare_states_against_oracle(comparison)?;
+
     if comparison.native.frames.len() != comparison.oracle.frames.len() {
         bail!(
             "native captured {} frames but oracle captured {}; artefacts in {}",
@@ -1689,12 +1725,118 @@ fn compare_frames_against_oracle(comparison: &OracleComparison) -> Result<()> {
     Ok(())
 }
 
+fn compare_states_against_oracle(comparison: &OracleComparison) -> Result<()> {
+    if comparison.native.states.len() != comparison.oracle.states.len() {
+        bail!(
+            "native captured {} states but oracle captured {}; artefacts in {}",
+            comparison.native.states.len(),
+            comparison.oracle.states.len(),
+            comparison.run_dir.display()
+        );
+    }
+
+    for (native, oracle) in comparison
+        .native
+        .states
+        .iter()
+        .zip(&comparison.oracle.states)
+    {
+        if native.label != oracle.label || native.frame_index != oracle.frame_index {
+            bail!(
+                "state checkpoint mismatch: native {}@{} vs oracle {}@{}",
+                native.label,
+                native.frame_index,
+                oracle.label,
+                oracle.frame_index
+            );
+        }
+        if native.game_mode != oracle.game_mode {
+            bail!(
+                "state {}@{} diverged in game mode (native {:04X}, oracle {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.game_mode,
+                oracle.game_mode,
+                comparison.run_dir.display()
+            );
+        }
+        if native.current_player != oracle.current_player {
+            bail!(
+                "state {}@{} diverged in current player (native {:02X}, oracle {:02X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_player,
+                oracle.current_player,
+                comparison.run_dir.display()
+            );
+        }
+        if native.current_level_id != oracle.current_level_id
+            || native.player_1_level_id != oracle.player_1_level_id
+        {
+            bail!(
+                "state {}@{} diverged in level ids (native current {:04X} / p1 {:04X}, oracle current {:04X} / p1 {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_level_id,
+                native.player_1_level_id,
+                oracle.current_level_id,
+                oracle.player_1_level_id,
+                comparison.run_dir.display()
+            );
+        }
+        let camera_delta_x = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
+        let camera_delta_y = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
+        if camera_delta_x > 0x20 || camera_delta_y > 0x20 {
+            bail!(
+                "state {}@{} diverged in camera position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.camera_x_pos,
+                native.camera_y_pos,
+                oracle.camera_x_pos,
+                oracle.camera_y_pos,
+                comparison.run_dir.display()
+            );
+        }
+        if native.number_objects.abs_diff(oracle.number_objects) > 8
+            || native
+                .number_gfx_objects
+                .abs_diff(oracle.number_gfx_objects)
+                > 8
+        {
+            bail!(
+                "state {}@{} diverged in object counts (native {} / {}, oracle {} / {}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.number_objects,
+                native.number_gfx_objects,
+                oracle.number_objects,
+                oracle.number_gfx_objects,
+                comparison.run_dir.display()
+            );
+        }
+    }
+
+    Ok(())
+}
+
 fn write_native_artifacts(out_dir: &Path, capture: &ScenarioCapture) -> Result<()> {
     write_wav(
         &out_dir.join("audio.wav"),
         AUDIO_SAMPLE_RATE,
         &capture.samples,
     )?;
+    fs::write(
+        out_dir.join("state.json"),
+        serde_json::to_vec_pretty(
+            &capture
+                .states
+                .iter()
+                .map(native_state_to_oracle_state)
+                .collect::<Vec<_>>(),
+        )?,
+    )
+    .with_context(|| format!("failed to write {}", out_dir.join("state.json").display()))?;
     for frame in &capture.frames {
         let path = out_dir.join(format!("{:04}_{}.png", frame.frame_index, frame.label));
         image::save_buffer_with_format(
@@ -1708,6 +1850,21 @@ fn write_native_artifacts(out_dir: &Path, capture: &ScenarioCapture) -> Result<(
         .with_context(|| format!("failed to write {}", path.display()))?;
     }
     Ok(())
+}
+
+fn native_state_to_oracle_state(state: &CapturedState) -> OracleState {
+    OracleState {
+        label: state.label.clone(),
+        frame_index: state.frame_index,
+        game_mode: state.game_mode,
+        current_player: state.current_player,
+        current_level_id: state.current_level_id,
+        player_1_level_id: state.player_1_level_id,
+        camera_x_pos: state.camera_x_pos,
+        camera_y_pos: state.camera_y_pos,
+        number_objects: state.number_objects,
+        number_gfx_objects: state.number_gfx_objects,
+    }
 }
 
 fn load_png_rgb(path: &Path) -> Result<Vec<u8>> {

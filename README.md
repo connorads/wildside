@@ -12,7 +12,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
 - `kidcli oracle-setup` clones pinned external oracle repos under `.cache/oracles/`, builds a cache-local `jgenesis` helper, and clones `BlastEm` for optional manual debugger use.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
-- `kidcli verify-frames --scenario ...` compares native rendered frames against `jgenesis` frame checkpoints for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
+- `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
 - `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
 - `kidcli dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
@@ -103,7 +103,7 @@ Current oracle results on this machine:
 - `verify-audio-output --scenario boot-title-start-level1` fails with about `5.224s` of audio onset drift versus `jgenesis`.
 - `verify-frames --scenario boot-title-start-level1-move-right5s` fails at the `level_entry` checkpoint with an MAE around `58.46`.
 
-Those failures are useful regression signals, not harness bugs. The emitted artefacts under `.cache/oracle-runs/` are the intended debug loop for fixing the remaining audio and gameplay rendering issues.
+Those failures are useful regression signals, not harness bugs. The emitted artefacts under `.cache/oracle-runs/` now include checkpoint `state.json` alongside WAV/PNG output, which is the intended debug loop for fixing the remaining audio and gameplay drift.
 
 ## Current controls
 

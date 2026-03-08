@@ -25,6 +25,7 @@ pub struct OracleManifest {
     pub sample_rate: u32,
     pub audio_path: PathBuf,
     pub frames: Vec<OracleFrame>,
+    pub states: Vec<OracleState>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -33,6 +34,20 @@ pub struct OracleFrame {
     pub frame_index: usize,
     pub png_path: PathBuf,
     pub sha1: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleState {
+    pub label: String,
+    pub frame_index: usize,
+    pub game_mode: u16,
+    pub current_player: u8,
+    pub current_level_id: u16,
+    pub player_1_level_id: u16,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+    pub number_objects: u16,
+    pub number_gfx_objects: u16,
 }
 
 pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {

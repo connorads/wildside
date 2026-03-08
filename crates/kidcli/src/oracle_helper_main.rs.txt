@@ -4,6 +4,7 @@ use genesis_config::{
     GenesisAspectRatio, GenesisControllerType, GenesisInputs, GenesisJoypadState,
     NATIVE_M68K_DIVIDER, Opn2BusyBehavior,
 };
+use genesis_core::api::debug::GenesisMemoryArea;
 use genesis_core::{GenesisEmulator, GenesisEmulatorConfig};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use image::{ColorType, ImageFormat};
@@ -38,6 +39,7 @@ struct OracleManifest {
     sample_rate: u32,
     audio_path: PathBuf,
     frames: Vec<OracleFrame>,
+    states: Vec<OracleState>,
 }
 
 #[derive(Debug, Serialize)]
@@ -47,6 +49,29 @@ struct OracleFrame {
     png_path: PathBuf,
     sha1: String,
 }
+
+#[derive(Debug, Serialize)]
+struct OracleState {
+    label: String,
+    frame_index: usize,
+    game_mode: u16,
+    current_player: u8,
+    current_level_id: u16,
+    player_1_level_id: u16,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    number_objects: u16,
+    number_gfx_objects: u16,
+}
+
+const GAME_MODE_ADDR: usize = 0xFF_FBCA;
+const CURRENT_PLAYER_ADDR: usize = 0xFF_FC39;
+const CURRENT_LEVEL_ID_ADDR: usize = 0xFF_FC44;
+const PLAYER_1_LEVEL_ID_ADDR: usize = 0xFF_FC5A;
+const CAMERA_X_POS_ADDR: usize = 0xFF_F81C;
+const CAMERA_Y_POS_ADDR: usize = 0xFF_F820;
+const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
+const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
 
 struct NullSaveWriter;
 
@@ -149,6 +174,7 @@ fn main() -> Result<()> {
     let mut audio = AudioCollector::default();
     let mut frame_index = 0usize;
     let mut rendered_frames = Vec::new();
+    let mut captured_states = Vec::new();
 
     while frame_index < scenario_frame_count(scenario) {
         let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
@@ -171,6 +197,11 @@ fn main() -> Result<()> {
                         sha1: sha1_hex(&renderer.rgb),
                         png_path,
                     });
+                    captured_states.push(capture_state(
+                        &mut emulator,
+                        checkpoint.label,
+                        checkpoint.frame_index,
+                    ));
                     checkpoint_index += 1;
                 }
                 frame_index += 1;
@@ -185,6 +216,7 @@ fn main() -> Result<()> {
         sample_rate: SAMPLE_RATE as u32,
         audio_path,
         frames: rendered_frames,
+        states: captured_states,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())
@@ -269,6 +301,43 @@ fn scenario_script(scenario: Scenario) -> Vec<u8> {
         }
     }
     script
+}
+
+fn capture_state(
+    emulator: &mut GenesisEmulator,
+    label: &str,
+    frame_index: usize,
+) -> OracleState {
+    let debug = emulator.debug();
+    let memory = debug.memory_view(GenesisMemoryArea::WorkingRam);
+    OracleState {
+        label: label.to_string(),
+        frame_index,
+        game_mode: read_u16(memory.as_ref(), GAME_MODE_ADDR),
+        current_player: read_u8(memory.as_ref(), CURRENT_PLAYER_ADDR),
+        current_level_id: read_u16(memory.as_ref(), CURRENT_LEVEL_ID_ADDR),
+        player_1_level_id: read_u16(memory.as_ref(), PLAYER_1_LEVEL_ID_ADDR),
+        camera_x_pos: read_u32(memory.as_ref(), CAMERA_X_POS_ADDR),
+        camera_y_pos: read_u32(memory.as_ref(), CAMERA_Y_POS_ADDR),
+        number_objects: read_u16(memory.as_ref(), NUMBER_OBJECTS_ADDR),
+        number_gfx_objects: read_u16(memory.as_ref(), NUMBER_GFX_OBJECTS_ADDR),
+    }
+}
+
+fn work_ram_index(address: usize) -> usize {
+    address & 0xFFFF
+}
+
+fn read_u8(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u8 {
+    memory.read(work_ram_index(address))
+}
+
+fn read_u16(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u16 {
+    u16::from_be_bytes([read_u8(memory, address), read_u8(memory, address + 1)])
+}
+
+fn read_u32(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u32 {
+    (u32::from(read_u16(memory, address)) << 16) | u32::from(read_u16(memory, address + 2))
 }
 
 fn apply_single_frames(script: &mut [u8], frames: &[usize], buttons: u8) {
