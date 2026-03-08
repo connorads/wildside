@@ -310,6 +310,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hound"
+version = "3.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62adaabb884c94955b19907d60019f4e145d091c75345379e70d1ee696f7854f"
+
+[[package]]
 name = "id-arena"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -359,6 +365,7 @@ dependencies = [
  "anyhow",
  "r68k-emu",
  "thiserror",
+ "ymfm-sys",
  "z80",
 ]
 
@@ -376,11 +383,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "hound",
  "image",
  "kid-md",
  "kid-rom",
  "sdl2",
  "tempfile",
+ "ymfm-sys",
 ]
 
 [[package]]
@@ -880,6 +889,13 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
+]
+
+[[package]]
+name = "ymfm-sys"
+version = "0.1.0"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

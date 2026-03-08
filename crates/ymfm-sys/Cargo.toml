@@ -1,0 +1,11 @@
+[package]
+name = "ymfm-sys"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+name = "ymfm_sys"
+
+[build-dependencies]
+cc.workspace = true

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/kid-rom", "crates/kid-md", "crates/kidcli"]
+members = ["crates/kid-rom", "crates/kid-md", "crates/kidcli", "crates/ymfm-sys"]
 resolver = "2"
 
 [workspace.package]
@@ -10,6 +10,8 @@ version = "0.1.0"
 [workspace.dependencies]
 anyhow = "1.0.98"
 clap = { version = "4.5.32", features = ["derive"] }
+cc = "1.2.37"
+hound = "3.5.1"
 image = { version = "0.25.8", default-features = false, features = ["png"] }
 sha1 = "0.10.6"
 tempfile = "3.19.1"
