@@ -30,7 +30,13 @@ run = "cargo run -p kidcli -- verify-level"
 run = "cargo run -p kidcli -- verify-audio-driver"
 
 [tasks.verify-audio-output]
-run = "cargo run -p kidcli -- verify-audio-output"
+run = "cargo run -p kidcli -- verify-audio-output --scenario boot-title-start-level1"
+
+[tasks.verify-frames]
+run = "cargo run -p kidcli -- verify-frames --scenario boot-title-idle10s"
+
+[tasks.verify-oracle]
+run = "cargo run -p kidcli -- verify-oracle --scenario boot-title-start-level1"
 
 [tasks.render-frame]
 run = "cargo run -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
@@ -39,10 +45,13 @@ run = "cargo run -p kidcli -- render-frame --steps 2000000 --out .cache/title-fr
 run = "cargo run -p kidcli -- run-sdl"
 
 [tasks.dump-audio]
-run = "cargo run -p kidcli -- dump-audio --seconds 8 --autostart-level --out .cache/audio.wav"
+run = "cargo run -p kidcli -- dump-audio --scenario boot-title-start-level1 --out .cache/audio.wav"
 
 [tasks.bootstrap-upstream]
 run = "cargo run -p kidcli -- bootstrap-upstream"
+
+[tasks.oracle-setup]
+run = "cargo run -p kidcli -- oracle-setup"
 
 [tasks.reference-build]
 run = "cargo run -p kidcli -- reference-build"
