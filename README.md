@@ -16,6 +16,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli extract-assets` runs the upstream split flow for the local ROM and exports a typed generated asset bundle under `.cache/generated/<rom-sha1>/`.
 - `kidcli probe-native --scenario ...` runs the new native source-port bootstrap skeleton against an existing scripted scenario and prints semantic checkpoints.
 - `kidcli inspect-level --level ...` loads a typed level bundle from the generated cache and prints the concrete resource files and byte sizes for that level.
+- `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
 - `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state directly against the `jgenesis` oracle without using `kid-md`.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
@@ -55,6 +56,7 @@ mise run oracle-setup
 mise run extract-assets
 mise run probe-native
 mise run inspect-level
+mise run inspect-enemy
 mise run verify-native-bootstrap
 mise run compare-native-oracle
 mise run port-loop

@@ -72,6 +72,14 @@ pub struct LoadedAsset {
     pub bytes: Vec<u8>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnemyDefinition {
+    pub id: u8,
+    pub constant_name: String,
+    pub symbolic_name: String,
+    pub source_path: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedValue {
     pub name: String,
@@ -213,6 +221,40 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
     })
 }
 
+pub fn enemy_definitions(manifest: &AssetManifest) -> Vec<EnemyDefinition> {
+    let mut definitions = manifest
+        .constants
+        .iter()
+        .filter_map(|value| {
+            let symbolic_name = value.name.strip_prefix("objid_")?;
+            let id = u8::try_from(value.value).ok()?;
+            Some(EnemyDefinition {
+                id,
+                constant_name: value.name.clone(),
+                symbolic_name: symbolic_name.to_owned(),
+                source_path: find_enemy_source_path(manifest, symbolic_name),
+            })
+        })
+        .collect::<Vec<_>>();
+    definitions.sort_by_key(|definition| definition.id);
+    definitions
+}
+
+pub fn find_enemy_definition(manifest: &AssetManifest, selector: &str) -> Option<EnemyDefinition> {
+    let selector = selector.trim();
+    let by_id = selector
+        .strip_prefix("0x")
+        .or_else(|| selector.strip_prefix("0X"))
+        .or(Some(selector))
+        .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+    let normalised_selector = normalise_enemy_name(selector);
+    enemy_definitions(manifest).into_iter().find(|definition| {
+        Some(definition.id) == by_id
+            || normalise_enemy_name(&definition.constant_name) == normalised_selector
+            || normalise_enemy_name(&definition.symbolic_name) == normalised_selector
+    })
+}
+
 fn merge_level_catalogues(
     names: BTreeMap<u8, (u8, String)>,
     files: BTreeMap<u8, Vec<String>>,
@@ -288,6 +330,28 @@ fn load_asset(
         relative_path: relative_path.to_owned(),
         bytes,
     }))
+}
+
+fn find_enemy_source_path(manifest: &AssetManifest, symbolic_name: &str) -> Option<String> {
+    let wanted = normalise_enemy_name(symbolic_name);
+    manifest.enemy_sources.iter().find_map(|asset| {
+        let stem = Path::new(&asset.relative_path)
+            .file_stem()?
+            .to_string_lossy();
+        if normalise_enemy_name(&stem) == wanted {
+            Some(asset.relative_path.clone())
+        } else {
+            None
+        }
+    })
+}
+
+fn normalise_enemy_name(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .map(|character| character.to_ascii_lowercase())
+        .collect()
 }
 
 fn copy_directory_recursive(source: &Path, dest: &Path) -> Result<()> {
@@ -566,6 +630,66 @@ mod tests {
         assert_eq!(resources.foreground.as_deref(), Some("foreground/00.bin"));
         assert_eq!(resources.block.as_deref(), Some("block/00.bin"));
         assert_eq!(resources.background.as_deref(), Some("background/00.bin"));
+    }
+
+    #[test]
+    fn resolves_enemy_definitions_to_sources() {
+        let manifest = AssetManifest {
+            rom_sha1: String::from("abc123"),
+            upstream_commit: String::from("deadbeef"),
+            source_root: PathBuf::from("/tmp/source"),
+            output_root: PathBuf::from("/tmp/output"),
+            levels: Vec::new(),
+            constants: vec![
+                NamedValue {
+                    name: String::from("objid_Armadillo"),
+                    value: 0x04,
+                    comment: None,
+                },
+                NamedValue {
+                    name: String::from("objid_TarMonster"),
+                    value: 0x05,
+                    comment: None,
+                },
+            ],
+            ram_variables: Vec::new(),
+            enemy_sources: vec![
+                AssetFile {
+                    relative_path: String::from("Armadillo.asm"),
+                    size_bytes: 123,
+                    sha1: String::from("x"),
+                },
+                AssetFile {
+                    relative_path: String::from("Tar_Monster.asm"),
+                    size_bytes: 456,
+                    sha1: String::from("y"),
+                },
+            ],
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+        };
+
+        let definitions = enemy_definitions(&manifest);
+        assert_eq!(definitions.len(), 2);
+        assert_eq!(definitions[0].source_path.as_deref(), Some("Armadillo.asm"));
+        assert_eq!(
+            definitions[1].source_path.as_deref(),
+            Some("Tar_Monster.asm")
+        );
+        assert_eq!(
+            find_enemy_definition(&manifest, "04")
+                .as_ref()
+                .map(|definition| definition.symbolic_name.as_str()),
+            Some("Armadillo")
+        );
+        assert_eq!(
+            find_enemy_definition(&manifest, "tarmonster")
+                .as_ref()
+                .map(|definition| definition.id),
+            Some(0x05)
+        );
     }
 
     #[test]

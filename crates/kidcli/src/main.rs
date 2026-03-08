@@ -7,8 +7,8 @@ use clap::{Parser, Subcommand};
 use image::{ColorType, ImageFormat};
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
 use kid_data::{
-    AssetManifest, export_split_bundle, generated_bundle_dir, load_level_asset_bundle,
-    load_manifest, manifest_path as generated_manifest_path,
+    AssetManifest, export_split_bundle, find_enemy_definition, generated_bundle_dir,
+    load_level_asset_bundle, load_manifest, manifest_path as generated_manifest_path,
 };
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
@@ -181,6 +181,14 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long)]
         level: String,
+    },
+    InspectEnemy {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long)]
+        enemy: String,
     },
     VerifyNativeBootstrap {
         #[arg(long)]
@@ -475,6 +483,13 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             inspect_level(&manifest, &level)?;
+        }
+        Commands::InspectEnemy { rom, dir, enemy } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            inspect_enemy(&manifest, &enemy)?;
         }
         Commands::VerifyNativeBootstrap { rom, dir } => {
             let repo_root = current_dir()?;
@@ -1430,6 +1445,19 @@ fn parse_level_id(value: &str) -> Result<u8> {
         .unwrap_or(trimmed);
     u8::from_str_radix(hex, 16)
         .with_context(|| format!("level id must be hex in the range 00-FF, got {value}"))
+}
+
+fn inspect_enemy(manifest: &AssetManifest, selector: &str) -> Result<()> {
+    let enemy = find_enemy_definition(manifest, selector)
+        .ok_or_else(|| anyhow!("enemy {selector} not found in asset manifest"))?;
+    println!("enemy id: 0x{:02X}", enemy.id);
+    println!("constant: {}", enemy.constant_name);
+    println!("name: {}", enemy.symbolic_name);
+    match &enemy.source_path {
+        Some(path) => println!("source: {path}"),
+        None => println!("source: <none>"),
+    }
+    Ok(())
 }
 
 fn print_probe(
