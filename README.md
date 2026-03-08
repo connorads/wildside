@@ -4,6 +4,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 
 ## Current status
 
+- `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
 - `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
 - `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
@@ -16,7 +17,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
 - `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
 - `kidcli dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
-- `kidcli run-sdl` starts a minimal interactive desktop host using bundled SDL2, the current software renderer, and the current mixed FM + PSG audio path.
+- `kidcli run-sdl` starts the lower-level SDL host used for bring-up and debugging.
 - `kidcli bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
 - `kidcli reference-build` replaces the upstream `kid.bin` with the local ROM, runs `split.py`, rebuilds the ROM with the bundled Linux assembler, and verifies whether the rebuilt ROM is bit-perfect.
 
@@ -34,6 +35,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 
 ```bash
 mise trust .mise.toml
+mise run play
 mise run verify-rom
 mise run probe-cpu
 mise run verify-boot
@@ -49,6 +51,21 @@ mise run dump-audio
 mise run run-sdl
 mise run bootstrap-upstream
 mise run reference-build
+```
+
+For a player-facing launch with the default ROM search path, use:
+
+```bash
+cargo run -p kidcli -- play
+```
+
+Useful launch overrides:
+
+```bash
+cargo run -p kidcli -- play --rom ./kc.md
+cargo run -p kidcli -- play --fullscreen
+cargo run -p kidcli -- play --scale 3
+cargo run -p kidcli -- play --mute
 ```
 
 For long CPU probes, prefer the compact mode so the output stays readable:
@@ -83,6 +100,14 @@ To jump straight into the first level in the SDL host, use:
 cargo run -p kidcli -- run-sdl --autostart-level
 ```
 
+The player shell searches for a ROM in this order:
+
+- `./roms/kid.bin`
+- `./kid.bin`
+- `./kc.md`
+
+If no supported ROM is found, `play` shows an in-app error screen with the paths it checked.
+
 To dump a longer capture for inspection, use:
 
 ```bash
@@ -108,13 +133,33 @@ The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw P
 
 ## Current controls
 
-- `Arrow keys`: D-pad
+Player shell defaults:
+
+- `Arrow keys`: D-pad / menu navigation
 - `Z`: B / jump
 - `X`: C / special
 - `C`: A / run
-- `Enter`: Start
-- `Escape`: quit the SDL host
+- `Enter`: Start / confirm
+- `Escape`: pause, back, or quit from the main menu
+- `F11`: toggle fullscreen
 - SDL gamepad: D-pad plus `A`, `B`, `X`, `Start`
+
+Player shell features:
+
+- Main menu: `Start Game`, `Options`, `Quit`
+- Pause menu: `Resume`, `Restart Run`, `Return To Title`, `Options`, `Quit To Desktop`
+- Options persist under `~/.config/kid-chameleon/config.toml` or `$XDG_CONFIG_HOME/kid-chameleon/config.toml`
+- Current persistent settings:
+  - display scale: `auto`, `1x`, `2x`, `3x`, `4x`
+  - fullscreen
+  - master volume
+  - music volume
+  - sfx volume
+  - mute
+  - keyboard bindings
+- If SDL audio initialisation fails, the shell continues silently and shows a warning toast instead of exiting
+
+The current `Restart Run` option restarts the game from boot. It does not yet restore the current level in place; that would need runtime snapshots or save-state support, which is intentionally out of scope for this alpha.
 
 Bundled SDL2 currently needs `cmake` on this machine. This was installed with:
 

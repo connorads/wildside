@@ -14,6 +14,9 @@ run = "cargo test --workspace"
 [tasks.verify-rom]
 run = "cargo run -p kidcli -- verify-rom"
 
+[tasks.play]
+run = "cargo run -p kidcli -- play"
+
 [tasks.probe-cpu]
 run = "cargo run -p kidcli -- probe-cpu"
 
