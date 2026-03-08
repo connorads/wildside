@@ -9,11 +9,13 @@ anyhow.workspace = true
 clap.workspace = true
 hound.workspace = true
 image.workspace = true
+kid-core = { path = "../kid-core" }
+kid-data = { path = "../kid-data" }
 kid-md = { path = "../kid-md" }
 kid-rom = { path = "../kid-rom" }
 sdl2 = { version = "0.38.0", features = ["bundled"] }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
+serde.workspace = true
+serde_json.workspace = true
 sha1.workspace = true
 tempfile.workspace = true
 toml = "0.8.23"

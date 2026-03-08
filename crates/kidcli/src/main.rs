@@ -5,6 +5,11 @@ mod scenarios;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand};
 use image::{ColorType, ImageFormat};
+use kid_core::{GameMode as NativeGameMode, run_script as run_native_script};
+use kid_data::{
+    AssetManifest, export_split_bundle, generated_bundle_dir, load_manifest,
+    manifest_path as generated_manifest_path,
+};
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
 use oracle::{
@@ -15,6 +20,7 @@ use scenarios::{GameplayScenario, Scenario};
 use serde::Serialize;
 use std::env;
 use std::fs;
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -154,6 +160,26 @@ enum Commands {
         dir: Option<PathBuf>,
     },
     OracleSetup,
+    ExtractAssets {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    ProbeNative {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
+        scenario: Scenario,
+    },
+    VerifyNativeBootstrap {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
     ReferenceBuild {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -402,6 +428,27 @@ fn main() -> Result<()> {
             let repo_root = current_dir()?;
             let oracle_env = ensure_oracles(&repo_root)?;
             print_oracle_environment(&oracle_env);
+        }
+        Commands::ExtractAssets { rom, dir } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            print_asset_manifest(&manifest);
+        }
+        Commands::ProbeNative { rom, dir, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            probe_native_scenario(&manifest, scenario)?;
+        }
+        Commands::VerifyNativeBootstrap { rom, dir } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            verify_native_bootstrap(&manifest)?;
         }
         Commands::ReferenceBuild {
             rom,
@@ -1267,6 +1314,24 @@ fn print_verified_rom(verified: &VerifiedRom) {
     println!("regions: {}", verified.header.regions);
 }
 
+fn print_asset_manifest(manifest: &AssetManifest) {
+    println!("bundle: {}", manifest.output_root.display());
+    println!("rom sha1: {}", manifest.rom_sha1);
+    println!("upstream commit: {}", manifest.upstream_commit);
+    println!("levels: {}", manifest.levels.len());
+    println!("constants: {}", manifest.constants.len());
+    println!("ram variables: {}", manifest.ram_variables.len());
+    println!("enemy sources: {}", manifest.enemy_sources.len());
+    println!("theme assets: {}", manifest.theme_assets.len());
+    println!("scene assets: {}", manifest.scene_assets.len());
+    println!("animation assets: {}", manifest.animation_assets.len());
+    println!("sound assets: {}", manifest.sound_assets.len());
+    if let Some(level) = manifest.levels.iter().find(|level| level.level_id == 0) {
+        let display_name = level.display_name.as_deref().unwrap_or("<unnamed>");
+        println!("level 00: {display_name}");
+    }
+}
+
 fn print_probe(
     rom_path: &Path,
     probe: &kid_md::CpuProbe,
@@ -1585,20 +1650,73 @@ fn bootstrap_upstream(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+fn prepare_generated_assets(
+    repo_root: &Path,
+    rom_path: &Path,
+    upstream_dir: &Path,
+) -> Result<AssetManifest> {
+    let _lock = acquire_prepare_lock(repo_root)?;
+    let verified = verify_rom(rom_path)?;
+    let bundle_dir = generated_bundle_dir(repo_root, &verified.sha1);
+    let bundle_manifest_path = generated_manifest_path(&bundle_dir);
+    if bundle_manifest_path.is_file() {
+        return load_manifest(&bundle_manifest_path);
+    }
+
+    bootstrap_upstream(upstream_dir)?;
+    sync_rom_into_upstream(rom_path, upstream_dir)?;
+    run_command(Command::new("python3").arg("split.py"), Some(upstream_dir))?;
+    export_split_bundle(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)
+}
+
+fn acquire_prepare_lock(repo_root: &Path) -> Result<PrepareLock> {
+    let lock_dir = repo_root.join(".cache/generated");
+    fs::create_dir_all(&lock_dir)
+        .with_context(|| format!("failed to create {}", lock_dir.display()))?;
+    let lock_path = lock_dir.join(".prepare.lock");
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&lock_path)
+        {
+            Ok(_) => return Ok(PrepareLock { path: lock_path }),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                if Instant::now() >= deadline {
+                    bail!(
+                        "timed out waiting for asset prepare lock at {}",
+                        lock_path.display()
+                    );
+                }
+                thread::sleep(Duration::from_millis(200));
+            }
+            Err(error) => {
+                return Err(error)
+                    .with_context(|| format!("failed to open {}", lock_path.display()));
+            }
+        }
+    }
+}
+
+fn sync_rom_into_upstream(rom_path: &Path, upstream_dir: &Path) -> Result<()> {
+    let upstream_rom = upstream_dir.join("kid.bin");
+    fs::copy(rom_path, &upstream_rom).with_context(|| {
+        format!(
+            "failed to copy ROM from {} to {}",
+            rom_path.display(),
+            upstream_rom.display()
+        )
+    })?;
+    Ok(())
+}
+
 fn run_reference_build(
     repo_root: &Path,
     upstream_dir: &Path,
     verified: &VerifiedRom,
 ) -> Result<()> {
-    let upstream_rom = upstream_dir.join("kid.bin");
-    fs::copy(&verified.path, &upstream_rom).with_context(|| {
-        format!(
-            "failed to copy ROM from {} to {}",
-            verified.path.display(),
-            upstream_rom.display()
-        )
-    })?;
-
+    sync_rom_into_upstream(&verified.path, upstream_dir)?;
     run_command(Command::new("python3").arg("split.py"), Some(upstream_dir))?;
     build_reference_rom(repo_root, upstream_dir)?;
 
@@ -1612,6 +1730,81 @@ fn run_reference_build(
     }
 
     println!("reference build is bit-perfect");
+    Ok(())
+}
+
+fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result<()> {
+    let script = scenario.script()?;
+    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let final_frame = trace
+        .last()
+        .ok_or_else(|| anyhow!("native trace was empty for scenario {}", scenario.slug()))?;
+
+    println!("scenario: {}", scenario.slug());
+    println!("frames: {}", trace.len());
+    println!(
+        "final mode: {:?} (0x{:04X})",
+        final_frame.game_mode, final_frame.game_mode_value
+    );
+    if let Some(level_id) = final_frame.current_level {
+        println!("current level: 0x{:02X}", level_id.0);
+    }
+    if let Some(level_name) = &final_frame.current_level_name {
+        println!("current level name: {level_name}");
+    }
+
+    for checkpoint in scenario.checkpoints() {
+        if let Some(frame) = trace.get(checkpoint.frame_index.saturating_sub(1)) {
+            println!(
+                "checkpoint {}@{}: {:?} level {} {}",
+                checkpoint.label,
+                checkpoint.frame_index,
+                frame.game_mode,
+                frame
+                    .current_level
+                    .map(|level_id| format!("0x{:02X}", level_id.0))
+                    .unwrap_or_else(|| String::from("--")),
+                frame.current_level_name.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
+    let scenario = Scenario::BootTitleStartLevel1;
+    let script = scenario.script()?;
+    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let title_frame = trace
+        .get(359)
+        .ok_or_else(|| anyhow!("native trace never reached title checkpoint"))?;
+    if title_frame.game_mode != NativeGameMode::TitleScreen {
+        bail!(
+            "native bootstrap diverged before title: expected {:?}, got {:?}",
+            NativeGameMode::TitleScreen,
+            title_frame.game_mode
+        );
+    }
+
+    let final_frame = trace
+        .last()
+        .ok_or_else(|| anyhow!("native bootstrap trace was empty"))?;
+    if final_frame.game_mode != NativeGameMode::InGame {
+        bail!(
+            "native bootstrap did not reach gameplay: expected {:?}, got {:?}",
+            NativeGameMode::InGame,
+            final_frame.game_mode
+        );
+    }
+    if final_frame.current_level.map(|level_id| level_id.0) != Some(0) {
+        bail!(
+            "native bootstrap loaded the wrong first level: expected 0x00, got {:?}",
+            final_frame.current_level.map(|level_id| level_id.0)
+        );
+    }
+
+    println!("native bootstrap verification passed");
     Ok(())
 }
 
@@ -1752,6 +1945,16 @@ struct NativeAslTools {
     root: PathBuf,
     asl: PathBuf,
     p2bin: PathBuf,
+}
+
+struct PrepareLock {
+    path: PathBuf,
+}
+
+impl Drop for PrepareLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 fn verify_boot_probe(probe: &kid_md::CpuProbe) -> Result<()> {

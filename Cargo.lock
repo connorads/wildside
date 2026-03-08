@@ -365,6 +365,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
+name = "kid-core"
+version = "0.1.0"
+dependencies = [
+ "kid-data",
+ "serde",
+]
+
+[[package]]
+name = "kid-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tempfile",
+]
+
+[[package]]
 name = "kid-md"
 version = "0.1.0"
 dependencies = [
@@ -392,6 +411,8 @@ dependencies = [
  "font8x8",
  "hound",
  "image",
+ "kid-core",
+ "kid-data",
  "kid-md",
  "kid-rom",
  "sdl2",
