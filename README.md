@@ -93,15 +93,15 @@ To compare the native host against the `jgenesis` oracle, use:
 
 ```bash
 cargo run -p kidcli -- oracle-setup
-cargo run -p kidcli -- verify-frames --scenario boot-title-idle10s
+cargo run -p kidcli -- verify-frames --scenario boot-title-start-level1-move-right5s
 cargo run -p kidcli -- verify-audio-output --scenario boot-title-start-level1
 ```
 
 Current oracle results on this machine:
 
-- `verify-frames --scenario boot-title-idle10s` passes.
-- `verify-audio-output --scenario boot-title-start-level1` fails with about `5.224s` of audio onset drift versus `jgenesis`.
-- `verify-frames --scenario boot-title-start-level1-move-right5s` fails at the `level_entry` checkpoint with an MAE around `58.46`.
+- `verify-frames --scenario boot-title-start-level1` passes.
+- `verify-frames --scenario boot-title-start-level1-move-right5s` passes.
+- `verify-audio-output --scenario boot-title-start-level1` still fails, but the onset drift is down to about `3.000s` versus `jgenesis`, and the check now ignores bogus early DC activity.
 
 Those failures are useful regression signals, not harness bugs. The emitted artefacts under `.cache/oracle-runs/` now include checkpoint `state.json` alongside WAV/PNG output, which is the intended debug loop for fixing the remaining audio and gameplay drift.
 

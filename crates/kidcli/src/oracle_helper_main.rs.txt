@@ -235,7 +235,7 @@ fn scenario_frame_count(scenario: Scenario) -> usize {
     match scenario {
         Scenario::BootTitleIdle10s => 600,
         Scenario::BootTitleStartLevel1 => 720,
-        Scenario::BootTitleStartLevel1MoveRight5s => 900,
+        Scenario::BootTitleStartLevel1MoveRight5s => 1_020,
     }
 }
 
@@ -276,11 +276,11 @@ fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
             },
             FrameCheckpoint {
                 label: "move_mid",
-                frame_index: 650,
+                frame_index: 840,
             },
             FrameCheckpoint {
                 label: "move_end",
-                frame_index: 799,
+                frame_index: 1_019,
             },
         ],
     }
@@ -297,7 +297,7 @@ fn scenario_script(scenario: Scenario) -> Vec<u8> {
         Scenario::BootTitleStartLevel1MoveRight5s => {
             apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
             apply_range(&mut script, 460, 460, 0x80);
-            apply_range(&mut script, 500, 799, 1 << 3);
+            apply_range(&mut script, 720, 1_019, 1 << 3);
         }
     }
     script

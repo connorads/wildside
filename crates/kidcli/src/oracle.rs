@@ -20,7 +20,7 @@ pub struct OracleEnvironment {
     pub blastem_binary: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
 pub struct OracleManifest {
     pub sample_rate: u32,
     pub audio_path: PathBuf,
@@ -28,7 +28,7 @@ pub struct OracleManifest {
     pub states: Vec<OracleState>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
 pub struct OracleFrame {
     pub label: String,
     pub frame_index: usize,

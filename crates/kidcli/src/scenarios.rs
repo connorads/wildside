@@ -51,11 +51,11 @@ const BOOT_TITLE_START_LEVEL_1_MOVE_RIGHT_5S_CHECKPOINTS: [FrameCheckpoint; 4] =
     },
     FrameCheckpoint {
         label: "move_mid",
-        frame_index: 650,
+        frame_index: 840,
     },
     FrameCheckpoint {
         label: "move_end",
-        frame_index: 799,
+        frame_index: 1_019,
     },
 ];
 
@@ -72,7 +72,7 @@ impl Scenario {
         match self {
             Self::BootTitleIdle10s => 600,
             Self::BootTitleStartLevel1 => 720,
-            Self::BootTitleStartLevel1MoveRight5s => 900,
+            Self::BootTitleStartLevel1MoveRight5s => 1_020,
         }
     }
 
@@ -97,7 +97,7 @@ impl Scenario {
             Self::BootTitleStartLevel1MoveRight5s => {
                 apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
                 apply_range(&mut script, 460, 460, 0x80);
-                apply_range(&mut script, 500, 799, 1 << 3);
+                apply_range(&mut script, 720, 1_019, 1 << 3);
             }
         }
         Ok(script)
@@ -127,9 +127,10 @@ mod tests {
         let script = Scenario::BootTitleStartLevel1MoveRight5s
             .script()
             .expect("scenario script should build");
-        assert_eq!(script[500], 1 << 3);
-        assert_eq!(script[799], 1 << 3);
-        assert_eq!(script[800], 0);
+        assert_eq!(script[719], 0);
+        assert_eq!(script[720], 1 << 3);
+        assert_eq!(script[1_019], 1 << 3);
+        assert_eq!(script[1_020], 0);
     }
 
     #[test]

@@ -35,6 +35,7 @@ const VSRAM_LEN: usize = 0x50;
 const TRACE_LIMIT: usize = 256;
 const PSG_CLOCK_HZ: f32 = 3_579_545.0;
 const Z80_CLOCK_HZ: f64 = 3_579_545.0;
+const Z80_VBLANK_IRQ_CYCLES: u32 = 228;
 const YM2612_GAIN: f32 = 0.35;
 const PSG_GAIN: f32 = 0.12;
 
@@ -305,7 +306,7 @@ pub struct MdRuntime {
     core: ConfiguredCore<AutoInterruptController, MdBus>,
     z80: Z80<Z80Bus>,
     z80_reset_asserted: bool,
-    z80_vblank_irq_pending: bool,
+    z80_vblank_irq_cycles_remaining: u32,
     audio_mixer: AudioMixer,
     cycles_until_vblank: i32,
     synthetic_vblanks: u32,
@@ -437,7 +438,7 @@ impl MdRuntime {
             core,
             z80,
             z80_reset_asserted: false,
-            z80_vblank_irq_pending: false,
+            z80_vblank_irq_cycles_remaining: 0,
             audio_mixer: AudioMixer::default(),
             cycles_until_vblank: SYNTHETIC_VBLANK_CYCLES,
             synthetic_vblanks: 0,
@@ -455,7 +456,7 @@ impl MdRuntime {
         self.cycles_until_vblank -= cycles;
         while self.cycles_until_vblank <= 0 {
             self.cycles_until_vblank += SYNTHETIC_VBLANK_CYCLES;
-            self.z80_vblank_irq_pending = true;
+            self.z80_vblank_irq_cycles_remaining = Z80_VBLANK_IRQ_CYCLES;
             if self.core.mem.vint_enabled() {
                 self.core.int_ctrl.request_interrupt(6);
                 self.synthetic_vblanks += 1;
@@ -528,17 +529,15 @@ impl MdRuntime {
                 self.z80.reset();
                 self.z80_reset_asserted = true;
             }
+            self.z80_vblank_irq_cycles_remaining = 0;
+            self.z80.clr_irq();
             return;
         }
         self.z80_reset_asserted = false;
 
         if busreq {
+            self.z80.clr_irq();
             return;
-        }
-
-        if self.z80_vblank_irq_pending {
-            self.z80.pulse_irq(0xFF);
-            self.z80_vblank_irq_pending = false;
         }
 
         let mut remaining_cycles = ((m68k_cycles.max(0) as u32) * 7) / 15;
@@ -546,13 +545,24 @@ impl MdRuntime {
             remaining_cycles = 1;
         }
         while remaining_cycles > 0 {
+            if self.z80_vblank_irq_cycles_remaining != 0 {
+                self.z80.assert_irq(0xFF);
+            } else {
+                self.z80.clr_irq();
+            }
             let elapsed = self.z80.step();
             let mut shared = self.core.mem.z80_shared.borrow_mut();
             shared.z80_cycles = shared.z80_cycles.saturating_add(u64::from(elapsed));
+            drop(shared);
+            self.z80_vblank_irq_cycles_remaining =
+                self.z80_vblank_irq_cycles_remaining.saturating_sub(elapsed);
             if elapsed >= remaining_cycles {
                 break;
             }
             remaining_cycles -= elapsed;
+        }
+        if self.z80_vblank_irq_cycles_remaining == 0 {
+            self.z80.clr_irq();
         }
     }
 }
@@ -585,7 +595,7 @@ pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
                 &probe.vdp.vram,
                 hscroll_base,
                 y,
-                2,
+                0,
                 probe.vdp.registers[0x0B],
             ),
             vscroll: vscroll_a,
@@ -598,7 +608,7 @@ pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
                 &probe.vdp.vram,
                 hscroll_base,
                 y,
-                0,
+                2,
                 probe.vdp.registers[0x0B],
             ),
             vscroll: vscroll_b,
@@ -1421,13 +1431,14 @@ fn hscroll_for_line(
     plane_offset: usize,
     mode_register: u8,
 ) -> i32 {
-    let mode = mode_register & 0x03;
-    let offset = if mode == 0x03 {
-        base + line * 4 + plane_offset
-    } else {
-        base + plane_offset
+    let offset = match mode_register & 0x03 {
+        0x00 => base + plane_offset,
+        0x01 => base + 4 * (line & 0x07) + plane_offset,
+        0x02 => base + 32 * (line / 8) + plane_offset,
+        0x03 => base + 4 * line + plane_offset,
+        _ => unreachable!("mode register is masked to two bits"),
     };
-    i32::from(read_u16_wrapped(vram, offset) as i16)
+    i32::from(read_u16_wrapped(vram, offset) & 0x03FF)
 }
 
 fn plane_pixel_rgb(
@@ -1918,5 +1929,25 @@ mod tests {
         bus.port_out(0x007F, 0x90);
 
         assert!(shared.borrow().psg_writes.is_empty());
+    }
+
+    #[test]
+    fn hscroll_modes_follow_vdp_layout() {
+        let mut vram = vec![0; 0x400];
+        vram[0x100..0x110].copy_from_slice(&[
+            0x00, 0x08, 0x00, 0x18, 0x00, 0x28, 0x00, 0x38, 0x00, 0x48, 0x00, 0x58, 0x00, 0x68,
+            0x00, 0x78,
+        ]);
+        vram[0x120..0x124].copy_from_slice(&[0x00, 0x48, 0x00, 0x58]);
+        vram[0x140..0x144].copy_from_slice(&[0x00, 0x68, 0x00, 0x78]);
+
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 3, 0, 0x00), 0x008);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 3, 2, 0x00), 0x018);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 10, 0, 0x01), 0x048);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 10, 2, 0x01), 0x058);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 9, 0, 0x02), 0x048);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 9, 2, 0x02), 0x058);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 0, 0x03), 0x068);
+        assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 2, 0x03), 0x078);
     }
 }
