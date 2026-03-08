@@ -26,7 +26,8 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 
 - Runtime and build tooling live in this repo.
 - Upstream research repos are cached under `.cache/` and ignored by git.
-- The only system package installed so far was `cmake` for bundled SDL2.
+- `mise` now pins `cmake 3.30.9` for bundled SDL2 builds.
+- The only system package installed so far was `cmake` before the repo switched to the `mise` pin.
 - The local ROM is expected at one of:
   - `./roms/kid.bin`
   - `./kid.bin`
@@ -165,12 +166,7 @@ Player shell features:
 
 The current `Restart Run` option restarts the game from boot. It does not yet restore the current level in place; that would need runtime snapshots or save-state support, which is intentionally out of scope for this alpha.
 
-Bundled SDL2 currently needs `cmake` on this machine. This was installed with:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y cmake
-```
+Bundled SDL2 now uses the `cmake` version pinned in `.mise.toml` so it stays below the CMake 4.x compatibility break that SDL2 0.38.0 trips over.
 
 The FM core is vendored under `third_party/ymfm` from `aaronsgiles/ymfm` (BSD-3-Clause).
 
