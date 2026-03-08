@@ -810,7 +810,7 @@ fn plane_pixel_rgb(
 ) -> Option<[u8; 3]> {
     let plane_width_pixels = (plane.width_cells * 8) as i32;
     let plane_height_pixels = (plane.height_cells * 8) as i32;
-    let world_x = (screen_x as i32 + plane.hscroll).rem_euclid(plane_width_pixels);
+    let world_x = (screen_x as i32 - plane.hscroll).rem_euclid(plane_width_pixels);
     let world_y = (screen_y as i32 + plane.vscroll).rem_euclid(plane_height_pixels);
     let cell_x = (world_x as usize) / 8;
     let cell_y = (world_y as usize) / 8;
