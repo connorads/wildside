@@ -73,6 +73,7 @@ Button names are `up`, `down`, `left`, `right`, `a`, `b`, `c`, and `start`. You 
 - `C`: A / run
 - `Enter`: Start
 - `Escape`: quit the SDL host
+- SDL gamepad: D-pad plus `A`, `B`, `X`, `Start`
 
 Bundled SDL2 currently needs `cmake` on this machine. This was installed with:
 

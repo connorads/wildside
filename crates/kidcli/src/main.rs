@@ -344,6 +344,9 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
     let video = sdl
         .video()
         .map_err(|error| anyhow!("failed to init SDL video: {error}"))?;
+    let game_controller = sdl
+        .game_controller()
+        .map_err(|error| anyhow!("failed to init SDL game controller subsystem: {error}"))?;
     let window = video
         .window("Kid Chameleon", 320 * scale, 224 * scale)
         .position_centered()
@@ -361,11 +364,11 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
     let mut events = sdl
         .event_pump()
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
+    let mut controller = open_first_controller(&game_controller)?;
     let frame_time = Duration::from_micros(16_667);
 
     'running: loop {
         let frame_started = Instant::now();
-        let buttons = keyboard_buttons(&events);
         for event in events.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'running,
@@ -373,9 +376,21 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
                     keycode: Some(sdl2::keyboard::Keycode::Escape),
                     ..
                 } => break 'running,
+                sdl2::event::Event::ControllerDeviceAdded { .. } => {
+                    if controller.is_none() {
+                        controller = open_first_controller(&game_controller)?;
+                    }
+                }
+                sdl2::event::Event::ControllerDeviceRemoved { .. } => {
+                    controller = controller.filter(|gamepad| gamepad.attached());
+                    if controller.is_none() {
+                        controller = open_first_controller(&game_controller)?;
+                    }
+                }
                 _ => {}
             }
         }
+        let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
 
         runtime.set_controller_1(buttons);
         runtime.run_until_vblank(500_000);
@@ -397,6 +412,24 @@ fn run_sdl(rom_bytes: &[u8], scale: u32) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn open_first_controller(
+    game_controller: &sdl2::GameControllerSubsystem,
+) -> Result<Option<sdl2::controller::GameController>> {
+    let joystick_count = game_controller
+        .num_joysticks()
+        .map_err(|error| anyhow!("failed to enumerate SDL controllers: {error}"))?;
+    for index in 0..joystick_count {
+        if !game_controller.is_game_controller(index) {
+            continue;
+        }
+        let controller = game_controller
+            .open(index)
+            .map_err(|error| anyhow!("failed to open SDL controller {index}: {error}"))?;
+        return Ok(Some(controller));
+    }
+    Ok(None)
 }
 
 fn keyboard_buttons(events: &sdl2::EventPump) -> u8 {
@@ -424,6 +457,41 @@ fn keyboard_buttons(events: &sdl2::EventPump) -> u8 {
         buttons |= 1 << 6;
     }
     if keyboard.is_scancode_pressed(sdl2::keyboard::Scancode::Return) {
+        buttons |= 1 << 7;
+    }
+    buttons
+}
+
+fn controller_buttons(controller: Option<&sdl2::controller::GameController>) -> u8 {
+    let Some(controller) = controller else {
+        return 0;
+    };
+
+    use sdl2::controller::Button;
+
+    let mut buttons = 0u8;
+    if controller.button(Button::DPadUp) {
+        buttons |= 1 << 0;
+    }
+    if controller.button(Button::DPadDown) {
+        buttons |= 1 << 1;
+    }
+    if controller.button(Button::DPadLeft) {
+        buttons |= 1 << 2;
+    }
+    if controller.button(Button::DPadRight) {
+        buttons |= 1 << 3;
+    }
+    if controller.button(Button::A) {
+        buttons |= 1 << 4;
+    }
+    if controller.button(Button::B) {
+        buttons |= 1 << 5;
+    }
+    if controller.button(Button::X) {
+        buttons |= 1 << 6;
+    }
+    if controller.button(Button::Start) {
         buttons |= 1 << 7;
     }
     buttons
