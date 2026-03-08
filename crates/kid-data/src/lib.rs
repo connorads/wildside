@@ -60,6 +60,7 @@ pub struct LevelAssetBundle {
     pub platform_script: Option<LoadedAsset>,
     pub bgscroll: Option<LoadedAsset>,
     pub header: Option<LoadedAsset>,
+    pub parsed_header: Option<LevelHeader>,
     pub enemy: Option<LoadedAsset>,
     pub foreground: Option<LoadedAsset>,
     pub block: Option<LoadedAsset>,
@@ -78,6 +79,21 @@ pub struct EnemyDefinition {
     pub constant_name: String,
     pub symbolic_name: String,
     pub source_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LevelHeader {
+    pub width_screens: u8,
+    pub height_screens: u8,
+    pub height_flag_bits: u8,
+    pub level_theme: u8,
+    pub murder_wall_flags: u8,
+    pub background_theme: u8,
+    pub weather_flags: u8,
+    pub player_start_x: u16,
+    pub player_start_y: u16,
+    pub flag_x: u16,
+    pub flag_y: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -208,12 +224,18 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .iter()
         .find(|level| level.level_id == level_id)
         .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?;
+    let header = load_asset(manifest, level.resources.header.as_deref())?;
+    let parsed_header = header
+        .as_ref()
+        .map(|asset| parse_level_header(&asset.bytes))
+        .transpose()?;
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
         platform_script: load_asset(manifest, level.resources.platform_script.as_deref())?,
         bgscroll: load_asset(manifest, level.resources.bgscroll.as_deref())?,
-        header: load_asset(manifest, level.resources.header.as_deref())?,
+        header,
+        parsed_header,
         enemy: load_asset(manifest, level.resources.enemy.as_deref())?,
         foreground: load_asset(manifest, level.resources.foreground.as_deref())?,
         block: load_asset(manifest, level.resources.block.as_deref())?,
@@ -252,6 +274,34 @@ pub fn find_enemy_definition(manifest: &AssetManifest, selector: &str) -> Option
         Some(definition.id) == by_id
             || normalise_enemy_name(&definition.constant_name) == normalised_selector
             || normalise_enemy_name(&definition.symbolic_name) == normalised_selector
+    })
+}
+
+pub fn parse_level_header(bytes: &[u8]) -> Result<LevelHeader> {
+    if bytes.len() < 0x0C {
+        bail!(
+            "level header was {} bytes, expected at least 12 bytes",
+            bytes.len()
+        );
+    }
+
+    let width_screens = bytes[0];
+    let raw_height = bytes[1];
+    let raw_level_theme = bytes[2];
+    let raw_background_theme = bytes[3];
+
+    Ok(LevelHeader {
+        width_screens,
+        height_screens: raw_height & 0x3F,
+        height_flag_bits: raw_height >> 6,
+        level_theme: raw_level_theme & 0x3F,
+        murder_wall_flags: raw_level_theme >> 6,
+        background_theme: raw_background_theme & 0x0F,
+        weather_flags: raw_background_theme >> 4,
+        player_start_x: read_u16_be(bytes, 4),
+        player_start_y: read_u16_be(bytes, 6),
+        flag_x: read_u16_be(bytes, 8),
+        flag_y: read_u16_be(bytes, 10),
     })
 }
 
@@ -330,6 +380,10 @@ fn load_asset(
         relative_path: relative_path.to_owned(),
         bytes,
     }))
+}
+
+fn read_u16_be(bytes: &[u8], offset: usize) -> u16 {
+    u16::from_be_bytes([bytes[offset], bytes[offset + 1]])
 }
 
 fn find_enemy_source_path(manifest: &AssetManifest, symbolic_name: &str) -> Option<String> {
@@ -693,6 +747,25 @@ mod tests {
     }
 
     #[test]
+    fn parses_level_header_fields() {
+        let header = parse_level_header(&[
+            0x06, 0x84, 0x88, 0x18, 0x07, 0x50, 0x00, 0xE0, 0x07, 0x50, 0x03, 0x00,
+        ])
+        .expect("header should parse");
+        assert_eq!(header.width_screens, 0x06);
+        assert_eq!(header.height_screens, 0x04);
+        assert_eq!(header.height_flag_bits, 0x02);
+        assert_eq!(header.level_theme, 0x08);
+        assert_eq!(header.murder_wall_flags, 0x02);
+        assert_eq!(header.background_theme, 0x08);
+        assert_eq!(header.weather_flags, 0x01);
+        assert_eq!(header.player_start_x, 0x0750);
+        assert_eq!(header.player_start_y, 0x00E0);
+        assert_eq!(header.flag_x, 0x0750);
+        assert_eq!(header.flag_y, 0x0300);
+    }
+
+    #[test]
     fn exports_bundle_and_writes_manifest() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
@@ -716,7 +789,13 @@ mod tests {
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
         fs::write(source_root.join("level/platform/00.asm"), b"platform").expect("platform");
         fs::write(source_root.join("level/bgscroll/00.bin"), b"bgscroll").expect("bgscroll");
-        fs::write(source_root.join("level/header/00.bin"), b"header").expect("header");
+        fs::write(
+            source_root.join("level/header/00.bin"),
+            [
+                0x06, 0x04, 0x08, 0x18, 0x07, 0x50, 0x00, 0xE0, 0x07, 0x50, 0x03, 0x00,
+            ],
+        )
+        .expect("header");
         fs::write(
             source_root.join("doc/level_list.txt"),
             "0x00 0x4A Blue Lake Woods 1\n",
@@ -760,6 +839,20 @@ mod tests {
                 .as_ref()
                 .map(|asset| asset.bytes.as_slice()),
             Some(&b"platform"[..])
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_header
+                .as_ref()
+                .map(|header| header.width_screens),
+            Some(0x06)
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_header
+                .as_ref()
+                .map(|header| header.flag_y),
+            Some(0x0300)
         );
     }
 }

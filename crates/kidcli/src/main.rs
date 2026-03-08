@@ -1416,6 +1416,21 @@ fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
         println!("title text id: 0x{:02X}", title_text_id);
     }
     println!("resource paths: {}", level.resource_paths.join(", "));
+    if let Some(header) = &bundle.parsed_header {
+        println!(
+            "header: size {}x{} screens, theme 0x{:02X}, bg theme 0x{:02X}, weather 0x{:X}, murder wall 0x{:X}",
+            header.width_screens,
+            header.height_screens,
+            header.level_theme,
+            header.background_theme,
+            header.weather_flags,
+            header.murder_wall_flags
+        );
+        println!(
+            "player start: {},{}  flag: {},{}",
+            header.player_start_x, header.player_start_y, header.flag_x, header.flag_y
+        );
+    }
     print_loaded_asset("platform", bundle.platform_script.as_ref());
     print_loaded_asset("bgscroll", bundle.bgscroll.as_ref());
     print_loaded_asset("header", bundle.header.as_ref());
