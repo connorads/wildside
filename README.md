@@ -11,7 +11,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-level` asserts that the scripted front-end path can enter the first level and that holding `right` advances the in-level camera.
 - `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing PSG writes by first-level entry.
 - `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
-- `kidcli run-sdl` starts a minimal interactive desktop host using bundled SDL2 and the current software renderer.
+- `kidcli run-sdl` starts a minimal interactive desktop host using bundled SDL2, the current software renderer, and a PSG-only audio path.
 - `kidcli bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
 - `kidcli reference-build` replaces the upstream `kid.bin` with the local ROM, runs `split.py`, rebuilds the ROM with the bundled Linux assembler, and verifies whether the rebuilt ROM is bit-perfect.
 

@@ -375,6 +375,7 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
     let video = sdl
         .video()
         .map_err(|error| anyhow!("failed to init SDL video: {error}"))?;
+    let audio = sdl.audio().ok();
     let game_controller = sdl
         .game_controller()
         .map_err(|error| anyhow!("failed to init SDL game controller subsystem: {error}"))?;
@@ -396,8 +397,14 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
         .event_pump()
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
+    let audio_queue = audio
+        .as_ref()
+        .and_then(|audio| open_audio_queue(audio).transpose())
+        .transpose()?;
     let frame_time = Duration::from_micros(16_667);
     let mut frame_index = 0usize;
+    const AUDIO_SAMPLE_RATE: u32 = 44_100;
+    const AUDIO_FRAME_SAMPLES: usize = 735;
 
     'running: loop {
         let frame_started = Instant::now();
@@ -434,6 +441,14 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
         runtime.run_until_vblank(500_000);
         let snapshot = runtime.snapshot();
         let frame = render_frame(&snapshot);
+        if let Some(audio_queue) = audio_queue.as_ref()
+            && audio_queue.size() < (AUDIO_FRAME_SAMPLES * 8 * std::mem::size_of::<f32>()) as u32
+        {
+            let samples = runtime.generate_psg_samples(AUDIO_SAMPLE_RATE, AUDIO_FRAME_SAMPLES);
+            audio_queue
+                .queue_audio(&samples)
+                .map_err(|error| anyhow!("failed to queue SDL audio samples: {error}"))?;
+        }
         texture
             .update(None, &frame.rgb, frame.width * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
@@ -451,6 +466,20 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn open_audio_queue(audio: &sdl2::AudioSubsystem) -> Result<Option<sdl2::audio::AudioQueue<f32>>> {
+    let desired = sdl2::audio::AudioSpecDesired {
+        freq: Some(44_100),
+        channels: Some(1),
+        samples: Some(1024),
+    };
+    let queue = match audio.open_queue::<f32, _>(None, &desired) {
+        Ok(queue) => queue,
+        Err(_) => return Ok(None),
+    };
+    queue.resume();
+    Ok(Some(queue))
 }
 
 fn open_first_controller(

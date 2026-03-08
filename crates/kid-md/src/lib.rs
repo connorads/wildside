@@ -30,6 +30,7 @@ const VRAM_LEN: usize = 0x1_0000;
 const CRAM_LEN: usize = 0x80;
 const VSRAM_LEN: usize = 0x50;
 const TRACE_LIMIT: usize = 256;
+const PSG_CLOCK_HZ: f32 = 3_579_545.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuProbe {
@@ -107,6 +108,7 @@ struct Z80Shared {
     bank_address: u32,
     ym2612_writes: Vec<(u16, u8)>,
     psg_writes: Vec<u8>,
+    psg_registers: PsgRegisters,
 }
 
 impl Default for Z80Shared {
@@ -118,6 +120,78 @@ impl Default for Z80Shared {
             bank_address: 0,
             ym2612_writes: Vec::new(),
             psg_writes: Vec::new(),
+            psg_registers: PsgRegisters::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PsgRegisters {
+    latched_register: u8,
+    tone_periods: [u16; 3],
+    volumes: [u8; 4],
+    noise_control: u8,
+}
+
+impl Default for PsgRegisters {
+    fn default() -> Self {
+        Self {
+            latched_register: 0,
+            tone_periods: [1; 3],
+            volumes: [0x0F; 4],
+            noise_control: 0,
+        }
+    }
+}
+
+impl PsgRegisters {
+    fn apply_write(&mut self, value: u8) {
+        if value & 0x80 != 0 {
+            self.latched_register = (value >> 4) & 0x07;
+            self.apply_latched_data(self.latched_register, value & 0x0F);
+        } else {
+            self.apply_data(self.latched_register, value & 0x3F);
+        }
+    }
+
+    fn apply_latched_data(&mut self, register: u8, data: u8) {
+        match register {
+            0 | 2 | 4 => {
+                let channel = usize::from(register / 2);
+                self.tone_periods[channel] = (self.tone_periods[channel] & !0x0F) | u16::from(data);
+            }
+            1 | 3 | 5 | 7 => self.volumes[usize::from(register / 2)] = data & 0x0F,
+            6 => self.noise_control = data & 0x07,
+            _ => {}
+        }
+    }
+
+    fn apply_data(&mut self, register: u8, data: u8) {
+        match register {
+            0 | 2 | 4 => {
+                let channel = usize::from(register / 2);
+                self.tone_periods[channel] =
+                    (self.tone_periods[channel] & 0x0F) | (u16::from(data & 0x3F) << 4);
+            }
+            6 => self.noise_control = data & 0x07,
+            _ => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PsgSynth {
+    tone_phase: [f32; 3],
+    noise_phase: f32,
+    noise_lfsr: u16,
+}
+
+impl Default for PsgSynth {
+    fn default() -> Self {
+        Self {
+            tone_phase: [0.0; 3],
+            noise_phase: 0.0,
+            noise_lfsr: 0x8000,
         }
     }
 }
@@ -131,6 +205,7 @@ pub struct MdRuntime {
     core: ConfiguredCore<AutoInterruptController, MdBus>,
     z80: Z80<Z80Bus>,
     z80_reset_asserted: bool,
+    psg_synth: PsgSynth,
     cycles_until_vblank: i32,
     synthetic_vblanks: u32,
 }
@@ -254,6 +329,7 @@ impl MdRuntime {
             core,
             z80,
             z80_reset_asserted: false,
+            psg_synth: PsgSynth::default(),
             cycles_until_vblank: SYNTHETIC_VBLANK_CYCLES,
             synthetic_vblanks: 0,
         })
@@ -317,6 +393,11 @@ impl MdRuntime {
             vdp_control_writes: self.core.mem.vdp_control_writes(),
             vdp_data_writes: self.core.mem.vdp_data_writes(),
         }
+    }
+
+    pub fn generate_psg_samples(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        let registers = self.core.mem.z80_shared.borrow().psg_registers.clone();
+        self.psg_synth.render(&registers, sample_rate, sample_count)
     }
 
     fn step_z80(&mut self, m68k_cycles: i32) {
@@ -901,6 +982,7 @@ impl Z80Bus {
         if shared.psg_writes.len() < TRACE_LIMIT {
             shared.psg_writes.push(value);
         }
+        shared.psg_registers.apply_write(value);
     }
 
     fn write_bank_register(&self, value: u8) {
@@ -941,6 +1023,64 @@ impl Z80_io for Z80Bus {
         if address & 0x00FF == 0x7F {
             self.record_psg_write(value);
         }
+    }
+}
+
+impl PsgSynth {
+    fn render(
+        &mut self,
+        registers: &PsgRegisters,
+        sample_rate: u32,
+        sample_count: usize,
+    ) -> Vec<f32> {
+        let mut samples = Vec::with_capacity(sample_count);
+        let sample_rate = sample_rate as f32;
+
+        for _ in 0..sample_count {
+            let mut mixed = 0.0f32;
+            for channel in 0..3 {
+                let period = registers.tone_periods[channel].max(1) as f32;
+                let frequency = PSG_CLOCK_HZ / (32.0 * period);
+                let phase_step = frequency / sample_rate;
+                self.tone_phase[channel] = (self.tone_phase[channel] + phase_step).fract();
+                let wave = if self.tone_phase[channel] < 0.5 {
+                    1.0
+                } else {
+                    -1.0
+                };
+                mixed += wave * psg_volume(registers.volumes[channel]);
+            }
+
+            let noise_frequency = match registers.noise_control & 0x03 {
+                0 => PSG_CLOCK_HZ / 512.0,
+                1 => PSG_CLOCK_HZ / 1024.0,
+                2 => PSG_CLOCK_HZ / 2048.0,
+                _ => {
+                    let period = registers.tone_periods[2].max(1) as f32;
+                    PSG_CLOCK_HZ / (32.0 * period)
+                }
+            };
+            self.noise_phase += noise_frequency / sample_rate;
+            while self.noise_phase >= 1.0 {
+                self.noise_phase -= 1.0;
+                let feedback = (self.noise_lfsr ^ (self.noise_lfsr >> 1)) & 1;
+                self.noise_lfsr = (self.noise_lfsr >> 1) | (feedback << 15);
+            }
+            let noise_wave = if self.noise_lfsr & 1 == 0 { 1.0 } else { -1.0 };
+            mixed += noise_wave * psg_volume(registers.volumes[3]);
+
+            samples.push((mixed / 4.0).clamp(-0.25, 0.25));
+        }
+
+        samples
+    }
+}
+
+fn psg_volume(volume: u8) -> f32 {
+    if volume >= 0x0F {
+        0.0
+    } else {
+        10.0_f32.powf(-(f32::from(volume) * 2.0) / 20.0)
     }
 }
 
