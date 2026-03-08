@@ -7,8 +7,8 @@ use clap::{Parser, Subcommand};
 use image::{ColorType, ImageFormat};
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
 use kid_data::{
-    AssetManifest, export_split_bundle, generated_bundle_dir, load_manifest,
-    manifest_path as generated_manifest_path,
+    AssetManifest, export_split_bundle, generated_bundle_dir, load_level_asset_bundle,
+    load_manifest, manifest_path as generated_manifest_path,
 };
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
@@ -173,6 +173,14 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
+    },
+    InspectLevel {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long)]
+        level: String,
     },
     VerifyNativeBootstrap {
         #[arg(long)]
@@ -460,6 +468,13 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             probe_native_scenario(&manifest, scenario)?;
+        }
+        Commands::InspectLevel { rom, dir, level } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            inspect_level(&manifest, &level)?;
         }
         Commands::VerifyNativeBootstrap { rom, dir } => {
             let repo_root = current_dir()?;
@@ -1367,6 +1382,54 @@ fn print_asset_manifest(manifest: &AssetManifest) {
         let display_name = level.display_name.as_deref().unwrap_or("<unnamed>");
         println!("level 00: {display_name}");
     }
+}
+
+fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
+    let level_id = parse_level_id(level_spec)?;
+    let level = manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == level_id)
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?;
+    let bundle = load_level_asset_bundle(manifest, level_id)?;
+
+    println!("level: 0x{:02X}", level_id);
+    if let Some(name) = &level.display_name {
+        println!("name: {name}");
+    }
+    if let Some(title_text_id) = level.title_text_id {
+        println!("title text id: 0x{:02X}", title_text_id);
+    }
+    println!("resource paths: {}", level.resource_paths.join(", "));
+    print_loaded_asset("platform", bundle.platform_script.as_ref());
+    print_loaded_asset("bgscroll", bundle.bgscroll.as_ref());
+    print_loaded_asset("header", bundle.header.as_ref());
+    print_loaded_asset("enemy", bundle.enemy.as_ref());
+    print_loaded_asset("foreground", bundle.foreground.as_ref());
+    print_loaded_asset("block", bundle.block.as_ref());
+    print_loaded_asset("background", bundle.background.as_ref());
+    Ok(())
+}
+
+fn print_loaded_asset(label: &str, asset: Option<&kid_data::LoadedAsset>) {
+    match asset {
+        Some(asset) => println!(
+            "{label}: {} ({} bytes)",
+            asset.relative_path,
+            asset.bytes.len()
+        ),
+        None => println!("{label}: <none>"),
+    }
+}
+
+fn parse_level_id(value: &str) -> Result<u8> {
+    let trimmed = value.trim();
+    let hex = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .unwrap_or(trimmed);
+    u8::from_str_radix(hex, 16)
+        .with_context(|| format!("level id must be hex in the range 00-FF, got {value}"))
 }
 
 fn print_probe(

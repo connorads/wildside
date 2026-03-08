@@ -312,7 +312,7 @@ pub fn run_script(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kid_data::{AssetManifest, LevelRecord};
+    use kid_data::{AssetManifest, LevelRecord, LevelResources};
     use std::path::PathBuf;
 
     fn manifest() -> AssetManifest {
@@ -326,6 +326,7 @@ mod tests {
                 title_text_id: Some(0x4A),
                 display_name: Some(String::from("Blue Lake Woods 1")),
                 resource_paths: vec![String::from("level/header/00.bin")],
+                resources: LevelResources::default(),
             }],
             constants: Vec::new(),
             ram_variables: Vec::new(),

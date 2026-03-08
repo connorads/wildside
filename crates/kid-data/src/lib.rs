@@ -38,6 +38,38 @@ pub struct LevelRecord {
     pub title_text_id: Option<u8>,
     pub display_name: Option<String>,
     pub resource_paths: Vec<String>,
+    #[serde(default)]
+    pub resources: LevelResources,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LevelResources {
+    pub platform_script: Option<String>,
+    pub bgscroll: Option<String>,
+    pub header: Option<String>,
+    pub enemy: Option<String>,
+    pub foreground: Option<String>,
+    pub block: Option<String>,
+    pub background: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LevelAssetBundle {
+    pub level_id: u8,
+    pub display_name: Option<String>,
+    pub platform_script: Option<LoadedAsset>,
+    pub bgscroll: Option<LoadedAsset>,
+    pub header: Option<LoadedAsset>,
+    pub enemy: Option<LoadedAsset>,
+    pub foreground: Option<LoadedAsset>,
+    pub block: Option<LoadedAsset>,
+    pub background: Option<LoadedAsset>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadedAsset {
+    pub relative_path: String,
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -156,7 +188,29 @@ pub fn export_split_bundle(
 pub fn load_manifest(path: &Path) -> Result<AssetManifest> {
     let bytes =
         fs::read(path).with_context(|| format!("failed to read manifest {}", path.display()))?;
-    serde_json::from_slice(&bytes).context("failed to parse asset manifest")
+    let mut manifest: AssetManifest =
+        serde_json::from_slice(&bytes).context("failed to parse asset manifest")?;
+    normalise_manifest(&mut manifest);
+    Ok(manifest)
+}
+
+pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result<LevelAssetBundle> {
+    let level = manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == level_id)
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?;
+    Ok(LevelAssetBundle {
+        level_id,
+        display_name: level.display_name.clone(),
+        platform_script: load_asset(manifest, level.resources.platform_script.as_deref())?,
+        bgscroll: load_asset(manifest, level.resources.bgscroll.as_deref())?,
+        header: load_asset(manifest, level.resources.header.as_deref())?,
+        enemy: load_asset(manifest, level.resources.enemy.as_deref())?,
+        foreground: load_asset(manifest, level.resources.foreground.as_deref())?,
+        block: load_asset(manifest, level.resources.block.as_deref())?,
+        background: load_asset(manifest, level.resources.background.as_deref())?,
+    })
 }
 
 fn merge_level_catalogues(
@@ -172,6 +226,9 @@ fn merge_level_catalogues(
                 title_text_id: Some(title_text_id),
                 display_name: Some(display_name),
                 resource_paths: files.get(&level_id).cloned().unwrap_or_default(),
+                resources: level_resources_from_paths(
+                    files.get(&level_id).cloned().unwrap_or_default().as_slice(),
+                ),
             },
         );
     }
@@ -180,10 +237,57 @@ fn merge_level_catalogues(
             level_id,
             title_text_id: None,
             display_name: None,
+            resources: level_resources_from_paths(&resource_paths),
             resource_paths,
         });
     }
     by_level.into_values().collect()
+}
+
+fn normalise_manifest(manifest: &mut AssetManifest) {
+    for level in &mut manifest.levels {
+        if level.resources == LevelResources::default() {
+            level.resources = level_resources_from_paths(&level.resource_paths);
+        }
+    }
+}
+
+fn level_resources_from_paths(paths: &[String]) -> LevelResources {
+    let mut resources = LevelResources::default();
+    for path in paths {
+        if path.starts_with("platform/") {
+            resources.platform_script = Some(path.clone());
+        } else if path.starts_with("bgscroll/") {
+            resources.bgscroll = Some(path.clone());
+        } else if path.starts_with("header/") {
+            resources.header = Some(path.clone());
+        } else if path.starts_with("enemy/") {
+            resources.enemy = Some(path.clone());
+        } else if path.starts_with("foreground/") {
+            resources.foreground = Some(path.clone());
+        } else if path.starts_with("block/") {
+            resources.block = Some(path.clone());
+        } else if path.starts_with("background/") {
+            resources.background = Some(path.clone());
+        }
+    }
+    resources
+}
+
+fn load_asset(
+    manifest: &AssetManifest,
+    relative_path: Option<&str>,
+) -> Result<Option<LoadedAsset>> {
+    let Some(relative_path) = relative_path else {
+        return Ok(None);
+    };
+    let full_path = manifest.output_root.join("level").join(relative_path);
+    let bytes = fs::read(&full_path)
+        .with_context(|| format!("failed to read level asset {}", full_path.display()))?;
+    Ok(Some(LoadedAsset {
+        relative_path: relative_path.to_owned(),
+        bytes,
+    }))
 }
 
 fn copy_directory_recursive(source: &Path, dest: &Path) -> Result<()> {
@@ -442,6 +546,29 @@ mod tests {
     }
 
     #[test]
+    fn classifies_level_resources() {
+        let resources = level_resources_from_paths(&[
+            String::from("platform/00.asm"),
+            String::from("bgscroll/00.bin"),
+            String::from("header/00.bin"),
+            String::from("enemy/00.bin"),
+            String::from("foreground/00.bin"),
+            String::from("block/00.bin"),
+            String::from("background/00.bin"),
+        ]);
+        assert_eq!(
+            resources.platform_script.as_deref(),
+            Some("platform/00.asm")
+        );
+        assert_eq!(resources.bgscroll.as_deref(), Some("bgscroll/00.bin"));
+        assert_eq!(resources.header.as_deref(), Some("header/00.bin"));
+        assert_eq!(resources.enemy.as_deref(), Some("enemy/00.bin"));
+        assert_eq!(resources.foreground.as_deref(), Some("foreground/00.bin"));
+        assert_eq!(resources.block.as_deref(), Some("block/00.bin"));
+        assert_eq!(resources.background.as_deref(), Some("background/00.bin"));
+    }
+
+    #[test]
     fn exports_bundle_and_writes_manifest() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
@@ -451,6 +578,9 @@ mod tests {
         fs::create_dir_all(source_root.join("doc")).expect("doc dir");
         fs::create_dir_all(source_root.join("ingame/anim")).expect("anim dir");
         fs::create_dir_all(source_root.join("level")).expect("level dir");
+        fs::create_dir_all(source_root.join("level/platform")).expect("platform assets dir");
+        fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll assets dir");
+        fs::create_dir_all(source_root.join("level/header")).expect("header assets dir");
         fs::create_dir_all(source_root.join("scenes")).expect("scene dir");
         fs::create_dir_all(source_root.join("sound")).expect("sound dir");
         fs::create_dir_all(source_root.join("theme")).expect("theme dir");
@@ -460,6 +590,9 @@ mod tests {
         fs::write(source_root.join("scenes/title.bin"), b"scene").expect("scene");
         fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
+        fs::write(source_root.join("level/platform/00.asm"), b"platform").expect("platform");
+        fs::write(source_root.join("level/bgscroll/00.bin"), b"bgscroll").expect("bgscroll");
+        fs::write(source_root.join("level/header/00.bin"), b"header").expect("header");
         fs::write(
             source_root.join("doc/level_list.txt"),
             "0x00 0x4A Blue Lake Woods 1\n",
@@ -482,8 +615,27 @@ mod tests {
 
         assert_eq!(manifest.rom_sha1, "abc123");
         assert_eq!(manifest.levels.len(), 1);
+        assert_eq!(
+            manifest.levels[0].resources.platform_script.as_deref(),
+            Some("platform/00.asm")
+        );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
         assert!(manifest_path(output.path()).is_file());
+
+        let level_bundle =
+            load_level_asset_bundle(&manifest, 0x00).expect("level bundle should load");
+        assert_eq!(level_bundle.level_id, 0x00);
+        assert_eq!(
+            level_bundle.display_name.as_deref(),
+            Some("Blue Lake Woods 1")
+        );
+        assert_eq!(
+            level_bundle
+                .platform_script
+                .as_ref()
+                .map(|asset| asset.bytes.as_slice()),
+            Some(&b"platform"[..])
+        );
     }
 }
