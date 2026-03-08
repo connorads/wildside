@@ -1,0 +1,9 @@
+[package]
+name = "kid-rom"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+sha1.workspace = true
+thiserror.workspace = true

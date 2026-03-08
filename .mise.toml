@@ -1,0 +1,39 @@
+[tools]
+python = "3.14.3"
+rust = "1.94.0"
+
+[tasks.fmt]
+run = "cargo fmt --all"
+
+[tasks.lint]
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.test]
+run = "cargo test --workspace"
+
+[tasks.verify-rom]
+run = "cargo run -p kidcli -- verify-rom"
+
+[tasks.probe-cpu]
+run = "cargo run -p kidcli -- probe-cpu"
+
+[tasks.verify-boot]
+run = "cargo run -p kidcli -- verify-boot"
+
+[tasks.verify-startup]
+run = "cargo run -p kidcli -- verify-startup"
+
+[tasks.verify-level]
+run = "cargo run -p kidcli -- verify-level"
+
+[tasks.render-frame]
+run = "cargo run -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
+
+[tasks.run-sdl]
+run = "cargo run -p kidcli -- run-sdl"
+
+[tasks.bootstrap-upstream]
+run = "cargo run -p kidcli -- bootstrap-upstream"
+
+[tasks.reference-build]
+run = "cargo run -p kidcli -- reference-build"

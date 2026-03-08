@@ -1,0 +1,8 @@
+/.cache/
+/target/
+/roms/
+/kid.bin
+/kid_built.bin
+/kid.h
+*.log
+kc.md

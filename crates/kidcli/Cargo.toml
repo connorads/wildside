@@ -1,0 +1,14 @@
+[package]
+name = "kidcli"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+image.workspace = true
+kid-md = { path = "../kid-md" }
+kid-rom = { path = "../kid-rom" }
+sdl2 = { version = "0.38.0", features = ["bundled"] }
+tempfile.workspace = true
