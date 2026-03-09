@@ -20,8 +20,8 @@ const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
 const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
 const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B0_0000;
-const LEVEL_ONE_ENEMY_CONTACT_X_FP: u32 = 0x0032_0000;
-const LEVEL_ONE_ENEMY_CONTACT_Y_FP: u32 = 0x0006_0000;
+// Default enemy hitbox: 16x16 pixels, centred on position.
+const ENEMY_HALF_SIZE: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 80;
 const PLAYER_RESPAWN_SETTLE_FRAMES: usize = 401;
@@ -648,7 +648,7 @@ impl NativeRuntime {
         }
 
         if self.should_apply_level_one_opening_hit(&slice, input)
-            || self.should_apply_level_one_contact_damage(&slice)
+            || self.should_apply_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
         {
             self.apply_damage();
@@ -740,10 +740,8 @@ impl NativeRuntime {
             && slice.camera.x_pos >= OPENING_SCROLL_ACCEL_TARGET_X_FP
     }
 
-    fn should_apply_level_one_contact_damage(&self, slice: &OpeningSliceState) -> bool {
-        if self.current_level != LevelId(0)
-            || self.invulnerable_frames != 0
-            || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+    fn should_apply_contact_damage(&self, slice: &OpeningSliceState) -> bool {
+        if self.invulnerable_frames != 0 || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
             return false;
         }
@@ -1279,9 +1277,24 @@ fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
 }
 
 fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bool {
-    let x_delta = player.x_pos.abs_diff(enemy.x_pos);
-    let y_delta = player.y_pos.abs_diff(enemy.y_pos);
-    x_delta <= LEVEL_ONE_ENEMY_CONTACT_X_FP && y_delta <= LEVEL_ONE_ENEMY_CONTACT_Y_FP
+    // Player AABB: position at feet, hitbox extends half_width either side
+    // and height above.
+    let px = player.x_pos as i64;
+    let py = player.y_pos as i64;
+    let p_left = px - (i64::from(PLAYER_HALF_WIDTH) << 16);
+    let p_right = px + (i64::from(PLAYER_HALF_WIDTH) << 16);
+    let p_top = py - (i64::from(PLAYER_HEIGHT) << 16);
+    let p_bottom = py;
+
+    // Enemy AABB: 16x16 centred on position.
+    let ex = enemy.x_pos as i64;
+    let ey = enemy.y_pos as i64;
+    let e_left = ex - (ENEMY_HALF_SIZE << 16);
+    let e_right = ex + (ENEMY_HALF_SIZE << 16);
+    let e_top = ey - (ENEMY_HALF_SIZE << 16);
+    let e_bottom = ey + (ENEMY_HALF_SIZE << 16);
+
+    p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top
 }
 
 pub fn run_script(
@@ -2102,5 +2115,144 @@ mod tests {
             "player should remain Alive when not touching flag"
         );
         assert!(!runtime.trace_frame().level_complete);
+    }
+
+    // --- US-004: Enemy-player contact damage ---
+
+    #[test]
+    fn enemy_contact_deals_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        // Diamond enemy at (0x0120, 0x00E0) = (288, 224)px.
+        // Floor at row 14 (224px) so player stands at enemy height.
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        // Advance past entry animation
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let hp_before = runtime.number_hitpoints;
+
+        // Place player directly on the Diamond
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            runtime.number_hitpoints < hp_before || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "player should take damage from enemy contact (HP before: {hp_before}, after: {})",
+            runtime.number_hitpoints
+        );
+    }
+
+    #[test]
+    fn invulnerability_prevents_rapid_rehit() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Set HP after boot resets are done
+        runtime.number_hitpoints = 3;
+
+        // Place player on Diamond to trigger first hit
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        assert!(runtime.invulnerable_frames > 0, "should have invulnerability after hit");
+        let hp_after_first = runtime.number_hitpoints;
+
+        // Stay on the enemy for several more frames — should not take additional damage
+        for _ in 0..10 {
+            if let Some(ref mut slice) = runtime.opening_slice {
+                slice.player.x_pos = 0x0120_0000;
+                slice.player.y_pos = 0x00E0_0000;
+                slice.player.on_ground = true;
+                slice.camera.x_pos = 0;
+                slice.camera.y_pos = 0;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.number_hitpoints, hp_after_first,
+            "invulnerability should prevent further damage"
+        );
+    }
+
+    #[test]
+    fn enemy_contact_kills_at_one_hp() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Set HP after boot resets are done
+        runtime.number_hitpoints = 1;
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            "expected DeathWindup at 1 HP, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.number_hitpoints, 0, "HP should be 0 after lethal contact");
+    }
+
+    #[test]
+    fn enemy_survives_after_damaging_player() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        // Refresh roster to check enemy is still present
+        let trace = runtime.trace_frame();
+        let diamond_present = trace
+            .active_objects
+            .iter()
+            .any(|obj| matches!(obj.kind, NativeObjectKind::Enemy { object_type: 0x01 }));
+        assert!(diamond_present, "Diamond enemy should remain alive after damaging player");
     }
 }

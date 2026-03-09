@@ -13,6 +13,8 @@ after each iteration and it's included in prompts for context.
 - **Fixed-point 16.16**: All positions are `u32` with upper 16 bits = pixels. `>> 16` to get pixel value, `<< 16` to convert pixels to FP.
 - **Opening animation**: First 260 frames (`OPENING_SCROLL_START_FRAME`) after level start run entry animation, not player-controlled physics. Tests that need physics must advance past this.
 - **Flag collision / level completion**: `Alive` → `LevelComplete` (120 frames, input frozen) → `advance_level()` → `Respawning`. `player_touches_flag()` uses a 16x16 hit region around the flag position from `LevelHeader`. The `level_complete` bool on `NativeTraceFrame` signals renderers to display "LEVEL COMPLETE".
+- **Enemy contact damage**: AABB overlap between player hitbox (half_width=5, height=31 above feet) and enemy hitbox (16x16 centred on position). `should_apply_contact_damage()` checks all levels. Invulnerability (300 frames) prevents rapid re-hits. `apply_damage()` handles HP decrement/death.
+- **Boot resets HP**: `refresh_opening_slice` resets `number_hitpoints` every frame when not in `StartingLevel`/`InGame` boot state. Tests that set HP must do so AFTER `start_level()` + opening animation advance, not before.
 
 ---
 
@@ -38,6 +40,22 @@ after each iteration and it's included in prompts for context.
   - Spikes must be in `is_solid_floor()` so `probe_floor` detects them as ground — otherwise the player falls through
   - Tests with hazard floors at spawn point conflict with `start_level()` which runs ~430 frames of gameplay — need solid floor at spawn and hazard offset to the side
   - `on_spikes` flag on `PlayerState` follows the same pattern as `on_ground` — set during collision, checked during the refresh step
+---
+
+## 2026-03-09 - US-004
+- Implemented enemy-player contact damage with proper AABB hitbox overlap
+- Generalised `should_apply_level_one_contact_damage()` → `should_apply_contact_damage()` — removed Level 0 restriction so contact damage works on all levels
+- Replaced Manhattan distance check with true AABB overlap: player hitbox (half_width=5, height=31 above feet) vs enemy hitbox (16x16 centred on position)
+- Removed `LEVEL_ONE_ENEMY_CONTACT_X_FP`/`LEVEL_ONE_ENEMY_CONTACT_Y_FP` constants, added `ENEMY_HALF_SIZE` constant (8px)
+- Invulnerability frames (300) already prevented rapid re-hits — no change needed
+- `apply_damage()` already handled HP decrement and death trigger — no change needed
+- Enemies remain alive after contact (no kill logic exists)
+- Four tests: contact deals damage, invulnerability prevents rapid re-hit, 1 HP contact triggers death, enemy survives after damaging player
+- Files changed: `crates/kid-core/src/lib.rs`
+- **Learnings:**
+  - `refresh_opening_slice` resets HP/form/lives every frame when boot state is not `StartingLevel`/`InGame`. Tests that inject HP must do so AFTER `start_level()` + opening animation frames, not before
+  - The existing level-1 contact damage used a wide 50px×6px centre-distance threshold; proper AABB with player/enemy hitboxes is more accurate and general
+  - AABB math uses `i64` to avoid `u32` underflow when subtracting fixed-point offsets from positions near zero
 ---
 
 ## 2026-03-09 - US-003
