@@ -1432,6 +1432,29 @@ fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
             header.player_start_x, header.player_start_y, header.flag_x, header.flag_y
         );
     }
+    if let Some(bgscroll) = &bundle.parsed_bgscroll {
+        let preview = bgscroll
+            .layer_speeds
+            .iter()
+            .take(8)
+            .map(|speed| format!("0x{speed:02X}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "bgscroll: {} layers{}{}",
+            bgscroll.layer_speeds.len(),
+            if preview.is_empty() {
+                String::new()
+            } else {
+                format!(" [{preview}]")
+            },
+            if bgscroll.has_terminator {
+                String::new()
+            } else {
+                String::from(" (unterminated split blob)")
+            }
+        );
+    }
     if let Some(enemy_layout) = &bundle.parsed_enemy_layout {
         println!(
             "enemy layout: {} objects, header 0x{:02X}, marker 0x{:04X}",

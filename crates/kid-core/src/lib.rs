@@ -440,7 +440,9 @@ pub fn run_script(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kid_data::{AssetManifest, EnemyLayout, LevelHeader, LevelRecord, LevelResources};
+    use kid_data::{
+        AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
+    };
     use std::path::PathBuf;
 
     fn manifest() -> AssetManifest {
@@ -497,6 +499,10 @@ mod tests {
                             y: 0x0100,
                         },
                     ],
+                }),
+                bgscroll_metadata: Some(BgscrollProfile {
+                    layer_speeds: vec![0x10, 0x10, 0x40, 0x60],
+                    has_terminator: true,
                 }),
             }],
             constants: Vec::new(),

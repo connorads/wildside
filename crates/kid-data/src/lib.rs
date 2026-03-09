@@ -44,6 +44,8 @@ pub struct LevelRecord {
     pub header_metadata: Option<LevelHeader>,
     #[serde(default)]
     pub enemy_layout_metadata: Option<EnemyLayout>,
+    #[serde(default)]
+    pub bgscroll_metadata: Option<BgscrollProfile>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +65,7 @@ pub struct LevelAssetBundle {
     pub display_name: Option<String>,
     pub platform_script: Option<LoadedAsset>,
     pub bgscroll: Option<LoadedAsset>,
+    pub parsed_bgscroll: Option<BgscrollProfile>,
     pub header: Option<LoadedAsset>,
     pub parsed_header: Option<LevelHeader>,
     pub enemy: Option<LoadedAsset>,
@@ -118,6 +121,12 @@ pub struct EnemyLayoutObject {
     pub hit_points_plus_one: u16,
     pub x: u16,
     pub y: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BgscrollProfile {
+    pub layer_speeds: Vec<u8>,
+    pub has_terminator: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -263,11 +272,18 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .map(|asset| parse_enemy_layout(&asset.bytes))
         .transpose()?
         .or(level.enemy_layout_metadata.clone());
+    let bgscroll = load_asset(manifest, level.resources.bgscroll.as_deref())?;
+    let parsed_bgscroll = bgscroll
+        .as_ref()
+        .map(|asset| parse_bgscroll_profile(&asset.bytes))
+        .transpose()?
+        .or(level.bgscroll_metadata.clone());
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
         platform_script: load_asset(manifest, level.resources.platform_script.as_deref())?,
-        bgscroll: load_asset(manifest, level.resources.bgscroll.as_deref())?,
+        bgscroll,
+        parsed_bgscroll,
         header,
         parsed_header,
         enemy,
@@ -385,6 +401,19 @@ pub fn parse_enemy_layout(bytes: &[u8]) -> Result<EnemyLayout> {
     })
 }
 
+pub fn parse_bgscroll_profile(bytes: &[u8]) -> Result<BgscrollProfile> {
+    match bytes.iter().position(|byte| *byte == 0xFF) {
+        Some(terminator_index) => Ok(BgscrollProfile {
+            layer_speeds: bytes[..terminator_index].to_vec(),
+            has_terminator: true,
+        }),
+        None => Ok(BgscrollProfile {
+            layer_speeds: bytes.to_vec(),
+            has_terminator: false,
+        }),
+    }
+}
+
 fn merge_level_catalogues(
     names: BTreeMap<u8, (u8, String)>,
     files: BTreeMap<u8, Vec<String>>,
@@ -403,6 +432,7 @@ fn merge_level_catalogues(
                 ),
                 header_metadata: None,
                 enemy_layout_metadata: None,
+                bgscroll_metadata: None,
             },
         );
     }
@@ -415,6 +445,7 @@ fn merge_level_catalogues(
             resource_paths,
             header_metadata: None,
             enemy_layout_metadata: None,
+            bgscroll_metadata: None,
         });
     }
     by_level.into_values().collect()
@@ -445,6 +476,16 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
                     format!("failed to read enemy layout {}", full_path.display())
                 })?;
                 level.enemy_layout_metadata = Some(parse_enemy_layout(&bytes)?);
+            }
+        }
+        if level.bgscroll_metadata.is_none()
+            && let Some(relative_path) = level.resources.bgscroll.as_deref()
+        {
+            let full_path = manifest.output_root.join("level").join(relative_path);
+            if full_path.is_file() {
+                let bytes = fs::read(&full_path)
+                    .with_context(|| format!("failed to read bgscroll {}", full_path.display()))?;
+                level.bgscroll_metadata = Some(parse_bgscroll_profile(&bytes)?);
             }
         }
     }
@@ -909,6 +950,22 @@ mod tests {
     }
 
     #[test]
+    fn parses_bgscroll_profile_layers() {
+        let profile =
+            parse_bgscroll_profile(&[0x10, 0x10, 0x40, 0x60, 0xFF]).expect("bgscroll should parse");
+        assert_eq!(profile.layer_speeds, vec![0x10, 0x10, 0x40, 0x60]);
+        assert!(profile.has_terminator);
+    }
+
+    #[test]
+    fn parses_unterminated_bgscroll_profile_layers() {
+        let profile =
+            parse_bgscroll_profile(&[0x10, 0x10, 0x40, 0x60]).expect("bgscroll should parse");
+        assert_eq!(profile.layer_speeds, vec![0x10, 0x10, 0x40, 0x60]);
+        assert!(!profile.has_terminator);
+    }
+
+    #[test]
     fn exports_bundle_and_writes_manifest() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
@@ -932,7 +989,11 @@ mod tests {
         fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
         fs::write(source_root.join("level/platform/00.asm"), b"platform").expect("platform");
-        fs::write(source_root.join("level/bgscroll/00.bin"), b"bgscroll").expect("bgscroll");
+        fs::write(
+            source_root.join("level/bgscroll/00.bin"),
+            [0x10, 0x10, 0x40, 0x60, 0xFF],
+        )
+        .expect("bgscroll");
         fs::write(
             source_root.join("level/header/00.bin"),
             [
@@ -988,6 +1049,13 @@ mod tests {
                 .map(|layout| layout.object_count),
             Some(0x01)
         );
+        assert_eq!(
+            manifest.levels[0]
+                .bgscroll_metadata
+                .as_ref()
+                .map(|profile| (profile.layer_speeds.clone(), profile.has_terminator)),
+            Some((vec![0x10, 0x10, 0x40, 0x60], true))
+        );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
         assert!(manifest_path(output.path()).is_file());
@@ -1019,6 +1087,13 @@ mod tests {
                 .as_ref()
                 .map(|header| header.flag_y),
             Some(0x0300)
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_bgscroll
+                .as_ref()
+                .map(|profile| (profile.layer_speeds.clone(), profile.has_terminator)),
+            Some((vec![0x10, 0x10, 0x40, 0x60], true))
         );
         assert_eq!(
             level_bundle
