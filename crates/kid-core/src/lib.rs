@@ -1033,18 +1033,28 @@ impl OpeningSliceState {
     }
 
     /// Physics-driven horizontal movement using speed tables.
+    /// Uses ground tables when on_ground, air tables when airborne.
     fn update_horizontal_motion(&mut self, input: FrameInput) {
         let h_input = HorizontalInput {
             left: input.left,
             right: input.right,
             run: input.a,
         };
-        let (new_vel, new_facing) = physics::update_horizontal_velocity(
-            self.player.x_velocity,
-            self.player.facing,
-            h_input,
-            &physics::NORMAL_KID,
-        );
+        let (new_vel, new_facing) = if self.player.on_ground {
+            physics::update_horizontal_velocity(
+                self.player.x_velocity,
+                self.player.facing,
+                h_input,
+                &physics::NORMAL_KID,
+            )
+        } else {
+            physics::update_air_horizontal_velocity(
+                self.player.x_velocity,
+                self.player.facing,
+                h_input,
+                &physics::AIR_NORMAL,
+            )
+        };
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
 

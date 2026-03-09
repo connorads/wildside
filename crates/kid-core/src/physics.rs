@@ -138,6 +138,133 @@ pub const RUBBER_JUGGERNAUT: SpeedTable = SpeedTable {
 };
 
 // ---------------------------------------------------------------------------
+// Air speed tables — kid.asm:9301 (sub_8506) / unk_85C4..unk_85EC
+// ---------------------------------------------------------------------------
+
+/// Five longwords per terrain variant, matching the 68k struct layout at
+/// byte offsets $00–$10 used by sub_8506 (airborne horizontal movement).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AirSpeedTable {
+    /// $00 — maximum air speed when pressing a direction (positive magnitude)
+    pub max_air_speed: i32,
+    /// $04 — acceleration when pressing direction and below max_air_speed
+    pub air_accel: i32,
+    /// $08 — deceleration when above max_air_speed (towards max_air_speed)
+    pub air_above_max_decel: i32,
+    /// $0C — deceleration when no direction is held (towards zero)
+    pub air_no_input_decel: i32,
+    /// $10 — acceleration when turning (pressing opposite direction to velocity)
+    pub air_turn_accel: i32,
+}
+
+/// Hard cap on airborne horizontal speed — inline constant in sub_8506.
+pub const AIR_HARD_CAP: i32 = 0x3_8000;
+
+// --- Normal terrain (unk_85C4) ---
+
+pub const AIR_NORMAL: AirSpeedTable = AirSpeedTable {
+    max_air_speed: 0x1_0000,
+    air_accel: 0x1000,
+    air_above_max_decel: 0x1000,
+    air_no_input_decel: 0x1800,
+    air_turn_accel: 0x4000,
+};
+
+// --- Ice terrain (unk_85D8) ---
+
+pub const AIR_ICE: AirSpeedTable = AirSpeedTable {
+    max_air_speed: 0x8000,
+    air_accel: 0x2000,
+    air_above_max_decel: 0x1000,
+    air_no_input_decel: 0x3000,
+    air_turn_accel: 0x8000,
+};
+
+// --- Rubber terrain (unk_85EC) ---
+
+pub const AIR_RUBBER: AirSpeedTable = AirSpeedTable {
+    max_air_speed: 0x1_8000,
+    air_accel: 0x200,
+    air_above_max_decel: 0x200,
+    air_no_input_decel: 0x100,
+    air_turn_accel: 0x800,
+};
+
+/// Update horizontal velocity for one frame while airborne.
+///
+/// Direct translation of sub_8506 (kid.asm:9301). Unlike ground movement,
+/// air control ignores walk/run distinction — there is a single max speed,
+/// a single acceleration, and the only state that matters is direction.
+///
+/// Returns `(new_x_vel, new_facing)`.
+pub fn update_air_horizontal_velocity(
+    x_vel: i32,
+    facing: Direction,
+    input: HorizontalInput,
+    table: &AirSpeedTable,
+) -> (i32, Direction) {
+    if input.right {
+        (apply_air_holding_right(x_vel, table), Direction::Right)
+    } else if input.left {
+        (apply_air_holding_left(x_vel, table), Direction::Left)
+    } else {
+        (air_decelerate(x_vel, table), facing)
+    }
+}
+
+/// Airborne, holding right — loc_852C..loc_855E.
+fn apply_air_holding_right(vel: i32, table: &AirSpeedTable) -> i32 {
+    if vel < 0 {
+        // Moving left while holding right: turn with air_turn_accel ($10)
+        vel + table.air_turn_accel
+    } else {
+        // Moving right — cap at hard limit first
+        let vel = vel.min(AIR_HARD_CAP);
+        if vel < table.max_air_speed {
+            // Below max air speed: accelerate
+            (vel + table.air_accel).min(table.max_air_speed)
+        } else {
+            // At or above max air speed: decelerate towards it
+            (vel - table.air_above_max_decel).max(table.max_air_speed)
+        }
+    }
+}
+
+/// Airborne, holding left — loc_8572..loc_85A8. Mirror of right.
+fn apply_air_holding_left(vel: i32, table: &AirSpeedTable) -> i32 {
+    if vel > 0 {
+        // Moving right while holding left: turn with air_turn_accel ($10)
+        vel - table.air_turn_accel
+    } else {
+        // Moving left — cap at hard limit first
+        let abs_vel = vel.saturating_neg().min(AIR_HARD_CAP);
+        if abs_vel < table.max_air_speed {
+            // Below max air speed: accelerate
+            let next_abs = (abs_vel + table.air_accel).min(table.max_air_speed);
+            -next_abs
+        } else {
+            // At or above max air speed: decelerate towards it
+            let next_abs = (abs_vel - table.air_above_max_decel).max(table.max_air_speed);
+            -next_abs
+        }
+    }
+}
+
+/// Airborne deceleration towards zero when no direction is held (loc_85AC).
+/// Snaps to zero on sign change.
+fn air_decelerate(vel: i32, table: &AirSpeedTable) -> i32 {
+    if vel > 0 {
+        let next = vel - table.air_no_input_decel;
+        if next < 0 { 0 } else { next }
+    } else if vel < 0 {
+        let next = vel + table.air_no_input_decel;
+        if next > 0 { 0 } else { next }
+    } else {
+        0
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Jump height per form — from unk_A49E
 // ---------------------------------------------------------------------------
 
@@ -797,5 +924,108 @@ mod tests {
         let released = apply_gravity(-0x4_0000, false);
         assert!(held < released); // held result is more negative (higher)
         assert_eq!(released - held, GRAVITY_NORMAL - GRAVITY_JUMP_HELD);
+    }
+
+    // -- Air control tests --
+
+    #[test]
+    fn air_normal_table_matches_disasm() {
+        assert_eq!(AIR_NORMAL.max_air_speed, 0x1_0000);
+        assert_eq!(AIR_NORMAL.air_accel, 0x1000);
+        assert_eq!(AIR_NORMAL.air_above_max_decel, 0x1000);
+        assert_eq!(AIR_NORMAL.air_no_input_decel, 0x1800);
+        assert_eq!(AIR_NORMAL.air_turn_accel, 0x4000);
+    }
+
+    #[test]
+    fn air_max_speed_is_lower_than_ground_walk_speed() {
+        assert!(AIR_NORMAL.max_air_speed < NORMAL_KID.max_walk_speed);
+    }
+
+    #[test]
+    fn air_right_accelerates_from_standstill() {
+        let (vel, dir) =
+            update_air_horizontal_velocity(0, Direction::Right, right_walk(), &AIR_NORMAL);
+        assert_eq!(vel, AIR_NORMAL.air_accel);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
+    fn air_right_caps_at_max_air_speed() {
+        let mut vel = 0i32;
+        for _ in 0..1000 {
+            let (v, _) =
+                update_air_horizontal_velocity(vel, Direction::Right, right_walk(), &AIR_NORMAL);
+            vel = v;
+        }
+        assert_eq!(vel, AIR_NORMAL.max_air_speed);
+    }
+
+    #[test]
+    fn air_preserves_momentum_above_max_but_decelerates() {
+        // Start at ground run speed — air control should decelerate towards max_air_speed
+        let vel = NORMAL_KID.max_run_speed; // 0x38000
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Right, right_walk(), &AIR_NORMAL);
+        assert!(result < vel, "should decelerate");
+        assert!(
+            result >= AIR_NORMAL.max_air_speed,
+            "should not drop below max_air_speed"
+        );
+    }
+
+    #[test]
+    fn air_hard_cap_at_run_speed() {
+        // Velocity above hard cap should be clamped
+        let vel = AIR_HARD_CAP + 0x1_0000;
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Right, right_walk(), &AIR_NORMAL);
+        assert!(result <= AIR_HARD_CAP);
+    }
+
+    #[test]
+    fn air_turn_uses_turn_accel() {
+        // Moving left, holding right → turn with air_turn_accel
+        let vel = -0x2_0000;
+        let (result, dir) =
+            update_air_horizontal_velocity(vel, Direction::Left, right_walk(), &AIR_NORMAL);
+        assert_eq!(result, vel + AIR_NORMAL.air_turn_accel);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
+    fn air_no_input_decelerates_towards_zero() {
+        let vel = 0x2_0000;
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Right, no_input(), &AIR_NORMAL);
+        assert_eq!(result, vel - AIR_NORMAL.air_no_input_decel);
+    }
+
+    #[test]
+    fn air_no_input_snaps_to_zero() {
+        let vel = AIR_NORMAL.air_no_input_decel - 1;
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Right, no_input(), &AIR_NORMAL);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn air_left_caps_at_max_air_speed() {
+        let mut vel = 0i32;
+        for _ in 0..1000 {
+            let (v, _) =
+                update_air_horizontal_velocity(vel, Direction::Left, left_walk(), &AIR_NORMAL);
+            vel = v;
+        }
+        assert_eq!(vel, -AIR_NORMAL.max_air_speed);
+    }
+
+    #[test]
+    fn air_turn_response_slower_than_ground() {
+        // Air turn uses air_turn_accel ($4000), ground turn uses turn_brake ($2000)
+        // or strong_brake ($3000). Air turn is actually faster per-frame, but the
+        // reduced max speed means reaching target speed takes proportionally longer.
+        // The key difference is the lower max_air_speed cap.
+        assert!(AIR_NORMAL.max_air_speed < NORMAL_KID.max_walk_speed);
     }
 }

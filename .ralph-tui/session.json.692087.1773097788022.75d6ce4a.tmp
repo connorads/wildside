@@ -3,10 +3,10 @@
   "sessionId": "2cf19ce6-326f-4678-a809-c1b4202f1c3a",
   "status": "running",
   "startedAt": "2026-03-09T22:19:24.560Z",
-  "updatedAt": "2026-03-09T23:05:12.128Z",
-  "currentIteration": 7,
+  "updatedAt": "2026-03-09T23:09:48.019Z",
+  "currentIteration": 8,
   "maxIterations": 40,
-  "tasksCompleted": 7,
+  "tasksCompleted": 8,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -59,8 +59,8 @@
       {
         "id": "US-008",
         "title": "Smash block interaction",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-009",
@@ -146,6 +146,16 @@
       "durationMs": 301360,
       "startedAt": "2026-03-09T22:57:56.743Z",
       "endedAt": "2026-03-09T23:02:58.103Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "US-008",
+      "taskTitle": "Smash block interaction",
+      "taskCompleted": true,
+      "durationMs": 132939,
+      "startedAt": "2026-03-09T23:02:59.187Z",
+      "endedAt": "2026-03-09T23:05:12.126Z"
     }
   ],
   "skippedTaskIds": [],

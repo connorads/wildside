@@ -21,6 +21,7 @@ after each iteration and it's included in prompts for context.
 - **Enemy activation window**: Uses layout spawn position (not current position) for activation/deactivation — matching original game behaviour. Tests that need enemies active must place them within the initial camera window (x: 0..384, y: 0..288 at camera origin).
 - **Destructible block headbutt**: `apply_ceiling_collision` detects prize AND smash blocks via `matches!(block_type, Prize | Smash)`. Hit blocks are cleared to empty cells via `BlockGrid::set_cell_at()`. `CeilingProbe` carries `cell_x`/`cell_y` for grid mutation. No item spawning yet. Non-destructible types (Metal, etc.) are unaffected.
 - **Mutable block grid threading**: `OpeningSliceState::step()` takes `Option<&mut BlockGrid>` so `apply_ceiling_collision` can mutate the grid. Wall and floor collision reborrow as `&`. When no grid is present, only the flat-floor fallback runs.
+- **Air vs ground horizontal physics**: `update_horizontal_motion()` branches on `on_ground`: ground uses `SpeedTable` (walk/run distinction, terrain-dependent), air uses `AirSpeedTable` (simpler — single max speed, no walk/run). Air table from kid.asm `sub_8506` / `unk_85C4`. Air max speed ($10000) is half ground walk speed ($20000). Momentum above max_air_speed is preserved but decelerates; hard cap at $38000.
 
 ---
 
@@ -131,5 +132,21 @@ after each iteration and it's included in prompts for context.
 - **Learnings:**
   - Adding new destructible block types is trivial — just extend the `matches!()` pattern in `apply_ceiling_collision`
   - The old "solid block doesn't clear" test used a Smash block as the non-clearable example; when Smash became clearable, test needed a genuinely indestructible type (Metal)
+---
+
+## 2026-03-09 - US-009
+- Implemented air control: horizontal acceleration from input while airborne uses separate `AirSpeedTable` with reduced max speed
+- Added `AirSpeedTable` struct and `update_air_horizontal_velocity()` to physics module — direct translation of kid.asm `sub_8506`
+- Added three terrain-variant air tables: `AIR_NORMAL`, `AIR_ICE`, `AIR_RUBBER` (from `unk_85C4`, `unk_85D8`, `unk_85EC`)
+- Modified `update_horizontal_motion()` to branch on `on_ground`: ground path uses `SpeedTable`, air path uses `AirSpeedTable`
+- Air control differences from ground: single max speed (no walk/run), momentum above max decelerates, hard cap at $38000, dedicated turn accel
+- Eleven physics unit tests covering: table values, acceleration, max speed cap, momentum preservation, hard cap, turning, deceleration, snap-to-zero
+- Files changed: `crates/kid-core/src/physics.rs`, `crates/kid-core/src/lib.rs`
+- **Learnings:**
+  - The original game uses a completely separate subroutine (`sub_8506`) for airborne horizontal movement, not just reduced parameters in the same routine
+  - Air control has a 5-entry table (max_speed, accel, above_max_decel, no_input_decel, turn_accel) vs ground's 7-entry table (walk/run speeds, accels, brakes)
+  - Air max speed ($10000 = 1px/frame) is exactly half of ground walk speed ($20000 = 2px/frame)
+  - The air routine has a hardcoded $38000 cap (matching ground max_run_speed) to preserve jump momentum from running starts
+  - Skycutter helmet uses `sub_9A0A` (ground table) even when airborne — unique exception handled separately in the original
 ---
 
