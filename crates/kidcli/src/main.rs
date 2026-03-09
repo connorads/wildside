@@ -1,8 +1,10 @@
+mod autonomy;
 mod oracle;
 mod player;
 mod scenarios;
 
 use anyhow::{Context, Result, anyhow, bail};
+use autonomy::{AutonomyGoal, run_autonomous_loop};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
@@ -248,6 +250,20 @@ enum Commands {
         scenario: Scenario,
         #[arg(long, default_value_t = 1)]
         iterations: u32,
+    },
+    AutonomousLoop {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = AutonomyGoal::Level1OpeningSlice)]
+        goal: AutonomyGoal,
+        #[arg(long, default_value_t = 1)]
+        max_cycles: u32,
+        #[arg(long, default_value_t = false)]
+        no_resume: bool,
+        #[arg(long, default_value_t = false)]
+        emit_json: bool,
     },
     ReferenceBuild {
         #[arg(long)]
@@ -557,6 +573,27 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             run_port_loop(&repo_root, &rom_path, &manifest, scenario, iterations)?;
+        }
+        Commands::AutonomousLoop {
+            rom,
+            dir,
+            goal,
+            max_cycles,
+            no_resume,
+            emit_json,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            run_autonomous_loop(
+                &repo_root,
+                &rom_path,
+                &upstream_dir,
+                goal,
+                max_cycles,
+                !no_resume,
+                emit_json,
+            )?;
         }
         Commands::ReferenceBuild {
             rom,

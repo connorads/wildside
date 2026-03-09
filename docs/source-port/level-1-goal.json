@@ -1,0 +1,196 @@
+{
+  "goal_id": "level1-opening-slice",
+  "title": "Level 1 opening slice",
+  "summary": "Complete the Level 1 opening slice from boot through the first visible enemies and platforms with oracle-backed parity and without scripted player/camera stand-ins.",
+  "capabilities": [
+    {
+      "id": "boot_title_flow",
+      "title": "Recover boot/title flow",
+      "summary": "Keep the bootstrap path honest before touching deeper gameplay work.",
+      "prerequisites": [],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/kid.asm"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- verify-native-bootstrap",
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+      ],
+      "done_criteria": [
+        "`verify-native-bootstrap` passes.",
+        "The title and level-entry checkpoints match the oracle for `boot-title-start-level1`."
+      ]
+    },
+    {
+      "id": "level_load_and_spawn",
+      "title": "Recover Level 1 load/spawn state",
+      "summary": "Lock the typed Level 1 metadata and spawn/flag state before movement work.",
+      "prerequisites": [
+        "boot_title_flow"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/formats.txt",
+        ".cache/upstream/kid-chameleon-disasm/level/header/00.bin"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- inspect-level --level 00",
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+      ],
+      "done_criteria": [
+        "Level 1 header metadata, spawn, and flag positions are loaded from generated assets.",
+        "The `level_entry` checkpoint matches the oracle."
+      ]
+    },
+    {
+      "id": "level_settle",
+      "title": "Recover early in-level settle",
+      "summary": "Match the post-load settle state before replacing scroll logic.",
+      "prerequisites": [
+        "level_load_and_spawn"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt",
+        ".cache/upstream/kid-chameleon-disasm/variables.asm"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+      ],
+      "done_criteria": [
+        "The `level_settle` checkpoint matches the oracle for `boot-title-start-level1`."
+      ]
+    },
+    {
+      "id": "player_camera_movement",
+      "title": "Replace scripted player/camera movement",
+      "summary": "Remove the Level 1 scripted movement/camera path and replace it with recovered logic.",
+      "prerequisites": [
+        "level_settle"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt",
+        ".cache/upstream/kid-chameleon-disasm/variables.asm",
+        ".cache/upstream/kid-chameleon-disasm/kid.asm"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s",
+        "cargo test -p kid-core"
+      ],
+      "done_criteria": [
+        "`crates/kid-core/src/lib.rs` no longer contains the scripted Level 1 movement/camera stand-ins.",
+        "The runtime still matches the boot/title/settle checkpoints after the replacement."
+      ]
+    },
+    {
+      "id": "opening_scroll",
+      "title": "Recover the first scroll slice",
+      "summary": "Match the first rightward movement slice against the oracle without relying on scripted stand-ins.",
+      "prerequisites": [
+        "player_camera_movement"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/native-oracle-runs/boot_title_start_level1_move_right_5s",
+        ".cache/upstream/kid-chameleon-disasm/kid.asm"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+      ],
+      "done_criteria": [
+        "`move_mid` and `move_end` match the oracle for `boot-title-start-level1-move-right5s`.",
+        "The scripted movement path is gone."
+      ]
+    },
+    {
+      "id": "opening_collision",
+      "title": "Recover opening collision and terrain rules",
+      "summary": "Close the opening collision research gap before claiming enemy/platform parity.",
+      "prerequisites": [
+        "opening_scroll"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt",
+        ".cache/upstream/kid-chameleon-disasm/kid.asm"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "docs/source-port/level-1-dossier.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+      ],
+      "done_criteria": [
+        "The dossier no longer lists the opening collision/terrain task as open.",
+        "The first movement slice remains in oracle parity after the collision rules are introduced."
+      ]
+    },
+    {
+      "id": "platform_activation",
+      "title": "Recover first visible platforms",
+      "summary": "Trace and represent the Level 1 platform manager path for the opening slice.",
+      "prerequisites": [
+        "opening_collision"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/level/platform/00.asm",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "docs/source-port/level-1-dossier.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- inspect-level --level 00",
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+      ],
+      "done_criteria": [
+        "The dossier no longer lists the Level 1 platform-manager task as open.",
+        "The active platform roster for the opening slice is explainable by implemented native logic."
+      ]
+    },
+    {
+      "id": "enemy_activation",
+      "title": "Recover first visible enemy families",
+      "summary": "Map the visible Level 1 enemy families to upstream modules and represent them natively.",
+      "prerequisites": [
+        "opening_collision"
+      ],
+      "sources": [
+        "docs/source-port/level-1-dossier.md",
+        ".cache/upstream/kid-chameleon-disasm/level/enemy/00.bin",
+        ".cache/upstream/kid-chameleon-disasm/code/enemy"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "docs/source-port/level-1-dossier.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- inspect-enemy --enemy 01",
+        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+      ],
+      "done_criteria": [
+        "The dossier no longer lists the first visible enemy-family mapping task as open.",
+        "The active enemy roster for the opening slice is explainable by implemented native logic."
+      ]
+    }
+  ]
+}
