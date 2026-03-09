@@ -302,6 +302,17 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         allow_unknown_rom: bool,
     },
+    /// Dump the Level_Layout collision grid from emulator RAM after level load.
+    DumpLevelLayout {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Hex level ID (e.g. 00 for Blue Lake Woods 1)
+        #[arg(long)]
+        level: String,
+        /// Output directory (default: .cache/generated/<sha1>/level-layout/)
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -670,6 +681,21 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             bootstrap_upstream(&upstream_dir)?;
             run_reference_build(&repo_root, &upstream_dir, &verified)?;
+        }
+        Commands::DumpLevelLayout { rom, level, out } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            let level_id =
+                u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 00)")?;
+            let out_dir = out.unwrap_or_else(|| {
+                repo_root
+                    .join(".cache/generated")
+                    .join(&sha1_hex(&rom_bytes))
+                    .join("level-layout")
+            });
+            dump_level_layout(&rom_bytes, level_id, &out_dir)?;
         }
     }
     Ok(())
@@ -3961,6 +3987,86 @@ fn render_command(command: &Command, cwd: &Path) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     format!("(cd {} && {} {})", cwd.display(), program, args)
+}
+
+// ---------------------------------------------------------------------------
+// Level layout dump — extracts the collision grid from emulator RAM
+// ---------------------------------------------------------------------------
+
+/// RAM addresses for level layout extraction (from variables.asm).
+const LEVEL_LAYOUT_ADDR: u32 = 0x00FF_A652;
+const LEVEL_LAYOUT_SIZE: usize = 0x41A0;
+
+fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<()> {
+    let mut runtime = MdRuntime::new(rom_bytes)?;
+
+    // If level_id != 0, set it before the game starts
+    if level_id != 0 {
+        // We'll set the level after the game has initialised
+    }
+
+    // Run through boot + title presses to reach gameplay
+    let entry_script = gameplay_entry_script()?;
+    for (frame_index, buttons) in entry_script.iter().enumerate() {
+        runtime.set_controller_1(*buttons);
+        if !runtime.run_until_vblank(500_000) {
+            bail!("emulator stalled at frame {frame_index}");
+        }
+    }
+
+    // Run additional frames to ensure level is fully loaded
+    for _ in 0..60 {
+        runtime.set_controller_1(0);
+        runtime.run_until_vblank(500_000);
+    }
+
+    let snapshot = runtime.snapshot();
+    if snapshot.game_mode != 0x000C {
+        bail!(
+            "expected in-level game mode 0x000C, got 0x{:04X}",
+            snapshot.game_mode
+        );
+    }
+
+    // variables.asm addresses:
+    //   Level_width_blocks  = $FFFFF89E (cells per row, each 16x16 px)
+    //   Level_height_blocks = $FFFFF8A4 (rows)
+    let width_blocks = runtime.read_work_ram_word(0x00FF_F89E);
+    let height_blocks = runtime.read_work_ram_word(0x00FF_F8A4);
+    let layout_data = runtime.read_work_ram_range(LEVEL_LAYOUT_ADDR, LEVEL_LAYOUT_SIZE);
+
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+
+    let filename = format!("{:02X}.bin", level_id);
+    let layout_path = out_dir.join(&filename);
+    fs::write(&layout_path, &layout_data)
+        .with_context(|| format!("failed to write {}", layout_path.display()))?;
+
+    // Write metadata alongside
+    let meta = serde_json::json!({
+        "level_id": level_id,
+        "width_blocks": width_blocks,
+        "height_blocks": height_blocks,
+        "width_pixels": u32::from(width_blocks) * 16,
+        "height_pixels": u32::from(height_blocks) * 16,
+        "data_bytes": usize::from(width_blocks) * usize::from(height_blocks) * 2,
+        "dump_bytes": layout_data.len(),
+    });
+    let meta_path = out_dir.join(format!("{:02X}.json", level_id));
+    fs::write(&meta_path, serde_json::to_string_pretty(&meta)?)
+        .with_context(|| format!("failed to write {}", meta_path.display()))?;
+
+    println!(
+        "dumped Level_Layout for level 0x{:02X}: {}x{} cells ({}x{} px) to {}",
+        level_id,
+        width_blocks,
+        height_blocks,
+        u32::from(width_blocks) * 16,
+        u32::from(height_blocks) * 16,
+        layout_path.display()
+    );
+    Ok(())
 }
 
 #[cfg(test)]

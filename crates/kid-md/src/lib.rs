@@ -728,6 +728,17 @@ impl MdRuntime {
             .write_work_ram_word(NUMBER_HITPOINTS_ADDR, hitpoints);
     }
 
+    /// Read a range of work RAM bytes (big-endian, as stored on 68k).
+    pub fn read_work_ram_range(&self, address: u32, len: usize) -> Vec<u8> {
+        (0..len)
+            .map(|i| self.core.mem.read_work_ram_byte(address.wrapping_add(i as u32)))
+            .collect()
+    }
+
+    pub fn read_work_ram_word(&self, address: u32) -> u16 {
+        self.core.mem.read_work_ram_word(address)
+    }
+
     pub fn game_state(&self) -> GameState {
         GameState {
             current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),

@@ -1,4 +1,5 @@
 pub mod physics;
+pub mod terrain;
 
 use kid_data::{AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement};
 use physics::{Direction, HorizontalInput, LevelBounds};
