@@ -88,6 +88,7 @@ pub struct NativeTraceFrame {
     pub flag_y: Option<u16>,
     pub level_enemy_object_count: Option<u8>,
     pub active_enemy_object_count: usize,
+    pub active_platform_object_count: usize,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
     pub active_objects: Vec<NativeObjectSnapshot>,
@@ -222,6 +223,10 @@ impl NativeRuntime {
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
             .count();
+        let active_platform_object_count = active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
+            .count();
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -237,6 +242,7 @@ impl NativeRuntime {
             flag_y: level_header.map(|header| header.flag_y),
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
+            active_platform_object_count,
             kid_x_pos: self.player_state.map(|state| state.x_pos),
             kid_y_pos: self.player_state.map(|state| state.y_pos),
             active_objects,
@@ -493,6 +499,7 @@ mod tests {
     use super::*;
     use kid_data::{
         AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
+        PlatformLayout, PlatformPlacement, PlatformScriptRef,
     };
     use std::path::PathBuf;
 
@@ -555,7 +562,46 @@ mod tests {
                     layer_speeds: vec![0x10, 0x10, 0x40, 0x60],
                     has_terminator: true,
                 }),
-                platform_metadata: None,
+                platform_metadata: Some(PlatformLayout {
+                    placements: vec![
+                        PlatformPlacement {
+                            x: 0x0100,
+                            y: 0x00E0,
+                            buffer_left: 0,
+                            buffer_right: 0,
+                            buffer_top: 0,
+                            buffer_bottom: 0,
+                            kind: 0x00,
+                            subtype: 0x00,
+                            h_variant: 0,
+                            v_variant: 0,
+                            script: PlatformScriptRef {
+                                raw: String::from(
+                                    "PlatformScript_Nothing-PlatformScript_BaseAddress",
+                                ),
+                                relative_offset: None,
+                            },
+                        },
+                        PlatformPlacement {
+                            x: 0x0900,
+                            y: 0x0100,
+                            buffer_left: 0,
+                            buffer_right: 0,
+                            buffer_top: 0,
+                            buffer_bottom: 0,
+                            kind: 0x01,
+                            subtype: 0x02,
+                            h_variant: 0,
+                            v_variant: 0,
+                            script: PlatformScriptRef {
+                                raw: String::from(
+                                    "PlatformScript_Nothing-PlatformScript_BaseAddress",
+                                ),
+                                relative_offset: None,
+                            },
+                        },
+                    ],
+                }),
             }],
             constants: Vec::new(),
             ram_variables: Vec::new(),
@@ -576,6 +622,7 @@ mod tests {
         assert_eq!(trace[359].flag_y, Some(0x0300));
         assert_eq!(trace[359].level_enemy_object_count, Some(22));
         assert_eq!(trace[359].active_enemy_object_count, 0);
+        assert_eq!(trace[359].active_platform_object_count, 0);
         assert_eq!(trace[359].kid_x_pos, Some(TITLE_KID_X_POS));
         assert_eq!(trace[359].kid_y_pos, Some(TITLE_KID_Y_POS));
         assert!(trace[359].active_objects.is_empty());
@@ -614,15 +661,56 @@ mod tests {
         assert_eq!(trace.flag_x, Some(0x0750));
         assert_eq!(trace.level_enemy_object_count, Some(22));
         assert_eq!(trace.active_enemy_object_count, 1);
+        assert_eq!(trace.active_platform_object_count, 1);
         assert_eq!(trace.kid_x_pos, Some(LEVEL_ENTRY_KID_X_POS));
         assert_eq!(trace.kid_y_pos, Some(LEVEL_ENTRY_KID_Y_POS));
-        assert_eq!(trace.active_objects.len(), 2);
+        assert_eq!(trace.active_objects.len(), 3);
         assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
         assert_eq!(
             trace.active_objects[1].kind,
             NativeObjectKind::Enemy { object_type: 0x01 }
         );
+        assert_eq!(
+            trace.active_objects[2].kind,
+            NativeObjectKind::Platform {
+                kind: 0x00,
+                subtype: 0x00,
+            }
+        );
         assert_eq!(trace.camera_y_pos, LEVEL_ENTRY_CAMERA_Y);
+    }
+
+    #[test]
+    fn activates_visible_platforms_in_level_window() {
+        let mut runtime = NativeRuntime::new(manifest());
+        for _ in 0..360 {
+            runtime.step_frame(FrameInput::default());
+        }
+        for _ in 0..5 {
+            runtime.step_frame(FrameInput {
+                start: true,
+                ..FrameInput::default()
+            });
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        for _ in 0..60 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let trace = runtime.trace_frame();
+        let platforms = trace
+            .active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
+            .collect::<Vec<_>>();
+
+        assert_eq!(trace.active_platform_object_count, 1);
+        assert_eq!(platforms.len(), 1);
+        assert_eq!(platforms[0].x_pos, 0x0100_0000);
+        assert_eq!(platforms[0].y_pos, 0x00E0_0000);
     }
 
     #[test]
@@ -648,6 +736,7 @@ mod tests {
         assert_eq!(trace.camera_x_pos, MOVE_END_CAMERA_X);
         assert_eq!(trace.camera_y_pos, LEVEL_SETTLED_CAMERA_Y);
         assert_eq!(trace.active_enemy_object_count, 1);
+        assert_eq!(trace.active_platform_object_count, 0);
         assert_eq!(trace.active_objects.len(), 2);
         assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
         assert_eq!(
