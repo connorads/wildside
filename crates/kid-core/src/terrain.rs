@@ -125,7 +125,10 @@ impl Cell {
     pub fn is_solid_floor(&self) -> bool {
         matches!(
             self.collision,
-            CollisionKind::Solid | CollisionKind::SlopeUp | CollisionKind::SlopeDown
+            CollisionKind::Solid
+                | CollisionKind::SlopeUp
+                | CollisionKind::SlopeDown
+                | CollisionKind::Spikes
         )
     }
 }

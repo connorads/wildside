@@ -26,3 +26,16 @@ after each iteration and it's included in prompts for context.
   - `start_level()` helper advances ~370 frames; additional ~260 frames needed before physics are active
 ---
 
+## 2026-03-09 - US-002
+- Implemented spike death trigger: player dies instantly when contacting spike collision cells
+- Added `on_spikes` field to `PlayerState`, set during `apply_floor_collision` when floor probe returns a `CollisionKind::Spikes` cell
+- Added `Spikes` to `is_solid_floor()` in terrain so spikes act as landable surfaces
+- Spike death check in `refresh_opening_slice()` after pit death check — sets HP to 0 and calls `begin_death_windup()`
+- Two tests: full death/respawn lifecycle and HP-ignoring instant kill
+- Files changed: `crates/kid-core/src/lib.rs`, `crates/kid-core/src/terrain.rs`
+- **Learnings:**
+  - Spikes must be in `is_solid_floor()` so `probe_floor` detects them as ground — otherwise the player falls through
+  - Tests with hazard floors at spawn point conflict with `start_level()` which runs ~430 frames of gameplay — need solid floor at spawn and hazard offset to the side
+  - `on_spikes` flag on `PlayerState` follows the same pattern as `on_ground` — set during collision, checked during the refresh step
+---
+

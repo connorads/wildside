@@ -244,6 +244,7 @@ struct PlayerState {
     y_velocity: i32,
     facing: Direction,
     on_ground: bool,
+    on_spikes: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -614,6 +615,14 @@ impl NativeRuntime {
             return;
         }
 
+        // Spike death: contacting a spike cell is instant death
+        if slice.player.on_spikes {
+            self.opening_slice = Some(slice);
+            self.number_hitpoints = 0;
+            self.begin_death_windup();
+            return;
+        }
+
         if self.should_apply_level_one_opening_hit(&slice, input)
             || self.should_apply_level_one_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
@@ -830,6 +839,7 @@ impl PlayerState {
             y_velocity: 0,
             facing: Direction::Right,
             on_ground: true,
+            on_spikes: false,
         }
     }
 }
@@ -844,6 +854,7 @@ impl OpeningSliceState {
                 y_velocity: 0,
                 facing: Direction::Right,
                 on_ground: false,
+                on_spikes: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -868,6 +879,7 @@ impl OpeningSliceState {
                 y_velocity: 0,
                 facing: Direction::Right,
                 on_ground: true,
+                on_spikes: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -1049,10 +1061,13 @@ impl OpeningSliceState {
                     self.player.y_pos = floor_y_fp;
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
+                    self.player.on_spikes =
+                        probe.cell.collision == terrain::CollisionKind::Spikes;
                 }
             } else if self.player.on_ground {
                 // Was on ground but no longer — start falling
                 self.player.on_ground = false;
+                self.player.on_spikes = false;
             }
         } else {
             // Flat floor fallback when no block grid is loaded
@@ -1816,5 +1831,109 @@ mod tests {
         let trace = runtime.trace_frame();
         assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
         assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+    }
+
+    /// Helper: build a block grid with solid floor at row 17 and spikes
+    /// starting at the given column onward (also at row 17).
+    fn grid_with_spikes_from_col(spike_start_col: u16) -> terrain::BlockGrid {
+        let width_cells = 6u16 * 20;
+        let height_cells = 4u16 * 14;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for col in 0..width_cells {
+            let offset =
+                (17usize * usize::from(width_cells) + usize::from(col)) * 2;
+            if col >= spike_start_col {
+                data[offset] = 0x70; // collision=7 (Spikes)
+            } else {
+                data[offset] = 0x60; // collision=6 (Solid)
+            }
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    #[test]
+    fn spike_death_triggers_death_and_respawn() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        // Solid floor under spawn (col 0..5), spikes from col 5 onward.
+        // Player spawns at x=32px (col 2), walks right into spikes at col 5 (80px).
+        runtime.set_block_grid(grid_with_spikes_from_col(5));
+
+        start_level(&mut runtime);
+
+        // Walk right until we hit spikes and die
+        for _ in 0..300 {
+            if !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+                break;
+            }
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        // Player should be in death windup from landing on spikes
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            "expected DeathWindup, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.number_hitpoints, 0, "spike death sets HP to 0");
+
+        let pre_lives = runtime.number_lives;
+
+        // Advance through death windup
+        for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }),
+            "expected Dying, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.number_lives, pre_lives - 1, "should lose a life");
+
+        // Advance through dying phase
+        for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "expected Respawning, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        // Player should be back at level start position
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
+        assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+    }
+
+    #[test]
+    fn spike_death_ignores_hitpoints() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        // Give extra HP — spikes should still be instant kill
+        runtime.number_hitpoints = 5;
+        runtime.set_block_grid(grid_with_spikes_from_col(5));
+
+        start_level(&mut runtime);
+
+        for _ in 0..300 {
+            if !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+                break;
+            }
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            "expected DeathWindup despite 5 HP, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.number_hitpoints, 0, "spike death zeroes HP regardless");
     }
 }
