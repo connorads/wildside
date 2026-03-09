@@ -82,6 +82,7 @@ pub struct NativeTraceFrame {
     pub flag_x: Option<u16>,
     pub flag_y: Option<u16>,
     pub level_enemy_object_count: Option<u8>,
+    pub active_enemy_object_count: usize,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
     pub camera_x_pos: u32,
@@ -217,6 +218,8 @@ impl NativeRuntime {
         let level_elapsed = self.level_elapsed_frames();
         let (camera_x_pos, camera_y_pos) = self.camera_position(level_elapsed);
         let (number_objects, number_gfx_objects) = self.object_counts(level_elapsed);
+        let active_enemy_object_count =
+            self.active_enemy_object_count(enemy_layout, camera_x_pos, camera_y_pos);
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -231,6 +234,7 @@ impl NativeRuntime {
             flag_x: level_header.map(|header| header.flag_x),
             flag_y: level_header.map(|header| header.flag_y),
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
+            active_enemy_object_count,
             kid_x_pos: self.player_state.map(|state| state.x_pos),
             kid_y_pos: self.player_state.map(|state| state.y_pos),
             camera_x_pos,
@@ -279,6 +283,40 @@ impl NativeRuntime {
             x_pos: header.map_or(0, |header| u32::from(header.player_start_x) << 16),
             y_pos: header.map_or(0, |header| u32::from(header.player_start_y) << 16),
         }
+    }
+
+    fn active_enemy_object_count(
+        &self,
+        enemy_layout: Option<&kid_data::EnemyLayout>,
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> usize {
+        let Some(enemy_layout) = enemy_layout else {
+            return 0;
+        };
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) {
+            return 0;
+        }
+
+        let camera_x_px = camera_x_pos >> 16;
+        let camera_y_px = camera_y_pos >> 16;
+        let x_min = camera_x_px.saturating_sub(64);
+        let x_max = camera_x_px.saturating_add(384);
+        let y_min = camera_y_px.saturating_sub(64);
+        let y_max = camera_y_px.saturating_add(288);
+
+        enemy_layout
+            .objects
+            .iter()
+            .filter(|object| {
+                let object_x = u32::from(object.x);
+                let object_y = u32::from(object.y);
+                (x_min..=x_max).contains(&object_x) && (y_min..=y_max).contains(&object_y)
+            })
+            .count()
     }
 
     fn level_elapsed_frames(&self) -> Option<usize> {
@@ -405,7 +443,29 @@ mod tests {
                     unknown_word: 0x7D00,
                     header_byte: 0x80,
                     object_count: 22,
-                    objects: Vec::new(),
+                    objects: vec![
+                        kid_data::EnemyLayoutObject {
+                            object_type: 0x01,
+                            flags: 0,
+                            hit_points_plus_one: 1,
+                            x: 0x0120,
+                            y: 0x00E0,
+                        },
+                        kid_data::EnemyLayoutObject {
+                            object_type: 0x1C,
+                            flags: 0,
+                            hit_points_plus_one: 1,
+                            x: 0x02A0,
+                            y: 0x0100,
+                        },
+                        kid_data::EnemyLayoutObject {
+                            object_type: 0x1C,
+                            flags: 0,
+                            hit_points_plus_one: 1,
+                            x: 0x0900,
+                            y: 0x0100,
+                        },
+                    ],
                 }),
             }],
             constants: Vec::new(),
@@ -426,6 +486,7 @@ mod tests {
         assert_eq!(trace[359].player_start_x, Some(0x0750));
         assert_eq!(trace[359].flag_y, Some(0x0300));
         assert_eq!(trace[359].level_enemy_object_count, Some(22));
+        assert_eq!(trace[359].active_enemy_object_count, 0);
         assert_eq!(trace[359].kid_x_pos, None);
         assert_eq!(trace[359].kid_y_pos, None);
         assert_eq!(trace[359].number_objects, 4);
@@ -462,6 +523,7 @@ mod tests {
         assert_eq!(trace.player_start_y, Some(0x00E0));
         assert_eq!(trace.flag_x, Some(0x0750));
         assert_eq!(trace.level_enemy_object_count, Some(22));
+        assert_eq!(trace.active_enemy_object_count, 1);
         assert_eq!(trace.kid_x_pos, Some(0x0750_0000));
         assert_eq!(trace.kid_y_pos, Some(0x00E0_0000));
         assert_eq!(trace.camera_y_pos, LEVEL_ENTRY_CAMERA_Y);
@@ -489,6 +551,7 @@ mod tests {
         let trace = runtime.trace_frame();
         assert_eq!(trace.camera_x_pos, MOVE_END_CAMERA_X);
         assert_eq!(trace.camera_y_pos, LEVEL_SETTLED_CAMERA_Y);
+        assert_eq!(trace.active_enemy_object_count, 1);
         assert!(trace.kid_x_pos.is_some_and(|x_pos| x_pos > 0x0750_0000));
         assert_eq!(trace.kid_y_pos, Some(0x00E0_0000));
     }

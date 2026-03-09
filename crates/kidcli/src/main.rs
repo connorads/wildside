@@ -1959,6 +1959,10 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
     if let Some(level_enemy_object_count) = final_frame.level_enemy_object_count {
         println!("level enemy objects: {level_enemy_object_count}");
     }
+    println!(
+        "active enemy objects: {}",
+        final_frame.active_enemy_object_count
+    );
     if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
         println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
     }
@@ -1968,7 +1972,7 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
             native_trace_at_checkpoint(&trace, checkpoint.label, checkpoint.frame_index)
         {
             println!(
-                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} objects {}/{}",
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} objects {}/{} active_enemies {}",
                 checkpoint.label,
                 checkpoint.frame_index,
                 frame.game_mode,
@@ -1977,7 +1981,8 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
                 frame.camera_x_pos,
                 frame.camera_y_pos,
                 frame.number_objects,
-                frame.number_gfx_objects
+                frame.number_gfx_objects,
+                frame.active_enemy_object_count
             );
         }
     }
