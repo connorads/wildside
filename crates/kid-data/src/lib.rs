@@ -40,6 +40,10 @@ pub struct LevelRecord {
     pub resource_paths: Vec<String>,
     #[serde(default)]
     pub resources: LevelResources,
+    #[serde(default)]
+    pub header_metadata: Option<LevelHeader>,
+    #[serde(default)]
+    pub enemy_layout_metadata: Option<EnemyLayout>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,7 +86,7 @@ pub struct EnemyDefinition {
     pub source_path: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelHeader {
     pub width_screens: u8,
     pub height_screens: u8,
@@ -97,7 +101,7 @@ pub struct LevelHeader {
     pub flag_y: u16,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnemyLayout {
     pub unknown_prefix: u32,
     pub enemy_type_slots: Vec<u16>,
@@ -107,7 +111,7 @@ pub struct EnemyLayout {
     pub objects: Vec<EnemyLayoutObject>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnemyLayoutObject {
     pub object_type: u8,
     pub flags: u8,
@@ -219,6 +223,8 @@ pub fn export_split_bundle(
         animation_assets: collect_asset_files(&output_root.join("ingame/anim"))?,
         sound_assets: collect_asset_files(&output_root.join("sound"))?,
     };
+    let mut manifest = manifest;
+    normalise_manifest(&mut manifest)?;
 
     fs::write(
         manifest_path(output_root),
@@ -234,7 +240,7 @@ pub fn load_manifest(path: &Path) -> Result<AssetManifest> {
         fs::read(path).with_context(|| format!("failed to read manifest {}", path.display()))?;
     let mut manifest: AssetManifest =
         serde_json::from_slice(&bytes).context("failed to parse asset manifest")?;
-    normalise_manifest(&mut manifest);
+    normalise_manifest(&mut manifest)?;
     Ok(manifest)
 }
 
@@ -243,17 +249,20 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .levels
         .iter()
         .find(|level| level.level_id == level_id)
-        .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?;
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?
+        .clone();
     let header = load_asset(manifest, level.resources.header.as_deref())?;
     let parsed_header = header
         .as_ref()
         .map(|asset| parse_level_header(&asset.bytes))
-        .transpose()?;
+        .transpose()?
+        .or(level.header_metadata.clone());
     let enemy = load_asset(manifest, level.resources.enemy.as_deref())?;
     let parsed_enemy_layout = enemy
         .as_ref()
         .map(|asset| parse_enemy_layout(&asset.bytes))
-        .transpose()?;
+        .transpose()?
+        .or(level.enemy_layout_metadata.clone());
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
@@ -392,6 +401,8 @@ fn merge_level_catalogues(
                 resources: level_resources_from_paths(
                     files.get(&level_id).cloned().unwrap_or_default().as_slice(),
                 ),
+                header_metadata: None,
+                enemy_layout_metadata: None,
             },
         );
     }
@@ -402,17 +413,42 @@ fn merge_level_catalogues(
             display_name: None,
             resources: level_resources_from_paths(&resource_paths),
             resource_paths,
+            header_metadata: None,
+            enemy_layout_metadata: None,
         });
     }
     by_level.into_values().collect()
 }
 
-fn normalise_manifest(manifest: &mut AssetManifest) {
+fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
     for level in &mut manifest.levels {
         if level.resources == LevelResources::default() {
             level.resources = level_resources_from_paths(&level.resource_paths);
         }
+        if level.header_metadata.is_none()
+            && let Some(relative_path) = level.resources.header.as_deref()
+        {
+            let full_path = manifest.output_root.join("level").join(relative_path);
+            if full_path.is_file() {
+                let bytes = fs::read(&full_path).with_context(|| {
+                    format!("failed to read level header {}", full_path.display())
+                })?;
+                level.header_metadata = Some(parse_level_header(&bytes)?);
+            }
+        }
+        if level.enemy_layout_metadata.is_none()
+            && let Some(relative_path) = level.resources.enemy.as_deref()
+        {
+            let full_path = manifest.output_root.join("level").join(relative_path);
+            if full_path.is_file() {
+                let bytes = fs::read(&full_path).with_context(|| {
+                    format!("failed to read enemy layout {}", full_path.display())
+                })?;
+                level.enemy_layout_metadata = Some(parse_enemy_layout(&bytes)?);
+            }
+        }
     }
+    Ok(())
 }
 
 fn level_resources_from_paths(paths: &[String]) -> LevelResources {
@@ -937,6 +973,20 @@ mod tests {
         assert_eq!(
             manifest.levels[0].resources.platform_script.as_deref(),
             Some("platform/00.asm")
+        );
+        assert_eq!(
+            manifest.levels[0]
+                .header_metadata
+                .as_ref()
+                .map(|header| header.width_screens),
+            Some(0x06)
+        );
+        assert_eq!(
+            manifest.levels[0]
+                .enemy_layout_metadata
+                .as_ref()
+                .map(|layout| layout.object_count),
+            Some(0x01)
         );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);

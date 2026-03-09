@@ -76,6 +76,11 @@ pub struct NativeTraceFrame {
     pub current_level: LevelId,
     pub player_1_level_id: LevelId,
     pub current_level_name: Option<String>,
+    pub player_start_x: Option<u16>,
+    pub player_start_y: Option<u16>,
+    pub flag_x: Option<u16>,
+    pub flag_y: Option<u16>,
+    pub level_enemy_object_count: Option<u8>,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
     pub number_objects: u16,
@@ -184,6 +189,8 @@ impl NativeRuntime {
     pub fn trace_frame(&self) -> NativeTraceFrame {
         let game_mode = self.game_mode();
         let current_level_name = self.level_name(self.current_level).map(str::to_owned);
+        let level_header = self.level_header(self.current_level);
+        let enemy_layout = self.enemy_layout(self.current_level);
         let level_elapsed = self.level_elapsed_frames();
         let (camera_x_pos, camera_y_pos) = self.camera_position(level_elapsed);
         let (number_objects, number_gfx_objects) = self.object_counts(level_elapsed);
@@ -196,6 +203,11 @@ impl NativeRuntime {
             current_level: self.current_level,
             player_1_level_id: self.current_level,
             current_level_name,
+            player_start_x: level_header.map(|header| header.player_start_x),
+            player_start_y: level_header.map(|header| header.player_start_y),
+            flag_x: level_header.map(|header| header.flag_x),
+            flag_y: level_header.map(|header| header.flag_y),
+            level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             camera_x_pos,
             camera_y_pos,
             number_objects,
@@ -215,11 +227,25 @@ impl NativeRuntime {
     }
 
     pub fn level_name(&self, level_id: LevelId) -> Option<&str> {
+        self.level_record(level_id)
+            .and_then(|level| level.display_name.as_deref())
+    }
+
+    fn level_header(&self, level_id: LevelId) -> Option<&kid_data::LevelHeader> {
+        self.level_record(level_id)
+            .and_then(|level| level.header_metadata.as_ref())
+    }
+
+    fn enemy_layout(&self, level_id: LevelId) -> Option<&kid_data::EnemyLayout> {
+        self.level_record(level_id)
+            .and_then(|level| level.enemy_layout_metadata.as_ref())
+    }
+
+    fn level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
         self.assets
             .levels
             .iter()
             .find(|level| level.level_id == level_id.0)
-            .and_then(|level| level.display_name.as_deref())
     }
 
     fn level_elapsed_frames(&self) -> Option<usize> {
@@ -312,7 +338,7 @@ pub fn run_script(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kid_data::{AssetManifest, LevelRecord, LevelResources};
+    use kid_data::{AssetManifest, EnemyLayout, LevelHeader, LevelRecord, LevelResources};
     use std::path::PathBuf;
 
     fn manifest() -> AssetManifest {
@@ -327,6 +353,27 @@ mod tests {
                 display_name: Some(String::from("Blue Lake Woods 1")),
                 resource_paths: vec![String::from("level/header/00.bin")],
                 resources: LevelResources::default(),
+                header_metadata: Some(LevelHeader {
+                    width_screens: 6,
+                    height_screens: 4,
+                    height_flag_bits: 0,
+                    level_theme: 8,
+                    murder_wall_flags: 0,
+                    background_theme: 8,
+                    weather_flags: 1,
+                    player_start_x: 0x0750,
+                    player_start_y: 0x00E0,
+                    flag_x: 0x0750,
+                    flag_y: 0x0300,
+                }),
+                enemy_layout_metadata: Some(EnemyLayout {
+                    unknown_prefix: 0,
+                    enemy_type_slots: vec![0xFFFF, 0x0001, 0x001C],
+                    unknown_word: 0x7D00,
+                    header_byte: 0x80,
+                    object_count: 22,
+                    objects: Vec::new(),
+                }),
             }],
             constants: Vec::new(),
             ram_variables: Vec::new(),
@@ -343,6 +390,9 @@ mod tests {
         let trace = run_script(manifest(), &[], 400);
         assert_eq!(trace[359].game_mode, GameMode::TitleScreen);
         assert_eq!(trace[359].current_level, LevelId(0));
+        assert_eq!(trace[359].player_start_x, Some(0x0750));
+        assert_eq!(trace[359].flag_y, Some(0x0300));
+        assert_eq!(trace[359].level_enemy_object_count, Some(22));
         assert_eq!(trace[359].number_objects, 4);
         assert_eq!(trace[359].number_gfx_objects, 4);
     }
@@ -374,6 +424,9 @@ mod tests {
             trace.current_level_name.as_deref(),
             Some("Blue Lake Woods 1")
         );
+        assert_eq!(trace.player_start_y, Some(0x00E0));
+        assert_eq!(trace.flag_x, Some(0x0750));
+        assert_eq!(trace.level_enemy_object_count, Some(22));
         assert_eq!(trace.camera_y_pos, LEVEL_ENTRY_CAMERA_Y);
     }
 
