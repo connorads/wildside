@@ -130,6 +130,14 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         all: bool,
     },
+    VerifyNativeGameplay {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
+        scenario: GameplayScenario,
+    },
     VerifyAudioDriver {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -390,6 +398,14 @@ fn main() -> Result<()> {
                 verify_gameplay_scenario(&repo_root, &rom_bytes, scenario)?;
                 println!("gameplay verification passed: {}", scenario.slug());
             }
+        }
+        Commands::VerifyNativeGameplay { rom, dir, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            verify_native_gameplay_scenario(&repo_root, &manifest, scenario)?;
+            println!("native gameplay verification passed: {}", scenario.slug());
         }
         Commands::VerifyAudioDriver { rom, steps } => {
             let repo_root = current_dir()?;
@@ -1136,6 +1152,73 @@ fn gameplay_state_from_probe(frame_index: usize, snapshot: &kid_md::CpuProbe) ->
         camera_y_pos: snapshot.camera_y_pos,
         kid_x_pos: snapshot.kid_x_pos,
         kid_y_pos: snapshot.kid_y_pos,
+        number_objects: snapshot.number_objects,
+        number_gfx_objects: snapshot.number_gfx_objects,
+    }
+}
+
+fn capture_native_gameplay_scenario(
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+) -> Result<GameplayCapture> {
+    if !matches!(
+        scenario,
+        GameplayScenario::PauseResumeLevel1
+            | GameplayScenario::DeathRespawnLevel1
+            | GameplayScenario::ProgressTwoTransitions
+            | GameplayScenario::SoakLevel10m
+    ) {
+        bail!(
+            "verify-native-gameplay does not support scenario {}",
+            scenario.slug()
+        );
+    }
+
+    let script = scenario.script()?;
+    let checkpoints = scenario.checkpoints();
+    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let mut checkpoint_index = 0usize;
+    let mut states = Vec::with_capacity(trace.len());
+    let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
+
+    for snapshot in trace {
+        let state = gameplay_state_from_native_trace(&snapshot);
+        while checkpoint_index < checkpoints.len()
+            && checkpoints[checkpoint_index].frame_index == snapshot.frame_index
+        {
+            let checkpoint = checkpoints[checkpoint_index];
+            captured_checkpoints.push(GameplayState {
+                label: checkpoint.label.to_string(),
+                ..state.clone()
+            });
+            checkpoint_index += 1;
+        }
+        states.push(state);
+    }
+
+    Ok(GameplayCapture {
+        scenario: format!("native_{}", scenario.slug()),
+        frame_count: scenario.frame_count(),
+        missed_vblank_frames: 0,
+        states,
+        checkpoints: captured_checkpoints,
+    })
+}
+
+fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> GameplayState {
+    GameplayState {
+        label: format!("frame_{:05}", snapshot.frame_index),
+        frame_index: snapshot.frame_index,
+        game_mode: snapshot.game_mode_value,
+        current_player: snapshot.current_player,
+        number_lives: snapshot.number_lives,
+        current_level_id: u16::from(snapshot.current_level.0),
+        player_1_level_id: u16::from(snapshot.player_1_level_id.0),
+        current_helmet_id: snapshot.current_helmet_id,
+        camera_x_pos: snapshot.camera_x_pos,
+        camera_y_pos: snapshot.camera_y_pos,
+        kid_x_pos: snapshot.kid_x_pos.unwrap_or(0),
+        kid_y_pos: snapshot.kid_y_pos.unwrap_or(0),
         number_objects: snapshot.number_objects,
         number_gfx_objects: snapshot.number_gfx_objects,
     }
@@ -2803,10 +2886,36 @@ fn verify_gameplay_scenario(
     }
 }
 
+fn verify_native_gameplay_scenario(
+    repo_root: &Path,
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+) -> Result<()> {
+    let capture = capture_native_gameplay_scenario(manifest, scenario)?;
+    write_native_gameplay_artifacts(repo_root, &capture)?;
+    match scenario {
+        GameplayScenario::PauseResumeLevel1 => verify_pause_resume_level_1(&capture),
+        GameplayScenario::DeathRespawnLevel1 => verify_death_respawn_level_1(&capture),
+        GameplayScenario::ProgressTwoTransitions => verify_progress_two_transitions(&capture),
+        GameplayScenario::SoakLevel10m => verify_soak_level_10m(&capture),
+    }
+}
+
 fn write_gameplay_artifacts(repo_root: &Path, capture: &GameplayCapture) -> Result<()> {
     let out_dir = repo_root
         .join(".cache/gameplay-runs")
         .join(&capture.scenario);
+    write_gameplay_capture(&out_dir, capture)
+}
+
+fn write_native_gameplay_artifacts(repo_root: &Path, capture: &GameplayCapture) -> Result<()> {
+    let out_dir = repo_root
+        .join(".cache/native-gameplay-runs")
+        .join(&capture.scenario);
+    write_gameplay_capture(&out_dir, capture)
+}
+
+fn write_gameplay_capture(out_dir: &Path, capture: &GameplayCapture) -> Result<()> {
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
     fs::write(

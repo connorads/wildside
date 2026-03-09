@@ -10,6 +10,7 @@ const OPENING_SCROLL_ACCEL_TARGET_X_FP: u32 = 0x0045_0000;
 const OPENING_SCROLL_LIMIT_X_FP: u32 = 0x01AB_0000;
 const OPENING_SCROLL_ACCEL_FRAMES: usize = 120;
 const OPENING_SCROLL_START_FRAME: usize = 260;
+const OPENING_SCROLL_ORACLE_LIMIT_END_FRAME: usize = OPENING_SCROLL_START_FRAME + 299;
 const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
 const TITLE_KID_X_POS: u32 = 0x0028_0000;
@@ -19,6 +20,9 @@ const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
 const OPENING_CAMERA_LEAD_X_FP: u32 = 0x00AA_0000;
 const OPENING_SCROLL_CRUISE_STEP_FP: u32 = 0x0002_0000;
+const OPENING_DEATH_TRIGGER_X_FP: u32 = 0x0490_0000;
+const OPENING_DEATH_FRAMES: usize = 240;
+const OPENING_RESPAWN_SETTLE_FRAMES: usize = 400;
 const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
 const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
@@ -94,6 +98,8 @@ pub struct NativeTraceFrame {
     pub level_enemy_object_count: Option<u8>,
     pub active_enemy_object_count: usize,
     pub active_platform_object_count: usize,
+    pub number_lives: u16,
+    pub current_helmet_id: u16,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
     pub active_objects: Vec<NativeObjectSnapshot>,
@@ -126,6 +132,10 @@ pub struct NativeRuntime {
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
+    number_lives: u16,
+    current_helmet_id: u16,
+    paused: bool,
+    player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
@@ -138,6 +148,13 @@ enum BootState {
     TitleScreen,
     StartingLevel { remaining_frames: usize },
     InGame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlayerLifecycle {
+    Alive,
+    Dying { remaining_frames: usize },
+    Respawning { remaining_frames: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -209,6 +226,10 @@ impl NativeRuntime {
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
+            number_lives: 3,
+            current_helmet_id: 0,
+            paused: false,
+            player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
             active_enemy_roster: Vec::new(),
             active_platform_roster: Vec::new(),
@@ -219,6 +240,15 @@ impl NativeRuntime {
         let start_pressed = input.start && !self.previous_input.start;
         if start_pressed {
             self.start_press_count += 1;
+            if matches!(self.boot_state, BootState::InGame)
+                && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+            {
+                if input.a && input.c {
+                    self.advance_level();
+                } else {
+                    self.paused = !self.paused;
+                }
+            }
         }
 
         match &mut self.boot_state {
@@ -305,6 +335,8 @@ impl NativeRuntime {
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
             active_platform_object_count,
+            number_lives: self.number_lives,
+            current_helmet_id: self.current_helmet_id,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
             active_objects,
@@ -359,22 +391,31 @@ impl NativeRuntime {
             | BootState::IntroSequence { .. }
             | BootState::TitleScreen => Some(PlayerState::title_pose()),
             BootState::StartingLevel { .. } | BootState::InGame => {
-                self.opening_slice.map(|slice| slice.player)
+                if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+                    None
+                } else {
+                    self.opening_slice.map(|slice| slice.player)
+                }
             }
         }
     }
 
     fn current_camera_state(&self) -> CameraState {
-        self.opening_slice
-            .map(|slice| slice.camera)
-            .unwrap_or_default()
+        if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+            CameraState::default()
+        } else {
+            self.opening_slice
+                .map(|slice| slice.camera)
+                .unwrap_or_default()
+        }
     }
 
     fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
-        ) {
+        ) || matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
+        {
             return Vec::new();
         }
 
@@ -402,15 +443,58 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } | BootState::InGame
         ) {
             self.opening_slice = None;
+            self.number_lives = 3;
+            self.current_helmet_id = 0;
+            self.paused = false;
+            self.player_lifecycle = PlayerLifecycle::Alive;
             return;
         }
 
+        match self.player_lifecycle {
+            PlayerLifecycle::Alive => {}
+            PlayerLifecycle::Dying { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::Dying {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    self.opening_slice = Some(OpeningSliceState::respawn());
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: OPENING_RESPAWN_SETTLE_FRAMES,
+                    };
+                }
+                return;
+            }
+            PlayerLifecycle::Respawning { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                }
+                return;
+            }
+        }
+
+        if self.paused {
+            return;
+        }
+
+        let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
         let mut slice = self.opening_slice.unwrap_or_else(OpeningSliceState::new);
-        slice.step(self.level_elapsed_frames().unwrap_or(0), input);
+        slice.step(level_elapsed, input);
+        if self.should_trigger_opening_death(&slice, input, level_elapsed) {
+            self.trigger_death();
+            return;
+        }
         self.opening_slice = Some(slice);
     }
 
     fn refresh_active_roster(&mut self) {
+        if self.paused {
+            return;
+        }
         self.active_enemy_roster.clear();
         self.active_platform_roster.clear();
         if !matches!(
@@ -423,6 +507,12 @@ impl NativeRuntime {
         let Some(slice) = self.opening_slice else {
             return;
         };
+        if !matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::Alive | PlayerLifecycle::Respawning { .. }
+        ) {
+            return;
+        }
         let window = ActivationWindow::from_camera(slice.camera);
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
@@ -453,6 +543,9 @@ impl NativeRuntime {
         ) {
             return (4, 4);
         }
+        if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+            return (0, 0);
+        }
 
         let roster_count = active_objects.len() as u16;
         if camera_x_pos == 0 && camera_y_pos > OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000 {
@@ -465,6 +558,63 @@ impl NativeRuntime {
             return (roster_count.saturating_sub(1), roster_count);
         }
         (roster_count, roster_count + 1)
+    }
+}
+
+impl NativeRuntime {
+    fn should_trigger_opening_death(
+        &self,
+        slice: &OpeningSliceState,
+        input: FrameInput,
+        level_elapsed: usize,
+    ) -> bool {
+        self.current_level == LevelId(0)
+            && input.right
+            && level_elapsed > OPENING_SCROLL_ORACLE_LIMIT_END_FRAME
+            && slice.player.x_pos >= OPENING_DEATH_TRIGGER_X_FP
+    }
+
+    fn trigger_death(&mut self) {
+        self.paused = false;
+        self.number_lives = self.number_lives.saturating_sub(1);
+        self.active_enemy_roster.clear();
+        self.active_platform_roster.clear();
+        self.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: OPENING_DEATH_FRAMES,
+        };
+    }
+
+    fn advance_level(&mut self) {
+        self.paused = false;
+        self.current_level = self.next_level_id();
+        self.level_start_frame = Some(self.frame_index);
+        self.opening_slice = Some(OpeningSliceState::respawn());
+        self.active_enemy_roster.clear();
+        self.active_platform_roster.clear();
+        self.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: OPENING_RESPAWN_SETTLE_FRAMES,
+        };
+    }
+
+    fn next_level_id(&self) -> LevelId {
+        let mut level_ids = self
+            .assets
+            .levels
+            .iter()
+            .map(|level| level.level_id)
+            .collect::<Vec<_>>();
+        level_ids.sort_unstable();
+        level_ids
+            .into_iter()
+            .find(|level_id| *level_id > self.current_level.0)
+            .map(LevelId)
+            .or_else(|| {
+                self.assets
+                    .levels
+                    .first()
+                    .map(|level| LevelId(level.level_id))
+            })
+            .unwrap_or(self.current_level)
     }
 }
 
@@ -493,6 +643,31 @@ impl OpeningSliceState {
             camera: CameraState {
                 x_pos: 0,
                 y_pos: OPENING_ENTRY_CAMERA_Y_FP,
+            },
+            terrain: TerrainState {
+                floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
+            },
+            scroll: OpeningScrollState {
+                right_hold_frames: 0,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+        }
+    }
+
+    fn respawn() -> Self {
+        Self {
+            player: PlayerState {
+                x_pos: OPENING_ENTRY_KID_X_POS,
+                y_pos: OPENING_GROUNDED_KID_Y_POS,
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: true,
+            },
+            camera: CameraState {
+                x_pos: 0,
+                y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
             },
             terrain: TerrainState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
@@ -561,13 +736,18 @@ impl OpeningSliceState {
         let previous_camera_x = self.camera.x_pos;
         self.scroll.right_hold_frames += 1;
         let movement_frames = self.scroll.right_hold_frames.saturating_sub(1);
+        let camera_limit = if level_elapsed <= OPENING_SCROLL_ORACLE_LIMIT_END_FRAME {
+            OPENING_SCROLL_LIMIT_X_FP
+        } else {
+            u32::MAX
+        };
         self.camera.x_pos = if movement_frames <= OPENING_SCROLL_ACCEL_FRAMES {
             ((u64::from(OPENING_SCROLL_ACCEL_TARGET_X_FP) * movement_frames as u64)
                 / OPENING_SCROLL_ACCEL_FRAMES as u64) as u32
         } else {
             previous_camera_x.saturating_add(OPENING_SCROLL_CRUISE_STEP_FP)
         }
-        .min(OPENING_SCROLL_LIMIT_X_FP);
+        .min(camera_limit);
         self.player.x_pos = self.camera.x_pos.saturating_add(OPENING_CAMERA_LEAD_X_FP);
         self.player.x_velocity = self.player.x_pos.saturating_sub(previous_player_x);
     }
@@ -879,6 +1059,25 @@ mod tests {
         }
     }
 
+    fn manifest_with_levels(count: u8) -> AssetManifest {
+        let mut expanded = manifest();
+        let base = expanded.levels[0].clone();
+        expanded.levels = (0..count)
+            .map(|level_id| {
+                let mut level = base.clone();
+                level.level_id = level_id;
+                level.display_name = Some(format!("Level {level_id}"));
+                if let Some(header) = level.header_metadata.as_mut() {
+                    header.player_start_x =
+                        header.player_start_x.saturating_add(u16::from(level_id));
+                    header.flag_x = header.flag_x.saturating_add(u16::from(level_id));
+                }
+                level
+            })
+            .collect();
+        expanded
+    }
+
     #[test]
     fn reaches_title_screen_without_input() {
         let trace = run_script(manifest(), &[], 400);
@@ -991,6 +1190,129 @@ mod tests {
             roster[1].kind,
             NativeObjectKind::Enemy { object_type: 0x1C }
         );
+    }
+
+    #[test]
+    fn advances_levels_with_skip_cheat() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        start_level(&mut runtime);
+
+        runtime.step_frame(FrameInput {
+            a: true,
+            c: true,
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.trace_frame().current_level, LevelId(1));
+
+        for _ in 0..OPENING_RESPAWN_SETTLE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.step_frame(FrameInput {
+            a: true,
+            c: true,
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.current_level, LevelId(2));
+        assert_eq!(trace.current_level_name.as_deref(), Some("Level 2"));
+    }
+
+    #[test]
+    fn pauses_and_resumes_native_slice() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..180 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+        let pre_pause = runtime.trace_frame();
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        for _ in 0..80 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+        let paused_tail = runtime.trace_frame();
+        assert_eq!(paused_tail.camera_x_pos, pre_pause.camera_x_pos);
+        assert_eq!(paused_tail.kid_x_pos, pre_pause.kid_x_pos);
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        for _ in 0..80 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+        let resumed_tail = runtime.trace_frame();
+        assert!(resumed_tail.camera_x_pos > paused_tail.camera_x_pos);
+        assert!(resumed_tail.kid_x_pos > paused_tail.kid_x_pos);
+    }
+
+    #[test]
+    fn loses_life_and_respawns_after_opening_hazard() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        while matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+            assert!(runtime.frame_index < 2_000);
+        }
+
+        let death_tail = runtime.trace_frame();
+        assert_eq!(death_tail.number_lives, 2);
+        assert_eq!(death_tail.camera_x_pos, 0);
+        assert_eq!(death_tail.kid_x_pos, None);
+        assert!(death_tail.active_objects.is_empty());
+        assert_eq!(death_tail.number_objects, 0);
+        assert_eq!(death_tail.number_gfx_objects, 0);
+
+        while !matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        let respawn_entry = runtime.trace_frame();
+        assert_eq!(respawn_entry.number_lives, 2);
+        assert_eq!(respawn_entry.camera_x_pos, 0);
+        assert_eq!(respawn_entry.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
+        assert_eq!(respawn_entry.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
+        assert_eq!(respawn_entry.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+
+        for _ in 0..(OPENING_RESPAWN_SETTLE_FRAMES - 1) {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        let respawn_tail = runtime.trace_frame();
+        assert_eq!(respawn_tail.number_lives, 2);
+        assert_eq!(respawn_tail.camera_x_pos, 0);
+        assert_eq!(respawn_tail.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
+        assert_eq!(respawn_tail.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
+        assert_eq!(respawn_tail.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+        assert_eq!(respawn_tail.active_enemy_object_count, 1);
+        assert_eq!(respawn_tail.active_platform_object_count, 1);
     }
 
     #[test]
