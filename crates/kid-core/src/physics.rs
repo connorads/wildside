@@ -362,6 +362,54 @@ pub fn apply_gravity(y_vel: i32, ascending_and_b_held: bool) -> i32 {
 }
 
 // ---------------------------------------------------------------------------
+// Camera follow — kid.asm:7306-7521 (sub_71E4)
+// ---------------------------------------------------------------------------
+
+/// Update camera position to follow the player. All coordinates are in pixels
+/// (the 68k camera logic operates on the upper 16 bits of positions).
+///
+/// Returns `(new_camera_x, new_camera_y)` in pixels.
+pub fn update_camera(
+    camera_x: i32,
+    camera_y: i32,
+    player_x: i32,
+    player_y: i32,
+    bounds: &LevelBounds,
+) -> (i32, i32) {
+    let new_x = update_camera_axis(
+        camera_x,
+        player_x,
+        i32::from(bounds.width_pixels) - VIEWPORT_WIDTH,
+    );
+    let new_y = update_camera_axis(
+        camera_y,
+        player_y,
+        i32::from(bounds.height_pixels) - VIEWPORT_HEIGHT,
+    );
+    (new_x, new_y)
+}
+
+/// Single-axis camera follow: target = player - $A0, clamped to [0, max_pos],
+/// delta = (target - camera + 4) >> 3, clamped to [-8, 8]. Special edge
+/// behaviour when camera is near boundary.
+fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 {
+    let target = (player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos);
+
+    let velocity = if camera <= 4 && target < camera {
+        // Near left/top edge, target is further left/up: nudge at -1
+        -1
+    } else if camera >= max_pos - 4 && target > camera {
+        // Near right/bottom edge, target is further right/down: nudge at +1
+        1
+    } else {
+        let delta = (target - camera + 4) >> 3;
+        delta.clamp(-CAMERA_MAX_STEP, CAMERA_MAX_STEP)
+    };
+
+    (camera + velocity).max(0).min(max_pos)
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -643,6 +691,72 @@ mod tests {
         // Even extreme upward velocity is clamped
         let extreme = apply_gravity(i32::MIN / 2, false);
         assert_eq!(extreme, MAX_RISE_SPEED);
+    }
+
+    // -- Camera tests --
+
+    fn level1_bounds() -> LevelBounds {
+        // Level 1: 6 screens wide, 4 screens tall
+        LevelBounds {
+            width_pixels: 6 * 320,
+            height_pixels: 4 * 224,
+        }
+    }
+
+    #[test]
+    fn camera_follows_player_right() {
+        let bounds = level1_bounds();
+        // Player at x=320 (centre-ish), camera at 0
+        let (cx, _) = update_camera(0, 0, 320, 160, &bounds);
+        // target = 320 - 160 = 160, delta = (160 - 0 + 4) >> 3 = 20, clamped to 8
+        assert_eq!(cx, 8);
+    }
+
+    #[test]
+    fn camera_delta_clamped_to_max_step() {
+        let bounds = level1_bounds();
+        // Large distance: delta should be clamped to ±8
+        let (cx, _) = update_camera(0, 0, 1000, 160, &bounds);
+        assert_eq!(cx, 8);
+        // Moving left
+        let (cx2, _) = update_camera(500, 0, 0, 160, &bounds);
+        assert_eq!(cx2, 500 - 8);
+    }
+
+    #[test]
+    fn camera_reaches_steady_state() {
+        let bounds = level1_bounds();
+        let player_x = 500;
+        let player_y = 400;
+        let mut cx = 0;
+        let mut cy = 0;
+        for _ in 0..2000 {
+            let (nx, ny) = update_camera(cx, cy, player_x, player_y, &bounds);
+            cx = nx;
+            cy = ny;
+        }
+        // Should converge near target
+        let target_x = (player_x - CAMERA_PLAYER_OFFSET).max(0);
+        let target_y = (player_y - CAMERA_PLAYER_OFFSET).max(0);
+        assert!((cx - target_x).abs() <= 4, "cx={cx} target_x={target_x}");
+        assert!((cy - target_y).abs() <= 4, "cy={cy} target_y={target_y}");
+    }
+
+    #[test]
+    fn camera_clamps_at_level_left_edge() {
+        let bounds = level1_bounds();
+        // Player at far left
+        let (cx, _) = update_camera(0, 0, 0, 160, &bounds);
+        assert!(cx >= 0);
+    }
+
+    #[test]
+    fn camera_clamps_at_level_right_edge() {
+        let bounds = level1_bounds();
+        let max_x = i32::from(bounds.width_pixels) - VIEWPORT_WIDTH;
+        // Player at far right
+        let (cx, _) = update_camera(max_x, 0, i32::from(bounds.width_pixels), 160, &bounds);
+        assert!(cx <= max_x);
     }
 
     #[test]
