@@ -1943,7 +1943,7 @@ impl SpriteLineScan {
 
             let top = ypos.max(0) as usize;
             let bottom = ((ypos + height_pixels) as usize).min(screen_height);
-            for line in &mut line_indices[top..bottom] {
+            for line in &mut line_indices[top.min(bottom)..bottom] {
                 if line.len() < MAX_SPRITES_PER_LINE {
                     line.push(entry_idx);
                 }
