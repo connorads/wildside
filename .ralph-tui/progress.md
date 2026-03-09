@@ -15,6 +15,7 @@ after each iteration and it's included in prompts for context.
 - **Flag collision / level completion**: `Alive` → `LevelComplete` (120 frames, input frozen) → `advance_level()` → `Respawning`. `player_touches_flag()` uses a 16x16 hit region around the flag position from `LevelHeader`. The `level_complete` bool on `NativeTraceFrame` signals renderers to display "LEVEL COMPLETE".
 - **Enemy contact damage**: AABB overlap between player hitbox (half_width=5, height=31 above feet) and enemy hitbox (16x16 centred on position). `should_apply_contact_damage()` checks all levels. Invulnerability (300 frames) prevents rapid re-hits. `apply_damage()` handles HP decrement/death.
 - **Boot resets HP**: `refresh_opening_slice` resets `number_hitpoints` every frame when not in `StartingLevel`/`InGame` boot state. Tests that set HP must do so AFTER `start_level()` + opening animation advance, not before.
+- **Static enemies (Diamond)**: Diamonds get zero velocity at activation and are skipped by `step_active_enemies()` — they remain at spawn position forever. They still participate in collision via `active_enemy_roster`, which includes ALL active enemies regardless of family.
 - **Persistent enemy state**: `ActiveEnemy` structs in `active_enemies: Vec<ActiveEnemy>` persist across frames. `activate_enemies()` adds/removes based on activation window; `step_active_enemies()` runs per-family movement. The `active_enemy_roster` (snapshots for rendering/collision) is derived from `active_enemies` each frame.
 - **Roster refresh ordering**: `refresh_active_roster()` runs BEFORE `refresh_opening_slice()` so that enemy positions are current when contact damage is checked.
 - **Enemy activation window**: Uses layout spawn position (not current position) for activation/deactivation — matching original game behaviour. Tests that need enemies active must place them within the initial camera window (x: 0..384, y: 0..288 at camera origin).
@@ -91,5 +92,15 @@ after each iteration and it's included in prompts for context.
   - Contact damage timing matters: `should_apply_contact_damage` reads `active_enemy_roster`, which must be populated BEFORE the damage check runs. Moving roster refresh before opening slice refresh fixed this
   - Tests with enemies must place them within the initial activation window (camera at origin: x 0..384, y 0..288). Using the default manifest's skull at x=672 requires scrolling the camera first, which is fragile due to opening hazards and pit death
   - `build_enemy_roster` (stateless snapshot each frame) was replaced by `activate_enemies` + `step_active_enemies` (persistent state). The old function is kept for existing unit tests only
+---
+
+## 2026-03-09 - US-006
+- Diamond static enemy archetype — already implicitly implemented by US-005's architecture
+- Diamonds get zero velocity at activation (`activate_enemies` defaults non-skull families to 0) and are skipped by `step_active_enemies()` (only MiniHoppingSkull gets `step_pacer`)
+- Added two explicit tests: `diamond_stays_at_spawn_position` (60 frames, position unchanged) and `diamond_participates_in_collision` (contact damage triggers)
+- Files changed: `crates/kid-core/src/lib.rs`
+- **Learnings:**
+  - The family-based dispatch in `step_active_enemies` means new static enemy types are "free" — just add the family variant and it stays put by default
+  - `cargo fmt` touched many pre-existing formatting issues across the workspace; these are cosmetic, not from US-006
 ---
 

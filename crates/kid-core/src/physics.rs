@@ -222,7 +222,10 @@ pub fn update_horizontal_velocity(
     table: &SpeedTable,
 ) -> (i32, Direction) {
     if input.right {
-        (apply_holding_right(x_vel, input.run, table), Direction::Right)
+        (
+            apply_holding_right(x_vel, input.run, table),
+            Direction::Right,
+        )
     } else if input.left {
         (apply_holding_left(x_vel, input.run, table), Direction::Left)
     } else {
@@ -479,7 +482,10 @@ mod tests {
 
     #[test]
     fn micromax_walk_speed_is_half_of_kid_on_normal_terrain() {
-        assert_eq!(NORMAL_MICROMAX.max_walk_speed, NORMAL_KID.max_walk_speed / 2);
+        assert_eq!(
+            NORMAL_MICROMAX.max_walk_speed,
+            NORMAL_KID.max_walk_speed / 2
+        );
         assert_eq!(NORMAL_MICROMAX.walk_accel, NORMAL_KID.walk_accel / 2);
     }
 
@@ -499,19 +505,35 @@ mod tests {
     // -- Horizontal movement tests --
 
     fn right_walk() -> HorizontalInput {
-        HorizontalInput { left: false, right: true, run: false }
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        }
     }
 
     fn right_run() -> HorizontalInput {
-        HorizontalInput { left: false, right: true, run: true }
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        }
     }
 
     fn left_walk() -> HorizontalInput {
-        HorizontalInput { left: true, right: false, run: false }
+        HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        }
     }
 
     fn no_input() -> HorizontalInput {
-        HorizontalInput { left: false, right: false, run: false }
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        }
     }
 
     #[test]
@@ -525,7 +547,8 @@ mod tests {
     fn walk_right_caps_at_max_walk_speed() {
         let mut vel = 0i32;
         for _ in 0..1000 {
-            let (v, _) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
+            let (v, _) =
+                update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
             vel = v;
         }
         assert_eq!(vel, NORMAL_KID.max_walk_speed);
@@ -535,7 +558,8 @@ mod tests {
     fn run_right_caps_at_max_run_speed() {
         let mut vel = 0i32;
         for _ in 0..1000 {
-            let (v, _) = update_horizontal_velocity(vel, Direction::Right, right_run(), &NORMAL_KID);
+            let (v, _) =
+                update_horizontal_velocity(vel, Direction::Right, right_run(), &NORMAL_KID);
             vel = v;
         }
         assert_eq!(vel, NORMAL_KID.max_run_speed);
@@ -558,7 +582,8 @@ mod tests {
     fn decel_snaps_to_zero_on_sign_change() {
         // Velocity just barely positive, decel should snap to zero not go negative
         let vel = NORMAL_KID.walk_run_decel - 1;
-        let (result, _) = update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
         assert_eq!(result, 0);
     }
 
@@ -566,7 +591,8 @@ mod tests {
     fn brake_direction_change_right_to_left() {
         // Moving right, now holding left → should brake with strong_brake
         let vel = NORMAL_KID.max_walk_speed;
-        let (result, dir) = update_horizontal_velocity(vel, Direction::Right, left_walk(), &NORMAL_KID);
+        let (result, dir) =
+            update_horizontal_velocity(vel, Direction::Right, left_walk(), &NORMAL_KID);
         assert_eq!(result, vel - NORMAL_KID.strong_brake);
         assert_eq!(dir, Direction::Left);
     }
@@ -575,7 +601,8 @@ mod tests {
     fn brake_direction_change_left_to_right() {
         // Moving left, now holding right → should brake with turn_brake
         let vel = -NORMAL_KID.max_walk_speed;
-        let (result, dir) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
+        let (result, dir) =
+            update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
         assert_eq!(result, vel + NORMAL_KID.turn_brake);
         assert_eq!(dir, Direction::Right);
     }
@@ -585,9 +612,11 @@ mod tests {
         // The key disassembly asymmetry: right-moving-left uses turn_brake ($0C),
         // left-moving-right uses strong_brake ($18)
         let vel_r = -NORMAL_KID.max_walk_speed;
-        let (result_r, _) = update_horizontal_velocity(vel_r, Direction::Right, right_walk(), &NORMAL_KID);
+        let (result_r, _) =
+            update_horizontal_velocity(vel_r, Direction::Right, right_walk(), &NORMAL_KID);
         let vel_l = NORMAL_KID.max_walk_speed;
-        let (result_l, _) = update_horizontal_velocity(vel_l, Direction::Left, left_walk(), &NORMAL_KID);
+        let (result_l, _) =
+            update_horizontal_velocity(vel_l, Direction::Left, left_walk(), &NORMAL_KID);
 
         // Right-facing brake: turn_brake = 0x2000
         assert_eq!(result_r, vel_r + NORMAL_KID.turn_brake);
@@ -611,7 +640,8 @@ mod tests {
     fn walk_above_walk_cap_decelerates_towards_cap() {
         // Start at run speed, hold walk → should decel towards walk cap
         let vel = NORMAL_KID.max_run_speed;
-        let (result, _) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
         assert_eq!(result, vel - NORMAL_KID.walk_run_decel);
         assert!(result > NORMAL_KID.max_walk_speed);
     }

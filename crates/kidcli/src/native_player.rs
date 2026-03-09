@@ -841,7 +841,10 @@ fn try_load_block_grid(runtime: &mut NativeRuntime, manifest: &AssetManifest, le
         return;
     };
     let Ok(meta_bytes) = std::fs::read(&meta_path) else {
-        eprintln!("block grid data found but no metadata at {}", meta_path.display());
+        eprintln!(
+            "block grid data found but no metadata at {}",
+            meta_path.display()
+        );
         return;
     };
     let Ok(meta) = serde_json::from_slice::<serde_json::Value>(&meta_bytes) else {

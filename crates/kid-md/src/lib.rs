@@ -731,7 +731,11 @@ impl MdRuntime {
     /// Read a range of work RAM bytes (big-endian, as stored on 68k).
     pub fn read_work_ram_range(&self, address: u32, len: usize) -> Vec<u8> {
         (0..len)
-            .map(|i| self.core.mem.read_work_ram_byte(address.wrapping_add(i as u32)))
+            .map(|i| {
+                self.core
+                    .mem
+                    .read_work_ram_byte(address.wrapping_add(i as u32))
+            })
             .collect()
     }
 

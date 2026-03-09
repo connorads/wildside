@@ -200,7 +200,10 @@ impl BlockGrid {
         for i in 0..cell_count {
             let byte_offset = i * 2;
             if byte_offset + 1 < data.len() {
-                cells.push(Cell::from_be_bytes(data[byte_offset], data[byte_offset + 1]));
+                cells.push(Cell::from_be_bytes(
+                    data[byte_offset],
+                    data[byte_offset + 1],
+                ));
             } else {
                 cells.push(Cell::from_be_bytes(0, 0));
             }

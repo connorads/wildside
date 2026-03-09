@@ -608,7 +608,9 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
-                    self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(self.current_level)));
+                    self.opening_slice = Some(OpeningSliceState::respawn(
+                        self.level_bounds(self.current_level),
+                    ));
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_RESPAWN_SETTLE_FRAMES,
                     };
@@ -646,7 +648,12 @@ impl NativeRuntime {
         let mut slice = self
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
-        slice.step(level_elapsed, input, self.current_form, self.block_grid.as_ref());
+        slice.step(
+            level_elapsed,
+            input,
+            self.current_form,
+            self.block_grid.as_ref(),
+        );
 
         // Pit death: falling below the level floor boundary is instant death
         if self.fell_below_level(&slice) {
@@ -869,7 +876,9 @@ impl NativeRuntime {
         self.paused = false;
         self.current_level = self.next_level_id();
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(self.current_level)));
+        self.opening_slice = Some(OpeningSliceState::respawn(
+            self.level_bounds(self.current_level),
+        ));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
@@ -1043,8 +1052,7 @@ impl OpeningSliceState {
     fn update_vertical_motion(&mut self, input: FrameInput, form: PlayerForm) {
         if self.player.on_ground && input.b {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
-            let (new_x_vel, y_vel) =
-                physics::initiate_jump(self.player.x_velocity, jump_height);
+            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
@@ -1052,10 +1060,8 @@ impl OpeningSliceState {
 
         if !self.player.on_ground {
             let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
-            self.player.y_velocity = physics::apply_gravity(
-                self.player.y_velocity,
-                ascending_and_b_held,
-            );
+            self.player.y_velocity =
+                physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
             let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
             self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
         } else {
@@ -1104,13 +1110,7 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
 
-        let probe = terrain::probe_ceiling(
-            grid,
-            x_px,
-            y_px,
-            PLAYER_HALF_WIDTH,
-            PLAYER_HEIGHT,
-        );
+        let probe = terrain::probe_ceiling(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT);
 
         if probe.hit {
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
@@ -1124,16 +1124,14 @@ impl OpeningSliceState {
         if let Some(grid) = block_grid {
             let x_px = (self.player.x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
-            let probe =
-                terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+            let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
             if probe.on_ground {
                 let floor_y_fp = (probe.floor_y_px as u32) << 16;
                 if self.player.y_pos >= floor_y_fp || self.player.y_velocity > 0 {
                     self.player.y_pos = floor_y_fp;
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
-                    self.player.on_spikes =
-                        probe.cell.collision == terrain::CollisionKind::Spikes;
+                    self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                 }
             } else if self.player.on_ground {
                 // Was on ground but no longer — start falling
@@ -1276,11 +1274,7 @@ fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<Nat
 
 /// Activate enemies that enter the camera window and deactivate those that leave.
 /// Newly activated enemies start at their layout position.
-fn activate_enemies(
-    active: &mut Vec<ActiveEnemy>,
-    layout: &EnemyLayout,
-    window: ActivationWindow,
-) {
+fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window: ActivationWindow) {
     // Remove enemies that left the window (use layout position for deactivation,
     // matching the original game's activation/deactivation by spawn point).
     active.retain(|enemy| {
@@ -1316,10 +1310,7 @@ fn activate_enemies(
 }
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.
-fn step_active_enemies(
-    active: &mut [ActiveEnemy],
-    block_grid: Option<&terrain::BlockGrid>,
-) {
+fn step_active_enemies(active: &mut [ActiveEnemy], block_grid: Option<&terrain::BlockGrid>) {
     for enemy in active.iter_mut() {
         if enemy.family == EnemyFamily::MiniHoppingSkull {
             step_pacer(enemy, block_grid);
@@ -1330,8 +1321,7 @@ fn step_active_enemies(
 /// Pacer movement: walk horizontally, apply gravity, reverse on wall or edge.
 fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Apply gravity.
-    enemy.y_velocity = (enemy.y_velocity + physics::GRAVITY_NORMAL)
-        .min(physics::MAX_FALL_SPEED);
+    enemy.y_velocity = (enemy.y_velocity + physics::GRAVITY_NORMAL).min(physics::MAX_FALL_SPEED);
 
     // Apply horizontal velocity.
     let new_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -1979,9 +1969,7 @@ mod tests {
         // Player should be on ground at grounded Y
         assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
         // Player should be ahead of camera (to the right)
-        assert!(trace
-            .kid_x_pos
-            .is_some_and(|x| x > trace.camera_x_pos));
+        assert!(trace.kid_x_pos.is_some_and(|x| x > trace.camera_x_pos));
         // Opening hit should have reduced HP (right + full HP + camera past threshold)
         assert!(
             trace.number_hitpoints < PlayerForm::TheKid.max_hitpoints(),
@@ -2028,7 +2016,10 @@ mod tests {
 
         // Should be in death windup
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
             "expected DeathWindup, got {:?}",
             runtime.player_lifecycle
         );
@@ -2068,8 +2059,7 @@ mod tests {
         let height_cells = 4u16 * 14;
         let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
         for col in 0..width_cells {
-            let offset =
-                (17usize * usize::from(width_cells) + usize::from(col)) * 2;
+            let offset = (17usize * usize::from(width_cells) + usize::from(col)) * 2;
             if col >= spike_start_col {
                 data[offset] = 0x70; // collision=7 (Spikes)
             } else {
@@ -2102,7 +2092,10 @@ mod tests {
 
         // Player should be in death windup from landing on spikes
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
             "expected DeathWindup, got {:?}",
             runtime.player_lifecycle
         );
@@ -2158,11 +2151,17 @@ mod tests {
         }
 
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
             "expected DeathWindup despite 5 HP, got {:?}",
             runtime.player_lifecycle
         );
-        assert_eq!(runtime.number_hitpoints, 0, "spike death zeroes HP regardless");
+        assert_eq!(
+            runtime.number_hitpoints, 0,
+            "spike death zeroes HP regardless"
+        );
     }
 
     /// Helper: build a block grid with solid floor at a given row everywhere.
@@ -2171,8 +2170,7 @@ mod tests {
         let height_cells = 4u16 * 14;
         let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
         for col in 0..width_cells {
-            let offset =
-                (usize::from(floor_row) * usize::from(width_cells) + usize::from(col)) * 2;
+            let offset = (usize::from(floor_row) * usize::from(width_cells) + usize::from(col)) * 2;
             data[offset] = 0x60; // collision=6 (Solid)
         }
         terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
@@ -2200,7 +2198,10 @@ mod tests {
         runtime.step_frame(FrameInput::default());
 
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ),
             "expected LevelComplete, got {:?}",
             runtime.player_lifecycle
         );
@@ -2260,7 +2261,11 @@ mod tests {
         }
 
         // Should have advanced to next level
-        assert_eq!(runtime.current_level, LevelId(1), "should advance to next level");
+        assert_eq!(
+            runtime.current_level,
+            LevelId(1),
+            "should advance to next level"
+        );
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
             "expected Respawning after level advance, got {:?}",
@@ -2324,7 +2329,8 @@ mod tests {
         runtime.step_frame(FrameInput::default());
 
         assert!(
-            runtime.number_hitpoints < hp_before || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            runtime.number_hitpoints < hp_before
+                || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
             "player should take damage from enemy contact (HP before: {hp_before}, after: {})",
             runtime.number_hitpoints
         );
@@ -2353,7 +2359,10 @@ mod tests {
         }
         runtime.step_frame(FrameInput::default());
 
-        assert!(runtime.invulnerable_frames > 0, "should have invulnerability after hit");
+        assert!(
+            runtime.invulnerable_frames > 0,
+            "should have invulnerability after hit"
+        );
         let hp_after_first = runtime.number_hitpoints;
 
         // Stay on the enemy for several more frames — should not take additional damage
@@ -2398,11 +2407,17 @@ mod tests {
         runtime.step_frame(FrameInput::default());
 
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
             "expected DeathWindup at 1 HP, got {:?}",
             runtime.player_lifecycle
         );
-        assert_eq!(runtime.number_hitpoints, 0, "HP should be 0 after lethal contact");
+        assert_eq!(
+            runtime.number_hitpoints, 0,
+            "HP should be 0 after lethal contact"
+        );
     }
 
     #[test]
@@ -2431,7 +2446,96 @@ mod tests {
             .active_objects
             .iter()
             .any(|obj| matches!(obj.kind, NativeObjectKind::Enemy { object_type: 0x01 }));
-        assert!(diamond_present, "Diamond enemy should remain alive after damaging player");
+        assert!(
+            diamond_present,
+            "Diamond enemy should remain alive after damaging player"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // US-006: Static enemy archetype (Diamond)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn diamond_stays_at_spawn_position() {
+        let mut runtime = NativeRuntime::new(manifest());
+        // Diamond at (0x0120, 0x00E0) = (288, 224)px — within activation window at camera origin.
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        // Advance past entry animation
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Keep camera at origin so Diamond remains active
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        let expected_x: u32 = 0x0120 << 16;
+        let expected_y: u32 = 0x00E0 << 16;
+
+        // Run 60 frames — Diamond should not move at all
+        for frame in 0..60 {
+            runtime.step_frame(FrameInput::default());
+            // Keep camera at origin each frame
+            if let Some(ref mut slice) = runtime.opening_slice {
+                slice.camera.x_pos = 0;
+                slice.camera.y_pos = 0;
+            }
+
+            let diamond = runtime
+                .active_enemies
+                .iter()
+                .find(|e| e.family == EnemyFamily::Diamond);
+            assert!(
+                diamond.is_some(),
+                "Diamond should be active on frame {frame}"
+            );
+            let diamond = diamond.unwrap();
+            assert_eq!(
+                diamond.x_pos, expected_x,
+                "Diamond x should stay at spawn on frame {frame}"
+            );
+            assert_eq!(
+                diamond.y_pos, expected_y,
+                "Diamond y should stay at spawn on frame {frame}"
+            );
+        }
+    }
+
+    #[test]
+    fn diamond_participates_in_collision() {
+        // This is covered by US-004 tests (enemy_contact_deals_damage uses the Diamond),
+        // but we verify explicitly that a stationary Diamond triggers contact damage.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let hp_before = runtime.number_hitpoints;
+
+        // Place player on the Diamond
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            runtime.number_hitpoints < hp_before
+                || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "Diamond should participate in collision checks"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -2440,13 +2544,16 @@ mod tests {
 
     /// Build a grid with a floor platform from col start..end at the given row,
     /// plus a wall at the right end. Used for pacer movement tests.
-    fn grid_with_platform(floor_row: u16, floor_start_col: u16, floor_end_col: u16) -> terrain::BlockGrid {
+    fn grid_with_platform(
+        floor_row: u16,
+        floor_start_col: u16,
+        floor_end_col: u16,
+    ) -> terrain::BlockGrid {
         let width_cells = 6u16 * 20; // 120 cells
         let height_cells = 4u16 * 14; // 56 cells
         let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
         let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
-            let offset =
-                (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            let offset = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
             data[offset] = 0x60; // collision=6 (Solid)
         };
         // Floor platform
@@ -2457,13 +2564,17 @@ mod tests {
     }
 
     /// Build a grid with a floor platform and a wall blocking movement.
-    fn grid_with_wall(floor_row: u16, floor_start_col: u16, floor_end_col: u16, wall_col: u16) -> terrain::BlockGrid {
+    fn grid_with_wall(
+        floor_row: u16,
+        floor_start_col: u16,
+        floor_end_col: u16,
+        wall_col: u16,
+    ) -> terrain::BlockGrid {
         let width_cells = 6u16 * 20;
         let height_cells = 4u16 * 14;
         let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
         let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
-            let offset =
-                (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            let offset = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
             data[offset] = 0x60;
         };
         for col in floor_start_col..floor_end_col {
