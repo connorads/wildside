@@ -605,6 +605,15 @@ impl NativeRuntime {
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.step(level_elapsed, input, self.current_form, self.block_grid.as_ref());
+
+        // Pit death: falling below the level floor boundary is instant death
+        if self.fell_below_level(&slice) {
+            self.opening_slice = Some(slice);
+            self.number_hitpoints = 0;
+            self.begin_death_windup();
+            return;
+        }
+
         if self.should_apply_level_one_opening_hit(&slice, input)
             || self.should_apply_level_one_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
@@ -712,6 +721,11 @@ impl NativeRuntime {
         build_enemy_roster(enemy_layout, window)
             .iter()
             .any(|enemy| player_touches_enemy(slice.player, enemy))
+    }
+
+    fn fell_below_level(&self, slice: &OpeningSliceState) -> bool {
+        let player_y_px = slice.player.y_pos >> 16;
+        player_y_px > u32::from(slice.level_bounds.height_pixels)
     }
 
     fn should_apply_level_one_late_hazard(&self, slice: &OpeningSliceState) -> bool {
@@ -1730,5 +1744,77 @@ mod tests {
             trace.number_hitpoints < PlayerForm::TheKid.max_hitpoints(),
             "opening hit should have reduced HP"
         );
+    }
+
+    #[test]
+    fn pit_death_triggers_death_and_respawn() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        // Set up a block grid with all-empty cells (no floor) to simulate a pit.
+        // Level 1: 6 * 20 = 120 cols wide, 4 * 14 = 56 rows tall (16px cells).
+        let width_cells = 6u16 * 20;
+        let height_cells = 4u16 * 14;
+        let data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(
+            &data,
+            width_cells,
+            height_cells,
+        ));
+
+        start_level(&mut runtime);
+
+        // Advance past the opening scroll animation (260 frames) so physics are active.
+        // With no floor in the grid, the player will fall under gravity.
+        for _ in 0..300 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Player should have fallen below the level boundary (896 pixels)
+        // and triggered pit death. Force position if gravity alone wasn't enough.
+        if matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+            let level_height_fp = u32::from(4u16 * 224) << 16;
+            if let Some(ref mut slice) = runtime.opening_slice {
+                slice.player.y_pos = level_height_fp + (1 << 16);
+                slice.player.on_ground = false;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let pre_lives = runtime.number_lives;
+        runtime.step_frame(FrameInput::default());
+
+        // Should be in death windup
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            "expected DeathWindup, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.number_hitpoints, 0, "pit death sets HP to 0");
+
+        // Advance through death windup + dying phases
+        for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }),
+            "expected Dying, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(runtime.number_lives, pre_lives - 1, "should lose a life");
+
+        // Advance through dying phase
+        for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "expected Respawning, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        // Player should be back at level start position
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
+        assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
     }
 }

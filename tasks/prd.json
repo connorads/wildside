@@ -1,0 +1,196 @@
+{
+  "name": "Level 1 End-to-End Playable",
+  "branchName": "feature/level-1-playable",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Pit death trigger",
+      "description": "As a player, I want to die when falling below the level floor boundary so that gaps in terrain are meaningful hazards.",
+      "acceptanceCriteria": [
+        "Falling off the bottom of the level (y > level height in pixels) triggers DeathWindup -> Dying -> Respawning",
+        "Player respawns at level start position after death"
+      ],
+      "priority": 1,
+      "labels": [
+        "phase-1",
+        "death"
+      ],
+      "passes": true,
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Spike death trigger",
+      "description": "As a player, I want to die instantly when contacting spike cells so that spikes are lethal terrain hazards.",
+      "acceptanceCriteria": [
+        "Walking or falling onto a Spikes collision cell triggers DeathWindup -> Dying -> Respawning",
+        "Spikes are instant kill regardless of HP",
+        "Player respawns at level start position after death"
+      ],
+      "priority": 1,
+      "labels": [
+        "phase-1",
+        "death"
+      ],
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-003",
+      "title": "Flag collision and level completion",
+      "description": "As a player, I want to touch the flag to complete the level so that traversal has a win condition.",
+      "acceptanceCriteria": [
+        "Player overlap with flag position (1872, 768) using a 16x16 hit region triggers level completion",
+        "On flag touch: freeze input, display LEVEL COMPLETE text",
+        "After a brief pause, the next level loads via advance_level() (or placeholder if no data)",
+        "Player can complete Level 1 from spawn to flag on real terrain"
+      ],
+      "priority": 2,
+      "labels": [
+        "phase-2",
+        "completion"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Enemy-player contact damage",
+      "description": "As a player, I want to take damage when touching enemies so that traversal is dangerous.",
+      "acceptanceCriteria": [
+        "AABB overlap between player hitbox and active enemy hitbox (16x16 default) triggers apply_damage()",
+        "Walking into a Diamond or MiniHoppingSkull deals damage",
+        "Invulnerability frames prevent rapid re-hits",
+        "Losing all HP triggers death sequence",
+        "Enemies remain alive after contact (player cannot kill them yet)"
+      ],
+      "priority": 3,
+      "labels": [
+        "phase-3",
+        "enemy",
+        "collision"
+      ],
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-005",
+      "title": "Pacer enemy movement (MiniHoppingSkull)",
+      "description": "As a player, I want MiniHoppingSkull enemies to walk back and forth on terrain so they are real moving threats.",
+      "acceptanceCriteria": [
+        "MiniHoppingSkull walks horizontally, reversing direction on wall collision or platform edge",
+        "Uses probe_wall() and probe_floor() for terrain collision",
+        "Pacers fall and land on terrain like the player (gravity)",
+        "Movement speed approximated from oracle traces or reasonable default (1-2 px/frame)",
+        "Enemies don't walk through walls or float"
+      ],
+      "priority": 4,
+      "labels": [
+        "phase-4",
+        "enemy",
+        "movement"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Static enemy archetype (Diamond)",
+      "description": "As a player, I want Diamond enemies to remain stationary at their spawn position, matching original behaviour.",
+      "acceptanceCriteria": [
+        "Diamond stays at its spawn position",
+        "Diamond still participates in enemy-player collision checks"
+      ],
+      "priority": 4,
+      "labels": [
+        "phase-4",
+        "enemy"
+      ],
+      "passes": false,
+      "dependsOn": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Prize block interaction",
+      "description": "As a player, I want to headbutt prize blocks from below so the world reacts to my actions.",
+      "acceptanceCriteria": [
+        "Player headbutts a prize block from below -> block changes to hit/empty state",
+        "Block state change updates the live BlockGrid so collision reflects new state",
+        "No item spawning yet (stub only)"
+      ],
+      "priority": 5,
+      "labels": [
+        "phase-5",
+        "blocks"
+      ],
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-008",
+      "title": "Smash block interaction",
+      "description": "As a player, I want to destroy smash blocks by headbutting from below so I can clear paths.",
+      "acceptanceCriteria": [
+        "Player headbutts a smash block from below -> block is destroyed (cell set to empty)",
+        "Collision grid updates immediately — player can pass through destroyed blocks",
+        "Visual feedback when block grid rendering is available"
+      ],
+      "priority": 5,
+      "labels": [
+        "phase-5",
+        "blocks"
+      ],
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-009",
+      "title": "Air control",
+      "description": "As a player, I want to steer horizontally while airborne so I can make precise jumps.",
+      "acceptanceCriteria": [
+        "Horizontal acceleration applied from input while on_ground == false",
+        "Air acceleration is reduced compared to ground acceleration",
+        "Max air speed is respected",
+        "Turning in air works but with slower response than ground",
+        "Matches original feel (verify against oracle trace if possible)"
+      ],
+      "priority": 6,
+      "labels": [
+        "phase-6",
+        "movement"
+      ],
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-010",
+      "title": "Block grid rendering",
+      "description": "As a player, I want to see the terrain rendered as coloured rectangles so the level is visible instead of invisible.",
+      "acceptanceCriteria": [
+        "Each non-empty cell rendered as a coloured rectangle (solid=grey, spikes=red, slope=brown)",
+        "Only cells visible within the camera viewport are drawn (not all 200x28 cells)",
+        "Block types visually distinguishable (prize=yellow, smash=orange, ice=cyan, rubber=pink)",
+        "Camera scrolling works correctly with rendered terrain",
+        "Performance acceptable (only visible cells drawn per frame)",
+        "Destroyed/hit blocks render as empty space"
+      ],
+      "priority": 7,
+      "labels": [
+        "phase-7",
+        "rendering"
+      ],
+      "passes": false,
+      "dependsOn": []
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-03-09T22:23:34.865Z"
+  }
+}
