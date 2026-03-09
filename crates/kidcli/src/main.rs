@@ -1966,13 +1966,14 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
     if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
         println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
     }
+    println!("active roster: {}", describe_active_objects(&final_frame));
 
     for checkpoint in scenario.checkpoints() {
         if let Some(frame) =
             native_trace_at_checkpoint(&trace, checkpoint.label, checkpoint.frame_index)
         {
             println!(
-                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} objects {}/{} active_enemies {}",
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} objects {}/{} active_enemies {} roster {}",
                 checkpoint.label,
                 checkpoint.frame_index,
                 frame.game_mode,
@@ -1982,12 +1983,36 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
                 frame.camera_y_pos,
                 frame.number_objects,
                 frame.number_gfx_objects,
-                frame.active_enemy_object_count
+                frame.active_enemy_object_count,
+                describe_active_objects(frame)
             );
         }
     }
 
     Ok(())
+}
+
+fn describe_active_objects(frame: &NativeTraceFrame) -> String {
+    if frame.active_objects.is_empty() {
+        return String::from("<none>");
+    }
+
+    frame
+        .active_objects
+        .iter()
+        .map(|object| match object.kind {
+            kid_core::NativeObjectKind::Player => {
+                format!("player@{:08X},{:08X}", object.x_pos, object.y_pos)
+            }
+            kid_core::NativeObjectKind::Enemy { object_type } => {
+                format!(
+                    "enemy_{object_type:02X}@{:08X},{:08X}",
+                    object.x_pos, object.y_pos
+                )
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
