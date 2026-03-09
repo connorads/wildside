@@ -31,6 +31,13 @@ const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
 const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
+// Player collision hitbox for "The Kid" (form 0).
+// From ASM hitbox data: dc.w -$5, $A, -$1F, $1F
+// x_offset=-5, x_size=10, y_offset=-31, y_size=31
+// Position is at feet, so hitbox extends half_width either side and height above.
+const PLAYER_HALF_WIDTH: i32 = 5;
+const PLAYER_HEIGHT: i32 = 31;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
@@ -875,6 +882,8 @@ impl OpeningSliceState {
         }
         self.update_horizontal_motion(input);
         self.update_vertical_motion(input, form);
+        self.apply_wall_collision(block_grid);
+        self.apply_ceiling_collision(block_grid);
         self.apply_floor_collision(block_grid);
         self.update_camera_follow();
     }
@@ -957,11 +966,69 @@ impl OpeningSliceState {
         }
     }
 
+    fn apply_wall_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
+        let Some(grid) = block_grid else { return };
+        if self.player.x_velocity == 0 {
+            return;
+        }
+
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let moving_right = self.player.x_velocity > 0;
+
+        let probe = terrain::probe_wall(
+            grid,
+            x_px,
+            y_px,
+            PLAYER_HALF_WIDTH,
+            PLAYER_HEIGHT,
+            moving_right,
+        );
+
+        if probe.hit {
+            let clamped_center = if moving_right {
+                // Player centre must stay left of wall: centre + half_width <= wall_x
+                probe.wall_x_px - PLAYER_HALF_WIDTH
+            } else {
+                // Player centre must stay right of wall: centre - half_width >= wall_x
+                probe.wall_x_px + PLAYER_HALF_WIDTH
+            };
+            self.player.x_pos = (clamped_center.max(0) as u32) << 16;
+            self.player.x_velocity = 0;
+        }
+    }
+
+    fn apply_ceiling_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
+        let Some(grid) = block_grid else { return };
+        if self.player.y_velocity >= 0 {
+            return;
+        }
+
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+
+        let probe = terrain::probe_ceiling(
+            grid,
+            x_px,
+            y_px,
+            PLAYER_HALF_WIDTH,
+            PLAYER_HEIGHT,
+        );
+
+        if probe.hit {
+            // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
+            let new_y = probe.ceiling_y_px + PLAYER_HEIGHT;
+            self.player.y_pos = (new_y.max(0) as u32) << 16;
+            self.player.y_velocity = 0;
+        }
+    }
+
     fn apply_floor_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
         if let Some(grid) = block_grid {
             let x_px = (self.player.x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
-            let probe = terrain::probe_floor(grid, x_px, y_px);
+            let probe =
+                terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
             if probe.on_ground {
                 let floor_y_fp = (probe.floor_y_px as u32) << 16;
                 if self.player.y_pos >= floor_y_fp || self.player.y_velocity > 0 {

@@ -69,3 +69,6 @@ run = "cargo run -p kidcli -- oracle-setup"
 
 [tasks.reference-build]
 run = "cargo run -p kidcli -- reference-build"
+
+[tasks.dump-level-layout]
+run = "cargo run -p kidcli -- dump-level-layout --level ${1:-00}"

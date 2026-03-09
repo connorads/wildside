@@ -164,6 +164,28 @@ pub struct FloorProbe {
     pub cell: Cell,
 }
 
+/// Result of checking for a wall blocking horizontal movement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WallProbe {
+    /// Whether a solid wall was found at the leading edge.
+    pub hit: bool,
+    /// The X pixel of the wall surface (left edge of cell when moving right,
+    /// right edge when moving left). Only meaningful when `hit` is true.
+    pub wall_x_px: i32,
+    pub cell: Cell,
+}
+
+/// Result of checking for a ceiling above the player.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CeilingProbe {
+    /// Whether a solid ceiling was found above the hitbox.
+    pub hit: bool,
+    /// The Y pixel of the bottom of the ceiling cell.
+    /// Only meaningful when `hit` is true.
+    pub ceiling_y_px: i32,
+    pub cell: Cell,
+}
+
 impl BlockGrid {
     /// Parse from raw Level_Layout RAM dump (big-endian, 2 bytes per cell,
     /// row-major order). `width_cells` and `height_cells` come from
@@ -294,6 +316,112 @@ pub fn find_floor_below(grid: &BlockGrid, x_px: i32, start_y_px: i32) -> Option<
     None
 }
 
+/// Probe floor checking both horizontal edges of the player's hitbox.
+///
+/// Returns the highest floor found (smallest Y value = highest position)
+/// so the player lands on top of the tallest surface under either edge.
+pub fn probe_floor_hitbox(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+) -> FloorProbe {
+    let left = probe_floor(grid, center_x_px - half_width, foot_y_px);
+    let right = probe_floor(grid, center_x_px + half_width, foot_y_px);
+
+    match (left.on_ground, right.on_ground) {
+        (true, true) => {
+            if left.floor_y_px <= right.floor_y_px {
+                left
+            } else {
+                right
+            }
+        }
+        (true, false) => left,
+        (false, true) => right,
+        (false, false) => left,
+    }
+}
+
+/// Check for a wall blocking horizontal movement.
+///
+/// Probes the leading edge of the hitbox at two Y positions: just above
+/// foot level (to avoid false-positives on floor cells) and mid-body.
+/// Only `Solid` cells count as walls — slopes allow pass-through.
+pub fn probe_wall(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+    moving_right: bool,
+) -> WallProbe {
+    let edge_x = if moving_right {
+        center_x_px + half_width
+    } else {
+        center_x_px - half_width
+    };
+
+    // Probe just above feet (avoids floor) and at mid-body
+    let probe_ys = [foot_y_px - 1, foot_y_px - height / 2];
+
+    for &py in &probe_ys {
+        let probe = probe_at(grid, edge_x, py);
+        if probe.cell.collision == CollisionKind::Solid {
+            let wall_x = if moving_right {
+                // Wall surface is left edge of the solid cell
+                i32::from(probe.cell_x) * 16
+            } else {
+                // Wall surface is right edge of the solid cell
+                (i32::from(probe.cell_x) + 1) * 16
+            };
+            return WallProbe {
+                hit: true,
+                wall_x_px: wall_x,
+                cell: probe.cell,
+            };
+        }
+    }
+
+    WallProbe {
+        hit: false,
+        wall_x_px: 0,
+        cell: Cell::from_be_bytes(0, 0),
+    }
+}
+
+/// Check for a ceiling above the player's hitbox.
+///
+/// Probes both horizontal edges at the top of the hitbox.
+/// Only `Solid` cells count as ceilings.
+pub fn probe_ceiling(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> CeilingProbe {
+    let top_y = foot_y_px - height;
+
+    for &px in &[center_x_px - half_width, center_x_px + half_width] {
+        let probe = probe_at(grid, px, top_y);
+        if probe.cell.collision == CollisionKind::Solid {
+            return CeilingProbe {
+                hit: true,
+                // Bottom of ceiling cell = next row boundary
+                ceiling_y_px: (i32::from(probe.cell_y) + 1) * 16,
+                cell: probe.cell,
+            };
+        }
+    }
+
+    CeilingProbe {
+        hit: false,
+        ceiling_y_px: 0,
+        cell: Cell::from_be_bytes(0, 0),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -407,5 +535,150 @@ mod tests {
         // 0x50 = collision=5 (slope up)
         let cell = Cell::from_be_bytes(0x50, 0x00);
         assert_eq!(cell.collision, CollisionKind::SlopeUp);
+    }
+
+    // -----------------------------------------------------------------------
+    // Hitbox-aware probes
+    // -----------------------------------------------------------------------
+
+    /// Build a grid with a floor gap and a wall:
+    ///
+    ///   col: 0  1  2  3  4  5
+    /// row 0: .  .  .  .  .  .
+    /// row 1: .  .  .  .  .  .
+    /// row 2: .  .  .  .  .  .
+    /// row 3: S  S  .  .  S  S    (floor with gap in cols 2-3)
+    /// row 4: S  S  S  S  S  S    (solid below)
+    ///
+    /// Plus a wall: col 5 rows 1-2 are solid (wall on right side).
+    fn make_wall_grid() -> BlockGrid {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: usize, row: usize| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = 0x60; // collision=6 (Solid)
+            data[offset + 1] = 0x01;
+        };
+        // Row 3: floor with gap
+        set_solid(&mut data, 0, 3);
+        set_solid(&mut data, 1, 3);
+        set_solid(&mut data, 4, 3);
+        set_solid(&mut data, 5, 3);
+        // Row 4: solid everywhere
+        for col in 0..6 {
+            set_solid(&mut data, col, 4);
+        }
+        // Wall: col 5, rows 1-2
+        set_solid(&mut data, 5, 1);
+        set_solid(&mut data, 5, 2);
+        BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    fn probe_floor_hitbox_lands_on_both_edges() {
+        let grid = make_wall_grid();
+        // Player at x=8 (col 0), half_width=5. Both edges in cols 0-1, floor at row 3.
+        let probe = probe_floor_hitbox(&grid, 8, 48, 5);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 48);
+    }
+
+    #[test]
+    fn probe_floor_hitbox_one_edge_over_gap() {
+        let grid = make_wall_grid();
+        // Player at x=28 (near boundary of col 1/2). Left edge at 23 (col 1, solid),
+        // right edge at 33 (col 2, gap). Should still find floor from left edge.
+        let probe = probe_floor_hitbox(&grid, 28, 48, 5);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 48);
+    }
+
+    #[test]
+    fn probe_floor_hitbox_both_edges_over_gap() {
+        let grid = make_wall_grid();
+        // Player at x=40 (col 2), half_width=5. Both edges in cols 2-3 (gap).
+        let probe = probe_floor_hitbox(&grid, 40, 48, 5);
+        assert!(!probe.on_ground);
+    }
+
+    #[test]
+    fn probe_wall_moving_right_hits_wall() {
+        let grid = make_wall_grid();
+        // Player at x=72 (col 4), half_width=5. Right edge at 77 (col 4).
+        // Move a bit right so edge enters col 5 (wall).
+        // x=76, right edge = 81, pixel_to_cell(81) = 5 → wall col
+        let probe = probe_wall(&grid, 76, 47, 5, 31, true);
+        assert!(probe.hit);
+        // Wall surface is left edge of col 5 = 80px
+        assert_eq!(probe.wall_x_px, 80);
+    }
+
+    #[test]
+    fn probe_wall_moving_right_no_wall() {
+        let grid = make_wall_grid();
+        // Player at x=24, no wall to the right
+        let probe = probe_wall(&grid, 24, 47, 5, 31, true);
+        assert!(!probe.hit);
+    }
+
+    #[test]
+    fn probe_wall_moving_left_hits_wall() {
+        let grid = make_wall_grid();
+        // Wall at col 5 rows 1-2. If player is to the right of col 5,
+        // moving left... Actually let's test against the floor acting as
+        // a wall by building a scenario.
+        // Better: use the existing wall at col 5. Player just right of wall,
+        // moving left. But col 5 is the last column. Let me test differently.
+        //
+        // Player at x=81 (past col 5 wall), feet at y=31 (row 1 area).
+        // Left edge = 81-5 = 76, pixel_to_cell(76) = 4 → no wall. Need to
+        // be closer: x=85, left edge = 80, pixel_to_cell(80) = 5 → wall!
+        let probe = probe_wall(&grid, 85, 31, 5, 31, false);
+        assert!(probe.hit);
+        // Wall surface is right edge of col 5 = 96px
+        assert_eq!(probe.wall_x_px, 96);
+    }
+
+    #[test]
+    fn probe_wall_ignores_slopes() {
+        // Slopes should not block horizontal movement
+        let mut data = vec![0u8; 4 * 3 * 2];
+        // Put a slope-up (collision=5) at col 2, row 1
+        let offset = (1 * 4 + 2) * 2;
+        data[offset] = 0x50; // collision=5 = SlopeUp
+        let grid = BlockGrid::from_level_layout(&data, 4, 3);
+
+        // Player at x=30, right edge=35, pixel_to_cell(35)=2 → slope cell
+        let probe = probe_wall(&grid, 30, 20, 5, 31, true);
+        assert!(!probe.hit);
+    }
+
+    #[test]
+    fn probe_ceiling_hits_solid_above() {
+        let grid = make_wall_grid();
+        // Ceiling test: wall at col 5 rows 1-2. Put player below with head
+        // reaching into a solid cell.
+        // Actually, let's build a ceiling scenario with make_test_grid:
+        // Row 0 empty, row 1 empty, row 2 solid. Player feet at y=31 (row 1),
+        // height=31, top = 31-31=0, pixel_to_cell(0)=0 → empty. No ceiling.
+        //
+        // Use wall_grid: player at col 0-1 area. Solid is at row 3-4.
+        // For ceiling, we need solid above. Wall at col 5 rows 1-2.
+        // Player at x=82, feet at y=48, height=31, top=17, pixel_to_cell(17)=1.
+        // Left edge=77 (col 4, row 1: empty). Right edge=87 (col 5, row 1: solid!)
+        let probe = probe_ceiling(&grid, 82, 48, 5, 31);
+        assert!(probe.hit);
+        // Bottom of ceiling cell (col 5, row 1) = (1+1)*16 = 32
+        assert_eq!(probe.ceiling_y_px, 32);
+    }
+
+    #[test]
+    fn probe_ceiling_clear_above() {
+        let grid = make_wall_grid();
+        // Player at x=24, feet at y=48, height=31, top=17 (row 1).
+        // Left edge=19 (col 1, row 1: empty). Right edge=29 (col 1, row 1: empty).
+        let probe = probe_ceiling(&grid, 24, 48, 5, 31);
+        assert!(!probe.hit);
     }
 }
