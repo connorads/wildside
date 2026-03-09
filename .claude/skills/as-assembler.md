@@ -1,0 +1,1 @@
+../../.agents/skills/as-assembler/SKILL.md
