@@ -29,7 +29,7 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 
 - level id: `0x00`
 - display name: `Blue Lake Woods 1`
-- header size: `6x4` screens
+- header size: `10x2` screens (200x28 cells, 3200x448 px)
 - player start: `1872,224`
 - flag: `1872,768`
 - bgscroll entries: 49 layers
