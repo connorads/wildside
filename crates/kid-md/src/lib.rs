@@ -1819,6 +1819,7 @@ fn hscroll_for_line(
     i32::from(read_u16_wrapped(vram, offset) & 0x03FF)
 }
 
+#[inline]
 fn plane_pixel_rgb(
     vdp: &VdpSnapshot,
     plane: &ScrollPlane,
@@ -2030,6 +2031,7 @@ fn sprite_tile_pixel_rgb(
     tile_pixel_rgb_from_parts(vdp, tile_index, palette, pixel_x, pixel_y)
 }
 
+#[inline]
 fn tile_pixel_rgb(vdp: &VdpSnapshot, entry: u16, tile_x: usize, tile_y: usize) -> Option<[u8; 3]> {
     let tile_index = usize::from(entry & 0x07FF);
     let hflip = entry & 0x0800 != 0;
@@ -2046,6 +2048,7 @@ fn tile_pixel_rgb(vdp: &VdpSnapshot, entry: u16, tile_x: usize, tile_y: usize) -
     tile_pixel_rgb_from_parts(vdp, tile_index, palette, tile_x, tile_y)
 }
 
+#[inline]
 fn tile_pixel_rgb_from_parts(
     vdp: &VdpSnapshot,
     tile_index: usize,
@@ -2118,6 +2121,7 @@ fn is_h40_mode(mode_register: u8) -> bool {
     mode_register & 0x81 == 0x81
 }
 
+#[inline]
 fn cram_rgb(cram: &[u8], palette_index: usize) -> [u8; 3] {
     let colour = read_u16_wrapped(cram, palette_index * 2);
     let red = ((colour >> 1) & 0x7) as u8;
@@ -2130,15 +2134,18 @@ fn cram_rgb(cram: &[u8], palette_index: usize) -> [u8; 3] {
     ]
 }
 
+#[inline]
 fn scale_channel(value: u8) -> u8 {
     (u16::from(value) * 255 / 7) as u8
 }
 
+#[inline]
 fn write_rgb(rgb: &mut [u8], width: usize, x: usize, y: usize, colour: [u8; 3]) {
     let index = (y * width + x) * 3;
     rgb[index..index + 3].copy_from_slice(&colour);
 }
 
+#[inline]
 fn read_u8_wrapped(slice: &[u8], index: usize) -> u8 {
     if slice.is_empty() {
         0
@@ -2147,6 +2154,7 @@ fn read_u8_wrapped(slice: &[u8], index: usize) -> u8 {
     }
 }
 
+#[inline]
 fn read_u16_wrapped(slice: &[u8], index: usize) -> u16 {
     u16::from_be_bytes([
         read_u8_wrapped(slice, index),
