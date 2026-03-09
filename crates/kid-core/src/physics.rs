@@ -198,6 +198,117 @@ pub struct LevelBounds {
 }
 
 // ---------------------------------------------------------------------------
+// Horizontal movement — kid.asm:11696-11851
+// ---------------------------------------------------------------------------
+
+/// Input state for horizontal movement.
+#[derive(Debug, Clone, Copy)]
+pub struct HorizontalInput {
+    pub left: bool,
+    pub right: bool,
+    pub run: bool,
+}
+
+/// Update horizontal velocity for one frame.
+///
+/// Direct translation of the branching at loc_9B2E..loc_9C06. Velocity is
+/// signed i32 in fixed-point 16.16: positive = rightward.
+///
+/// Returns `(new_x_vel, new_facing)`.
+pub fn update_horizontal_velocity(
+    x_vel: i32,
+    facing: Direction,
+    input: HorizontalInput,
+    table: &SpeedTable,
+) -> (i32, Direction) {
+    if input.right {
+        (apply_holding_right(x_vel, input.run, table), Direction::Right)
+    } else if input.left {
+        (apply_holding_left(x_vel, input.run, table), Direction::Left)
+    } else {
+        (decelerate(x_vel, table), facing)
+    }
+}
+
+/// Facing right, holding right — loc_9B2E..loc_9B7E.
+fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
+    if run {
+        // loc_9B62: running right
+        if vel >= 0 {
+            (vel + table.run_accel).min(table.max_run_speed)
+        } else {
+            // Moving left while holding right+run: strong_brake ($18)
+            vel + table.strong_brake
+        }
+    } else if vel >= 0 {
+        // Walking right, moving right
+        if vel > table.max_run_speed {
+            table.max_run_speed
+        } else if vel > table.max_walk_speed {
+            // Above walk cap: decel with walk_run_decel ($08)
+            vel - table.walk_run_decel
+        } else {
+            // Below walk cap: accelerate
+            (vel + table.walk_accel).min(table.max_walk_speed)
+        }
+    } else {
+        // Walking right, but moving left: turn_brake ($0C)
+        vel + table.turn_brake
+    }
+}
+
+/// Facing left, holding left — loc_9B90..loc_9BEC. Mirror of right-facing
+/// logic, but uses strong_brake ($18) for opposite-direction walk brake
+/// instead of turn_brake ($0C).
+fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
+    if run {
+        // loc_9BCE: running left
+        if vel <= 0 {
+            let abs_vel = vel.saturating_neg();
+            let next_abs = (abs_vel + table.run_accel).min(table.max_run_speed);
+            -next_abs
+        } else {
+            // Moving right while holding left+run: strong_brake ($18)
+            vel - table.strong_brake
+        }
+    } else if vel <= 0 {
+        // Walking left, moving left
+        let abs_vel = vel.saturating_neg();
+        if abs_vel > table.max_run_speed {
+            -table.max_run_speed
+        } else if abs_vel > table.max_walk_speed {
+            // Above walk cap: decel with walk_run_decel ($08)
+            vel + table.walk_run_decel
+        } else {
+            // Below walk cap: accelerate
+            let next = vel - table.walk_accel;
+            if next.saturating_neg() > table.max_walk_speed {
+                -table.max_walk_speed
+            } else {
+                next
+            }
+        }
+    } else {
+        // Walking left, but moving right: strong_brake ($18)
+        vel - table.strong_brake
+    }
+}
+
+/// Decelerate towards zero when no direction is held (loc_9BEE). Snap to zero
+/// on sign change.
+fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
+    if vel > 0 {
+        let next = vel - table.walk_run_decel;
+        if next < 0 { 0 } else { next }
+    } else if vel < 0 {
+        let next = vel + table.walk_run_decel;
+        if next > 0 { 0 } else { next }
+    } else {
+        0
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -282,5 +393,125 @@ mod tests {
     fn rubber_has_lowest_acceleration() {
         assert!(RUBBER_KID.walk_accel < NORMAL_KID.walk_accel);
         assert!(RUBBER_KID.walk_accel < ICE_KID.walk_accel);
+    }
+
+    // -- Horizontal movement tests --
+
+    fn right_walk() -> HorizontalInput {
+        HorizontalInput { left: false, right: true, run: false }
+    }
+
+    fn right_run() -> HorizontalInput {
+        HorizontalInput { left: false, right: true, run: true }
+    }
+
+    fn left_walk() -> HorizontalInput {
+        HorizontalInput { left: true, right: false, run: false }
+    }
+
+    fn no_input() -> HorizontalInput {
+        HorizontalInput { left: false, right: false, run: false }
+    }
+
+    #[test]
+    fn walk_right_accelerates_from_standstill() {
+        let (vel, dir) = update_horizontal_velocity(0, Direction::Right, right_walk(), &NORMAL_KID);
+        assert_eq!(vel, NORMAL_KID.walk_accel);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
+    fn walk_right_caps_at_max_walk_speed() {
+        let mut vel = 0i32;
+        for _ in 0..1000 {
+            let (v, _) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
+            vel = v;
+        }
+        assert_eq!(vel, NORMAL_KID.max_walk_speed);
+    }
+
+    #[test]
+    fn run_right_caps_at_max_run_speed() {
+        let mut vel = 0i32;
+        for _ in 0..1000 {
+            let (v, _) = update_horizontal_velocity(vel, Direction::Right, right_run(), &NORMAL_KID);
+            vel = v;
+        }
+        assert_eq!(vel, NORMAL_KID.max_run_speed);
+    }
+
+    #[test]
+    fn decel_to_zero_from_walk_speed() {
+        let mut vel = NORMAL_KID.max_walk_speed;
+        let mut frames = 0;
+        while vel != 0 {
+            let (v, _) = update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
+            vel = v;
+            frames += 1;
+            assert!(frames < 1000, "should reach zero");
+        }
+        assert_eq!(vel, 0);
+    }
+
+    #[test]
+    fn decel_snaps_to_zero_on_sign_change() {
+        // Velocity just barely positive, decel should snap to zero not go negative
+        let vel = NORMAL_KID.walk_run_decel - 1;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn brake_direction_change_right_to_left() {
+        // Moving right, now holding left → should brake with strong_brake
+        let vel = NORMAL_KID.max_walk_speed;
+        let (result, dir) = update_horizontal_velocity(vel, Direction::Right, left_walk(), &NORMAL_KID);
+        assert_eq!(result, vel - NORMAL_KID.strong_brake);
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn brake_direction_change_left_to_right() {
+        // Moving left, now holding right → should brake with turn_brake
+        let vel = -NORMAL_KID.max_walk_speed;
+        let (result, dir) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
+        assert_eq!(result, vel + NORMAL_KID.turn_brake);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
+    fn brake_asymmetry_turn_vs_strong() {
+        // The key disassembly asymmetry: right-moving-left uses turn_brake ($0C),
+        // left-moving-right uses strong_brake ($18)
+        let vel_r = -NORMAL_KID.max_walk_speed;
+        let (result_r, _) = update_horizontal_velocity(vel_r, Direction::Right, right_walk(), &NORMAL_KID);
+        let vel_l = NORMAL_KID.max_walk_speed;
+        let (result_l, _) = update_horizontal_velocity(vel_l, Direction::Left, left_walk(), &NORMAL_KID);
+
+        // Right-facing brake: turn_brake = 0x2000
+        assert_eq!(result_r, vel_r + NORMAL_KID.turn_brake);
+        // Left-facing brake: strong_brake = 0x3000
+        assert_eq!(result_l, vel_l - NORMAL_KID.strong_brake);
+        // They should differ (asymmetry)
+        assert_ne!(NORMAL_KID.turn_brake, NORMAL_KID.strong_brake);
+    }
+
+    #[test]
+    fn walk_left_accelerates_and_caps() {
+        let mut vel = 0i32;
+        for _ in 0..1000 {
+            let (v, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+            vel = v;
+        }
+        assert_eq!(vel, -NORMAL_KID.max_walk_speed);
+    }
+
+    #[test]
+    fn walk_above_walk_cap_decelerates_towards_cap() {
+        // Start at run speed, hold walk → should decel towards walk cap
+        let vel = NORMAL_KID.max_run_speed;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
+        assert_eq!(result, vel - NORMAL_KID.walk_run_decel);
+        assert!(result > NORMAL_KID.max_walk_speed);
     }
 }
