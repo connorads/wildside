@@ -1,3 +1,5 @@
+pub mod physics;
+
 use kid_data::{AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement};
 use serde::{Deserialize, Serialize};
 
