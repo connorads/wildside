@@ -1,6 +1,7 @@
+use crate::cheats::{CHEATS, CheatEffect};
 use anyhow::{Context, Result, anyhow};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
-use kid_md::{AudioLevels, MdRuntime};
+use kid_md::{AudioLevels, GameState, MdRuntime};
 use kid_rom::{RomError, RomIdentity, VerifiedRom, default_rom_candidates, verify_rom};
 use sdl2::AudioSubsystem;
 use sdl2::audio::AudioQueue;
@@ -440,6 +441,10 @@ enum ScreenState {
     Paused {
         selected: usize,
     },
+    DebugMenu {
+        selected: usize,
+        pending_value: Option<u16>,
+    },
     Error,
 }
 
@@ -603,6 +608,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
         let mut menu_right = false;
         let mut toggle_fullscreen = false;
         let mut pause_pressed = false;
+        let mut debug_menu_pressed = false;
 
         for event in events.poll_iter() {
             match event {
@@ -659,7 +665,9 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                         }
                     }
                     _ => {
-                        if keycode == Keycode::Escape {
+                        if keycode == Keycode::Backquote {
+                            debug_menu_pressed = true;
+                        } else if keycode == Keycode::Escape {
                             match screen {
                                 ScreenState::Playing => pause_pressed = true,
                                 _ => back = true,
@@ -735,7 +743,12 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                 }
             }
             ScreenState::Playing => {
-                if pause_pressed {
+                if debug_menu_pressed {
+                    screen = ScreenState::DebugMenu {
+                        selected: 0,
+                        pending_value: None,
+                    };
+                } else if pause_pressed {
                     screen = ScreenState::Paused { selected: 0 };
                 }
             }
@@ -883,6 +896,50 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                     }
                 }
             }
+            ScreenState::DebugMenu {
+                ref mut selected,
+                ref mut pending_value,
+            } => {
+                if menu_up {
+                    *selected = selected.saturating_sub(1);
+                    *pending_value = None;
+                }
+                if menu_down {
+                    *selected = (*selected + 1).min(CHEATS.len().saturating_sub(1));
+                    *pending_value = None;
+                }
+                let cheat = &CHEATS[*selected];
+                if let CheatEffect::Adjustable { min, max } = cheat.effect {
+                    if menu_left || menu_right {
+                        let current = pending_value.unwrap_or_else(|| {
+                            runtime
+                                .as_ref()
+                                .map(|rt| (cheat.read)(&rt.game_state()))
+                                .unwrap_or(0)
+                        });
+                        let next = if menu_left {
+                            if current <= min { max } else { current - 1 }
+                        } else {
+                            if current >= max { min } else { current + 1 }
+                        };
+                        *pending_value = Some(next);
+                    }
+                }
+                if confirm {
+                    if let Some(rt) = runtime.as_mut() {
+                        let value = pending_value.unwrap_or_else(|| (cheat.read)(&rt.game_state()));
+                        (cheat.apply)(rt, value);
+                        status_toast = Some(StatusToast {
+                            text: format!("{} applied", cheat.label),
+                            frames_remaining: TOAST_DURATION_FRAMES / 2,
+                        });
+                    }
+                    screen = ScreenState::Playing;
+                }
+                if back || debug_menu_pressed {
+                    screen = ScreenState::Playing;
+                }
+            }
             ScreenState::Error => {
                 if confirm || back {
                     break 'running;
@@ -925,12 +982,17 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
             audio_queue.clear();
         }
 
+        let debug_game_state = match screen {
+            ScreenState::DebugMenu { .. } => runtime.as_ref().map(|rt| rt.game_state()),
+            _ => None,
+        };
         apply_overlay(
             &mut last_frame,
             &settings,
             &launch,
             &screen,
             status_toast.as_ref(),
+            debug_game_state.as_ref(),
         );
         texture
             .update(None, &last_frame, (FRAME_WIDTH as usize) * 3)
@@ -963,6 +1025,7 @@ fn apply_overlay(
     launch: &LaunchState,
     screen: &ScreenState,
     toast: Option<&StatusToast>,
+    debug_state: Option<&GameState>,
 ) {
     if !matches!(screen, ScreenState::Playing) {
         dim_frame(rgb);
@@ -1064,6 +1127,54 @@ fn apply_overlay(
                 );
             }
         }
+        ScreenState::DebugMenu {
+            selected,
+            pending_value,
+        } => {
+            let panel_height = 42 + (CHEATS.len() as i32) * 14 + 16;
+            draw_panel(rgb, 28, 20, 264, panel_height, [20, 14, 28], [214, 180, 255]);
+            draw_text(rgb, 44, 32, "Debug", [255, 220, 255], 2);
+            let mut y = 56;
+            for (index, cheat) in CHEATS.iter().enumerate() {
+                let colour = if index == *selected {
+                    [255, 240, 196]
+                } else {
+                    [220, 220, 220]
+                };
+                let prefix = if index == *selected { "> " } else { "  " };
+                let value_text = if index == *selected && pending_value.is_some() {
+                    format_cheat_value(cheat.label, pending_value.unwrap())
+                } else if let Some(state) = debug_state {
+                    format_cheat_value(cheat.label, (cheat.read)(state))
+                } else {
+                    String::from("?")
+                };
+                let label = match cheat.effect {
+                    CheatEffect::Instant => format!("{prefix}{}", cheat.label),
+                    CheatEffect::Adjustable { .. } => {
+                        format!("{prefix}{}", cheat.label)
+                    }
+                };
+                draw_text(rgb, 44, y, &label, colour, 1);
+                if !matches!(cheat.effect, CheatEffect::Instant) {
+                    let val_colour = if index == *selected && pending_value.is_some() {
+                        [255, 188, 140]
+                    } else {
+                        [160, 214, 255]
+                    };
+                    draw_text(rgb, 174, y, &value_text, val_colour, 1);
+                }
+                y += 14;
+            }
+            draw_text(
+                rgb,
+                44,
+                y + 4,
+                "L/R adjust  Enter apply  Esc/` close",
+                [190, 190, 190],
+                1,
+            );
+        }
         ScreenState::Playing => {}
     }
 
@@ -1115,6 +1226,13 @@ fn option_label_value(
             )
         }
         OptionsItem::Back => (String::from("Back"), String::new()),
+    }
+}
+
+fn format_cheat_value(label: &str, value: u16) -> String {
+    match label {
+        "Level" => format!("0x{value:02X}"),
+        _ => format!("{value}"),
     }
 }
 

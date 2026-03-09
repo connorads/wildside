@@ -1,4 +1,5 @@
 mod autonomy;
+mod cheats;
 mod oracle;
 mod player;
 mod scenarios;
