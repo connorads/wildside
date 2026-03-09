@@ -12,6 +12,7 @@ const MOVE_ACCELERATION_FRAMES: usize = 120;
 const RIGHT_MOVEMENT_START_ELAPSED: usize = 260;
 const LEVEL_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
+const PLAYER_WALK_SPEED: u32 = 0x0001_8000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
@@ -81,6 +82,8 @@ pub struct NativeTraceFrame {
     pub flag_x: Option<u16>,
     pub flag_y: Option<u16>,
     pub level_enemy_object_count: Option<u8>,
+    pub kid_x_pos: Option<u32>,
+    pub kid_y_pos: Option<u32>,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
     pub number_objects: u16,
@@ -97,6 +100,7 @@ pub struct NativeRuntime {
     current_level: LevelId,
     level_start_frame: Option<usize>,
     right_hold_frames: usize,
+    player_state: Option<PlayerState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,6 +110,12 @@ enum BootState {
     TitleScreen,
     StartingLevel { remaining_frames: usize },
     InGame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PlayerState {
+    x_pos: u32,
+    y_pos: u32,
 }
 
 impl NativeRuntime {
@@ -119,6 +129,7 @@ impl NativeRuntime {
             current_level: LevelId(0),
             level_start_frame: None,
             right_hold_frames: 0,
+            player_state: None,
         }
     }
 
@@ -153,6 +164,7 @@ impl NativeRuntime {
                 if start_pressed && self.start_press_count >= BOOTSTRAP_LEVEL_START_PRESS_COUNT {
                     self.level_start_frame = Some(self.frame_index);
                     self.right_hold_frames = 0;
+                    self.player_state = Some(self.initial_player_state(self.current_level));
                     self.boot_state = BootState::StartingLevel {
                         remaining_frames: TITLE_TO_LEVEL_FRAMES,
                     };
@@ -178,6 +190,17 @@ impl NativeRuntime {
             }
         } else {
             self.right_hold_frames = 0;
+        }
+
+        if matches!(self.boot_state, BootState::InGame) {
+            if let Some(player_state) = &mut self.player_state {
+                if input.right {
+                    player_state.x_pos = player_state.x_pos.saturating_add(PLAYER_WALK_SPEED);
+                }
+                if input.left {
+                    player_state.x_pos = player_state.x_pos.saturating_sub(PLAYER_WALK_SPEED);
+                }
+            }
         }
 
         let trace = self.trace_frame();
@@ -208,6 +231,8 @@ impl NativeRuntime {
             flag_x: level_header.map(|header| header.flag_x),
             flag_y: level_header.map(|header| header.flag_y),
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
+            kid_x_pos: self.player_state.map(|state| state.x_pos),
+            kid_y_pos: self.player_state.map(|state| state.y_pos),
             camera_x_pos,
             camera_y_pos,
             number_objects,
@@ -246,6 +271,14 @@ impl NativeRuntime {
             .levels
             .iter()
             .find(|level| level.level_id == level_id.0)
+    }
+
+    fn initial_player_state(&self, level_id: LevelId) -> PlayerState {
+        let header = self.level_header(level_id);
+        PlayerState {
+            x_pos: header.map_or(0, |header| u32::from(header.player_start_x) << 16),
+            y_pos: header.map_or(0, |header| u32::from(header.player_start_y) << 16),
+        }
     }
 
     fn level_elapsed_frames(&self) -> Option<usize> {
@@ -393,6 +426,8 @@ mod tests {
         assert_eq!(trace[359].player_start_x, Some(0x0750));
         assert_eq!(trace[359].flag_y, Some(0x0300));
         assert_eq!(trace[359].level_enemy_object_count, Some(22));
+        assert_eq!(trace[359].kid_x_pos, None);
+        assert_eq!(trace[359].kid_y_pos, None);
         assert_eq!(trace[359].number_objects, 4);
         assert_eq!(trace[359].number_gfx_objects, 4);
     }
@@ -427,6 +462,8 @@ mod tests {
         assert_eq!(trace.player_start_y, Some(0x00E0));
         assert_eq!(trace.flag_x, Some(0x0750));
         assert_eq!(trace.level_enemy_object_count, Some(22));
+        assert_eq!(trace.kid_x_pos, Some(0x0750_0000));
+        assert_eq!(trace.kid_y_pos, Some(0x00E0_0000));
         assert_eq!(trace.camera_y_pos, LEVEL_ENTRY_CAMERA_Y);
     }
 
@@ -452,5 +489,7 @@ mod tests {
         let trace = runtime.trace_frame();
         assert_eq!(trace.camera_x_pos, MOVE_END_CAMERA_X);
         assert_eq!(trace.camera_y_pos, LEVEL_SETTLED_CAMERA_Y);
+        assert!(trace.kid_x_pos.is_some_and(|x_pos| x_pos > 0x0750_0000));
+        assert_eq!(trace.kid_y_pos, Some(0x00E0_0000));
     }
 }

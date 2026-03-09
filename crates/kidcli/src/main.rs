@@ -1959,6 +1959,9 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
     if let Some(level_enemy_object_count) = final_frame.level_enemy_object_count {
         println!("level enemy objects: {level_enemy_object_count}");
     }
+    if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
+        println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
+    }
 
     for checkpoint in scenario.checkpoints() {
         if let Some(frame) =
