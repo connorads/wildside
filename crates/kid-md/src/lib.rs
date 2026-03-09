@@ -90,6 +90,18 @@ impl Default for AudioLevels {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameState {
+    pub current_level_id: u16,
+    pub current_helmet_id: u16,
+    pub number_lives: u16,
+    pub number_hitpoints: u16,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuProbe {
     pub reset_sp: u32,
@@ -689,6 +701,46 @@ impl MdRuntime {
         self.core
             .mem
             .write_work_ram_byte(LEVEL_SKIP_CHEAT_ADDR, if enabled { u8::MAX } else { 0 });
+    }
+
+    pub fn set_current_level(&mut self, level_id: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(CURRENT_LEVEL_ID_ADDR, level_id);
+        self.core
+            .mem
+            .write_work_ram_word(PLAYER_1_LEVEL_ID_ADDR, level_id);
+    }
+
+    pub fn set_current_helmet(&mut self, helmet_id: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(CURRENT_HELMET_ID_ADDR, helmet_id);
+    }
+
+    pub fn set_lives(&mut self, lives: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(NUMBER_LIVES_ADDR, lives);
+    }
+
+    pub fn set_hitpoints(&mut self, hitpoints: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(NUMBER_HITPOINTS_ADDR, hitpoints);
+    }
+
+    pub fn game_state(&self) -> GameState {
+        GameState {
+            current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
+            current_helmet_id: self.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
+            number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
+            number_hitpoints: self.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
+            kid_x_pos: self.core.mem.read_work_ram_long(KID_X_POS_ADDR),
+            kid_y_pos: self.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
+            camera_x_pos: self.core.mem.read_work_ram_long(CAMERA_X_POS_ADDR),
+            camera_y_pos: self.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
+        }
     }
 
     pub fn step(&mut self) -> i32 {
