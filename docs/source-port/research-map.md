@@ -15,9 +15,11 @@ This map records what the source port still needs to learn, where to source that
 - Rust target: typed level-load pipeline and `LevelBundle`
 
 ### Player and camera
-- Need: spawn state, fixed-point coordinates, camera settle/follow rules
-- Source: `doc/ram_layout.txt`, `variables.asm`, `kid.asm`, oracle state
-- Rust target: `PlayerState`, `CameraState`, deterministic frame-step logic
+- Done: real input-driven physics from disassembly speed tables, jump formula, gravity, camera follow
+- Done: `physics.rs` module with pure functions for horizontal velocity, jump, gravity, camera
+- Remaining: air control, terrain-type switching, Y look-ahead offset, left movement oracle verification
+- Source: `kid.asm` speed tables (`unk_9C0A`), `sub_A432` (jump), `kid.asm:14060` (gravity), `sub_71E4` (camera)
+- Rust target: `PlayerState`, `CameraState`, `physics::*` pure functions
 
 ### Object activation
 - Need: object slot lifecycle, active window, enemy status bookkeeping

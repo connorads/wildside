@@ -3,6 +3,9 @@
 This is the lighter map after level 1. Each area should eventually grow into its own dossier when implementation reaches it.
 
 ## Player forms
+- Done: speed table infrastructure for all 3 form variants (Kid, Micromax, Juggernaut) x 3 terrain types (normal, ice, rubber) in `kid-core::physics`
+- Done: jump height per form from `unk_A49E` (RedStealth jumps higher)
+- Remaining: form-specific abilities, air attacks, special moves
 - Source: `kid.asm`, `constants.asm`, helmet-related vars
 - Rust target: form-specific move and attack behaviour
 
