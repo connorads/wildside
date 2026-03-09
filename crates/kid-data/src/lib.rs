@@ -46,6 +46,8 @@ pub struct LevelRecord {
     pub enemy_layout_metadata: Option<EnemyLayout>,
     #[serde(default)]
     pub bgscroll_metadata: Option<BgscrollProfile>,
+    #[serde(default)]
+    pub platform_metadata: Option<PlatformLayout>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +66,7 @@ pub struct LevelAssetBundle {
     pub level_id: u8,
     pub display_name: Option<String>,
     pub platform_script: Option<LoadedAsset>,
+    pub parsed_platform_layout: Option<PlatformLayout>,
     pub bgscroll: Option<LoadedAsset>,
     pub parsed_bgscroll: Option<BgscrollProfile>,
     pub header: Option<LoadedAsset>,
@@ -127,6 +130,32 @@ pub struct EnemyLayoutObject {
 pub struct BgscrollProfile {
     pub layer_speeds: Vec<u8>,
     pub has_terminator: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformLayout {
+    pub placements: Vec<PlatformPlacement>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformPlacement {
+    pub x: u16,
+    pub y: u16,
+    pub buffer_left: u8,
+    pub buffer_right: u8,
+    pub buffer_top: u8,
+    pub buffer_bottom: u8,
+    pub kind: u8,
+    pub subtype: u8,
+    pub h_variant: u8,
+    pub v_variant: u8,
+    pub script: PlatformScriptRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformScriptRef {
+    pub raw: String,
+    pub relative_offset: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -278,10 +307,17 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .map(|asset| parse_bgscroll_profile(&asset.bytes))
         .transpose()?
         .or(level.bgscroll_metadata.clone());
+    let platform_script = load_asset(manifest, level.resources.platform_script.as_deref())?;
+    let parsed_platform_layout = platform_script
+        .as_ref()
+        .map(|asset| parse_platform_layout(std::str::from_utf8(&asset.bytes)?))
+        .transpose()?
+        .or(level.platform_metadata.clone());
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
-        platform_script: load_asset(manifest, level.resources.platform_script.as_deref())?,
+        platform_script,
+        parsed_platform_layout,
         bgscroll,
         parsed_bgscroll,
         header,
@@ -414,6 +450,76 @@ pub fn parse_bgscroll_profile(bytes: &[u8]) -> Result<BgscrollProfile> {
     }
 }
 
+pub fn parse_platform_layout(contents: &str) -> Result<PlatformLayout> {
+    let mut placements = Vec::new();
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with(';') || trimmed.starts_with("dc.w") {
+            continue;
+        }
+        let Some(arguments) = trimmed.strip_prefix("ptfm") else {
+            continue;
+        };
+        let fields = arguments
+            .trim()
+            .split(',')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        if fields.len() != 11 {
+            bail!(
+                "platform layout line {} had {} ptfm fields, expected 11",
+                index + 1,
+                fields.len()
+            );
+        }
+        placements.push(PlatformPlacement {
+            x: fields[0]
+                .parse()
+                .with_context(|| format!("invalid platform x on line {}", index + 1))?,
+            y: fields[1]
+                .parse()
+                .with_context(|| format!("invalid platform y on line {}", index + 1))?,
+            buffer_left: fields[2]
+                .parse()
+                .with_context(|| format!("invalid platform left buffer on line {}", index + 1))?,
+            buffer_right: fields[3]
+                .parse()
+                .with_context(|| format!("invalid platform right buffer on line {}", index + 1))?,
+            buffer_top: fields[4]
+                .parse()
+                .with_context(|| format!("invalid platform top buffer on line {}", index + 1))?,
+            buffer_bottom: fields[5]
+                .parse()
+                .with_context(|| format!("invalid platform bottom buffer on line {}", index + 1))?,
+            kind: fields[6]
+                .parse()
+                .with_context(|| format!("invalid platform kind on line {}", index + 1))?,
+            subtype: fields[7]
+                .parse()
+                .with_context(|| format!("invalid platform subtype on line {}", index + 1))?,
+            h_variant: fields[8]
+                .parse()
+                .with_context(|| format!("invalid platform h variant on line {}", index + 1))?,
+            v_variant: fields[9]
+                .parse()
+                .with_context(|| format!("invalid platform v variant on line {}", index + 1))?,
+            script: parse_platform_script_ref(fields[10]),
+        });
+    }
+    Ok(PlatformLayout { placements })
+}
+
+fn parse_platform_script_ref(value: &str) -> PlatformScriptRef {
+    let relative_offset = value
+        .strip_prefix("PlatformScript_")
+        .and_then(|rest| rest.strip_suffix("-PlatformScript_BaseAddress"))
+        .and_then(|hex| u16::from_str_radix(hex, 16).ok());
+    PlatformScriptRef {
+        raw: value.to_owned(),
+        relative_offset,
+    }
+}
+
 fn merge_level_catalogues(
     names: BTreeMap<u8, (u8, String)>,
     files: BTreeMap<u8, Vec<String>>,
@@ -433,6 +539,7 @@ fn merge_level_catalogues(
                 header_metadata: None,
                 enemy_layout_metadata: None,
                 bgscroll_metadata: None,
+                platform_metadata: None,
             },
         );
     }
@@ -446,6 +553,7 @@ fn merge_level_catalogues(
             header_metadata: None,
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
+            platform_metadata: None,
         });
     }
     by_level.into_values().collect()
@@ -486,6 +594,17 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
                 let bytes = fs::read(&full_path)
                     .with_context(|| format!("failed to read bgscroll {}", full_path.display()))?;
                 level.bgscroll_metadata = Some(parse_bgscroll_profile(&bytes)?);
+            }
+        }
+        if level.platform_metadata.is_none()
+            && let Some(relative_path) = level.resources.platform_script.as_deref()
+        {
+            let full_path = manifest.output_root.join("level").join(relative_path);
+            if full_path.is_file() {
+                let contents = fs::read_to_string(&full_path).with_context(|| {
+                    format!("failed to read platform layout {}", full_path.display())
+                })?;
+                level.platform_metadata = Some(parse_platform_layout(&contents)?);
             }
         }
     }
@@ -966,6 +1085,28 @@ mod tests {
     }
 
     #[test]
+    fn parses_platform_layout_entries() {
+        let layout = parse_platform_layout(
+            "\tptfm\t24,25,0,40,0,19,0,2,3,0,PlatformScript_3C3A-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
+        )
+        .expect("platform layout should parse");
+        assert_eq!(layout.placements.len(), 1);
+        let placement = &layout.placements[0];
+        assert_eq!(placement.x, 24);
+        assert_eq!(placement.y, 25);
+        assert_eq!(placement.buffer_right, 40);
+        assert_eq!(placement.kind, 0);
+        assert_eq!(placement.subtype, 2);
+        assert_eq!(placement.h_variant, 3);
+        assert_eq!(placement.v_variant, 0);
+        assert_eq!(
+            placement.script.raw,
+            "PlatformScript_3C3A-PlatformScript_BaseAddress"
+        );
+        assert_eq!(placement.script.relative_offset, Some(0x3C3A));
+    }
+
+    #[test]
     fn exports_bundle_and_writes_manifest() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
@@ -988,7 +1129,11 @@ mod tests {
         fs::write(source_root.join("scenes/title.bin"), b"scene").expect("scene");
         fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
-        fs::write(source_root.join("level/platform/00.asm"), b"platform").expect("platform");
+        fs::write(
+            source_root.join("level/platform/00.asm"),
+            b"\tptfm\t0,0,0,0,0,0,0,0,0,0,PlatformScript_Nothing-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
+        )
+        .expect("platform");
         fs::write(
             source_root.join("level/bgscroll/00.bin"),
             [0x10, 0x10, 0x40, 0x60, 0xFF],
@@ -1056,6 +1201,13 @@ mod tests {
                 .map(|profile| (profile.layer_speeds.clone(), profile.has_terminator)),
             Some((vec![0x10, 0x10, 0x40, 0x60], true))
         );
+        assert_eq!(
+            manifest.levels[0]
+                .platform_metadata
+                .as_ref()
+                .map(|layout| layout.placements.len()),
+            Some(1)
+        );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
         assert!(manifest_path(output.path()).is_file());
@@ -1072,7 +1224,10 @@ mod tests {
                 .platform_script
                 .as_ref()
                 .map(|asset| asset.bytes.as_slice()),
-            Some(&b"platform"[..])
+            Some(
+                &b"\tptfm\t0,0,0,0,0,0,0,0,0,0,PlatformScript_Nothing-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n"
+                    [..]
+            )
         );
         assert_eq!(
             level_bundle
@@ -1094,6 +1249,13 @@ mod tests {
                 .as_ref()
                 .map(|profile| (profile.layer_speeds.clone(), profile.has_terminator)),
             Some((vec![0x10, 0x10, 0x40, 0x60], true))
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_platform_layout
+                .as_ref()
+                .map(|layout| layout.placements.len()),
+            Some(1)
         );
         assert_eq!(
             level_bundle

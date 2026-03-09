@@ -1455,6 +1455,33 @@ fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
             }
         );
     }
+    if let Some(platform_layout) = &bundle.parsed_platform_layout {
+        let preview = platform_layout
+            .placements
+            .iter()
+            .take(3)
+            .map(|placement| {
+                format!(
+                    "({}, {}) t{} s{} {}",
+                    placement.x,
+                    placement.y,
+                    placement.kind,
+                    placement.subtype,
+                    placement.script.raw
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "platforms: {} entries{}",
+            platform_layout.placements.len(),
+            if preview.is_empty() {
+                String::new()
+            } else {
+                format!(" [{preview}]")
+            }
+        );
+    }
     if let Some(enemy_layout) = &bundle.parsed_enemy_layout {
         println!(
             "enemy layout: {} objects, header 0x{:02X}, marker 0x{:04X}",

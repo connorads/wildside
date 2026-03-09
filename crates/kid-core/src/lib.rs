@@ -504,6 +504,7 @@ mod tests {
                     layer_speeds: vec![0x10, 0x10, 0x40, 0x60],
                     has_terminator: true,
                 }),
+                platform_metadata: None,
             }],
             constants: Vec::new(),
             ram_variables: Vec::new(),
