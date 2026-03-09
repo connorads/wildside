@@ -2,6 +2,7 @@ use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
     FrameInput, GameMode, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame, PlayerForm,
+    terrain::BlockGrid,
 };
 use kid_data::AssetManifest;
 use sdl2::controller::{Button, GameController};
@@ -102,6 +103,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut controller = open_first_controller(&game_controller)?;
 
     let mut runtime = NativeRuntime::new(manifest.clone());
+    try_load_block_grid(&mut runtime, manifest, 0x00);
     let mut trace = runtime.trace_frame();
     let mut hud_visible = true;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
@@ -821,4 +823,45 @@ mod tests {
                 .any(|pixel| pixel == PLAYER_COLOUR.as_slice())
         );
     }
+}
+
+/// Attempt to load a pre-dumped block grid for the given level.
+/// Falls back silently to flat floor if the dump file doesn't exist.
+fn try_load_block_grid(runtime: &mut NativeRuntime, manifest: &AssetManifest, level_id: u8) {
+    let layout_dir = manifest.output_root.join("level-layout");
+    let layout_path = layout_dir.join(format!("{:02X}.bin", level_id));
+    let meta_path = layout_dir.join(format!("{:02X}.json", level_id));
+
+    let Ok(data) = std::fs::read(&layout_path) else {
+        eprintln!(
+            "no block grid at {}, using flat floor (run dump-level-layout to generate)",
+            layout_path.display()
+        );
+        return;
+    };
+    let Ok(meta_bytes) = std::fs::read(&meta_path) else {
+        eprintln!("block grid data found but no metadata at {}", meta_path.display());
+        return;
+    };
+    let Ok(meta) = serde_json::from_slice::<serde_json::Value>(&meta_bytes) else {
+        eprintln!("failed to parse block grid metadata");
+        return;
+    };
+
+    let width = meta["width_blocks"].as_u64().unwrap_or(0) as u16;
+    let height = meta["height_blocks"].as_u64().unwrap_or(0) as u16;
+    if width == 0 || height == 0 {
+        eprintln!("invalid block grid dimensions {}x{}", width, height);
+        return;
+    }
+
+    let grid = BlockGrid::from_level_layout(&data, width, height);
+    eprintln!(
+        "loaded block grid: {}x{} cells ({}x{} px)",
+        width,
+        height,
+        u32::from(width) * 16,
+        u32::from(height) * 16
+    );
+    runtime.set_block_grid(grid);
 }

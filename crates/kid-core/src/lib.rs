@@ -209,6 +209,7 @@ pub struct NativeRuntime {
     opening_slice: Option<OpeningSliceState>,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
+    block_grid: Option<terrain::BlockGrid>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -303,7 +304,14 @@ impl NativeRuntime {
             opening_slice: None,
             active_enemy_roster: Vec::new(),
             active_platform_roster: Vec::new(),
+            block_grid: None,
         }
+    }
+
+    /// Set the block collision grid for the current level.
+    /// Call after constructing the runtime, before stepping frames.
+    pub fn set_block_grid(&mut self, grid: terrain::BlockGrid) {
+        self.block_grid = Some(grid);
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
@@ -589,7 +597,7 @@ impl NativeRuntime {
         let mut slice = self
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
-        slice.step(level_elapsed, input, self.current_form);
+        slice.step(level_elapsed, input, self.current_form, self.block_grid.as_ref());
         if self.should_apply_level_one_opening_hit(&slice, input)
             || self.should_apply_level_one_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
@@ -854,14 +862,20 @@ impl OpeningSliceState {
         }
     }
 
-    fn step(&mut self, level_elapsed: usize, input: FrameInput, form: PlayerForm) {
+    fn step(
+        &mut self,
+        level_elapsed: usize,
+        input: FrameInput,
+        form: PlayerForm,
+        block_grid: Option<&terrain::BlockGrid>,
+    ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
             return;
         }
         self.update_horizontal_motion(input);
         self.update_vertical_motion(input, form);
-        self.apply_floor_collision();
+        self.apply_floor_collision(block_grid);
         self.update_camera_follow();
     }
 
@@ -943,11 +957,29 @@ impl OpeningSliceState {
         }
     }
 
-    fn apply_floor_collision(&mut self) {
-        if self.player.y_pos >= self.terrain.floor_y_pos {
-            self.player.y_pos = self.terrain.floor_y_pos;
-            self.player.on_ground = true;
-            self.player.y_velocity = 0;
+    fn apply_floor_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
+        if let Some(grid) = block_grid {
+            let x_px = (self.player.x_pos >> 16) as i32;
+            let y_px = (self.player.y_pos >> 16) as i32;
+            let probe = terrain::probe_floor(grid, x_px, y_px);
+            if probe.on_ground {
+                let floor_y_fp = (probe.floor_y_px as u32) << 16;
+                if self.player.y_pos >= floor_y_fp || self.player.y_velocity > 0 {
+                    self.player.y_pos = floor_y_fp;
+                    self.player.on_ground = true;
+                    self.player.y_velocity = 0;
+                }
+            } else if self.player.on_ground {
+                // Was on ground but no longer — start falling
+                self.player.on_ground = false;
+            }
+        } else {
+            // Flat floor fallback when no block grid is loaded
+            if self.player.y_pos >= self.terrain.floor_y_pos {
+                self.player.y_pos = self.terrain.floor_y_pos;
+                self.player.on_ground = true;
+                self.player.y_velocity = 0;
+            }
         }
     }
 
