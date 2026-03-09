@@ -1,6 +1,7 @@
 pub mod physics;
 
 use kid_data::{AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement};
+use physics::{Direction, HorizontalInput, LevelBounds};
 use serde::{Deserialize, Serialize};
 
 const SEGA_SCREEN_FRAMES: usize = 120;
@@ -9,10 +10,7 @@ const TITLE_TO_LEVEL_FRAMES: usize = 60;
 const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
 const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 const OPENING_SCROLL_ACCEL_TARGET_X_FP: u32 = 0x0045_0000;
-const OPENING_SCROLL_LIMIT_X_FP: u32 = 0x01AB_0000;
-const OPENING_SCROLL_ACCEL_FRAMES: usize = 120;
 const OPENING_SCROLL_START_FRAME: usize = 260;
-const OPENING_SCROLL_ORACLE_LIMIT_END_FRAME: usize = OPENING_SCROLL_START_FRAME + 299;
 const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
 const TITLE_KID_X_POS: u32 = 0x0028_0000;
@@ -20,18 +18,7 @@ const TITLE_KID_Y_POS: u32 = 0x0030_0000;
 const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
 const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
-const OPENING_CAMERA_LEAD_X_FP: u32 = 0x00AA_0000;
-const OPENING_SCROLL_CRUISE_STEP_FP: u32 = 0x0002_0000;
-const LEVEL_ONE_RUN_STAGE_ONE_FRAMES: usize = 120;
-const LEVEL_ONE_RUN_STAGE_TWO_FRAMES: usize = 280;
-const LEVEL_ONE_RUN_STAGE_THREE_FRAMES: usize = 560;
-const LEVEL_ONE_RUN_STAGE_ONE_CAMERA_X_FP: u32 = 0x00D2_0000;
-const LEVEL_ONE_RUN_STAGE_TWO_CAMERA_X_FP: u32 = 0x0271_0000;
-const LEVEL_ONE_RUN_STAGE_THREE_CAMERA_X_FP: u32 = 0x03B2_0000;
 const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B0_0000;
-const LEVEL_ONE_JUMP_IMPULSE_FP: i32 = -0x000C_0000;
-const LEVEL_ONE_JUMP_GRAVITY_FP: i32 = 0x0001_8000;
-const LEVEL_ONE_MAX_FALL_SPEED_FP: i32 = 0x0006_0000;
 const LEVEL_ONE_ENEMY_CONTACT_X_FP: u32 = 0x0032_0000;
 const LEVEL_ONE_ENEMY_CONTACT_Y_FP: u32 = 0x0006_0000;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
@@ -244,8 +231,9 @@ enum PlayerLifecycle {
 struct PlayerState {
     x_pos: u32,
     y_pos: u32,
-    x_velocity: u32,
+    x_velocity: i32,
     y_velocity: i32,
+    facing: Direction,
     on_ground: bool,
 }
 
@@ -258,11 +246,6 @@ struct CameraState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TerrainState {
     floor_y_pos: u32,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct OpeningScrollState {
-    right_hold_frames: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -280,7 +263,7 @@ struct OpeningSliceState {
     player: PlayerState,
     camera: CameraState,
     terrain: TerrainState,
-    scroll: OpeningScrollState,
+    level_bounds: LevelBounds,
     objects: ObjectSystemState,
 }
 
@@ -364,7 +347,8 @@ impl NativeRuntime {
                     self.boot_state = BootState::StartingLevel {
                         remaining_frames: TITLE_TO_LEVEL_FRAMES,
                     };
-                    self.opening_slice = Some(OpeningSliceState::new());
+                    let bounds = self.level_bounds(self.current_level);
+                    self.opening_slice = Some(OpeningSliceState::new(bounds));
                 }
             }
             BootState::StartingLevel { remaining_frames } => {
@@ -473,6 +457,18 @@ impl NativeRuntime {
             .find(|level| level.level_id == level_id.0)
     }
 
+    fn level_bounds(&self, level_id: LevelId) -> LevelBounds {
+        self.level_header(level_id)
+            .map(|header| LevelBounds {
+                width_pixels: u16::from(header.width_screens) * 320,
+                height_pixels: u16::from(header.height_screens) * 224,
+            })
+            .unwrap_or(LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            })
+    }
+
     fn current_player_state(&self) -> Option<PlayerState> {
         match self.boot_state {
             BootState::SegaScreen { .. }
@@ -564,7 +560,7 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
-                    self.opening_slice = Some(OpeningSliceState::respawn());
+                    self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(self.current_level)));
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_RESPAWN_SETTLE_FRAMES,
                     };
@@ -588,8 +584,11 @@ impl NativeRuntime {
         }
 
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
-        let mut slice = self.opening_slice.unwrap_or_else(OpeningSliceState::new);
-        slice.step(level_elapsed, input);
+        let bounds = self.level_bounds(self.current_level);
+        let mut slice = self
+            .opening_slice
+            .unwrap_or_else(|| OpeningSliceState::new(bounds));
+        slice.step(level_elapsed, input, self.current_form);
         if self.should_apply_level_one_opening_hit(&slice, input)
             || self.should_apply_level_one_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
@@ -664,9 +663,6 @@ impl NativeRuntime {
         }
         if camera_x_pos == 0 {
             return (roster_count + 1, roster_count + 2);
-        }
-        if camera_x_pos >= OPENING_SCROLL_LIMIT_X_FP {
-            return (roster_count.saturating_sub(1), roster_count);
         }
         (roster_count, roster_count + 1)
     }
@@ -764,7 +760,7 @@ impl NativeRuntime {
         self.paused = false;
         self.current_level = self.next_level_id();
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(OpeningSliceState::respawn());
+        self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(self.current_level)));
         self.active_enemy_roster.clear();
         self.active_platform_roster.clear();
         self.invulnerable_frames = 0;
@@ -802,19 +798,21 @@ impl PlayerState {
             y_pos: TITLE_KID_Y_POS,
             x_velocity: 0,
             y_velocity: 0,
+            facing: Direction::Right,
             on_ground: true,
         }
     }
 }
 
 impl OpeningSliceState {
-    fn new() -> Self {
+    fn new(bounds: LevelBounds) -> Self {
         Self {
             player: PlayerState {
                 x_pos: OPENING_ENTRY_KID_X_POS,
                 y_pos: OPENING_ENTRY_KID_Y_POS,
                 x_velocity: 0,
                 y_velocity: 0,
+                facing: Direction::Right,
                 on_ground: false,
             },
             camera: CameraState {
@@ -824,22 +822,21 @@ impl OpeningSliceState {
             terrain: TerrainState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
             },
-            scroll: OpeningScrollState {
-                right_hold_frames: 0,
-            },
+            level_bounds: bounds,
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
         }
     }
 
-    fn respawn() -> Self {
+    fn respawn(bounds: LevelBounds) -> Self {
         Self {
             player: PlayerState {
                 x_pos: OPENING_ENTRY_KID_X_POS,
                 y_pos: OPENING_GROUNDED_KID_Y_POS,
                 x_velocity: 0,
                 y_velocity: 0,
+                facing: Direction::Right,
                 on_ground: true,
             },
             camera: CameraState {
@@ -849,108 +846,103 @@ impl OpeningSliceState {
             terrain: TerrainState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
             },
-            scroll: OpeningScrollState {
-                right_hold_frames: 0,
-            },
+            level_bounds: bounds,
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
         }
     }
 
-    fn step(&mut self, level_elapsed: usize, input: FrameInput) {
-        self.update_vertical_motion(level_elapsed, input);
-        self.update_horizontal_scroll(level_elapsed, input);
-        self.apply_opening_collision();
-        self.update_camera_vertical(level_elapsed);
+    fn step(&mut self, level_elapsed: usize, input: FrameInput, form: PlayerForm) {
+        if level_elapsed < OPENING_SCROLL_START_FRAME {
+            self.run_entry_animation(level_elapsed);
+            return;
+        }
+        self.update_horizontal_motion(input);
+        self.update_vertical_motion(input, form);
+        self.apply_floor_collision();
+        self.update_camera_follow();
     }
 
-    fn update_vertical_motion(&mut self, level_elapsed: usize, input: FrameInput) {
+    /// Pre-physics entry animation: player descends and settles to ground.
+    fn run_entry_animation(&mut self, level_elapsed: usize) {
         let previous_y_pos = self.player.y_pos;
         if level_elapsed <= OPENING_ENTRY_HOLD_FRAMES {
             self.camera.y_pos = OPENING_ENTRY_CAMERA_Y_FP;
             self.player.y_pos = OPENING_ENTRY_KID_Y_POS;
             self.player.y_velocity = 0;
+            self.player.x_velocity = 0;
             self.player.on_ground = false;
             return;
         }
+        let settle_progress = (level_elapsed - OPENING_ENTRY_HOLD_FRAMES)
+            .min(OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES);
+        let settle_span = OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES;
+        self.camera.y_pos = interpolate_u32(
+            OPENING_ENTRY_CAMERA_Y_FP,
+            OPENING_GROUNDED_CAMERA_Y_FP,
+            settle_progress,
+            settle_span,
+        );
+        self.player.y_pos = interpolate_u32(
+            OPENING_ENTRY_KID_Y_POS,
+            OPENING_GROUNDED_KID_Y_POS,
+            settle_progress,
+            settle_span,
+        );
+        self.player.y_velocity =
+            i32::try_from(self.player.y_pos.saturating_sub(previous_y_pos)).unwrap_or(i32::MAX);
+        self.player.x_velocity = 0;
+        self.player.on_ground = self.player.y_pos >= self.terrain.floor_y_pos;
+        self.camera.x_pos = 0;
+        self.player.x_pos = OPENING_ENTRY_KID_X_POS;
+    }
 
-        if level_elapsed < OPENING_SCROLL_START_FRAME {
-            let settle_progress = (level_elapsed - OPENING_ENTRY_HOLD_FRAMES)
-                .min(OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES);
-            let settle_span = OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES;
-            self.camera.y_pos = interpolate_u32(
-                OPENING_ENTRY_CAMERA_Y_FP,
-                OPENING_GROUNDED_CAMERA_Y_FP,
-                settle_progress,
-                settle_span,
-            );
-            self.player.y_pos = interpolate_u32(
-                OPENING_ENTRY_KID_Y_POS,
-                OPENING_GROUNDED_KID_Y_POS,
-                settle_progress,
-                settle_span,
-            );
-            self.player.y_velocity =
-                i32::try_from(self.player.y_pos.saturating_sub(previous_y_pos)).unwrap_or(i32::MAX);
-            self.player.on_ground = self.player.y_pos >= self.terrain.floor_y_pos;
-            return;
-        }
+    /// Physics-driven horizontal movement using speed tables.
+    fn update_horizontal_motion(&mut self, input: FrameInput) {
+        let h_input = HorizontalInput {
+            left: input.left,
+            right: input.right,
+            run: input.a,
+        };
+        let (new_vel, new_facing) = physics::update_horizontal_velocity(
+            self.player.x_velocity,
+            self.player.facing,
+            h_input,
+            &physics::NORMAL_KID,
+        );
+        self.player.x_velocity = new_vel;
+        self.player.facing = new_facing;
 
+        let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+        self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+    }
+
+    /// Physics-driven vertical movement: jump initiation and gravity.
+    fn update_vertical_motion(&mut self, input: FrameInput, form: PlayerForm) {
         if self.player.on_ground && input.b {
-            self.player.y_velocity = LEVEL_ONE_JUMP_IMPULSE_FP;
+            let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
+            let (new_x_vel, y_vel) =
+                physics::initiate_jump(self.player.x_velocity, jump_height);
+            self.player.x_velocity = new_x_vel;
+            self.player.y_velocity = y_vel;
             self.player.on_ground = false;
         }
 
         if !self.player.on_ground {
+            let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
+            self.player.y_velocity = physics::apply_gravity(
+                self.player.y_velocity,
+                ascending_and_b_held,
+            );
             let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
             self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-            self.player.y_velocity = (self.player.y_velocity + LEVEL_ONE_JUMP_GRAVITY_FP)
-                .min(LEVEL_ONE_MAX_FALL_SPEED_FP);
         } else {
             self.player.y_velocity = 0;
         }
     }
 
-    fn update_horizontal_scroll(&mut self, level_elapsed: usize, input: FrameInput) {
-        if level_elapsed < OPENING_SCROLL_START_FRAME {
-            self.scroll.right_hold_frames = 0;
-            self.camera.x_pos = 0;
-            self.player.x_pos = OPENING_ENTRY_KID_X_POS;
-            self.player.x_velocity = 0;
-            return;
-        }
-        if !input.right {
-            self.player.x_velocity = 0;
-            if self.scroll.right_hold_frames == 0 {
-                self.player.x_pos = OPENING_ENTRY_KID_X_POS;
-            }
-            return;
-        }
-
-        let previous_player_x = self.player.x_pos;
-        let previous_camera_x = self.camera.x_pos;
-        self.scroll.right_hold_frames += 1;
-        let movement_frames = self.scroll.right_hold_frames.saturating_sub(1);
-        let camera_limit = if level_elapsed <= OPENING_SCROLL_ORACLE_LIMIT_END_FRAME {
-            OPENING_SCROLL_LIMIT_X_FP
-        } else {
-            u32::MAX
-        };
-        self.camera.x_pos = if input.a {
-            run_camera_x_for_hold_frames(self.scroll.right_hold_frames)
-        } else if movement_frames <= OPENING_SCROLL_ACCEL_FRAMES {
-            ((u64::from(OPENING_SCROLL_ACCEL_TARGET_X_FP) * movement_frames as u64)
-                / OPENING_SCROLL_ACCEL_FRAMES as u64) as u32
-        } else {
-            previous_camera_x.saturating_add(OPENING_SCROLL_CRUISE_STEP_FP)
-        }
-        .min(camera_limit);
-        self.player.x_pos = self.camera.x_pos.saturating_add(OPENING_CAMERA_LEAD_X_FP);
-        self.player.x_velocity = self.player.x_pos.saturating_sub(previous_player_x);
-    }
-
-    fn apply_opening_collision(&mut self) {
+    fn apply_floor_collision(&mut self) {
         if self.player.y_pos >= self.terrain.floor_y_pos {
             self.player.y_pos = self.terrain.floor_y_pos;
             self.player.on_ground = true;
@@ -958,14 +950,23 @@ impl OpeningSliceState {
         }
     }
 
-    fn update_camera_vertical(&mut self, level_elapsed: usize) {
-        if level_elapsed < OPENING_SCROLL_START_FRAME {
-            return;
-        }
+    /// Camera follows player using the real sub_71E4 follow algorithm.
+    fn update_camera_follow(&mut self) {
+        let player_x_px = (self.player.x_pos >> 16) as i32;
+        let player_y_px = (self.player.y_pos >> 16) as i32;
+        let camera_x_px = (self.camera.x_pos >> 16) as i32;
+        let camera_y_px = (self.camera.y_pos >> 16) as i32;
 
-        let jump_offset = self.terrain.floor_y_pos.saturating_sub(self.player.y_pos);
-        let camera_offset = (u64::from(jump_offset) * 3 / 4) as u32;
-        self.camera.y_pos = OPENING_GROUNDED_CAMERA_Y_FP.saturating_sub(camera_offset);
+        let (new_cx, new_cy) = physics::update_camera(
+            camera_x_px,
+            camera_y_px,
+            player_x_px,
+            player_y_px,
+            &self.level_bounds,
+        );
+
+        self.camera.x_pos = (new_cx.max(0) as u32) << 16;
+        self.camera.y_pos = (new_cy.max(0) as u32) << 16;
     }
 }
 
@@ -1108,34 +1109,6 @@ fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
         (start + ((end - start) * clamped) / span as u64) as u32
     } else {
         (start - ((start - end) * clamped) / span as u64) as u32
-    }
-}
-
-fn run_camera_x_for_hold_frames(hold_frames: usize) -> u32 {
-    match hold_frames {
-        0 => 0,
-        1..=LEVEL_ONE_RUN_STAGE_ONE_FRAMES => interpolate_u32(
-            0,
-            LEVEL_ONE_RUN_STAGE_ONE_CAMERA_X_FP,
-            hold_frames,
-            LEVEL_ONE_RUN_STAGE_ONE_FRAMES,
-        ),
-        _ if hold_frames <= LEVEL_ONE_RUN_STAGE_TWO_FRAMES => interpolate_u32(
-            LEVEL_ONE_RUN_STAGE_ONE_CAMERA_X_FP,
-            LEVEL_ONE_RUN_STAGE_TWO_CAMERA_X_FP,
-            hold_frames - LEVEL_ONE_RUN_STAGE_ONE_FRAMES,
-            LEVEL_ONE_RUN_STAGE_TWO_FRAMES - LEVEL_ONE_RUN_STAGE_ONE_FRAMES,
-        ),
-        _ if hold_frames <= LEVEL_ONE_RUN_STAGE_THREE_FRAMES => interpolate_u32(
-            LEVEL_ONE_RUN_STAGE_TWO_CAMERA_X_FP,
-            LEVEL_ONE_RUN_STAGE_THREE_CAMERA_X_FP,
-            hold_frames - LEVEL_ONE_RUN_STAGE_TWO_FRAMES,
-            LEVEL_ONE_RUN_STAGE_THREE_FRAMES - LEVEL_ONE_RUN_STAGE_TWO_FRAMES,
-        ),
-        _ => LEVEL_ONE_RUN_STAGE_THREE_CAMERA_X_FP.saturating_add(
-            ((hold_frames - LEVEL_ONE_RUN_STAGE_THREE_FRAMES) as u32)
-                .saturating_mul(OPENING_SCROLL_CRUISE_STEP_FP),
-        ),
     }
 }
 
@@ -1513,13 +1486,19 @@ mod tests {
     fn pauses_and_resumes_native_slice() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        for _ in 0..180 {
+        // Walk right for 400 frames: ~200 entry animation + ~200 physics, enough
+        // to move the camera.
+        for _ in 0..400 {
             runtime.step_frame(FrameInput {
                 right: true,
                 ..FrameInput::default()
             });
         }
         let pre_pause = runtime.trace_frame();
+        assert!(
+            pre_pause.camera_x_pos > 0,
+            "camera should have moved before pause"
+        );
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
@@ -1541,7 +1520,7 @@ mod tests {
             ..FrameInput::default()
         });
         runtime.step_frame(FrameInput::default());
-        for _ in 0..80 {
+        for _ in 0..120 {
             runtime.step_frame(FrameInput {
                 right: true,
                 ..FrameInput::default()
@@ -1638,20 +1617,18 @@ mod tests {
             runtime.step_frame(input);
         }
         let trace = runtime.trace_frame();
-        assert!(trace.camera_x_pos.abs_diff(OPENING_SCROLL_LIMIT_X_FP) <= 0x0002_0000);
-        assert_eq!(trace.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
-        assert_eq!(trace.number_hitpoints, 1);
-        assert_eq!(trace.active_enemy_object_count, 1);
-        assert_eq!(trace.active_platform_object_count, 0);
-        assert_eq!(trace.active_objects.len(), 2);
-        assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
-        assert_eq!(
-            trace.active_objects[1].kind,
-            NativeObjectKind::Enemy { object_type: 0x1C }
-        );
-        assert!(trace.kid_x_pos.is_some_and(|x_pos| {
-            x_pos.abs_diff(OPENING_SCROLL_LIMIT_X_FP + OPENING_CAMERA_LEAD_X_FP) <= 0x0002_0000
-        }));
+        // Camera should have scrolled right from physics-driven movement
+        assert!(trace.camera_x_pos > 0, "camera should have moved right");
+        // Player should be on ground at grounded Y
         assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+        // Player should be ahead of camera (to the right)
+        assert!(trace
+            .kid_x_pos
+            .is_some_and(|x| x > trace.camera_x_pos));
+        // Opening hit should have reduced HP (right + full HP + camera past threshold)
+        assert!(
+            trace.number_hitpoints < PlayerForm::TheKid.max_hitpoints(),
+            "opening hit should have reduced HP"
+        );
     }
 }
