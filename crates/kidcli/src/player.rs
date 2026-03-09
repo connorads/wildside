@@ -1132,7 +1132,15 @@ fn apply_overlay(
             pending_value,
         } => {
             let panel_height = 42 + (CHEATS.len() as i32) * 14 + 16;
-            draw_panel(rgb, 28, 20, 264, panel_height, [20, 14, 28], [214, 180, 255]);
+            draw_panel(
+                rgb,
+                28,
+                20,
+                264,
+                panel_height,
+                [20, 14, 28],
+                [214, 180, 255],
+            );
             draw_text(rgb, 44, 32, "Debug", [255, 220, 255], 2);
             let mut y = 56;
             for (index, cheat) in CHEATS.iter().enumerate() {

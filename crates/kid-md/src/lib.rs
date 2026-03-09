@@ -719,9 +719,7 @@ impl MdRuntime {
     }
 
     pub fn set_lives(&mut self, lives: u16) {
-        self.core
-            .mem
-            .write_work_ram_word(NUMBER_LIVES_ADDR, lives);
+        self.core.mem.write_work_ram_word(NUMBER_LIVES_ADDR, lives);
     }
 
     pub fn set_hitpoints(&mut self, hitpoints: u16) {
@@ -913,26 +911,14 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
             base: plane_a_base,
             width_cells: plane_width_cells,
             height_cells: plane_height_cells,
-            hscroll: hscroll_for_line(
-                &vdp.vram,
-                hscroll_base,
-                y,
-                0,
-                vdp.registers[0x0B],
-            ),
+            hscroll: hscroll_for_line(&vdp.vram, hscroll_base, y, 0, vdp.registers[0x0B]),
             vscroll: vscroll_a,
         };
         let plane_b = ScrollPlane {
             base: plane_b_base,
             width_cells: plane_width_cells,
             height_cells: plane_height_cells,
-            hscroll: hscroll_for_line(
-                &vdp.vram,
-                hscroll_base,
-                y,
-                2,
-                vdp.registers[0x0B],
-            ),
+            hscroll: hscroll_for_line(&vdp.vram, hscroll_base, y, 2, vdp.registers[0x0B]),
             vscroll: vscroll_b,
         };
         let window_plane = WindowPlane {
