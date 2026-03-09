@@ -58,6 +58,9 @@ run = "cargo run -p kidcli -- dump-audio --scenario boot-title-start-level1 --ou
 [tasks.bootstrap-upstream]
 run = "cargo run -p kidcli -- bootstrap-upstream"
 
+[tasks.bootstrap-references]
+run = "cargo run -p kidcli -- bootstrap-references"
+
 [tasks.oracle-setup]
 run = "cargo run -p kidcli -- oracle-setup"
 

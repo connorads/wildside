@@ -3,7 +3,7 @@ mod player;
 mod scenarios;
 
 use anyhow::{Context, Result, anyhow, bail};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
 use kid_data::{
@@ -31,6 +31,36 @@ use ymfm_sys::Ym2612;
 const ASL_REPO_URL: &str = "https://github.com/Macroassembler-AS/asl-releases.git";
 const UPSTREAM_URL: &str = "https://github.com/sonicretro/kid-chameleon-disasm";
 const UPSTREAM_COMMIT: &str = "a134567";
+const M68K_REFERENCE_URL: &str = "https://github.com/prb28/m68k-instructions-documentation";
+const M68K_REFERENCE_COMMIT: &str = "89744462bde926313aa273dde2109b680ed11c8a";
+const GEMS_REFERENCE_URL: &str = "https://github.com/realmonster/GEMS";
+const GEMS_REFERENCE_COMMIT: &str = "a09a734532231fb8a1170e55f018d8511329562e";
+const GEMSPLAY_REFERENCE_URL: &str = "https://github.com/ValleyBell/GEMSPlay";
+const GEMSPLAY_REFERENCE_COMMIT: &str = "8b2e490942e9e8c0cc8d6f9132f15c5b8507a5db";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ReferenceName {
+    M68k,
+    Gems,
+    Gemsplay,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ReferenceRepo {
+    name: &'static str,
+    dir_name: &'static str,
+    url: &'static str,
+    commit: &'static str,
+    purpose: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BootstrappedReference {
+    name: &'static str,
+    path: PathBuf,
+    commit: &'static str,
+    purpose: &'static str,
+}
 
 #[derive(Debug, Parser)]
 #[command(name = "kidcli")]
@@ -159,6 +189,10 @@ enum Commands {
     BootstrapUpstream {
         #[arg(long)]
         dir: Option<PathBuf>,
+    },
+    BootstrapReferences {
+        #[arg(long, value_enum)]
+        only: Option<ReferenceName>,
     },
     OracleSetup,
     ExtractAssets {
@@ -458,6 +492,12 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             bootstrap_upstream(&upstream_dir)?;
             println!("upstream ready at {}", upstream_dir.display());
+        }
+        Commands::BootstrapReferences { only } => {
+            let repo_root = current_dir()?;
+            let reference_root = resolve_reference_root(&repo_root);
+            let references = bootstrap_references(&reference_root, only)?;
+            print_bootstrapped_references(&reference_root, &references);
         }
         Commands::OracleSetup => {
             let repo_root = current_dir()?;
@@ -1374,6 +1414,10 @@ fn resolve_upstream_dir(repo_root: &Path, supplied: Option<PathBuf>) -> PathBuf 
     supplied.unwrap_or_else(|| repo_root.join(".cache/upstream/kid-chameleon-disasm"))
 }
 
+fn resolve_reference_root(repo_root: &Path) -> PathBuf {
+    repo_root.join(".cache/references")
+}
+
 fn print_verified_rom(verified: &VerifiedRom) {
     println!("rom: {}", verified.path.display());
     println!("size: {} bytes", verified.size);
@@ -1401,6 +1445,19 @@ fn print_asset_manifest(manifest: &AssetManifest) {
     if let Some(level) = manifest.levels.iter().find(|level| level.level_id == 0) {
         let display_name = level.display_name.as_deref().unwrap_or("<unnamed>");
         println!("level 00: {display_name}");
+    }
+}
+
+fn print_bootstrapped_references(reference_root: &Path, references: &[BootstrappedReference]) {
+    println!("reference root: {}", reference_root.display());
+    for reference in references {
+        println!(
+            "{}: {} @ {}",
+            reference.name,
+            reference.path.display(),
+            reference.commit
+        );
+        println!("purpose: {}", reference.purpose);
     }
 }
 
@@ -1897,6 +1954,86 @@ fn bootstrap_upstream(dir: &Path) -> Result<()> {
             .arg("checkout")
             .arg("--detach")
             .arg(UPSTREAM_COMMIT),
+        Some(dir),
+    )?;
+    Ok(())
+}
+
+fn bootstrap_references(
+    reference_root: &Path,
+    only: Option<ReferenceName>,
+) -> Result<Vec<BootstrappedReference>> {
+    fs::create_dir_all(reference_root)
+        .with_context(|| format!("failed to create {}", reference_root.display()))?;
+
+    let mut references = Vec::new();
+    for reference in selected_reference_repos(only) {
+        let path = reference_root.join(reference.dir_name);
+        bootstrap_pinned_repo(&path, reference.url, reference.commit)?;
+        references.push(BootstrappedReference {
+            name: reference.name,
+            path,
+            commit: reference.commit,
+            purpose: reference.purpose,
+        });
+    }
+    Ok(references)
+}
+
+fn selected_reference_repos(only: Option<ReferenceName>) -> &'static [ReferenceRepo] {
+    const M68K: ReferenceRepo = ReferenceRepo {
+        name: "m68k",
+        dir_name: "m68k-instructions-documentation",
+        url: M68K_REFERENCE_URL,
+        commit: M68K_REFERENCE_COMMIT,
+        purpose: "Primary 68k instruction and directive reference",
+    };
+    const GEMS: ReferenceRepo = ReferenceRepo {
+        name: "gems",
+        dir_name: "gems",
+        url: GEMS_REFERENCE_URL,
+        commit: GEMS_REFERENCE_COMMIT,
+        purpose: "Primary GEMS tooling and driver research reference",
+    };
+    const GEMSPLAY: ReferenceRepo = ReferenceRepo {
+        name: "gemsplay",
+        dir_name: "gemsplay",
+        url: GEMSPLAY_REFERENCE_URL,
+        commit: GEMSPLAY_REFERENCE_COMMIT,
+        purpose: "Practical GEMS playback and inspection reference",
+    };
+    const ALL: &[ReferenceRepo] = &[M68K, GEMS, GEMSPLAY];
+    const ONLY_M68K: &[ReferenceRepo] = &[M68K];
+    const ONLY_GEMS: &[ReferenceRepo] = &[GEMS];
+    const ONLY_GEMSPLAY: &[ReferenceRepo] = &[GEMSPLAY];
+
+    match only {
+        None => ALL,
+        Some(ReferenceName::M68k) => ONLY_M68K,
+        Some(ReferenceName::Gems) => ONLY_GEMS,
+        Some(ReferenceName::Gemsplay) => ONLY_GEMSPLAY,
+    }
+}
+
+fn bootstrap_pinned_repo(dir: &Path, url: &str, commit: &str) -> Result<()> {
+    if !dir.exists() {
+        let parent = dir
+            .parent()
+            .ok_or_else(|| anyhow!("reference directory has no parent: {}", dir.display()))?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+        run_command(Command::new("git").arg("clone").arg(url).arg(dir), None)?;
+    }
+
+    run_command(
+        Command::new("git").arg("fetch").arg("--all").arg("--tags"),
+        Some(dir),
+    )?;
+    run_command(
+        Command::new("git")
+            .arg("checkout")
+            .arg("--detach")
+            .arg(commit),
         Some(dir),
     )?;
     Ok(())
@@ -3343,8 +3480,8 @@ fn render_command(command: &Command, cwd: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        analyse_audio_samples, audio_envelope_similarity, build_controller_script,
-        parse_button_mask, parse_input_spec,
+        ReferenceName, analyse_audio_samples, audio_envelope_similarity, build_controller_script,
+        parse_button_mask, parse_input_spec, selected_reference_repos,
     };
 
     #[test]
@@ -3430,5 +3567,22 @@ mod tests {
             similarity > 0.95,
             "expected high similarity for comparable positive envelopes, got {similarity}"
         );
+    }
+
+    #[test]
+    fn selects_all_reference_repos_by_default() {
+        let references = selected_reference_repos(None);
+        assert_eq!(references.len(), 3);
+        assert_eq!(references[0].dir_name, "m68k-instructions-documentation");
+        assert_eq!(references[1].dir_name, "gems");
+        assert_eq!(references[2].dir_name, "gemsplay");
+    }
+
+    #[test]
+    fn selects_single_reference_repo() {
+        let references = selected_reference_repos(Some(ReferenceName::Gemsplay));
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].dir_name, "gemsplay");
+        assert_eq!(references[0].name, "gemsplay");
     }
 }

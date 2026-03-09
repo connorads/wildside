@@ -27,12 +27,14 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
 - `kidcli run-sdl` starts the lower-level SDL host used for bring-up and debugging.
 - `kidcli bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
+- `kidcli bootstrap-references` clones the pinned 68k and GEMS research repos into `.cache/references/`.
 - `kidcli reference-build` replaces the upstream `kid.bin` with the local ROM, runs `split.py`, rebuilds the ROM with the bundled Linux assembler, and verifies whether the rebuilt ROM is bit-perfect.
 
 ## Containment
 
 - Runtime and build tooling live in this repo.
 - Upstream research repos are cached under `.cache/` and ignored by git.
+- Source-port reference docs live in `CLAUDE.md` and `docs/source-port/reference-index.md`.
 - `mise` now pins `cmake 3.30.9` for bundled SDL2 builds.
 - The only system package installed so far was `cmake` before the repo switched to the `mise` pin.
 - The local ROM is expected at one of:
@@ -67,8 +69,11 @@ mise run render-frame
 mise run dump-audio
 mise run run-sdl
 mise run bootstrap-upstream
+mise run bootstrap-references
 mise run reference-build
 ```
+
+For the source-port research map and local reference layout, start with `CLAUDE.md` and `docs/source-port/reference-index.md`.
 
 For a player-facing launch with the default ROM search path, use:
 
