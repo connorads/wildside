@@ -5,6 +5,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 ## Current status
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
+- `kidcli play-native` starts a separate SDL debug visualiser for the current `kid-core` native runtime slice.
 - `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
 - `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
@@ -50,6 +51,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 ```bash
 mise trust .mise.toml
 mise run play
+mise run play-native
 mise run verify-rom
 mise run probe-cpu
 mise run verify-boot
@@ -86,6 +88,13 @@ For a player-facing launch with the default ROM search path, use:
 cargo run -p kidcli -- play
 ```
 
+For the native debug host, use:
+
+```bash
+cargo run -p kidcli -- play-native
+cargo run -p kidcli -- play-native --rom ./kc.md
+```
+
 Useful launch overrides:
 
 ```bash
@@ -93,6 +102,8 @@ cargo run -p kidcli -- play --rom ./kc.md
 cargo run -p kidcli -- play --fullscreen
 cargo run -p kidcli -- play --scale 3
 cargo run -p kidcli -- play --mute
+cargo run -p kidcli -- play-native --fullscreen
+cargo run -p kidcli -- play-native --scale 3
 ```
 
 For long CPU probes, prefer the compact mode so the output stays readable:
@@ -161,6 +172,8 @@ The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw P
 The new generated source-port bundle is written under `.cache/generated/<rom-sha1>/asset-manifest.json`. It is built from the public disassembly split output and indexed into typed metadata for levels, constants, RAM variables, enemy source files, and asset groups. The first native runtime path is intentionally narrow: it provides a deterministic boot/title/level-entry skeleton that can be exercised with the existing scripted scenarios while the real gameplay port is built out.
 
 The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
+
+`play-native` is intentionally a silent debug host for the current semantic runtime, not a full player shell. It launches straight into the native runtime, draws simple rectangles and text from `NativeTraceFrame`, and is aimed at interactive debugging of the current Level 1 slice.
 
 The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json` and `docs/source-port/level-1-gameplay-lifecycle-goal.json`.
 

@@ -1,5 +1,6 @@
 mod autonomy;
 mod cheats;
+mod native_player;
 mod oracle;
 mod player;
 mod scenarios;
@@ -15,6 +16,7 @@ use kid_data::{
 };
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
+use native_player::{NativePlayOptions, run_native_player};
 use oracle::{
     OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
 };
@@ -88,6 +90,16 @@ enum Commands {
         scale: Option<u32>,
         #[arg(long, default_value_t = false)]
         mute: bool,
+    },
+    PlayNative {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        fullscreen: bool,
+        #[arg(long)]
+        scale: Option<u32>,
     },
     ProbeCpu {
         #[arg(long)]
@@ -317,6 +329,18 @@ fn main() -> Result<()> {
                     mute,
                 },
             )?;
+        }
+        Commands::PlayNative {
+            rom,
+            dir,
+            fullscreen,
+            scale,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            run_native_player(&manifest, NativePlayOptions { fullscreen, scale })?;
         }
         Commands::ProbeCpu {
             rom,

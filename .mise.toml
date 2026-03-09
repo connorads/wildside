@@ -19,6 +19,9 @@ run = "cargo run -p kidcli -- verify-rom"
 [tasks.play]
 run = "cargo run --release -p kidcli -- play"
 
+[tasks.play-native]
+run = "cargo run --release -p kidcli -- play-native"
+
 [tasks.probe-cpu]
 run = "cargo run -p kidcli -- probe-cpu"
 

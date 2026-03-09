@@ -176,6 +176,7 @@ pub struct NativeTraceFrame {
     pub number_lives: u16,
     pub number_hitpoints: u16,
     pub current_helmet_id: u16,
+    pub paused: bool,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
     pub active_objects: Vec<NativeObjectSnapshot>,
@@ -421,6 +422,7 @@ impl NativeRuntime {
             number_lives: self.number_lives,
             number_hitpoints: self.number_hitpoints,
             current_helmet_id: self.current_form.helmet_id(),
+            paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
             active_objects,
@@ -1528,6 +1530,7 @@ mod tests {
             });
         }
         let paused_tail = runtime.trace_frame();
+        assert!(paused_tail.paused);
         assert_eq!(paused_tail.camera_x_pos, pre_pause.camera_x_pos);
         assert_eq!(paused_tail.kid_x_pos, pre_pause.kid_x_pos);
 
@@ -1543,6 +1546,7 @@ mod tests {
             });
         }
         let resumed_tail = runtime.trace_frame();
+        assert!(!resumed_tail.paused);
         assert!(resumed_tail.camera_x_pos > paused_tail.camera_x_pos);
         assert!(resumed_tail.kid_x_pos > paused_tail.kid_x_pos);
     }
