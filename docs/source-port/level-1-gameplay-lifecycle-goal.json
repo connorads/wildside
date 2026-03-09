@@ -1,0 +1,105 @@
+{
+  "goal_id": "level1-gameplay-lifecycle",
+  "title": "Level 1 gameplay lifecycle",
+  "summary": "Recover the Level 1 gameplay lifecycle slice for pause/resume, damage, death, and respawn with gameplay-checkpoint parity against the oracle capture.",
+  "capabilities": [
+    {
+      "id": "pause_resume_oracle",
+      "title": "Recover pause and resume parity",
+      "summary": "Compare the native pause/resume lifecycle checkpoints directly against the gameplay oracle capture.",
+      "prerequisites": [],
+      "sources": [
+        "docs/source-port/level-1-gameplay-lifecycle.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt",
+        ".cache/native-gameplay-oracle-runs/pause_resume_level1"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "crates/kidcli/src/main.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1",
+        "cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1"
+      ],
+      "done_criteria": [
+        "The pause/resume gameplay checkpoints match the oracle capture.",
+        "Pausing freezes gameplay state and resuming advances it again without breaking the native lifecycle flow."
+      ]
+    },
+    {
+      "id": "damage_trigger_research",
+      "title": "Close the Level 1 damage-trigger research gap",
+      "summary": "Document the gameplay hazard and transition path that produces the first life-cycle shift in Level 1.",
+      "prerequisites": [
+        "pause_resume_oracle"
+      ],
+      "sources": [
+        "docs/source-port/level-1-gameplay-lifecycle.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt",
+        ".cache/upstream/kid-chameleon-disasm/kid.asm"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "docs/source-port/level-1-gameplay-lifecycle.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
+      ],
+      "done_criteria": [
+        "The gameplay lifecycle dossier no longer lists the Level 1 damage-trigger task as open.",
+        "The native gameplay lifecycle uses an explicit damage/death transition instead of the old opening-slice stand-in."
+      ]
+    },
+    {
+      "id": "death_respawn_parity",
+      "title": "Recover death and respawn parity",
+      "summary": "Match the Level 1 death/respawn lifecycle checkpoints against the gameplay oracle capture.",
+      "prerequisites": [
+        "pause_resume_oracle",
+        "damage_trigger_research"
+      ],
+      "sources": [
+        "docs/source-port/level-1-gameplay-lifecycle.md",
+        ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt",
+        ".cache/native-gameplay-oracle-runs/death_respawn_level1"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "crates/kidcli/src/main.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1",
+        "cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
+      ],
+      "done_criteria": [
+        "The death/respawn gameplay checkpoints match the oracle capture.",
+        "The native runtime loses one life, hides the player during the death window, and restores the Level 1 respawn state by the respawn-tail checkpoint."
+      ]
+    },
+    {
+      "id": "goal_loop_completion",
+      "title": "Close the gameplay lifecycle loop",
+      "summary": "Leave the gameplay lifecycle slice with a complete autonomy contract and no remaining open lifecycle tasks.",
+      "prerequisites": [
+        "pause_resume_oracle",
+        "damage_trigger_research",
+        "death_respawn_parity"
+      ],
+      "sources": [
+        "docs/source-port/level-1-gameplay-lifecycle-goal.json",
+        "docs/source-port/level-1-gameplay-lifecycle.md"
+      ],
+      "implementation_targets": [
+        "crates/kidcli/src/autonomy.rs",
+        "README.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- autonomous-loop --goal level1-gameplay-lifecycle"
+      ],
+      "done_criteria": [
+        "The autonomy loop reports the gameplay lifecycle goal as complete.",
+        "The repo docs point at the gameplay lifecycle goal and comparison command as the next source-port slice after the opening slice."
+      ]
+    }
+  ]
+}

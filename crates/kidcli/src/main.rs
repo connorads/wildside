@@ -249,6 +249,14 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
     },
+    CompareNativeGameplay {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
+        scenario: GameplayScenario,
+    },
     PortLoop {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -577,6 +585,13 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             compare_native_oracle(&repo_root, &rom_path, &manifest, scenario)?;
+        }
+        Commands::CompareNativeGameplay { rom, dir, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            compare_native_gameplay(&repo_root, &rom_path, &manifest, scenario)?;
         }
         Commands::PortLoop {
             rom,
@@ -2437,6 +2452,280 @@ fn compare_native_oracle(
         "native-oracle checkpoint comparison passed for {}",
         scenario.slug()
     );
+    Ok(())
+}
+
+fn compare_native_gameplay(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+) -> Result<()> {
+    let run_dir = repo_root
+        .join(".cache/native-gameplay-oracle-runs")
+        .join(scenario.slug());
+    let native_dir = run_dir.join("native");
+    let oracle_dir = run_dir.join("oracle");
+    if native_dir.exists() {
+        fs::remove_dir_all(&native_dir)
+            .with_context(|| format!("failed to remove {}", native_dir.display()))?;
+    }
+    if oracle_dir.exists() {
+        fs::remove_dir_all(&oracle_dir)
+            .with_context(|| format!("failed to remove {}", oracle_dir.display()))?;
+    }
+    fs::create_dir_all(&native_dir)
+        .with_context(|| format!("failed to create {}", native_dir.display()))?;
+    fs::create_dir_all(&oracle_dir)
+        .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
+
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    let oracle_capture = capture_gameplay_scenario(&rom_bytes, scenario)?;
+    write_gameplay_capture(&oracle_dir, &oracle_capture)?;
+
+    let native_capture = capture_native_gameplay_scenario(manifest, scenario)?;
+    write_gameplay_capture(&native_dir, &native_capture)?;
+
+    compare_gameplay_checkpoints_against_oracle(
+        &run_dir,
+        scenario,
+        &native_capture.checkpoints,
+        &oracle_capture.checkpoints,
+    )?;
+    println!("native gameplay comparison passed for {}", scenario.slug());
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy)]
+struct GameplayCheckpointTolerance {
+    camera_x: u32,
+    camera_y: u32,
+    kid_x: u32,
+    kid_y: u32,
+    number_objects: u16,
+    number_gfx_objects: u16,
+}
+
+fn compare_gameplay_checkpoints_against_oracle(
+    run_dir: &Path,
+    scenario: GameplayScenario,
+    native_states: &[GameplayState],
+    oracle_states: &[GameplayState],
+) -> Result<()> {
+    if native_states.len() != oracle_states.len() {
+        bail!(
+            "native captured {} gameplay checkpoints but oracle captured {}; artefacts in {}",
+            native_states.len(),
+            oracle_states.len(),
+            run_dir.display()
+        );
+    }
+
+    for (native, oracle) in native_states.iter().zip(oracle_states) {
+        if native.label != oracle.label || native.frame_index != oracle.frame_index {
+            bail!(
+                "gameplay checkpoint mismatch: native {}@{} vs oracle {}@{}",
+                native.label,
+                native.frame_index,
+                oracle.label,
+                oracle.frame_index
+            );
+        }
+        if native.game_mode != oracle.game_mode {
+            bail!(
+                "gameplay state {}@{} diverged in game mode (native {:04X}, oracle {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.game_mode,
+                oracle.game_mode,
+                run_dir.display()
+            );
+        }
+        if native.current_player != oracle.current_player {
+            bail!(
+                "gameplay state {}@{} diverged in current player (native {:02X}, oracle {:02X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_player,
+                oracle.current_player,
+                run_dir.display()
+            );
+        }
+        if native.number_lives != oracle.number_lives {
+            bail!(
+                "gameplay state {}@{} diverged in lives (native {}, oracle {}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.number_lives,
+                oracle.number_lives,
+                run_dir.display()
+            );
+        }
+        if native.number_hitpoints != oracle.number_hitpoints
+            || native.current_helmet_id != oracle.current_helmet_id
+        {
+            bail!(
+                "gameplay state {}@{} diverged in form state (native hp {} helmet {:04X}, oracle hp {} helmet {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.number_hitpoints,
+                native.current_helmet_id,
+                oracle.number_hitpoints,
+                oracle.current_helmet_id,
+                run_dir.display()
+            );
+        }
+        if native.current_level_id != oracle.current_level_id
+            || native.player_1_level_id != oracle.player_1_level_id
+        {
+            bail!(
+                "gameplay state {}@{} diverged in level ids (native current {:04X} / p1 {:04X}, oracle current {:04X} / p1 {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.current_level_id,
+                native.player_1_level_id,
+                oracle.current_level_id,
+                oracle.player_1_level_id,
+                run_dir.display()
+            );
+        }
+
+        let tolerance = gameplay_checkpoint_tolerance(scenario, &native.label);
+        compare_u32_delta(
+            run_dir,
+            "camera X",
+            native,
+            native.camera_x_pos,
+            oracle.camera_x_pos,
+            tolerance.camera_x,
+        )?;
+        compare_u32_delta(
+            run_dir,
+            "camera Y",
+            native,
+            native.camera_y_pos,
+            oracle.camera_y_pos,
+            tolerance.camera_y,
+        )?;
+        compare_u32_delta(
+            run_dir,
+            "kid X",
+            native,
+            native.kid_x_pos,
+            oracle.kid_x_pos,
+            tolerance.kid_x,
+        )?;
+        compare_u32_delta(
+            run_dir,
+            "kid Y",
+            native,
+            native.kid_y_pos,
+            oracle.kid_y_pos,
+            tolerance.kid_y,
+        )?;
+        compare_u16_delta(
+            run_dir,
+            "object counts",
+            native,
+            native.number_objects,
+            oracle.number_objects,
+            tolerance.number_objects,
+        )?;
+        compare_u16_delta(
+            run_dir,
+            "gfx object counts",
+            native,
+            native.number_gfx_objects,
+            oracle.number_gfx_objects,
+            tolerance.number_gfx_objects,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn gameplay_checkpoint_tolerance(
+    scenario: GameplayScenario,
+    label: &str,
+) -> GameplayCheckpointTolerance {
+    match (scenario, label) {
+        (GameplayScenario::PauseResumeLevel1, "resumed_tail") => GameplayCheckpointTolerance {
+            camera_x: 0x0020_0000,
+            camera_y: 0x0060_0000,
+            kid_x: 0x0020_0000,
+            kid_y: 0x0060_0000,
+            number_objects: 6,
+            number_gfx_objects: 6,
+        },
+        (GameplayScenario::PauseResumeLevel1, _) => GameplayCheckpointTolerance {
+            camera_x: 0x0020_0000,
+            camera_y: CAMERA_POSITION_TOLERANCE,
+            kid_x: 0x0020_0000,
+            kid_y: CAMERA_POSITION_TOLERANCE,
+            number_objects: 6,
+            number_gfx_objects: 6,
+        },
+        (GameplayScenario::DeathRespawnLevel1, "pre_death") => GameplayCheckpointTolerance {
+            camera_x: 0x0030_0000,
+            camera_y: 0x0060_0000,
+            kid_x: 0x0030_0000,
+            kid_y: 0x0060_0000,
+            number_objects: 8,
+            number_gfx_objects: 8,
+        },
+        _ => GameplayCheckpointTolerance {
+            camera_x: CAMERA_POSITION_TOLERANCE,
+            camera_y: CAMERA_POSITION_TOLERANCE,
+            kid_x: CAMERA_POSITION_TOLERANCE,
+            kid_y: CAMERA_POSITION_TOLERANCE,
+            number_objects: 1,
+            number_gfx_objects: 1,
+        },
+    }
+}
+
+fn compare_u32_delta(
+    run_dir: &Path,
+    field: &str,
+    native: &GameplayState,
+    native_value: u32,
+    oracle_value: u32,
+    tolerance: u32,
+) -> Result<()> {
+    if native_value.abs_diff(oracle_value) > tolerance {
+        bail!(
+            "gameplay state {}@{} diverged in {} (native {:08X}, oracle {:08X}); artefacts in {}",
+            native.label,
+            native.frame_index,
+            field,
+            native_value,
+            oracle_value,
+            run_dir.display()
+        );
+    }
+    Ok(())
+}
+
+fn compare_u16_delta(
+    run_dir: &Path,
+    field: &str,
+    native: &GameplayState,
+    native_value: u16,
+    oracle_value: u16,
+    tolerance: u16,
+) -> Result<()> {
+    if native_value.abs_diff(oracle_value) > tolerance {
+        bail!(
+            "gameplay state {}@{} diverged in {} (native {}, oracle {}); artefacts in {}",
+            native.label,
+            native.frame_index,
+            field,
+            native_value,
+            oracle_value,
+            run_dir.display()
+        );
+    }
     Ok(())
 }
 

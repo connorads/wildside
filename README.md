@@ -19,8 +19,10 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
 - `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state, including player position, directly against the `jgenesis` oracle without using `kid-md`.
+- `kidcli compare-native-gameplay --scenario ...` compares native gameplay lifecycle checkpoints for pause/resume and death/respawn against the gameplay oracle capture.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
+- `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -62,6 +64,7 @@ mise run inspect-level
 mise run inspect-enemy
 mise run verify-native-bootstrap
 mise run compare-native-oracle
+cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 mise run port-loop
 cargo run -p kidcli -- autonomous-loop --goal level1-opening-slice
 mise run verify-frames
@@ -159,7 +162,7 @@ The new generated source-port bundle is written under `.cache/generated/<rom-sha
 
 The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
-The autonomous Level 1 loop writes its ledger, per-cycle reports, and next-task package under `.cache/autonomy/level1-opening-slice/`. The machine-readable goal contract lives at `docs/source-port/level-1-goal.json`.
+The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json` and `docs/source-port/level-1-gameplay-lifecycle-goal.json`.
 
 Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
 

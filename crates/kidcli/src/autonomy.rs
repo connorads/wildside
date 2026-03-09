@@ -1,4 +1,7 @@
-use super::{Scenario, compare_native_oracle, prepare_generated_assets, verify_native_bootstrap};
+use super::{
+    GameplayScenario, Scenario, compare_native_gameplay, compare_native_oracle,
+    prepare_generated_assets, verify_native_bootstrap,
+};
 use anyhow::{Context, Result};
 use clap::ValueEnum;
 use kid_data::AssetManifest;
@@ -15,24 +18,32 @@ const PLATFORM_TASK_MARKER: &str =
     "Trace the platform manager routines that consume `level/platform/00.asm`.";
 const COLLISION_TASK_MARKER: &str =
     "Record the first collision and terrain rules needed for the opening walk segment.";
+const DAMAGE_TRIGGER_TASK_MARKER: &str = "Recover the Level 1 gameplay damage trigger and death-transition path for the lifecycle slice.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 pub(crate) enum AutonomyGoal {
     #[value(name = "level1-opening-slice")]
     #[serde(rename = "level1-opening-slice")]
     Level1OpeningSlice,
+    #[value(name = "level1-gameplay-lifecycle")]
+    #[serde(rename = "level1-gameplay-lifecycle")]
+    Level1GameplayLifecycle,
 }
 
 impl AutonomyGoal {
     pub(crate) fn slug(self) -> &'static str {
         match self {
             Self::Level1OpeningSlice => "level1-opening-slice",
+            Self::Level1GameplayLifecycle => "level1-gameplay-lifecycle",
         }
     }
 
     fn spec_path(self, repo_root: &Path) -> PathBuf {
         match self {
             Self::Level1OpeningSlice => repo_root.join("docs/source-port/level-1-goal.json"),
+            Self::Level1GameplayLifecycle => {
+                repo_root.join("docs/source-port/level-1-gameplay-lifecycle-goal.json")
+            }
         }
     }
 }
@@ -48,6 +59,10 @@ pub(crate) enum CapabilityId {
     OpeningCollision,
     PlatformActivation,
     EnemyActivation,
+    PauseResumeOracle,
+    DamageTriggerResearch,
+    DeathRespawnParity,
+    GoalLoopCompletion,
 }
 
 impl CapabilityId {
@@ -61,6 +76,10 @@ impl CapabilityId {
             Self::OpeningCollision => "opening_collision",
             Self::PlatformActivation => "platform_activation",
             Self::EnemyActivation => "enemy_activation",
+            Self::PauseResumeOracle => "pause_resume_oracle",
+            Self::DamageTriggerResearch => "damage_trigger_research",
+            Self::DeathRespawnParity => "death_respawn_parity",
+            Self::GoalLoopCompletion => "goal_loop_completion",
         }
     }
 }
@@ -168,6 +187,8 @@ struct RepositorySignals {
     native_bootstrap: CheckOutcome,
     boot_oracle: CheckOutcome,
     move_oracle: CheckOutcome,
+    pause_oracle: CheckOutcome,
+    death_oracle: CheckOutcome,
     has_level_one_header: bool,
     has_level_one_start_and_flag: bool,
     enemy_layout_count: Option<u8>,
@@ -370,6 +391,32 @@ fn collect_repository_signals(
             )
         },
     );
+    let pause_oracle = run_check(
+        repo_root
+            .join(".cache/native-gameplay-oracle-runs")
+            .join(GameplayScenario::PauseResumeLevel1.slug()),
+        || {
+            compare_native_gameplay(
+                repo_root,
+                rom_path,
+                manifest,
+                GameplayScenario::PauseResumeLevel1,
+            )
+        },
+    );
+    let death_oracle = run_check(
+        repo_root
+            .join(".cache/native-gameplay-oracle-runs")
+            .join(GameplayScenario::DeathRespawnLevel1.slug()),
+        || {
+            compare_native_gameplay(
+                repo_root,
+                rom_path,
+                manifest,
+                GameplayScenario::DeathRespawnLevel1,
+            )
+        },
+    );
 
     let level_one = manifest
         .levels
@@ -397,6 +444,11 @@ fn collect_repository_signals(
         .with_context(|| "failed to read crates/kid-core/src/lib.rs".to_owned())?;
     let dossier = fs::read_to_string(repo_root.join("docs/source-port/level-1-dossier.md"))
         .with_context(|| "failed to read docs/source-port/level-1-dossier.md".to_owned())?;
+    let gameplay_dossier =
+        fs::read_to_string(repo_root.join("docs/source-port/level-1-gameplay-lifecycle.md"))
+            .with_context(|| {
+                "failed to read docs/source-port/level-1-gameplay-lifecycle.md".to_owned()
+            })?;
 
     let mut dossier_open_markers = BTreeMap::new();
     dossier_open_markers.insert(
@@ -415,11 +467,17 @@ fn collect_repository_signals(
         CapabilityId::OpeningCollision,
         dossier.contains(COLLISION_TASK_MARKER),
     );
+    dossier_open_markers.insert(
+        CapabilityId::DamageTriggerResearch,
+        gameplay_dossier.contains(DAMAGE_TRIGGER_TASK_MARKER),
+    );
 
     Ok(RepositorySignals {
         native_bootstrap,
         boot_oracle,
         move_oracle,
+        pause_oracle,
+        death_oracle,
         has_level_one_header,
         has_level_one_start_and_flag,
         enemy_layout_count,
@@ -601,6 +659,67 @@ fn capability_completion_summary(
                 "Level 1 enemy objects exist and the enemy-family mapping task is closed in the dossier.".to_owned()
             },
         ),
+        CapabilityId::PauseResumeOracle => (
+            signals.pause_oracle.ok,
+            if signals.pause_oracle.ok {
+                "The pause/resume gameplay checkpoints match the oracle capture.".to_owned()
+            } else {
+                format!(
+                    "The pause/resume gameplay checkpoints still diverge: {}",
+                    signals.pause_oracle.detail
+                )
+            },
+        ),
+        CapabilityId::DamageTriggerResearch => (
+            !signals
+                .dossier_open_markers
+                .get(&CapabilityId::DamageTriggerResearch)
+                .copied()
+                .unwrap_or(true),
+            if signals
+                .dossier_open_markers
+                .get(&CapabilityId::DamageTriggerResearch)
+                .copied()
+                .unwrap_or(true)
+            {
+                "The gameplay lifecycle dossier still marks the Level 1 damage-trigger task as open."
+                    .to_owned()
+            } else {
+                "The gameplay lifecycle dossier no longer marks the Level 1 damage-trigger task as open.".to_owned()
+            },
+        ),
+        CapabilityId::DeathRespawnParity => (
+            signals.death_oracle.ok,
+            if signals.death_oracle.ok {
+                "The death/respawn gameplay checkpoints match the oracle capture.".to_owned()
+            } else {
+                format!(
+                    "The death/respawn gameplay checkpoints still diverge: {}",
+                    signals.death_oracle.detail
+                )
+            },
+        ),
+        CapabilityId::GoalLoopCompletion => (
+            signals.pause_oracle.ok
+                && signals.death_oracle.ok
+                && !signals
+                    .dossier_open_markers
+                    .get(&CapabilityId::DamageTriggerResearch)
+                    .copied()
+                    .unwrap_or(true),
+            if signals.pause_oracle.ok
+                && signals.death_oracle.ok
+                && !signals
+                    .dossier_open_markers
+                    .get(&CapabilityId::DamageTriggerResearch)
+                    .copied()
+                    .unwrap_or(true)
+            {
+                "The gameplay lifecycle slice contract is fully satisfied.".to_owned()
+            } else {
+                "The gameplay lifecycle slice still has unresolved lifecycle work.".to_owned()
+            },
+        ),
     }
 }
 
@@ -706,6 +825,33 @@ fn evidence_for_capability(
             detail: "Uses generated Level 1 enemy object count plus dossier task state.".to_owned(),
             artefact_path: Some(PathBuf::from("docs/source-port/level-1-dossier.md")),
         }],
+        CapabilityId::PauseResumeOracle => vec![check_evidence(
+            "compare-native-gameplay:pause-resume-level1",
+            &signals.pause_oracle,
+        )],
+        CapabilityId::DamageTriggerResearch => vec![EvidenceItem {
+            label: "level-1-gameplay-lifecycle-dossier".to_owned(),
+            status: if signals
+                .dossier_open_markers
+                .get(&CapabilityId::DamageTriggerResearch)
+                .copied()
+                .unwrap_or(false)
+            {
+                "task-open".to_owned()
+            } else {
+                "task-closed".to_owned()
+            },
+            detail: "Tracks whether the gameplay lifecycle damage-trigger task remains open in the dossier.".to_owned(),
+            artefact_path: Some(PathBuf::from("docs/source-port/level-1-gameplay-lifecycle.md")),
+        }],
+        CapabilityId::DeathRespawnParity => vec![check_evidence(
+            "compare-native-gameplay:death-respawn-level1",
+            &signals.death_oracle,
+        )],
+        CapabilityId::GoalLoopCompletion => vec![
+            check_evidence("compare-native-gameplay:pause-resume-level1", &signals.pause_oracle),
+            check_evidence("compare-native-gameplay:death-respawn-level1", &signals.death_oracle),
+        ],
     }
 }
 
@@ -916,10 +1062,13 @@ mod tests {
         dossier_open_markers.insert(CapabilityId::PlatformActivation, true);
         dossier_open_markers.insert(CapabilityId::EnemyActivation, true);
         dossier_open_markers.insert(CapabilityId::PlayerCameraMovement, true);
+        dossier_open_markers.insert(CapabilityId::DamageTriggerResearch, true);
         RepositorySignals {
             native_bootstrap: CheckOutcome::passing("passed", None),
             boot_oracle: CheckOutcome::passing("passed", None),
             move_oracle: CheckOutcome::passing("passed", None),
+            pause_oracle: CheckOutcome::passing("passed", None),
+            death_oracle: CheckOutcome::passing("passed", None),
             has_level_one_header: true,
             has_level_one_start_and_flag: true,
             enemy_layout_count: Some(22),
