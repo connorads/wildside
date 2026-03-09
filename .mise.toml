@@ -17,7 +17,7 @@ run = "cargo test --workspace"
 run = "cargo run -p kidcli -- verify-rom"
 
 [tasks.play]
-run = "cargo run -p kidcli -- play"
+run = "cargo run --release -p kidcli -- play"
 
 [tasks.probe-cpu]
 run = "cargo run -p kidcli -- probe-cpu"
@@ -47,10 +47,10 @@ run = "cargo run -p kidcli -- verify-frames --scenario boot-title-start-level1-m
 run = "cargo run -p kidcli -- verify-oracle --scenario boot-title-start-level1"
 
 [tasks.render-frame]
-run = "cargo run -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
+run = "cargo run --release -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
 
 [tasks.run-sdl]
-run = "cargo run -p kidcli -- run-sdl"
+run = "cargo run --release -p kidcli -- run-sdl"
 
 [tasks.dump-audio]
 run = "cargo run -p kidcli -- dump-audio --scenario boot-title-start-level1 --out .cache/audio.wav"
