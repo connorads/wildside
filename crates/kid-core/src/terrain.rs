@@ -187,6 +187,10 @@ pub struct CeilingProbe {
     /// Only meaningful when `hit` is true.
     pub ceiling_y_px: i32,
     pub cell: Cell,
+    /// Column in cell grid (0-based). Only meaningful when `hit` is true.
+    pub cell_x: u16,
+    /// Row in cell grid (0-based). Only meaningful when `hit` is true.
+    pub cell_y: u16,
 }
 
 impl BlockGrid {
@@ -234,6 +238,14 @@ impl BlockGrid {
     /// Level height in pixels.
     pub fn height_pixels(&self) -> i32 {
         i32::from(self.height_cells) * 16
+    }
+
+    /// Mutate the cell at grid coordinates. No-op if out of bounds.
+    pub fn set_cell_at(&mut self, col: u16, row: u16, cell: Cell) {
+        if col >= self.width_cells || row >= self.height_cells {
+            return;
+        }
+        self.cells[usize::from(row) * usize::from(self.width_cells) + usize::from(col)] = cell;
     }
 }
 
@@ -417,6 +429,8 @@ pub fn probe_ceiling(
                 // Bottom of ceiling cell = next row boundary
                 ceiling_y_px: (i32::from(probe.cell_y) + 1) * 16,
                 cell: probe.cell,
+                cell_x: probe.cell_x,
+                cell_y: probe.cell_y,
             };
         }
     }
@@ -425,6 +439,8 @@ pub fn probe_ceiling(
         hit: false,
         ceiling_y_px: 0,
         cell: Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
     }
 }
 

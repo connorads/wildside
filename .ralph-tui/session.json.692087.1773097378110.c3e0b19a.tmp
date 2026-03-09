@@ -3,10 +3,10 @@
   "sessionId": "2cf19ce6-326f-4678-a809-c1b4202f1c3a",
   "status": "running",
   "startedAt": "2026-03-09T22:19:24.560Z",
-  "updatedAt": "2026-03-09T22:57:55.664Z",
-  "currentIteration": 5,
+  "updatedAt": "2026-03-09T23:02:58.107Z",
+  "currentIteration": 6,
   "maxIterations": 40,
-  "tasksCompleted": 5,
+  "tasksCompleted": 6,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -47,8 +47,8 @@
       {
         "id": "US-006",
         "title": "Static enemy archetype (Diamond)",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-007",
@@ -126,6 +126,16 @@
       "durationMs": 528310,
       "startedAt": "2026-03-09T22:46:33.135Z",
       "endedAt": "2026-03-09T22:55:21.445Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "US-006",
+      "taskTitle": "Static enemy archetype (Diamond)",
+      "taskCompleted": true,
+      "durationMs": 153117,
+      "startedAt": "2026-03-09T22:55:22.545Z",
+      "endedAt": "2026-03-09T22:57:55.662Z"
     }
   ],
   "skippedTaskIds": [],

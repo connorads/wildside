@@ -652,7 +652,7 @@ impl NativeRuntime {
             level_elapsed,
             input,
             self.current_form,
-            self.block_grid.as_ref(),
+            self.block_grid.as_mut(),
         );
 
         // Pit death: falling below the level floor boundary is instant death
@@ -980,7 +980,7 @@ impl OpeningSliceState {
         level_elapsed: usize,
         input: FrameInput,
         form: PlayerForm,
-        block_grid: Option<&terrain::BlockGrid>,
+        block_grid: Option<&mut terrain::BlockGrid>,
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -988,9 +988,13 @@ impl OpeningSliceState {
         }
         self.update_horizontal_motion(input);
         self.update_vertical_motion(input, form);
-        self.apply_wall_collision(block_grid);
-        self.apply_ceiling_collision(block_grid);
-        self.apply_floor_collision(block_grid);
+        if let Some(grid) = block_grid {
+            self.apply_wall_collision(Some(grid));
+            self.apply_ceiling_collision(Some(grid));
+            self.apply_floor_collision(Some(grid));
+        } else {
+            self.apply_floor_collision(None);
+        }
         self.update_camera_follow();
     }
 
@@ -1101,7 +1105,7 @@ impl OpeningSliceState {
         }
     }
 
-    fn apply_ceiling_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
+    fn apply_ceiling_collision(&mut self, block_grid: Option<&mut terrain::BlockGrid>) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
             return;
@@ -1113,6 +1117,16 @@ impl OpeningSliceState {
         let probe = terrain::probe_ceiling(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT);
 
         if probe.hit {
+            // Prize block headbutt: hitting a prize block from below converts it
+            // to an empty cell. No item spawning yet (stub).
+            if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Prize {
+                grid.set_cell_at(
+                    probe.cell_x,
+                    probe.cell_y,
+                    terrain::Cell::from_be_bytes(0, 0),
+                );
+            }
+
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
             let new_y = probe.ceiling_y_px + PLAYER_HEIGHT;
             self.player.y_pos = (new_y.max(0) as u32) << 16;
@@ -2757,5 +2771,160 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Build a block grid for prize block tests:
+    ///
+    ///   col: 0  1  2  3  4  5
+    /// row 2: .  .  P  S  .  .    (P=prize block, S=solid block at row 2 = y 32px)
+    /// row 3: S  S  S  S  S  S    (solid floor at row 3 = y 48px)
+    ///
+    /// Grid is 6 cols × 5 rows (96×80 px). Player spawns on the floor at
+    /// row 3 and jumps upward into the prize/solid blocks at row 2.
+    fn grid_with_prize_block() -> terrain::BlockGrid {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = 0x01; // arbitrary skin
+        };
+        // Row 2: prize block at col 2, solid block at col 3
+        set_cell(&mut data, 2, 2, 0xE1); // has_block + collision=6(Solid) + block_type=1(Prize)
+        set_cell(&mut data, 3, 2, 0xE0); // has_block + collision=6(Solid) + block_type=0(Smash)
+        // Row 3: solid floor
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60); // collision=6 (Solid)
+        }
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    fn headbutt_prize_block_changes_to_empty() {
+        let mut grid = grid_with_prize_block();
+
+        // Verify prize block is at col 2, row 2
+        let cell = grid.cell_at(2, 2);
+        assert!(cell.has_block);
+        assert_eq!(cell.block_type, terrain::BlockType::Prize);
+        assert_eq!(cell.collision, terrain::CollisionKind::Solid);
+
+        // Simulate: player at col 2 (x=40px centre), feet at row 3 floor (y=48px),
+        // jumping upward (negative y_velocity). The head at y=48-31=17 (row 1)
+        // won't hit row 2. We need the player closer to the ceiling.
+        // Head at top of row 2 area: feet = row2_bottom + height = 48 + 31 = 79?
+        // No — ceiling_y_px is (row+1)*16 = 48. Head = feet - 31.
+        // For head to be in row 2: head_y in [32..48). head_y = feet - 31.
+        // feet = 63 → head = 32 → pixel_to_cell(32) = 2 → row 2. Yes.
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 40 << 16, // col 2 centre
+                y_pos: 63 << 16, // feet at y=63, head at y=32 (row 2)
+                x_velocity: 0,
+                y_velocity: -0x0002_0000, // moving upward
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 48 << 16,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 80,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+        };
+
+        slice.apply_ceiling_collision(Some(&mut grid));
+
+        // Prize block should now be empty
+        let cell_after = grid.cell_at(2, 2);
+        assert!(!cell_after.has_block);
+        assert_eq!(cell_after.collision, terrain::CollisionKind::Empty);
+
+        // Player should have been pushed down (velocity zeroed)
+        assert_eq!(slice.player.y_velocity, 0);
+    }
+
+    #[test]
+    fn headbutt_solid_block_does_not_clear() {
+        let mut grid = grid_with_prize_block();
+
+        // Player under col 3 (solid/smash block, not prize)
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 56 << 16, // col 3 centre (56px)
+                y_pos: 63 << 16,
+                x_velocity: 0,
+                y_velocity: -0x0002_0000,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 48 << 16,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 80,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+        };
+
+        slice.apply_ceiling_collision(Some(&mut grid));
+
+        // Solid (non-prize) block remains unchanged
+        let cell_after = grid.cell_at(3, 2);
+        assert!(cell_after.has_block);
+        assert_eq!(cell_after.block_type, terrain::BlockType::Smash);
+        assert_eq!(cell_after.collision, terrain::CollisionKind::Solid);
+    }
+
+    #[test]
+    fn cleared_prize_block_no_longer_blocks_movement() {
+        let mut grid = grid_with_prize_block();
+
+        // First headbutt: clear the prize block
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 40 << 16,
+                y_pos: 63 << 16,
+                x_velocity: 0,
+                y_velocity: -0x0002_0000,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 48 << 16,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 80,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+        };
+
+        slice.apply_ceiling_collision(Some(&mut grid));
+        assert!(!grid.cell_at(2, 2).has_block);
+
+        // Second jump through the now-empty cell: no ceiling hit
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0002_0000;
+        slice.apply_ceiling_collision(Some(&mut grid));
+
+        // Velocity should remain negative (no ceiling hit)
+        assert!(slice.player.y_velocity < 0);
     }
 }

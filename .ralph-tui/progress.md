@@ -19,6 +19,8 @@ after each iteration and it's included in prompts for context.
 - **Persistent enemy state**: `ActiveEnemy` structs in `active_enemies: Vec<ActiveEnemy>` persist across frames. `activate_enemies()` adds/removes based on activation window; `step_active_enemies()` runs per-family movement. The `active_enemy_roster` (snapshots for rendering/collision) is derived from `active_enemies` each frame.
 - **Roster refresh ordering**: `refresh_active_roster()` runs BEFORE `refresh_opening_slice()` so that enemy positions are current when contact damage is checked.
 - **Enemy activation window**: Uses layout spawn position (not current position) for activation/deactivation — matching original game behaviour. Tests that need enemies active must place them within the initial camera window (x: 0..384, y: 0..288 at camera origin).
+- **Prize block headbutt**: `apply_ceiling_collision` detects prize blocks via `CeilingProbe.cell.has_block && block_type == Prize`. Hit blocks are cleared to empty cells via `BlockGrid::set_cell_at()`. `CeilingProbe` carries `cell_x`/`cell_y` for grid mutation. No item spawning yet.
+- **Mutable block grid threading**: `OpeningSliceState::step()` takes `Option<&mut BlockGrid>` so `apply_ceiling_collision` can mutate the grid. Wall and floor collision reborrow as `&`. When no grid is present, only the flat-floor fallback runs.
 
 ---
 
@@ -102,5 +104,20 @@ after each iteration and it's included in prompts for context.
 - **Learnings:**
   - The family-based dispatch in `step_active_enemies` means new static enemy types are "free" — just add the family variant and it stays put by default
   - `cargo fmt` touched many pre-existing formatting issues across the workspace; these are cosmetic, not from US-006
+---
+
+## 2026-03-09 - US-007
+- Implemented prize block headbutt interaction
+- Added `set_cell_at()` to `BlockGrid` for in-place cell mutation
+- Added `cell_x`/`cell_y` fields to `CeilingProbe` so the hit cell can be identified for mutation
+- Modified `apply_ceiling_collision` to detect prize blocks (`has_block && block_type == Prize`) and clear them to empty cells
+- Changed `OpeningSliceState::step()` signature from `Option<&BlockGrid>` to `Option<&mut BlockGrid>` to allow ceiling collision to mutate the grid; wall/floor collision reborrow as `&`
+- No item spawning — stub only as per acceptance criteria
+- Three tests: prize block clears on headbutt, non-prize solid block is unaffected, cleared block no longer blocks movement
+- Files changed: `crates/kid-core/src/lib.rs`, `crates/kid-core/src/terrain.rs`
+- **Learnings:**
+  - `CeilingProbe` originally lacked cell coordinates (unlike `TerrainProbe`). Any feature that mutates the grid based on a probe result needs the cell coords — added `cell_x`/`cell_y`
+  - Threading `&mut BlockGrid` through `step()` requires care: only `apply_ceiling_collision` needs mutability, but all collision methods are called sequentially, so reborrows from the single `&mut` work naturally in Rust
+  - The `apply_floor_collision` flat-floor fallback (no grid) must still run when `block_grid` is `None`, so the `else` branch after the `if let Some(grid)` handles that case
 ---
 
