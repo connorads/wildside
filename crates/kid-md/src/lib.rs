@@ -854,6 +854,7 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
     let vscroll_b = i32::from(read_u16_wrapped(&vdp.vsram, 2) as i16);
     let (plane_width_cells, plane_height_cells) = plane_dimensions(vdp.registers[0x10]);
     let window_region = window_region(&vdp.registers, width, height);
+    let sprite_scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, height);
 
     for y in 0..height {
         let plane_a = ScrollPlane {
@@ -886,6 +887,7 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
             base: window_base,
             region: window_region,
         };
+        let line_sprites = sprite_scan.sprites_on_line(y);
         for x in 0..width {
             for priority in [false, true] {
                 if let Some(colour) = plane_pixel_rgb(vdp, &plane_b, x, y, priority) {
@@ -897,7 +899,7 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
                     write_rgb(rgb, width, x, y, colour);
                 }
                 if let Some(colour) =
-                    sprite_pixel_rgb(vdp, sprite_table_base, x, y, priority)
+                    scanline_sprite_pixel_rgb(vdp, &sprite_scan, line_sprites, x, y, priority)
                 {
                     write_rgb(rgb, width, x, y, colour);
                 }
@@ -1883,58 +1885,118 @@ fn window_pixel_rgb(
     tile_pixel_rgb(vdp, entry, screen_x & 7, screen_y & 7)
 }
 
-fn sprite_pixel_rgb(
+const MAX_SPRITES: usize = 80;
+// H40 mode allows 20 sprites per scanline; H32 allows 16. Use 20 as the upper bound.
+const MAX_SPRITES_PER_LINE: usize = 20;
+
+struct SpriteEntry {
+    xpos: i32,
+    ypos: i32,
+    width_pixels: i32,
+    height_pixels: i32,
+    width_tiles: usize,
+    height_tiles: usize,
+    pattern: u16,
+}
+
+struct SpriteLineScan {
+    entries: Vec<SpriteEntry>,
+    // Per-scanline: indices into `entries` for sprites visible on that line.
+    line_indices: Vec<Vec<u8>>,
+}
+
+impl SpriteLineScan {
+    fn build(vram: &[u8], sprite_table_base: usize, screen_height: usize) -> Self {
+        let mut entries = Vec::with_capacity(MAX_SPRITES);
+        let mut line_indices = vec![Vec::new(); screen_height];
+        let mut sprite_index = 0usize;
+        let mut visited = [false; MAX_SPRITES];
+
+        for _ in 0..MAX_SPRITES {
+            if sprite_index >= MAX_SPRITES || visited[sprite_index] {
+                break;
+            }
+            visited[sprite_index] = true;
+
+            let entry_base = sprite_table_base + sprite_index * 8;
+            let ypos = i32::from(read_u16_wrapped(vram, entry_base)) - 128;
+            let size_link = read_u16_wrapped(vram, entry_base + 2);
+            let pattern = read_u16_wrapped(vram, entry_base + 4);
+            let xpos = i32::from(read_u16_wrapped(vram, entry_base + 6)) - 128;
+            let next_link = usize::from(size_link & 0x7F);
+            let width_tiles = usize::from(((size_link >> 10) & 0x03) + 1);
+            let height_tiles = usize::from(((size_link >> 8) & 0x03) + 1);
+            let width_pixels = (width_tiles * 8) as i32;
+            let height_pixels = (height_tiles * 8) as i32;
+
+            let entry_idx = entries.len() as u8;
+            entries.push(SpriteEntry {
+                xpos,
+                ypos,
+                width_pixels,
+                height_pixels,
+                width_tiles,
+                height_tiles,
+                pattern,
+            });
+
+            let top = ypos.max(0) as usize;
+            let bottom = ((ypos + height_pixels) as usize).min(screen_height);
+            for line in &mut line_indices[top..bottom] {
+                if line.len() < MAX_SPRITES_PER_LINE {
+                    line.push(entry_idx);
+                }
+            }
+
+            if next_link == 0 {
+                break;
+            }
+            sprite_index = next_link;
+        }
+
+        Self {
+            entries,
+            line_indices,
+        }
+    }
+
+    fn sprites_on_line(&self, y: usize) -> &[u8] {
+        &self.line_indices[y]
+    }
+}
+
+fn scanline_sprite_pixel_rgb(
     vdp: &VdpSnapshot,
-    sprite_table_base: usize,
+    scan: &SpriteLineScan,
+    line_sprites: &[u8],
     screen_x: usize,
     screen_y: usize,
     priority: bool,
 ) -> Option<[u8; 3]> {
-    let mut sprite_index = 0usize;
-    let mut visited = [false; 80];
-    let screen_x = screen_x as i32;
-    let screen_y = screen_y as i32;
-
-    for _ in 0..80 {
-        if sprite_index >= visited.len() || visited[sprite_index] {
-            break;
-        }
-        visited[sprite_index] = true;
-
-        let entry_base = sprite_table_base + sprite_index * 8;
-        let ypos = i32::from(read_u16_wrapped(&vdp.vram, entry_base));
-        let size_link = read_u16_wrapped(&vdp.vram, entry_base + 2);
-        let pattern = read_u16_wrapped(&vdp.vram, entry_base + 4);
-        let xpos = i32::from(read_u16_wrapped(&vdp.vram, entry_base + 6));
-        let next_link = usize::from(size_link & 0x7F);
-        let width_tiles = usize::from(((size_link >> 10) & 0x03) + 1);
-        let height_tiles = usize::from(((size_link >> 8) & 0x03) + 1);
-        let left = xpos - 128;
-        let top = ypos - 128;
-        let width_pixels = (width_tiles * 8) as i32;
-        let height_pixels = (height_tiles * 8) as i32;
-
-        if ((pattern & 0x8000) != 0) == priority
-            && screen_x >= left
-            && screen_x < left + width_pixels
-            && screen_y >= top
-            && screen_y < top + height_pixels
+    let screen_x_i = screen_x as i32;
+    let screen_y_i = screen_y as i32;
+    for &entry_idx in line_sprites {
+        let entry = &scan.entries[entry_idx as usize];
+        if ((entry.pattern & 0x8000) != 0) == priority
+            && screen_x_i >= entry.xpos
+            && screen_x_i < entry.xpos + entry.width_pixels
+            && screen_y_i >= entry.ypos
+            && screen_y_i < entry.ypos + entry.height_pixels
         {
-            let local_x = usize::try_from(screen_x - left).unwrap_or(0);
-            let local_y = usize::try_from(screen_y - top).unwrap_or(0);
-            if let Some(colour) =
-                sprite_tile_pixel_rgb(vdp, pattern, width_tiles, height_tiles, local_x, local_y)
-            {
+            let local_x = (screen_x_i - entry.xpos) as usize;
+            let local_y = (screen_y_i - entry.ypos) as usize;
+            if let Some(colour) = sprite_tile_pixel_rgb(
+                vdp,
+                entry.pattern,
+                entry.width_tiles,
+                entry.height_tiles,
+                local_x,
+                local_y,
+            ) {
                 return Some(colour);
             }
         }
-
-        if next_link == 0 {
-            break;
-        }
-        sprite_index = next_link;
     }
-
     None
 }
 
