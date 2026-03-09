@@ -56,6 +56,8 @@ struct OracleState {
     frame_index: usize,
     game_mode: u16,
     current_player: u8,
+    number_hitpoints: u16,
+    current_helmet_id: u16,
     current_level_id: u16,
     player_1_level_id: u16,
     camera_x_pos: u32,
@@ -68,7 +70,9 @@ struct OracleState {
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
 const CURRENT_PLAYER_ADDR: usize = 0xFF_FC39;
+const NUMBER_HITPOINTS_ADDR: usize = 0xFF_FC40;
 const CURRENT_LEVEL_ID_ADDR: usize = 0xFF_FC44;
+const CURRENT_HELMET_ID_ADDR: usize = 0xFF_FC46;
 const PLAYER_1_LEVEL_ID_ADDR: usize = 0xFF_FC5A;
 const CAMERA_X_POS_ADDR: usize = 0xFF_F81C;
 const CAMERA_Y_POS_ADDR: usize = 0xFF_F820;
@@ -319,6 +323,8 @@ fn capture_state(
         frame_index,
         game_mode: read_u16(memory.as_ref(), GAME_MODE_ADDR),
         current_player: read_u8(memory.as_ref(), CURRENT_PLAYER_ADDR),
+        number_hitpoints: read_u16(memory.as_ref(), NUMBER_HITPOINTS_ADDR),
+        current_helmet_id: read_u16(memory.as_ref(), CURRENT_HELMET_ID_ADDR),
         current_level_id: read_u16(memory.as_ref(), CURRENT_LEVEL_ID_ADDR),
         player_1_level_id: read_u16(memory.as_ref(), PLAYER_1_LEVEL_ID_ADDR),
         camera_x_pos: read_u32(memory.as_ref(), CAMERA_X_POS_ADDR),

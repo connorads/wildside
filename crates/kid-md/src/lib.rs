@@ -28,6 +28,7 @@ const DEMO_MODE_FLAG_ADDR: u32 = 0x00FF_FBC9;
 const GAME_MODE_ADDR: u32 = 0x00FF_FBCA;
 const CURRENT_PLAYER_ADDR: u32 = 0x00FF_FC39;
 const NUMBER_LIVES_ADDR: u32 = 0x00FF_FC3E;
+const NUMBER_HITPOINTS_ADDR: u32 = 0x00FF_FC40;
 const LEVEL_SKIP_CHEAT_ADDR: u32 = 0x00FF_FC37;
 const CURRENT_LEVEL_ID_ADDR: u32 = 0x00FF_FC44;
 const CURRENT_HELMET_ID_ADDR: u32 = 0x00FF_FC46;
@@ -102,6 +103,7 @@ pub struct CpuProbe {
     pub game_mode: u16,
     pub current_player: u8,
     pub number_lives: u16,
+    pub number_hitpoints: u16,
     pub current_level_id: u16,
     pub player_1_level_id: u16,
     pub current_helmet_id: u16,
@@ -618,6 +620,7 @@ pub fn probe_rom_with_script(
         game_mode: runtime.core.mem.read_work_ram_word(GAME_MODE_ADDR),
         current_player: runtime.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
         number_lives: runtime.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
+        number_hitpoints: runtime.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
         current_level_id: runtime.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
         player_1_level_id: runtime.core.mem.read_work_ram_word(PLAYER_1_LEVEL_ID_ADDR),
         current_helmet_id: runtime.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
@@ -728,6 +731,7 @@ impl MdRuntime {
             game_mode: self.core.mem.read_work_ram_word(GAME_MODE_ADDR),
             current_player: self.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
             number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
+            number_hitpoints: self.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
             current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
             player_1_level_id: self.core.mem.read_work_ram_word(PLAYER_1_LEVEL_ID_ADDR),
             current_helmet_id: self.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),

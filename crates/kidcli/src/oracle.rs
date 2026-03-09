@@ -42,6 +42,8 @@ pub struct OracleState {
     pub frame_index: usize,
     pub game_mode: u16,
     pub current_player: u8,
+    pub number_hitpoints: u16,
+    pub current_helmet_id: u16,
     pub current_level_id: u16,
     pub player_1_level_id: u16,
     pub camera_x_pos: u32,

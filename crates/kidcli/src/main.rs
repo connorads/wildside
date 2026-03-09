@@ -911,6 +911,8 @@ struct CapturedState {
     frame_index: usize,
     game_mode: u16,
     current_player: u8,
+    number_hitpoints: u16,
+    current_helmet_id: u16,
     current_level_id: u16,
     player_1_level_id: u16,
     camera_x_pos: u32,
@@ -928,6 +930,7 @@ struct GameplayState {
     game_mode: u16,
     current_player: u8,
     number_lives: u16,
+    number_hitpoints: u16,
     current_level_id: u16,
     player_1_level_id: u16,
     current_helmet_id: u16,
@@ -1015,6 +1018,8 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
                 frame_index,
                 game_mode: snapshot.game_mode,
                 current_player: snapshot.current_player,
+                number_hitpoints: snapshot.number_hitpoints,
+                current_helmet_id: snapshot.current_helmet_id,
                 current_level_id: snapshot.current_level_id,
                 player_1_level_id: snapshot.player_1_level_id,
                 camera_x_pos: snapshot.camera_x_pos,
@@ -1145,6 +1150,7 @@ fn gameplay_state_from_probe(frame_index: usize, snapshot: &kid_md::CpuProbe) ->
         game_mode: snapshot.game_mode,
         current_player: snapshot.current_player,
         number_lives: snapshot.number_lives,
+        number_hitpoints: snapshot.number_hitpoints,
         current_level_id: snapshot.current_level_id,
         player_1_level_id: snapshot.player_1_level_id,
         current_helmet_id: snapshot.current_helmet_id,
@@ -1212,6 +1218,7 @@ fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> GameplayStat
         game_mode: snapshot.game_mode_value,
         current_player: snapshot.current_player,
         number_lives: snapshot.number_lives,
+        number_hitpoints: snapshot.number_hitpoints,
         current_level_id: u16::from(snapshot.current_level.0),
         player_1_level_id: u16::from(snapshot.player_1_level_id.0),
         current_helmet_id: snapshot.current_helmet_id,
@@ -1780,6 +1787,7 @@ fn print_probe(
     println!("demo mode flag: 0x{:02X}", probe.demo_mode_flag);
     println!("current player: 0x{:02X}", probe.current_player);
     println!("number lives: {}", probe.number_lives);
+    println!("number hitpoints: {}", probe.number_hitpoints);
     println!("current level id: 0x{:04X}", probe.current_level_id);
     println!("player 1 level id: 0x{:04X}", probe.player_1_level_id);
     println!("current helmet id: 0x{:04X}", probe.current_helmet_id);
@@ -2504,6 +2512,8 @@ fn native_trace_to_oracle_state(
         frame_index,
         game_mode: frame.game_mode_value,
         current_player: frame.current_player,
+        number_hitpoints: frame.number_hitpoints,
+        current_helmet_id: frame.current_helmet_id,
         current_level_id: u16::from(frame.current_level.0),
         player_1_level_id: u16::from(frame.player_1_level_id.0),
         camera_x_pos: frame.camera_x_pos,
@@ -2556,6 +2566,20 @@ fn compare_native_states_against_oracle(
                 native.frame_index,
                 native.current_player,
                 oracle.current_player,
+                run_dir.display()
+            );
+        }
+        if native.number_hitpoints != oracle.number_hitpoints
+            || native.current_helmet_id != oracle.current_helmet_id
+        {
+            bail!(
+                "state {}@{} diverged in form state (native hp {} helmet {:04X}, oracle hp {} helmet {:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.number_hitpoints,
+                native.current_helmet_id,
+                oracle.number_hitpoints,
+                oracle.current_helmet_id,
                 run_dir.display()
             );
         }
@@ -3518,6 +3542,8 @@ fn native_state_to_oracle_state(state: &CapturedState) -> OracleState {
         frame_index: state.frame_index,
         game_mode: state.game_mode,
         current_player: state.current_player,
+        number_hitpoints: state.number_hitpoints,
+        current_helmet_id: state.current_helmet_id,
         current_level_id: state.current_level_id,
         player_1_level_id: state.player_1_level_id,
         camera_x_pos: state.camera_x_pos,

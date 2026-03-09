@@ -23,6 +23,7 @@ const OPENING_SCROLL_CRUISE_STEP_FP: u32 = 0x0002_0000;
 const OPENING_DEATH_TRIGGER_X_FP: u32 = 0x0490_0000;
 const OPENING_DEATH_FRAMES: usize = 240;
 const OPENING_RESPAWN_SETTLE_FRAMES: usize = 400;
+const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 120;
 const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
 const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
@@ -50,6 +51,68 @@ impl GameMode {
             Self::IntroSequence3 => 0x001C,
             Self::TitleScreen => 0x002C,
             Self::InGame => 0x000C,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlayerForm {
+    TheKid,
+    Skycutter,
+    Cyclone,
+    RedStealth,
+    Eyeclops,
+    Juggernaut,
+    IronKnight,
+    Berzerker,
+    Maniaxe,
+    Micromax,
+}
+
+impl PlayerForm {
+    pub fn helmet_id(self) -> u16 {
+        match self {
+            Self::TheKid => 0,
+            Self::Skycutter => 1,
+            Self::Cyclone => 2,
+            Self::RedStealth => 3,
+            Self::Eyeclops => 4,
+            Self::Juggernaut => 5,
+            Self::IronKnight => 6,
+            Self::Berzerker => 7,
+            Self::Maniaxe => 8,
+            Self::Micromax => 9,
+        }
+    }
+
+    pub fn max_hitpoints(self) -> u16 {
+        match self {
+            Self::TheKid => 2,
+            Self::IronKnight => 5,
+            Self::Skycutter
+            | Self::Cyclone
+            | Self::RedStealth
+            | Self::Eyeclops
+            | Self::Juggernaut
+            | Self::Berzerker
+            | Self::Maniaxe
+            | Self::Micromax => 3,
+        }
+    }
+
+    pub fn from_helmet_id(helmet_id: u16) -> Option<Self> {
+        match helmet_id {
+            0 => Some(Self::TheKid),
+            1 => Some(Self::Skycutter),
+            2 => Some(Self::Cyclone),
+            3 => Some(Self::RedStealth),
+            4 => Some(Self::Eyeclops),
+            5 => Some(Self::Juggernaut),
+            6 => Some(Self::IronKnight),
+            7 => Some(Self::Berzerker),
+            8 => Some(Self::Maniaxe),
+            9 => Some(Self::Micromax),
+            _ => None,
         }
     }
 }
@@ -99,6 +162,7 @@ pub struct NativeTraceFrame {
     pub active_enemy_object_count: usize,
     pub active_platform_object_count: usize,
     pub number_lives: u16,
+    pub number_hitpoints: u16,
     pub current_helmet_id: u16,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
@@ -132,8 +196,11 @@ pub struct NativeRuntime {
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
+    current_form: PlayerForm,
+    pending_form: Option<PlayerForm>,
     number_lives: u16,
-    current_helmet_id: u16,
+    number_hitpoints: u16,
+    invulnerable_frames: usize,
     paused: bool,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
@@ -226,8 +293,11 @@ impl NativeRuntime {
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
+            current_form: PlayerForm::TheKid,
+            pending_form: None,
             number_lives: 3,
-            current_helmet_id: 0,
+            number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
+            invulnerable_frames: 0,
             paused: false,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
@@ -336,7 +406,8 @@ impl NativeRuntime {
             active_enemy_object_count,
             active_platform_object_count,
             number_lives: self.number_lives,
-            current_helmet_id: self.current_helmet_id,
+            number_hitpoints: self.number_hitpoints,
+            current_helmet_id: self.current_form.helmet_id(),
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
             active_objects,
@@ -443,15 +514,23 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } | BootState::InGame
         ) {
             self.opening_slice = None;
+            self.current_form = PlayerForm::TheKid;
+            self.pending_form = None;
             self.number_lives = 3;
-            self.current_helmet_id = 0;
+            self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+            self.invulnerable_frames = 0;
             self.paused = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
             return;
         }
 
         match self.player_lifecycle {
-            PlayerLifecycle::Alive => {}
+            PlayerLifecycle::Alive => {
+                if self.invulnerable_frames > 0 {
+                    self.invulnerable_frames -= 1;
+                }
+                self.resolve_pending_form_change();
+            }
             PlayerLifecycle::Dying { remaining_frames } => {
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::Dying {
@@ -484,8 +563,16 @@ impl NativeRuntime {
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
         let mut slice = self.opening_slice.unwrap_or_else(OpeningSliceState::new);
         slice.step(level_elapsed, input);
-        if self.should_trigger_opening_death(&slice, input, level_elapsed) {
-            self.trigger_death();
+        if self.current_level == LevelId(0)
+            && self.current_form == PlayerForm::TheKid
+            && self.invulnerable_frames == 0
+            && level_elapsed > OPENING_SCROLL_START_FRAME
+            && input.right
+        {
+            self.number_hitpoints = 1;
+        }
+        if self.should_trigger_opening_damage(&slice, input, level_elapsed) {
+            self.apply_damage();
             return;
         }
         self.opening_slice = Some(slice);
@@ -562,20 +649,47 @@ impl NativeRuntime {
 }
 
 impl NativeRuntime {
-    fn should_trigger_opening_death(
+    fn should_trigger_opening_damage(
         &self,
         slice: &OpeningSliceState,
         input: FrameInput,
         level_elapsed: usize,
     ) -> bool {
         self.current_level == LevelId(0)
+            && self.invulnerable_frames == 0
             && input.right
             && level_elapsed > OPENING_SCROLL_ORACLE_LIMIT_END_FRAME
             && slice.player.x_pos >= OPENING_DEATH_TRIGGER_X_FP
     }
 
+    fn queue_form_change(&mut self, form: PlayerForm) {
+        self.pending_form = Some(form);
+    }
+
+    fn resolve_pending_form_change(&mut self) {
+        let Some(form) = self.pending_form.take() else {
+            return;
+        };
+        self.current_form = form;
+        self.number_hitpoints = form.max_hitpoints();
+    }
+
+    fn apply_damage(&mut self) {
+        if self.current_form == PlayerForm::TheKid {
+            self.trigger_death();
+            return;
+        }
+        self.queue_form_change(PlayerForm::TheKid);
+        self.resolve_pending_form_change();
+        self.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+    }
+
     fn trigger_death(&mut self) {
         self.paused = false;
+        self.current_form = PlayerForm::TheKid;
+        self.pending_form = None;
+        self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.invulnerable_frames = 0;
         self.number_lives = self.number_lives.saturating_sub(1);
         self.active_enemy_roster.clear();
         self.active_platform_roster.clear();
@@ -591,6 +705,7 @@ impl NativeRuntime {
         self.opening_slice = Some(OpeningSliceState::respawn());
         self.active_enemy_roster.clear();
         self.active_platform_roster.clear();
+        self.invulnerable_frames = 0;
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: OPENING_RESPAWN_SETTLE_FRAMES,
         };
@@ -1111,6 +1226,8 @@ mod tests {
         assert_eq!(trace.level_enemy_object_count, Some(22));
         assert_eq!(trace.active_enemy_object_count, 1);
         assert_eq!(trace.active_platform_object_count, 1);
+        assert_eq!(trace.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
+        assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
         assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
         assert_eq!(trace.kid_y_pos, Some(OPENING_ENTRY_KID_Y_POS));
         assert_eq!(trace.active_objects.len(), 3);
@@ -1219,6 +1336,44 @@ mod tests {
         let trace = runtime.trace_frame();
         assert_eq!(trace.current_level, LevelId(2));
         assert_eq!(trace.current_level_name.as_deref(), Some("Level 2"));
+    }
+
+    #[test]
+    fn changes_form_and_hitpoints_from_helmet_queue() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.queue_form_change(PlayerForm::IronKnight);
+        runtime.step_frame(FrameInput::default());
+
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.current_helmet_id, PlayerForm::IronKnight.helmet_id());
+        assert_eq!(
+            trace.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints()
+        );
+    }
+
+    #[test]
+    fn opening_hazard_strips_helmet_before_life_loss() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.queue_form_change(PlayerForm::IronKnight);
+        runtime.step_frame(FrameInput::default());
+
+        while runtime.current_form != PlayerForm::TheKid {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+            assert!(runtime.frame_index < 2_000);
+        }
+
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.number_lives, 3);
+        assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
+        assert_eq!(trace.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+        assert!(runtime.invulnerable_frames > 0);
     }
 
     #[test]
