@@ -761,6 +761,10 @@ impl MdRuntime {
         }
     }
 
+    pub fn render_into(&self, rgb: &mut [u8]) {
+        render_vdp_into(&self.core.mem.vdp_snapshot(), rgb);
+    }
+
     pub fn generate_audio_samples(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
         self.audio_mixer
             .push_events(self.core.mem.drain_audio_events());
@@ -829,20 +833,27 @@ pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
     let width = 320usize;
     let height = 224usize;
     let mut rgb = vec![0; width * height * 3];
-    let background = cram_rgb(&probe.vdp.cram, usize::from(probe.vdp.registers[7] & 0x3F));
+    render_vdp_into(&probe.vdp, &mut rgb);
+    FrameBuffer { width, height, rgb }
+}
+
+pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
+    let width = 320usize;
+    let height = 224usize;
+    let background = cram_rgb(&vdp.cram, usize::from(vdp.registers[7] & 0x3F));
     for pixel in rgb.chunks_exact_mut(3) {
         pixel.copy_from_slice(&background);
     }
 
-    let plane_a_base = (usize::from(probe.vdp.registers[2] & 0x38)) << 10;
-    let plane_b_base = (usize::from(probe.vdp.registers[4] & 0x07)) << 13;
-    let window_base = window_plane_base(&probe.vdp.registers);
-    let sprite_table_base = sprite_table_base(&probe.vdp.registers);
-    let hscroll_base = usize::from(probe.vdp.registers[0x0D]) << 10;
-    let vscroll_a = i32::from(read_u16_wrapped(&probe.vdp.vsram, 0) as i16);
-    let vscroll_b = i32::from(read_u16_wrapped(&probe.vdp.vsram, 2) as i16);
-    let (plane_width_cells, plane_height_cells) = plane_dimensions(probe.vdp.registers[0x10]);
-    let window_region = window_region(&probe.vdp.registers, width, height);
+    let plane_a_base = (usize::from(vdp.registers[2] & 0x38)) << 10;
+    let plane_b_base = (usize::from(vdp.registers[4] & 0x07)) << 13;
+    let window_base = window_plane_base(&vdp.registers);
+    let sprite_table_base = sprite_table_base(&vdp.registers);
+    let hscroll_base = usize::from(vdp.registers[0x0D]) << 10;
+    let vscroll_a = i32::from(read_u16_wrapped(&vdp.vsram, 0) as i16);
+    let vscroll_b = i32::from(read_u16_wrapped(&vdp.vsram, 2) as i16);
+    let (plane_width_cells, plane_height_cells) = plane_dimensions(vdp.registers[0x10]);
+    let window_region = window_region(&vdp.registers, width, height);
 
     for y in 0..height {
         let plane_a = ScrollPlane {
@@ -850,11 +861,11 @@ pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
             width_cells: plane_width_cells,
             height_cells: plane_height_cells,
             hscroll: hscroll_for_line(
-                &probe.vdp.vram,
+                &vdp.vram,
                 hscroll_base,
                 y,
                 0,
-                probe.vdp.registers[0x0B],
+                vdp.registers[0x0B],
             ),
             vscroll: vscroll_a,
         };
@@ -863,11 +874,11 @@ pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
             width_cells: plane_width_cells,
             height_cells: plane_height_cells,
             hscroll: hscroll_for_line(
-                &probe.vdp.vram,
+                &vdp.vram,
                 hscroll_base,
                 y,
                 2,
-                probe.vdp.registers[0x0B],
+                vdp.registers[0x0B],
             ),
             vscroll: vscroll_b,
         };
@@ -877,24 +888,22 @@ pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
         };
         for x in 0..width {
             for priority in [false, true] {
-                if let Some(colour) = plane_pixel_rgb(&probe.vdp, &plane_b, x, y, priority) {
-                    write_rgb(&mut rgb, width, x, y, colour);
+                if let Some(colour) = plane_pixel_rgb(vdp, &plane_b, x, y, priority) {
+                    write_rgb(rgb, width, x, y, colour);
                 }
                 if let Some(colour) =
-                    plane_a_or_window_pixel_rgb(&probe.vdp, &plane_a, &window_plane, x, y, priority)
+                    plane_a_or_window_pixel_rgb(vdp, &plane_a, &window_plane, x, y, priority)
                 {
-                    write_rgb(&mut rgb, width, x, y, colour);
+                    write_rgb(rgb, width, x, y, colour);
                 }
                 if let Some(colour) =
-                    sprite_pixel_rgb(&probe.vdp, sprite_table_base, x, y, priority)
+                    sprite_pixel_rgb(vdp, sprite_table_base, x, y, priority)
                 {
-                    write_rgb(&mut rgb, width, x, y, colour);
+                    write_rgb(rgb, width, x, y, colour);
                 }
             }
         }
     }
-
-    FrameBuffer { width, height, rgb }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

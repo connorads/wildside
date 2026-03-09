@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
-use kid_md::{AudioLevels, MdRuntime, render_frame};
+use kid_md::{AudioLevels, MdRuntime};
 use kid_rom::{RomError, RomIdentity, VerifiedRom, default_rom_candidates, verify_rom};
 use sdl2::AudioSubsystem;
 use sdl2::audio::AudioQueue;
@@ -910,9 +910,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                 };
                 runtime.set_controller_1(buttons);
                 runtime.run_until_vblank(500_000);
-                let snapshot = runtime.snapshot();
-                let frame = render_frame(&snapshot);
-                last_frame = frame.rgb;
+                runtime.render_into(&mut last_frame);
                 if let Some(audio_queue) = audio_queue.as_ref()
                     && audio_queue.size() < AUDIO_QUEUE_BYTES_LOW_WATERMARK
                 {
@@ -927,16 +925,15 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
             audio_queue.clear();
         }
 
-        let mut composed = last_frame.clone();
         apply_overlay(
-            &mut composed,
+            &mut last_frame,
             &settings,
             &launch,
             &screen,
             status_toast.as_ref(),
         );
         texture
-            .update(None, &composed, (FRAME_WIDTH as usize) * 3)
+            .update(None, &last_frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
         canvas.clear();
         canvas
