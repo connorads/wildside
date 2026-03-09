@@ -2025,7 +2025,7 @@ fn sprite_tile_pixel_rgb(
     };
     let tile_col = local_x / 8;
     let tile_row = local_y / 8;
-    let tile_index = base_tile + tile_row * width_tiles + tile_col;
+    let tile_index = base_tile + tile_col * height_tiles + tile_row;
     let pixel_x = local_x & 7;
     let pixel_y = local_y & 7;
     tile_pixel_rgb_from_parts(vdp, tile_index, palette, pixel_x, pixel_y)
