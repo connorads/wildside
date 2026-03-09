@@ -309,6 +309,59 @@ fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
 }
 
 // ---------------------------------------------------------------------------
+// Jump — kid.asm:12783 (sub_A432)
+// ---------------------------------------------------------------------------
+
+/// Initiate a jump. Returns `(new_x_vel, initial_y_vel)`.
+///
+/// Translates sub_A432:
+/// 1. `factor = (|x_vel| << 4) >> 16 + $100`  (swap after lsl #4)
+/// 2. `y_vel = -(jump_height * factor) << 4`
+/// 3. `x_vel = x_vel * 3/4`  (asr #1, copy, asr #1, add)
+pub fn initiate_jump(x_vel: i32, jump_height: u16) -> (i32, i32) {
+    let abs_vel = if x_vel >= 0 { x_vel } else { -x_vel } as u32;
+
+    // lsl.l #4, d1 — multiply by 16
+    let shifted = abs_vel << 4;
+    // swap d1 — extract upper 16 bits (equivalent to >> 16)
+    let upper = (shifted >> 16) as u16;
+    // addi.w #$100, d1
+    let factor = u32::from(upper) + 0x100;
+
+    // mulu.w d1, d0 — unsigned 16×16→32 multiply
+    let product = u32::from(jump_height) * factor;
+    // lsl.l #4, d0 — multiply by 16
+    let scaled = product << 4;
+    // neg.l d0 — negate for upward
+    let y_vel = -(scaled as i32);
+
+    // x_vel *= 3/4: asr #1, copy, asr #1, add
+    let half = x_vel >> 1; // asr.l #1
+    let quarter = half >> 1; // asr.l #1
+    let new_x_vel = half + quarter;
+
+    (new_x_vel, y_vel)
+}
+
+// ---------------------------------------------------------------------------
+// Gravity — kid.asm:14060-14088
+// ---------------------------------------------------------------------------
+
+/// Apply one frame of gravity to vertical velocity.
+///
+/// `ascending_and_b_held`: true when y_vel < 0 AND the jump button is held,
+/// giving the variable-height jump feel.
+pub fn apply_gravity(y_vel: i32, ascending_and_b_held: bool) -> i32 {
+    let gravity = if ascending_and_b_held {
+        GRAVITY_JUMP_HELD
+    } else {
+        GRAVITY_NORMAL
+    };
+    let next = y_vel + gravity;
+    next.clamp(MAX_RISE_SPEED, MAX_FALL_SPEED)
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -513,5 +566,92 @@ mod tests {
         let (result, _) = update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
         assert_eq!(result, vel - NORMAL_KID.walk_run_decel);
         assert!(result > NORMAL_KID.max_walk_speed);
+    }
+
+    // -- Jump tests --
+
+    #[test]
+    fn standstill_jump_y_velocity() {
+        // x_vel=0 → factor = 0 + $100 = $100
+        // y_vel = -(0x42 * 0x100) << 4 = -(0x4200) << 4 = -0x42000
+        let (new_x, y_vel) = initiate_jump(0, JUMP_HEIGHTS[0]);
+        assert_eq!(new_x, 0);
+        assert_eq!(y_vel, -0x4_2000);
+    }
+
+    #[test]
+    fn walk_speed_jump_y_velocity() {
+        let x_vel = NORMAL_KID.max_walk_speed; // 0x20000
+        // |x_vel| << 4 = 0x200000, swap → upper 16 = 0x20
+        // factor = 0x20 + 0x100 = 0x120
+        // product = 0x42 * 0x120 = 0x4A40
+        // y_vel = -(0x4A40 << 4) = -0x4A400
+        let (new_x, y_vel) = initiate_jump(x_vel, JUMP_HEIGHTS[0]);
+        assert_eq!(y_vel, -0x4_A400);
+        // x_vel *= 3/4: 0x20000 >> 1 = 0x10000, >> 1 = 0x8000, sum = 0x18000
+        assert_eq!(new_x, 0x1_8000);
+    }
+
+    #[test]
+    fn red_stealth_jumps_higher_than_kid() {
+        let (_, y_kid) = initiate_jump(0, JUMP_HEIGHTS[0]);
+        let (_, y_rs) = initiate_jump(0, JUMP_HEIGHTS[3]);
+        // RedStealth has higher jump height factor (0x4A vs 0x42)
+        assert!(y_rs < y_kid); // more negative = higher
+    }
+
+    #[test]
+    fn jump_reduces_x_velocity_to_three_quarters() {
+        let x_vel = 0x4_0000i32;
+        let (new_x, _) = initiate_jump(x_vel, JUMP_HEIGHTS[0]);
+        assert_eq!(new_x, 0x3_0000); // 3/4 of 0x40000
+    }
+
+    #[test]
+    fn jump_negative_x_velocity_reduces_correctly() {
+        let x_vel = -0x4_0000i32;
+        let (new_x, _) = initiate_jump(x_vel, JUMP_HEIGHTS[0]);
+        // asr preserves sign: -0x40000 >> 1 = -0x20000, >> 1 = -0x10000
+        // sum = -0x20000 + -0x10000 = -0x30000
+        assert_eq!(new_x, -0x3_0000);
+    }
+
+    // -- Gravity tests --
+
+    #[test]
+    fn gravity_normal_adds_4000() {
+        let result = apply_gravity(0, false);
+        assert_eq!(result, GRAVITY_NORMAL);
+    }
+
+    #[test]
+    fn gravity_jump_held_adds_2000_when_ascending() {
+        let result = apply_gravity(-0x1_0000, true);
+        assert_eq!(result, -0x1_0000 + GRAVITY_JUMP_HELD);
+    }
+
+    #[test]
+    fn gravity_caps_at_max_fall_speed() {
+        let result = apply_gravity(MAX_FALL_SPEED, false);
+        assert_eq!(result, MAX_FALL_SPEED);
+    }
+
+    #[test]
+    fn gravity_caps_at_max_rise_speed() {
+        let result = apply_gravity(MAX_RISE_SPEED, true);
+        assert_eq!(result, MAX_RISE_SPEED + GRAVITY_JUMP_HELD);
+        // Even extreme upward velocity is clamped
+        let extreme = apply_gravity(i32::MIN / 2, false);
+        assert_eq!(extreme, MAX_RISE_SPEED);
+    }
+
+    #[test]
+    fn variable_jump_height_difference() {
+        // Ascending, B held = weaker gravity
+        let held = apply_gravity(-0x4_0000, true);
+        // Ascending, B released = stronger gravity
+        let released = apply_gravity(-0x4_0000, false);
+        assert!(held < released); // held result is more negative (higher)
+        assert_eq!(released - held, GRAVITY_NORMAL - GRAVITY_JUMP_HELD);
     }
 }
