@@ -19,7 +19,7 @@ after each iteration and it's included in prompts for context.
 - **Persistent enemy state**: `ActiveEnemy` structs in `active_enemies: Vec<ActiveEnemy>` persist across frames. `activate_enemies()` adds/removes based on activation window; `step_active_enemies()` runs per-family movement. The `active_enemy_roster` (snapshots for rendering/collision) is derived from `active_enemies` each frame.
 - **Roster refresh ordering**: `refresh_active_roster()` runs BEFORE `refresh_opening_slice()` so that enemy positions are current when contact damage is checked.
 - **Enemy activation window**: Uses layout spawn position (not current position) for activation/deactivation — matching original game behaviour. Tests that need enemies active must place them within the initial camera window (x: 0..384, y: 0..288 at camera origin).
-- **Prize block headbutt**: `apply_ceiling_collision` detects prize blocks via `CeilingProbe.cell.has_block && block_type == Prize`. Hit blocks are cleared to empty cells via `BlockGrid::set_cell_at()`. `CeilingProbe` carries `cell_x`/`cell_y` for grid mutation. No item spawning yet.
+- **Destructible block headbutt**: `apply_ceiling_collision` detects prize AND smash blocks via `matches!(block_type, Prize | Smash)`. Hit blocks are cleared to empty cells via `BlockGrid::set_cell_at()`. `CeilingProbe` carries `cell_x`/`cell_y` for grid mutation. No item spawning yet. Non-destructible types (Metal, etc.) are unaffected.
 - **Mutable block grid threading**: `OpeningSliceState::step()` takes `Option<&mut BlockGrid>` so `apply_ceiling_collision` can mutate the grid. Wall and floor collision reborrow as `&`. When no grid is present, only the flat-floor fallback runs.
 
 ---
@@ -119,5 +119,17 @@ after each iteration and it's included in prompts for context.
   - `CeilingProbe` originally lacked cell coordinates (unlike `TerrainProbe`). Any feature that mutates the grid based on a probe result needs the cell coords — added `cell_x`/`cell_y`
   - Threading `&mut BlockGrid` through `step()` requires care: only `apply_ceiling_collision` needs mutability, but all collision methods are called sequentially, so reborrows from the single `&mut` work naturally in Rust
   - The `apply_floor_collision` flat-floor fallback (no grid) must still run when `block_grid` is `None`, so the `else` branch after the `if let Some(grid)` handles that case
+---
+
+## 2026-03-09 - US-008
+- Implemented smash block headbutt interaction — smash blocks are destroyed (cleared to empty) when headbutted from below
+- Extended `apply_ceiling_collision` condition from `block_type == Prize` to `matches!(block_type, Prize | Smash)`
+- Updated test grid helper (`grid_with_blocks`) to include prize (col 2), metal (col 3), and smash (col 4) blocks
+- Renamed `headbutt_solid_block_does_not_clear` → `headbutt_metal_block_does_not_clear` (metal is the indestructible type)
+- Added two new tests: `headbutt_smash_block_changes_to_empty` and `cleared_smash_block_no_longer_blocks_movement`
+- Files changed: `crates/kid-core/src/lib.rs`
+- **Learnings:**
+  - Adding new destructible block types is trivial — just extend the `matches!()` pattern in `apply_ceiling_collision`
+  - The old "solid block doesn't clear" test used a Smash block as the non-clearable example; when Smash became clearable, test needed a genuinely indestructible type (Metal)
 ---
 
