@@ -60,6 +60,8 @@ struct OracleState {
     player_1_level_id: u16,
     camera_x_pos: u32,
     camera_y_pos: u32,
+    kid_x_pos: u32,
+    kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
 }
@@ -70,6 +72,8 @@ const CURRENT_LEVEL_ID_ADDR: usize = 0xFF_FC44;
 const PLAYER_1_LEVEL_ID_ADDR: usize = 0xFF_FC5A;
 const CAMERA_X_POS_ADDR: usize = 0xFF_F81C;
 const CAMERA_Y_POS_ADDR: usize = 0xFF_F820;
+const KID_X_POS_ADDR: usize = 0xFF_24FA;
+const KID_Y_POS_ADDR: usize = 0xFF_24FE;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
 
@@ -319,6 +323,8 @@ fn capture_state(
         player_1_level_id: read_u16(memory.as_ref(), PLAYER_1_LEVEL_ID_ADDR),
         camera_x_pos: read_u32(memory.as_ref(), CAMERA_X_POS_ADDR),
         camera_y_pos: read_u32(memory.as_ref(), CAMERA_Y_POS_ADDR),
+        kid_x_pos: read_u32(memory.as_ref(), KID_X_POS_ADDR),
+        kid_y_pos: read_u32(memory.as_ref(), KID_Y_POS_ADDR),
         number_objects: read_u16(memory.as_ref(), NUMBER_OBJECTS_ADDR),
         number_gfx_objects: read_u16(memory.as_ref(), NUMBER_GFX_OBJECTS_ADDR),
     }

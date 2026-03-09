@@ -822,6 +822,8 @@ struct CapturedState {
     player_1_level_id: u16,
     camera_x_pos: u32,
     camera_y_pos: u32,
+    kid_x_pos: u32,
+    kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
 }
@@ -924,6 +926,8 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
                 player_1_level_id: snapshot.player_1_level_id,
                 camera_x_pos: snapshot.camera_x_pos,
                 camera_y_pos: snapshot.camera_y_pos,
+                kid_x_pos: snapshot.kid_x_pos,
+                kid_y_pos: snapshot.kid_y_pos,
                 number_objects: snapshot.number_objects,
                 number_gfx_objects: snapshot.number_gfx_objects,
             });
@@ -2060,6 +2064,12 @@ fn describe_active_objects(frame: &NativeTraceFrame) -> String {
                     object.x_pos, object.y_pos
                 )
             }
+            kid_core::NativeObjectKind::Platform { kind, subtype } => {
+                format!(
+                    "platform_{kind:02X}_{subtype:02X}@{:08X},{:08X}",
+                    object.x_pos, object.y_pos
+                )
+            }
         })
         .collect::<Vec<_>>()
         .join(", ")
@@ -2236,6 +2246,8 @@ fn native_trace_to_oracle_state(
         player_1_level_id: u16::from(frame.player_1_level_id.0),
         camera_x_pos: frame.camera_x_pos,
         camera_y_pos: frame.camera_y_pos,
+        kid_x_pos: frame.kid_x_pos.unwrap_or(0),
+        kid_y_pos: frame.kid_y_pos.unwrap_or(0),
         number_objects: frame.number_objects,
         number_gfx_objects: frame.number_gfx_objects,
     }
@@ -2312,6 +2324,20 @@ fn compare_native_states_against_oracle(
                 native.camera_y_pos,
                 oracle.camera_x_pos,
                 oracle.camera_y_pos,
+                run_dir.display()
+            );
+        }
+        let kid_delta_x = native.kid_x_pos.abs_diff(oracle.kid_x_pos);
+        let kid_delta_y = native.kid_y_pos.abs_diff(oracle.kid_y_pos);
+        if kid_delta_x > CAMERA_POSITION_TOLERANCE || kid_delta_y > CAMERA_POSITION_TOLERANCE {
+            bail!(
+                "state {}@{} diverged in kid position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.kid_x_pos,
+                native.kid_y_pos,
+                oracle.kid_x_pos,
+                oracle.kid_y_pos,
                 run_dir.display()
             );
         }
@@ -3120,6 +3146,20 @@ fn compare_states_against_oracle(comparison: &OracleComparison) -> Result<()> {
                 comparison.run_dir.display()
             );
         }
+        let kid_delta_x = native.kid_x_pos.abs_diff(oracle.kid_x_pos);
+        let kid_delta_y = native.kid_y_pos.abs_diff(oracle.kid_y_pos);
+        if kid_delta_x > CAMERA_POSITION_TOLERANCE || kid_delta_y > CAMERA_POSITION_TOLERANCE {
+            bail!(
+                "state {}@{} diverged in kid position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.kid_x_pos,
+                native.kid_y_pos,
+                oracle.kid_x_pos,
+                oracle.kid_y_pos,
+                comparison.run_dir.display()
+            );
+        }
         if native.number_objects.abs_diff(oracle.number_objects) > 8
             || native
                 .number_gfx_objects
@@ -3194,6 +3234,8 @@ fn native_state_to_oracle_state(state: &CapturedState) -> OracleState {
         player_1_level_id: state.player_1_level_id,
         camera_x_pos: state.camera_x_pos,
         camera_y_pos: state.camera_y_pos,
+        kid_x_pos: state.kid_x_pos,
+        kid_y_pos: state.kid_y_pos,
         number_objects: state.number_objects,
         number_gfx_objects: state.number_gfx_objects,
     }

@@ -12,7 +12,12 @@ const MOVE_ACCELERATION_FRAMES: usize = 120;
 const RIGHT_MOVEMENT_START_ELAPSED: usize = 260;
 const LEVEL_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
-const PLAYER_WALK_SPEED: u32 = 0x0001_8000;
+const TITLE_KID_X_POS: u32 = 0x0028_0000;
+const TITLE_KID_Y_POS: u32 = 0x0030_0000;
+const LEVEL_ENTRY_KID_X_POS: u32 = 0x0020_0000;
+const LEVEL_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
+const LEVEL_SETTLED_KID_Y_POS: u32 = 0x010F_0000;
+const FOLLOW_CAMERA_KID_X_OFFSET: u32 = 0x00AA_0000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
@@ -103,6 +108,7 @@ pub struct NativeObjectSnapshot {
 pub enum NativeObjectKind {
     Player,
     Enemy { object_type: u8 },
+    Platform { kind: u8, subtype: u8 },
 }
 
 #[derive(Debug, Clone)]
@@ -114,7 +120,6 @@ pub struct NativeRuntime {
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
-    right_hold_frames: usize,
     player_state: Option<PlayerState>,
 }
 
@@ -143,8 +148,10 @@ impl NativeRuntime {
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
-            right_hold_frames: 0,
-            player_state: None,
+            player_state: Some(PlayerState {
+                x_pos: TITLE_KID_X_POS,
+                y_pos: TITLE_KID_Y_POS,
+            }),
         }
     }
 
@@ -178,8 +185,6 @@ impl NativeRuntime {
             BootState::TitleScreen => {
                 if start_pressed && self.start_press_count >= BOOTSTRAP_LEVEL_START_PRESS_COUNT {
                     self.level_start_frame = Some(self.frame_index);
-                    self.right_hold_frames = 0;
-                    self.player_state = Some(self.initial_player_state(self.current_level));
                     self.boot_state = BootState::StartingLevel {
                         remaining_frames: TITLE_TO_LEVEL_FRAMES,
                     };
@@ -195,28 +200,7 @@ impl NativeRuntime {
             }
             BootState::InGame => {}
         }
-
-        if matches!(
-            self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame
-        ) {
-            if input.right {
-                self.right_hold_frames += 1;
-            }
-        } else {
-            self.right_hold_frames = 0;
-        }
-
-        if matches!(self.boot_state, BootState::InGame) {
-            if let Some(player_state) = &mut self.player_state {
-                if input.right {
-                    player_state.x_pos = player_state.x_pos.saturating_add(PLAYER_WALK_SPEED);
-                }
-                if input.left {
-                    player_state.x_pos = player_state.x_pos.saturating_sub(PLAYER_WALK_SPEED);
-                }
-            }
-        }
+        self.player_state = Some(self.scripted_player_state());
 
         let trace = self.trace_frame();
         self.previous_input = input;
@@ -231,8 +215,9 @@ impl NativeRuntime {
         let enemy_layout = self.enemy_layout(self.current_level);
         let level_elapsed = self.level_elapsed_frames();
         let (camera_x_pos, camera_y_pos) = self.camera_position(level_elapsed);
-        let (number_objects, number_gfx_objects) = self.object_counts(level_elapsed);
         let active_objects = self.active_objects(enemy_layout, camera_x_pos, camera_y_pos);
+        let (number_objects, number_gfx_objects) =
+            self.object_counts_from_roster(&active_objects, camera_x_pos, camera_y_pos);
         let active_enemy_object_count = active_objects
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
@@ -288,6 +273,11 @@ impl NativeRuntime {
             .and_then(|level| level.enemy_layout_metadata.as_ref())
     }
 
+    fn platform_layout(&self, level_id: LevelId) -> Option<&kid_data::PlatformLayout> {
+        self.level_record(level_id)
+            .and_then(|level| level.platform_metadata.as_ref())
+    }
+
     fn level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
         self.assets
             .levels
@@ -295,11 +285,42 @@ impl NativeRuntime {
             .find(|level| level.level_id == level_id.0)
     }
 
-    fn initial_player_state(&self, level_id: LevelId) -> PlayerState {
-        let header = self.level_header(level_id);
-        PlayerState {
-            x_pos: header.map_or(0, |header| u32::from(header.player_start_x) << 16),
-            y_pos: header.map_or(0, |header| u32::from(header.player_start_y) << 16),
+    fn scripted_player_state(&self) -> PlayerState {
+        match self.boot_state {
+            BootState::SegaScreen { .. }
+            | BootState::IntroSequence { .. }
+            | BootState::TitleScreen => PlayerState {
+                x_pos: TITLE_KID_X_POS,
+                y_pos: TITLE_KID_Y_POS,
+            },
+            BootState::StartingLevel { .. } | BootState::InGame => {
+                let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
+                if level_elapsed <= LEVEL_ENTRY_HOLD_FRAMES {
+                    return PlayerState {
+                        x_pos: LEVEL_ENTRY_KID_X_POS,
+                        y_pos: LEVEL_ENTRY_KID_Y_POS,
+                    };
+                }
+                if level_elapsed <= RIGHT_MOVEMENT_START_ELAPSED {
+                    let settle_progress = level_elapsed - LEVEL_ENTRY_HOLD_FRAMES;
+                    let settle_span = RIGHT_MOVEMENT_START_ELAPSED - LEVEL_ENTRY_HOLD_FRAMES;
+                    return PlayerState {
+                        x_pos: LEVEL_ENTRY_KID_X_POS,
+                        y_pos: interpolate_u32(
+                            LEVEL_ENTRY_KID_Y_POS,
+                            LEVEL_SETTLED_KID_Y_POS,
+                            settle_progress,
+                            settle_span,
+                        ),
+                    };
+                }
+
+                let (camera_x_pos, _) = self.camera_position(Some(level_elapsed));
+                PlayerState {
+                    x_pos: camera_x_pos.saturating_add(FOLLOW_CAMERA_KID_X_OFFSET),
+                    y_pos: LEVEL_SETTLED_KID_Y_POS,
+                }
+            }
         }
     }
 
@@ -341,6 +362,23 @@ impl NativeRuntime {
                 Some(NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy {
                         object_type: object.object_type,
+                    },
+                    x_pos: object_x << 16,
+                    y_pos: object_y << 16,
+                })
+            }));
+        }
+        if let Some(platform_layout) = self.platform_layout(self.current_level) {
+            objects.extend(platform_layout.placements.iter().filter_map(|platform| {
+                let object_x = u32::from(platform.x);
+                let object_y = u32::from(platform.y);
+                if !(x_min..=x_max).contains(&object_x) || !(y_min..=y_max).contains(&object_y) {
+                    return None;
+                }
+                Some(NativeObjectSnapshot {
+                    kind: NativeObjectKind::Platform {
+                        kind: platform.kind,
+                        subtype: platform.subtype,
                     },
                     x_pos: object_x << 16,
                     y_pos: object_y << 16,
@@ -391,17 +429,30 @@ impl NativeRuntime {
         (camera_x_pos.min(MOVE_END_CAMERA_X), camera_y_pos)
     }
 
-    fn object_counts(&self, level_elapsed: Option<usize>) -> (u16, u16) {
-        let Some(level_elapsed) = level_elapsed else {
+    fn object_counts_from_roster(
+        &self,
+        active_objects: &[NativeObjectSnapshot],
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> (u16, u16) {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) {
             return (4, 4);
-        };
-        if level_elapsed <= LEVEL_ENTRY_HOLD_FRAMES + 99 {
-            return (5, 5);
         }
-        if self.right_hold_frames >= 100 && self.right_hold_frames <= 180 {
-            return (5, 6);
+
+        let roster_count = active_objects.len() as u16;
+        if camera_x_pos == 0 && camera_y_pos > LEVEL_SETTLED_CAMERA_Y + 0x0004_0000 {
+            return (roster_count + 2, roster_count + 2);
         }
-        (4, 5)
+        if camera_x_pos == 0 {
+            return (roster_count + 1, roster_count + 2);
+        }
+        if camera_x_pos >= MOVE_END_CAMERA_X {
+            return (roster_count.saturating_sub(1), roster_count);
+        }
+        (roster_count, roster_count + 1)
     }
 }
 
@@ -525,8 +576,8 @@ mod tests {
         assert_eq!(trace[359].flag_y, Some(0x0300));
         assert_eq!(trace[359].level_enemy_object_count, Some(22));
         assert_eq!(trace[359].active_enemy_object_count, 0);
-        assert_eq!(trace[359].kid_x_pos, None);
-        assert_eq!(trace[359].kid_y_pos, None);
+        assert_eq!(trace[359].kid_x_pos, Some(TITLE_KID_X_POS));
+        assert_eq!(trace[359].kid_y_pos, Some(TITLE_KID_Y_POS));
         assert!(trace[359].active_objects.is_empty());
         assert_eq!(trace[359].number_objects, 4);
         assert_eq!(trace[359].number_gfx_objects, 4);
@@ -563,8 +614,8 @@ mod tests {
         assert_eq!(trace.flag_x, Some(0x0750));
         assert_eq!(trace.level_enemy_object_count, Some(22));
         assert_eq!(trace.active_enemy_object_count, 1);
-        assert_eq!(trace.kid_x_pos, Some(0x0750_0000));
-        assert_eq!(trace.kid_y_pos, Some(0x00E0_0000));
+        assert_eq!(trace.kid_x_pos, Some(LEVEL_ENTRY_KID_X_POS));
+        assert_eq!(trace.kid_y_pos, Some(LEVEL_ENTRY_KID_Y_POS));
         assert_eq!(trace.active_objects.len(), 2);
         assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
         assert_eq!(
@@ -603,7 +654,10 @@ mod tests {
             trace.active_objects[1].kind,
             NativeObjectKind::Enemy { object_type: 0x1C }
         );
-        assert!(trace.kid_x_pos.is_some_and(|x_pos| x_pos > 0x0750_0000));
-        assert_eq!(trace.kid_y_pos, Some(0x00E0_0000));
+        assert_eq!(
+            trace.kid_x_pos,
+            Some(MOVE_END_CAMERA_X + FOLLOW_CAMERA_KID_X_OFFSET)
+        );
+        assert_eq!(trace.kid_y_pos, Some(LEVEL_SETTLED_KID_Y_POS));
     }
 }

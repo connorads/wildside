@@ -46,6 +46,8 @@ pub struct OracleState {
     pub player_1_level_id: u16,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
 }

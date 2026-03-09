@@ -14,11 +14,11 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
 - `kidcli oracle-setup` clones pinned external oracle repos under `.cache/oracles/`, builds a cache-local `jgenesis` helper, and clones `BlastEm` for optional manual debugger use.
 - `kidcli extract-assets` runs the upstream split flow for the local ROM and exports a typed generated asset bundle under `.cache/generated/<rom-sha1>/`, including parsed level and enemy metadata in the manifest for native-runtime use.
-- `kidcli probe-native --scenario ...` runs the new native source-port bootstrap skeleton against an existing scripted scenario and prints semantic checkpoints.
+- `kidcli probe-native --scenario ...` runs the native source-port bootstrap path against an existing scripted scenario and prints semantic checkpoints, including active roster state.
 - `kidcli inspect-level --level ...` loads a typed level bundle from the generated cache and prints parsed level header metadata, bgscroll profile summary, platform layout summary, enemy layout summary, and the concrete resource files and byte sizes for that level.
 - `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
-- `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state directly against the `jgenesis` oracle without using `kid-md`.
+- `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state, including player position, directly against the `jgenesis` oracle without using `kid-md`.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
