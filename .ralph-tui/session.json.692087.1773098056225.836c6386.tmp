@@ -3,10 +3,10 @@
   "sessionId": "2cf19ce6-326f-4678-a809-c1b4202f1c3a",
   "status": "running",
   "startedAt": "2026-03-09T22:19:24.560Z",
-  "updatedAt": "2026-03-09T23:09:48.019Z",
-  "currentIteration": 8,
+  "updatedAt": "2026-03-09T23:14:16.220Z",
+  "currentIteration": 9,
   "maxIterations": 40,
-  "tasksCompleted": 8,
+  "tasksCompleted": 9,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -65,8 +65,8 @@
       {
         "id": "US-009",
         "title": "Air control",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-010",
@@ -156,6 +156,16 @@
       "durationMs": 132939,
       "startedAt": "2026-03-09T23:02:59.187Z",
       "endedAt": "2026-03-09T23:05:12.126Z"
+    },
+    {
+      "iteration": 9,
+      "status": "completed",
+      "taskId": "US-009",
+      "taskTitle": "Air control",
+      "taskCompleted": true,
+      "durationMs": 274815,
+      "startedAt": "2026-03-09T23:05:13.202Z",
+      "endedAt": "2026-03-09T23:09:48.017Z"
     }
   ],
   "skippedTaskIds": [],

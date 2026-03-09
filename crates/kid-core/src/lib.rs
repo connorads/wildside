@@ -352,6 +352,10 @@ impl NativeRuntime {
         self.block_grid = Some(grid);
     }
 
+    pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
+        self.block_grid.as_ref()
+    }
+
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let start_pressed = input.start && !self.previous_input.start;
         if start_pressed {

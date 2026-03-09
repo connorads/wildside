@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
     FrameInput, GameMode, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame, PlayerForm,
-    terrain::BlockGrid,
+    terrain::{BlockGrid, BlockType, Cell, CollisionKind},
 };
 use kid_data::AssetManifest;
 use sdl2::controller::{Button, GameController};
@@ -23,7 +23,6 @@ const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
 const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
 const SKY_COLOUR: [u8; 3] = [28, 42, 56];
-const GROUND_COLOUR: [u8; 3] = [44, 52, 44];
 
 #[derive(Debug, Clone, Copy)]
 pub struct NativePlayOptions {
@@ -108,7 +107,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut hud_visible = true;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
-    let scene = build_scene(&trace, hud_visible);
+    let scene = build_scene(&trace, hud_visible, runtime.block_grid());
     render_scene(&scene, &mut frame);
     texture
         .update(None, &frame, (FRAME_WIDTH as usize) * 3)
@@ -175,7 +174,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
         }
 
-        let scene = build_scene(&trace, hud_visible);
+        let scene = build_scene(&trace, hud_visible, runtime.block_grid());
         render_scene(&scene, &mut frame);
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
@@ -195,9 +194,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     Ok(())
 }
 
-fn build_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
+fn build_scene(
+    trace: &NativeTraceFrame,
+    hud_visible: bool,
+    block_grid: Option<&BlockGrid>,
+) -> Scene {
     match trace.game_mode {
-        GameMode::InGame => build_game_scene(trace, hud_visible),
+        GameMode::InGame => build_game_scene(trace, hud_visible, block_grid),
         _ => build_status_scene(trace, hud_visible),
     }
 }
@@ -282,7 +285,72 @@ fn build_status_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
     }
 }
 
-fn build_game_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
+/// Map a block grid cell to a display colour based on its collision kind and block type.
+fn cell_colour(cell: &Cell) -> Option<[u8; 3]> {
+    if cell.collision == CollisionKind::Empty {
+        return None;
+    }
+    if cell.has_block {
+        return Some(match cell.block_type {
+            BlockType::Prize => [232, 196, 56],    // yellow
+            BlockType::Smash => [220, 148, 52],    // orange
+            BlockType::Ice => [120, 210, 230],     // cyan
+            BlockType::Rubber => [220, 130, 180],  // pink
+            BlockType::Metal => [160, 170, 180],   // steel grey
+            _ => [140, 140, 140],                  // generic block grey
+        });
+    }
+    Some(match cell.collision {
+        CollisionKind::Solid => [90, 100, 90],     // grey
+        CollisionKind::Spikes => [200, 60, 60],    // red
+        CollisionKind::SlopeUp | CollisionKind::SlopeDown => [140, 100, 60], // brown
+        CollisionKind::HiddenBlock => [80, 80, 100], // dim blue-grey
+        CollisionKind::Empty => unreachable!(),
+    })
+}
+
+/// Push draw commands for all block grid cells visible within the camera viewport.
+fn push_block_grid_cells(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    block_grid: Option<&BlockGrid>,
+) {
+    let Some(grid) = block_grid else { return };
+
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+
+    // Determine visible cell range (with 1-cell margin for partially visible cells)
+    let col_start = (camera_x_px / 16).max(0) as u16;
+    let col_end = ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16)
+        .min(i32::from(grid.width_cells)) as u16;
+    let row_start = (camera_y_px / 16).max(0) as u16;
+    let row_end = ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16)
+        .min(i32::from(grid.height_cells)) as u16;
+
+    for row in row_start..row_end {
+        for col in col_start..col_end {
+            let cell = grid.cell_at(col, row);
+            if let Some(colour) = cell_colour(&cell) {
+                let world_x = i32::from(col) * 16;
+                let world_y = i32::from(row) * 16;
+                commands.push(DrawCommand::Rect {
+                    x: world_x - camera_x_px,
+                    y: world_y - camera_y_px,
+                    width: 16,
+                    height: 16,
+                    colour,
+                });
+            }
+        }
+    }
+}
+
+fn build_game_scene(
+    trace: &NativeTraceFrame,
+    hud_visible: bool,
+    block_grid: Option<&BlockGrid>,
+) -> Scene {
     let mut commands = vec![
         DrawCommand::Rect {
             x: 0,
@@ -290,13 +358,6 @@ fn build_game_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
             width: FRAME_WIDTH as i32,
             height: FRAME_HEIGHT as i32,
             colour: SKY_COLOUR,
-        },
-        DrawCommand::Rect {
-            x: 0,
-            y: 160,
-            width: FRAME_WIDTH as i32,
-            height: 64,
-            colour: GROUND_COLOUR,
         },
         DrawCommand::Rect {
             x: 0,
@@ -327,6 +388,8 @@ fn build_game_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
             colour: GUIDE_COLOUR,
         },
     ];
+
+    push_block_grid_cells(&mut commands, trace, block_grid);
 
     for object in trace
         .active_objects
@@ -760,7 +823,7 @@ mod tests {
 
     #[test]
     fn title_scene_stays_text_only() {
-        let scene = build_scene(&sample_trace(GameMode::TitleScreen), true);
+        let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None);
         assert!(contains_text(&scene, "Kid Chameleon Native"));
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR || *colour == ENEMY_COLOUR || *colour == PLATFORM_COLOUR)
@@ -790,7 +853,7 @@ mod tests {
                 y_pos: 0x0010_0000,
             },
         ];
-        let scene = build_scene(&trace, true);
+        let scene = build_scene(&trace, true, None);
         assert!(has_rect(&scene, 32, 16, 32, 8, PLATFORM_COLOUR));
         assert!(has_rect(&scene, 24, 12, 16, 16, ENEMY_COLOUR));
         assert!(has_rect(&scene, 8, 8, 16, 32, PLAYER_COLOUR));
@@ -799,9 +862,9 @@ mod tests {
     #[test]
     fn hud_toggle_removes_control_overlay() {
         let trace = sample_trace(GameMode::InGame);
-        assert!(contains_text(&build_scene(&trace, true), "Controls Arrows"));
+        assert!(contains_text(&build_scene(&trace, true, None), "Controls Arrows"));
         assert!(!contains_text(
-            &build_scene(&trace, false),
+            &build_scene(&trace, false, None),
             "Controls Arrows"
         ));
     }
@@ -816,13 +879,111 @@ mod tests {
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
-        let scene = build_scene(&trace, false);
+        let scene = build_scene(&trace, false, None);
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         render_scene(&scene, &mut rgb);
         assert!(
             !rgb.chunks_exact(3)
                 .any(|pixel| pixel == PLAYER_COLOUR.as_slice())
         );
+    }
+
+    #[test]
+    fn block_grid_renders_visible_cells() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        // 4x3 grid: top two rows empty, bottom row solid
+        let mut data = vec![0u8; 4 * 3 * 2];
+        for col in 0..4 {
+            let offset = (2 * 4 + col) * 2;
+            data[offset] = 0x60; // collision=6 (Solid)
+        }
+        let grid = BlockGrid::from_level_layout(&data, 4, 3);
+        let solid_colour = cell_colour(&grid.cell_at(0, 2)).unwrap();
+
+        let scene = build_scene(&trace, false, Some(&grid));
+        // Bottom-row cells (row 2) should produce 16x16 rects at y=32
+        for col in 0..4 {
+            assert!(
+                has_rect(&scene, col * 16, 32, 16, 16, solid_colour),
+                "missing solid cell at col {col}"
+            );
+        }
+        // Top-row cells should NOT produce any rects (empty)
+        assert!(!scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Rect { y, height, colour, .. }
+                if *y == 0 && *height == 16 && *colour == solid_colour)
+        }));
+    }
+
+    #[test]
+    fn block_grid_only_draws_visible_cells() {
+        let mut trace = sample_trace(GameMode::InGame);
+        // Camera at (320px, 0) — first 20 columns offscreen
+        trace.camera_x_pos = 0x0140_0000;
+        trace.camera_y_pos = 0;
+
+        // 40x2 grid: bottom row all solid
+        let w = 40u16;
+        let h = 2u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for col in 0..40 {
+            let offset = (1 * 40 + col) * 2;
+            data[offset] = 0x60;
+        }
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+        let solid_colour = cell_colour(&grid.cell_at(0, 1)).unwrap();
+
+        let scene = build_scene(&trace, false, Some(&grid));
+        // Cells at cols 0..19 (world x 0..320) are left of camera — should NOT appear
+        let offscreen_rects = scene.commands.iter().filter(|cmd| {
+            matches!(cmd, DrawCommand::Rect { x, colour, .. }
+                if *colour == solid_colour && *x < -16)
+        });
+        assert_eq!(offscreen_rects.count(), 0, "offscreen cells should not be drawn");
+    }
+
+    #[test]
+    fn destroyed_block_renders_as_empty() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        // 2x2 grid: one prize block at (0,0), rest empty
+        let mut data = vec![0u8; 2 * 2 * 2];
+        data[0] = 0xE1; // block=true, collision=Solid, block_type=Prize
+        let mut grid = BlockGrid::from_level_layout(&data, 2, 2);
+        let prize_colour = cell_colour(&grid.cell_at(0, 0)).unwrap();
+
+        // Before destruction: prize cell visible
+        let scene = build_scene(&trace, false, Some(&grid));
+        assert!(has_rect(&scene, 0, 0, 16, 16, prize_colour));
+
+        // Destroy the block (set to empty)
+        grid.set_cell_at(0, 0, Cell::from_be_bytes(0, 0));
+        let scene = build_scene(&trace, false, Some(&grid));
+        assert!(!has_rect(&scene, 0, 0, 16, 16, prize_colour));
+    }
+
+    #[test]
+    fn block_types_have_distinct_colours() {
+        let prize = Cell::from_be_bytes(0xE1, 0); // Prize
+        let smash = Cell::from_be_bytes(0xE0, 0); // Smash
+        let ice = Cell::from_be_bytes(0xE2, 0);   // Ice
+        let rubber = Cell::from_be_bytes(0xE6, 0); // Rubber
+
+        let colours: Vec<_> = [prize, smash, ice, rubber]
+            .iter()
+            .map(|c| cell_colour(c).unwrap())
+            .collect();
+        // All colours should be unique
+        for i in 0..colours.len() {
+            for j in (i + 1)..colours.len() {
+                assert_ne!(colours[i], colours[j], "block types at indices {i} and {j} share colour");
+            }
+        }
     }
 }
 

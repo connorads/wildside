@@ -150,3 +150,19 @@ after each iteration and it's included in prompts for context.
   - Skycutter helmet uses `sub_9A0A` (ground table) even when airborne — unique exception handled separately in the original
 ---
 
+## 2026-03-09 - US-010
+- Implemented block grid rendering as coloured rectangles in the native player renderer
+- Added `cell_colour()` mapping: solid=grey, spikes=red, slope=brown, prize=yellow, smash=orange, ice=cyan, rubber=pink, metal=steel grey
+- Added `push_block_grid_cells()` that only iterates cells within the camera viewport (col/row range clipped to screen bounds)
+- Added `block_grid()` getter on `NativeRuntime` to expose grid reference to the renderer
+- Updated `build_scene`/`build_game_scene` to accept `Option<&BlockGrid>` and thread it from the render loop
+- Removed static `GROUND_COLOUR` rectangle (replaced by actual terrain rendering)
+- Destroyed/cleared blocks render as empty space (the grid is mutated in-place by headbutt logic, so cleared cells have `CollisionKind::Empty`)
+- Four new tests: visible cell rendering, viewport-only drawing, destroyed block as empty, distinct block type colours
+- Files changed: `crates/kid-core/src/lib.rs` (getter), `crates/kidcli/src/native_player.rs` (rendering)
+- **Learnings:**
+  - The renderer already had `screen_coord()` for fixed-point world→screen conversion, but block grid cells use pixel coords directly — simpler to just subtract `camera_px` from `cell * 16`
+  - `cell_colour` branches on `has_block` first (block types get distinctive colours) then falls back to collision kind colours for terrain without blocks
+  - Viewport culling is straightforward: compute cell col/row range from camera pixel position, clamp to grid bounds
+---
+
