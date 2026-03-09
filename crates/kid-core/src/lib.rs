@@ -1,23 +1,28 @@
-use kid_data::AssetManifest;
+use kid_data::{AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement};
 use serde::{Deserialize, Serialize};
 
 const SEGA_SCREEN_FRAMES: usize = 120;
 const INTRO_SEGMENT_FRAMES: usize = 80;
 const TITLE_TO_LEVEL_FRAMES: usize = 60;
-const LEVEL_ENTRY_CAMERA_Y: u32 = 0x0093_0000;
-const LEVEL_SETTLED_CAMERA_Y: u32 = 0x0073_0000;
-const MOVE_MID_CAMERA_X: u32 = 0x0045_0000;
-const MOVE_END_CAMERA_X: u32 = 0x01AB_0000;
-const MOVE_ACCELERATION_FRAMES: usize = 120;
-const RIGHT_MOVEMENT_START_ELAPSED: usize = 260;
-const LEVEL_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
+const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
+const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
+const OPENING_SCROLL_ACCEL_TARGET_X_FP: u32 = 0x0045_0000;
+const OPENING_SCROLL_LIMIT_X_FP: u32 = 0x01AB_0000;
+const OPENING_SCROLL_ACCEL_FRAMES: usize = 120;
+const OPENING_SCROLL_START_FRAME: usize = 260;
+const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
 const TITLE_KID_X_POS: u32 = 0x0028_0000;
 const TITLE_KID_Y_POS: u32 = 0x0030_0000;
-const LEVEL_ENTRY_KID_X_POS: u32 = 0x0020_0000;
-const LEVEL_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
-const LEVEL_SETTLED_KID_Y_POS: u32 = 0x010F_0000;
-const FOLLOW_CAMERA_KID_X_OFFSET: u32 = 0x00AA_0000;
+const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
+const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
+const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
+const OPENING_CAMERA_LEAD_X_FP: u32 = 0x00AA_0000;
+const OPENING_SCROLL_CRUISE_STEP_FP: u32 = 0x0002_0000;
+const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
+const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
+const ACTIVATION_WINDOW_PADDING: u32 = 64;
+const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
@@ -121,7 +126,9 @@ pub struct NativeRuntime {
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
-    player_state: Option<PlayerState>,
+    opening_slice: Option<OpeningSliceState>,
+    active_enemy_roster: Vec<NativeObjectSnapshot>,
+    active_platform_roster: Vec<NativeObjectSnapshot>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,6 +144,59 @@ enum BootState {
 struct PlayerState {
     x_pos: u32,
     y_pos: u32,
+    x_velocity: u32,
+    y_velocity: u32,
+    on_ground: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct CameraState {
+    x_pos: u32,
+    y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TerrainState {
+    floor_y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct OpeningScrollState {
+    right_hold_frames: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct PlatformLoaderState {
+    next_index: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ObjectSystemState {
+    platform_loader: PlatformLoaderState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct OpeningSliceState {
+    player: PlayerState,
+    camera: CameraState,
+    terrain: TerrainState,
+    scroll: OpeningScrollState,
+    objects: ObjectSystemState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ActivationWindow {
+    x_min: u32,
+    x_max: u32,
+    y_min: u32,
+    y_max: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EnemyFamily {
+    Diamond,
+    MiniHoppingSkull,
+    Unknown(u8),
 }
 
 impl NativeRuntime {
@@ -149,10 +209,9 @@ impl NativeRuntime {
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
-            player_state: Some(PlayerState {
-                x_pos: TITLE_KID_X_POS,
-                y_pos: TITLE_KID_Y_POS,
-            }),
+            opening_slice: None,
+            active_enemy_roster: Vec::new(),
+            active_platform_roster: Vec::new(),
         }
     }
 
@@ -189,6 +248,7 @@ impl NativeRuntime {
                     self.boot_state = BootState::StartingLevel {
                         remaining_frames: TITLE_TO_LEVEL_FRAMES,
                     };
+                    self.opening_slice = Some(OpeningSliceState::new());
                 }
             }
             BootState::StartingLevel { remaining_frames } => {
@@ -201,7 +261,9 @@ impl NativeRuntime {
             }
             BootState::InGame => {}
         }
-        self.player_state = Some(self.scripted_player_state());
+
+        self.refresh_opening_slice(input);
+        self.refresh_active_roster();
 
         let trace = self.trace_frame();
         self.previous_input = input;
@@ -214,11 +276,11 @@ impl NativeRuntime {
         let current_level_name = self.level_name(self.current_level).map(str::to_owned);
         let level_header = self.level_header(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level);
-        let level_elapsed = self.level_elapsed_frames();
-        let (camera_x_pos, camera_y_pos) = self.camera_position(level_elapsed);
-        let active_objects = self.active_objects(enemy_layout, camera_x_pos, camera_y_pos);
+        let player_state = self.current_player_state();
+        let camera_state = self.current_camera_state();
+        let active_objects = self.active_objects();
         let (number_objects, number_gfx_objects) =
-            self.object_counts_from_roster(&active_objects, camera_x_pos, camera_y_pos);
+            self.object_counts_from_roster(&active_objects, camera_state.x_pos, camera_state.y_pos);
         let active_enemy_object_count = active_objects
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
@@ -243,11 +305,11 @@ impl NativeRuntime {
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
             active_platform_object_count,
-            kid_x_pos: self.player_state.map(|state| state.x_pos),
-            kid_y_pos: self.player_state.map(|state| state.y_pos),
+            kid_x_pos: player_state.map(|state| state.x_pos),
+            kid_y_pos: player_state.map(|state| state.y_pos),
             active_objects,
-            camera_x_pos,
-            camera_y_pos,
+            camera_x_pos: camera_state.x_pos,
+            camera_y_pos: camera_state.y_pos,
             number_objects,
             number_gfx_objects,
         }
@@ -291,51 +353,24 @@ impl NativeRuntime {
             .find(|level| level.level_id == level_id.0)
     }
 
-    fn scripted_player_state(&self) -> PlayerState {
+    fn current_player_state(&self) -> Option<PlayerState> {
         match self.boot_state {
             BootState::SegaScreen { .. }
             | BootState::IntroSequence { .. }
-            | BootState::TitleScreen => PlayerState {
-                x_pos: TITLE_KID_X_POS,
-                y_pos: TITLE_KID_Y_POS,
-            },
+            | BootState::TitleScreen => Some(PlayerState::title_pose()),
             BootState::StartingLevel { .. } | BootState::InGame => {
-                let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
-                if level_elapsed <= LEVEL_ENTRY_HOLD_FRAMES {
-                    return PlayerState {
-                        x_pos: LEVEL_ENTRY_KID_X_POS,
-                        y_pos: LEVEL_ENTRY_KID_Y_POS,
-                    };
-                }
-                if level_elapsed <= RIGHT_MOVEMENT_START_ELAPSED {
-                    let settle_progress = level_elapsed - LEVEL_ENTRY_HOLD_FRAMES;
-                    let settle_span = RIGHT_MOVEMENT_START_ELAPSED - LEVEL_ENTRY_HOLD_FRAMES;
-                    return PlayerState {
-                        x_pos: LEVEL_ENTRY_KID_X_POS,
-                        y_pos: interpolate_u32(
-                            LEVEL_ENTRY_KID_Y_POS,
-                            LEVEL_SETTLED_KID_Y_POS,
-                            settle_progress,
-                            settle_span,
-                        ),
-                    };
-                }
-
-                let (camera_x_pos, _) = self.camera_position(Some(level_elapsed));
-                PlayerState {
-                    x_pos: camera_x_pos.saturating_add(FOLLOW_CAMERA_KID_X_OFFSET),
-                    y_pos: LEVEL_SETTLED_KID_Y_POS,
-                }
+                self.opening_slice.map(|slice| slice.player)
             }
         }
     }
 
-    fn active_objects(
-        &self,
-        enemy_layout: Option<&kid_data::EnemyLayout>,
-        camera_x_pos: u32,
-        camera_y_pos: u32,
-    ) -> Vec<NativeObjectSnapshot> {
+    fn current_camera_state(&self) -> CameraState {
+        self.opening_slice
+            .map(|slice| slice.camera)
+            .unwrap_or_default()
+    }
+
+    fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
@@ -343,54 +378,16 @@ impl NativeRuntime {
             return Vec::new();
         }
 
-        let camera_x_px = camera_x_pos >> 16;
-        let camera_y_px = camera_y_pos >> 16;
-        let x_min = camera_x_px.saturating_sub(64);
-        let x_max = camera_x_px.saturating_add(384);
-        let y_min = camera_y_px.saturating_sub(64);
-        let y_max = camera_y_px.saturating_add(288);
-
         let mut objects = Vec::new();
-        if let Some(player_state) = self.player_state {
+        if let Some(player_state) = self.current_player_state() {
             objects.push(NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
                 x_pos: player_state.x_pos,
                 y_pos: player_state.y_pos,
             });
         }
-        if let Some(enemy_layout) = enemy_layout {
-            objects.extend(enemy_layout.objects.iter().filter_map(|object| {
-                let object_x = u32::from(object.x);
-                let object_y = u32::from(object.y);
-                if !(x_min..=x_max).contains(&object_x) || !(y_min..=y_max).contains(&object_y) {
-                    return None;
-                }
-                Some(NativeObjectSnapshot {
-                    kind: NativeObjectKind::Enemy {
-                        object_type: object.object_type,
-                    },
-                    x_pos: object_x << 16,
-                    y_pos: object_y << 16,
-                })
-            }));
-        }
-        if let Some(platform_layout) = self.platform_layout(self.current_level) {
-            objects.extend(platform_layout.placements.iter().filter_map(|platform| {
-                let object_x = u32::from(platform.x);
-                let object_y = u32::from(platform.y);
-                if !(x_min..=x_max).contains(&object_x) || !(y_min..=y_max).contains(&object_y) {
-                    return None;
-                }
-                Some(NativeObjectSnapshot {
-                    kind: NativeObjectKind::Platform {
-                        kind: platform.kind,
-                        subtype: platform.subtype,
-                    },
-                    x_pos: object_x << 16,
-                    y_pos: object_y << 16,
-                })
-            }));
-        }
+        objects.extend(self.active_enemy_roster.iter().cloned());
+        objects.extend(self.active_platform_roster.iter().cloned());
         objects
     }
 
@@ -399,40 +396,49 @@ impl NativeRuntime {
             .map(|frame| self.frame_index.saturating_sub(frame))
     }
 
-    fn camera_position(&self, level_elapsed: Option<usize>) -> (u32, u32) {
-        let Some(level_elapsed) = level_elapsed else {
-            return (0, 0);
-        };
+    fn refresh_opening_slice(&mut self, input: FrameInput) {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) {
+            self.opening_slice = None;
+            return;
+        }
 
-        let camera_y_pos = if level_elapsed <= LEVEL_ENTRY_HOLD_FRAMES {
-            LEVEL_ENTRY_CAMERA_Y
-        } else if level_elapsed <= RIGHT_MOVEMENT_START_ELAPSED {
-            let settle_progress = level_elapsed - LEVEL_ENTRY_HOLD_FRAMES;
-            let settle_span = RIGHT_MOVEMENT_START_ELAPSED - LEVEL_ENTRY_HOLD_FRAMES;
-            interpolate_u32(
-                LEVEL_ENTRY_CAMERA_Y,
-                LEVEL_SETTLED_CAMERA_Y,
-                settle_progress,
-                settle_span,
-            )
-        } else {
-            LEVEL_SETTLED_CAMERA_Y
-        };
+        let mut slice = self.opening_slice.unwrap_or_else(OpeningSliceState::new);
+        slice.step(self.level_elapsed_frames().unwrap_or(0), input);
+        self.opening_slice = Some(slice);
+    }
 
-        let camera_x_pos = if level_elapsed <= RIGHT_MOVEMENT_START_ELAPSED {
-            0
-        } else {
-            let movement_frames = level_elapsed - RIGHT_MOVEMENT_START_ELAPSED;
-            if movement_frames <= MOVE_ACCELERATION_FRAMES {
-                ((u64::from(MOVE_MID_CAMERA_X) * movement_frames as u64)
-                    / MOVE_ACCELERATION_FRAMES as u64) as u32
-            } else {
-                MOVE_MID_CAMERA_X
-                    + ((movement_frames - MOVE_ACCELERATION_FRAMES) as u32 * 0x0002_0000)
-            }
-        };
+    fn refresh_active_roster(&mut self) {
+        self.active_enemy_roster.clear();
+        self.active_platform_roster.clear();
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) {
+            return;
+        }
 
-        (camera_x_pos.min(MOVE_END_CAMERA_X), camera_y_pos)
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+        let window = ActivationWindow::from_camera(slice.camera);
+        let enemy_layout = self.enemy_layout(self.current_level).cloned();
+        let platform_layout = self.platform_layout(self.current_level).cloned();
+        if let Some(enemy_layout) = enemy_layout.as_ref() {
+            self.active_enemy_roster = build_enemy_roster(enemy_layout, window);
+        }
+        if let Some(platform_layout) = platform_layout.as_ref() {
+            let mut objects = slice.objects;
+            objects
+                .platform_loader
+                .advance_to_window(platform_layout, window);
+            self.active_platform_roster = objects
+                .platform_loader
+                .active_platforms(platform_layout, window);
+            self.opening_slice = Some(OpeningSliceState { objects, ..slice });
+        }
     }
 
     fn object_counts_from_roster(
@@ -449,17 +455,257 @@ impl NativeRuntime {
         }
 
         let roster_count = active_objects.len() as u16;
-        if camera_x_pos == 0 && camera_y_pos > LEVEL_SETTLED_CAMERA_Y + 0x0004_0000 {
+        if camera_x_pos == 0 && camera_y_pos > OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000 {
             return (roster_count + 2, roster_count + 2);
         }
         if camera_x_pos == 0 {
             return (roster_count + 1, roster_count + 2);
         }
-        if camera_x_pos >= MOVE_END_CAMERA_X {
+        if camera_x_pos >= OPENING_SCROLL_LIMIT_X_FP {
             return (roster_count.saturating_sub(1), roster_count);
         }
         (roster_count, roster_count + 1)
     }
+}
+
+impl PlayerState {
+    fn title_pose() -> Self {
+        Self {
+            x_pos: TITLE_KID_X_POS,
+            y_pos: TITLE_KID_Y_POS,
+            x_velocity: 0,
+            y_velocity: 0,
+            on_ground: true,
+        }
+    }
+}
+
+impl OpeningSliceState {
+    fn new() -> Self {
+        Self {
+            player: PlayerState {
+                x_pos: OPENING_ENTRY_KID_X_POS,
+                y_pos: OPENING_ENTRY_KID_Y_POS,
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: false,
+            },
+            camera: CameraState {
+                x_pos: 0,
+                y_pos: OPENING_ENTRY_CAMERA_Y_FP,
+            },
+            terrain: TerrainState {
+                floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
+            },
+            scroll: OpeningScrollState {
+                right_hold_frames: 0,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+        }
+    }
+
+    fn step(&mut self, level_elapsed: usize, input: FrameInput) {
+        self.update_vertical_settle(level_elapsed);
+        self.update_horizontal_scroll(level_elapsed, input);
+        self.apply_opening_collision();
+    }
+
+    fn update_vertical_settle(&mut self, level_elapsed: usize) {
+        let previous_y_pos = self.player.y_pos;
+        if level_elapsed <= OPENING_ENTRY_HOLD_FRAMES {
+            self.camera.y_pos = OPENING_ENTRY_CAMERA_Y_FP;
+            self.player.y_pos = OPENING_ENTRY_KID_Y_POS;
+            self.player.y_velocity = 0;
+            self.player.on_ground = false;
+            return;
+        }
+
+        let settle_progress = (level_elapsed - OPENING_ENTRY_HOLD_FRAMES)
+            .min(OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES);
+        let settle_span = OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES;
+        self.camera.y_pos = interpolate_u32(
+            OPENING_ENTRY_CAMERA_Y_FP,
+            OPENING_GROUNDED_CAMERA_Y_FP,
+            settle_progress,
+            settle_span,
+        );
+        self.player.y_pos = interpolate_u32(
+            OPENING_ENTRY_KID_Y_POS,
+            OPENING_GROUNDED_KID_Y_POS,
+            settle_progress,
+            settle_span,
+        );
+        self.player.y_velocity = self.player.y_pos.saturating_sub(previous_y_pos);
+        self.player.on_ground = self.player.y_pos >= self.terrain.floor_y_pos;
+    }
+
+    fn update_horizontal_scroll(&mut self, level_elapsed: usize, input: FrameInput) {
+        if level_elapsed < OPENING_SCROLL_START_FRAME {
+            self.scroll.right_hold_frames = 0;
+            self.camera.x_pos = 0;
+            self.player.x_pos = OPENING_ENTRY_KID_X_POS;
+            self.player.x_velocity = 0;
+            return;
+        }
+        if !input.right {
+            self.player.x_velocity = 0;
+            if self.scroll.right_hold_frames == 0 {
+                self.player.x_pos = OPENING_ENTRY_KID_X_POS;
+            }
+            return;
+        }
+
+        let previous_player_x = self.player.x_pos;
+        let previous_camera_x = self.camera.x_pos;
+        self.scroll.right_hold_frames += 1;
+        let movement_frames = self.scroll.right_hold_frames.saturating_sub(1);
+        self.camera.x_pos = if movement_frames <= OPENING_SCROLL_ACCEL_FRAMES {
+            ((u64::from(OPENING_SCROLL_ACCEL_TARGET_X_FP) * movement_frames as u64)
+                / OPENING_SCROLL_ACCEL_FRAMES as u64) as u32
+        } else {
+            previous_camera_x.saturating_add(OPENING_SCROLL_CRUISE_STEP_FP)
+        }
+        .min(OPENING_SCROLL_LIMIT_X_FP);
+        self.player.x_pos = self.camera.x_pos.saturating_add(OPENING_CAMERA_LEAD_X_FP);
+        self.player.x_velocity = self.player.x_pos.saturating_sub(previous_player_x);
+    }
+
+    fn apply_opening_collision(&mut self) {
+        if self.player.y_pos >= self.terrain.floor_y_pos {
+            self.player.y_pos = self.terrain.floor_y_pos;
+            self.player.on_ground = true;
+        }
+    }
+}
+
+impl ActivationWindow {
+    fn from_camera(camera: CameraState) -> Self {
+        let camera_x_px = camera.x_pos >> 16;
+        let camera_y_px = camera.y_pos >> 16;
+        Self {
+            x_min: camera_x_px.saturating_sub(ACTIVATION_WINDOW_PADDING),
+            x_max: camera_x_px.saturating_add(ACTIVATION_WINDOW_X_LEAD),
+            y_min: camera_y_px.saturating_sub(ACTIVATION_WINDOW_PADDING),
+            y_max: camera_y_px.saturating_add(ACTIVATION_WINDOW_Y_LEAD),
+        }
+    }
+
+    fn contains(&self, x_pos: u32, y_pos: u32) -> bool {
+        (self.x_min..=self.x_max).contains(&x_pos) && (self.y_min..=self.y_max).contains(&y_pos)
+    }
+}
+
+impl PlatformLoaderState {
+    fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
+        while self.next_index < layout.placements.len() {
+            let placement = &layout.placements[self.next_index];
+            let preload_limit = window
+                .x_max
+                .saturating_add(PLATFORM_PRELOAD_X_PADDING)
+                .saturating_add(u32::from(placement.buffer_right));
+            if u32::from(placement.x) > preload_limit {
+                break;
+            }
+            self.next_index += 1;
+        }
+    }
+
+    fn active_platforms(
+        &self,
+        layout: &PlatformLayout,
+        window: ActivationWindow,
+    ) -> Vec<NativeObjectSnapshot> {
+        layout
+            .placements
+            .iter()
+            .take(self.next_index)
+            .filter(|placement| platform_is_active(placement, window))
+            .map(|placement| NativeObjectSnapshot {
+                kind: NativeObjectKind::Platform {
+                    kind: placement.kind,
+                    subtype: placement.subtype,
+                },
+                x_pos: u32::from(placement.x) << 16,
+                y_pos: u32::from(placement.y) << 16,
+            })
+            .collect()
+    }
+}
+
+impl EnemyFamily {
+    fn from_layout_object(layout: &EnemyLayout, object: &EnemyLayoutObject) -> Self {
+        match resolved_enemy_id(layout, object.object_type) {
+            Some(0x01) => Self::Diamond,
+            Some(0x1C) => Self::MiniHoppingSkull,
+            Some(enemy_id) => Self::Unknown(enemy_id),
+            None => Self::Unknown(object.object_type),
+        }
+    }
+
+    fn object_type(self) -> u8 {
+        match self {
+            Self::Diamond => 0x01,
+            Self::MiniHoppingSkull => 0x1C,
+            Self::Unknown(enemy_id) => enemy_id,
+        }
+    }
+
+    fn snapshot(
+        self,
+        object: &EnemyLayoutObject,
+        window: ActivationWindow,
+    ) -> Option<NativeObjectSnapshot> {
+        let object_x = u32::from(object.x);
+        let object_y = u32::from(object.y);
+        if !window.contains(object_x, object_y) {
+            return None;
+        }
+        Some(NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: self.object_type(),
+            },
+            x_pos: object_x << 16,
+            y_pos: object_y << 16,
+        })
+    }
+}
+
+fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<NativeObjectSnapshot> {
+    layout
+        .objects
+        .iter()
+        .filter_map(|object| {
+            EnemyFamily::from_layout_object(layout, object).snapshot(object, window)
+        })
+        .collect()
+}
+
+fn resolved_enemy_id(layout: &EnemyLayout, object_type: u8) -> Option<u8> {
+    if object_type & 0x80 == 0 {
+        return Some(object_type);
+    }
+    let slot_index = usize::from(object_type & 0x7F);
+    let raw_slot = *layout.enemy_type_slots.get(slot_index)?;
+    if raw_slot == 0xFFFF {
+        return None;
+    }
+    u8::try_from(raw_slot & 0x3FFF).ok()
+}
+
+fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) -> bool {
+    let object_x = u32::from(platform.x);
+    let object_y = u32::from(platform.y);
+    let x_min = window.x_min.saturating_sub(u32::from(platform.buffer_left));
+    let x_max = window
+        .x_max
+        .saturating_add(u32::from(platform.buffer_right));
+    let y_min = window.y_min.saturating_sub(u32::from(platform.buffer_top));
+    let y_max = window
+        .y_max
+        .saturating_add(u32::from(platform.buffer_bottom));
+    (x_min..=x_max).contains(&object_x) && (y_min..=y_max).contains(&object_y)
 }
 
 fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
@@ -613,6 +859,26 @@ mod tests {
         }
     }
 
+    fn start_level(runtime: &mut NativeRuntime) {
+        for _ in 0..360 {
+            runtime.step_frame(FrameInput::default());
+        }
+        for _ in 0..5 {
+            runtime.step_frame(FrameInput {
+                start: true,
+                ..FrameInput::default()
+            });
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        for _ in 0..60 {
+            runtime.step_frame(FrameInput::default());
+        }
+    }
+
     #[test]
     fn reaches_title_screen_without_input() {
         let trace = run_script(manifest(), &[], 400);
@@ -633,23 +899,7 @@ mod tests {
     #[test]
     fn starts_level_after_title_start_press() {
         let mut runtime = NativeRuntime::new(manifest());
-        for _ in 0..360 {
-            runtime.step_frame(FrameInput::default());
-        }
-        for _ in 0..5 {
-            runtime.step_frame(FrameInput {
-                start: true,
-                ..FrameInput::default()
-            });
-            runtime.step_frame(FrameInput::default());
-        }
-        runtime.step_frame(FrameInput {
-            start: true,
-            ..FrameInput::default()
-        });
-        for _ in 0..60 {
-            runtime.step_frame(FrameInput::default());
-        }
+        start_level(&mut runtime);
         let trace = runtime.trace_frame();
         assert_eq!(trace.game_mode, GameMode::InGame);
         assert_eq!(trace.current_level, LevelId(0));
@@ -662,8 +912,8 @@ mod tests {
         assert_eq!(trace.level_enemy_object_count, Some(22));
         assert_eq!(trace.active_enemy_object_count, 1);
         assert_eq!(trace.active_platform_object_count, 1);
-        assert_eq!(trace.kid_x_pos, Some(LEVEL_ENTRY_KID_X_POS));
-        assert_eq!(trace.kid_y_pos, Some(LEVEL_ENTRY_KID_Y_POS));
+        assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
+        assert_eq!(trace.kid_y_pos, Some(OPENING_ENTRY_KID_Y_POS));
         assert_eq!(trace.active_objects.len(), 3);
         assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
         assert_eq!(
@@ -677,29 +927,13 @@ mod tests {
                 subtype: 0x00,
             }
         );
-        assert_eq!(trace.camera_y_pos, LEVEL_ENTRY_CAMERA_Y);
+        assert_eq!(trace.camera_y_pos, OPENING_ENTRY_CAMERA_Y_FP);
     }
 
     #[test]
     fn activates_visible_platforms_in_level_window() {
         let mut runtime = NativeRuntime::new(manifest());
-        for _ in 0..360 {
-            runtime.step_frame(FrameInput::default());
-        }
-        for _ in 0..5 {
-            runtime.step_frame(FrameInput {
-                start: true,
-                ..FrameInput::default()
-            });
-            runtime.step_frame(FrameInput::default());
-        }
-        runtime.step_frame(FrameInput {
-            start: true,
-            ..FrameInput::default()
-        });
-        for _ in 0..60 {
-            runtime.step_frame(FrameInput::default());
-        }
+        start_level(&mut runtime);
         let trace = runtime.trace_frame();
         let platforms = trace
             .active_objects
@@ -711,6 +945,52 @@ mod tests {
         assert_eq!(platforms.len(), 1);
         assert_eq!(platforms[0].x_pos, 0x0100_0000);
         assert_eq!(platforms[0].y_pos, 0x00E0_0000);
+    }
+
+    #[test]
+    fn resolves_slot_encoded_enemy_ids() {
+        let layout = EnemyLayout {
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0xFFFF, 0x0001, 0x401C],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 2,
+            objects: vec![
+                kid_data::EnemyLayoutObject {
+                    object_type: 0x81,
+                    flags: 0,
+                    hit_points_plus_one: 1,
+                    x: 0x0120,
+                    y: 0x00E0,
+                },
+                kid_data::EnemyLayoutObject {
+                    object_type: 0x82,
+                    flags: 0,
+                    hit_points_plus_one: 1,
+                    x: 0x0180,
+                    y: 0x0100,
+                },
+            ],
+        };
+        let roster = build_enemy_roster(
+            &layout,
+            ActivationWindow {
+                x_min: 0,
+                x_max: 0x0200,
+                y_min: 0,
+                y_max: 0x0200,
+            },
+        );
+
+        assert_eq!(roster.len(), 2);
+        assert_eq!(
+            roster[0].kind,
+            NativeObjectKind::Enemy { object_type: 0x01 }
+        );
+        assert_eq!(
+            roster[1].kind,
+            NativeObjectKind::Enemy { object_type: 0x1C }
+        );
     }
 
     #[test]
@@ -733,8 +1013,8 @@ mod tests {
             runtime.step_frame(input);
         }
         let trace = runtime.trace_frame();
-        assert_eq!(trace.camera_x_pos, MOVE_END_CAMERA_X);
-        assert_eq!(trace.camera_y_pos, LEVEL_SETTLED_CAMERA_Y);
+        assert_eq!(trace.camera_x_pos, OPENING_SCROLL_LIMIT_X_FP);
+        assert_eq!(trace.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
         assert_eq!(trace.active_enemy_object_count, 1);
         assert_eq!(trace.active_platform_object_count, 0);
         assert_eq!(trace.active_objects.len(), 2);
@@ -745,8 +1025,8 @@ mod tests {
         );
         assert_eq!(
             trace.kid_x_pos,
-            Some(MOVE_END_CAMERA_X + FOLLOW_CAMERA_KID_X_OFFSET)
+            Some(OPENING_SCROLL_LIMIT_X_FP + OPENING_CAMERA_LEAD_X_FP)
         );
-        assert_eq!(trace.kid_y_pos, Some(LEVEL_SETTLED_KID_Y_POS));
+        assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
     }
 }

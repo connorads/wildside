@@ -6,15 +6,15 @@ This dossier covers the first vertical slice: boot to title, title to level load
 
 ## Local files to open first
 
-- `.cache/upstream/kid-chameleon-disasm/kid.asm`
-- `.cache/upstream/kid-chameleon-disasm/doc/formats.txt`
-- `.cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt`
-- `.cache/upstream/kid-chameleon-disasm/variables.asm`
-- `.cache/upstream/kid-chameleon-disasm/constants.asm`
-- `.cache/upstream/kid-chameleon-disasm/level/header/00.bin`
-- `.cache/upstream/kid-chameleon-disasm/level/enemy/00.bin`
-- `.cache/upstream/kid-chameleon-disasm/level/platform/00.asm`
-- `.cache/upstream/kid-chameleon-disasm/code/enemy/` for the first active enemy modules
+- .cache/upstream/kid-chameleon-disasm/kid.asm
+- .cache/upstream/kid-chameleon-disasm/doc/formats.txt
+- .cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt
+- .cache/upstream/kid-chameleon-disasm/variables.asm
+- .cache/upstream/kid-chameleon-disasm/constants.asm
+- .cache/upstream/kid-chameleon-disasm/level/header/00.bin
+- .cache/upstream/kid-chameleon-disasm/level/enemy/00.bin
+- .cache/upstream/kid-chameleon-disasm/level/platform/00.asm
+- .cache/upstream/kid-chameleon-disasm/code/enemy/ for the first active enemy modules
 
 ## Useful commands
 
@@ -53,9 +53,10 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 - active object roster with player, enemies, and platforms
 - first enemy family behaviour modules
 
-## Next level-1 research tasks
+## Level-1 closure notes
 
-1. Identify the exact enemy families visible in the first movement slice and map them to `code/enemy/*.asm`.
-2. Trace the platform manager routines that consume `level/platform/00.asm`.
-3. Replace the remaining scripted camera/player heuristics with recovered movement logic.
-4. Record the first collision and terrain rules needed for the opening walk segment.
+- The opening walk now uses explicit native player, camera, terrain, and platform-loader state in `kid-core`; the Level 1 slice no longer depends on the old scripted movement helper.
+- The opening terrain rule represented natively for this slice is a flat floor clamp at the recovered grounded Y used by the oracle-backed walk segment.
+- The visible Level 1 enemy-family mapping represented natively for the opening slice is `Diamond` plus slot-decoded support for `MiniHoppingSkull`.
+- The Level 1 platform path is represented natively as preload plus activation-window logic over the parsed `level/platform/00.asm` placements.
+- There are no remaining open Level 1 research tasks in this dossier for the opening slice milestone.
