@@ -12,6 +12,7 @@ after each iteration and it's included in prompts for context.
 - **Flat floor fallback**: Without a `block_grid`, `apply_floor_collision` uses a fixed `terrain.floor_y_pos`. Tests needing pit/gap behaviour must set a block grid with empty cells.
 - **Fixed-point 16.16**: All positions are `u32` with upper 16 bits = pixels. `>> 16` to get pixel value, `<< 16` to convert pixels to FP.
 - **Opening animation**: First 260 frames (`OPENING_SCROLL_START_FRAME`) after level start run entry animation, not player-controlled physics. Tests that need physics must advance past this.
+- **Flag collision / level completion**: `Alive` → `LevelComplete` (120 frames, input frozen) → `advance_level()` → `Respawning`. `player_touches_flag()` uses a 16x16 hit region around the flag position from `LevelHeader`. The `level_complete` bool on `NativeTraceFrame` signals renderers to display "LEVEL COMPLETE".
 
 ---
 
@@ -37,5 +38,20 @@ after each iteration and it's included in prompts for context.
   - Spikes must be in `is_solid_floor()` so `probe_floor` detects them as ground — otherwise the player falls through
   - Tests with hazard floors at spawn point conflict with `start_level()` which runs ~430 frames of gameplay — need solid floor at spawn and hazard offset to the side
   - `on_spikes` flag on `PlayerState` follows the same pattern as `on_ground` — set during collision, checked during the refresh step
+---
+
+## 2026-03-09 - US-003
+- Implemented flag collision and level completion trigger
+- Added `LevelComplete` variant to `PlayerLifecycle` with 120-frame pause
+- Added `player_touches_flag()` — compares player position to `LevelHeader.flag_x/flag_y` using 16x16 hit region (8px half-size in fixed-point)
+- Flag check runs in `refresh_opening_slice()` after spike/pit death checks, before damage checks
+- On flag touch: lifecycle transitions to `LevelComplete`, freezing input; after countdown, `advance_level()` loads the next level
+- Added `level_complete` bool to `NativeTraceFrame` for renderer display
+- Three tests: flag touch triggers completion, input frozen then level advances, flag miss does not trigger
+- Files changed: `crates/kid-core/src/lib.rs`, `crates/kidcli/src/native_player.rs`
+- **Learnings:**
+  - Entry animation (260 frames after level start) overrides player position — tests that inject player position must advance past it first
+  - Floor grid row must align with the flag's y position for floor collision to keep the player at the right height (flag_y=768px → floor at row 48)
+  - `PlayerLifecycle` additions need updates in: the lifecycle match in `refresh_opening_slice`, the roster refresh match, and `NativeTraceFrame` construction
 ---
 

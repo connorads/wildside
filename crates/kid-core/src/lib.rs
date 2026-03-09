@@ -26,6 +26,8 @@ const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 80;
 const PLAYER_RESPAWN_SETTLE_FRAMES: usize = 401;
 const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
+const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
+const LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120; // brief pause before advancing
 const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
 const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
@@ -181,6 +183,7 @@ pub struct NativeTraceFrame {
     pub camera_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
+    pub level_complete: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -234,6 +237,7 @@ enum PlayerLifecycle {
     DeathWindup { remaining_frames: usize },
     Dying { remaining_frames: usize },
     Respawning { remaining_frames: usize },
+    LevelComplete { remaining_frames: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -433,6 +437,7 @@ impl NativeRuntime {
             camera_y_pos: camera_state.y_pos,
             number_objects,
             number_gfx_objects,
+            level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
         }
     }
 
@@ -594,6 +599,16 @@ impl NativeRuntime {
                 }
                 return;
             }
+            PlayerLifecycle::LevelComplete { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::LevelComplete {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    self.advance_level();
+                }
+                return;
+            }
         }
 
         if self.paused {
@@ -620,6 +635,15 @@ impl NativeRuntime {
             self.opening_slice = Some(slice);
             self.number_hitpoints = 0;
             self.begin_death_windup();
+            return;
+        }
+
+        // Flag collision: touching the flag completes the level
+        if self.player_touches_flag(&slice) {
+            self.opening_slice = Some(slice);
+            self.player_lifecycle = PlayerLifecycle::LevelComplete {
+                remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
+            };
             return;
         }
 
@@ -654,6 +678,7 @@ impl NativeRuntime {
             PlayerLifecycle::Alive
                 | PlayerLifecycle::DeathWindup { .. }
                 | PlayerLifecycle::Respawning { .. }
+                | PlayerLifecycle::LevelComplete { .. }
         ) {
             return;
         }
@@ -735,6 +760,18 @@ impl NativeRuntime {
     fn fell_below_level(&self, slice: &OpeningSliceState) -> bool {
         let player_y_px = slice.player.y_pos >> 16;
         player_y_px > u32::from(slice.level_bounds.height_pixels)
+    }
+
+    fn player_touches_flag(&self, slice: &OpeningSliceState) -> bool {
+        let Some(header) = self.level_header(self.current_level) else {
+            return false;
+        };
+        let flag_x_fp = u32::from(header.flag_x) << 16;
+        let flag_y_fp = u32::from(header.flag_y) << 16;
+        let half_fp = FLAG_HIT_HALF_SIZE << 16;
+        let dx = slice.player.x_pos.abs_diff(flag_x_fp);
+        let dy = slice.player.y_pos.abs_diff(flag_y_fp);
+        dx <= half_fp && dy <= half_fp
     }
 
     fn should_apply_level_one_late_hazard(&self, slice: &OpeningSliceState) -> bool {
@@ -1935,5 +1972,135 @@ mod tests {
             runtime.player_lifecycle
         );
         assert_eq!(runtime.number_hitpoints, 0, "spike death zeroes HP regardless");
+    }
+
+    /// Helper: build a block grid with solid floor at a given row everywhere.
+    fn grid_with_floor_at_row(floor_row: u16) -> terrain::BlockGrid {
+        let width_cells = 6u16 * 20;
+        let height_cells = 4u16 * 14;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for col in 0..width_cells {
+            let offset =
+                (usize::from(floor_row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0x60; // collision=6 (Solid)
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    #[test]
+    fn flag_touch_triggers_level_complete() {
+        let mut runtime = NativeRuntime::new(manifest());
+        // Flag at (0x0750, 0x0300) = (1872, 768)px. Floor at row 48 = 768px surface.
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        // Advance past entry animation so physics are active
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Place player directly on the flag position
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
+            "expected LevelComplete, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        let trace = runtime.trace_frame();
+        assert!(trace.level_complete, "trace should report level_complete");
+    }
+
+    #[test]
+    fn level_complete_freezes_input_then_advances() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        // Advance past entry animation
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(runtime.current_level, LevelId(0));
+
+        // Place player on flag
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        // Trigger flag touch
+        runtime.step_frame(FrameInput::default());
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ));
+
+        // Record player position — input during LevelComplete should be ignored
+        let pos_at_complete = runtime.opening_slice.unwrap().player.x_pos;
+        for _ in 0..10 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+        // Player should not have moved (input frozen)
+        assert_eq!(
+            runtime.opening_slice.unwrap().player.x_pos,
+            pos_at_complete,
+            "input should be frozen during LevelComplete"
+        );
+
+        // Still on level 0 during pause
+        assert_eq!(runtime.current_level, LevelId(0));
+
+        // Advance through remaining LevelComplete frames
+        for _ in 0..LEVEL_COMPLETE_PAUSE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Should have advanced to next level
+        assert_eq!(runtime.current_level, LevelId(1), "should advance to next level");
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "expected Respawning after level advance, got {:?}",
+            runtime.player_lifecycle
+        );
+    }
+
+    #[test]
+    fn flag_miss_does_not_trigger_completion() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        // Advance past entry animation
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Place player far from flag (with floor at row 16 = 256px for this position)
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0100_0000;
+            slice.player.y_pos = 0x0300_0000; // same y as flag but x far away
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "player should remain Alive when not touching flag"
+        );
+        assert!(!runtime.trace_frame().level_complete);
     }
 }

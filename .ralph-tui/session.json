@@ -3,10 +3,10 @@
   "sessionId": "2cf19ce6-326f-4678-a809-c1b4202f1c3a",
   "status": "running",
   "startedAt": "2026-03-09T22:19:24.560Z",
-  "updatedAt": "2026-03-09T22:23:35.959Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-03-09T22:29:21.095Z",
+  "currentIteration": 2,
   "maxIterations": 40,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -23,8 +23,8 @@
       {
         "id": "US-002",
         "title": "Spike death trigger",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-003",
@@ -86,12 +86,22 @@
       "durationMs": 229977,
       "startedAt": "2026-03-09T22:19:44.884Z",
       "endedAt": "2026-03-09T22:23:34.861Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "US-002",
+      "taskTitle": "Spike death trigger",
+      "taskCompleted": true,
+      "durationMs": 344047,
+      "startedAt": "2026-03-09T22:23:35.949Z",
+      "endedAt": "2026-03-09T22:29:19.996Z"
     }
   ],
   "skippedTaskIds": [],
   "cwd": "/home/connor/git/kc",
   "activeTaskIds": [
-    "US-002"
+    "US-003"
   ],
   "subagentPanelVisible": false
 }

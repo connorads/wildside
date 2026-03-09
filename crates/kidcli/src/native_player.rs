@@ -733,6 +733,7 @@ mod tests {
             camera_y_pos: 0x0008_0000,
             number_objects: 3,
             number_gfx_objects: 4,
+            level_complete: false,
         }
     }
 
