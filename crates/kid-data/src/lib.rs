@@ -62,6 +62,7 @@ pub struct LevelAssetBundle {
     pub header: Option<LoadedAsset>,
     pub parsed_header: Option<LevelHeader>,
     pub enemy: Option<LoadedAsset>,
+    pub parsed_enemy_layout: Option<EnemyLayout>,
     pub foreground: Option<LoadedAsset>,
     pub block: Option<LoadedAsset>,
     pub background: Option<LoadedAsset>,
@@ -94,6 +95,25 @@ pub struct LevelHeader {
     pub player_start_y: u16,
     pub flag_x: u16,
     pub flag_y: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnemyLayout {
+    pub unknown_prefix: u32,
+    pub enemy_type_slots: Vec<u16>,
+    pub unknown_word: u16,
+    pub header_byte: u8,
+    pub object_count: u8,
+    pub objects: Vec<EnemyLayoutObject>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnemyLayoutObject {
+    pub object_type: u8,
+    pub flags: u8,
+    pub hit_points_plus_one: u16,
+    pub x: u16,
+    pub y: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -229,6 +249,11 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .as_ref()
         .map(|asset| parse_level_header(&asset.bytes))
         .transpose()?;
+    let enemy = load_asset(manifest, level.resources.enemy.as_deref())?;
+    let parsed_enemy_layout = enemy
+        .as_ref()
+        .map(|asset| parse_enemy_layout(&asset.bytes))
+        .transpose()?;
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
@@ -236,7 +261,8 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         bgscroll: load_asset(manifest, level.resources.bgscroll.as_deref())?,
         header,
         parsed_header,
-        enemy: load_asset(manifest, level.resources.enemy.as_deref())?,
+        enemy,
+        parsed_enemy_layout,
         foreground: load_asset(manifest, level.resources.foreground.as_deref())?,
         block: load_asset(manifest, level.resources.block.as_deref())?,
         background: load_asset(manifest, level.resources.background.as_deref())?,
@@ -302,6 +328,51 @@ pub fn parse_level_header(bytes: &[u8]) -> Result<LevelHeader> {
         player_start_y: read_u16_be(bytes, 6),
         flag_x: read_u16_be(bytes, 8),
         flag_y: read_u16_be(bytes, 10),
+    })
+}
+
+pub fn parse_enemy_layout(bytes: &[u8]) -> Result<EnemyLayout> {
+    const HEADER_LEN: usize = 14;
+    const OBJECT_LEN: usize = 8;
+
+    if bytes.len() < HEADER_LEN {
+        bail!(
+            "enemy layout was {} bytes, expected at least {HEADER_LEN} bytes",
+            bytes.len()
+        );
+    }
+
+    let object_count = bytes[13];
+    let expected_len = HEADER_LEN + usize::from(object_count) * OBJECT_LEN;
+    if bytes.len() < expected_len {
+        bail!(
+            "enemy layout was {} bytes, expected at least {expected_len} bytes for {object_count} objects",
+            bytes.len()
+        );
+    }
+
+    let mut objects = Vec::with_capacity(usize::from(object_count));
+    for chunk in bytes[HEADER_LEN..expected_len].chunks_exact(OBJECT_LEN) {
+        objects.push(EnemyLayoutObject {
+            object_type: chunk[0],
+            flags: chunk[1],
+            hit_points_plus_one: read_u16_be(chunk, 2),
+            x: read_u16_be(chunk, 4),
+            y: read_u16_be(chunk, 6),
+        });
+    }
+
+    Ok(EnemyLayout {
+        unknown_prefix: read_u32_be(bytes, 0),
+        enemy_type_slots: vec![
+            read_u16_be(bytes, 4),
+            read_u16_be(bytes, 6),
+            read_u16_be(bytes, 8),
+        ],
+        unknown_word: read_u16_be(bytes, 10),
+        header_byte: bytes[12],
+        object_count,
+        objects,
     })
 }
 
@@ -384,6 +455,15 @@ fn load_asset(
 
 fn read_u16_be(bytes: &[u8], offset: usize) -> u16 {
     u16::from_be_bytes([bytes[offset], bytes[offset + 1]])
+}
+
+fn read_u32_be(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_be_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
 }
 
 fn find_enemy_source_path(manifest: &AssetManifest, symbolic_name: &str) -> Option<String> {
@@ -766,6 +846,33 @@ mod tests {
     }
 
     #[test]
+    fn parses_enemy_layout_header_and_objects() {
+        let layout = parse_enemy_layout(&[
+            0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x01, 0x40, 0x1C, 0x7D, 0x00, 0x80, 0x02,
+            0x80, 0x16, 0x00, 0x01, 0x01, 0x20, 0x00, 0xE0, 0x81, 0xFF, 0x00, 0x02, 0x03, 0x40,
+            0x02, 0x00,
+        ])
+        .expect("enemy layout should parse");
+
+        assert_eq!(layout.unknown_prefix, 0x0000_0000);
+        assert_eq!(layout.enemy_type_slots, vec![0xFFFF, 0x0001, 0x401C]);
+        assert_eq!(layout.unknown_word, 0x7D00);
+        assert_eq!(layout.header_byte, 0x80);
+        assert_eq!(layout.object_count, 0x02);
+        assert_eq!(layout.objects.len(), 2);
+        assert_eq!(layout.objects[0].object_type, 0x80);
+        assert_eq!(layout.objects[0].flags, 0x16);
+        assert_eq!(layout.objects[0].hit_points_plus_one, 0x0001);
+        assert_eq!(layout.objects[0].x, 0x0120);
+        assert_eq!(layout.objects[0].y, 0x00E0);
+        assert_eq!(layout.objects[1].object_type, 0x81);
+        assert_eq!(layout.objects[1].flags, 0xFF);
+        assert_eq!(layout.objects[1].hit_points_plus_one, 0x0002);
+        assert_eq!(layout.objects[1].x, 0x0340);
+        assert_eq!(layout.objects[1].y, 0x0200);
+    }
+
+    #[test]
     fn exports_bundle_and_writes_manifest() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
@@ -778,6 +885,7 @@ mod tests {
         fs::create_dir_all(source_root.join("level/platform")).expect("platform assets dir");
         fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll assets dir");
         fs::create_dir_all(source_root.join("level/header")).expect("header assets dir");
+        fs::create_dir_all(source_root.join("level/enemy")).expect("enemy assets dir");
         fs::create_dir_all(source_root.join("scenes")).expect("scene dir");
         fs::create_dir_all(source_root.join("sound")).expect("sound dir");
         fs::create_dir_all(source_root.join("theme")).expect("theme dir");
@@ -797,13 +905,21 @@ mod tests {
         )
         .expect("header");
         fs::write(
+            source_root.join("level/enemy/00.bin"),
+            [
+                0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x01, 0x00, 0x1C, 0x7D, 0x00, 0x80, 0x01,
+                0x80, 0x16, 0x00, 0x01, 0x01, 0x20, 0x00, 0xE0,
+            ],
+        )
+        .expect("enemy");
+        fs::write(
             source_root.join("doc/level_list.txt"),
             "0x00 0x4A Blue Lake Woods 1\n",
         )
         .expect("level names");
         fs::write(
             source_root.join("level/level_files.txt"),
-            "00 platform/00.asm bgscroll/00.bin header/00.bin\n",
+            "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin\n",
         )
         .expect("level files");
         fs::write(source_root.join("constants.asm"), "Theme_Sky = 1 ; sky\n").expect("constants");
@@ -853,6 +969,21 @@ mod tests {
                 .as_ref()
                 .map(|header| header.flag_y),
             Some(0x0300)
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_enemy_layout
+                .as_ref()
+                .map(|layout| layout.object_count),
+            Some(0x01)
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_enemy_layout
+                .as_ref()
+                .and_then(|layout| layout.objects.first())
+                .map(|object| object.object_type),
+            Some(0x80)
         );
     }
 }

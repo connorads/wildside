@@ -18,6 +18,7 @@ use oracle::{
 use player::{PlayOptions, run_player};
 use scenarios::{GameplayScenario, Scenario};
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::fs::OpenOptions;
@@ -1431,6 +1432,23 @@ fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
             header.player_start_x, header.player_start_y, header.flag_x, header.flag_y
         );
     }
+    if let Some(enemy_layout) = &bundle.parsed_enemy_layout {
+        println!(
+            "enemy layout: {} objects, header 0x{:02X}, marker 0x{:04X}",
+            enemy_layout.object_count, enemy_layout.header_byte, enemy_layout.unknown_word
+        );
+        for (slot_index, slot) in enemy_layout.enemy_type_slots.iter().enumerate() {
+            println!(
+                "enemy slot {}: {}",
+                slot_index + 1,
+                describe_enemy_slot(manifest, *slot)
+            );
+        }
+        println!(
+            "enemy objects: {}",
+            summarise_enemy_object_types(&enemy_layout.objects)
+        );
+    }
     print_loaded_asset("platform", bundle.platform_script.as_ref());
     print_loaded_asset("bgscroll", bundle.bgscroll.as_ref());
     print_loaded_asset("header", bundle.header.as_ref());
@@ -1450,6 +1468,43 @@ fn print_loaded_asset(label: &str, asset: Option<&kid_data::LoadedAsset>) {
         ),
         None => println!("{label}: <none>"),
     }
+}
+
+fn describe_enemy_slot(manifest: &AssetManifest, raw_slot: u16) -> String {
+    if raw_slot == 0xFFFF {
+        return String::from("blank");
+    }
+
+    let palette_flags = raw_slot >> 14;
+    let slot_id = raw_slot & 0x3FFF;
+    let enemy_name = u8::try_from(slot_id)
+        .ok()
+        .and_then(|enemy_id| find_enemy_definition(manifest, &format!("{enemy_id:02X}")))
+        .map(|definition| definition.symbolic_name);
+
+    match enemy_name {
+        Some(enemy_name) => format!(
+            "0x{raw_slot:04X} -> {enemy_name} (kind 0x{slot_id:02X}, palette {palette_flags})"
+        ),
+        None => format!("0x{raw_slot:04X} (kind 0x{slot_id:04X}, palette {palette_flags})"),
+    }
+}
+
+fn summarise_enemy_object_types(objects: &[kid_data::EnemyLayoutObject]) -> String {
+    if objects.is_empty() {
+        return String::from("<none>");
+    }
+
+    let mut counts = BTreeMap::new();
+    for object in objects {
+        *counts.entry(object.object_type).or_insert(0usize) += 1;
+    }
+
+    counts
+        .into_iter()
+        .map(|(object_type, count)| format!("0x{object_type:02X}x{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn parse_level_id(value: &str) -> Result<u8> {
