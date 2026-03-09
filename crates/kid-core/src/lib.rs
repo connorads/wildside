@@ -33,6 +33,14 @@ const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
 const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
+// Pacer enemy (MiniHoppingSkull) constants.
+// Speed: ~1 px/frame in fixed-point 16.16.
+const PACER_WALK_SPEED_FP: i32 = 0x0001_0000;
+// Enemy half-width for terrain probes (8px, matching the 16px sprite).
+const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
+// Enemy height for terrain probes (16px).
+const ENEMY_PROBE_HEIGHT: i32 = 16;
+
 // Player collision hitbox for "The Kid" (form 0).
 // From ASM hitbox data: dc.w -$5, $A, -$1F, $1F
 // x_offset=-5, x_size=10, y_offset=-31, y_size=31
@@ -218,6 +226,7 @@ pub struct NativeRuntime {
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
+    active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     block_grid: Option<terrain::BlockGrid>,
 }
@@ -296,6 +305,22 @@ enum EnemyFamily {
     Unknown(u8),
 }
 
+/// Persistent per-enemy state that survives across frames.
+/// Enemies are activated when they enter the camera window and
+/// deactivated when they leave.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ActiveEnemy {
+    /// Index into the level's enemy layout objects list.
+    layout_index: usize,
+    family: EnemyFamily,
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+    facing: Direction,
+    on_ground: bool,
+}
+
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
         Self {
@@ -315,6 +340,7 @@ impl NativeRuntime {
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
             active_enemy_roster: Vec::new(),
+            active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
             block_grid: None,
         }
@@ -383,8 +409,8 @@ impl NativeRuntime {
             BootState::InGame => {}
         }
 
-        self.refresh_opening_slice(input);
         self.refresh_active_roster();
+        self.refresh_opening_slice(input);
 
         let trace = self.trace_frame();
         self.previous_input = input;
@@ -686,7 +712,19 @@ impl NativeRuntime {
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
         if let Some(enemy_layout) = enemy_layout.as_ref() {
-            self.active_enemy_roster = build_enemy_roster(enemy_layout, window);
+            activate_enemies(&mut self.active_enemies, enemy_layout, window);
+            step_active_enemies(&mut self.active_enemies, self.block_grid.as_ref());
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(|e| NativeObjectSnapshot {
+                    kind: NativeObjectKind::Enemy {
+                        object_type: e.family.object_type(),
+                    },
+                    x_pos: e.x_pos,
+                    y_pos: e.y_pos,
+                })
+                .collect();
         }
         if let Some(platform_layout) = platform_layout.as_ref() {
             let mut objects = slice.objects;
@@ -746,11 +784,7 @@ impl NativeRuntime {
             return false;
         }
 
-        let Some(enemy_layout) = self.enemy_layout(self.current_level) else {
-            return false;
-        };
-        let window = ActivationWindow::from_camera(slice.camera);
-        build_enemy_roster(enemy_layout, window)
+        self.active_enemy_roster
             .iter()
             .any(|enemy| player_touches_enemy(slice.player, enemy))
     }
@@ -824,6 +858,7 @@ impl NativeRuntime {
         self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
         self.number_lives = self.number_lives.saturating_sub(1);
         self.active_enemy_roster.clear();
+        self.active_enemies.clear();
         self.active_platform_roster.clear();
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
@@ -836,6 +871,7 @@ impl NativeRuntime {
         self.level_start_frame = Some(self.frame_index);
         self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(self.current_level)));
         self.active_enemy_roster.clear();
+        self.active_enemies.clear();
         self.active_platform_roster.clear();
         self.invulnerable_frames = 0;
         self.player_lifecycle = PlayerLifecycle::Respawning {
@@ -1206,6 +1242,7 @@ impl EnemyFamily {
         }
     }
 
+    #[cfg(test)]
     fn snapshot(
         self,
         object: &EnemyLayoutObject,
@@ -1226,6 +1263,7 @@ impl EnemyFamily {
     }
 }
 
+#[cfg(test)]
 fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<NativeObjectSnapshot> {
     layout
         .objects
@@ -1234,6 +1272,146 @@ fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<Nat
             EnemyFamily::from_layout_object(layout, object).snapshot(object, window)
         })
         .collect()
+}
+
+/// Activate enemies that enter the camera window and deactivate those that leave.
+/// Newly activated enemies start at their layout position.
+fn activate_enemies(
+    active: &mut Vec<ActiveEnemy>,
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+) {
+    // Remove enemies that left the window (use layout position for deactivation,
+    // matching the original game's activation/deactivation by spawn point).
+    active.retain(|enemy| {
+        let obj = &layout.objects[enemy.layout_index];
+        window.contains(u32::from(obj.x), u32::from(obj.y))
+    });
+
+    // Activate new enemies that entered the window.
+    for (index, object) in layout.objects.iter().enumerate() {
+        let object_x = u32::from(object.x);
+        let object_y = u32::from(object.y);
+        if !window.contains(object_x, object_y) {
+            continue;
+        }
+        if active.iter().any(|e| e.layout_index == index) {
+            continue;
+        }
+        let family = EnemyFamily::from_layout_object(layout, object);
+        active.push(ActiveEnemy {
+            layout_index: index,
+            family,
+            x_pos: object_x << 16,
+            y_pos: object_y << 16,
+            x_velocity: match family {
+                EnemyFamily::MiniHoppingSkull => -PACER_WALK_SPEED_FP,
+                _ => 0,
+            },
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+        });
+    }
+}
+
+/// Step all active enemies: apply movement, gravity, and terrain collision.
+fn step_active_enemies(
+    active: &mut [ActiveEnemy],
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    for enemy in active.iter_mut() {
+        if enemy.family == EnemyFamily::MiniHoppingSkull {
+            step_pacer(enemy, block_grid);
+        }
+    }
+}
+
+/// Pacer movement: walk horizontally, apply gravity, reverse on wall or edge.
+fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply gravity.
+    enemy.y_velocity = (enemy.y_velocity + physics::GRAVITY_NORMAL)
+        .min(physics::MAX_FALL_SPEED);
+
+    // Apply horizontal velocity.
+    let new_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.x_pos = new_x;
+
+    // Apply vertical velocity.
+    let new_y = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_pos = new_y;
+
+    let Some(grid) = block_grid else {
+        return;
+    };
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity > 0;
+
+    // Floor collision: land on terrain.
+    let floor = terrain::probe_floor(grid, cx, cy);
+    if floor.on_ground {
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if enemy.y_pos >= floor_y_fp {
+            enemy.y_pos = floor_y_fp;
+            enemy.y_velocity = 0;
+            enemy.on_ground = true;
+        }
+    } else {
+        enemy.on_ground = false;
+    }
+
+    // Wall collision: reverse direction on hitting a wall.
+    if enemy.on_ground {
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = if enemy.x_velocity > 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+            // Push out of wall.
+            if moving_right {
+                let wall_fp = (wall.wall_x_px as u32) << 16;
+                let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                if enemy.x_pos + edge_fp > wall_fp {
+                    enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+                }
+            } else {
+                let wall_fp = (wall.wall_x_px as u32) << 16;
+                let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                if enemy.x_pos < wall_fp + edge_fp {
+                    enemy.x_pos = wall_fp + edge_fp;
+                }
+            }
+        }
+
+        // Edge detection: reverse direction when the floor disappears
+        // ahead of the leading foot.
+        let look_ahead_x = if moving_right {
+            cx + ENEMY_PROBE_HALF_WIDTH
+        } else {
+            cx - ENEMY_PROBE_HALF_WIDTH
+        };
+        let edge_probe = terrain::probe_floor(grid, look_ahead_x, cy);
+        if !edge_probe.on_ground {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = if enemy.x_velocity > 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+        }
+    }
 }
 
 fn resolved_enemy_id(layout: &EnemyLayout, object_type: u8) -> Option<u8> {
@@ -2254,5 +2432,219 @@ mod tests {
             .iter()
             .any(|obj| matches!(obj.kind, NativeObjectKind::Enemy { object_type: 0x01 }));
         assert!(diamond_present, "Diamond enemy should remain alive after damaging player");
+    }
+
+    // -----------------------------------------------------------------------
+    // US-005: Pacer enemy movement (MiniHoppingSkull)
+    // -----------------------------------------------------------------------
+
+    /// Build a grid with a floor platform from col start..end at the given row,
+    /// plus a wall at the right end. Used for pacer movement tests.
+    fn grid_with_platform(floor_row: u16, floor_start_col: u16, floor_end_col: u16) -> terrain::BlockGrid {
+        let width_cells = 6u16 * 20; // 120 cells
+        let height_cells = 4u16 * 14; // 56 cells
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset =
+                (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0x60; // collision=6 (Solid)
+        };
+        // Floor platform
+        for col in floor_start_col..floor_end_col {
+            set_solid(&mut data, col, floor_row);
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    /// Build a grid with a floor platform and a wall blocking movement.
+    fn grid_with_wall(floor_row: u16, floor_start_col: u16, floor_end_col: u16, wall_col: u16) -> terrain::BlockGrid {
+        let width_cells = 6u16 * 20;
+        let height_cells = 4u16 * 14;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset =
+                (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        for col in floor_start_col..floor_end_col {
+            set_solid(&mut data, col, floor_row);
+        }
+        // Wall: solid cells above the floor at wall_col
+        for row in floor_row.saturating_sub(3)..floor_row {
+            set_solid(&mut data, wall_col, row);
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    /// Manifest with a single MiniHoppingSkull close to the player spawn
+    /// so it activates immediately without needing to scroll the camera.
+    fn manifest_with_nearby_skull() -> AssetManifest {
+        let mut m = manifest();
+        // Replace enemy layout with just one skull near the spawn point.
+        // Spawn is at x=32px. Place skull at (96, 224)px — within the
+        // initial activation window (camera 0, window x: 0..384, y: 0..288).
+        if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
+            enemy.objects = vec![kid_data::EnemyLayoutObject {
+                object_type: 0x1C, // MiniHoppingSkull
+                flags: 0,
+                hit_points_plus_one: 1,
+                x: 96,
+                y: 224,
+            }];
+            enemy.object_count = 1;
+        }
+        m
+    }
+
+    #[test]
+    fn pacer_falls_and_lands_on_terrain() {
+        // Skull at (96, 224)px. Floor at row 17 = 272px.
+        // Skull spawns above floor and should fall down to it.
+        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+
+        // Advance enough frames for gravity to pull skull down
+        for _ in 0..60 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let skull = runtime
+            .active_enemies
+            .iter()
+            .find(|e| e.family == EnemyFamily::MiniHoppingSkull);
+        assert!(skull.is_some(), "MiniHoppingSkull should be activated");
+        let skull = skull.unwrap();
+        assert!(skull.on_ground, "Pacer should have landed on the floor");
+        let floor_y_fp = 272u32 << 16;
+        assert_eq!(skull.y_pos, floor_y_fp, "Pacer should be on floor surface");
+    }
+
+    #[test]
+    fn pacer_walks_horizontally() {
+        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+
+        // Let skull land
+        for _ in 0..60 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let initial_x = runtime
+            .active_enemies
+            .iter()
+            .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
+            .map(|e| e.x_pos);
+        assert!(initial_x.is_some(), "skull should be active");
+
+        // Step more frames and check movement
+        for _ in 0..10 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let new_x = runtime
+            .active_enemies
+            .iter()
+            .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
+            .map(|e| e.x_pos);
+        assert!(new_x.is_some(), "skull should still be active");
+        assert_ne!(
+            initial_x.unwrap(),
+            new_x.unwrap(),
+            "Pacer should have moved horizontally"
+        );
+    }
+
+    #[test]
+    fn pacer_reverses_at_platform_edge() {
+        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
+        // Skull at x=96px (col 6). Narrow platform from col 3..10.
+        runtime.set_block_grid(grid_with_platform(17, 3, 10));
+        start_level(&mut runtime);
+
+        // Let skull land and walk
+        for _ in 0..100 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Skull walks left (default). It should reverse at the edge.
+        let mut ever_walked_right = false;
+        for _ in 0..200 {
+            runtime.step_frame(FrameInput::default());
+            if let Some(skull) = runtime
+                .active_enemies
+                .iter()
+                .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
+            {
+                if skull.x_velocity > 0 {
+                    ever_walked_right = true;
+                    break;
+                }
+            }
+        }
+        assert!(
+            ever_walked_right,
+            "Pacer should reverse direction at platform edge"
+        );
+    }
+
+    #[test]
+    fn pacer_reverses_on_wall_collision() {
+        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
+        // Skull at x=96 (col 6). Wall at col 4. Floor from col 0..20.
+        runtime.set_block_grid(grid_with_wall(17, 0, 20, 4));
+        start_level(&mut runtime);
+
+        // Let skull land and walk toward wall
+        for _ in 0..100 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let mut ever_walked_right = false;
+        for _ in 0..200 {
+            runtime.step_frame(FrameInput::default());
+            if let Some(skull) = runtime
+                .active_enemies
+                .iter()
+                .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
+            {
+                if skull.x_velocity > 0 {
+                    ever_walked_right = true;
+                    break;
+                }
+            }
+        }
+        assert!(
+            ever_walked_right,
+            "Pacer should reverse direction on wall hit"
+        );
+    }
+
+    #[test]
+    fn pacer_does_not_walk_through_walls() {
+        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
+        // Wall at col 4 (64px), skull starts at 96px walking left.
+        runtime.set_block_grid(grid_with_wall(17, 0, 20, 4));
+        start_level(&mut runtime);
+
+        let wall_right_edge_px = (4 + 1) * 16; // 80px
+        let wall_limit_fp = ((wall_right_edge_px + ENEMY_PROBE_HALF_WIDTH) as u32) << 16;
+
+        for _ in 0..300 {
+            runtime.step_frame(FrameInput::default());
+            if let Some(skull) = runtime
+                .active_enemies
+                .iter()
+                .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
+            {
+                assert!(
+                    skull.x_pos >= wall_limit_fp.saturating_sub(0x0002_0000),
+                    "Pacer should not walk through wall. x_pos={:#010X}, wall_limit={:#010X}",
+                    skull.x_pos,
+                    wall_limit_fp,
+                );
+            }
+        }
     }
 }

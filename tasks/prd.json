@@ -96,10 +96,11 @@
         "enemy",
         "movement"
       ],
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-004"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-006",
@@ -194,6 +195,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-03-09T22:46:32.057Z"
+    "updatedAt": "2026-03-09T22:55:21.454Z"
   }
 }
