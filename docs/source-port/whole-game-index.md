@@ -1,34 +1,44 @@
 # Whole-Game Index
 
-This is the lighter map after level 1. Each area should eventually grow into its own dossier when implementation reaches it.
+Lighter map for content beyond the current focus. Each area grows into its own dossier when implementation reaches it. See `research-map.md` for the active acceleration strategy.
+
+## Enemy families (28 total, 12,355 lines ASM)
+
+Strategy: progressive fidelity (stub -> archetype -> full AI). See `research-map.md` Track 3.
+
+| Priority | Families | ASM lines | Archetype |
+|----------|----------|-----------|-----------|
+| Tier 1 | Diamond, Goat, Armadillo, Tank, Crab, Scorpion, Driller | 160-260 | Pacer/Stationary |
+| Tier 2 | Mini_Hopping_Skull, Big_Hopping_Skull, Cloud, Archer, Sphere, Emo_Rock, Fireball | 220-500 | Hopper/Flyer/Stationary |
+| Tier 3 | Ninja, Dragon, Orca, Hand, Robot, Spinning_Twins, Tar_Monster | 275-500 | Complex |
+| Tier 4 | Dragon_Flying, Lion, UFO, Drips, Fire_Demon | 280-1300 | Very complex |
+
+Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 
 ## Player forms
-- Done: speed table infrastructure for all 3 form variants (Kid, Micromax, Juggernaut) x 3 terrain types (normal, ice, rubber) in `kid-core::physics`
-- Done: jump height per form from `unk_A49E` (RedStealth jumps higher)
-- Remaining: form-specific abilities, air attacks, special moves
+- Done: speed tables for all 3 form variants x 3 terrain types, jump height per form
+- Remaining: form-specific abilities (Skycutter flight, Cyclone climb, RedStealth sword, etc.)
+- Deferred until enemy system and block collision are working
 - Source: `kid.asm`, `constants.asm`, helmet-related vars
-- Rust target: form-specific move and attack behaviour
 
-## Enemy families
-- Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
-- Rust target: per-family modules and shared object hooks
-
-## Bosses
-- Source: boss enemy modules, VRAM/resource loading code, oracle scenarios to add later
-- Rust target: scripted boss state machines
-
-## Menus and cutscenes
-- Source: `scenes/`, `kid.asm` mode handlers
-- Rust target: native UI and scene controllers
+## Bosses (4 unique encounters)
+- Deferred until enemy system is mature
+- Source: boss enemy modules, VRAM/resource loading code
 
 ## Level transitions
-- Source: level-order data, completion flow in `kid.asm`, oracle long scenarios
-- Rust target: transition and progression systems
+- Active in Track 4: flag collision + level ordering for all 105 levels
+- Source: level-order data, completion flow in `kid.asm`
+
+## Menus and cutscenes
+- Boot/title done. Pause/resume done.
+- Remaining: options, game over, continue, cutscenes
+- Source: `scenes/`, `kid.asm` mode handlers
 
 ## Weather and special effects
+- Deferred until core gameplay loop is solid
 - Source: header flags, bg theme logic, special-effect vars
-- Rust target: effect state plus render/audio hooks
 
 ## Audio and GEMS
+- Deferred until gameplay is solid
+- Emulator has full FM+PSG via `kid-md` + `ymfm-sys`
 - Source: `sound/`, `doc/sound.txt`, `.cache/references/gems`, `.cache/references/gemsplay`
-- Rust target: event model first, native playback later
