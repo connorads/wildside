@@ -5,6 +5,7 @@ use kid_core::{
     terrain::{BlockGrid, BlockType, Cell, CollisionKind},
 };
 use kid_data::AssetManifest;
+use kid_render::{Palette, TileRef, TileSheet};
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
@@ -12,6 +13,7 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -24,6 +26,7 @@ const ENEMY_FLASH_COLOUR: [u8; 3] = [255, 255, 255];
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
 const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
 const SKY_COLOUR: [u8; 3] = [28, 42, 56];
+const PALETTE_LINE_COLOUR_COUNT: usize = 15;
 
 #[derive(Debug, Clone, Copy)]
 pub struct NativePlayOptions {
@@ -53,6 +56,29 @@ enum DrawCommand {
         colour: [u8; 3],
         scale: i32,
     },
+    #[allow(dead_code)]
+    IndexedTile {
+        x: i32,
+        y: i32,
+        tile_sheet: Arc<TileSheet>,
+        tile: TileRef,
+        palette: Arc<Palette>,
+    },
+    #[allow(dead_code)]
+    Sprite {
+        x: i32,
+        y: i32,
+        tile_sheet: Arc<TileSheet>,
+        palette: Arc<Palette>,
+        tiles: Vec<SpriteTile>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SpriteTile {
+    offset_x: i32,
+    offset_y: i32,
+    tile: TileRef,
 }
 
 pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
@@ -293,17 +319,17 @@ fn cell_colour(cell: &Cell) -> Option<[u8; 3]> {
     }
     if cell.has_block {
         return Some(match cell.block_type {
-            BlockType::Prize => [232, 196, 56],    // yellow
-            BlockType::Smash => [220, 148, 52],    // orange
-            BlockType::Ice => [120, 210, 230],     // cyan
-            BlockType::Rubber => [220, 130, 180],  // pink
-            BlockType::Metal => [160, 170, 180],   // steel grey
-            _ => [140, 140, 140],                  // generic block grey
+            BlockType::Prize => [232, 196, 56],   // yellow
+            BlockType::Smash => [220, 148, 52],   // orange
+            BlockType::Ice => [120, 210, 230],    // cyan
+            BlockType::Rubber => [220, 130, 180], // pink
+            BlockType::Metal => [160, 170, 180],  // steel grey
+            _ => [140, 140, 140],                 // generic block grey
         });
     }
     Some(match cell.collision {
-        CollisionKind::Solid => [90, 100, 90],     // grey
-        CollisionKind::Spikes => [200, 60, 60],    // red
+        CollisionKind::Solid => [90, 100, 90],  // grey
+        CollisionKind::Spikes => [200, 60, 60], // red
         CollisionKind::SlopeUp | CollisionKind::SlopeDown => [140, 100, 60], // brown
         CollisionKind::HiddenBlock => [80, 80, 100], // dim blue-grey
         CollisionKind::Empty => unreachable!(),
@@ -323,11 +349,11 @@ fn push_block_grid_cells(
 
     // Determine visible cell range (with 1-cell margin for partially visible cells)
     let col_start = (camera_x_px / 16).max(0) as u16;
-    let col_end = ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16)
-        .min(i32::from(grid.width_cells)) as u16;
+    let col_end =
+        ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16).min(i32::from(grid.width_cells)) as u16;
     let row_start = (camera_y_px / 16).max(0) as u16;
-    let row_end = ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16)
-        .min(i32::from(grid.height_cells)) as u16;
+    let row_end =
+        ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(grid.height_cells)) as u16;
 
     for row in row_start..row_end {
         for col in col_start..col_end {
@@ -467,8 +493,7 @@ fn build_game_scene(
         commands.push(object_rect(object, trace, 16, 16, colour));
     }
     // Player: blink every 4 frames during invulnerability
-    let player_visible =
-        trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
+    let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
     if player_visible {
         for object in trace
             .active_objects
@@ -555,6 +580,7 @@ fn screen_coord(world: u32, camera: u32) -> i32 {
 
 fn render_scene(scene: &Scene, rgb: &mut [u8]) {
     clear_frame(rgb, scene.background);
+    let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
     for command in &scene.commands {
         match command {
             DrawCommand::Rect {
@@ -563,14 +589,60 @@ fn render_scene(scene: &Scene, rgb: &mut [u8]) {
                 width,
                 height,
                 colour,
-            } => fill_rect(rgb, *x, *y, *width, *height, *colour),
+            } => fill_rect(
+                rgb,
+                &mut high_priority_pixels,
+                *x,
+                *y,
+                *width,
+                *height,
+                *colour,
+            ),
             DrawCommand::Text {
                 x,
                 y,
                 text,
                 colour,
                 scale,
-            } => draw_text(rgb, *x, *y, text, *colour, *scale),
+            } => draw_text(
+                rgb,
+                &mut high_priority_pixels,
+                *x,
+                *y,
+                text,
+                *colour,
+                *scale,
+            ),
+            DrawCommand::IndexedTile {
+                x,
+                y,
+                tile_sheet,
+                tile,
+                palette,
+            } => draw_indexed_tile(
+                rgb,
+                &mut high_priority_pixels,
+                *x,
+                *y,
+                tile_sheet,
+                *tile,
+                palette,
+            ),
+            DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            } => draw_sprite(
+                rgb,
+                &mut high_priority_pixels,
+                *x,
+                *y,
+                tile_sheet,
+                palette,
+                tiles,
+            ),
         }
     }
 }
@@ -637,7 +709,15 @@ fn text(x: i32, y: i32, value: &str, colour: [u8; 3], scale: i32) -> DrawCommand
     }
 }
 
-fn draw_text(rgb: &mut [u8], x: i32, y: i32, text: &str, colour: [u8; 3], scale: i32) {
+fn draw_text(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    text: &str,
+    colour: [u8; 3],
+    scale: i32,
+) {
     let mut cursor_x = x;
     let mut cursor_y = y;
     for ch in text.chars() {
@@ -646,12 +726,28 @@ fn draw_text(rgb: &mut [u8], x: i32, y: i32, text: &str, colour: [u8; 3], scale:
             cursor_y += 10 * scale;
             continue;
         }
-        draw_glyph(rgb, cursor_x, cursor_y, ch, colour, scale);
+        draw_glyph(
+            rgb,
+            high_priority_pixels,
+            cursor_x,
+            cursor_y,
+            ch,
+            colour,
+            scale,
+        );
         cursor_x += 8 * scale;
     }
 }
 
-fn draw_glyph(rgb: &mut [u8], x: i32, y: i32, ch: char, colour: [u8; 3], scale: i32) {
+fn draw_glyph(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    ch: char,
+    colour: [u8; 3],
+    scale: i32,
+) {
     let Some(bitmap) = BASIC_FONTS.get(ch) else {
         return;
     };
@@ -662,6 +758,7 @@ fn draw_glyph(rgb: &mut [u8], x: i32, y: i32, ch: char, colour: [u8; 3], scale: 
             }
             fill_rect(
                 rgb,
+                high_priority_pixels,
                 x + (column * scale),
                 y + ((row as i32) * scale),
                 scale,
@@ -672,13 +769,114 @@ fn draw_glyph(rgb: &mut [u8], x: i32, y: i32, ch: char, colour: [u8; 3], scale: 
     }
 }
 
-fn fill_rect(rgb: &mut [u8], x: i32, y: i32, width: i32, height: i32, colour: [u8; 3]) {
+fn fill_rect(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    colour: [u8; 3],
+) {
     for py in y.max(0)..(y + height).min(FRAME_HEIGHT as i32) {
         for px in x.max(0)..(x + width).min(FRAME_WIDTH as i32) {
-            let index = ((py as u32 * FRAME_WIDTH + px as u32) * 3) as usize;
-            rgb[index..index + 3].copy_from_slice(&colour);
+            set_pixel(rgb, high_priority_pixels, px, py, colour, None);
         }
     }
+}
+
+fn draw_sprite(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    tile_sheet: &TileSheet,
+    palette: &Palette,
+    tiles: &[SpriteTile],
+) {
+    for tile in tiles {
+        draw_indexed_tile(
+            rgb,
+            high_priority_pixels,
+            x + tile.offset_x,
+            y + tile.offset_y,
+            tile_sheet,
+            tile.tile,
+            palette,
+        );
+    }
+}
+
+fn draw_indexed_tile(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    tile_sheet: &TileSheet,
+    tile_ref: TileRef,
+    palette: &Palette,
+) {
+    let Some(tile) = tile_sheet.tiles.get(usize::from(tile_ref.tile_index)) else {
+        return;
+    };
+
+    for dest_y in 0..8 {
+        for dest_x in 0..8 {
+            let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
+            let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
+            let palette_index = tile.pixels[source_y * 8 + source_x];
+            let Some(colour) =
+                resolve_palette_colour(palette, tile_ref.palette_line, palette_index)
+            else {
+                continue;
+            };
+            set_pixel(
+                rgb,
+                high_priority_pixels,
+                x + dest_x as i32,
+                y + dest_y as i32,
+                colour,
+                Some(tile_ref.priority),
+            );
+        }
+    }
+}
+
+fn resolve_palette_colour(
+    palette: &Palette,
+    selected_palette_line: u8,
+    palette_index: u8,
+) -> Option<[u8; 3]> {
+    if palette_index == 0 {
+        return None;
+    }
+
+    let palette_offset =
+        usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);
+    palette
+        .colours
+        .get(palette_offset + usize::from(palette_index - 1))
+        .map(|colour| [colour.red, colour.green, colour.blue])
+}
+
+fn set_pixel(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    colour: [u8; 3],
+    priority: Option<bool>,
+) {
+    if !(0..FRAME_WIDTH as i32).contains(&x) || !(0..FRAME_HEIGHT as i32).contains(&y) {
+        return;
+    }
+    let pixel_index = (y as u32 * FRAME_WIDTH + x as u32) as usize;
+    if matches!(priority, Some(false)) && high_priority_pixels[pixel_index] {
+        return;
+    }
+    let rgb_index = pixel_index * 3;
+    rgb[rgb_index..rgb_index + 3].copy_from_slice(&colour);
+    high_priority_pixels[pixel_index] = matches!(priority, Some(true));
 }
 
 fn display_scale(requested: Option<u32>, usable_bounds: Rect) -> Result<u32> {
@@ -836,6 +1034,8 @@ fn on_off(value: bool) -> &'static str {
 mod tests {
     use super::*;
     use kid_core::{LevelId, NativeObjectKind};
+    use kid_render::{MdColour, Palette, Tile, TileRef, TileSheet};
+    use std::sync::Arc;
 
     fn sample_trace(mode: GameMode) -> NativeTraceFrame {
         NativeTraceFrame {
@@ -892,6 +1092,232 @@ mod tests {
         )
     }
 
+    fn pixel_at(rgb: &[u8], x: u32, y: u32) -> [u8; 3] {
+        let index = ((y * FRAME_WIDTH + x) * 3) as usize;
+        [rgb[index], rgb[index + 1], rgb[index + 2]]
+    }
+
+    fn colour(red: u8, green: u8, blue: u8) -> MdColour {
+        MdColour {
+            red,
+            green,
+            blue,
+            raw_word: 0,
+        }
+    }
+
+    fn make_tile(pixels: &[(usize, usize, u8)]) -> Tile {
+        let mut tile = Tile { pixels: [0; 64] };
+        for (x, y, value) in pixels {
+            tile.pixels[y * 8 + x] = *value;
+        }
+        tile
+    }
+
+    #[test]
+    fn render_indexed_tiles_applies_palette_and_transparency() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 1), (1, 0, 2), (2, 0, 0), (3, 0, 3)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: (0..15)
+                .map(|value| colour(value, value.saturating_add(1), value.saturating_add(2)))
+                .chain([
+                    colour(110, 120, 130),
+                    colour(140, 150, 160),
+                    colour(170, 180, 190),
+                ])
+                .collect(),
+        });
+        let scene = Scene {
+            background: [1, 2, 3],
+            commands: vec![DrawCommand::IndexedTile {
+                x: 12,
+                y: 7,
+                tile_sheet,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 1,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+                palette,
+            }],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(pixel_at(&rgb, 12, 7), [110, 120, 130]);
+        assert_eq!(pixel_at(&rgb, 13, 7), [140, 150, 160]);
+        assert_eq!(pixel_at(&rgb, 14, 7), [1, 2, 3]);
+        assert_eq!(pixel_at(&rgb, 15, 7), [170, 180, 190]);
+    }
+
+    #[test]
+    fn render_tile_command_honours_flip_and_camera_clipping() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 1), (7, 7, 2)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![colour(200, 10, 10), colour(10, 200, 10)],
+        });
+        let scene = Scene {
+            background: [3, 4, 5],
+            commands: vec![DrawCommand::IndexedTile {
+                x: FRAME_WIDTH as i32 - 1,
+                y: FRAME_HEIGHT as i32 - 1,
+                tile_sheet,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: true,
+                    flip_y: true,
+                },
+                palette,
+            }],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(
+            pixel_at(&rgb, FRAME_WIDTH - 1, FRAME_HEIGHT - 1),
+            [10, 200, 10]
+        );
+        assert!(!rgb.chunks_exact(3).any(|pixel| pixel == [200, 10, 10]));
+    }
+
+    #[test]
+    fn render_sprite_command_honours_mapping_priority_and_transparency() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![
+                make_tile(&[(0, 0, 1)]),
+                make_tile(&[(0, 0, 2)]),
+                make_tile(&[(0, 0, 4), (1, 0, 4)]),
+            ],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![
+                colour(12, 34, 56),
+                colour(78, 90, 12),
+                colour(140, 150, 160),
+                colour(210, 220, 230),
+            ],
+        });
+        let scene = Scene {
+            background: [9, 8, 7],
+            commands: vec![
+                DrawCommand::Sprite {
+                    x: 20,
+                    y: 30,
+                    tile_sheet: tile_sheet.clone(),
+                    palette: palette.clone(),
+                    tiles: vec![
+                        SpriteTile {
+                            offset_x: 0,
+                            offset_y: 0,
+                            tile: TileRef {
+                                tile_index: 1,
+                                palette_line: 0,
+                                priority: true,
+                                flip_x: false,
+                                flip_y: false,
+                            },
+                        },
+                        SpriteTile {
+                            offset_x: 0,
+                            offset_y: 0,
+                            tile: TileRef {
+                                tile_index: 0,
+                                palette_line: 0,
+                                priority: false,
+                                flip_x: false,
+                                flip_y: false,
+                            },
+                        },
+                    ],
+                },
+                DrawCommand::IndexedTile {
+                    x: 20,
+                    y: 30,
+                    tile_sheet,
+                    tile: TileRef {
+                        tile_index: 2,
+                        palette_line: 0,
+                        priority: false,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                    palette,
+                },
+            ],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(pixel_at(&rgb, 20, 30), [78, 90, 12]);
+        assert_eq!(pixel_at(&rgb, 21, 30), [210, 220, 230]);
+        assert!(!rgb.chunks_exact(3).any(|pixel| pixel == [12, 34, 56]));
+    }
+
+    #[test]
+    fn render_priority_tiles_preserve_scene_order_for_legacy_commands() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 1), (1, 0, 1)]), make_tile(&[(1, 0, 2)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![colour(200, 10, 10), colour(20, 220, 30)],
+        });
+        let scene = Scene {
+            background: [9, 8, 7],
+            commands: vec![
+                DrawCommand::IndexedTile {
+                    x: 40,
+                    y: 50,
+                    tile_sheet: tile_sheet.clone(),
+                    tile: TileRef {
+                        tile_index: 0,
+                        palette_line: 0,
+                        priority: true,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                    palette: palette.clone(),
+                },
+                DrawCommand::Rect {
+                    x: 40,
+                    y: 50,
+                    width: 2,
+                    height: 1,
+                    colour: [60, 70, 80],
+                },
+                DrawCommand::IndexedTile {
+                    x: 40,
+                    y: 50,
+                    tile_sheet,
+                    tile: TileRef {
+                        tile_index: 1,
+                        palette_line: 0,
+                        priority: false,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                    palette,
+                },
+            ],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(pixel_at(&rgb, 40, 50), [60, 70, 80]);
+        assert_eq!(pixel_at(&rgb, 41, 50), [20, 220, 30]);
+    }
+
     #[test]
     fn title_scene_stays_text_only() {
         let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None);
@@ -936,7 +1362,10 @@ mod tests {
     #[test]
     fn hud_toggle_removes_control_overlay() {
         let trace = sample_trace(GameMode::InGame);
-        assert!(contains_text(&build_scene(&trace, true, None), "Controls Arrows"));
+        assert!(contains_text(
+            &build_scene(&trace, true, None),
+            "Controls Arrows"
+        ));
         assert!(!contains_text(
             &build_scene(&trace, false, None),
             "Controls Arrows"
@@ -1017,7 +1446,11 @@ mod tests {
             matches!(cmd, DrawCommand::Rect { x, colour, .. }
                 if *colour == solid_colour && *x < -16)
         });
-        assert_eq!(offscreen_rects.count(), 0, "offscreen cells should not be drawn");
+        assert_eq!(
+            offscreen_rects.count(),
+            0,
+            "offscreen cells should not be drawn"
+        );
     }
 
     #[test]
@@ -1046,7 +1479,7 @@ mod tests {
     fn block_types_have_distinct_colours() {
         let prize = Cell::from_be_bytes(0xE1, 0); // Prize
         let smash = Cell::from_be_bytes(0xE0, 0); // Smash
-        let ice = Cell::from_be_bytes(0xE2, 0);   // Ice
+        let ice = Cell::from_be_bytes(0xE2, 0); // Ice
         let rubber = Cell::from_be_bytes(0xE6, 0); // Rubber
 
         let colours: Vec<_> = [prize, smash, ice, rubber]
@@ -1056,7 +1489,10 @@ mod tests {
         // All colours should be unique
         for i in 0..colours.len() {
             for j in (i + 1)..colours.len() {
-                assert_ne!(colours[i], colours[j], "block types at indices {i} and {j} share colour");
+                assert_ne!(
+                    colours[i], colours[j],
+                    "block types at indices {i} and {j} share colour"
+                );
             }
         }
     }
@@ -1126,16 +1562,20 @@ mod tests {
         let scene = build_scene(&trace, false, None);
 
         // HP pips: should have filled pips (red)
-        let has_filled_pip = scene.commands.iter().any(|c| {
-            matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_FILLED)
-        });
+        let has_filled_pip = scene
+            .commands
+            .iter()
+            .any(|c| matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_FILLED));
         assert!(has_filled_pip, "HUD should show filled HP pips");
 
         // Lives text
         assert!(contains_text(&scene, "x3"), "HUD should show lives count");
 
         // Diamond counter
-        assert!(contains_text(&scene, "D:7"), "HUD should show diamond count");
+        assert!(
+            contains_text(&scene, "D:7"),
+            "HUD should show diamond count"
+        );
     }
 
     #[test]
@@ -1145,9 +1585,10 @@ mod tests {
         let scene = build_scene(&trace, false, None);
 
         // Should have at least one empty pip
-        let has_empty_pip = scene.commands.iter().any(|c| {
-            matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_EMPTY)
-        });
+        let has_empty_pip = scene
+            .commands
+            .iter()
+            .any(|c| matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_EMPTY));
         assert!(has_empty_pip, "HUD should show empty HP pips after damage");
     }
 }

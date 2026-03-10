@@ -11,8 +11,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
 use kid_data::{
-    AssetManifest, export_split_bundle, find_enemy_definition, generated_bundle_dir,
-    load_level_asset_bundle, load_manifest, manifest_path as generated_manifest_path,
+    AssetManifest, ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
+    generated_bundle_dir, load_level_asset_bundle, load_manifest,
+    manifest_path as generated_manifest_path,
 };
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
@@ -2238,18 +2239,50 @@ fn prepare_generated_assets(
     rom_path: &Path,
     upstream_dir: &Path,
 ) -> Result<AssetManifest> {
+    prepare_generated_assets_with(
+        repo_root,
+        rom_path,
+        upstream_dir,
+        |path| Ok(verify_rom(path)?),
+        bootstrap_upstream,
+        sync_rom_into_upstream,
+        |dir| run_command(Command::new("python3").arg("split.py"), Some(dir)),
+        export_split_bundle,
+    )
+}
+
+fn prepare_generated_assets_with<FVerify, FBootstrap, FSync, FSplit, FExport>(
+    repo_root: &Path,
+    rom_path: &Path,
+    upstream_dir: &Path,
+    verify_rom_fn: FVerify,
+    bootstrap_upstream_fn: FBootstrap,
+    sync_rom_fn: FSync,
+    split_fn: FSplit,
+    export_bundle_fn: FExport,
+) -> Result<AssetManifest>
+where
+    FVerify: FnOnce(&Path) -> Result<VerifiedRom>,
+    FBootstrap: FnOnce(&Path) -> Result<()>,
+    FSync: FnOnce(&Path, &Path) -> Result<()>,
+    FSplit: FnOnce(&Path) -> Result<()>,
+    FExport: FnOnce(&Path, &Path, &str, &str) -> Result<AssetManifest>,
+{
     let _lock = acquire_prepare_lock(repo_root)?;
-    let verified = verify_rom(rom_path)?;
+    let verified = verify_rom_fn(rom_path)?;
     let bundle_dir = generated_bundle_dir(repo_root, &verified.sha1);
     let bundle_manifest_path = generated_manifest_path(&bundle_dir);
     if bundle_manifest_path.is_file() {
-        return load_manifest(&bundle_manifest_path);
+        let manifest = load_manifest(&bundle_manifest_path)?;
+        if ensure_generated_bundle_contract(&manifest).is_ok() {
+            return Ok(manifest);
+        }
     }
 
-    bootstrap_upstream(upstream_dir)?;
-    sync_rom_into_upstream(rom_path, upstream_dir)?;
-    run_command(Command::new("python3").arg("split.py"), Some(upstream_dir))?;
-    export_split_bundle(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)
+    bootstrap_upstream_fn(upstream_dir)?;
+    sync_rom_fn(rom_path, upstream_dir)?;
+    split_fn(upstream_dir)?;
+    export_bundle_fn(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)
 }
 
 fn acquire_prepare_lock(repo_root: &Path) -> Result<PrepareLock> {
@@ -4073,8 +4106,86 @@ fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<(
 mod tests {
     use super::{
         ReferenceName, analyse_audio_samples, audio_envelope_similarity, build_controller_script,
-        parse_button_mask, parse_input_spec, selected_reference_repos,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        selected_reference_repos,
     };
+    use kid_data::{
+        AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
+    };
+    use kid_rom::{RomHeader, RomIdentity, VerifiedRom};
+    use std::cell::Cell;
+    use std::fs;
+    use std::path::Path;
+    use tempfile::TempDir;
+
+    const SAXMAN_FIXTURE: &[u8] = &[0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
+    const ENIGMA_FIXTURE: &[u8] = &[0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE];
+
+    fn write_generated_asset_source_fixture(source_root: &Path) {
+        fs::create_dir_all(source_root.join("code/enemy")).expect("enemy dir");
+        fs::create_dir_all(source_root.join("doc")).expect("doc dir");
+        fs::create_dir_all(source_root.join("ingame/anim")).expect("anim dir");
+        fs::create_dir_all(source_root.join("level/platform")).expect("platform dir");
+        fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll dir");
+        fs::create_dir_all(source_root.join("level/header")).expect("header dir");
+        fs::create_dir_all(source_root.join("level/enemy")).expect("enemy assets dir");
+        fs::create_dir_all(source_root.join("level/foreground")).expect("foreground dir");
+        fs::create_dir_all(source_root.join("level/block")).expect("block dir");
+        fs::create_dir_all(source_root.join("level/background")).expect("background dir");
+        fs::create_dir_all(source_root.join("scenes")).expect("scene dir");
+        fs::create_dir_all(source_root.join("sound")).expect("sound dir");
+        fs::create_dir_all(source_root.join("theme")).expect("theme dir");
+
+        fs::write(source_root.join("code/enemy/Armadillo.asm"), b"enemy code").expect("enemy");
+        fs::write(source_root.join("theme/sample.bin"), b"theme").expect("theme");
+        fs::write(source_root.join("scenes/title.bin"), b"scene").expect("scene");
+        fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
+        fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
+        fs::write(
+            source_root.join("level/platform/00.asm"),
+            b"\tptfm\t0,0,0,0,0,0,0,0,0,0,PlatformScript_Nothing-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
+        )
+        .expect("platform");
+        fs::write(
+            source_root.join("level/bgscroll/00.bin"),
+            [0x10, 0x10, 0x40, 0x60, 0xFF],
+        )
+        .expect("bgscroll");
+        fs::write(
+            source_root.join("level/header/00.bin"),
+            [
+                0x06, 0x04, 0x08, 0x18, 0x07, 0x50, 0x00, 0xE0, 0x07, 0x50, 0x03, 0x00,
+            ],
+        )
+        .expect("header");
+        fs::write(
+            source_root.join("level/enemy/00.bin"),
+            [
+                0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x01, 0x00, 0x1C, 0x7D, 0x00, 0x80, 0x01,
+                0x80, 0x16, 0x00, 0x01, 0x01, 0x20, 0x00, 0xE0,
+            ],
+        )
+        .expect("enemy layout");
+        fs::write(source_root.join("level/foreground/00.bin"), SAXMAN_FIXTURE).expect("foreground");
+        fs::write(source_root.join("level/block/00.bin"), SAXMAN_FIXTURE).expect("block");
+        fs::write(source_root.join("level/background/00.bin"), ENIGMA_FIXTURE).expect("background");
+        fs::write(
+            source_root.join("doc/level_list.txt"),
+            "0x00 0x4A Blue Lake Woods 1\n",
+        )
+        .expect("level names");
+        fs::write(
+            source_root.join("level/level_files.txt"),
+            "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n",
+        )
+        .expect("level files");
+        fs::write(source_root.join("constants.asm"), "Theme_Sky = 1 ; sky\n").expect("constants");
+        fs::write(
+            source_root.join("variables.asm"),
+            "Camera_X_pos = $FFFFF81C ; long (16.16 fixed point)\n",
+        )
+        .expect("variables");
+    }
 
     #[test]
     fn parses_single_frame_input_spec() {
@@ -4176,5 +4287,77 @@ mod tests {
         assert_eq!(references.len(), 1);
         assert_eq!(references[0].dir_name, "gemsplay");
         assert_eq!(references[0].name, "gemsplay");
+    }
+
+    #[test]
+    fn prepare_generated_assets_rebuilds_when_decoded_version_missing() {
+        let repo_root = TempDir::new().expect("repo root");
+        let upstream_dir = TempDir::new().expect("upstream");
+        let rom_dir = TempDir::new().expect("rom dir");
+        let rom_path = rom_dir.path().join("kid.bin");
+        fs::write(&rom_path, b"not used").expect("rom placeholder");
+        write_generated_asset_source_fixture(upstream_dir.path());
+
+        let verified = VerifiedRom {
+            path: rom_path.clone(),
+            size: 0x200,
+            sha1: String::from("abc123"),
+            identity: RomIdentity::HeaderMatchesKidChameleon,
+            header: RomHeader {
+                console_name: String::from("SEGA MEGA DRIVE"),
+                domestic_title: String::from("KID CHAMELEON"),
+                overseas_title: String::from("KID CHAMELEON"),
+                serial: String::from("GM MK-1010"),
+                regions: String::from("JUE"),
+            },
+        };
+
+        let _manifest = export_split_bundle(
+            upstream_dir.path(),
+            repo_root.path().join(".cache/generated/abc123").as_path(),
+            "abc123",
+            "deadbeef",
+        )
+        .expect("initial export");
+        let stale_manifest_path =
+            generated_manifest_path(&repo_root.path().join(".cache/generated/abc123"));
+        let mut stale_manifest: AssetManifest =
+            load_manifest(&stale_manifest_path).expect("stale manifest should load");
+        stale_manifest.decoded_level1 = None;
+        fs::write(
+            &stale_manifest_path,
+            serde_json::to_vec_pretty(&stale_manifest).expect("json"),
+        )
+        .expect("rewrite stale manifest");
+
+        let export_calls = Cell::new(0usize);
+        let refreshed = prepare_generated_assets_with(
+            repo_root.path(),
+            &rom_path,
+            upstream_dir.path(),
+            |_| Ok(verified.clone()),
+            |_| Ok(()),
+            |_, _| Ok(()),
+            |_| Ok(()),
+            |source_root, bundle_dir, sha1, upstream_commit| {
+                export_calls.set(export_calls.get() + 1);
+                export_split_bundle(source_root, bundle_dir, sha1, upstream_commit)
+            },
+        )
+        .expect("prepare should rebuild");
+
+        assert_eq!(export_calls.get(), 1);
+        assert!(refreshed.decoded_level1.is_some());
+        let refreshed_manifest =
+            load_manifest(&stale_manifest_path).expect("refreshed manifest should load");
+        assert!(refreshed_manifest.decoded_level1.is_some());
+        let decoded = refreshed_manifest.decoded_level1.expect("decoded metadata");
+        assert!(
+            repo_root
+                .path()
+                .join(".cache/generated/abc123")
+                .join(decoded.foreground.relative_path)
+                .is_file()
+        );
     }
 }

@@ -1,23 +1,33 @@
 use anyhow::{Context, Result, anyhow, bail};
+use image::{GrayImage, Luma};
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process;
 
 const COPIED_DIRECTORIES: &[&str] = &[
     "code/enemy",
     "doc",
     "ingame/anim",
+    "ingame/artcomp",
     "level",
     "scenes",
     "sound",
     "theme",
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
+pub const GENERATED_BUNDLE_VERSION: u32 = 2;
+pub const LEVEL1_DECODED_ASSET_VERSION: u32 = 2;
+const LEVEL1_ID: u8 = 0x00;
+const LEVEL1_DECODED_OUTPUT_DIR: &str = "decoded/level/00";
+const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetManifest {
+    #[serde(default)]
+    pub generated_bundle_version: u32,
     pub rom_sha1: String,
     pub upstream_commit: String,
     pub source_root: PathBuf,
@@ -30,6 +40,27 @@ pub struct AssetManifest {
     pub scene_assets: Vec<AssetFile>,
     pub animation_assets: Vec<AssetFile>,
     pub sound_assets: Vec<AssetFile>,
+    #[serde(default)]
+    pub ingame_assets: Vec<AssetFile>,
+    #[serde(default)]
+    pub decoded_level1: Option<DecodedLevelAssets>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DecodedLevelAssets {
+    pub contract_version: u32,
+    pub level_id: u8,
+    pub foreground: DecodedAssetFile,
+    pub block: DecodedAssetFile,
+    pub background: DecodedAssetFile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DecodedAssetFile {
+    pub relative_path: String,
+    pub preview_png_path: String,
+    pub size_bytes: u64,
+    pub sha1: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -200,13 +231,25 @@ pub fn export_split_bundle(
         );
     }
 
-    if output_root.exists() {
-        fs::remove_dir_all(output_root)
-            .with_context(|| format!("failed to remove {}", output_root.display()))?;
-    }
-    fs::create_dir_all(output_root)
-        .with_context(|| format!("failed to create {}", output_root.display()))?;
+    let staging_root = create_bundle_staging_dir(output_root)?;
+    let mut manifest =
+        export_split_bundle_into(source_root, &staging_root, rom_sha1, upstream_commit)?;
+    replace_bundle_from_staging(&staging_root, output_root)?;
+    manifest.output_root = output_root.to_path_buf();
+    fs::write(
+        manifest_path(output_root),
+        serde_json::to_vec_pretty(&manifest)?,
+    )
+    .with_context(|| format!("failed to write {}", manifest_path(output_root).display()))?;
+    Ok(manifest)
+}
 
+fn export_split_bundle_into(
+    source_root: &Path,
+    output_root: &Path,
+    rom_sha1: &str,
+    upstream_commit: &str,
+) -> Result<AssetManifest> {
     for relative in COPIED_DIRECTORIES {
         copy_directory_recursive(&source_root.join(relative), &output_root.join(relative))?;
     }
@@ -248,6 +291,7 @@ pub fn export_split_bundle(
     )?;
 
     let manifest = AssetManifest {
+        generated_bundle_version: GENERATED_BUNDLE_VERSION,
         rom_sha1: rom_sha1.to_owned(),
         upstream_commit: upstream_commit.to_owned(),
         source_root: source_root.to_path_buf(),
@@ -260,9 +304,13 @@ pub fn export_split_bundle(
         scene_assets: collect_asset_files(&output_root.join("scenes"))?,
         animation_assets: collect_asset_files(&output_root.join("ingame/anim"))?,
         sound_assets: collect_asset_files(&output_root.join("sound"))?,
+        ingame_assets: collect_asset_files(&output_root.join("ingame"))?,
+        decoded_level1: None,
     };
     let mut manifest = manifest;
     normalise_manifest(&mut manifest)?;
+    manifest.decoded_level1 = Some(export_decoded_level1_assets(&manifest)?);
+    ensure_generated_bundle_contract(&manifest)?;
 
     fs::write(
         manifest_path(output_root),
@@ -273,6 +321,90 @@ pub fn export_split_bundle(
     Ok(manifest)
 }
 
+fn create_bundle_staging_dir(output_root: &Path) -> Result<PathBuf> {
+    let parent = output_root.parent().ok_or_else(|| {
+        anyhow!(
+            "generated bundle path has no parent directory: {}",
+            output_root.display()
+        )
+    })?;
+    fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
+    let staging_root = unique_bundle_temp_path(output_root, "staging");
+    fs::create_dir_all(&staging_root)
+        .with_context(|| format!("failed to create {}", staging_root.display()))?;
+    Ok(staging_root)
+}
+
+fn replace_bundle_from_staging(staging_root: &Path, output_root: &Path) -> Result<()> {
+    let backup_root = unique_bundle_temp_path(output_root, "backup");
+    let had_existing_bundle = output_root.exists();
+    if had_existing_bundle {
+        fs::rename(output_root, &backup_root).with_context(|| {
+            format!(
+                "failed to move existing generated bundle {} to {}",
+                output_root.display(),
+                backup_root.display()
+            )
+        })?;
+    }
+
+    match fs::rename(staging_root, output_root) {
+        Ok(()) => {
+            if had_existing_bundle {
+                fs::remove_dir_all(&backup_root).with_context(|| {
+                    format!(
+                        "failed to remove old generated bundle {}",
+                        backup_root.display()
+                    )
+                })?;
+            }
+            Ok(())
+        }
+        Err(error) => {
+            if had_existing_bundle {
+                let restore_result = fs::rename(&backup_root, output_root);
+                if let Err(restore_error) = restore_result {
+                    return Err(restore_error).with_context(|| {
+                        format!(
+                            "failed to restore generated bundle {} after swap failure: {}",
+                            output_root.display(),
+                            error
+                        )
+                    });
+                }
+            }
+            Err(error).with_context(|| {
+                format!(
+                    "failed to move generated bundle staging dir {} into place at {}",
+                    staging_root.display(),
+                    output_root.display()
+                )
+            })
+        }
+    }
+}
+
+fn unique_bundle_temp_path(output_root: &Path, suffix: &str) -> PathBuf {
+    let parent = output_root
+        .parent()
+        .expect("generated bundle path should have a parent");
+    let base_name = output_root
+        .file_name()
+        .expect("generated bundle path should have a filename")
+        .to_string_lossy();
+    for attempt in 0..10_000u32 {
+        let candidate = parent.join(format!(
+            ".{base_name}.{suffix}.{}.{}",
+            process::id(),
+            attempt
+        ));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    parent.join(format!(".{base_name}.{suffix}.{}", process::id()))
+}
+
 pub fn load_manifest(path: &Path) -> Result<AssetManifest> {
     let bytes =
         fs::read(path).with_context(|| format!("failed to read manifest {}", path.display()))?;
@@ -280,6 +412,40 @@ pub fn load_manifest(path: &Path) -> Result<AssetManifest> {
         serde_json::from_slice(&bytes).context("failed to parse asset manifest")?;
     normalise_manifest(&mut manifest)?;
     Ok(manifest)
+}
+
+pub fn ensure_generated_bundle_contract(manifest: &AssetManifest) -> Result<()> {
+    if manifest.generated_bundle_version != GENERATED_BUNDLE_VERSION {
+        bail!(
+            "generated bundle version mismatch: expected {}, got {}",
+            GENERATED_BUNDLE_VERSION,
+            manifest.generated_bundle_version
+        );
+    }
+
+    let decoded = manifest
+        .decoded_level1
+        .as_ref()
+        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
+    if decoded.contract_version != LEVEL1_DECODED_ASSET_VERSION {
+        bail!(
+            "decoded Level 1 asset version mismatch: expected {}, got {}",
+            LEVEL1_DECODED_ASSET_VERSION,
+            decoded.contract_version
+        );
+    }
+    if decoded.level_id != LEVEL1_ID {
+        bail!(
+            "decoded Level 1 contract points at level 0x{:02X}, expected 0x{:02X}",
+            decoded.level_id,
+            LEVEL1_ID
+        );
+    }
+
+    validate_decoded_asset_file(manifest, &decoded.foreground, "foreground")?;
+    validate_decoded_asset_file(manifest, &decoded.block, "block")?;
+    validate_decoded_asset_file(manifest, &decoded.background, "background")?;
+    Ok(())
 }
 
 pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result<LevelAssetBundle> {
@@ -649,6 +815,386 @@ fn load_asset(
     }))
 }
 
+fn export_decoded_level1_assets(manifest: &AssetManifest) -> Result<DecodedLevelAssets> {
+    let level = manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == LEVEL1_ID)
+        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} not found in asset manifest"))?;
+    let header = level
+        .header_metadata
+        .as_ref()
+        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} is missing header metadata"))?;
+    let preview_width = usize::from(header.width_screens) * 40;
+    let output_dir = manifest.output_root.join(LEVEL1_DECODED_OUTPUT_DIR);
+    fs::create_dir_all(&output_dir)
+        .with_context(|| format!("failed to create {}", output_dir.display()))?;
+
+    let foreground = export_saxman_decoded_asset(
+        manifest,
+        level.resources.foreground.as_deref(),
+        "foreground",
+        preview_width,
+    )?;
+    let block = export_raw_level_asset(
+        manifest,
+        level.resources.block.as_deref(),
+        "block",
+        preview_width,
+    )?;
+    let background = export_raw_level_asset(
+        manifest,
+        level.resources.background.as_deref(),
+        "background",
+        BACKGROUND_PREVIEW_WIDTH_TILES,
+    )?;
+
+    Ok(DecodedLevelAssets {
+        contract_version: LEVEL1_DECODED_ASSET_VERSION,
+        level_id: LEVEL1_ID,
+        foreground,
+        block,
+        background,
+    })
+}
+
+fn export_saxman_decoded_asset(
+    manifest: &AssetManifest,
+    relative_path: Option<&str>,
+    stem: &str,
+    preview_width: usize,
+) -> Result<DecodedAssetFile> {
+    let relative_path = relative_path
+        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} is missing {stem} asset path"))?;
+    let encoded_path = manifest.output_root.join("level").join(relative_path);
+    let decoded_bytes = decode_saxman(
+        &fs::read(&encoded_path)
+            .with_context(|| format!("failed to read {}", encoded_path.display()))?,
+    )?;
+    export_decoded_asset_file(manifest, stem, &decoded_bytes, preview_width, false)
+}
+
+fn export_raw_level_asset(
+    manifest: &AssetManifest,
+    relative_path: Option<&str>,
+    stem: &str,
+    preview_width: usize,
+) -> Result<DecodedAssetFile> {
+    let relative_path = relative_path
+        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} is missing {stem} asset path"))?;
+    let encoded_path = manifest.output_root.join("level").join(relative_path);
+    let raw_bytes = fs::read(&encoded_path)
+        .with_context(|| format!("failed to read {}", encoded_path.display()))?;
+    export_decoded_asset_file(manifest, stem, &raw_bytes, preview_width, false)
+}
+
+fn export_decoded_asset_file(
+    manifest: &AssetManifest,
+    stem: &str,
+    decoded_bytes: &[u8],
+    preview_width: usize,
+    word_preview: bool,
+) -> Result<DecodedAssetFile> {
+    let raw_path = manifest
+        .output_root
+        .join(LEVEL1_DECODED_OUTPUT_DIR)
+        .join(format!("{stem}.bin"));
+    let preview_path = manifest
+        .output_root
+        .join(LEVEL1_DECODED_OUTPUT_DIR)
+        .join(format!("{stem}.png"));
+    fs::write(&raw_path, decoded_bytes)
+        .with_context(|| format!("failed to write {}", raw_path.display()))?;
+    if word_preview {
+        write_word_preview_png(&preview_path, decoded_bytes, preview_width)?;
+    } else {
+        write_byte_preview_png(&preview_path, decoded_bytes, preview_width)?;
+    }
+
+    Ok(DecodedAssetFile {
+        relative_path: normalise_relative_path(
+            raw_path
+                .strip_prefix(&manifest.output_root)
+                .expect("decoded asset should stay inside output root"),
+        ),
+        preview_png_path: normalise_relative_path(
+            preview_path
+                .strip_prefix(&manifest.output_root)
+                .expect("decoded preview should stay inside output root"),
+        ),
+        size_bytes: decoded_bytes.len() as u64,
+        sha1: sha1_hex(decoded_bytes),
+    })
+}
+
+fn validate_decoded_asset_file(
+    manifest: &AssetManifest,
+    asset: &DecodedAssetFile,
+    label: &str,
+) -> Result<()> {
+    let asset_path = manifest.output_root.join(&asset.relative_path);
+    let preview_path = manifest.output_root.join(&asset.preview_png_path);
+    if !asset_path.is_file() {
+        bail!(
+            "decoded Level 1 {label} asset is missing: {}",
+            asset_path.display()
+        );
+    }
+    if !preview_path.is_file() {
+        bail!(
+            "decoded Level 1 {label} preview is missing: {}",
+            preview_path.display()
+        );
+    }
+    let bytes = fs::read(&asset_path)
+        .with_context(|| format!("failed to read decoded asset {}", asset_path.display()))?;
+    if bytes.len() as u64 != asset.size_bytes {
+        bail!(
+            "decoded Level 1 {label} size mismatch: expected {}, got {}",
+            asset.size_bytes,
+            bytes.len()
+        );
+    }
+    let actual_sha1 = sha1_hex(&bytes);
+    if actual_sha1 != asset.sha1 {
+        bail!(
+            "decoded Level 1 {label} sha1 mismatch: expected {}, got {}",
+            asset.sha1,
+            actual_sha1
+        );
+    }
+    Ok(())
+}
+
+fn write_byte_preview_png(path: &Path, bytes: &[u8], width: usize) -> Result<()> {
+    let width = width.max(1);
+    let height = bytes.len().max(1).div_ceil(width);
+    let mut image = GrayImage::new(width as u32, height as u32);
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        let x = (index % width) as u32;
+        let y = (index / width) as u32;
+        image.put_pixel(x, y, Luma([byte]));
+    }
+    image
+        .save(path)
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
+fn write_word_preview_png(path: &Path, bytes: &[u8], width_words: usize) -> Result<()> {
+    let words = bytes
+        .chunks_exact(2)
+        .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+        .collect::<Vec<_>>();
+    let width_words = width_words.max(1);
+    let height = words.len().max(1).div_ceil(width_words);
+    let mut image = GrayImage::new(width_words as u32, height as u32);
+    for (index, value) in words.iter().copied().enumerate() {
+        let x = (index % width_words) as u32;
+        let y = (index / width_words) as u32;
+        image.put_pixel(x, y, Luma([(value & 0x00FF) as u8]));
+    }
+    image
+        .save(path)
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
+pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
+    if data.len() < 4 {
+        bail!("Saxman payload is too short");
+    }
+    let input_offset = usize::from(read_u16_be(data, 0)) + 2;
+    if input_offset > data.len() {
+        bail!(
+            "Saxman input offset {} is past payload length {}",
+            input_offset,
+            data.len()
+        );
+    }
+
+    let mut bits = BitReader::new(&data[2..input_offset]);
+    let mut input_position = input_offset;
+    let mut output = Vec::new();
+
+    loop {
+        if bits.read_bit()? == 1 {
+            output.push(read_input_byte(data, &mut input_position)?);
+            continue;
+        }
+
+        if bits.read_bit()? == 0 {
+            let count = usize::from(bits.read_bit()?) + 2;
+            let distance = usize::from(read_input_byte(data, &mut input_position)?);
+            if distance == 0 {
+                write_zero_fill(&mut output, count.saturating_sub(1));
+            } else {
+                copy_from_output(&mut output, distance, count)?;
+            }
+            continue;
+        }
+
+        let high_distance = usize::from(bits.read_bits(3)?);
+        let count_code = bits.read_bits(2)?;
+        let low_distance = usize::from(read_input_byte(data, &mut input_position)?);
+        let count = if count_code == 0b11 {
+            usize::from(read_input_byte(data, &mut input_position)?)
+        } else {
+            usize::from(count_code) + 3
+        };
+        if count_code == 0b11 && count == 0 {
+            break;
+        }
+        if count_code == 0b11 && count < 6 {
+            continue;
+        }
+
+        let distance = low_distance + (high_distance << 8);
+        if distance == 0 {
+            write_zero_fill(&mut output, count.saturating_sub(1));
+        } else {
+            copy_from_output(&mut output, distance, count)?;
+        }
+    }
+
+    Ok(output)
+}
+
+pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
+    if data.len() < 6 {
+        bail!("Enigma payload is too short");
+    }
+    let packet_length = usize::from(data[0]);
+    if packet_length == 0 || packet_length > 16 {
+        bail!("Enigma packet length must be between 1 and 16 bits");
+    }
+    let flag_mask = data[1];
+    let mut incrementing_value = read_u16_be(data, 2);
+    let common_value = read_u16_be(data, 4);
+    let mut bits = BitReader::new(&data[6..]);
+    let mut output = Vec::new();
+
+    loop {
+        if bits.read_bit()? == 1 {
+            let mode = bits.read_bits(2)?;
+            match mode {
+                0..=2 => {
+                    let count = usize::from(bits.read_bits(4)?) + 1;
+                    let flags = read_enigma_flags(&mut bits, flag_mask)?;
+                    let mut value = (bits.read_bits(packet_length)? as u16) | flags;
+                    for _ in 0..count {
+                        output.push(value);
+                        value = match mode {
+                            0 => value,
+                            1 => value.wrapping_add(1),
+                            2 => value.wrapping_sub(1),
+                            _ => unreachable!(),
+                        };
+                    }
+                }
+                3 => {
+                    let count = usize::from(bits.read_bits(4)?);
+                    if count == 0x0F {
+                        break;
+                    }
+                    for _ in 0..=count {
+                        let flags = read_enigma_flags(&mut bits, flag_mask)?;
+                        let value = (bits.read_bits(packet_length)? as u16) | flags;
+                        output.push(value);
+                    }
+                }
+                _ => unreachable!(),
+            }
+        } else if bits.read_bit()? == 0 {
+            let count = usize::from(bits.read_bits(4)?) + 1;
+            for _ in 0..count {
+                output.push(incrementing_value);
+                incrementing_value = incrementing_value.wrapping_add(1);
+            }
+        } else {
+            let count = usize::from(bits.read_bits(4)?) + 1;
+            output.extend(std::iter::repeat_n(common_value, count));
+        }
+    }
+
+    Ok(output)
+}
+
+fn read_enigma_flags(bits: &mut BitReader<'_>, flag_mask: u8) -> Result<u16> {
+    let mut flags = 0_u16;
+    for (mask_bit, flag) in [
+        (4_u8, 1_u16 << 15),
+        (3_u8, 1_u16 << 14),
+        (2_u8, 1_u16 << 13),
+        (1_u8, 1_u16 << 12),
+        (0_u8, 1_u16 << 11),
+    ] {
+        if flag_mask & (1 << mask_bit) != 0 && bits.read_bit()? == 1 {
+            flags |= flag;
+        }
+    }
+    Ok(flags)
+}
+
+fn read_input_byte(data: &[u8], input_position: &mut usize) -> Result<u8> {
+    let byte = *data
+        .get(*input_position)
+        .ok_or_else(|| anyhow!("compressed payload ended unexpectedly"))?;
+    *input_position += 1;
+    Ok(byte)
+}
+
+fn copy_from_output(output: &mut Vec<u8>, distance: usize, count: usize) -> Result<()> {
+    if distance == 0 {
+        bail!("back-reference distance cannot be zero");
+    }
+    for _ in 0..count {
+        let value = output
+            .len()
+            .checked_sub(distance)
+            .and_then(|source_index| output.get(source_index).copied())
+            .unwrap_or(0);
+        output.push(value);
+    }
+    Ok(())
+}
+
+fn write_zero_fill(output: &mut Vec<u8>, count: usize) {
+    output.extend(std::iter::repeat_n(0_u8, count));
+}
+
+struct BitReader<'a> {
+    bytes: &'a [u8],
+    bit_index: usize,
+}
+
+impl<'a> BitReader<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self {
+            bytes,
+            bit_index: 0,
+        }
+    }
+
+    fn read_bit(&mut self) -> Result<u8> {
+        let byte = *self
+            .bytes
+            .get(self.bit_index / 8)
+            .ok_or_else(|| anyhow!("compressed bitstream ended unexpectedly"))?;
+        let shift = 7 - (self.bit_index % 8);
+        self.bit_index += 1;
+        Ok((byte >> shift) & 1)
+    }
+
+    fn read_bits(&mut self, count: usize) -> Result<u16> {
+        let mut value = 0_u16;
+        for _ in 0..count {
+            value = (value << 1) | u16::from(self.read_bit()?);
+        }
+        Ok(value)
+    }
+}
+
 fn read_u16_be(bytes: &[u8], offset: usize) -> u16 {
     u16::from_be_bytes([bytes[offset], bytes[offset + 1]])
 }
@@ -910,6 +1456,121 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    const SAXMAN_FIXTURE: &[u8] = &[0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
+    const ENIGMA_FIXTURE: &[u8] = &[0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE];
+    const REAL_STYLE_BLOCK_FIXTURE: &[u8] = &[
+        0x40, 0x76, 0x02, 0x08, 0xA0, 0x80, 0x38, 0x1F, 0x92, 0x08, 0x64, 0x82, 0x81, 0x40, 0x9E,
+        0x58, 0x28, 0x96, 0x08, 0x86, 0x02, 0x99, 0x80, 0xA8, 0x68, 0x0B, 0x1C, 0x03, 0x07, 0x00,
+        0xD1, 0xC0,
+    ];
+    const REAL_STYLE_BACKGROUND_FIXTURE: &[u8] = &[
+        0x00, 0x0D, 0x00, 0x00, 0x00, 0x2D, 0x00, 0x0D, 0x00, 0x1E, 0x00, 0x2D, 0x00, 0x0D, 0x00,
+        0x3C, 0x00, 0x2D, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x29, 0x00, 0x0F, 0x00, 0x24, 0x00, 0x29,
+        0x00, 0x0F, 0x00, 0x3C, 0x00, 0x29, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00,
+        0x06, 0x00, 0x20, 0x00, 0x02, 0x00, 0x24, 0x00, 0x1F, 0x00, 0x02, 0x00, 0x26, 0x00, 0x0A,
+        0x00, 0x06, 0x00, 0x28,
+    ];
+
+    fn write_test_bundle_source(
+        source_root: &Path,
+        foreground_bytes: &[u8],
+        block_bytes: &[u8],
+        background_bytes: &[u8],
+    ) {
+        fs::create_dir_all(source_root.join("code/enemy")).expect("enemy dir");
+        fs::create_dir_all(source_root.join("doc")).expect("doc dir");
+        fs::create_dir_all(source_root.join("ingame/anim")).expect("anim dir");
+        fs::create_dir_all(source_root.join("ingame/artcomp")).expect("artcomp dir");
+        fs::create_dir_all(source_root.join("level")).expect("level dir");
+        fs::create_dir_all(source_root.join("level/platform")).expect("platform assets dir");
+        fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll assets dir");
+        fs::create_dir_all(source_root.join("level/header")).expect("header assets dir");
+        fs::create_dir_all(source_root.join("level/enemy")).expect("enemy assets dir");
+        fs::create_dir_all(source_root.join("level/foreground")).expect("foreground assets dir");
+        fs::create_dir_all(source_root.join("level/block")).expect("block assets dir");
+        fs::create_dir_all(source_root.join("level/background")).expect("background assets dir");
+        fs::create_dir_all(source_root.join("scenes")).expect("scene dir");
+        fs::create_dir_all(source_root.join("sound")).expect("sound dir");
+        fs::create_dir_all(source_root.join("theme")).expect("theme dir");
+
+        fs::write(source_root.join("code/enemy/Armadillo.asm"), b"enemy code").expect("enemy");
+        fs::write(source_root.join("theme/sample.bin"), b"theme").expect("theme");
+        fs::write(source_root.join("scenes/title.bin"), b"scene").expect("scene");
+        fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
+        fs::write(
+            source_root.join("ingame/artcomp/Blocks.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("blocks");
+        fs::write(
+            source_root.join("ingame/artcomp/HUD_numbers.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("hud numbers");
+        fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
+        fs::write(
+            source_root.join("level/platform/00.asm"),
+            b"\tptfm\t0,0,0,0,0,0,0,0,0,0,PlatformScript_Nothing-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
+        )
+        .expect("platform");
+        fs::write(
+            source_root.join("level/bgscroll/00.bin"),
+            [0x10, 0x10, 0x40, 0x60, 0xFF],
+        )
+        .expect("bgscroll");
+        fs::write(
+            source_root.join("level/header/00.bin"),
+            [
+                0x06, 0x04, 0x08, 0x18, 0x07, 0x50, 0x00, 0xE0, 0x07, 0x50, 0x03, 0x00,
+            ],
+        )
+        .expect("header");
+        fs::write(
+            source_root.join("level/enemy/00.bin"),
+            [
+                0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x01, 0x00, 0x1C, 0x7D, 0x00, 0x80, 0x01,
+                0x80, 0x16, 0x00, 0x01, 0x01, 0x20, 0x00, 0xE0,
+            ],
+        )
+        .expect("enemy");
+        fs::write(
+            source_root.join("level/foreground/00.bin"),
+            foreground_bytes,
+        )
+        .expect("foreground");
+        fs::write(source_root.join("level/block/00.bin"), block_bytes).expect("block");
+        fs::write(
+            source_root.join("level/background/00.bin"),
+            background_bytes,
+        )
+        .expect("background");
+        fs::write(
+            source_root.join("doc/level_list.txt"),
+            "0x00 0x4A Blue Lake Woods 1\n",
+        )
+        .expect("level names");
+        fs::write(
+            source_root.join("level/level_files.txt"),
+            "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n",
+        )
+        .expect("level files");
+        fs::write(source_root.join("constants.asm"), "Theme_Sky = 1 ; sky\n").expect("constants");
+        fs::write(
+            source_root.join("variables.asm"),
+            "Camera_X_pos = $FFFFF81C ; long (16.16 fixed point)\n",
+        )
+        .expect("variables");
+    }
+
+    fn write_default_test_bundle_source(source_root: &Path) {
+        write_test_bundle_source(
+            source_root,
+            SAXMAN_FIXTURE,
+            REAL_STYLE_BLOCK_FIXTURE,
+            REAL_STYLE_BACKGROUND_FIXTURE,
+        );
+    }
+
     #[test]
     fn parses_level_names_and_titles() {
         let parsed =
@@ -965,6 +1626,7 @@ mod tests {
     #[test]
     fn resolves_enemy_definitions_to_sources() {
         let manifest = AssetManifest {
+            generated_bundle_version: GENERATED_BUNDLE_VERSION,
             rom_sha1: String::from("abc123"),
             upstream_commit: String::from("deadbeef"),
             source_root: PathBuf::from("/tmp/source"),
@@ -999,6 +1661,8 @@ mod tests {
             scene_assets: Vec::new(),
             animation_assets: Vec::new(),
             sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_level1: None,
         };
 
         let definitions = enemy_definitions(&manifest);
@@ -1107,73 +1771,73 @@ mod tests {
     }
 
     #[test]
-    fn exports_bundle_and_writes_manifest() {
+    fn saxman_fixture_decodes_to_expected_bytes() {
+        let decoded = decode_saxman(SAXMAN_FIXTURE).expect("fixture should decode");
+        assert_eq!(decoded, b"ABCD");
+    }
+
+    #[test]
+    fn enigma_fixture_decodes_to_expected_tiles() {
+        let decoded = decode_enigma(ENIGMA_FIXTURE).expect("fixture should decode");
+        assert_eq!(
+            decoded,
+            vec![0x0001, 0x0002, 0x0003, 0x000A, 0x000A, 0x0010]
+        );
+    }
+
+    #[test]
+    fn export_split_bundle_writes_decoded_level1_entries() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
         let source_root = source.path();
-
-        fs::create_dir_all(source_root.join("code/enemy")).expect("enemy dir");
-        fs::create_dir_all(source_root.join("doc")).expect("doc dir");
-        fs::create_dir_all(source_root.join("ingame/anim")).expect("anim dir");
-        fs::create_dir_all(source_root.join("level")).expect("level dir");
-        fs::create_dir_all(source_root.join("level/platform")).expect("platform assets dir");
-        fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll assets dir");
-        fs::create_dir_all(source_root.join("level/header")).expect("header assets dir");
-        fs::create_dir_all(source_root.join("level/enemy")).expect("enemy assets dir");
-        fs::create_dir_all(source_root.join("scenes")).expect("scene dir");
-        fs::create_dir_all(source_root.join("sound")).expect("sound dir");
-        fs::create_dir_all(source_root.join("theme")).expect("theme dir");
-
-        fs::write(source_root.join("code/enemy/Armadillo.asm"), b"enemy code").expect("enemy");
-        fs::write(source_root.join("theme/sample.bin"), b"theme").expect("theme");
-        fs::write(source_root.join("scenes/title.bin"), b"scene").expect("scene");
-        fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
-        fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
-        fs::write(
-            source_root.join("level/platform/00.asm"),
-            b"\tptfm\t0,0,0,0,0,0,0,0,0,0,PlatformScript_Nothing-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
-        )
-        .expect("platform");
-        fs::write(
-            source_root.join("level/bgscroll/00.bin"),
-            [0x10, 0x10, 0x40, 0x60, 0xFF],
-        )
-        .expect("bgscroll");
-        fs::write(
-            source_root.join("level/header/00.bin"),
-            [
-                0x06, 0x04, 0x08, 0x18, 0x07, 0x50, 0x00, 0xE0, 0x07, 0x50, 0x03, 0x00,
-            ],
-        )
-        .expect("header");
-        fs::write(
-            source_root.join("level/enemy/00.bin"),
-            [
-                0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x01, 0x00, 0x1C, 0x7D, 0x00, 0x80, 0x01,
-                0x80, 0x16, 0x00, 0x01, 0x01, 0x20, 0x00, 0xE0,
-            ],
-        )
-        .expect("enemy");
-        fs::write(
-            source_root.join("doc/level_list.txt"),
-            "0x00 0x4A Blue Lake Woods 1\n",
-        )
-        .expect("level names");
-        fs::write(
-            source_root.join("level/level_files.txt"),
-            "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin\n",
-        )
-        .expect("level files");
-        fs::write(source_root.join("constants.asm"), "Theme_Sky = 1 ; sky\n").expect("constants");
-        fs::write(
-            source_root.join("variables.asm"),
-            "Camera_X_pos = $FFFFF81C ; long (16.16 fixed point)\n",
-        )
-        .expect("variables");
+        write_default_test_bundle_source(source_root);
 
         let manifest = export_split_bundle(source_root, output.path(), "abc123", "deadbeef")
             .expect("bundle export should succeed");
 
+        assert_eq!(manifest.generated_bundle_version, GENERATED_BUNDLE_VERSION);
+        let decoded_level1 = manifest
+            .decoded_level1
+            .as_ref()
+            .expect("decoded Level 1 contract should be present");
+        assert_eq!(
+            decoded_level1.contract_version,
+            LEVEL1_DECODED_ASSET_VERSION
+        );
+        assert_eq!(decoded_level1.level_id, 0x00);
+        assert_eq!(
+            fs::read(output.path().join(&decoded_level1.foreground.relative_path))
+                .expect("decoded foreground"),
+            b"ABCD"
+        );
+        assert_eq!(
+            fs::read(output.path().join(&decoded_level1.block.relative_path))
+                .expect("decoded block"),
+            REAL_STYLE_BLOCK_FIXTURE
+        );
+        assert_eq!(
+            fs::read(output.path().join(&decoded_level1.background.relative_path))
+                .expect("decoded background"),
+            REAL_STYLE_BACKGROUND_FIXTURE
+        );
+        assert!(
+            output
+                .path()
+                .join(&decoded_level1.foreground.preview_png_path)
+                .is_file()
+        );
+        assert!(
+            output
+                .path()
+                .join(&decoded_level1.block.preview_png_path)
+                .is_file()
+        );
+        assert!(
+            output
+                .path()
+                .join(&decoded_level1.background.preview_png_path)
+                .is_file()
+        );
         assert_eq!(manifest.rom_sha1, "abc123");
         assert_eq!(manifest.levels.len(), 1);
         assert_eq!(
@@ -1210,6 +1874,25 @@ mod tests {
         );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
+        assert_eq!(manifest.ingame_assets.len(), 3);
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "anim/idle.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artcomp/Blocks.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artcomp/HUD_numbers.bin")
+        );
         assert!(manifest_path(output.path()).is_file());
 
         let level_bundle =
@@ -1271,6 +1954,52 @@ mod tests {
                 .and_then(|layout| layout.objects.first())
                 .map(|object| object.object_type),
             Some(0x80)
+        );
+    }
+
+    #[test]
+    fn export_split_bundle_keeps_existing_bundle_when_regeneration_fails() {
+        let initial_source = TempDir::new().expect("temp dir");
+        write_default_test_bundle_source(initial_source.path());
+        let output_root = TempDir::new().expect("temp dir");
+        let output_path = output_root.path().join("bundle");
+
+        let original_manifest =
+            export_split_bundle(initial_source.path(), &output_path, "abc123", "deadbeef")
+                .expect("initial export should succeed");
+        let original_manifest_path = manifest_path(&output_path);
+        let original_manifest_bytes =
+            fs::read(&original_manifest_path).expect("original manifest should exist");
+
+        let failing_source = TempDir::new().expect("temp dir");
+        write_test_bundle_source(
+            failing_source.path(),
+            &[0x00, 0x00],
+            REAL_STYLE_BLOCK_FIXTURE,
+            ENIGMA_FIXTURE,
+        );
+
+        let error = export_split_bundle(failing_source.path(), &output_path, "abc123", "deadbeef")
+            .expect_err("regeneration should fail");
+        assert!(error.to_string().contains("Saxman"));
+
+        let retained_manifest_bytes =
+            fs::read(&original_manifest_path).expect("original manifest should still exist");
+        assert_eq!(retained_manifest_bytes, original_manifest_bytes);
+        let retained_manifest = load_manifest(&original_manifest_path).expect("manifest reload");
+        assert_eq!(retained_manifest, original_manifest);
+        assert!(
+            output_path
+                .join(
+                    retained_manifest
+                        .decoded_level1
+                        .as_ref()
+                        .expect("decoded metadata")
+                        .foreground
+                        .relative_path
+                        .as_str()
+                )
+                .is_file()
         );
     }
 }

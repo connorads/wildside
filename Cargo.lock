@@ -377,6 +377,7 @@ name = "kid-data"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "image",
  "serde",
  "serde_json",
  "sha1",
@@ -392,6 +393,16 @@ dependencies = [
  "thiserror",
  "ymfm-sys",
  "z80",
+]
+
+[[package]]
+name = "kid-render"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kid-data",
+ "sha1",
+ "tempfile",
 ]
 
 [[package]]
@@ -414,6 +425,7 @@ dependencies = [
  "kid-core",
  "kid-data",
  "kid-md",
+ "kid-render",
  "kid-rom",
  "sdl2",
  "serde",

@@ -955,10 +955,7 @@ impl NativeRuntime {
 
         // Diamonds are collected, not damaging
         self.active_enemy_roster.iter().find_map(|enemy| {
-            let is_diamond = matches!(
-                enemy.kind,
-                NativeObjectKind::Enemy { object_type: 0x01 }
-            );
+            let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
             if !is_diamond && player_touches_enemy(slice.player, enemy) {
                 Some(enemy.x_pos)
             } else {
@@ -1683,10 +1680,7 @@ enum EnemyContactResult {
 ///
 /// Stomp: player is falling (y_velocity > 0) and player's feet are above
 /// the enemy's vertical midpoint. This is the core "jump on head" mechanic.
-fn classify_enemy_contact(
-    player: PlayerState,
-    enemy: &NativeObjectSnapshot,
-) -> EnemyContactResult {
+fn classify_enemy_contact(player: PlayerState, enemy: &NativeObjectSnapshot) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
     let p_left = px - (i64::from(PLAYER_HALF_WIDTH) << 16);
@@ -1751,6 +1745,7 @@ mod tests {
 
     fn manifest() -> AssetManifest {
         AssetManifest {
+            generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
             rom_sha1: String::from("abc123"),
             upstream_commit: String::from("deadbeef"),
             source_root: PathBuf::from("/tmp/source"),
@@ -1856,6 +1851,8 @@ mod tests {
             scene_assets: Vec::new(),
             animation_assets: Vec::new(),
             sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_level1: None,
         }
     }
 
@@ -3673,7 +3670,10 @@ mod tests {
             enemies_before,
             "2-HP enemy should survive first stomp"
         );
-        assert_eq!(runtime.active_enemies[0].hit_points, 1, "HP should be decremented to 1");
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "HP should be decremented to 1"
+        );
         assert!(
             runtime.active_enemies[0].damage_flash_frames > 0,
             "damaged enemy should have flash frames"
@@ -3707,7 +3707,11 @@ mod tests {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
-        assert_eq!(runtime.active_enemies.len(), enemies_before, "survives first stomp");
+        assert_eq!(
+            runtime.active_enemies.len(),
+            enemies_before,
+            "survives first stomp"
+        );
 
         // Second stomp
         if let Some(ref mut slice) = runtime.opening_slice {

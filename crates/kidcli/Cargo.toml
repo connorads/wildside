@@ -12,6 +12,7 @@ image.workspace = true
 kid-core = { path = "../kid-core" }
 kid-data = { path = "../kid-data" }
 kid-md = { path = "../kid-md" }
+kid-render = { path = "../kid-render" }
 kid-rom = { path = "../kid-rom" }
 sdl2 = { version = "0.38.0", features = ["bundled"] }
 serde.workspace = true

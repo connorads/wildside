@@ -4,6 +4,7 @@ members = [
     "crates/kid-md",
     "crates/kid-data",
     "crates/kid-core",
+    "crates/kid-render",
     "crates/kidcli",
     "crates/ymfm-sys",
 ]
