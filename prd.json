@@ -1,0 +1,54 @@
+{
+  "name": "Kid Chameleon Native Build: Level 1 Graphics Iteration",
+  "description": "Build the next iteration of the native Kid Chameleon port with a primary focus on getting Level 1 rendered natively using ROM-extracted assets and modern native rendering infrastructure. The target outcome is a playable build where the full Level 1 is traversable and visually recognisable as the original opening level, while keeping architecture clean enough to support later gameplay and presentation work.",
+  "branchName": "main",
+  "userStories": [
+    {
+      "id": "STORY-001",
+      "title": "Asset and rendering foundation",
+      "description": "- ROM extraction flow for required Level 1 graphics - Asset manifests/metadata shape finalised - Native renderer can draw static level visuals",
+      "acceptanceCriteria": [],
+      "priority": 1,
+      "passes": true,
+      "labels": [],
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "STORY-002",
+      "title": "Playable visual slice",
+      "description": "- Player rendered in-world - Camera and traversal integrated - Opening section feels recognisable as Kid Chameleon",
+      "acceptanceCriteria": [],
+      "priority": 2,
+      "passes": false,
+      "labels": [],
+      "dependsOn": []
+    },
+    {
+      "id": "STORY-003",
+      "title": "Full Level 1 traversal",
+      "description": "- Entire level traversable start to exit - Rough edges acceptable where explicitly deferred - Oracle scenarios added for key checkpoints",
+      "acceptanceCriteria": [],
+      "priority": 3,
+      "passes": false,
+      "labels": [],
+      "dependsOn": []
+    },
+    {
+      "id": "STORY-004",
+      "title": "Stretch pass",
+      "description": "- Improve gameplay fidelity for core platforms/collisions/pickups/hazards - Add enemies, pickups, HUD rendering if scope allows",
+      "acceptanceCriteria": [],
+      "priority": 4,
+      "passes": false,
+      "labels": [],
+      "dependsOn": []
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-03-10T10:50:30.128Z",
+    "version": "1.0.0",
+    "sourcePrd": "tasks/prd-kid-chameleon-native-build-level-1-graphics-iteration.md",
+    "updatedAt": "2026-03-10T10:57:21.332Z"
+  }
+}
