@@ -52,6 +52,10 @@ const PLAYER_HEIGHT: i32 = 31;
 // Full jump y_vel = -(0x42 * 0x100) << 4 = -0x420_000. 60% ≈ -0x270_000.
 const STOMP_BOUNCE_VELOCITY: i32 = -0x0027_0000;
 
+// Knockback on contact damage: ~2px/frame horizontal, small upward arc.
+const KNOCKBACK_X_VELOCITY: i32 = 0x0002_0000;
+const KNOCKBACK_Y_VELOCITY: i32 = -0x0001_8000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
@@ -716,8 +720,14 @@ impl NativeRuntime {
         // Diamond collection: touching a Diamond picks it up
         self.collect_diamonds(&slice);
 
+        // Contact damage with knockback
+        if let Some(enemy_x) = self.find_contact_damage_source(&slice) {
+            self.apply_damage_with_knockback(&mut slice, enemy_x);
+            self.opening_slice = Some(slice);
+            return;
+        }
+
         if self.should_apply_level_one_opening_hit(&slice, input)
-            || self.should_apply_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
         {
             self.apply_damage();
@@ -913,18 +923,24 @@ impl NativeRuntime {
         }
     }
 
-    fn should_apply_contact_damage(&self, slice: &OpeningSliceState) -> bool {
+    /// Returns the x_pos of the damaging enemy if contact damage should apply, or None.
+    fn find_contact_damage_source(&self, slice: &OpeningSliceState) -> Option<u32> {
         if self.invulnerable_frames != 0 || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
-            return false;
+            return None;
         }
 
         // Diamonds are collected, not damaging
-        self.active_enemy_roster.iter().any(|enemy| {
-            !matches!(
+        self.active_enemy_roster.iter().find_map(|enemy| {
+            let is_diamond = matches!(
                 enemy.kind,
                 NativeObjectKind::Enemy { object_type: 0x01 }
-            ) && player_touches_enemy(slice.player, enemy)
+            );
+            if !is_diamond && player_touches_enemy(slice.player, enemy) {
+                Some(enemy.x_pos)
+            } else {
+                None
+            }
         })
     }
 
@@ -963,6 +979,23 @@ impl NativeRuntime {
         };
         self.current_form = form;
         self.number_hitpoints = form.max_hitpoints();
+    }
+
+    fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
+        let dies = self.current_form == PlayerForm::TheKid && self.number_hitpoints <= 1;
+        self.apply_damage();
+
+        // No knockback if the hit kills (death windup takes over)
+        if !dies {
+            let push_left = enemy_x > slice.player.x_pos;
+            slice.player.x_velocity = if push_left {
+                -KNOCKBACK_X_VELOCITY
+            } else {
+                KNOCKBACK_X_VELOCITY
+            };
+            slice.player.y_velocity = KNOCKBACK_Y_VELOCITY;
+            slice.player.on_ground = false;
+        }
     }
 
     fn apply_damage(&mut self) {
@@ -3443,6 +3476,122 @@ mod tests {
         assert!(
             runtime.active_enemies.len() < enemies_before,
             "stomp should still kill enemy during invulnerability"
+        );
+    }
+
+    #[test]
+    fn contact_damage_knocks_player_away_from_enemy_on_right() {
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.number_hitpoints = 3;
+
+        // Activate skull, position player to the LEFT of skull
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        if let Some(ref mut slice) = runtime.opening_slice {
+            // Player slightly left of skull (skull at 0x0120)
+            slice.player.x_pos = 0x0118_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        // Enemy is to the right → knockback should push player left (negative x_velocity)
+        let slice = runtime.opening_slice.unwrap();
+        assert!(
+            slice.player.x_velocity < 0,
+            "player should be knocked left (x_vel={}) when enemy is to the right",
+            slice.player.x_velocity
+        );
+        assert!(
+            slice.player.y_velocity < 0,
+            "knockback should include upward arc (y_vel={})",
+            slice.player.y_velocity
+        );
+    }
+
+    #[test]
+    fn contact_damage_knocks_player_away_from_enemy_on_left() {
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.number_hitpoints = 3;
+
+        // Activate skull, position player to the RIGHT of skull
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        if let Some(ref mut slice) = runtime.opening_slice {
+            // Player slightly right of skull (skull at 0x0120)
+            slice.player.x_pos = 0x0128_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        // Enemy is to the left → knockback should push player right (positive x_velocity)
+        let slice = runtime.opening_slice.unwrap();
+        assert!(
+            slice.player.x_velocity > 0,
+            "player should be knocked right (x_vel={}) when enemy is to the left",
+            slice.player.x_velocity
+        );
+        assert!(
+            slice.player.y_velocity < 0,
+            "knockback should include upward arc (y_vel={})",
+            slice.player.y_velocity
+        );
+    }
+
+    #[test]
+    fn no_knockback_on_lethal_contact() {
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.number_hitpoints = 1; // will die on contact
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0118_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "player should be dead after lethal contact"
         );
     }
 }
