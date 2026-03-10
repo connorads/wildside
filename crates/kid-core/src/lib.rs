@@ -196,6 +196,7 @@ pub struct NativeTraceFrame {
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub level_complete: bool,
+    pub invulnerable_frames: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -472,6 +473,7 @@ impl NativeRuntime {
             number_objects,
             number_gfx_objects,
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
+            invulnerable_frames: self.invulnerable_frames,
         }
     }
 

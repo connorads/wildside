@@ -405,12 +405,17 @@ fn build_game_scene(
     {
         commands.push(object_rect(object, trace, 16, 16, ENEMY_COLOUR));
     }
-    for object in trace
-        .active_objects
-        .iter()
-        .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
-    {
-        commands.push(object_rect(object, trace, 16, 32, PLAYER_COLOUR));
+    // Player: blink every 4 frames during invulnerability
+    let player_visible =
+        trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
+    if player_visible {
+        for object in trace
+            .active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
+        {
+            commands.push(object_rect(object, trace, 16, 32, PLAYER_COLOUR));
+        }
     }
 
     if hud_visible {
@@ -797,6 +802,7 @@ mod tests {
             number_objects: 3,
             number_gfx_objects: 4,
             level_complete: false,
+            invulnerable_frames: 0,
         }
     }
 
@@ -984,6 +990,59 @@ mod tests {
                 assert_ne!(colours[i], colours[j], "block types at indices {i} and {j} share colour");
             }
         }
+    }
+
+    // --- US-018: Invulnerability flash ---
+
+    fn trace_with_player(frame_index: usize, invulnerable_frames: usize) -> NativeTraceFrame {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = frame_index;
+        trace.invulnerable_frames = invulnerable_frames;
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos: 0x0018_0000,
+            y_pos: 0x0010_0000,
+        }];
+        trace
+    }
+
+    fn scene_has_player(scene: &Scene) -> bool {
+        scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR)
+        })
+    }
+
+    #[test]
+    fn player_visible_when_not_invulnerable() {
+        let trace = trace_with_player(100, 0);
+        let scene = build_scene(&trace, false, None);
+        assert!(scene_has_player(&scene));
+    }
+
+    #[test]
+    fn player_blinks_during_invulnerability() {
+        // Frame 0 (0/4=0, 0%2=0 → visible)
+        let trace = trace_with_player(0, 100);
+        assert!(scene_has_player(&build_scene(&trace, false, None)));
+
+        // Frame 4 (4/4=1, 1%2=1 → hidden)
+        let trace = trace_with_player(4, 100);
+        assert!(!scene_has_player(&build_scene(&trace, false, None)));
+
+        // Frame 8 (8/4=2, 2%2=0 → visible)
+        let trace = trace_with_player(8, 100);
+        assert!(scene_has_player(&build_scene(&trace, false, None)));
+
+        // Frame 12 (12/4=3, 3%2=1 → hidden)
+        let trace = trace_with_player(12, 100);
+        assert!(!scene_has_player(&build_scene(&trace, false, None)));
+    }
+
+    #[test]
+    fn player_visible_after_invulnerability_expires() {
+        // invulnerable_frames=0 means expired — always visible
+        let trace = trace_with_player(4, 0);
+        assert!(scene_has_player(&build_scene(&trace, false, None)));
     }
 }
 
