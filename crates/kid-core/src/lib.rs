@@ -295,6 +295,8 @@ struct OpeningSliceState {
     terrain: TerrainState,
     level_bounds: LevelBounds,
     objects: ObjectSystemState,
+    /// Prize blocks headbutted this frame (for diamond_count increment).
+    prize_blocks_hit: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -662,12 +664,23 @@ impl NativeRuntime {
         let mut slice = self
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
+        slice.prize_blocks_hit = 0;
         slice.step(
             level_elapsed,
             input,
             self.current_form,
             self.block_grid.as_mut(),
         );
+
+        // Prize block item spawning: each prize block grants a diamond
+        if slice.prize_blocks_hit > 0 {
+            for _ in 0..slice.prize_blocks_hit {
+                self.diamond_count += 1;
+                if self.diamond_count % 50 == 0 {
+                    self.number_lives += 1;
+                }
+            }
+        }
 
         // Pit death: falling below the level floor boundary is instant death
         if self.fell_below_level(&slice) {
@@ -1066,6 +1079,7 @@ impl OpeningSliceState {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         }
     }
 
@@ -1091,6 +1105,7 @@ impl OpeningSliceState {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         }
     }
 
@@ -1247,13 +1262,15 @@ impl OpeningSliceState {
 
         if probe.hit {
             // Prize/smash block headbutt: hitting from below clears the cell.
-            // No item spawning yet (stub).
             if probe.cell.has_block
                 && matches!(
                     probe.cell.block_type,
                     terrain::BlockType::Prize | terrain::BlockType::Smash
                 )
             {
+                if probe.cell.block_type == terrain::BlockType::Prize {
+                    self.prize_blocks_hit += 1;
+                }
                 grid.set_cell_at(
                     probe.cell_x,
                     probe.cell_y,
@@ -2757,6 +2774,70 @@ mod tests {
     }
 
     #[test]
+    fn prize_block_headbutt_grants_diamond() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_blocks());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let diamonds_before = runtime.diamond_count;
+
+        // Place player below the prize block at col 2, row 2 (y=32..48px)
+        // After vertical motion: head needs to land in row 2 (y 32..48).
+        // feet_y + y_vel = new_feet. head = new_feet - 31.
+        // We want head ≈ 40, so feet ≈ 71. Set feet=73, vel=-0x0002_0000.
+        // After gravity: vel ≈ -0x1C000, new_feet ≈ 73 - 1.75 ≈ 71.25
+        // head ≈ 71.25 - 31 = 40.25 → row 2. Prize block hit!
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16; // col 2 centre
+            slice.player.y_pos = 73 << 16;
+            slice.player.y_velocity = -0x0002_0000; // moving upward
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.diamond_count,
+            diamonds_before + 1,
+            "headbutting prize block should grant a diamond"
+        );
+    }
+
+    #[test]
+    fn smash_block_headbutt_does_not_grant_diamond() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_blocks());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let diamonds_before = runtime.diamond_count;
+
+        // Place player below the smash block at col 4, row 2 (y=32..48px)
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 72 << 16; // col 4 centre
+            slice.player.y_pos = 73 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.diamond_count, diamonds_before,
+            "headbutting smash block should not grant a diamond"
+        );
+    }
+
+    #[test]
     fn fifty_diamonds_grants_extra_life() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
@@ -3062,6 +3143,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid));
@@ -3101,6 +3183,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid));
@@ -3144,6 +3227,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid));
@@ -3183,6 +3267,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid));
@@ -3223,6 +3308,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
+            prize_blocks_hit: 0,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid));
