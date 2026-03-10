@@ -272,12 +272,28 @@ pub fn probe_at(grid: &BlockGrid, x_px: i32, y_px: i32) -> TerrainProbe {
     }
 }
 
+/// Compute the floor Y surface within a slope cell using linear interpolation.
+///
+/// Slopes span 15 pixels vertically within a 16x16 cell (full diagonal).
+/// - `SlopeUp`: floor rises left-to-right (lower Y as x increases). `/`
+/// - `SlopeDown`: floor falls left-to-right (higher Y as x increases). `\`
+fn slope_floor_y(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
+    let x_within_cell = (x_px & 0x0F).clamp(0, 15);
+    match collision {
+        // `/` — high on right (low Y), low on left (high Y)
+        CollisionKind::SlopeUp => cell_top_y + 15 - x_within_cell,
+        // `\` — low on left (low Y), high on right (high Y)
+        CollisionKind::SlopeDown => cell_top_y + x_within_cell,
+        _ => cell_top_y,
+    }
+}
+
 /// Check for a floor surface at or below the given pixel position.
 ///
 /// Scans downward from the player's feet position. If the cell at the
-/// player's feet is solid, the floor is the top of that cell. If not,
-/// checks one cell below (to handle the common case of standing just
-/// above a surface).
+/// player's feet is solid, the floor is the top of that cell (or the
+/// interpolated slope surface for slope cells). If not, checks one cell
+/// below (to handle the common case of standing just above a surface).
 ///
 /// The `foot_y_px` should be the bottom of the player's collision box
 /// (typically player_y_pos >> 16, since y_pos points to the feet in
@@ -289,9 +305,20 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
     // Check the cell at foot level
     let cell = grid.cell_at(col, row);
     if cell.is_solid_floor() {
+        let cell_top = i32::from(row) * 16;
+        let floor_y = slope_floor_y(cell.collision, cell_top, x_px);
+        // For slopes, only count as on_ground if feet are at or below the
+        // slope surface (player has reached the diagonal floor)
+        let on_ground = if cell.collision == CollisionKind::SlopeUp
+            || cell.collision == CollisionKind::SlopeDown
+        {
+            foot_y_px >= floor_y
+        } else {
+            true
+        };
         return FloorProbe {
-            on_ground: true,
-            floor_y_px: i32::from(row) * 16,
+            on_ground,
+            floor_y_px: floor_y,
             cell,
         };
     }
@@ -300,7 +327,8 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
     let below_row = row.saturating_add(1);
     let below_cell = grid.cell_at(col, below_row);
     if below_cell.is_solid_floor() {
-        let floor_y = i32::from(below_row) * 16;
+        let cell_top = i32::from(below_row) * 16;
+        let floor_y = slope_floor_y(below_cell.collision, cell_top, x_px);
         // Only count as "on ground" if the player's feet are within 1 pixel
         // of the surface (handles sub-pixel positioning)
         let on_ground = foot_y_px >= floor_y - 1 && foot_y_px <= floor_y;
@@ -320,7 +348,8 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
 
 /// Find the floor Y position below a given point by scanning downward.
 /// Used during entry animation to find where the player should land.
-/// Returns the pixel Y of the top of the first solid cell below `start_y_px`.
+/// Returns the pixel Y of the floor surface (interpolated for slopes)
+/// of the first solid cell below `start_y_px`.
 pub fn find_floor_below(grid: &BlockGrid, x_px: i32, start_y_px: i32) -> Option<i32> {
     let col = pixel_to_cell(x_px).max(0) as u16;
     let start_row = pixel_to_cell(start_y_px).max(0) as u16;
@@ -328,7 +357,8 @@ pub fn find_floor_below(grid: &BlockGrid, x_px: i32, start_y_px: i32) -> Option<
     for row in start_row..grid.height_cells {
         let cell = grid.cell_at(col, row);
         if cell.is_solid_floor() {
-            return Some(i32::from(row) * 16);
+            let cell_top = i32::from(row) * 16;
+            return Some(slope_floor_y(cell.collision, cell_top, x_px));
         }
     }
     None
@@ -702,5 +732,104 @@ mod tests {
         // Left edge=19 (col 1, row 1: empty). Right edge=29 (col 1, row 1: empty).
         let probe = probe_ceiling(&grid, 24, 48, 5, 31);
         assert!(!probe.hit);
+    }
+
+    // -----------------------------------------------------------------------
+    // US-013: Slope floor physics
+    // -----------------------------------------------------------------------
+
+    /// Build a grid with slope cells for testing:
+    ///
+    ///   col: 0  1  2  3
+    /// row 0: .  .  .  .
+    /// row 1: /  \  S  .   (SlopeUp, SlopeDown, Solid, empty)
+    fn make_slope_grid() -> BlockGrid {
+        let w = 4u16;
+        let h = 2u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Row 1, col 0: SlopeUp (collision=5)
+        let offset = (1 * 4 + 0) * 2;
+        data[offset] = 0x50; // collision=5 = SlopeUp
+        // Row 1, col 1: SlopeDown (collision=4)
+        let offset = (1 * 4 + 1) * 2;
+        data[offset] = 0x40; // collision=4 = SlopeDown
+        // Row 1, col 2: Solid (collision=6)
+        let offset = (1 * 4 + 2) * 2;
+        data[offset] = 0x60; // collision=6 = Solid
+        BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    fn slope_up_floor_y_interpolates_left_to_right() {
+        let grid = make_slope_grid();
+        // SlopeUp `/` at col 0, row 1 (cell_top = 16px).
+        // Left edge (x=0): floor should be low (high Y = 16+15 = 31)
+        // Right edge (x=15): floor should be high (low Y = 16+0 = 16)
+        let left = probe_floor(&grid, 0, 31);
+        assert!(left.on_ground);
+        assert_eq!(left.floor_y_px, 31); // cell_top(16) + 15 - 0
+
+        let right = probe_floor(&grid, 15, 16);
+        assert!(right.on_ground);
+        assert_eq!(right.floor_y_px, 16); // cell_top(16) + 15 - 15
+    }
+
+    #[test]
+    fn slope_down_floor_y_interpolates_left_to_right() {
+        let grid = make_slope_grid();
+        // SlopeDown `\` at col 1, row 1 (cell_top = 16px).
+        // Left edge (x=16): floor should be high (low Y = 16+0 = 16)
+        // Right edge (x=31): floor should be low (high Y = 16+15 = 31)
+        let left = probe_floor(&grid, 16, 16);
+        assert!(left.on_ground);
+        assert_eq!(left.floor_y_px, 16); // cell_top(16) + 0
+
+        let right = probe_floor(&grid, 31, 31);
+        assert!(right.on_ground);
+        assert_eq!(right.floor_y_px, 31); // cell_top(16) + 15
+    }
+
+    #[test]
+    fn slope_up_mid_cell_interpolation() {
+        let grid = make_slope_grid();
+        // SlopeUp at col 0, row 1. x=8 (mid-cell): floor_y = 16 + 15 - 8 = 23
+        let probe = probe_floor(&grid, 8, 23);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 23);
+    }
+
+    #[test]
+    fn slope_not_on_ground_when_above_surface() {
+        let grid = make_slope_grid();
+        // SlopeUp at col 0, row 1. x=8: floor_y=23.
+        // Player at y=20 (above slope surface) should not be on ground.
+        let probe = probe_floor(&grid, 8, 20);
+        assert!(!probe.on_ground);
+        assert_eq!(probe.floor_y_px, 23);
+    }
+
+    #[test]
+    fn solid_floor_unchanged_by_slope_logic() {
+        let grid = make_slope_grid();
+        // Solid at col 2, row 1 (cell_top = 16px). Floor Y = 16 regardless of x.
+        let probe = probe_floor(&grid, 32, 16);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 16);
+
+        let probe = probe_floor(&grid, 47, 16);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 16);
+    }
+
+    #[test]
+    fn probe_floor_hitbox_on_slope_picks_highest() {
+        let grid = make_slope_grid();
+        // SlopeUp `/` at col 0. Player centre at x=8, half_width=5.
+        // Left edge x=3: floor_y = 16 + 15 - 3 = 28
+        // Right edge x=13: floor_y = 16 + 15 - 13 = 18
+        // Should pick the higher floor (lower Y = 18)
+        let probe = probe_floor_hitbox(&grid, 8, 28, 5);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 18);
     }
 }
