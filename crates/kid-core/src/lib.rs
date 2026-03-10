@@ -48,6 +48,10 @@ const ENEMY_PROBE_HEIGHT: i32 = 16;
 const PLAYER_HALF_WIDTH: i32 = 5;
 const PLAYER_HEIGHT: i32 = 31;
 
+// Stomp bounce: ~60% of a standstill jump (Kid jump_height 0x42, factor 0x100).
+// Full jump y_vel = -(0x42 * 0x100) << 4 = -0x420_000. 60% ≈ -0x270_000.
+const STOMP_BOUNCE_VELOCITY: i32 = -0x0027_0000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
@@ -684,6 +688,12 @@ impl NativeRuntime {
             return;
         }
 
+        // Stomp check: kill enemies by landing on them from above
+        if self.process_stomps(&mut slice) {
+            self.opening_slice = Some(slice);
+            return;
+        }
+
         if self.should_apply_level_one_opening_hit(&slice, input)
             || self.should_apply_contact_damage(&slice)
             || self.should_apply_level_one_late_hazard(&slice)
@@ -787,6 +797,50 @@ impl NativeRuntime {
             && input.right
             && self.number_hitpoints == self.current_form.max_hitpoints()
             && slice.camera.x_pos >= OPENING_SCROLL_ACCEL_TARGET_X_FP
+    }
+
+    /// Check for stomp-kills: player landing on enemies from above.
+    /// Removes stomped enemies and applies bounce. Returns true if any stomp occurred.
+    fn process_stomps(&mut self, slice: &mut OpeningSliceState) -> bool {
+        if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+            return false;
+        }
+
+        let mut stomped_indices = Vec::new();
+        for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
+            if classify_enemy_contact(slice.player, enemy) == EnemyContactResult::Stomp {
+                stomped_indices.push(i);
+            }
+        }
+
+        if stomped_indices.is_empty() {
+            return false;
+        }
+
+        // Remove stomped enemies from active list (match by layout_index via roster order)
+        for &roster_idx in stomped_indices.iter().rev() {
+            if roster_idx < self.active_enemies.len() {
+                self.active_enemies.remove(roster_idx);
+            }
+        }
+
+        // Rebuild roster after removal
+        self.active_enemy_roster = self
+            .active_enemies
+            .iter()
+            .map(|e| NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy {
+                    object_type: e.family.object_type(),
+                },
+                x_pos: e.x_pos,
+                y_pos: e.y_pos,
+            })
+            .collect();
+
+        // Bounce the player upward
+        slice.player.y_velocity = STOMP_BOUNCE_VELOCITY;
+        slice.player.on_ground = false;
+        true
     }
 
     fn should_apply_contact_damage(&self, slice: &OpeningSliceState) -> bool {
@@ -1477,9 +1531,21 @@ fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
     }
 }
 
-fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bool {
-    // Player AABB: position at feet, hitbox extends half_width either side
-    // and height above.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EnemyContactResult {
+    None,
+    Stomp,
+    Damage,
+}
+
+/// Classify contact between player and enemy as stomp, damage, or no contact.
+///
+/// Stomp: player is falling (y_velocity > 0) and player's feet are above
+/// the enemy's vertical midpoint. This is the core "jump on head" mechanic.
+fn classify_enemy_contact(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
     let p_left = px - (i64::from(PLAYER_HALF_WIDTH) << 16);
@@ -1487,7 +1553,6 @@ fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bo
     let p_top = py - (i64::from(PLAYER_HEIGHT) << 16);
     let p_bottom = py;
 
-    // Enemy AABB: 16x16 centred on position.
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
     let e_left = ex - (ENEMY_HALF_SIZE << 16);
@@ -1495,7 +1560,25 @@ fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bo
     let e_top = ey - (ENEMY_HALF_SIZE << 16);
     let e_bottom = ey + (ENEMY_HALF_SIZE << 16);
 
-    p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top
+    // No overlap → no contact
+    if !(p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top) {
+        return EnemyContactResult::None;
+    }
+
+    // Stomp: player must be falling AND feet above enemy midpoint
+    let e_mid_y = (e_top + e_bottom) / 2;
+    if player.y_velocity > 0 && p_bottom <= e_mid_y {
+        return EnemyContactResult::Stomp;
+    }
+
+    EnemyContactResult::Damage
+}
+
+fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bool {
+    !matches!(
+        classify_enemy_contact(player, enemy),
+        EnemyContactResult::None
+    )
 }
 
 pub fn run_script(
@@ -3031,5 +3114,127 @@ mod tests {
 
         // Velocity should remain negative (no ceiling hit)
         assert!(slice.player.y_velocity < 0);
+    }
+
+    // --- US-011: Stomp-kill enemies ---
+
+    /// Set up a stomp scenario: camera at origin so Diamond is active,
+    /// then position player above or on the Diamond.
+    fn setup_stomp_scenario(runtime: &mut NativeRuntime, stomp: bool) {
+        // First: set camera near origin so Diamond activates
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        // Step to activate enemies in the activation window
+        runtime.step_frame(FrameInput::default());
+
+        // Now position player for stomp or side contact
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000; // same X as Diamond (288px)
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+            if stomp {
+                // Above Diamond, falling downward
+                slice.player.y_pos = 0x00D8_0000; // 216px, Diamond at 224px
+                slice.player.y_velocity = 0x0002_0000;
+                slice.player.on_ground = false;
+            } else {
+                // Same height as Diamond (side contact)
+                slice.player.y_pos = 0x00E0_0000; // 224px
+                slice.player.y_velocity = 0;
+                slice.player.on_ground = true;
+            }
+        }
+    }
+
+    #[test]
+    fn stomp_from_above_kills_enemy() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        setup_stomp_scenario(&mut runtime, true);
+        let enemies_before = runtime.active_enemies.len();
+        assert!(enemies_before > 0, "Diamond should be activated");
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            runtime.active_enemies.len() < enemies_before,
+            "stomped enemy should be removed (before: {enemies_before}, after: {})",
+            runtime.active_enemies.len()
+        );
+    }
+
+    #[test]
+    fn stomp_bounces_player_upward() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        setup_stomp_scenario(&mut runtime, true);
+        runtime.step_frame(FrameInput::default());
+
+        if let Some(ref slice) = runtime.opening_slice {
+            assert!(
+                slice.player.y_velocity < 0,
+                "player should bounce upward after stomp, got y_vel={:#010X}",
+                slice.player.y_velocity
+            );
+        }
+    }
+
+    #[test]
+    fn side_contact_damages_not_stomps() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        runtime.number_hitpoints = 3;
+        setup_stomp_scenario(&mut runtime, false);
+        let enemies_before = runtime.active_enemies.len();
+        assert!(enemies_before > 0, "Diamond should be activated");
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.active_enemies.len(),
+            enemies_before,
+            "side contact should not kill enemy"
+        );
+        assert!(
+            runtime.number_hitpoints < 3
+                || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "side contact should deal damage to player"
+        );
+    }
+
+    #[test]
+    fn stomp_works_during_invulnerability() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        runtime.invulnerable_frames = 100;
+        setup_stomp_scenario(&mut runtime, true);
+        let enemies_before = runtime.active_enemies.len();
+        assert!(enemies_before > 0, "Diamond should be activated");
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            runtime.active_enemies.len() < enemies_before,
+            "stomp should still kill enemy during invulnerability"
+        );
     }
 }
