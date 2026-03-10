@@ -20,6 +20,7 @@ const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
 const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
+const ENEMY_FLASH_COLOUR: [u8; 3] = [255, 255, 255];
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
 const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
 const SKY_COLOUR: [u8; 3] = [28, 42, 56];
@@ -458,7 +459,12 @@ fn build_game_scene(
         .iter()
         .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Enemy { .. }))
     {
-        commands.push(object_rect(object, trace, 16, 16, ENEMY_COLOUR));
+        let colour = if object.damage_flash {
+            ENEMY_FLASH_COLOUR
+        } else {
+            ENEMY_COLOUR
+        };
+        commands.push(object_rect(object, trace, 16, 16, colour));
     }
     // Player: blink every 4 frames during invulnerability
     let player_visible =
@@ -906,16 +912,19 @@ mod tests {
                 },
                 x_pos: 0x0030_0000,
                 y_pos: 0x0018_0000,
+                damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
                 x_pos: 0x0028_0000,
                 y_pos: 0x0014_0000,
+                damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
                 x_pos: 0x0018_0000,
                 y_pos: 0x0010_0000,
+                damage_flash: false,
             },
         ];
         let scene = build_scene(&trace, true, None);
@@ -941,6 +950,7 @@ mod tests {
             kind: NativeObjectKind::Player,
             x_pos: 0,
             y_pos: 0,
+            damage_flash: false,
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
@@ -1061,6 +1071,7 @@ mod tests {
             kind: NativeObjectKind::Player,
             x_pos: 0x0018_0000,
             y_pos: 0x0010_0000,
+            damage_flash: false,
         }];
         trace
     }

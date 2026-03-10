@@ -56,6 +56,9 @@ const STOMP_BOUNCE_VELOCITY: i32 = -0x0027_0000;
 const KNOCKBACK_X_VELOCITY: i32 = 0x0002_0000;
 const KNOCKBACK_Y_VELOCITY: i32 = -0x0001_8000;
 
+// Frames an enemy flashes white after taking a non-lethal stomp.
+const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
@@ -209,6 +212,7 @@ pub struct NativeObjectSnapshot {
     pub kind: NativeObjectKind,
     pub x_pos: u32,
     pub y_pos: u32,
+    pub damage_flash: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -332,6 +336,8 @@ struct ActiveEnemy {
     y_velocity: i32,
     facing: Direction,
     on_ground: bool,
+    hit_points: u8,
+    damage_flash_frames: u8,
 }
 
 impl NativeRuntime {
@@ -577,6 +583,7 @@ impl NativeRuntime {
                 kind: NativeObjectKind::Player,
                 x_pos: player_state.x_pos,
                 y_pos: player_state.y_pos,
+                damage_flash: false,
             });
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
@@ -776,6 +783,7 @@ impl NativeRuntime {
                     },
                     x_pos: e.x_pos,
                     y_pos: e.y_pos,
+                    damage_flash: e.damage_flash_frames > 0,
                 })
                 .collect();
         }
@@ -832,7 +840,7 @@ impl NativeRuntime {
     }
 
     /// Check for stomp-kills: player landing on enemies from above.
-    /// Removes stomped enemies and applies bounce. Returns true if any stomp occurred.
+    /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
     fn process_stomps(&mut self, slice: &mut OpeningSliceState) -> bool {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
             return false;
@@ -849,14 +857,26 @@ impl NativeRuntime {
             return false;
         }
 
-        // Remove stomped enemies from active list (match by layout_index via roster order)
-        for &roster_idx in stomped_indices.iter().rev() {
+        // Decrement HP; collect indices of enemies that should be removed
+        let mut kill_indices = Vec::new();
+        for &roster_idx in &stomped_indices {
             if roster_idx < self.active_enemies.len() {
-                self.active_enemies.remove(roster_idx);
+                let enemy = &mut self.active_enemies[roster_idx];
+                enemy.hit_points = enemy.hit_points.saturating_sub(1);
+                if enemy.hit_points == 0 {
+                    kill_indices.push(roster_idx);
+                } else {
+                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                }
             }
         }
 
-        // Rebuild roster after removal
+        // Remove dead enemies
+        for &idx in kill_indices.iter().rev() {
+            self.active_enemies.remove(idx);
+        }
+
+        // Rebuild roster after changes
         self.active_enemy_roster = self
             .active_enemies
             .iter()
@@ -866,6 +886,7 @@ impl NativeRuntime {
                 },
                 x_pos: e.x_pos,
                 y_pos: e.y_pos,
+                damage_flash: e.damage_flash_frames > 0,
             })
             .collect();
 
@@ -892,6 +913,7 @@ impl NativeRuntime {
                 },
                 x_pos: enemy.x_pos,
                 y_pos: enemy.y_pos,
+                damage_flash: false,
             };
             if player_touches_enemy(slice.player, &snapshot) {
                 collected_indices.push(i);
@@ -918,6 +940,7 @@ impl NativeRuntime {
                     },
                     x_pos: e.x_pos,
                     y_pos: e.y_pos,
+                    damage_flash: e.damage_flash_frames > 0,
                 })
                 .collect();
         }
@@ -1415,6 +1438,7 @@ impl PlatformLoaderState {
                 },
                 x_pos: u32::from(placement.x) << 16,
                 y_pos: u32::from(placement.y) << 16,
+                damage_flash: false,
             })
             .collect()
     }
@@ -1455,6 +1479,7 @@ impl EnemyFamily {
             },
             x_pos: object_x << 16,
             y_pos: object_y << 16,
+            damage_flash: false,
         })
     }
 }
@@ -1491,6 +1516,8 @@ fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window:
             continue;
         }
         let family = EnemyFamily::from_layout_object(layout, object);
+        let hp_raw = object.hit_points_plus_one.saturating_sub(1) as u8;
+        let hit_points = hp_raw.max(1); // at least 1 HP
         active.push(ActiveEnemy {
             layout_index: index,
             family,
@@ -1503,6 +1530,8 @@ fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window:
             y_velocity: 0,
             facing: Direction::Left,
             on_ground: false,
+            hit_points,
+            damage_flash_frames: 0,
         });
     }
 }
@@ -1510,6 +1539,7 @@ fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window:
 /// Step all active enemies: apply movement, gravity, and terrain collision.
 fn step_active_enemies(active: &mut [ActiveEnemy], block_grid: Option<&terrain::BlockGrid>) {
     for enemy in active.iter_mut() {
+        enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         if enemy.family == EnemyFamily::MiniHoppingSkull {
             step_pacer(enemy, block_grid);
         }
@@ -3592,6 +3622,141 @@ mod tests {
         assert!(
             !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
             "player should be dead after lethal contact"
+        );
+    }
+
+    fn manifest_with_tough_skull() -> AssetManifest {
+        let mut m = manifest();
+        if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
+            enemy.objects[0] = kid_data::EnemyLayoutObject {
+                object_type: 0x1C, // MiniHoppingSkull
+                flags: 0,
+                hit_points_plus_one: 3, // 2 HP
+                x: 0x0120,
+                y: 0x00E0,
+            };
+        }
+        m
+    }
+
+    #[test]
+    fn two_hp_enemy_survives_first_stomp() {
+        let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Activate enemy
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        let enemies_before = runtime.active_enemies.len();
+        assert!(enemies_before > 0, "skull should be active");
+
+        // First stomp
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00D8_0000;
+            slice.player.y_velocity = 0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            enemies_before,
+            "2-HP enemy should survive first stomp"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 1, "HP should be decremented to 1");
+        assert!(
+            runtime.active_enemies[0].damage_flash_frames > 0,
+            "damaged enemy should have flash frames"
+        );
+    }
+
+    #[test]
+    fn two_hp_enemy_dies_on_second_stomp() {
+        let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Activate enemy
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        let enemies_before = runtime.active_enemies.len();
+
+        // First stomp
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00D8_0000;
+            slice.player.y_velocity = 0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.active_enemies.len(), enemies_before, "survives first stomp");
+
+        // Second stomp
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00D8_0000;
+            slice.player.y_velocity = 0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            runtime.active_enemies.len() < enemies_before,
+            "2-HP enemy should die on second stomp"
+        );
+    }
+
+    #[test]
+    fn stomp_always_bounces_even_on_surviving_enemy() {
+        let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        // Stomp the 2-HP enemy
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00D8_0000;
+            slice.player.y_velocity = 0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        let slice = runtime.opening_slice.unwrap();
+        assert!(
+            slice.player.y_velocity < 0,
+            "player should bounce upward even when enemy survives (y_vel={})",
+            slice.player.y_velocity
         );
     }
 }
