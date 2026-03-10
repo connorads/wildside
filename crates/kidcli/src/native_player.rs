@@ -346,6 +346,61 @@ fn push_block_grid_cells(
     }
 }
 
+const HP_PIP_FILLED: [u8; 3] = [220, 40, 40];
+const HP_PIP_EMPTY: [u8; 3] = [80, 30, 30];
+const HUD_TEXT_COLOUR: [u8; 3] = [240, 240, 240];
+const HUD_BG: [u8; 3] = [20, 20, 30];
+
+fn push_game_hud(commands: &mut Vec<DrawCommand>, trace: &NativeTraceFrame) {
+    let hud_y = (FRAME_HEIGHT - 18) as i32;
+    let hud_h = 18;
+
+    // Background bar
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: hud_y,
+        width: FRAME_WIDTH as i32,
+        height: hud_h,
+        colour: HUD_BG,
+    });
+
+    // HP pips: small squares, filled = red, empty = dark red
+    let max_hp = trace.current_helmet_id.max(2) as i32; // Kid has 2 max HP
+    let pip_size = 8;
+    let pip_gap = 2;
+    let pip_y = hud_y + (hud_h - pip_size) / 2;
+    for i in 0..max_hp {
+        let pip_x = 4 + i * (pip_size + pip_gap);
+        let filled = (i as u16) < trace.number_hitpoints;
+        commands.push(DrawCommand::Rect {
+            x: pip_x,
+            y: pip_y,
+            width: pip_size,
+            height: pip_size,
+            colour: if filled { HP_PIP_FILLED } else { HP_PIP_EMPTY },
+        });
+    }
+
+    // Lives counter
+    let lives_x = 4 + max_hp * (pip_size + pip_gap) + 8;
+    commands.push(text(
+        lives_x,
+        hud_y + 4,
+        &format!("x{}", trace.number_lives),
+        HUD_TEXT_COLOUR,
+        1,
+    ));
+
+    // Diamond counter (right side)
+    commands.push(text(
+        (FRAME_WIDTH - 60) as i32,
+        hud_y + 4,
+        &format!("D:{}", trace.diamond_count),
+        [255, 220, 60],
+        1,
+    ));
+}
+
 fn build_game_scene(
     trace: &NativeTraceFrame,
     hud_visible: bool,
@@ -417,6 +472,9 @@ fn build_game_scene(
             commands.push(object_rect(object, trace, 16, 32, PLAYER_COLOUR));
         }
     }
+
+    // In-game HUD: HP pips, lives, diamond count (always visible in InGame)
+    push_game_hud(&mut commands, trace);
 
     if hud_visible {
         push_panel(&mut commands, 8, 8, 304, 44, [12, 18, 24], [160, 214, 255]);
@@ -803,6 +861,7 @@ mod tests {
             number_gfx_objects: 4,
             level_complete: false,
             invulnerable_frames: 0,
+            diamond_count: 0,
         }
     }
 
@@ -1043,6 +1102,42 @@ mod tests {
         // invulnerable_frames=0 means expired — always visible
         let trace = trace_with_player(4, 0);
         assert!(scene_has_player(&build_scene(&trace, false, None)));
+    }
+
+    // --- US-012: HUD display ---
+
+    #[test]
+    fn game_hud_shows_hp_pips_and_lives() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.number_hitpoints = 2;
+        trace.number_lives = 3;
+        trace.diamond_count = 7;
+        let scene = build_scene(&trace, false, None);
+
+        // HP pips: should have filled pips (red)
+        let has_filled_pip = scene.commands.iter().any(|c| {
+            matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_FILLED)
+        });
+        assert!(has_filled_pip, "HUD should show filled HP pips");
+
+        // Lives text
+        assert!(contains_text(&scene, "x3"), "HUD should show lives count");
+
+        // Diamond counter
+        assert!(contains_text(&scene, "D:7"), "HUD should show diamond count");
+    }
+
+    #[test]
+    fn game_hud_reflects_damage() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.number_hitpoints = 1; // Took damage
+        let scene = build_scene(&trace, false, None);
+
+        // Should have at least one empty pip
+        let has_empty_pip = scene.commands.iter().any(|c| {
+            matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_EMPTY)
+        });
+        assert!(has_empty_pip, "HUD should show empty HP pips after damage");
     }
 }
 

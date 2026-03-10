@@ -197,6 +197,7 @@ pub struct NativeTraceFrame {
     pub number_gfx_objects: u16,
     pub level_complete: bool,
     pub invulnerable_frames: usize,
+    pub diamond_count: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -234,6 +235,7 @@ pub struct NativeRuntime {
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     block_grid: Option<terrain::BlockGrid>,
+    diamond_count: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -348,6 +350,7 @@ impl NativeRuntime {
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
             block_grid: None,
+            diamond_count: 0,
         }
     }
 
@@ -474,6 +477,7 @@ impl NativeRuntime {
             number_gfx_objects,
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             invulnerable_frames: self.invulnerable_frames,
+            diamond_count: self.diamond_count,
         }
     }
 
