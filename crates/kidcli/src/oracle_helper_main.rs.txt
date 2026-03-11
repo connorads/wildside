@@ -103,12 +103,15 @@ const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
 const GFX_OBJECT_SLOT_SIZE: usize = 0x4C;
 const GFX_OBJECT_SLOT_COUNT: usize = 0x4D;
 const DISPLAY_FLAG_OFFSET: usize = 0x13;
+const PARENT_OBJECT_OFFSET: usize = 0x0C;
+const OBJECT_RAM_ADDR: usize = 0xFFFF_0DA0;
+const OBJECT_RAM_END_ADDR: usize = OBJECT_RAM_ADDR + 0x16A8;
 const X_DIRECTION_OFFSET: usize = 0x16;
 const OBJECT_X_POS_OFFSET: usize = 0x1A;
 const OBJECT_Y_POS_OFFSET: usize = 0x1E;
 const OBJECT_X_VEL_OFFSET: usize = 0x26;
 const OBJECT_Y_VEL_OFFSET: usize = 0x2A;
-const OBJECT_META_OFFSET: usize = 0x3A;
+const OBJECT_LAYOUT_PTR_OFFSET: usize = 0x44;
 
 struct NullSaveWriter;
 
@@ -329,11 +332,11 @@ fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
             },
             FrameCheckpoint {
                 label: "enemy_window_open",
-                frame_index: 810,
+                frame_index: 730,
             },
             FrameCheckpoint {
                 label: "enemy_window_tail",
-                frame_index: 899,
+                frame_index: 750,
             },
         ],
     }
@@ -366,50 +369,56 @@ fn capture_state(
     label: &str,
     frame_index: usize,
 ) -> OracleState {
-    let debug = emulator.debug();
-    let memory = debug.memory_view(GenesisMemoryArea::WorkingRam);
+    let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
+    let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     OracleState {
         label: label.to_string(),
         frame_index,
-        game_mode: read_u16(memory.as_ref(), GAME_MODE_ADDR),
-        current_player: read_u8(memory.as_ref(), CURRENT_PLAYER_ADDR),
-        number_hitpoints: read_u16(memory.as_ref(), NUMBER_HITPOINTS_ADDR),
-        current_helmet_id: read_u16(memory.as_ref(), CURRENT_HELMET_ID_ADDR),
-        current_level_id: read_u16(memory.as_ref(), CURRENT_LEVEL_ID_ADDR),
-        player_1_level_id: read_u16(memory.as_ref(), PLAYER_1_LEVEL_ID_ADDR),
-        camera_x_pos: read_u32(memory.as_ref(), CAMERA_X_POS_ADDR),
-        camera_y_pos: read_u32(memory.as_ref(), CAMERA_Y_POS_ADDR),
-        kid_x_pos: read_u32(memory.as_ref(), KID_X_POS_ADDR),
-        kid_y_pos: read_u32(memory.as_ref(), KID_Y_POS_ADDR),
-        number_objects: read_u16(memory.as_ref(), NUMBER_OBJECTS_ADDR),
-        number_gfx_objects: read_u16(memory.as_ref(), NUMBER_GFX_OBJECTS_ADDR),
-        active_enemies: capture_enemy_states(memory.as_ref()),
+        game_mode: read_wram_u16(&work_ram, GAME_MODE_ADDR),
+        current_player: read_wram_u8(&work_ram, CURRENT_PLAYER_ADDR),
+        number_hitpoints: read_wram_u16(&work_ram, NUMBER_HITPOINTS_ADDR),
+        current_helmet_id: read_wram_u16(&work_ram, CURRENT_HELMET_ID_ADDR),
+        current_level_id: read_wram_u16(&work_ram, CURRENT_LEVEL_ID_ADDR),
+        player_1_level_id: read_wram_u16(&work_ram, PLAYER_1_LEVEL_ID_ADDR),
+        camera_x_pos: read_wram_u32(&work_ram, CAMERA_X_POS_ADDR),
+        camera_y_pos: read_wram_u32(&work_ram, CAMERA_Y_POS_ADDR),
+        kid_x_pos: read_wram_u32(&work_ram, KID_X_POS_ADDR),
+        kid_y_pos: read_wram_u32(&work_ram, KID_Y_POS_ADDR),
+        number_objects: read_wram_u16(&work_ram, NUMBER_OBJECTS_ADDR),
+        number_gfx_objects: read_wram_u16(&work_ram, NUMBER_GFX_OBJECTS_ADDR),
+        active_enemies: capture_enemy_states(&work_ram, rom.as_ref()),
     }
 }
 
 fn capture_enemy_states(
-    memory: &dyn jgenesis_common::debug::DebugMemoryView,
+    work_ram: &[u8],
+    rom: &dyn jgenesis_common::debug::DebugMemoryView,
 ) -> Vec<OracleEnemyState> {
     let mut enemies = Vec::new();
     for slot_index in 0..GFX_OBJECT_SLOT_COUNT {
         let base = GFX_OBJECT_RAM_ADDR + slot_index * GFX_OBJECT_SLOT_SIZE;
-        if read_u8(memory, base + DISPLAY_FLAG_OFFSET) == 0 {
+        if read_wram_u8(work_ram, base + DISPLAY_FLAG_OFFSET) == 0 {
             continue;
         }
-        let object_type = read_u16(memory, base + OBJECT_META_OFFSET) & 0x7F;
-        let Ok(object_type) = u8::try_from(object_type) else {
+        let parent_object = read_wram_u32(work_ram, base + PARENT_OBJECT_OFFSET) as usize;
+        if !(OBJECT_RAM_ADDR..OBJECT_RAM_END_ADDR).contains(&parent_object) {
             continue;
-        };
+        }
+        let layout_ptr = read_wram_u32(work_ram, parent_object + OBJECT_LAYOUT_PTR_OFFSET) as usize;
+        if layout_ptr == 0 {
+            continue;
+        }
+        let object_type = read_rom_u8(rom, layout_ptr);
         if !matches!(object_type, 0x01 | 0x1C) {
             continue;
         }
         enemies.push(OracleEnemyState {
             object_type,
-            x_pos: read_u32(memory, base + OBJECT_X_POS_OFFSET),
-            y_pos: read_u32(memory, base + OBJECT_Y_POS_OFFSET),
-            x_velocity: read_i32(memory, base + OBJECT_X_VEL_OFFSET),
-            y_velocity: read_i32(memory, base + OBJECT_Y_VEL_OFFSET),
-            facing: if read_u8(memory, base + X_DIRECTION_OFFSET) == 0 {
+            x_pos: read_wram_u32(work_ram, base + OBJECT_X_POS_OFFSET),
+            y_pos: read_wram_u32(work_ram, base + OBJECT_Y_POS_OFFSET),
+            x_velocity: read_wram_i32(work_ram, base + OBJECT_X_VEL_OFFSET),
+            y_velocity: read_wram_i32(work_ram, base + OBJECT_Y_VEL_OFFSET),
+            facing: if read_wram_u8(work_ram, base + X_DIRECTION_OFFSET) == 0 {
                 EnemyFacing::Left
             } else {
                 EnemyFacing::Right
@@ -424,20 +433,34 @@ fn work_ram_index(address: usize) -> usize {
     address & 0xFFFF
 }
 
-fn read_u8(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u8 {
-    memory.read(work_ram_index(address))
+fn capture_memory(
+    emulator: &mut GenesisEmulator,
+    memory_area: GenesisMemoryArea,
+    len: usize,
+) -> Vec<u8> {
+    let memory = emulator.debug().memory_view(memory_area);
+    (0..len).map(|index| memory.read(index)).collect()
 }
 
-fn read_u16(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u16 {
-    u16::from_be_bytes([read_u8(memory, address), read_u8(memory, address + 1)])
+fn read_wram_u8(memory: &[u8], address: usize) -> u8 {
+    memory[work_ram_index(address)]
 }
 
-fn read_u32(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u32 {
-    (u32::from(read_u16(memory, address)) << 16) | u32::from(read_u16(memory, address + 2))
+fn read_wram_u16(memory: &[u8], address: usize) -> u16 {
+    u16::from_be_bytes([read_wram_u8(memory, address), read_wram_u8(memory, address + 1)])
 }
 
-fn read_i32(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> i32 {
-    read_u32(memory, address) as i32
+fn read_wram_u32(memory: &[u8], address: usize) -> u32 {
+    (u32::from(read_wram_u16(memory, address)) << 16)
+        | u32::from(read_wram_u16(memory, address + 2))
+}
+
+fn read_wram_i32(memory: &[u8], address: usize) -> i32 {
+    read_wram_u32(memory, address) as i32
+}
+
+fn read_rom_u8(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u8 {
+    memory.read(address)
 }
 
 fn apply_single_frames(script: &mut [u8], frames: &[usize], buttons: u8) {

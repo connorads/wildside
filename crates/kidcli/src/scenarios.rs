@@ -79,11 +79,11 @@ const LEVEL_1_ENEMY_WINDOW_CHECKPOINTS: [FrameCheckpoint; 3] = [
     },
     FrameCheckpoint {
         label: "enemy_window_open",
-        frame_index: 810,
+        frame_index: 730,
     },
     FrameCheckpoint {
         label: "enemy_window_tail",
-        frame_index: 899,
+        frame_index: 750,
     },
 ];
 

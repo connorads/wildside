@@ -2989,6 +2989,9 @@ fn compare_native_states_against_oracle(
 ) -> Result<()> {
     const ENEMY_POSITION_TOLERANCE: u32 = 0x0010_0000;
     const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
+    let compare_enemy_snapshots = oracle_states
+        .iter()
+        .any(|state| !state.active_enemies.is_empty());
 
     if native_states.len() != oracle_states.len() {
         bail!(
@@ -3104,15 +3107,24 @@ fn compare_native_states_against_oracle(
                 run_dir.display()
             );
         }
-        compare_enemy_snapshots_against_oracle(
-            run_dir,
-            native.label.as_str(),
-            native.frame_index,
-            &native.active_enemies,
-            &oracle.active_enemies,
-            ENEMY_POSITION_TOLERANCE,
-            ENEMY_VELOCITY_TOLERANCE,
-        )?;
+        if compare_enemy_snapshots {
+            compare_enemy_snapshots_against_oracle(
+                run_dir,
+                native.label.as_str(),
+                native.frame_index,
+                &native.active_enemies,
+                &oracle.active_enemies,
+                ENEMY_POSITION_TOLERANCE,
+                ENEMY_VELOCITY_TOLERANCE,
+            )?;
+        }
+    }
+
+    if !compare_enemy_snapshots {
+        eprintln!(
+            "warning: oracle captured no enemy snapshots; skipped per-enemy comparison for {}",
+            run_dir.display()
+        );
     }
 
     Ok(())
@@ -4671,6 +4683,27 @@ mod tests {
 
         compare_native_states_against_oracle(run_dir.path(), &native, &native)
             .expect("matching enemy snapshots should pass");
+    }
+
+    #[test]
+    fn compare_native_states_against_oracle_skips_enemy_compare_when_oracle_has_none() {
+        let run_dir = TempDir::new().expect("run dir");
+        let native = vec![oracle_state(
+            "level_settle",
+            719,
+            vec![oracle_enemy(
+                0x01,
+                0x0010_0000,
+                0x0010_0000,
+                0,
+                0,
+                EnemyFacing::Left,
+            )],
+        )];
+        let oracle = vec![oracle_state("level_settle", 719, Vec::new())];
+
+        compare_native_states_against_oracle(run_dir.path(), &native, &oracle)
+            .expect("missing oracle enemy snapshots should skip the per-enemy compare");
     }
 
     #[test]

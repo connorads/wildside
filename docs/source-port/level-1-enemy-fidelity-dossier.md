@@ -46,34 +46,40 @@ cargo run -p kidcli -- compare-native-oracle --scenario level1-enemy-window
 ## Level 1 family facts
 
 - Level 1 enemy layout contains 22 objects
-- First visible families are:
+- Current generated/native parse says the first visible families are:
   - `Diamond` (`0x01`)
   - `MiniHoppingSkull` (`0x1C`)
 - Parsed Level 1 layout object ordering begins with diamonds, then skulls later in the file
+- Oracle runtime evidence now contradicts that early-window assumption:
+  - the first linked enemy object seen in the real game decodes to `0x0D`
+  - that family is `Dragon`, not `Diamond` or `MiniHoppingSkull`
 
 ## Current oracle findings
 
-- The cache-local `jgenesis` helper now emits per-checkpoint enemy arrays in the shared schema
-- Real oracle runs still show a mismatch between:
-  - native activated enemy roster
-  - oracle-visible/runtime gfx objects
+- The cache-local `jgenesis` helper now follows `gfx slot -> parent object -> layout pointer` and can recover family IDs from cartridge ROM when they are needed
+- Real oracle runs for:
+  - `boot-title-start-level1`
+  - `boot-title-start-level1-move-right5s`
+  still capture no active `Diamond` or `MiniHoppingSkull` snapshots in the first 5 seconds
 - Direct helper instrumentation showed:
-  - active gfx slots in Level 1 are present at the target checkpoints
-  - one slot keeps a linked object pointer and a stable `0x0007930A` value at object offset `0x44`
-  - the expected family ID is not yet trivially recoverable from the currently sampled gfx/object words
+  - active Level 1 gfx slots are present at the target checkpoints
+  - a stable parent-object layout pointer at `0x0007930A`
+  - the linked ROM object entry begins with `0x0D`, matching `Dragon`
+- That means the current native/generated enemy-layout interpretation is still ahead of the source-port research, not the oracle helper capture
 
 ## Working hypothesis
 
-- Native currently over-counts Level 1 enemies by comparing against the activated roster rather than the narrower oracle-visible/runtime object set
-- The oracle helper likely needs one more mapping step from gfx slot -> linked object -> level enemy-layout identity before family/type comparison is trustworthy
-- The first remaining fidelity task is to decode that link cleanly, then tighten native filtering to the same observable surface
+- Native currently over-counts Level 1 enemies by comparing against a parsed roster that does not yet match the original segmented enemy layout
+- The oracle helper mapping step is now good enough to rule out the original “gfx object capture is blind” theory for the early Level 1 window
+- The first remaining fidelity task is to decode the real enemy layout/header segmentation used by `Addr_EnemyLayout` and `Addr_EnemyLayoutHeader`, then rebuild native activation against that source data
 
 ## Next actions
 
-- Decode the linked object/layout address path for Level 1 enemy gfx objects
-- Convert oracle candidate slots into stable `(layout_index, object_type, motion)` snapshots
-- Filter native checkpoint enemy snapshots to the same observable set before asserting count/type parity
+- Decode the real Level 1 enemy layout/header segmentation from `kid.asm` loader code
+- Rebuild `kid-data` Level 1 enemy parsing so early runtime families match oracle evidence
+- Keep the oracle helper ROM-backed family decode in place as the regression check for that parser fix
 - Re-run:
   - `boot-title-start-level1`
+  - `boot-title-start-level1-move-right5s`
   - `level1-enemy-window`
 - Once the first two families compare cleanly, extend the same seam to the next Level 1 hostile family
