@@ -28,7 +28,7 @@ use oracle::{
 };
 use player::{PlayOptions, run_player};
 use scenarios::{GameplayScenario, Scenario};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -287,6 +287,18 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
         scenario: GameplayScenario,
+    },
+    DiagnoseNativeGameplayDrift {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
+        scenario: GameplayScenario,
+        #[arg(long, default_value_t = 719)]
+        from_frame: usize,
+        #[arg(long, default_value_t = 1)]
+        limit: usize,
     },
     PortLoop {
         #[arg(long)]
@@ -660,6 +672,21 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             compare_native_gameplay(&repo_root, &rom_path, &manifest, scenario)?;
         }
+        Commands::DiagnoseNativeGameplayDrift {
+            rom,
+            dir,
+            scenario,
+            from_frame,
+            limit,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            diagnose_native_gameplay_drift(
+                &repo_root, &rom_path, &manifest, scenario, from_frame, limit,
+            )?;
+        }
         Commands::PortLoop {
             rom,
             dir,
@@ -983,7 +1010,7 @@ struct ScenarioCapture {
     audio_trace: AudioTrace,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct GameplayCapture {
     scenario: String,
     frame_count: usize,
@@ -1021,7 +1048,7 @@ struct CapturedState {
     active_enemies: Vec<OracleEnemyState>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct GameplayState {
     label: String,
     frame_index: usize,
@@ -1038,6 +1065,15 @@ struct GameplayState {
     kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GameplayDriftReport {
+    frame_index: usize,
+    window: String,
+    differing_fields: Vec<&'static str>,
+    native: GameplayState,
+    oracle: GameplayState,
 }
 
 type GameplayFrameEvidence = (String, usize, usize, usize, Vec<u8>);
@@ -2465,9 +2501,12 @@ fn probe_native_gameplay_scenario(
 ) -> Result<()> {
     let script = scenario.script()?;
     let trace = run_native_script_for_gameplay(manifest, &script, scenario);
-    let final_frame = trace
-        .last()
-        .ok_or_else(|| anyhow!("native trace was empty for gameplay scenario {}", scenario.slug()))?;
+    let final_frame = trace.last().ok_or_else(|| {
+        anyhow!(
+            "native trace was empty for gameplay scenario {}",
+            scenario.slug()
+        )
+    })?;
 
     println!("scenario: {}", scenario.slug());
     println!("frames: {}", trace.len());
@@ -2479,7 +2518,10 @@ fn probe_native_gameplay_scenario(
     if let Some(level_name) = &final_frame.current_level_name {
         println!("current level name: {level_name}");
     }
-    println!("lives/hp: {}/{}", final_frame.number_lives, final_frame.number_hitpoints);
+    println!(
+        "lives/hp: {}/{}",
+        final_frame.number_lives, final_frame.number_hitpoints
+    );
     println!(
         "active enemy objects: {}",
         final_frame.active_enemy_object_count
@@ -2491,7 +2533,10 @@ fn probe_native_gameplay_scenario(
     if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
         println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
     }
-    println!("camera: {:08X},{:08X}", final_frame.camera_x_pos, final_frame.camera_y_pos);
+    println!(
+        "camera: {:08X},{:08X}",
+        final_frame.camera_x_pos, final_frame.camera_y_pos
+    );
     println!("active roster: {}", describe_active_objects(final_frame));
 
     for checkpoint in scenario.checkpoints() {
@@ -2731,17 +2776,59 @@ fn compare_native_gameplay(
     Ok(())
 }
 
-fn compare_native_gameplay_with<FO, FN, FE>(
+fn diagnose_native_gameplay_drift(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+    from_frame: usize,
+    limit: usize,
+) -> Result<()> {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    let (run_dir, native_capture, oracle_capture) = capture_native_gameplay_run(
+        repo_root,
+        scenario,
+        || capture_gameplay_scenario(&rom_bytes, scenario),
+        || capture_native_gameplay_scenario(manifest, scenario),
+    )?;
+    let reports = find_gameplay_live_drifts(&native_capture, &oracle_capture, scenario, from_frame);
+    let reports = reports.into_iter().take(limit.max(1)).collect::<Vec<_>>();
+
+    println!("scenario: {}", scenario.slug());
+    println!("run dir: {}", run_dir.display());
+    if reports.is_empty() {
+        println!("no live drift from frame {from_frame}");
+        return Ok(());
+    }
+
+    for report in reports {
+        println!(
+            "frame {} [{}] fields: {}",
+            report.frame_index,
+            report.window,
+            report.differing_fields.join(", ")
+        );
+        for field in &report.differing_fields {
+            println!(
+                "  {field}: native {} oracle {}",
+                gameplay_field_value(&report.native, field),
+                gameplay_field_value(&report.oracle, field)
+            );
+        }
+    }
+    Ok(())
+}
+
+fn capture_native_gameplay_run<FO, FN>(
     repo_root: &Path,
     scenario: GameplayScenario,
     oracle_capture_fn: FO,
     native_capture_fn: FN,
-    frame_evidence_fn: FE,
-) -> Result<()>
+) -> Result<(PathBuf, GameplayCapture, GameplayCapture)>
 where
     FO: FnOnce() -> Result<GameplayCapture>,
     FN: FnOnce() -> Result<GameplayCapture>,
-    FE: FnOnce() -> Result<Vec<GameplayFrameEvidence>>,
 {
     let run_dir = repo_root
         .join(".cache/native-gameplay-oracle-runs")
@@ -2772,6 +2859,23 @@ where
     let native_capture = native_capture_fn()?;
     write_gameplay_capture(&native_dir, &native_capture)?;
 
+    Ok((run_dir, native_capture, oracle_capture))
+}
+
+fn compare_native_gameplay_with<FO, FN, FE>(
+    repo_root: &Path,
+    scenario: GameplayScenario,
+    oracle_capture_fn: FO,
+    native_capture_fn: FN,
+    frame_evidence_fn: FE,
+) -> Result<()>
+where
+    FO: FnOnce() -> Result<GameplayCapture>,
+    FN: FnOnce() -> Result<GameplayCapture>,
+    FE: FnOnce() -> Result<Vec<GameplayFrameEvidence>>,
+{
+    let (run_dir, native_capture, oracle_capture) =
+        capture_native_gameplay_run(repo_root, scenario, oracle_capture_fn, native_capture_fn)?;
     compare_gameplay_checkpoints_against_oracle(
         &run_dir,
         scenario,
@@ -2779,7 +2883,7 @@ where
         &oracle_capture.checkpoints,
     )?;
     let frame_evidence = frame_evidence_fn()?;
-    write_gameplay_frame_evidence(&review_dir, &frame_evidence)?;
+    write_gameplay_frame_evidence(&run_dir.join("review"), &frame_evidence)?;
     Ok(())
 }
 
@@ -3069,6 +3173,118 @@ fn compare_u16_delta(
         );
     }
     Ok(())
+}
+
+fn find_gameplay_live_drifts(
+    native_capture: &GameplayCapture,
+    oracle_capture: &GameplayCapture,
+    scenario: GameplayScenario,
+    from_frame: usize,
+) -> Vec<GameplayDriftReport> {
+    native_capture
+        .states
+        .iter()
+        .zip(&oracle_capture.states)
+        .filter(|(native, oracle)| {
+            native.frame_index >= from_frame && native.frame_index == oracle.frame_index
+        })
+        .filter_map(|(native, oracle)| {
+            let differing_fields = gameplay_differing_fields(native, oracle);
+            if differing_fields.is_empty() {
+                None
+            } else {
+                Some(GameplayDriftReport {
+                    frame_index: native.frame_index,
+                    window: gameplay_checkpoint_window(scenario, native.frame_index),
+                    differing_fields,
+                    native: native.clone(),
+                    oracle: oracle.clone(),
+                })
+            }
+        })
+        .collect()
+}
+
+fn gameplay_differing_fields(native: &GameplayState, oracle: &GameplayState) -> Vec<&'static str> {
+    let mut fields = Vec::new();
+    if native.game_mode != oracle.game_mode {
+        fields.push("game_mode");
+    }
+    if native.current_player != oracle.current_player {
+        fields.push("current_player");
+    }
+    if native.number_lives != oracle.number_lives {
+        fields.push("number_lives");
+    }
+    if native.number_hitpoints != oracle.number_hitpoints {
+        fields.push("number_hitpoints");
+    }
+    if native.current_level_id != oracle.current_level_id {
+        fields.push("current_level_id");
+    }
+    if native.player_1_level_id != oracle.player_1_level_id {
+        fields.push("player_1_level_id");
+    }
+    if native.current_helmet_id != oracle.current_helmet_id {
+        fields.push("current_helmet_id");
+    }
+    if native.camera_x_pos.abs_diff(oracle.camera_x_pos) > CAMERA_POSITION_TOLERANCE {
+        fields.push("camera_x_pos");
+    }
+    if native.camera_y_pos.abs_diff(oracle.camera_y_pos) > CAMERA_POSITION_TOLERANCE {
+        fields.push("camera_y_pos");
+    }
+    if native.kid_x_pos.abs_diff(oracle.kid_x_pos) > CAMERA_POSITION_TOLERANCE {
+        fields.push("kid_x_pos");
+    }
+    if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > CAMERA_POSITION_TOLERANCE {
+        fields.push("kid_y_pos");
+    }
+    fields
+}
+
+fn gameplay_checkpoint_window(scenario: GameplayScenario, frame_index: usize) -> String {
+    let checkpoints = scenario.checkpoints();
+    let previous = checkpoints
+        .iter()
+        .rev()
+        .find(|checkpoint| checkpoint.frame_index <= frame_index);
+    let next = checkpoints
+        .iter()
+        .find(|checkpoint| checkpoint.frame_index >= frame_index);
+    match (previous, next) {
+        (Some(previous), Some(next)) if previous.frame_index == next.frame_index => {
+            format!("{}@{}", previous.label, previous.frame_index)
+        }
+        (Some(previous), Some(next)) => {
+            format!(
+                "{}@{} -> {}@{}",
+                previous.label, previous.frame_index, next.label, next.frame_index
+            )
+        }
+        (Some(previous), None) => format!("after {}@{}", previous.label, previous.frame_index),
+        (None, Some(next)) => format!("before {}@{}", next.label, next.frame_index),
+        (None, None) => String::from("no checkpoints"),
+    }
+}
+
+fn gameplay_field_value(state: &GameplayState, field: &str) -> String {
+    match field {
+        "game_mode" => format!("{:04X}", state.game_mode),
+        "current_player" => state.current_player.to_string(),
+        "number_lives" => state.number_lives.to_string(),
+        "number_hitpoints" => state.number_hitpoints.to_string(),
+        "current_level_id" => format!("{:04X}", state.current_level_id),
+        "player_1_level_id" => format!("{:04X}", state.player_1_level_id),
+        "current_helmet_id" => format!("{:04X}", state.current_helmet_id),
+        "camera_x_pos" => format!("{:08X}", state.camera_x_pos),
+        "camera_y_pos" => format!("{:08X}", state.camera_y_pos),
+        "kid_x_pos" => format!("{:08X}", state.kid_x_pos),
+        "kid_y_pos" => format!("{:08X}", state.kid_y_pos),
+        "number_objects" => state.number_objects.to_string(),
+        "number_gfx_objects" => state.number_gfx_objects.to_string(),
+        _ => String::from("<unknown>"),
+    }
 }
 
 fn run_port_loop(
@@ -4534,10 +4750,11 @@ fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<(
 mod tests {
     use super::{
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
-        audio_envelope_similarity, build_controller_script, compare_native_gameplay_with,
-        compare_native_states_against_oracle, native_trace_to_oracle_state, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, scenario_uses_generated_level_layout,
-        selected_reference_repos,
+        audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
+        compare_native_gameplay_with, compare_native_states_against_oracle,
+        find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        scenario_uses_generated_level_layout, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -5068,7 +5285,8 @@ mod tests {
     }
 
     #[test]
-    fn compare_native_gameplay_retains_semantic_passes_while_writing_frame_evidence() {
+    fn gameplay_regression_compare_native_gameplay_retains_semantic_passes_while_writing_frame_evidence()
+     {
         let repo_root = TempDir::new().expect("repo root");
         let capture = GameplayCapture {
             scenario: String::from("pause_resume_level1"),
@@ -5116,13 +5334,76 @@ mod tests {
     }
 
     #[test]
-    fn progress_two_transitions_uses_generated_level_layout_by_default() {
+    fn gameplay_regression_progress_two_transitions_uses_generated_level_layout_by_default() {
         assert!(scenario_uses_generated_level_layout(
             GameplayScenario::ProgressTwoTransitions
         ));
         assert!(scenario_uses_generated_level_layout(
             GameplayScenario::PauseResumeLevel1
         ));
+    }
+
+    #[test]
+    fn gameplay_regression_finds_first_live_drift_from_requested_frame() {
+        let native = GameplayCapture {
+            scenario: String::from("pause_resume_level1"),
+            frame_count: 5,
+            missed_vblank_frames: 0,
+            states: vec![
+                gameplay_state("frame_00719", 719),
+                gameplay_state("frame_00720", 720),
+                gameplay_state("frame_00721", 721),
+                gameplay_state("frame_00722", 722),
+                gameplay_state("frame_00723", 723),
+            ],
+            checkpoints: Vec::new(),
+        };
+        let mut oracle = native.clone();
+        oracle.states[1].camera_x_pos = 0x0099_0000;
+        oracle.states[3].kid_y_pos = 0x0042_0000;
+
+        let reports =
+            find_gameplay_live_drifts(&native, &oracle, GameplayScenario::PauseResumeLevel1, 721);
+
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].frame_index, 722);
+        assert_eq!(reports[0].differing_fields, vec!["kid_y_pos"]);
+        assert_eq!(
+            reports[0].window,
+            String::from("level_settle@719 -> pre_pause@839")
+        );
+    }
+
+    #[test]
+    fn gameplay_regression_capture_native_gameplay_run_writes_summaries_without_compare() {
+        let repo_root = TempDir::new().expect("repo root");
+        let capture = GameplayCapture {
+            scenario: String::from("pause_resume_level1"),
+            frame_count: 2,
+            missed_vblank_frames: 0,
+            states: vec![
+                gameplay_state("frame_00719", 719),
+                gameplay_state("frame_00720", 720),
+            ],
+            checkpoints: vec![gameplay_state("level_settle", 719)],
+        };
+
+        let (run_dir, native, oracle) = capture_native_gameplay_run(
+            repo_root.path(),
+            GameplayScenario::PauseResumeLevel1,
+            || Ok(capture.clone()),
+            || Ok(capture.clone()),
+        )
+        .expect("capture run should succeed");
+
+        assert_eq!(native.states.len(), 2);
+        assert_eq!(oracle.states.len(), 2);
+        assert!(run_dir.join("native/summary.json").is_file());
+        assert!(run_dir.join("oracle/summary.json").is_file());
+        assert_eq!(
+            gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 920),
+            String::from("paused_tail@919 -> resumed_tail@1119")
+        );
     }
 
     fn gameplay_state(label: &str, frame_index: usize) -> GameplayState {

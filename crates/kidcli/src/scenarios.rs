@@ -404,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn gameplay_pause_scenario_pauses_and_resumes() {
+    fn gameplay_regression_pause_resume_scenario_pauses_and_resumes() {
         let script = GameplayScenario::PauseResumeLevel1
             .script()
             .expect("gameplay scenario script should build");

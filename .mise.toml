@@ -1,6 +1,8 @@
 [tools]
 python = "3.14.3"
 rust = "1.94.0"
+hk = "1.38.0"
+pkl = "0.31.0"
 # SDL2 0.38.0's CMakeLists.txt needs cmake_minimum_required < 3.5 compat (dropped in cmake 4.x)
 cmake = "3.30.9"
 
@@ -36,6 +38,12 @@ run = "cargo run -p kidcli -- verify-level"
 
 [tasks.verify-gameplay]
 run = "cargo run --release -p kidcli -- verify-gameplay --all"
+
+[tasks.verify-slice-fast]
+run = "cargo test -q -p kid-core timing_regression_ && cargo test -q -p kidcli gameplay_regression_"
+
+[tasks.verify-slice-full]
+run = "cargo test -q -p kid-core && cargo test -q -p kidcli && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 && cargo run -q -p kidcli -- compare-native-gameplay --scenario progress-two-transitions && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
 
 [tasks.verify-audio-driver]
 run = "cargo run -p kidcli -- verify-audio-driver"

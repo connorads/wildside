@@ -1,0 +1,36 @@
+amends "package://github.com/jdx/hk/releases/download/v1.38.0/hk@1.38.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.38.0/hk@1.38.0#/Builtins.pkl"
+
+exclude = List(".git", ".cache", "target")
+
+display_skip_reasons = List()
+terminal_progress = false
+
+local binary_excludes = List(
+    "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.ico",
+    "*.woff", "*.woff2", "*.ttf", "*.eot", "*.pdf", "*.zip"
+)
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps {
+            ["trailing-whitespace"] = (Builtins.trailing_whitespace) {
+                exclude = binary_excludes
+            }
+            ["newlines"] = (Builtins.newlines) {
+                exclude = binary_excludes
+            }
+            ["check-merge-conflict"] = (Builtins.check_merge_conflict) {}
+            ["kid-core-timing-regressions"] {
+                glob = List("crates/kid-core/**/*.rs")
+                check = "scripts/quiet-on-success.sh cargo test -q -p kid-core timing_regression_"
+            }
+            ["kidcli-gameplay-regressions"] {
+                glob = List("crates/kidcli/**/*.rs", "hk.pkl", ".mise.toml")
+                check = "scripts/quiet-on-success.sh cargo test -q -p kidcli gameplay_regression_"
+            }
+        }
+    }
+}

@@ -61,6 +61,8 @@ mise run verify-boot
 mise run verify-startup
 mise run verify-level
 mise run verify-gameplay
+mise run verify-slice-fast
+mise run verify-slice-full
 mise run verify-audio-driver
 mise run oracle-setup
 mise run extract-assets
@@ -71,6 +73,7 @@ mise run verify-native-bootstrap
 mise run compare-native-oracle
 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
+cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
 mise run port-loop
 cargo run -p kidcli -- autonomous-loop --goal level1-opening-slice
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
@@ -183,6 +186,28 @@ The native checkpoint comparison artefacts are written under `.cache/native-orac
 The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
 
 Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
+
+## Fast regression gate
+
+Use the fast slice gate before each commit touching `kid-core` or `kidcli` gameplay logic:
+
+```bash
+mise run verify-slice-fast
+```
+
+Use the full slice gate before calling a traversal/runtime slice green:
+
+```bash
+mise run verify-slice-full
+```
+
+If a gameplay compare reopens, use:
+
+```bash
+cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
+```
+
+Tracked hooks now live under `.hk-hooks/`. Run `git config --local core.hooksPath .hk-hooks` once in the repo to enable the `hk` pre-commit gate.
 
 ## Current controls
 

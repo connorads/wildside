@@ -45,12 +45,14 @@ This dossier covers the current post-opening frontier:
 ## Useful commands
 
 ```bash
+mise run verify-slice-fast
 cargo test -p kid-core
 cargo test -p kidcli
 cargo run -p kidcli -- dump-level-layout --level 00
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
+cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
@@ -64,11 +66,17 @@ KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- probe-native-gameplay
 3. Pick the first non-complete capability from the goal contract.
 4. Write or tighten the failing test first.
 5. Make the smallest runtime change that moves that capability.
-6. Rerun only the narrow verification set for that capability, then the full relevant package tests.
+6. Rerun `mise run verify-slice-fast`, then the full relevant package tests and compares for that capability.
 7. Update this dossier with:
    - what changed
    - what still fails
    - the exact next command to run
+
+Fast gate policy:
+
+- `mise run verify-slice-fast` is the default pre-commit gate for gameplay/runtime work.
+- `mise run verify-slice-full` is the slice acceptance gate before calling a traversal/runtime step green.
+- If `pause-resume-level1` is red, do not lock in generated-terrain death work from the same timing family.
 
 ## Next expected implementation order
 
