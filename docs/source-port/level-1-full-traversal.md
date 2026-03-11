@@ -23,6 +23,7 @@ This dossier covers the current post-opening frontier:
 - Asset-backed Level 1 visuals: landed
 - `compare-native-gameplay --scenario progress-two-transitions`: passing
 - Jump take-off no longer re-grounds on the first held-button frame, solid terrain grounds one pixel above the cell top, and player jump-air control now uses the disassembly-backed per-helmet tables
+- Level 1 opening damage now lands on the oracle frame under the run-right gameplay script, and Mini Hopping Skulls now wait longer on the floor and retarget hops toward the kid before launch
 - `compare-native-gameplay --scenario pause-resume-level1`: passing on dumped terrain
 - `compare-native-gameplay --scenario death-respawn-level1`: passing again after locking the death camera, snapping the synthetic late hazard onto the oracle camera checkpoint, and extending the respawn settle slightly
 - Transition parity currently uses an explicit generated `Level_Layout` mode for `pause-resume-level1` and `progress-two-transitions`
@@ -33,6 +34,8 @@ This dossier covers the current post-opening frontier:
 - Real terrain is not yet the default runtime path for all gameplay scenarios
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
 - The remaining blocker is `death-respawn-level1` on dumped terrain; pause and progress now hold there, but death still trails the oracle route before `pre_death@1279`
+- After the opening-hit and skull-timing fixes, dumped-terrain death now reaches the oracle camera checkpoint but still diverges in kid Y at `pre_death@1279` (`native 0x008F0000`, `oracle 0x00F88900`)
+- The surviving late-route drift is concentrated around frames 960-1080, where native misses a scripted late jump window and falls onto the lower route while the oracle stays on the higher path
 - Top-level docs were pointing at older slices; this file is now the canonical traversal hand-off
 
 ## Useful commands
@@ -46,6 +49,8 @@ cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
+KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
+KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- probe-native-gameplay --scenario death-respawn-level1
 ```
 
 ## Continuation protocol
@@ -63,7 +68,7 @@ KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gamepl
 
 ## Next expected implementation order
 
-1. Move `death-respawn-level1` onto the dumped-terrain path by default and fix the first route divergence that remains there.
+1. Keep `death-respawn-level1` on the stable default path, and close the dumped-terrain late jump/late death divergence before moving it over by default.
 2. Remove the flat-floor fallback from the default runtime path only after the dumped-terrain path keeps all gameplay comparisons green.
 3. Keep `progress-two-transitions` green while moving death onto dumped terrain.
 4. Leave the next frontier explicit in tracked docs after each MVP slice.

@@ -11,7 +11,7 @@ const INTRO_SEGMENT_FRAMES: usize = 80;
 const TITLE_TO_LEVEL_FRAMES: usize = 60;
 const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
 const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
-const OPENING_SCROLL_ACCEL_TARGET_X_FP: u32 = 0x0045_0000;
+const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES: usize = OPENING_SCROLL_START_FRAME + 23;
 const OPENING_SCROLL_START_FRAME: usize = 260;
 const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
@@ -40,7 +40,7 @@ const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 const HOPPER_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
 const HOPPER_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
 const HOPPER_GRAVITY_FP: i32 = 0x0000_1200;
-const HOPPER_GROUND_DELAY_FRAMES: u8 = 10;
+const HOPPER_GROUND_DELAY_FRAMES: u8 = 32;
 // Enemy half-width for terrain probes (8px, matching the 16px sprite).
 const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 // Enemy height for terrain probes (16px).
@@ -871,7 +871,11 @@ impl NativeRuntime {
         let platform_layout = self.platform_layout(self.current_level).cloned();
         if let Some(enemy_layout) = enemy_layout.as_ref() {
             activate_enemies(&mut self.active_enemies, enemy_layout, window);
-            step_active_enemies(&mut self.active_enemies, self.block_grid.as_ref());
+            step_active_enemies(
+                &mut self.active_enemies,
+                self.block_grid.as_ref(),
+                Some(slice.player.x_pos),
+            );
             self.active_enemy_roster = self
                 .active_enemies
                 .iter()
@@ -931,7 +935,9 @@ impl NativeRuntime {
             && self.invulnerable_frames == 0
             && input.right
             && self.number_hitpoints == self.current_form.max_hitpoints()
-            && slice.camera.x_pos >= OPENING_SCROLL_ACCEL_TARGET_X_FP
+            && self.level_elapsed_frames().is_some_and(|elapsed| {
+                elapsed >= LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES && slice.camera.x_pos == 0
+            })
     }
 
     /// Check for stomp-kills: player landing on enemies from above.
@@ -1799,17 +1805,25 @@ fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window:
 }
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.
-fn step_active_enemies(active: &mut [ActiveEnemy], block_grid: Option<&terrain::BlockGrid>) {
+fn step_active_enemies(
+    active: &mut [ActiveEnemy],
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
     for enemy in active.iter_mut() {
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
-            EnemyArchetype::Hopper => step_hopper(enemy, block_grid),
+            EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
         }
     }
 }
 
-fn step_hopper(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+fn step_hopper(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
     let Some(grid) = block_grid else {
         return;
     };
@@ -1817,9 +1831,11 @@ fn step_hopper(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>)
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     if enemy.on_ground {
-        if hopper_should_reverse(enemy, grid, cx, cy) {
-            reverse_enemy_direction(enemy);
+        let mut facing = player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
+        if hopper_should_reverse(facing, grid, cx, cy) {
+            facing = opposite_direction(facing);
         }
+        enemy.facing = facing;
         if enemy.grounded_frames > 0 {
             enemy.grounded_frames -= 1;
             enemy.x_velocity = 0;
@@ -1874,13 +1890,8 @@ fn step_hopper(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>)
     }
 }
 
-fn hopper_should_reverse(
-    enemy: &ActiveEnemy,
-    grid: &terrain::BlockGrid,
-    cx: i32,
-    cy: i32,
-) -> bool {
-    let moving_right = matches!(enemy.facing, Direction::Right);
+fn hopper_should_reverse(facing: Direction, grid: &terrain::BlockGrid, cx: i32, cy: i32) -> bool {
+    let moving_right = matches!(facing, Direction::Right);
     let wall = terrain::probe_wall(
         grid,
         cx,
@@ -1901,10 +1912,23 @@ fn hopper_should_reverse(
 }
 
 fn reverse_enemy_direction(enemy: &mut ActiveEnemy) {
-    enemy.facing = match enemy.facing {
+    enemy.facing = opposite_direction(enemy.facing);
+}
+
+fn opposite_direction(facing: Direction) -> Direction {
+    match facing {
         Direction::Left => Direction::Right,
         Direction::Right => Direction::Left,
-    };
+    }
+}
+
+fn player_relative_direction(enemy_x_pos: u32, player_x_pos: Option<u32>) -> Option<Direction> {
+    let player_x_pos = player_x_pos?;
+    Some(if player_x_pos > enemy_x_pos {
+        Direction::Right
+    } else {
+        Direction::Left
+    })
 }
 
 fn horizontal_velocity(facing: Direction, speed: i32) -> i32 {
@@ -2703,6 +2727,40 @@ mod tests {
     }
 
     #[test]
+    fn level_one_opening_hit_matches_oracle_frame() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut first_hit_frame = None;
+
+        for frame in 0..900 {
+            let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else if (720..900).contains(&frame) {
+                FrameInput {
+                    right: true,
+                    a: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame >= 720 && trace.number_hitpoints == 1 {
+                first_hit_frame = Some(frame);
+                break;
+            }
+        }
+
+        assert_eq!(
+            first_hit_frame,
+            Some(743),
+            "Level 1 opening hit should land on the oracle frame during the run-right script"
+        );
+    }
+
+    #[test]
     fn pit_death_triggers_death_and_respawn() {
         let mut runtime = NativeRuntime::new(manifest());
 
@@ -3476,7 +3534,7 @@ mod tests {
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid));
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -3507,7 +3565,7 @@ mod tests {
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid));
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -3517,8 +3575,17 @@ mod tests {
         let grounded_skull = grounded_skull.expect("skull should settle on the floor first");
         assert!(grounded_skull.on_ground, "skull should be grounded before launch");
 
+        for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
+        }
+        assert!(
+            enemy.on_ground,
+            "hopper should remain grounded through the disassembly-backed wait window"
+        );
+
+        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
         for _ in 0..12 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid));
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
         }
 
         let airborne_skull = enemy;
@@ -3537,32 +3604,86 @@ mod tests {
     }
 
     #[test]
-    fn hopper_reverses_at_platform_edge_before_launch() {
-        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
-        runtime.set_block_grid(grid_with_platform(17, 3, 10));
-        start_level(&mut runtime);
+    fn hopper_targets_player_direction_before_launch() {
+        let grid = grid_with_floor_at_row(17);
+        let floor_y_fp = 272u32 << 16;
+        let mut enemy = ActiveEnemy {
+            layout_index: 0,
+            family: EnemyFamily::MiniHoppingSkull,
+            x_pos: 96u32 << 16,
+            y_pos: floor_y_fp,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            hit_points: 1,
+            grounded_frames: HOPPER_GROUND_DELAY_FRAMES,
+            damage_flash_frames: 0,
+        };
 
-        for _ in 0..100 {
-            runtime.step_frame(FrameInput::default());
+        for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                Some(128u32 << 16),
+            );
         }
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            Some(128u32 << 16),
+        );
 
-        let mut ever_walked_right = false;
-        for _ in 0..200 {
-            runtime.step_frame(FrameInput::default());
-            if let Some(skull) = runtime
-                .active_enemies
-                .iter()
-                .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
-            {
-                if skull.x_velocity > 0 {
-                    ever_walked_right = true;
-                    break;
-                }
-            }
-        }
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "hopper should retarget toward the player before launching"
+        );
         assert!(
-            ever_walked_right,
-            "hopper should reverse direction at the platform edge before the next leap"
+            enemy.x_velocity > 0,
+            "hopper should launch toward the player after the grounded delay"
+        );
+    }
+
+    #[test]
+    fn hopper_reverses_at_platform_edge_before_launch() {
+        let grid = grid_with_platform(17, 3, 10);
+        let floor_y_fp = 272u32 << 16;
+        let mut enemy = ActiveEnemy {
+            layout_index: 0,
+            family: EnemyFamily::MiniHoppingSkull,
+            x_pos: 48u32 << 16,
+            y_pos: floor_y_fp,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            hit_points: 1,
+            grounded_frames: HOPPER_GROUND_DELAY_FRAMES,
+            damage_flash_frames: 0,
+        };
+
+        for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                Some(32u32 << 16),
+            );
+        }
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            Some(32u32 << 16),
+        );
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "hopper should ignore a player-relative left hop when the platform ends there"
+        );
+        assert!(
+            enemy.x_velocity > 0,
+            "hopper should launch away from the gap after reversing at the edge"
         );
     }
 
