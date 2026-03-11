@@ -255,6 +255,7 @@ pub struct NativeRuntime {
     number_hitpoints: u16,
     invulnerable_frames: usize,
     paused: bool,
+    pause_toggle_pending: bool,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
     death_camera_lock: Option<CameraState>,
@@ -311,6 +312,8 @@ struct PlayerState {
     facing: Direction,
     on_ground: bool,
     on_spikes: bool,
+    just_jumped: bool,
+    jump_buffered: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -402,6 +405,7 @@ impl NativeRuntime {
             number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
             invulnerable_frames: 0,
             paused: false,
+            pause_toggle_pending: false,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
             death_camera_lock: None,
@@ -433,6 +437,8 @@ impl NativeRuntime {
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let start_pressed = input.start && !self.previous_input.start;
+        let apply_pending_pause_toggle = self.pause_toggle_pending;
+        self.pause_toggle_pending = false;
         if start_pressed {
             self.start_press_count += 1;
             if matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
@@ -440,8 +446,11 @@ impl NativeRuntime {
                     BootState::InGame => {
                         if input.a && input.c {
                             self.enter_level_skip_hold(self.next_level_id());
+                        } else if self.paused {
+                            self.paused = false;
+                            self.pause_toggle_pending = false;
                         } else {
-                            self.paused = !self.paused;
+                            self.pause_toggle_pending = true;
                         }
                     }
                     BootState::LevelSkipHold if input.a && input.c => {
@@ -491,7 +500,13 @@ impl NativeRuntime {
         }
 
         self.refresh_active_roster();
-        self.refresh_opening_slice(self.gameplay_input(input));
+        self.refresh_opening_slice(
+            self.gameplay_input(input),
+            input.b && !self.previous_input.b,
+        );
+        if apply_pending_pause_toggle {
+            self.paused = !self.paused;
+        }
 
         let trace = self.trace_frame();
         self.previous_input = input;
@@ -620,6 +635,8 @@ impl NativeRuntime {
                     facing: Direction::Right,
                     on_ground: true,
                     on_spikes: false,
+                    just_jumped: false,
+                    jump_buffered: false,
                 })
             }
             BootState::StartingLevel { .. } | BootState::InGame => {
@@ -690,15 +707,15 @@ impl NativeRuntime {
             left: self.previous_input.left,
             right: self.previous_input.right,
             a: self.previous_input.a,
-            // Jump/special edges still use the current frame so button-press
-            // semantics stay aligned with the disassembly's Ctrl_Pressed flow.
-            b: input.b,
+            // Held jump uses the previous frame, matching the gameplay latch.
+            // Jump initiation still uses an explicit current-frame edge.
+            b: self.previous_input.b,
             c: input.c,
             start: input.start,
         }
     }
 
-    fn refresh_opening_slice(&mut self, input: FrameInput) {
+    fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::LevelSkipHold | BootState::InGame
@@ -710,6 +727,7 @@ impl NativeRuntime {
             self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
             self.invulnerable_frames = 0;
             self.paused = false;
+            self.pause_toggle_pending = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
             return;
@@ -787,6 +805,7 @@ impl NativeRuntime {
         slice.step(
             level_elapsed,
             input,
+            jump_pressed,
             self.current_form,
             self.block_grid.as_mut(),
         );
@@ -843,6 +862,7 @@ impl NativeRuntime {
         }
 
         if self.should_apply_level_one_opening_hit(&slice, input) {
+            self.opening_slice = Some(slice);
             self.apply_damage();
             return;
         }
@@ -964,8 +984,7 @@ impl NativeRuntime {
 
         let mut stomped_indices = Vec::new();
         for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
-            let is_diamond =
-                matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
+            let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
             if is_diamond {
                 continue;
             }
@@ -1153,6 +1172,7 @@ impl NativeRuntime {
 
     fn begin_death_windup(&mut self) {
         self.paused = false;
+        self.pause_toggle_pending = false;
         self.invulnerable_frames = 0;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
         self.player_lifecycle = PlayerLifecycle::DeathWindup {
@@ -1172,6 +1192,7 @@ impl NativeRuntime {
         slice.step(
             level_elapsed,
             FrameInput::default(),
+            false,
             self.current_form,
             self.block_grid.as_mut(),
         );
@@ -1197,6 +1218,7 @@ impl NativeRuntime {
 
     fn advance_level(&mut self) {
         self.paused = false;
+        self.pause_toggle_pending = false;
         let next_level = self.next_level_id();
         self.current_level = next_level;
         self.reload_block_grid_for_level(next_level);
@@ -1225,6 +1247,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platform_roster.clear();
         self.paused = false;
+        self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
     }
 
@@ -1237,6 +1260,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platform_roster.clear();
         self.paused = false;
+        self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
     }
 
@@ -1342,6 +1366,8 @@ impl PlayerState {
             facing: Direction::Right,
             on_ground: true,
             on_spikes: false,
+            just_jumped: false,
+            jump_buffered: false,
         }
     }
 }
@@ -1357,6 +1383,8 @@ impl OpeningSliceState {
                 facing: Direction::Right,
                 on_ground: false,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -1383,6 +1411,8 @@ impl OpeningSliceState {
                 facing: Direction::Right,
                 on_ground: true,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -1403,6 +1433,7 @@ impl OpeningSliceState {
         &mut self,
         level_elapsed: usize,
         input: FrameInput,
+        jump_pressed: bool,
         form: PlayerForm,
         block_grid: Option<&mut terrain::BlockGrid>,
     ) {
@@ -1410,8 +1441,8 @@ impl OpeningSliceState {
             self.run_entry_animation(level_elapsed);
             return;
         }
-        self.update_horizontal_motion(input, form);
-        self.update_vertical_motion(input, form);
+        self.update_horizontal_motion(input, jump_pressed, form);
+        self.update_vertical_motion(input, jump_pressed, form);
         if let Some(grid) = block_grid {
             self.apply_wall_collision(Some(grid));
             self.apply_ceiling_collision(Some(grid));
@@ -1458,7 +1489,18 @@ impl OpeningSliceState {
 
     /// Physics-driven horizontal movement using speed tables.
     /// Uses ground tables when on_ground, air tables when airborne.
-    fn update_horizontal_motion(&mut self, input: FrameInput, form: PlayerForm) {
+    fn update_horizontal_motion(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+    ) {
+        let near_floor =
+            self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
+        if !self.player.on_ground && jump_pressed && self.player.y_velocity >= 0 && near_floor {
+            return;
+        }
+
         let h_input = HorizontalInput {
             left: input.left,
             right: input.right,
@@ -1471,6 +1513,8 @@ impl OpeningSliceState {
                 h_input,
                 &physics::NORMAL_KID,
             )
+        } else if self.player.just_jumped {
+            (self.player.x_velocity, self.player.facing)
         } else {
             let jump_profile = physics::JUMP_AIR_PROFILES[usize::from(form.helmet_id())];
             physics::update_jump_horizontal_velocity(
@@ -1488,26 +1532,47 @@ impl OpeningSliceState {
     }
 
     /// Physics-driven vertical movement: jump initiation and gravity.
-    fn update_vertical_motion(&mut self, input: FrameInput, form: PlayerForm) {
-        let near_ground =
-            self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
-        if (self.player.on_ground || near_ground) && self.player.y_velocity >= 0 && input.b {
+    fn update_vertical_motion(&mut self, input: FrameInput, jump_pressed: bool, form: PlayerForm) {
+        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
+            self.player.just_jumped = true;
+            self.player.jump_buffered = false;
+            return;
+        }
+
+        if self.player.on_ground && self.player.y_velocity >= 0 && self.player.jump_buffered {
+            let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
+            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            self.player.x_velocity = new_x_vel;
+            self.player.y_velocity = y_vel;
+            self.player.on_ground = false;
+            self.player.just_jumped = false;
+            self.player.jump_buffered = false;
+            let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
+            self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
             return;
         }
 
         if !self.player.on_ground {
-            let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
-            self.player.y_velocity =
-                physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
+            if jump_pressed {
+                self.player.jump_buffered = true;
+            }
+            if self.player.just_jumped {
+                self.player.just_jumped = false;
+            } else {
+                let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
+                self.player.y_velocity =
+                    physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
+            }
             let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
             self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
         } else {
             self.player.y_velocity = 0;
+            self.player.just_jumped = false;
         }
     }
 
@@ -1597,9 +1662,7 @@ impl OpeningSliceState {
                 self.terrain.floor_y_pos = floor_y_fp;
                 let within_snap =
                     self.player.y_pos.abs_diff(floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP;
-                if self.player.y_velocity >= 0
-                    && (self.player.y_pos >= floor_y_fp || within_snap)
-                {
+                if self.player.y_velocity >= 0 && (self.player.y_pos >= floor_y_fp || within_snap) {
                     self.player.y_pos = floor_y_fp;
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
@@ -1851,7 +1914,8 @@ fn step_hopper(
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     if enemy.on_ground {
-        let mut facing = player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
+        let mut facing =
+            player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
         if hopper_should_reverse(facing, grid, cx, cy) {
             facing = opposite_direction(facing);
         }
@@ -2088,6 +2152,7 @@ mod tests {
         PlatformLayout, PlatformPlacement, PlatformScriptRef,
     };
     use std::path::PathBuf;
+    use std::{collections::BTreeMap, ops::RangeInclusive};
 
     fn manifest() -> AssetManifest {
         AssetManifest {
@@ -2231,6 +2296,48 @@ mod tests {
         });
         runtime.step_frame(FrameInput::default());
         runtime.trace_frame()
+    }
+
+    fn start_level_settled(runtime: &mut NativeRuntime) {
+        start_level(runtime);
+        while runtime.trace_frame().frame_index < 719 {
+            runtime.step_frame(FrameInput::default());
+        }
+    }
+
+    fn pause_resume_script_input(frame_index: usize) -> FrameInput {
+        let mut input = FrameInput::default();
+        if (720..=839).contains(&frame_index) || (960..=1_119).contains(&frame_index) {
+            input.right = true;
+            input.a = true;
+        } else if (841..=919).contains(&frame_index) {
+            input.right = true;
+        }
+        if frame_index == 840 || frame_index == 920 {
+            input.start = true;
+        }
+        if (980..=1_119).contains(&frame_index) && (frame_index - 980) % 24 < 4 {
+            input.b = true;
+        }
+        input
+    }
+
+    fn capture_frames(
+        runtime: &mut NativeRuntime,
+        watched_frames: RangeInclusive<usize>,
+        input_for_frame: impl Fn(usize) -> FrameInput,
+    ) -> BTreeMap<usize, NativeTraceFrame> {
+        let end_frame = *watched_frames.end();
+        let watched = watched_frames.collect::<Vec<_>>();
+        let mut frames = BTreeMap::new();
+        while runtime.trace_frame().frame_index < end_frame {
+            let next_frame = runtime.trace_frame().frame_index + 1;
+            let trace = runtime.step_frame(input_for_frame(next_frame));
+            if watched.contains(&trace.frame_index) {
+                frames.insert(trace.frame_index, trace);
+            }
+        }
+        frames
     }
 
     fn manifest_with_levels(count: u8) -> AssetManifest {
@@ -2492,6 +2599,8 @@ mod tests {
             ..FrameInput::default()
         });
         runtime.step_frame(FrameInput::default());
+        let pause_entry = runtime.trace_frame();
+        assert!(pause_entry.paused);
         for _ in 0..80 {
             runtime.step_frame(FrameInput {
                 right: true,
@@ -2500,8 +2609,8 @@ mod tests {
         }
         let paused_tail = runtime.trace_frame();
         assert!(paused_tail.paused);
-        assert_eq!(paused_tail.camera_x_pos, pre_pause.camera_x_pos);
-        assert_eq!(paused_tail.kid_x_pos, pre_pause.kid_x_pos);
+        assert_eq!(paused_tail.camera_x_pos, pause_entry.camera_x_pos);
+        assert_eq!(paused_tail.kid_x_pos, pause_entry.kid_x_pos);
 
         runtime.step_frame(FrameInput {
             start: true,
@@ -2521,7 +2630,7 @@ mod tests {
     }
 
     #[test]
-    fn jump_press_arms_jump_before_vertical_motion_begins() {
+    fn timing_regression_jump_press_arms_jump_before_vertical_motion_begins() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         loop {
@@ -2546,7 +2655,7 @@ mod tests {
     }
 
     #[test]
-    fn held_jump_advances_upward_on_second_frame() {
+    fn timing_regression_held_jump_advances_upward_on_second_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         loop {
@@ -2606,7 +2715,7 @@ mod tests {
     }
 
     #[test]
-    fn jump_press_on_block_grid_does_not_reground_on_takeoff_frame() {
+    fn timing_regression_jump_press_on_block_grid_does_not_reground_on_takeoff_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));
         start_level(&mut runtime);
@@ -2778,6 +2887,203 @@ mod tests {
             Some(743),
             "Level 1 opening hit should land on the oracle frame during the run-right script"
         );
+    }
+
+    #[test]
+    fn timing_regression_level_one_opening_hit_keeps_advanced_position() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        for frame in 0..744 {
+            let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else if (720..744).contains(&frame) {
+                FrameInput {
+                    right: true,
+                    a: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+        }
+
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.number_hitpoints, 1, "opening hit should have landed");
+        assert_eq!(
+            trace.kid_x_pos,
+            Some(0x003E_3000),
+            "opening hit should preserve the stepped X position on the hit frame"
+        );
+    }
+
+    #[test]
+    fn timing_regression_just_jumped_skips_air_control_and_gravity_for_one_frame() {
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 0x0075_C000;
+        slice.player.y_pos = 0x010F_0000;
+        slice.player.x_velocity = 0x0002_A000;
+        slice.player.y_velocity = -0x0005_0700;
+        slice.player.on_ground = false;
+        slice.player.just_jumped = true;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            slice.player.x_pos, 0x0078_6000,
+            "first airborne frame should keep the raw take-off X velocity"
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x0109_F900,
+            "first airborne frame should keep the raw take-off Y velocity"
+        );
+        assert_eq!(slice.player.x_velocity, 0x0002_A000);
+        assert_eq!(slice.player.y_velocity, -0x0005_0700);
+        assert!(
+            !slice.player.just_jumped,
+            "the one-frame take-off gate should clear after the first airborne frame"
+        );
+    }
+
+    #[test]
+    fn timing_regression_airborne_within_ground_snap_tolerance_cannot_jump_early() {
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.y_pos = slice.terrain.floor_y_pos.saturating_sub(0x0002_0000);
+        slice.player.y_velocity = 0x0003_C000;
+        slice.player.on_ground = false;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                b: false,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            slice.player.y_velocity >= 0,
+            "airborne player near the floor should not end the frame with an upward jump-start velocity"
+        );
+        assert!(!slice.player.just_jumped);
+    }
+
+    #[test]
+    fn timing_regression_buffers_jump_pressed_just_before_landing() {
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.y_pos = slice.terrain.floor_y_pos.saturating_sub(0x0002_0000);
+        slice.player.y_velocity = 0x0003_C000;
+        slice.player.on_ground = false;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
+        assert!(slice.player.on_ground);
+        assert!(slice.player.jump_buffered);
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(!slice.player.on_ground);
+        assert!(slice.player.y_pos < slice.terrain.floor_y_pos);
+        assert!(slice.player.y_velocity < 0);
+        assert!(!slice.player.just_jumped);
+        assert!(!slice.player.jump_buffered);
+    }
+
+    #[test]
+    fn timing_regression_near_floor_jump_press_skips_last_airborne_horizontal_step() {
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 0x00B1_2300;
+        slice.player.y_pos = slice.terrain.floor_y_pos.saturating_sub(0x0002_0000);
+        slice.player.x_velocity = 0x0002_8900;
+        slice.player.y_velocity = 0x0003_C000;
+        slice.player.on_ground = false;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(slice.player.x_pos, 0x00B1_2300);
+        assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
+        assert!(slice.player.on_ground);
+        assert!(slice.player.jump_buffered);
+    }
+
+    #[test]
+    fn timing_regression_pause_resume_script_applies_pause_and_resume_on_edge_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level_settled(&mut runtime);
+        let frames = capture_frames(&mut runtime, 839..=924, pause_resume_script_input);
+
+        assert!(!frames[&839].paused);
+        assert!(frames[&840].paused);
+        assert!(frames[&841].paused);
+        assert!(frames[&842].paused);
+        assert_eq!(frames[&841].camera_x_pos, frames[&840].camera_x_pos);
+        assert_eq!(frames[&841].kid_x_pos, frames[&840].kid_x_pos);
+        assert!(!frames[&919].paused);
+        assert!(!frames[&920].paused);
+        assert!(frames[&920].camera_x_pos > frames[&919].camera_x_pos);
+        assert!(frames[&921].camera_x_pos > frames[&920].camera_x_pos);
     }
 
     #[test]
@@ -3593,7 +3899,10 @@ mod tests {
         }
 
         let grounded_skull = grounded_skull.expect("skull should settle on the floor first");
-        assert!(grounded_skull.on_ground, "skull should be grounded before launch");
+        assert!(
+            grounded_skull.on_ground,
+            "skull should be grounded before launch"
+        );
 
         for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
             step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
@@ -3776,9 +4085,7 @@ mod tests {
         let skull = frame
             .active_objects
             .iter()
-            .find(|object| {
-                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1C })
-            })
+            .find(|object| matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1C }))
             .expect("skull snapshot should be present");
         assert_eq!(skull.layout_index, Some(0));
         assert!(skull.x_velocity.is_some());
@@ -3842,6 +4149,8 @@ mod tests {
                 facing: Direction::Right,
                 on_ground: false,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -3882,6 +4191,8 @@ mod tests {
                 facing: Direction::Right,
                 on_ground: false,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -3926,6 +4237,8 @@ mod tests {
                 facing: Direction::Right,
                 on_ground: false,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -3966,6 +4279,8 @@ mod tests {
                 facing: Direction::Right,
                 on_ground: false,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4007,6 +4322,8 @@ mod tests {
                 facing: Direction::Right,
                 on_ground: false,
                 on_spikes: false,
+                just_jumped: false,
+                jump_buffered: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4182,7 +4499,9 @@ mod tests {
         }
         runtime.step_frame(FrameInput::default());
 
-        let slice = runtime.opening_slice.expect("opening slice should remain active");
+        let slice = runtime
+            .opening_slice
+            .expect("opening slice should remain active");
         assert_eq!(
             runtime.diamond_count,
             diamonds_before + 1,
