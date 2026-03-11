@@ -11,7 +11,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
 use kid_core::{
-    GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script,
+    GameMode as NativeGameMode, NativeTraceFrame, run_script,
     run_script_with_generated_level_layout,
 };
 use kid_data::{
@@ -1266,11 +1266,7 @@ fn capture_native_gameplay_scenario(
 
     let script = scenario.script()?;
     let checkpoints = scenario.checkpoints();
-    let trace = if scenario_uses_generated_level_layout(scenario) {
-        run_script_with_generated_level_layout(manifest.clone(), &script, scenario.frame_count())
-    } else {
-        run_native_script(manifest.clone(), &script, scenario.frame_count())
-    };
+    let trace = run_native_script_for_gameplay(manifest, &script, scenario);
     let mut checkpoint_index = 0usize;
     let mut states = Vec::with_capacity(trace.len());
     let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
@@ -2372,7 +2368,7 @@ fn run_reference_build(
 
 fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result<()> {
     let script = scenario.script()?;
-    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let trace = run_native_script_for_scenario(manifest, &script, scenario);
     let final_frame = trace
         .last()
         .ok_or_else(|| anyhow!("native trace was empty for scenario {}", scenario.slug()))?;
@@ -2468,7 +2464,7 @@ fn describe_active_objects(frame: &NativeTraceFrame) -> String {
 fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
     let scenario = Scenario::BootTitleStartLevel1;
     let script = scenario.script()?;
-    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let trace = run_native_script_for_scenario(manifest, &script, scenario);
     let title_frame = trace
         .get(359)
         .ok_or_else(|| anyhow!("native trace never reached title checkpoint"))?;
@@ -2526,7 +2522,7 @@ fn compare_native_oracle(
         .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
 
     let script = scenario.script()?;
-    let native_trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let native_trace = run_native_script_for_scenario(manifest, &script, scenario);
     let native_states = capture_native_checkpoint_states(&native_trace, scenario)?;
     fs::write(
         native_dir.join("state.json"),
@@ -2636,16 +2632,52 @@ fn capture_native_gameplay_frame_evidence(
     scenario: GameplayScenario,
 ) -> Result<Vec<GameplayFrameEvidence>> {
     let script = scenario.script()?;
-    let trace = if scenario_uses_generated_level_layout(scenario) {
-        run_script_with_generated_level_layout(manifest.clone(), &script, scenario.frame_count())
-    } else {
-        run_native_script(manifest.clone(), &script, scenario.frame_count())
-    };
+    let trace = run_native_script_for_gameplay(manifest, &script, scenario);
     render_gameplay_frame_evidence(manifest, &trace, scenario.checkpoints())
 }
 
 fn scenario_uses_generated_level_layout(scenario: GameplayScenario) -> bool {
-    matches!(scenario, GameplayScenario::ProgressTwoTransitions)
+    std::env::var_os("KID_NATIVE_GENERATED_LEVEL_LAYOUT").is_some()
+        || matches!(scenario, GameplayScenario::ProgressTwoTransitions)
+}
+
+fn run_native_script_for_scenario(
+    manifest: &AssetManifest,
+    script: &[u8],
+    scenario: Scenario,
+) -> Vec<NativeTraceFrame> {
+    run_native_script_with_generated_layout_flag(
+        manifest,
+        script,
+        scenario.frame_count(),
+        std::env::var_os("KID_NATIVE_GENERATED_LEVEL_LAYOUT").is_some(),
+    )
+}
+
+fn run_native_script_for_gameplay(
+    manifest: &AssetManifest,
+    script: &[u8],
+    scenario: GameplayScenario,
+) -> Vec<NativeTraceFrame> {
+    run_native_script_with_generated_layout_flag(
+        manifest,
+        script,
+        scenario.frame_count(),
+        scenario_uses_generated_level_layout(scenario),
+    )
+}
+
+fn run_native_script_with_generated_layout_flag(
+    manifest: &AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+    use_generated_level_layout: bool,
+) -> Vec<NativeTraceFrame> {
+    if use_generated_level_layout {
+        run_script_with_generated_level_layout(manifest.clone(), script, frame_count)
+    } else {
+        run_script(manifest.clone(), script, frame_count)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -4345,7 +4377,8 @@ mod tests {
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
         audio_envelope_similarity, build_controller_script, compare_native_gameplay_with,
         compare_native_states_against_oracle, native_trace_to_oracle_state, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, selected_reference_repos,
+        parse_input_spec, prepare_generated_assets_with, scenario_uses_generated_level_layout,
+        selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -4921,6 +4954,16 @@ mod tests {
         assert!(run_dir.join("review/0002_paused_tail.png").is_file());
         assert!(run_dir.join("native/checkpoints.json").is_file());
         assert!(run_dir.join("oracle/checkpoints.json").is_file());
+    }
+
+    #[test]
+    fn progress_two_transitions_uses_generated_level_layout_by_default() {
+        assert!(scenario_uses_generated_level_layout(
+            GameplayScenario::ProgressTwoTransitions
+        ));
+        assert!(!scenario_uses_generated_level_layout(
+            GameplayScenario::PauseResumeLevel1
+        ));
     }
 
     fn gameplay_state(label: &str, frame_index: usize) -> GameplayState {

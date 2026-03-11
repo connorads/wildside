@@ -43,6 +43,7 @@ cargo run -p kidcli -- dump-level-layout --level 00
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
+KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 ```
 
 ## Continuation protocol
