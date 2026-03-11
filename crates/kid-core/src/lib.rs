@@ -705,6 +705,7 @@ impl NativeRuntime {
                 self.resolve_pending_form_change();
             }
             PlayerLifecycle::DeathWindup { remaining_frames } => {
+                self.advance_death_windup_motion();
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::DeathWindup {
                         remaining_frames: remaining_frames - 1,
@@ -1128,6 +1129,24 @@ impl NativeRuntime {
         };
     }
 
+    fn advance_death_windup_motion(&mut self) {
+        if matches!(self.boot_state, BootState::LevelSkipHold) || self.paused {
+            return;
+        }
+        let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
+        let bounds = self.level_bounds(self.current_level);
+        let mut slice = self
+            .opening_slice
+            .unwrap_or_else(|| OpeningSliceState::new(bounds));
+        slice.step(
+            level_elapsed,
+            FrameInput::default(),
+            self.current_form,
+            self.block_grid.as_mut(),
+        );
+        self.opening_slice = Some(slice);
+    }
+
     fn enter_death_hidden_state(&mut self) {
         self.current_form = PlayerForm::TheKid;
         self.pending_form = None;
@@ -1354,7 +1373,7 @@ impl OpeningSliceState {
             self.run_entry_animation(level_elapsed);
             return;
         }
-        self.update_horizontal_motion(input);
+        self.update_horizontal_motion(input, form);
         self.update_vertical_motion(input, form);
         if let Some(grid) = block_grid {
             self.apply_wall_collision(Some(grid));
@@ -1402,7 +1421,7 @@ impl OpeningSliceState {
 
     /// Physics-driven horizontal movement using speed tables.
     /// Uses ground tables when on_ground, air tables when airborne.
-    fn update_horizontal_motion(&mut self, input: FrameInput) {
+    fn update_horizontal_motion(&mut self, input: FrameInput, form: PlayerForm) {
         let h_input = HorizontalInput {
             left: input.left,
             right: input.right,
@@ -1416,11 +1435,12 @@ impl OpeningSliceState {
                 &physics::NORMAL_KID,
             )
         } else {
-            physics::update_air_horizontal_velocity(
+            let jump_profile = physics::JUMP_AIR_PROFILES[usize::from(form.helmet_id())];
+            physics::update_jump_horizontal_velocity(
                 self.player.x_velocity,
                 self.player.facing,
                 h_input,
-                &physics::AIR_NORMAL,
+                jump_profile,
             )
         };
         self.player.x_velocity = new_vel;
@@ -2496,6 +2516,34 @@ mod tests {
             rising_frame.kid_y_pos.expect("rising y") < grounded.kid_y_pos.expect("grounded y"),
             "held jump should begin moving upward on the next frame"
         );
+    }
+
+    #[test]
+    fn death_windup_keeps_player_motion_alive() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        if let Some(slice) = runtime.opening_slice.as_mut() {
+            slice.player.x_velocity = 0x0002_0000;
+            slice.player.y_velocity = -0x0001_0000;
+            slice.player.on_ground = false;
+        }
+        let before = runtime.trace_frame();
+        runtime.number_hitpoints = 0;
+        runtime.begin_death_windup();
+
+        let after = runtime.step_frame(FrameInput::default());
+
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::DeathWindup { .. }
+        ));
+        assert_ne!(after.kid_x_pos, before.kid_x_pos);
+        assert_ne!(after.kid_y_pos, before.kid_y_pos);
     }
 
     #[test]

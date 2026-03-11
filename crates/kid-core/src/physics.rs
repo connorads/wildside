@@ -191,6 +191,58 @@ pub const AIR_RUBBER: AirSpeedTable = AirSpeedTable {
     air_turn_accel: 0x800,
 };
 
+/// Per-helmet airborne control used while jumping (sub_B084 / unk_A4B2 / unk_A4C6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JumpAirProfile {
+    /// Base horizontal acceleration while airborne.
+    pub accel: i32,
+    /// Maximum horizontal jump speed.
+    pub max_speed: i32,
+}
+
+pub const JUMP_AIR_PROFILES: [JumpAirProfile; 10] = [
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Kid
+    JumpAirProfile {
+        accel: 0x3400,
+        max_speed: 0x32000,
+    }, // Skycutter
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Cyclone
+    JumpAirProfile {
+        accel: 0x4000,
+        max_speed: 0x2A000,
+    }, // Red Stealth
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Eyeclops
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Juggernaut
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Iron Knight
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Berzerker
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Maniaxe
+    JumpAirProfile {
+        accel: 0x2B00,
+        max_speed: 0x2A000,
+    }, // Micromax
+];
+
 /// Update horizontal velocity for one frame while airborne.
 ///
 /// Direct translation of sub_8506 (kid.asm:9301). Unlike ground movement,
@@ -211,6 +263,58 @@ pub fn update_air_horizontal_velocity(
     } else {
         (air_decelerate(x_vel, table), facing)
     }
+}
+
+/// Player airborne control while jumping (sub_B084).
+pub fn update_jump_horizontal_velocity(
+    x_vel: i32,
+    facing: Direction,
+    input: HorizontalInput,
+    profile: JumpAirProfile,
+) -> (i32, Direction) {
+    let accel = if input.run {
+        profile.accel + (profile.accel >> 1)
+    } else {
+        profile.accel
+    };
+
+    let new_vel = if input.left {
+        let next = x_vel - accel;
+        if next >= 0 {
+            next
+        } else {
+            let min_speed = -profile.max_speed;
+            if min_speed <= next {
+                next
+            } else {
+                x_vel + 0x100
+            }
+        }
+    } else if input.right {
+        let next = x_vel + accel;
+        if next < 0 {
+            next
+        } else if profile.max_speed >= next {
+            next
+        } else {
+            x_vel - 0x100
+        }
+    } else if x_vel > 0 {
+        (x_vel - 0x400).max(0)
+    } else if x_vel < 0 {
+        (x_vel + 0x400).min(0)
+    } else {
+        0
+    };
+
+    let new_facing = if input.left {
+        Direction::Left
+    } else if input.right {
+        Direction::Right
+    } else {
+        facing
+    };
+    (new_vel, new_facing)
 }
 
 /// Airborne, holding right — loc_852C..loc_855E.
@@ -939,6 +1043,18 @@ mod tests {
     }
 
     #[test]
+    fn jump_air_profile_kid_matches_disasm() {
+        assert_eq!(JUMP_AIR_PROFILES[0].accel, 0x2B00);
+        assert_eq!(JUMP_AIR_PROFILES[0].max_speed, 0x2A000);
+    }
+
+    #[test]
+    fn jump_air_profile_red_stealth_matches_disasm() {
+        assert_eq!(JUMP_AIR_PROFILES[3].accel, 0x4000);
+        assert_eq!(JUMP_AIR_PROFILES[3].max_speed, 0x2A000);
+    }
+
+    #[test]
     fn air_max_speed_is_lower_than_ground_walk_speed() {
         assert!(AIR_NORMAL.max_air_speed < NORMAL_KID.max_walk_speed);
     }
@@ -1028,5 +1144,49 @@ mod tests {
         // reduced max speed means reaching target speed takes proportionally longer.
         // The key difference is the lower max_air_speed cap.
         assert!(AIR_NORMAL.max_air_speed < NORMAL_KID.max_walk_speed);
+    }
+
+    #[test]
+    fn jump_air_right_accelerates_above_generic_air_cap() {
+        let mut vel = 0;
+        for _ in 0..16 {
+            (vel, _) = update_jump_horizontal_velocity(
+                vel,
+                Direction::Right,
+                right_walk(),
+                JUMP_AIR_PROFILES[0],
+            );
+        }
+        assert!(vel > AIR_NORMAL.max_air_speed);
+    }
+
+    #[test]
+    fn jump_air_run_held_uses_stronger_accel() {
+        let (walk_vel, _) = update_jump_horizontal_velocity(
+            0,
+            Direction::Right,
+            right_walk(),
+            JUMP_AIR_PROFILES[0],
+        );
+        let (run_vel, _) = update_jump_horizontal_velocity(
+            0,
+            Direction::Right,
+            right_run(),
+            JUMP_AIR_PROFILES[0],
+        );
+
+        assert_eq!(walk_vel, JUMP_AIR_PROFILES[0].accel);
+        assert_eq!(run_vel, JUMP_AIR_PROFILES[0].accel + (JUMP_AIR_PROFILES[0].accel >> 1));
+    }
+
+    #[test]
+    fn jump_air_no_input_decelerates_slowly() {
+        let (result, _) = update_jump_horizontal_velocity(
+            0x2_0000,
+            Direction::Right,
+            no_input(),
+            JUMP_AIR_PROFILES[0],
+        );
+        assert_eq!(result, 0x1FC00);
     }
 }
