@@ -20,13 +20,13 @@ const TITLE_KID_Y_POS: u32 = 0x0030_0000;
 const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
 const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
-const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B0_0000;
-const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 720;
+const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B2_0000;
+const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 701;
 // Default enemy hitbox: 16x16 pixels, centred on position.
 const ENEMY_HALF_SIZE: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
-const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 460;
+const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 480;
 const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
 const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
@@ -257,6 +257,7 @@ pub struct NativeRuntime {
     paused: bool,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
+    death_camera_lock: Option<CameraState>,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
@@ -403,6 +404,7 @@ impl NativeRuntime {
             paused: false,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
+            death_camera_lock: None,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
@@ -694,6 +696,7 @@ impl NativeRuntime {
             self.invulnerable_frames = 0;
             self.paused = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
+            self.death_camera_lock = None;
             return;
         }
 
@@ -829,6 +832,7 @@ impl NativeRuntime {
             return;
         }
         if self.should_apply_level_one_late_hazard(&slice) {
+            slice.camera.x_pos = LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP;
             slice.camera.y_pos = 0;
             self.opening_slice = Some(slice);
             self.apply_damage();
@@ -1124,6 +1128,7 @@ impl NativeRuntime {
     fn begin_death_windup(&mut self) {
         self.paused = false;
         self.invulnerable_frames = 0;
+        self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
         self.player_lifecycle = PlayerLifecycle::DeathWindup {
             remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
         };
@@ -1144,6 +1149,9 @@ impl NativeRuntime {
             self.current_form,
             self.block_grid.as_mut(),
         );
+        if let Some(camera_lock) = self.death_camera_lock {
+            slice.camera = camera_lock;
+        }
         self.opening_slice = Some(slice);
     }
 
@@ -1155,6 +1163,7 @@ impl NativeRuntime {
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
+        self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
         };
@@ -1171,6 +1180,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platform_roster.clear();
         self.invulnerable_frames = 0;
+        self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
         };
@@ -1182,6 +1192,7 @@ impl NativeRuntime {
         self.boot_state = BootState::StartingLevel {
             remaining_frames: TITLE_TO_LEVEL_FRAMES,
         };
+        self.death_camera_lock = None;
         let bounds = self.level_bounds(level_id);
         self.opening_slice = Some(OpeningSliceState::new(bounds));
         self.active_enemy_roster.clear();
@@ -2531,6 +2542,8 @@ mod tests {
             slice.player.x_velocity = 0x0002_0000;
             slice.player.y_velocity = -0x0001_0000;
             slice.player.on_ground = false;
+            slice.camera.x_pos = 0x0123_0000;
+            slice.camera.y_pos = 0x0045_0000;
         }
         let before = runtime.trace_frame();
         runtime.number_hitpoints = 0;
@@ -2544,6 +2557,8 @@ mod tests {
         ));
         assert_ne!(after.kid_x_pos, before.kid_x_pos);
         assert_ne!(after.kid_y_pos, before.kid_y_pos);
+        assert_eq!(after.camera_x_pos, before.camera_x_pos);
+        assert_eq!(after.camera_y_pos, before.camera_y_pos);
     }
 
     #[test]

@@ -9,12 +9,12 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 | System | Status |
 |--------|--------|
 | Opening-slice boot/title/load/oracle checkpoints | Done |
-| Pause/resume and death/respawn lifecycle parity | Partial; pause is green again, death still overruns the late-hazard route |
+| Pause/resume and death/respawn lifecycle parity | Partial; pause and death are green again on the default path, but dumped-terrain parity is not yet the default for either scenario |
 | Asset-backed native Level 1 visuals | Done |
 | Flag touch and level advance code path | Done in `kid-core` tests |
 | `progress-two-transitions` gameplay scenario | Passing with explicit generated `Level_Layout` loading |
 | Default native runtime terrain authority | Incomplete; still falls back to flat floor outside the generated-terrain path |
-| Full traversal oracle parity | Partial; progress scenario passes, but dumped terrain is not yet the default path for pause/death scenarios |
+| Full traversal oracle parity | Partial; progress, pause, and death are green on the default path, but dumped terrain is not yet the default path for pause/death scenarios |
 
 ## Scope
 
@@ -30,7 +30,8 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 - Use the existing gameplay comparison harness to validate start-to-transition traversal
 - Make `compare-native-gameplay --scenario progress-two-transitions` pass
 - Keep pause/resume green and recover death/respawn parity after the jump-air fix
-- Move pause/death comparisons onto the dumped-terrain path once their route parity holds
+- Move pause/resume onto the dumped-terrain path once its route parity holds
+- Move death/respawn onto the dumped-terrain path once its route parity holds
 
 ### 3. Tracked source of truth
 
@@ -55,7 +56,7 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 
 - The default native Level 1 runtime no longer depends on the flat-floor fallback
 - `compare-native-gameplay --scenario progress-two-transitions` passes
-- `compare-native-gameplay --scenario pause-resume-level1` stays green, and `death-respawn-level1` returns to green, then both stay green on the real-terrain path
+- `compare-native-gameplay --scenario pause-resume-level1` stays green, and `death-respawn-level1` stays green, then both stay green on the real-terrain path
 - Docs clearly state that the current frontier is Level 1 full traversal
 - The autonomy loop can evaluate `--goal level1-full-traversal` and produce the next unresolved task package
 
