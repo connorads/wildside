@@ -491,7 +491,7 @@ impl NativeRuntime {
         }
 
         self.refresh_active_roster();
-        self.refresh_opening_slice(input);
+        self.refresh_opening_slice(self.gameplay_input(input));
 
         let trace = self.trace_frame();
         self.previous_input = input;
@@ -681,6 +681,21 @@ impl NativeRuntime {
     fn level_elapsed_frames(&self) -> Option<usize> {
         self.level_start_frame
             .map(|frame| self.frame_index.saturating_sub(frame))
+    }
+
+    fn gameplay_input(&self, input: FrameInput) -> FrameInput {
+        FrameInput {
+            up: self.previous_input.up,
+            down: self.previous_input.down,
+            left: self.previous_input.left,
+            right: self.previous_input.right,
+            a: self.previous_input.a,
+            // Jump/special edges still use the current frame so button-press
+            // semantics stay aligned with the disassembly's Ctrl_Pressed flow.
+            b: input.b,
+            c: input.c,
+            start: input.start,
+        }
     }
 
     fn refresh_opening_slice(&mut self, input: FrameInput) {
