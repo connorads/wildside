@@ -4,14 +4,14 @@ This map records what the source port still needs to learn, where to source that
 
 ## Development philosophy
 
-**Progressive fidelity**: get it playable, then get it accurate. Every system starts approximate and is refined with oracle comparison. The oracle (jgenesis) is the safety net and primary testing tool.
+**Progressive fidelity**: get it playable, then get it accurate. Every system starts approximate and is refined with oracle comparison. The oracle (`jgenesis`) is the safety net and primary testing tool.
 
-**5 acceleration tracks** (see `acceleration-strategy.md` for full detail):
-1. Block collision -- unlocks real terrain (highest priority)
-2. Oracle-driven differential testing -- per-object state diffs for free TDD
-3. Progressive fidelity enemies -- stub -> archetype -> full AI
-4. Level traversal skeleton -- flag collision + level transitions for all 105 levels
-5. LLM-assisted ASM translation -- workflow accelerator with mandatory oracle verification
+## Current frontier
+
+1. Level 1 enemy fidelity
+2. Oracle-driven per-enemy checkpoint comparison
+3. Matching native state against the same observable runtime object surface the oracle exposes
+4. Then broader Level 1 gameplay expansion
 
 ## Done
 
@@ -36,78 +36,61 @@ This map records what the source port still needs to learn, where to source that
 - Done: damage invulnerability (300 frames)
 - Source: oracle gameplay checkpoints
 
-### Object activation
+### Object activation and tracing
 - Done: enemy roster built from camera window, platform preload + activation window
+- Done: native trace surface now records stable enemy layout identity and motion/state fields
 - Source: `doc/ram_layout.txt`, enemy layouts
 
-## Next: Block collision (Track 1)
+## Current next: Level 1 enemy fidelity
 
-### Terrain grid
-- Need: parse level block data into `BlockGrid`, implement `probe_terrain` pure function
-- Format: 2 bytes per cell at `$FFA652`, 3 bits collision type + 4 bits block type + 8 bits skin
-- Source: `doc/ram_layout.txt`, `doc/formats.txt`, `level/block/*.bin`
-- Rust target: `BlockGrid` type, `fn probe_terrain(x, y, grid) -> TerrainHit`
-- Verify: oracle comparison of player positions on real terrain
+### Native family behaviour
+- Done: `Diamond` remains stationary and collectible
+- Done: `MiniHoppingSkull` now uses a dedicated hopper loop in the native runtime
+- Need: tighten behaviour against oracle-visible timing and contact windows
 
-### Player terrain integration
-- Need: replace flat `floor_y_pos` with real terrain probing
-- Source: collision routines in `kid.asm`
-- Rust target: updated player update in `lib.rs` using `probe_terrain`
+### Oracle object capture
+- Done: shared oracle/native checkpoint schema now includes per-enemy snapshots
+- Done: new `level1_enemy_window` scenario exists for the first Level 1 enemy slice
+- Need: map oracle runtime gfx objects cleanly back to stable enemy identity/family
+- Need: align native compare against the same observable enemy surface rather than the broader activated roster
+- Source: `code/enemy/*.asm`, `doc/ram_layout.txt`, `variables.asm`, `.cache/native-oracle-runs/`
 
-## Next: Level traversal (Track 4)
-
-### Flag collision and level transitions
-- Need: detect player reaching flag position, advance to next level
-- Need: level ordering data, `player_start_x/y` from target level header
-- Source: `kid.asm` completion flow, level-order data, `constants.asm`
-- Rust target: flag detection + level transition state machine
-
-## Next: Enemy system (Track 3)
-
-### Enemy object model
-- Need: `EnemyObject` with position, velocity, HP, facing, family-specific state
-- Need: `fn update_enemy(enemy, world) -> enemy` pure function
-- Rust target: `enemies.rs` module or `enemies/` tree
-
-### Archetypes (cover ~60% of families)
-- **Pacer**: walk back and forth, reverse on wall (Goat, Armadillo, Tank, Scorpion, Driller)
-- **Hopper**: bounce with gravity, reverse on wall (Mini_Hopping_Skull, Big_Hopping_Skull, Crab)
-- **Flyer**: sine-wave or linear path (Cloud, Dragon_Flying, Tornado)
-- **Stationary attacker**: face player, project attacks (Archer, Fireball, Drips, Hand)
+### Remaining enemy archetype work
+- Next families after this cycle should reuse the same seam:
+  - pacers
+  - flyers
+  - stationary attackers
 - Source: `code/enemy/*.asm`, oracle per-object traces
 
-### Coroutine insight
-- Enemy ASM uses cooperative multitasking (`j_Hibernate_Object_1Frame` yields, kernel resumes at saved PC)
-- Translation to Rust requires converting implicit PC-as-state into explicit state enums
-- Data-driven archetypes sidestep this for simple enemies
+## Remaining player/gameplay work
 
-## Remaining player physics
 - Air control (horizontal acceleration while airborne)
-- Terrain type switching (ice, rubber) -- requires block collision first
+- Terrain type switching (ice, rubber)
 - Y look-ahead camera offset (`$FFFFFB58`)
-- Left movement oracle verification
+- Flag collision and level transitions
+- Block interactions beyond the current Level 1 slice
 
 ## Deferred
 
 ### Platform collision
 - Need: player-platform interaction (stand on, bump into)
 - Need: platform movement scripts from `level/platform/*.asm`
-- Blocked by: block collision (Track 1)
+- Blocked by: tighter terrain/object parity work
 
 ### Player forms
 - Done: speed tables for all forms
 - Remaining: form-specific abilities (Skycutter flight, Cyclone climb, etc.)
-- Deferred until enemy system is working
+- Deferred until the enemy/object surface is trustworthy
 
 ### Audio and GEMS
 - Deferred until gameplay is solid
 - Source: `doc/sound.txt`, `.cache/references/gems`, `.cache/references/gemsplay`
 
 ### Bosses, menus, cutscenes, weather
-- Deferred -- see `whole-game-index.md`
+- Deferred; see `whole-game-index.md`
 
 ## Open questions
 
-- What decompression is needed for block layouts? (Saxman/Enigma or already split?)
-- How does the oracle helper need extending for per-object state capture?
-- Which collision subroutines do enemies share? (`sub_36FF4`, `sub_36E84`, `sub_3C3CE`)
+- Which linked object/layout fields in oracle runtime RAM cleanly identify visible enemy families?
+- Which native enemies should be compared as activated roster members versus oracle-visible runtime objects?
+- Which collision/behaviour subroutines do the next Level 1 enemy families share? (`sub_36FF4`, `sub_36E84`, `sub_3C3CE`)

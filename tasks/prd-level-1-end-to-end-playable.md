@@ -1,3 +1,5 @@
+# Superseded on 2026-03-11 by `tasks/prd-level-1-enemy-fidelity-oracle.md`.
+
 # PRD: Level 1 End-to-End Playable
 
 ## Goal

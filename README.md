@@ -2,6 +2,8 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
+The current delivery frontier is Level 1 enemy fidelity: family-level native behaviour, richer per-enemy trace capture, and oracle-backed checkpoint comparison for the first visible enemy slice.
+
 ## Current status
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
@@ -19,7 +21,7 @@ This repo is a contained Rust workspace for getting the Mega Drive version of Ki
 - `kidcli inspect-level --level ...` loads a typed level bundle from the generated cache and prints parsed level header metadata, bgscroll profile summary, platform layout summary, enemy layout summary, and the concrete resource files and byte sizes for that level.
 - `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
-- `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state, including player position, directly against the `jgenesis` oracle without using `kid-md`.
+- `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state, including scoped per-enemy snapshots, directly against the `jgenesis` oracle without using `kid-md`.
 - `kidcli compare-native-gameplay --scenario ...` compares native gameplay lifecycle checkpoints for pause/resume and death/respawn against the gameplay oracle capture.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
@@ -80,7 +82,7 @@ mise run bootstrap-references
 mise run reference-build
 ```
 
-For the source-port research map and local reference layout, start with `CLAUDE.md` and `docs/source-port/reference-index.md`.
+For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-enemy-fidelity-dossier.md`.
 
 For a player-facing launch with the default ROM search path, use:
 
@@ -169,9 +171,9 @@ Current oracle results on this machine:
 
 The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw Pearson correlation, which better matches the positive-only envelope data emitted by the native and `jgenesis` captures. The emitted artefacts under `.cache/oracle-runs/` still include checkpoint `state.json` alongside WAV/PNG output for deeper debugging.
 
-The new generated source-port bundle is written under `.cache/generated/<rom-sha1>/asset-manifest.json`. It is built from the public disassembly split output and indexed into typed metadata for levels, constants, RAM variables, enemy source files, and asset groups. The first native runtime path is intentionally narrow: it provides a deterministic boot/title/level-entry skeleton that can be exercised with the existing scripted scenarios while the real gameplay port is built out.
+The new generated source-port bundle is written under `.cache/generated/<rom-sha1>/asset-manifest.json`. It is built from the public disassembly split output and indexed into typed metadata for levels, constants, RAM variables, enemy source files, and asset groups. The current native runtime path is still intentionally narrow, but it now includes family-aware Level 1 enemy state, richer trace surfaces, and per-enemy checkpoint plumbing for oracle comparison.
 
-The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
+The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle. The new `level1_enemy_window` scenario is the current high-signal slice for enemy fidelity work.
 
 `play-native` is intentionally a silent debug host for the current semantic runtime, not a full player shell. It launches straight into the native runtime, draws simple rectangles and text from `NativeTraceFrame`, and is aimed at interactive debugging of the current Level 1 slice.
 
