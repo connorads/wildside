@@ -238,6 +238,14 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
     },
+    ProbeNativeGameplay {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
+        scenario: GameplayScenario,
+    },
     InspectLevel {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -599,6 +607,13 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             probe_native_scenario(&manifest, scenario)?;
+        }
+        Commands::ProbeNativeGameplay { rom, dir, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            probe_native_gameplay_scenario(&manifest, scenario)?;
         }
         Commands::InspectLevel { rom, dir, level } => {
             let repo_root = current_dir()?;
@@ -2420,6 +2435,67 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
                 frame.current_level_name.as_deref().unwrap_or(""),
                 frame.camera_x_pos,
                 frame.camera_y_pos,
+                frame.number_objects,
+                frame.number_gfx_objects,
+                frame.active_enemy_object_count,
+                frame.active_platform_object_count,
+                describe_active_objects(frame)
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn probe_native_gameplay_scenario(manifest: &AssetManifest, scenario: GameplayScenario) -> Result<()> {
+    let script = scenario.script()?;
+    let trace = run_native_script_for_gameplay(manifest, &script, scenario);
+    let final_frame = trace
+        .last()
+        .ok_or_else(|| anyhow!("native trace was empty for gameplay scenario {}", scenario.slug()))?;
+
+    println!("scenario: {}", scenario.slug());
+    println!("frames: {}", trace.len());
+    println!(
+        "final mode: {:?} (0x{:04X})",
+        final_frame.game_mode, final_frame.game_mode_value
+    );
+    println!("current level: 0x{:02X}", final_frame.current_level.0);
+    if let Some(level_name) = &final_frame.current_level_name {
+        println!("current level name: {level_name}");
+    }
+    println!("lives/hp: {}/{}", final_frame.number_lives, final_frame.number_hitpoints);
+    println!(
+        "active enemy objects: {}",
+        final_frame.active_enemy_object_count
+    );
+    println!(
+        "active platform objects: {}",
+        final_frame.active_platform_object_count
+    );
+    if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
+        println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
+    }
+    println!("camera: {:08X},{:08X}", final_frame.camera_x_pos, final_frame.camera_y_pos);
+    println!("active roster: {}", describe_active_objects(final_frame));
+
+    for checkpoint in scenario.checkpoints() {
+        if let Some(frame) =
+            native_trace_at_checkpoint(&trace, checkpoint.label, checkpoint.frame_index)
+        {
+            println!(
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} kid {:08X},{:08X} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
+                checkpoint.label,
+                checkpoint.frame_index,
+                frame.game_mode,
+                frame.current_level.0,
+                frame.current_level_name.as_deref().unwrap_or(""),
+                frame.camera_x_pos,
+                frame.camera_y_pos,
+                frame.kid_x_pos.unwrap_or_default(),
+                frame.kid_y_pos.unwrap_or_default(),
+                frame.number_lives,
+                frame.number_hitpoints,
                 frame.number_objects,
                 frame.number_gfx_objects,
                 frame.active_enemy_object_count,
