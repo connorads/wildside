@@ -181,9 +181,9 @@ mod tests {
         fs::remove_file(&missing_path).expect("remove palette");
 
         let error = load_level1_visuals(&fixture.manifest).expect_err("missing asset should fail");
-        let message = error.to_string();
-        assert!(message.contains("foreground palette"));
+        let message = format!("{error:#}");
         assert!(message.contains("theme/palette_fg/cave.bin"));
+        assert!(message.contains("missing"));
     }
 
     #[test]

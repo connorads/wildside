@@ -4192,11 +4192,12 @@ fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::{
-        GameplayCapture, GameplayScenario, GameplayState, NativePlayOptions, ReferenceName,
-        analyse_audio_samples, audio_envelope_similarity, build_controller_script,
-        compare_native_gameplay_with, parse_button_mask, parse_input_spec,
-        prepare_generated_assets_with, run_native_player, selected_reference_repos,
+        GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
+        audio_envelope_similarity, build_controller_script, compare_native_gameplay_with,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        selected_reference_repos,
     };
+    use crate::native_player::validate_native_session_assets;
     use kid_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
     };
@@ -4524,21 +4525,13 @@ mod tests {
 
         let manifest = export_split_bundle(source_root.path(), bundle_root.path(), "abc123", "deadbeef")
             .expect("bundle export");
-        let missing_path = bundle_root.path().join("ingame/palette_enemy/Crystal_1.bin");
-        fs::remove_file(&missing_path).expect("remove required palette");
+        let error = validate_native_session_assets(&manifest, 0x00)
+            .expect_err("missing required visuals should fail startup");
 
-        let error = run_native_player(
-            &manifest,
-            NativePlayOptions {
-                fullscreen: false,
-                scale: Some(1),
-            },
-        )
-        .expect_err("missing required visuals should fail startup");
-
-        let message = error.to_string();
-        assert!(message.contains("Crystal_1.bin"));
-        assert!(message.contains("diamond"));
+        let message = format!("{error:#}");
+        assert!(message.contains("theme/artcomp_fg/cave.bin"));
+        assert!(message.contains("foreground art"));
+        assert!(message.contains("missing"));
     }
 
     #[test]
@@ -4581,7 +4574,8 @@ mod tests {
 
         let run_dir = repo_root
             .path()
-            .join(".cache/native-gameplay-oracle-runs/pause-resume-level1");
+            .join(".cache/native-gameplay-oracle-runs")
+            .join(GameplayScenario::PauseResumeLevel1.slug());
         assert!(run_dir.join("review/frame-evidence.json").is_file());
         assert!(run_dir.join("review/0002_paused_tail.png").is_file());
         assert!(run_dir.join("native/checkpoints.json").is_file());

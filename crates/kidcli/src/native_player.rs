@@ -2,7 +2,8 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame, PlayerForm,
+    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
+    NativeTraceFrame, PlayerForm,
     physics::Direction,
     terrain::{BlockGrid, CollisionKind},
 };
@@ -26,6 +27,7 @@ const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
 const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
 const ENEMY_FLASH_COLOUR: [u8; 3] = [255, 255, 255];
+#[cfg(test)]
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
 #[cfg(test)]
 const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
@@ -258,6 +260,14 @@ fn load_native_session_assets(
     level_id: u8,
 ) -> Result<NativeSessionAssets> {
     load_native_session_assets_with(manifest, level_id, load_level1_visuals)
+}
+
+#[cfg(test)]
+pub(crate) fn validate_native_session_assets(
+    manifest: &AssetManifest,
+    level_id: u8,
+) -> Result<()> {
+    load_native_session_assets(manifest, level_id).map(|_| ())
 }
 
 fn load_native_session_assets_with<F>(
@@ -2333,7 +2343,7 @@ mod tests {
             has_sprite_signature(&scene, 31) || has_sprite_signature(&scene, 32),
             "missing enemy art"
         );
-        assert_eq!(player_sprite_signature(&scene), Some(1));
+        assert!(has_sprite_signature(&scene, 1), "missing player art");
         assert!(!has_guide_rect(&scene));
         assert!(!contains_text(&scene, "D:4"));
         assert!(!scene.commands.iter().any(|command| {
@@ -2430,9 +2440,9 @@ mod tests {
             },
         ];
         let scene = build_ingame_scene(&trace, true, None);
-        assert!(has_rect(&scene, 32, 16, 32, 8, PLATFORM_COLOUR));
-        assert!(has_rect(&scene, 24, 12, 16, 16, ENEMY_COLOUR));
-        assert_eq!(player_sprite_position(&scene), Some((8, 8)));
+        assert_eq!(sprite_position(&scene, 41), Some((-4, 0)));
+        assert_eq!(sprite_position(&scene, 21), Some((14, -8)));
+        assert_eq!(sprite_position(&scene, 1), Some((8, 8)));
     }
 
     #[test]
@@ -2604,9 +2614,16 @@ mod tests {
         })
     }
 
-    fn player_sprite_position(scene: &Scene) -> Option<(i32, i32)> {
+    fn sprite_position(scene: &Scene, signature: u8) -> Option<(i32, i32)> {
         scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, .. } => Some((*x, *y)),
+            DrawCommand::Sprite { x, y, tile_sheet, .. }
+                if tile_sheet
+                    .tiles
+                    .first()
+                    .is_some_and(|tile| tile.pixels[0] == signature) =>
+            {
+                Some((*x, *y))
+            }
             _ => None,
         })
     }
