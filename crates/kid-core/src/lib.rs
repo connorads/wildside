@@ -24,8 +24,9 @@ const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 720;
 // Default enemy hitbox: 16x16 pixels, centred on position.
 const ENEMY_HALF_SIZE: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
-const PLAYER_DEATH_HIDE_FRAMES: usize = 80;
-const PLAYER_RESPAWN_SETTLE_FRAMES: usize = 401;
+const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
+const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 460;
+const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
 const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
 const LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120; // brief pause before advancing
@@ -648,7 +649,7 @@ impl NativeRuntime {
                         self.level_bounds(self.current_level),
                     ));
                     self.player_lifecycle = PlayerLifecycle::Respawning {
-                        remaining_frames: PLAYER_RESPAWN_SETTLE_FRAMES,
+                        remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
                 }
                 return;
@@ -1084,7 +1085,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.invulnerable_frames = 0;
         self.player_lifecycle = PlayerLifecycle::Respawning {
-            remaining_frames: PLAYER_RESPAWN_SETTLE_FRAMES,
+            remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
         };
     }
 
@@ -2045,7 +2046,7 @@ mod tests {
         runtime.step_frame(FrameInput::default());
         assert_eq!(runtime.trace_frame().current_level, LevelId(1));
 
-        for _ in 0..PLAYER_RESPAWN_SETTLE_FRAMES {
+        for _ in 0..PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES {
             runtime.step_frame(FrameInput::default());
         }
         runtime.step_frame(FrameInput {
@@ -2217,7 +2218,7 @@ mod tests {
         assert_eq!(respawn_entry.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
         assert_eq!(respawn_entry.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
 
-        for _ in 0..(PLAYER_RESPAWN_SETTLE_FRAMES - 1) {
+        for _ in 0..(PLAYER_DEATH_RESPAWN_SETTLE_FRAMES - 1) {
             let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
             runtime.step_frame(FrameInput {
                 right: true,
