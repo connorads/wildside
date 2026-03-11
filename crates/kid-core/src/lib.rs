@@ -35,9 +35,11 @@ const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
 const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
-// Pacer enemy (MiniHoppingSkull) constants.
-// Speed: ~1 px/frame in fixed-point 16.16.
-const PACER_WALK_SPEED_FP: i32 = 0x0001_0000;
+// MiniHoppingSkull hopper constants recovered from the enemy module.
+const HOPPER_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
+const HOPPER_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
+const HOPPER_GRAVITY_FP: i32 = 0x0000_1200;
+const HOPPER_GROUND_DELAY_FRAMES: u8 = 10;
 // Enemy half-width for terrain probes (8px, matching the 16px sprite).
 const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 // Enemy height for terrain probes (16px).
@@ -218,6 +220,12 @@ pub struct NativeObjectSnapshot {
     pub kind: NativeObjectKind,
     pub x_pos: u32,
     pub y_pos: u32,
+    pub layout_index: Option<usize>,
+    pub x_velocity: Option<i32>,
+    pub y_velocity: Option<i32>,
+    pub facing: Option<Direction>,
+    pub on_ground: Option<bool>,
+    pub hit_points: Option<u8>,
     pub damage_flash: bool,
 }
 
@@ -343,7 +351,15 @@ struct ActiveEnemy {
     facing: Direction,
     on_ground: bool,
     hit_points: u8,
+    grounded_frames: u8,
     damage_flash_frames: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EnemyArchetype {
+    Collectible,
+    Hopper,
+    Inert,
 }
 
 impl NativeRuntime {
@@ -593,6 +609,12 @@ impl NativeRuntime {
                 kind: NativeObjectKind::Player,
                 x_pos: player_state.x_pos,
                 y_pos: player_state.y_pos,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             });
         }
@@ -791,14 +813,7 @@ impl NativeRuntime {
             self.active_enemy_roster = self
                 .active_enemies
                 .iter()
-                .map(|e| NativeObjectSnapshot {
-                    kind: NativeObjectKind::Enemy {
-                        object_type: e.family.object_type(),
-                    },
-                    x_pos: e.x_pos,
-                    y_pos: e.y_pos,
-                    damage_flash: e.damage_flash_frames > 0,
-                })
+                .map(ActiveEnemy::snapshot)
                 .collect();
         }
         if let Some(platform_layout) = platform_layout.as_ref() {
@@ -894,14 +909,7 @@ impl NativeRuntime {
         self.active_enemy_roster = self
             .active_enemies
             .iter()
-            .map(|e| NativeObjectSnapshot {
-                kind: NativeObjectKind::Enemy {
-                    object_type: e.family.object_type(),
-                },
-                x_pos: e.x_pos,
-                y_pos: e.y_pos,
-                damage_flash: e.damage_flash_frames > 0,
-            })
+            .map(ActiveEnemy::snapshot)
             .collect();
 
         // Bounce the player upward
@@ -927,6 +935,12 @@ impl NativeRuntime {
                 },
                 x_pos: enemy.x_pos,
                 y_pos: enemy.y_pos,
+                layout_index: Some(enemy.layout_index),
+                x_velocity: Some(enemy.x_velocity),
+                y_velocity: Some(enemy.y_velocity),
+                facing: Some(enemy.facing),
+                on_ground: Some(enemy.on_ground),
+                hit_points: Some(enemy.hit_points),
                 damage_flash: false,
             };
             if player_touches_enemy(slice.player, &snapshot) {
@@ -948,14 +962,7 @@ impl NativeRuntime {
             self.active_enemy_roster = self
                 .active_enemies
                 .iter()
-                .map(|e| NativeObjectSnapshot {
-                    kind: NativeObjectKind::Enemy {
-                        object_type: e.family.object_type(),
-                    },
-                    x_pos: e.x_pos,
-                    y_pos: e.y_pos,
-                    damage_flash: e.damage_flash_frames > 0,
-                })
+                .map(ActiveEnemy::snapshot)
                 .collect();
         }
     }
@@ -1452,13 +1459,46 @@ impl PlatformLoaderState {
                 },
                 x_pos: u32::from(placement.x) << 16,
                 y_pos: u32::from(placement.y) << 16,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             })
             .collect()
     }
 }
 
+impl ActiveEnemy {
+    fn snapshot(&self) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: self.family.object_type(),
+            },
+            x_pos: self.x_pos,
+            y_pos: self.y_pos,
+            layout_index: Some(self.layout_index),
+            x_velocity: Some(self.x_velocity),
+            y_velocity: Some(self.y_velocity),
+            facing: Some(self.facing),
+            on_ground: Some(self.on_ground),
+            hit_points: Some(self.hit_points),
+            damage_flash: self.damage_flash_frames > 0,
+        }
+    }
+}
+
 impl EnemyFamily {
+    fn archetype(self) -> EnemyArchetype {
+        match self {
+            Self::Diamond => EnemyArchetype::Collectible,
+            Self::MiniHoppingSkull => EnemyArchetype::Hopper,
+            Self::Unknown(_) => EnemyArchetype::Inert,
+        }
+    }
+
     fn from_layout_object(layout: &EnemyLayout, object: &EnemyLayoutObject) -> Self {
         match resolved_enemy_id(layout, object.object_type) {
             Some(0x01) => Self::Diamond,
@@ -1493,6 +1533,12 @@ impl EnemyFamily {
             },
             x_pos: object_x << 16,
             y_pos: object_y << 16,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
             damage_flash: false,
         })
     }
@@ -1537,14 +1583,12 @@ fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window:
             family,
             x_pos: object_x << 16,
             y_pos: object_y << 16,
-            x_velocity: match family {
-                EnemyFamily::MiniHoppingSkull => -PACER_WALK_SPEED_FP,
-                _ => 0,
-            },
+            x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points,
+            grounded_frames: 0,
             damage_flash_frames: 0,
         });
     }
@@ -1554,95 +1598,115 @@ fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window:
 fn step_active_enemies(active: &mut [ActiveEnemy], block_grid: Option<&terrain::BlockGrid>) {
     for enemy in active.iter_mut() {
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
-        if enemy.family == EnemyFamily::MiniHoppingSkull {
-            step_pacer(enemy, block_grid);
+        match enemy.family.archetype() {
+            EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
+            EnemyArchetype::Hopper => step_hopper(enemy, block_grid),
         }
     }
 }
 
-/// Pacer movement: walk horizontally, apply gravity, reverse on wall or edge.
-fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
-    // Apply gravity.
-    enemy.y_velocity = (enemy.y_velocity + physics::GRAVITY_NORMAL).min(physics::MAX_FALL_SPEED);
-
-    // Apply horizontal velocity.
-    let new_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-    enemy.x_pos = new_x;
-
-    // Apply vertical velocity.
-    let new_y = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
-    enemy.y_pos = new_y;
-
+fn step_hopper(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     let Some(grid) = block_grid else {
         return;
     };
 
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
-    let moving_right = enemy.x_velocity > 0;
+    if enemy.on_ground {
+        if hopper_should_reverse(enemy, grid, cx, cy) {
+            reverse_enemy_direction(enemy);
+        }
+        if enemy.grounded_frames > 0 {
+            enemy.grounded_frames -= 1;
+            enemy.x_velocity = 0;
+            return;
+        }
+        enemy.x_velocity = horizontal_velocity(enemy.facing, HOPPER_JUMP_X_SPEED_FP);
+        enemy.y_velocity = HOPPER_JUMP_Y_SPEED_FP;
+        enemy.on_ground = false;
+    }
 
-    // Floor collision: land on terrain.
+    enemy.y_velocity = (enemy.y_velocity + HOPPER_GRAVITY_FP).min(physics::MAX_FALL_SPEED);
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        reverse_enemy_direction(enemy);
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+        if moving_right {
+            if enemy.x_pos + edge_fp > wall_fp {
+                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+            }
+        } else if enemy.x_pos < wall_fp + edge_fp {
+            enemy.x_pos = wall_fp + edge_fp;
+        }
+        enemy.x_velocity = horizontal_velocity(enemy.facing, HOPPER_JUMP_X_SPEED_FP);
+    }
+
     let floor = terrain::probe_floor(grid, cx, cy);
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
-        if enemy.y_pos >= floor_y_fp {
+        if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
             enemy.y_pos = floor_y_fp;
+            enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             enemy.on_ground = true;
+            enemy.grounded_frames = HOPPER_GROUND_DELAY_FRAMES;
         }
     } else {
         enemy.on_ground = false;
     }
+}
 
-    // Wall collision: reverse direction on hitting a wall.
-    if enemy.on_ground {
-        let wall = terrain::probe_wall(
-            grid,
-            cx,
-            cy,
-            ENEMY_PROBE_HALF_WIDTH,
-            ENEMY_PROBE_HEIGHT,
-            moving_right,
-        );
-        if wall.hit {
-            enemy.x_velocity = -enemy.x_velocity;
-            enemy.facing = if enemy.x_velocity > 0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            };
-            // Push out of wall.
-            if moving_right {
-                let wall_fp = (wall.wall_x_px as u32) << 16;
-                let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
-                if enemy.x_pos + edge_fp > wall_fp {
-                    enemy.x_pos = wall_fp.saturating_sub(edge_fp);
-                }
-            } else {
-                let wall_fp = (wall.wall_x_px as u32) << 16;
-                let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
-                if enemy.x_pos < wall_fp + edge_fp {
-                    enemy.x_pos = wall_fp + edge_fp;
-                }
-            }
-        }
+fn hopper_should_reverse(
+    enemy: &ActiveEnemy,
+    grid: &terrain::BlockGrid,
+    cx: i32,
+    cy: i32,
+) -> bool {
+    let moving_right = matches!(enemy.facing, Direction::Right);
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        return true;
+    }
+    let look_ahead_x = if moving_right {
+        cx + ENEMY_PROBE_HALF_WIDTH
+    } else {
+        cx - ENEMY_PROBE_HALF_WIDTH
+    };
+    !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
+}
 
-        // Edge detection: reverse direction when the floor disappears
-        // ahead of the leading foot.
-        let look_ahead_x = if moving_right {
-            cx + ENEMY_PROBE_HALF_WIDTH
-        } else {
-            cx - ENEMY_PROBE_HALF_WIDTH
-        };
-        let edge_probe = terrain::probe_floor(grid, look_ahead_x, cy);
-        if !edge_probe.on_ground {
-            enemy.x_velocity = -enemy.x_velocity;
-            enemy.facing = if enemy.x_velocity > 0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            };
-        }
+fn reverse_enemy_direction(enemy: &mut ActiveEnemy) {
+    enemy.facing = match enemy.facing {
+        Direction::Left => Direction::Right,
+        Direction::Right => Direction::Left,
+    };
+}
+
+fn horizontal_velocity(facing: Direction, speed: i32) -> i32 {
+    match facing {
+        Direction::Left => -speed,
+        Direction::Right => speed,
     }
 }
 
@@ -2958,11 +3022,10 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // US-005: Pacer enemy movement (MiniHoppingSkull)
+    // MiniHoppingSkull hopper behaviour
     // -----------------------------------------------------------------------
 
-    /// Build a grid with a floor platform from col start..end at the given row,
-    /// plus a wall at the right end. Used for pacer movement tests.
+    /// Build a grid with a floor platform from col start..end at the given row.
     fn grid_with_platform(
         floor_row: u16,
         floor_start_col: u16,
@@ -3010,9 +3073,11 @@ mod tests {
     /// so it activates immediately without needing to scroll the camera.
     fn manifest_with_nearby_skull() -> AssetManifest {
         let mut m = manifest();
-        // Replace enemy layout with just one skull near the spawn point.
-        // Spawn is at x=32px. Place skull at (96, 224)px — within the
-        // initial activation window (camera 0, window x: 0..384, y: 0..288).
+        if let Some(header) = m.levels[0].header_metadata.as_mut() {
+            header.player_start_x = 32;
+            header.player_start_y = 224;
+        }
+        // Replace enemy layout with just one skull near the adjusted spawn point.
         if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
             enemy.objects = vec![kid_data::EnemyLayoutObject {
                 object_type: 0x1C, // MiniHoppingSkull
@@ -3027,78 +3092,94 @@ mod tests {
     }
 
     #[test]
-    fn pacer_falls_and_lands_on_terrain() {
-        // Skull at (96, 224)px. Floor at row 17 = 272px.
-        // Skull spawns above floor and should fall down to it.
-        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
-        runtime.set_block_grid(grid_with_floor_at_row(17));
-        start_level(&mut runtime);
+    fn hopper_lands_on_terrain_before_launching() {
+        let grid = grid_with_floor_at_row(17);
+        let mut enemy = ActiveEnemy {
+            layout_index: 0,
+            family: EnemyFamily::MiniHoppingSkull,
+            x_pos: 96u32 << 16,
+            y_pos: 224u32 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+        };
 
-        // Advance enough frames for gravity to pull skull down
-        for _ in 0..60 {
-            runtime.step_frame(FrameInput::default());
+        let mut grounded_skull = None;
+        for _ in 0..80 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid));
+            if enemy.on_ground {
+                grounded_skull = Some(enemy);
+                break;
+            }
         }
 
-        let skull = runtime
-            .active_enemies
-            .iter()
-            .find(|e| e.family == EnemyFamily::MiniHoppingSkull);
-        assert!(skull.is_some(), "MiniHoppingSkull should be activated");
-        let skull = skull.unwrap();
-        assert!(skull.on_ground, "Pacer should have landed on the floor");
+        let skull = grounded_skull.expect("hopper should have landed before relaunching");
         let floor_y_fp = 272u32 << 16;
-        assert_eq!(skull.y_pos, floor_y_fp, "Pacer should be on floor surface");
+        assert_eq!(skull.y_pos, floor_y_fp, "hopper should be on floor surface");
     }
 
     #[test]
-    fn pacer_walks_horizontally() {
-        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
-        runtime.set_block_grid(grid_with_floor_at_row(17));
-        start_level(&mut runtime);
+    fn hopper_launches_into_an_air_arc() {
+        let grid = grid_with_floor_at_row(17);
+        let mut enemy = ActiveEnemy {
+            layout_index: 0,
+            family: EnemyFamily::MiniHoppingSkull,
+            x_pos: 96u32 << 16,
+            y_pos: 224u32 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+        };
 
-        // Let skull land
-        for _ in 0..60 {
-            runtime.step_frame(FrameInput::default());
+        let mut grounded_skull = None;
+        for _ in 0..80 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid));
+            if enemy.on_ground {
+                grounded_skull = Some(enemy);
+                break;
+            }
         }
 
-        let initial_x = runtime
-            .active_enemies
-            .iter()
-            .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
-            .map(|e| e.x_pos);
-        assert!(initial_x.is_some(), "skull should be active");
+        let grounded_skull = grounded_skull.expect("skull should settle on the floor first");
+        assert!(grounded_skull.on_ground, "skull should be grounded before launch");
 
-        // Step more frames and check movement
-        for _ in 0..10 {
-            runtime.step_frame(FrameInput::default());
+        for _ in 0..12 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid));
         }
 
-        let new_x = runtime
-            .active_enemies
-            .iter()
-            .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
-            .map(|e| e.x_pos);
-        assert!(new_x.is_some(), "skull should still be active");
-        assert_ne!(
-            initial_x.unwrap(),
-            new_x.unwrap(),
-            "Pacer should have moved horizontally"
+        let airborne_skull = enemy;
+        assert!(
+            !airborne_skull.on_ground,
+            "hopper should have left the floor after the grounded delay"
+        );
+        assert!(
+            airborne_skull.x_velocity != 0,
+            "hopper should carry horizontal velocity during the leap"
+        );
+        assert!(
+            airborne_skull.y_velocity < 0,
+            "hopper should still be rising during the first airborne frames"
         );
     }
 
     #[test]
-    fn pacer_reverses_at_platform_edge() {
+    fn hopper_reverses_at_platform_edge_before_launch() {
         let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
-        // Skull at x=96px (col 6). Narrow platform from col 3..10.
         runtime.set_block_grid(grid_with_platform(17, 3, 10));
         start_level(&mut runtime);
 
-        // Let skull land and walk
         for _ in 0..100 {
             runtime.step_frame(FrameInput::default());
         }
 
-        // Skull walks left (default). It should reverse at the edge.
         let mut ever_walked_right = false;
         for _ in 0..200 {
             runtime.step_frame(FrameInput::default());
@@ -3115,18 +3196,16 @@ mod tests {
         }
         assert!(
             ever_walked_right,
-            "Pacer should reverse direction at platform edge"
+            "hopper should reverse direction at the platform edge before the next leap"
         );
     }
 
     #[test]
-    fn pacer_reverses_on_wall_collision() {
+    fn hopper_reverses_on_wall_collision() {
         let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
-        // Skull at x=96 (col 6). Wall at col 4. Floor from col 0..20.
         runtime.set_block_grid(grid_with_wall(17, 0, 20, 4));
         start_level(&mut runtime);
 
-        // Let skull land and walk toward wall
         for _ in 0..100 {
             runtime.step_frame(FrameInput::default());
         }
@@ -3147,14 +3226,13 @@ mod tests {
         }
         assert!(
             ever_walked_right,
-            "Pacer should reverse direction on wall hit"
+            "hopper should reverse direction on wall hit"
         );
     }
 
     #[test]
-    fn pacer_does_not_walk_through_walls() {
+    fn hopper_does_not_cross_a_wall() {
         let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
-        // Wall at col 4 (64px), skull starts at 96px walking left.
         runtime.set_block_grid(grid_with_wall(17, 0, 20, 4));
         start_level(&mut runtime);
 
@@ -3169,13 +3247,38 @@ mod tests {
                 .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
             {
                 assert!(
-                    skull.x_pos >= wall_limit_fp.saturating_sub(0x0002_0000),
-                    "Pacer should not walk through wall. x_pos={:#010X}, wall_limit={:#010X}",
+                    skull.x_pos >= wall_limit_fp.saturating_sub(HOPPER_JUMP_X_SPEED_FP as u32),
+                    "hopper should not cross the wall. x_pos={:#010X}, wall_limit={:#010X}",
                     skull.x_pos,
                     wall_limit_fp,
                 );
             }
         }
+    }
+
+    #[test]
+    fn enemy_snapshots_include_layout_identity_and_motion_fields() {
+        let mut runtime = NativeRuntime::new(manifest_with_nearby_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        for _ in 0..80 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let frame = runtime.trace_frame();
+        let skull = frame
+            .active_objects
+            .iter()
+            .find(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1C })
+            })
+            .expect("skull snapshot should be present");
+        assert_eq!(skull.layout_index, Some(0));
+        assert!(skull.x_velocity.is_some());
+        assert!(skull.y_velocity.is_some());
+        assert!(skull.facing.is_some());
+        assert!(skull.on_ground.is_some());
+        assert_eq!(skull.hit_points, Some(1));
     }
 
     /// Build a block grid for block interaction tests:
