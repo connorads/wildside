@@ -245,6 +245,10 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
         scenario: GameplayScenario,
+        #[arg(long)]
+        frame_start: Option<usize>,
+        #[arg(long)]
+        frame_end: Option<usize>,
     },
     InspectLevel {
         #[arg(long)]
@@ -608,12 +612,18 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             probe_native_scenario(&manifest, scenario)?;
         }
-        Commands::ProbeNativeGameplay { rom, dir, scenario } => {
+        Commands::ProbeNativeGameplay {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+        } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            probe_native_gameplay_scenario(&manifest, scenario)?;
+            probe_native_gameplay_scenario(&manifest, scenario, frame_start, frame_end)?;
         }
         Commands::InspectLevel { rom, dir, level } => {
             let repo_root = current_dir()?;
@@ -2447,7 +2457,12 @@ fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result
     Ok(())
 }
 
-fn probe_native_gameplay_scenario(manifest: &AssetManifest, scenario: GameplayScenario) -> Result<()> {
+fn probe_native_gameplay_scenario(
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+    frame_start: Option<usize>,
+    frame_end: Option<usize>,
+) -> Result<()> {
     let script = scenario.script()?;
     let trace = run_native_script_for_gameplay(manifest, &script, scenario);
     let final_frame = trace
@@ -2505,7 +2520,72 @@ fn probe_native_gameplay_scenario(manifest: &AssetManifest, scenario: GameplaySc
         }
     }
 
+    if let Some(start) = frame_start {
+        let end = frame_end.unwrap_or(start);
+        for frame in trace
+            .iter()
+            .filter(|frame| (start..=end).contains(&frame.frame_index))
+        {
+            let input = script
+                .get(frame.frame_index)
+                .copied()
+                .map(kid_core::FrameInput::from_mask)
+                .unwrap_or_default();
+            println!(
+                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                frame.frame_index,
+                describe_frame_input(input),
+                frame.game_mode,
+                frame.camera_x_pos,
+                frame.camera_y_pos,
+                frame.kid_x_pos.unwrap_or_default(),
+                frame.kid_y_pos.unwrap_or_default(),
+                frame.kid_x_velocity.unwrap_or_default() as u32,
+                frame.kid_y_velocity.unwrap_or_default() as u32,
+                frame.kid_on_ground,
+                frame.number_lives,
+                frame.number_hitpoints,
+                frame.active_enemy_object_count,
+                frame.active_platform_object_count,
+                describe_active_objects(frame)
+            );
+        }
+    }
+
     Ok(())
+}
+
+fn describe_frame_input(input: kid_core::FrameInput) -> String {
+    let mut pressed = Vec::new();
+    if input.up {
+        pressed.push("U");
+    }
+    if input.down {
+        pressed.push("D");
+    }
+    if input.left {
+        pressed.push("L");
+    }
+    if input.right {
+        pressed.push("R");
+    }
+    if input.a {
+        pressed.push("A");
+    }
+    if input.b {
+        pressed.push("B");
+    }
+    if input.c {
+        pressed.push("C");
+    }
+    if input.start {
+        pressed.push("Start");
+    }
+    if pressed.is_empty() {
+        String::from("<none>")
+    } else {
+        pressed.join("+")
+    }
 }
 
 fn describe_active_objects(frame: &NativeTraceFrame) -> String {
