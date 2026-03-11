@@ -393,8 +393,10 @@ pub fn probe_floor_hitbox(
 
 /// Check for a wall blocking horizontal movement.
 ///
-/// Probes the leading edge of the hitbox at two Y positions: just above
-/// foot level (to avoid false-positives on floor cells) and mid-body.
+/// Probes the leading edge of the hitbox at two Y positions: lower-body and
+/// mid-body. The lower probe stays several pixels above the feet so landing
+/// frames do not misclassify the floor cell as a side wall before floor
+/// resolution runs.
 /// Only `Solid` cells count as walls — slopes allow pass-through.
 pub fn probe_wall(
     grid: &BlockGrid,
@@ -410,8 +412,11 @@ pub fn probe_wall(
         center_x_px - half_width
     };
 
-    // Probe just above feet (avoids floor) and at mid-body
-    let probe_ys = [foot_y_px - 1, foot_y_px - height / 2];
+    // Keep the lower probe above the landing cell; otherwise a descending
+    // player can clip a few pixels into the floor and get snapped sideways as
+    // if the floor were a wall.
+    let lower_body_y = foot_y_px - 8;
+    let probe_ys = [lower_body_y, foot_y_px - height / 2];
 
     for &py in &probe_ys {
         let probe = probe_at(grid, edge_x, py);
@@ -703,6 +708,16 @@ mod tests {
 
         // Player at x=30, right edge=35, pixel_to_cell(35)=2 → slope cell
         let probe = probe_wall(&grid, 30, 20, 5, 31, true);
+        assert!(!probe.hit);
+    }
+
+    #[test]
+    fn probe_wall_does_not_treat_floor_as_side_wall_on_landing() {
+        let grid = make_test_grid();
+        // Feet have already dipped 1px into the landing row, but the player is
+        // only intersecting the flat floor from above. This should not report a
+        // side wall at x=80.
+        let probe = probe_wall(&grid, 76, 49, 5, 31, true);
         assert!(!probe.hit);
     }
 

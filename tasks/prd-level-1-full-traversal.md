@@ -9,12 +9,12 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 | System | Status |
 |--------|--------|
 | Opening-slice boot/title/load/oracle checkpoints | Done; Level 1 opening damage now lands on the oracle frame under the run-right gameplay script |
-| Pause/resume and death/respawn lifecycle parity | Partial; pause is now green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending |
+| Pause/resume and death/respawn lifecycle parity | Partial; pause is now green on dumped terrain, death is green on the default path, the landing floor no longer masquerades as a wall on dumped terrain, and dumped-terrain death parity is still pending |
 | Asset-backed native Level 1 visuals | Done |
 | Flag touch and level advance code path | Done in `kid-core` tests |
 | `progress-two-transitions` gameplay scenario | Passing with explicit generated `Level_Layout` loading |
 | Default native runtime terrain authority | Incomplete; still falls back to flat floor outside the generated-terrain path |
-| Full traversal oracle parity | Partial; progress and pause are green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending after a late-route jump mismatch before `pre_death@1279` |
+| Full traversal oracle parity | Partial; progress and pause are green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending after the first landing-wall clamp fix because the jump arc still lands early and clips the overhang before `pre_death@1279` |
 
 ## Scope
 
@@ -29,7 +29,7 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 
 - Use the existing gameplay comparison harness to validate start-to-transition traversal
 - Make `compare-native-gameplay --scenario progress-two-transitions` pass
-- Keep pause/resume green and recover death/respawn parity after the jump-air fix, the oracle-timed opening hit, and the skull floor-retarget timing fix
+- Keep pause/resume green and recover death/respawn parity after the jump-air fix, the oracle-timed opening hit, the skull floor-retarget timing fix, and the landing wall-probe correction
 - Move death/respawn onto the dumped-terrain path once its route parity holds
 - Keep pause/resume on the dumped-terrain path by default now that its compare holds there
 

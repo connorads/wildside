@@ -26,6 +26,7 @@ This dossier covers the current post-opening frontier:
 - Level 1 opening damage now lands on the oracle frame under the run-right gameplay script, and Mini Hopping Skulls now wait longer on the floor and retarget hops toward the kid before launch
 - `compare-native-gameplay --scenario pause-resume-level1`: passing on dumped terrain
 - `compare-native-gameplay --scenario death-respawn-level1`: passing again after locking the death camera, snapping the synthetic late hazard onto the oracle camera checkpoint, and extending the respawn settle slightly
+- Dumped-terrain wall probing no longer treats the landing floor cell as a side wall; the lower-body wall probe now stays above the feet and has a regression test in `kid-core`
 - Transition parity currently uses an explicit generated `Level_Layout` mode for `pause-resume-level1` and `progress-two-transitions`
 - The default runtime still keeps the flat-floor fallback outside those explicit generated-terrain paths
 
@@ -35,7 +36,8 @@ This dossier covers the current post-opening frontier:
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
 - The remaining blocker is `death-respawn-level1` on dumped terrain; pause and progress now hold there, but death still trails the oracle route before `pre_death@1279`
 - After the opening-hit and skull-timing fixes, dumped-terrain death now reaches the oracle camera checkpoint but still diverges in kid Y at `pre_death@1279` (`native 0x008F0000`, `oracle 0x00F88900`)
-- The surviving late-route drift is concentrated around frames 960-1080, where native misses a scripted late jump window and falls onto the lower route while the oracle stays on the higher path
+- The false floor-as-wall clamp at the first landing is fixed, but the dumped-terrain route is still ahead of the oracle before the death window and now clips the underside of the overhang around frames 888-904
+- The surviving route drift is still a jump-arc mismatch: once landed, ground speed closely matches the oracle, but native lands too early, reaches later take-offs ahead of the oracle, and still misses the late high-route window before `pre_death@1279`
 - Top-level docs were pointing at older slices; this file is now the canonical traversal hand-off
 
 ## Useful commands
