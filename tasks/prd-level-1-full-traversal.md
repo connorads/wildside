@@ -12,9 +12,9 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 | Pause/resume and death/respawn lifecycle parity | Done |
 | Asset-backed native Level 1 visuals | Done |
 | Flag touch and level advance code path | Done in `kid-core` tests |
-| `progress-two-transitions` gameplay scenario | Exists |
-| Default native runtime terrain authority | Incomplete; still falls back to flat floor without an injected `BlockGrid` |
-| Full traversal oracle parity | Failing; `progress_mid@1999` diverges in game mode (`native 000C`, `oracle 0008`) |
+| `progress-two-transitions` gameplay scenario | Passing with explicit generated `Level_Layout` loading |
+| Default native runtime terrain authority | Incomplete; still falls back to flat floor outside the generated-terrain path |
+| Full traversal oracle parity | Partial; progress scenario passes, but dumped terrain is not yet the default path for pause/death scenarios |
 
 ## Scope
 
@@ -22,6 +22,7 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 
 - Remove the remaining flat-floor fallback from the default Level 1 runtime path
 - Drive collision and grounded state from real Level 1 terrain data rather than test-only grid injection
+- Use dumped `Level_Layout` data, not raw `block.bin`, as the terrain authority input
 - Keep the terrain logic pure inside `kid-core`
 
 ### 2. Traversal and transition parity
@@ -29,6 +30,7 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 - Use the existing gameplay comparison harness to validate start-to-transition traversal
 - Make `compare-native-gameplay --scenario progress-two-transitions` pass
 - Preserve existing pause/resume and death/respawn parity while fixing traversal
+- Move pause/death comparisons onto the dumped-terrain path once their route parity holds
 
 ### 3. Tracked source of truth
 
@@ -53,6 +55,7 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 
 - The default native Level 1 runtime no longer depends on the flat-floor fallback
 - `compare-native-gameplay --scenario progress-two-transitions` passes
+- `compare-native-gameplay --scenario pause-resume-level1` and `death-respawn-level1` also stay green on the real-terrain path
 - Docs clearly state that the current frontier is Level 1 full traversal
 - The autonomy loop can evaluate `--goal level1-full-traversal` and produce the next unresolved task package
 
@@ -69,6 +72,7 @@ cargo test -p kid-render
 Scenario checks:
 
 ```bash
+cargo run -p kidcli -- dump-level-layout --level 00
 cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1

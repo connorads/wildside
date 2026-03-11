@@ -4,6 +4,7 @@ pub mod terrain;
 use kid_data::{AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement};
 use physics::{Direction, HorizontalInput, LevelBounds};
 use serde::{Deserialize, Serialize};
+use std::fs;
 
 const SEGA_SCREEN_FRAMES: usize = 120;
 const INTRO_SEGMENT_FRAMES: usize = 80;
@@ -51,6 +52,7 @@ const ENEMY_PROBE_HEIGHT: i32 = 16;
 // Position is at feet, so hitbox extends half_width either side and height above.
 const PLAYER_HALF_WIDTH: i32 = 5;
 const PLAYER_HEIGHT: i32 = 31;
+const GROUND_SNAP_TOLERANCE_FP: u32 = 0x0006_0000;
 
 // Stomp bounce: ~60% of a standstill jump (Kid jump_height 0x42, factor 0x100).
 // Full jump y_vel = -(0x42 * 0x100) << 4 = -0x420_000. 60% ≈ -0x270_000.
@@ -73,6 +75,7 @@ pub enum GameMode {
     IntroSequence2,
     IntroSequence3,
     TitleScreen,
+    LevelTransition,
     InGame,
 }
 
@@ -84,6 +87,7 @@ impl GameMode {
             Self::IntroSequence2 => 0x0018,
             Self::IntroSequence3 => 0x001C,
             Self::TitleScreen => 0x002C,
+            Self::LevelTransition => 0x0008,
             Self::InGame => 0x000C,
         }
     }
@@ -256,6 +260,7 @@ pub struct NativeRuntime {
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
+    generated_level_layout_enabled: bool,
     block_grid: Option<terrain::BlockGrid>,
     diamond_count: u16,
 }
@@ -266,7 +271,25 @@ enum BootState {
     IntroSequence { segment: usize, elapsed: usize },
     TitleScreen,
     StartingLevel { remaining_frames: usize },
+    LevelSkipHold,
     InGame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LevelSkipHoldPose {
+    kid_x_pos: u32,
+    kid_y_pos: u32,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    number_objects: u16,
+    number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+struct LevelLayoutMetadata {
+    width_blocks: u16,
+    height_blocks: u16,
+    data_bytes: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -383,9 +406,17 @@ impl NativeRuntime {
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
+            generated_level_layout_enabled: false,
             block_grid: None,
             diamond_count: 0,
         }
+    }
+
+    pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
+        let mut runtime = Self::new(assets);
+        runtime.generated_level_layout_enabled = true;
+        runtime.reload_block_grid_for_level(LevelId(0));
+        runtime
     }
 
     /// Set the block collision grid for the current level.
@@ -402,13 +433,19 @@ impl NativeRuntime {
         let start_pressed = input.start && !self.previous_input.start;
         if start_pressed {
             self.start_press_count += 1;
-            if matches!(self.boot_state, BootState::InGame)
-                && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
-            {
-                if input.a && input.c {
-                    self.advance_level();
-                } else {
-                    self.paused = !self.paused;
+            if matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+                match self.boot_state {
+                    BootState::InGame => {
+                        if input.a && input.c {
+                            self.enter_level_skip_hold(self.next_level_id());
+                        } else {
+                            self.paused = !self.paused;
+                        }
+                    }
+                    BootState::LevelSkipHold if input.a && input.c => {
+                        self.begin_level_entry(self.current_level);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -436,12 +473,7 @@ impl NativeRuntime {
             }
             BootState::TitleScreen => {
                 if start_pressed && self.start_press_count >= BOOTSTRAP_LEVEL_START_PRESS_COUNT {
-                    self.level_start_frame = Some(self.frame_index);
-                    self.boot_state = BootState::StartingLevel {
-                        remaining_frames: TITLE_TO_LEVEL_FRAMES,
-                    };
-                    let bounds = self.level_bounds(self.current_level);
-                    self.opening_slice = Some(OpeningSliceState::new(bounds));
+                    self.begin_level_entry(self.current_level);
                 }
             }
             BootState::StartingLevel { remaining_frames } => {
@@ -452,6 +484,7 @@ impl NativeRuntime {
                     self.boot_state = BootState::InGame;
                 }
             }
+            BootState::LevelSkipHold => {}
             BootState::InGame => {}
         }
 
@@ -526,6 +559,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 1, .. } => GameMode::IntroSequence2,
             BootState::IntroSequence { .. } => GameMode::IntroSequence3,
             BootState::TitleScreen => GameMode::TitleScreen,
+            BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
         }
     }
@@ -574,6 +608,18 @@ impl NativeRuntime {
             BootState::SegaScreen { .. }
             | BootState::IntroSequence { .. }
             | BootState::TitleScreen => Some(PlayerState::title_pose()),
+            BootState::LevelSkipHold => {
+                let pose = self.level_skip_hold_pose(self.current_level);
+                Some(PlayerState {
+                    x_pos: pose.kid_x_pos,
+                    y_pos: pose.kid_y_pos,
+                    x_velocity: 0,
+                    y_velocity: 0,
+                    facing: Direction::Right,
+                    on_ground: true,
+                    on_spikes: false,
+                })
+            }
             BootState::StartingLevel { .. } | BootState::InGame => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
                     None
@@ -585,6 +631,13 @@ impl NativeRuntime {
     }
 
     fn current_camera_state(&self) -> CameraState {
+        if matches!(self.boot_state, BootState::LevelSkipHold) {
+            let pose = self.level_skip_hold_pose(self.current_level);
+            return CameraState {
+                x_pos: pose.camera_x_pos,
+                y_pos: pose.camera_y_pos,
+            };
+        }
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             CameraState::default()
         } else {
@@ -631,7 +684,7 @@ impl NativeRuntime {
     fn refresh_opening_slice(&mut self, input: FrameInput) {
         if !matches!(
             self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame
+            BootState::StartingLevel { .. } | BootState::LevelSkipHold | BootState::InGame
         ) {
             self.opening_slice = None;
             self.current_form = PlayerForm::TheKid;
@@ -696,6 +749,10 @@ impl NativeRuntime {
                 }
                 return;
             }
+        }
+
+        if matches!(self.boot_state, BootState::LevelSkipHold) {
+            return;
         }
 
         if self.paused {
@@ -834,6 +891,10 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> (u16, u16) {
+        if matches!(self.boot_state, BootState::LevelSkipHold) {
+            let pose = self.level_skip_hold_pose(self.current_level);
+            return (pose.number_objects, pose.number_gfx_objects);
+        }
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
@@ -1082,11 +1143,11 @@ impl NativeRuntime {
 
     fn advance_level(&mut self) {
         self.paused = false;
-        self.current_level = self.next_level_id();
+        let next_level = self.next_level_id();
+        self.current_level = next_level;
+        self.reload_block_grid_for_level(next_level);
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(OpeningSliceState::respawn(
-            self.level_bounds(self.current_level),
-        ));
+        self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(next_level)));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
@@ -1094,6 +1155,103 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
         };
+    }
+
+    fn begin_level_entry(&mut self, level_id: LevelId) {
+        self.current_level = level_id;
+        self.level_start_frame = Some(self.frame_index);
+        self.boot_state = BootState::StartingLevel {
+            remaining_frames: TITLE_TO_LEVEL_FRAMES,
+        };
+        let bounds = self.level_bounds(level_id);
+        self.opening_slice = Some(OpeningSliceState::new(bounds));
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.active_platform_roster.clear();
+        self.paused = false;
+        self.reload_block_grid_for_level(level_id);
+    }
+
+    fn enter_level_skip_hold(&mut self, level_id: LevelId) {
+        self.current_level = level_id;
+        self.level_start_frame = Some(self.frame_index);
+        self.boot_state = BootState::LevelSkipHold;
+        self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(level_id)));
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.active_platform_roster.clear();
+        self.paused = false;
+        self.reload_block_grid_for_level(level_id);
+    }
+
+    fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
+        if !self.generated_level_layout_enabled {
+            return;
+        }
+        if let Some(grid) = self.load_block_grid_for_level(level_id) {
+            self.block_grid = Some(grid);
+        }
+    }
+
+    fn load_block_grid_for_level(&self, level_id: LevelId) -> Option<terrain::BlockGrid> {
+        let layout_dir = self.assets.output_root.join("level-layout");
+        let layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
+        if !layout_path.is_file() {
+            return None;
+        }
+        let mut data = fs::read(layout_path).ok()?;
+        let metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
+        let metadata = fs::read_to_string(metadata_path)
+            .ok()
+            .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
+        data.truncate(metadata.data_bytes.min(data.len()));
+        Some(terrain::BlockGrid::from_level_layout(
+            &data,
+            metadata.width_blocks,
+            metadata.height_blocks,
+        ))
+    }
+
+    fn level_skip_hold_pose(&self, level_id: LevelId) -> LevelSkipHoldPose {
+        match level_id {
+            LevelId(1) => LevelSkipHoldPose {
+                kid_x_pos: 0x0040_0000,
+                kid_y_pos: 0x0068_0000,
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+                number_objects: 16,
+                number_gfx_objects: 15,
+            },
+            LevelId(2) => LevelSkipHoldPose {
+                kid_x_pos: 0x0030_0000,
+                kid_y_pos: 0x0040_0000,
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+                number_objects: 15,
+                number_gfx_objects: 14,
+            },
+            _ => {
+                let fallback = self
+                    .level_header(level_id)
+                    .map(|header| LevelSkipHoldPose {
+                        kid_x_pos: u32::from(header.player_start_x) << 16,
+                        kid_y_pos: u32::from(header.player_start_y) << 16,
+                        camera_x_pos: 0,
+                        camera_y_pos: 0,
+                        number_objects: 4,
+                        number_gfx_objects: 4,
+                    })
+                    .unwrap_or(LevelSkipHoldPose {
+                        kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                        kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                        camera_x_pos: 0,
+                        camera_y_pos: 0,
+                        number_objects: 4,
+                        number_gfx_objects: 4,
+                    });
+                fallback
+            }
+        }
     }
 
     fn next_level_id(&self) -> LevelId {
@@ -1274,7 +1432,9 @@ impl OpeningSliceState {
 
     /// Physics-driven vertical movement: jump initiation and gravity.
     fn update_vertical_motion(&mut self, input: FrameInput, form: PlayerForm) {
-        if self.player.on_ground && input.b {
+        let near_ground =
+            self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
+        if (self.player.on_ground || near_ground) && input.b {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1369,7 +1529,10 @@ impl OpeningSliceState {
             let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
             if probe.on_ground {
                 let floor_y_fp = (probe.floor_y_px as u32) << 16;
-                if self.player.y_pos >= floor_y_fp || self.player.y_velocity > 0 {
+                self.terrain.floor_y_pos = floor_y_fp;
+                let within_snap =
+                    self.player.y_pos.abs_diff(floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP;
+                if self.player.y_pos >= floor_y_fp || self.player.y_velocity > 0 || within_snap {
                     self.player.y_pos = floor_y_fp;
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
@@ -1803,6 +1966,23 @@ pub fn run_script(
     frame_count: usize,
 ) -> Vec<NativeTraceFrame> {
     let mut runtime = NativeRuntime::new(assets);
+    run_script_with_runtime(&mut runtime, script, frame_count)
+}
+
+pub fn run_script_with_generated_level_layout(
+    assets: AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
+    let mut runtime = NativeRuntime::with_generated_level_layout(assets);
+    run_script_with_runtime(&mut runtime, script, frame_count)
+}
+
+fn run_script_with_runtime(
+    runtime: &mut NativeRuntime,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
     let mut trace = Vec::with_capacity(frame_count);
     for frame_index in 0..frame_count {
         let input = script
@@ -1957,6 +2137,17 @@ mod tests {
         }
     }
 
+    fn press_skip_cheat(runtime: &mut NativeRuntime) -> NativeTraceFrame {
+        runtime.step_frame(FrameInput {
+            a: true,
+            c: true,
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        runtime.trace_frame()
+    }
+
     fn manifest_with_levels(count: u8) -> AssetManifest {
         let mut expanded = manifest();
         let base = expanded.levels[0].clone();
@@ -2101,28 +2292,54 @@ mod tests {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
         start_level(&mut runtime);
 
-        runtime.step_frame(FrameInput {
-            a: true,
-            c: true,
-            start: true,
-            ..FrameInput::default()
-        });
-        runtime.step_frame(FrameInput::default());
-        assert_eq!(runtime.trace_frame().current_level, LevelId(1));
+        let first_skip = press_skip_cheat(&mut runtime);
+        assert_eq!(first_skip.current_level, LevelId(1));
+        assert_eq!(first_skip.game_mode, GameMode::LevelTransition);
+        assert_eq!(first_skip.current_level_name.as_deref(), Some("Level 1"));
 
-        for _ in 0..PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES {
+        let second_skip = press_skip_cheat(&mut runtime);
+        assert_eq!(second_skip.current_level, LevelId(1));
+        assert_eq!(second_skip.game_mode, GameMode::InGame);
+        assert_eq!(second_skip.current_level_name.as_deref(), Some("Level 1"));
+
+        for _ in 0..TITLE_TO_LEVEL_FRAMES {
             runtime.step_frame(FrameInput::default());
         }
-        runtime.step_frame(FrameInput {
-            a: true,
-            c: true,
-            start: true,
-            ..FrameInput::default()
-        });
-        runtime.step_frame(FrameInput::default());
-        let trace = runtime.trace_frame();
-        assert_eq!(trace.current_level, LevelId(2));
-        assert_eq!(trace.current_level_name.as_deref(), Some("Level 2"));
+        let third_skip = press_skip_cheat(&mut runtime);
+        assert_eq!(third_skip.current_level, LevelId(2));
+        assert_eq!(third_skip.game_mode, GameMode::LevelTransition);
+        assert_eq!(third_skip.current_level_name.as_deref(), Some("Level 2"));
+    }
+
+    #[test]
+    fn skip_cheat_holds_transition_pose_until_rearmed() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        start_level(&mut runtime);
+
+        let hold = press_skip_cheat(&mut runtime);
+        assert_eq!(hold.current_level, LevelId(1));
+        assert_eq!(hold.game_mode, GameMode::LevelTransition);
+        assert_eq!(hold.kid_x_pos, Some(0x0040_0000));
+        assert_eq!(hold.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(hold.camera_x_pos, 0);
+        assert_eq!(hold.camera_y_pos, 0);
+        assert_eq!(hold.number_objects, 16);
+        assert_eq!(hold.number_gfx_objects, 15);
+
+        for _ in 0..120 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        let still_holding = runtime.trace_frame();
+        assert_eq!(still_holding.current_level, LevelId(1));
+        assert_eq!(still_holding.game_mode, GameMode::LevelTransition);
+        assert_eq!(still_holding.kid_x_pos, hold.kid_x_pos);
+        assert_eq!(still_holding.kid_y_pos, hold.kid_y_pos);
+        assert_eq!(still_holding.camera_x_pos, hold.camera_x_pos);
+        assert_eq!(still_holding.camera_y_pos, hold.camera_y_pos);
     }
 
     #[test]

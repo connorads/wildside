@@ -1446,6 +1446,7 @@ fn game_mode_label(mode: GameMode) -> &'static str {
         GameMode::IntroSequence2 => "IntroSequence2",
         GameMode::IntroSequence3 => "IntroSequence3",
         GameMode::TitleScreen => "TitleScreen",
+        GameMode::LevelTransition => "LevelTransition",
         GameMode::InGame => "InGame",
     }
 }

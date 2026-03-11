@@ -21,17 +21,17 @@ This dossier covers the current post-opening frontier:
 - Opening-slice autonomy goal: complete
 - Gameplay-lifecycle autonomy goal: complete
 - Asset-backed Level 1 visuals: landed
-- The default runtime still keeps a flat-floor fallback when no `BlockGrid` is loaded
-- `compare-native-gameplay --scenario progress-two-transitions` currently fails:
-  - checkpoint: `progress_mid@1999`
-  - divergence: game mode
-  - native: `0x000C`
-  - oracle: `0x0008`
+- `compare-native-gameplay --scenario progress-two-transitions`: passing
+- `compare-native-gameplay --scenario pause-resume-level1`: passing
+- `compare-native-gameplay --scenario death-respawn-level1`: passing
+- Transition parity currently uses an explicit generated `Level_Layout` mode for `progress-two-transitions`
+- The default runtime still keeps the flat-floor fallback outside that explicit generated-terrain path
 
 ## Immediate blockers
 
-- The default runtime path does not yet source real terrain authority from generated Level 1 data
-- Level-complete and next-level transition code exists, but the long traversal oracle still diverges
+- Real terrain is not yet the default runtime path for all gameplay scenarios
+- Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
+- Pause/death parity still relies on the older flat-floor path; the next step is making those scenarios pass on dumped terrain too
 - Top-level docs were pointing at older slices; this file is now the canonical traversal hand-off
 
 ## Useful commands
@@ -39,6 +39,7 @@ This dossier covers the current post-opening frontier:
 ```bash
 cargo test -p kid-core
 cargo test -p kidcli
+cargo run -p kidcli -- dump-level-layout --level 00
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
@@ -59,7 +60,7 @@ cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 
 ## Next expected implementation order
 
-1. Remove the flat-floor fallback from the default runtime path.
-2. Re-run `progress-two-transitions` and inspect the first remaining divergence.
-3. Tighten traversal/transition state until the gameplay comparison passes.
+1. Generalise dumped `Level_Layout` loading beyond `progress-two-transitions`.
+2. Re-run `pause-resume-level1` and `death-respawn-level1` on dumped terrain and fix the first traversal divergence.
+3. Remove the flat-floor fallback from the default runtime path only after the dumped-terrain path keeps all gameplay comparisons green.
 4. Leave the next frontier explicit in tracked docs.

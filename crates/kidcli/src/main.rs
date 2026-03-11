@@ -10,7 +10,10 @@ use autonomy::{AutonomyGoal, run_autonomous_loop};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
-use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
+use kid_core::{
+    GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script,
+    run_script_with_generated_level_layout,
+};
 use kid_data::{
     AssetManifest, ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
     generated_bundle_dir, load_level_asset_bundle, load_manifest,
@@ -1263,7 +1266,11 @@ fn capture_native_gameplay_scenario(
 
     let script = scenario.script()?;
     let checkpoints = scenario.checkpoints();
-    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let trace = if scenario_uses_generated_level_layout(scenario) {
+        run_script_with_generated_level_layout(manifest.clone(), &script, scenario.frame_count())
+    } else {
+        run_native_script(manifest.clone(), &script, scenario.frame_count())
+    };
     let mut checkpoint_index = 0usize;
     let mut states = Vec::with_capacity(trace.len());
     let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
@@ -2629,8 +2636,16 @@ fn capture_native_gameplay_frame_evidence(
     scenario: GameplayScenario,
 ) -> Result<Vec<GameplayFrameEvidence>> {
     let script = scenario.script()?;
-    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    let trace = if scenario_uses_generated_level_layout(scenario) {
+        run_script_with_generated_level_layout(manifest.clone(), &script, scenario.frame_count())
+    } else {
+        run_native_script(manifest.clone(), &script, scenario.frame_count())
+    };
     render_gameplay_frame_evidence(manifest, &trace, scenario.checkpoints())
+}
+
+fn scenario_uses_generated_level_layout(scenario: GameplayScenario) -> bool {
+    matches!(scenario, GameplayScenario::ProgressTwoTransitions)
 }
 
 #[derive(Debug, Clone, Copy)]
