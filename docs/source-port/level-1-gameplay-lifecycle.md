@@ -47,3 +47,4 @@ cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 - The gameplay lifecycle slice now uses `compare-native-gameplay` for pause/resume and death/respawn checkpoints.
 - The native runtime now models visible death windup, hidden death frames, and respawn settle as explicit lifecycle phases.
 - There are no remaining open Level 1 gameplay lifecycle research tasks in this dossier for the pause/death/respawn slice.
+- The next tracked frontier after this slice is `docs/source-port/level-1-full-traversal.md`.

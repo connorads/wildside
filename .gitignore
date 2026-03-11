@@ -7,3 +7,7 @@
 *.log
 kc.md
 /.ralph-tui/
+/.ralph/
+/ralph.yml
+/.agents/planning/
+/.agents/scratchpad/implementation/kc-level1-graphics/

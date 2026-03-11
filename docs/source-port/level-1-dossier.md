@@ -59,13 +59,13 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 - The old scripted frame-count interpolation (`run_camera_x_for_hold_frames`, `OpeningScrollState`) has been removed -- the player moves from input, the camera follows.
 - Speed tables cover all 3 terrain types (normal/ice/rubber) and 3 form variants (Kid/Micromax/Juggernaut). Level 1 uses `NORMAL_KID`.
 - Jump height per form is transcribed from `unk_A49E`; RedStealth has a higher factor ($4A vs $42).
-- The opening terrain rule is still a flat floor clamp at the grounded Y position.
 - The visible Level 1 enemy-family mapping is `Diamond` plus slot-decoded `MiniHoppingSkull`.
 - Platform paths use preload plus activation-window logic over `level/platform/00.asm` placements.
+- This opening-slice dossier is complete; the next tracked frontier lives in `docs/source-port/level-1-full-traversal.md`.
 
-## Next for Level 1: block collision (Track 1)
+## Next for Level 1: full traversal
 
-The flat floor clamp is the single biggest blocker. Replacing it with real terrain from the block layout unlocks:
+The default native runtime still has a flat-floor fallback when no `BlockGrid` is loaded. Removing that fallback on the main path is the first blocker for the traversal milestone because it unlocks:
 - Player walking on actual Level 1 terrain (slopes, gaps, platforms)
 - Enemy terrain interaction (pacers reversing on walls, hoppers bouncing on ground)
 - Flag reachability (flag is at y=768, below the flat floor at y=224)
@@ -75,7 +75,6 @@ Block format: 2 bytes per cell at `$FFA652`, documented in `doc/ram_layout.txt`.
 ### Remaining physics work
 
 - Left movement, bidirectional turning (currently works but untested against oracle)
-- Air control (horizontal acceleration while airborne)
 - Terrain type switching (ice, rubber) -- requires block collision
 - Form-specific speed table selection (Micromax, Juggernaut)
 - Y look-ahead camera offset (`$FFFFFB58`)

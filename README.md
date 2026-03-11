@@ -2,7 +2,7 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
-The current delivery frontier is Level 1 enemy fidelity: family-level native behaviour, richer per-enemy trace capture, and oracle-backed checkpoint comparison for the first visible enemy slice.
+The current delivery frontier is Level 1 full traversal: real terrain on the default native path, flag reachability, and next-level transition parity for Blue Lake Woods 1.
 
 ## Current status
 
@@ -22,10 +22,11 @@ The current delivery frontier is Level 1 enemy fidelity: family-level native beh
 - `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
 - `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state, including scoped per-enemy snapshots, directly against the `jgenesis` oracle without using `kid-md`.
-- `kidcli compare-native-gameplay --scenario ...` compares native gameplay lifecycle checkpoints for pause/resume and death/respawn against the gameplay oracle capture.
+- `kidcli compare-native-gameplay --scenario ...` compares native gameplay checkpoints for pause/resume, death/respawn, and long traversal/transition scenarios against the gameplay oracle capture.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
+- `kidcli autonomous-loop --goal level1-full-traversal` evaluates the post-opening traversal contract for default-terrain authority and long transition parity.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -69,8 +70,10 @@ mise run inspect-enemy
 mise run verify-native-bootstrap
 mise run compare-native-oracle
 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
+cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
 mise run port-loop
 cargo run -p kidcli -- autonomous-loop --goal level1-opening-slice
+cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 mise run verify-frames
 mise run verify-audio-output
 mise run verify-oracle
@@ -82,7 +85,7 @@ mise run bootstrap-references
 mise run reference-build
 ```
 
-For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-enemy-fidelity-dossier.md`.
+For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-full-traversal.md`.
 
 For a player-facing launch with the default ROM search path, use:
 
@@ -173,11 +176,11 @@ The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw P
 
 The new generated source-port bundle is written under `.cache/generated/<rom-sha1>/asset-manifest.json`. It is built from the public disassembly split output and indexed into typed metadata for levels, constants, RAM variables, enemy source files, and asset groups. The current native runtime path is still intentionally narrow, but it now includes family-aware Level 1 enemy state, richer trace surfaces, and per-enemy checkpoint plumbing for oracle comparison.
 
-The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle. The new `level1_enemy_window` scenario is the current high-signal slice for enemy fidelity work.
+The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
-`play-native` is intentionally a silent debug host for the current semantic runtime, not a full player shell. It launches straight into the native runtime, draws simple rectangles and text from `NativeTraceFrame`, and is aimed at interactive debugging of the current Level 1 slice.
+`play-native` is intentionally a silent debug host for the current semantic runtime, not a full player shell. It launches straight into the native runtime, draws the current Level 1 native scene plus optional debug overlay from `NativeTraceFrame`, and is aimed at interactive debugging of the current source-port slice.
 
-The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json` and `docs/source-port/level-1-gameplay-lifecycle-goal.json`.
+The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
 
 Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
 

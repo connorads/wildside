@@ -1,0 +1,104 @@
+{
+  "goal_id": "level1-full-traversal",
+  "title": "Level 1 full traversal",
+  "summary": "Close the remaining gap from opening-slice parity to real Level 1 traversal, flag completion, and next-level transition parity on the default native runtime path.",
+  "capabilities": [
+    {
+      "id": "traversal_docs_aligned",
+      "title": "Align the tracked traversal docs",
+      "summary": "Make the PRD, dossier, README, and research map agree that full Level 1 traversal is the current frontier.",
+      "prerequisites": [],
+      "sources": [
+        "tasks/prd-level-1-full-traversal.md",
+        "docs/source-port/level-1-full-traversal.md",
+        "README.md",
+        "docs/source-port/research-map.md"
+      ],
+      "implementation_targets": [
+        "README.md",
+        "docs/source-port/research-map.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal"
+      ],
+      "done_criteria": [
+        "Tracked docs point at Level 1 full traversal as the current frontier.",
+        "The traversal PRD and dossier exist in tracked paths."
+      ]
+    },
+    {
+      "id": "terrain_runtime_authority",
+      "title": "Remove the default flat-floor fallback",
+      "summary": "Drive the default Level 1 runtime path from real terrain data instead of the legacy flat-floor fallback.",
+      "prerequisites": [
+        "traversal_docs_aligned"
+      ],
+      "sources": [
+        "tasks/prd-level-1-full-traversal.md",
+        "docs/source-port/level-1-full-traversal.md",
+        "crates/kid-core/src/lib.rs"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs"
+      ],
+      "commands": [
+        "cargo test -p kid-core",
+        "cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions"
+      ],
+      "done_criteria": [
+        "The default runtime no longer uses the flat-floor fallback for Level 1 traversal.",
+        "Traversal work is grounded in real terrain authority."
+      ]
+    },
+    {
+      "id": "progress_two_transitions_oracle",
+      "title": "Match the long traversal oracle",
+      "summary": "Make the native runtime pass the existing long gameplay scenario that spans Level 1 completion and subsequent transitions.",
+      "prerequisites": [
+        "terrain_runtime_authority"
+      ],
+      "sources": [
+        "tasks/prd-level-1-full-traversal.md",
+        "docs/source-port/level-1-full-traversal.md",
+        ".cache/native-gameplay-oracle-runs/progress_two_transitions"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/lib.rs",
+        "crates/kidcli/src/main.rs"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions"
+      ],
+      "done_criteria": [
+        "The progress-two-transitions gameplay comparison passes.",
+        "The native runtime reaches post-Level-1 transition checkpoints without semantic divergence."
+      ]
+    },
+    {
+      "id": "traversal_goal_loop_completion",
+      "title": "Close the traversal loop",
+      "summary": "Leave the traversal slice with a complete autonomy contract and tracked resume path.",
+      "prerequisites": [
+        "traversal_docs_aligned",
+        "terrain_runtime_authority",
+        "progress_two_transitions_oracle"
+      ],
+      "sources": [
+        "docs/source-port/level-1-full-traversal-goal.json",
+        "docs/source-port/level-1-full-traversal.md",
+        "README.md"
+      ],
+      "implementation_targets": [
+        "crates/kidcli/src/autonomy.rs",
+        "README.md"
+      ],
+      "commands": [
+        "cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal"
+      ],
+      "done_criteria": [
+        "The autonomy loop reports the traversal goal as complete.",
+        "Tracked docs provide enough context to continue after compaction."
+      ]
+    }
+  ]
+}

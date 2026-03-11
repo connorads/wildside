@@ -26,7 +26,8 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 - Source: boss enemy modules, VRAM/resource loading code
 
 ## Level transitions
-- Active in Track 4: flag collision + level ordering for all 105 levels
+- Active now: close the Level 1 traversal loop and stabilise the first long transition scenario
+- Later: generalise flag collision + level ordering across all 105 levels
 - Source: level-order data, completion flow in `kid.asm`
 
 ## Menus and cutscenes

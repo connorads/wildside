@@ -1,3 +1,5 @@
+# Superseded on 2026-03-11 by `tasks/prd-level-1-full-traversal.md`.
+
 # PRD: Level 1 Enemy Fidelity + Oracle Object Capture
 
 ## Goal

@@ -19,6 +19,9 @@ const PLATFORM_TASK_MARKER: &str =
 const COLLISION_TASK_MARKER: &str =
     "Record the first collision and terrain rules needed for the opening walk segment.";
 const DAMAGE_TRIGGER_TASK_MARKER: &str = "Recover the Level 1 gameplay damage trigger and death-transition path for the lifecycle slice.";
+const README_TRAVERSAL_FRONTIER_MARKER: &str =
+    "The current delivery frontier is Level 1 full traversal";
+const RESEARCH_MAP_TRAVERSAL_MARKER: &str = "## Current frontier\n\n1. Level 1 full traversal";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 pub(crate) enum AutonomyGoal {
@@ -28,6 +31,9 @@ pub(crate) enum AutonomyGoal {
     #[value(name = "level1-gameplay-lifecycle")]
     #[serde(rename = "level1-gameplay-lifecycle")]
     Level1GameplayLifecycle,
+    #[value(name = "level1-full-traversal")]
+    #[serde(rename = "level1-full-traversal")]
+    Level1FullTraversal,
 }
 
 impl AutonomyGoal {
@@ -35,6 +41,7 @@ impl AutonomyGoal {
         match self {
             Self::Level1OpeningSlice => "level1-opening-slice",
             Self::Level1GameplayLifecycle => "level1-gameplay-lifecycle",
+            Self::Level1FullTraversal => "level1-full-traversal",
         }
     }
 
@@ -43,6 +50,9 @@ impl AutonomyGoal {
             Self::Level1OpeningSlice => repo_root.join("docs/source-port/level-1-goal.json"),
             Self::Level1GameplayLifecycle => {
                 repo_root.join("docs/source-port/level-1-gameplay-lifecycle-goal.json")
+            }
+            Self::Level1FullTraversal => {
+                repo_root.join("docs/source-port/level-1-full-traversal-goal.json")
             }
         }
     }
@@ -63,6 +73,10 @@ pub(crate) enum CapabilityId {
     DamageTriggerResearch,
     DeathRespawnParity,
     GoalLoopCompletion,
+    TraversalDocsAligned,
+    TerrainRuntimeAuthority,
+    ProgressTwoTransitionsOracle,
+    TraversalGoalLoopCompletion,
 }
 
 impl CapabilityId {
@@ -80,6 +94,10 @@ impl CapabilityId {
             Self::DamageTriggerResearch => "damage_trigger_research",
             Self::DeathRespawnParity => "death_respawn_parity",
             Self::GoalLoopCompletion => "goal_loop_completion",
+            Self::TraversalDocsAligned => "traversal_docs_aligned",
+            Self::TerrainRuntimeAuthority => "terrain_runtime_authority",
+            Self::ProgressTwoTransitionsOracle => "progress_two_transitions_oracle",
+            Self::TraversalGoalLoopCompletion => "traversal_goal_loop_completion",
         }
     }
 }
@@ -189,11 +207,14 @@ struct RepositorySignals {
     move_oracle: CheckOutcome,
     pause_oracle: CheckOutcome,
     death_oracle: CheckOutcome,
+    progress_two_transitions_oracle: CheckOutcome,
     has_level_one_header: bool,
     has_level_one_start_and_flag: bool,
     enemy_layout_count: Option<u8>,
     platform_layout_count: Option<usize>,
     scripted_level_one_movement_present: bool,
+    flat_floor_fallback_present: bool,
+    traversal_docs_aligned: bool,
     dossier_open_markers: BTreeMap<CapabilityId, bool>,
 }
 
@@ -417,6 +438,19 @@ fn collect_repository_signals(
             )
         },
     );
+    let progress_two_transitions_oracle = run_check(
+        repo_root
+            .join(".cache/native-gameplay-oracle-runs")
+            .join(GameplayScenario::ProgressTwoTransitions.slug()),
+        || {
+            compare_native_gameplay(
+                repo_root,
+                rom_path,
+                manifest,
+                GameplayScenario::ProgressTwoTransitions,
+            )
+        },
+    );
 
     let level_one = manifest
         .levels
@@ -449,6 +483,10 @@ fn collect_repository_signals(
             .with_context(|| {
                 "failed to read docs/source-port/level-1-gameplay-lifecycle.md".to_owned()
             })?;
+    let readme = fs::read_to_string(repo_root.join("README.md"))
+        .with_context(|| "failed to read README.md".to_owned())?;
+    let research_map = fs::read_to_string(repo_root.join("docs/source-port/research-map.md"))
+        .with_context(|| "failed to read docs/source-port/research-map.md".to_owned())?;
 
     let mut dossier_open_markers = BTreeMap::new();
     dossier_open_markers.insert(
@@ -478,6 +516,7 @@ fn collect_repository_signals(
         move_oracle,
         pause_oracle,
         death_oracle,
+        progress_two_transitions_oracle,
         has_level_one_header,
         has_level_one_start_and_flag,
         enemy_layout_count,
@@ -485,6 +524,20 @@ fn collect_repository_signals(
         scripted_level_one_movement_present: kid_core_source.contains("fn scripted_player_state")
             || (kid_core_source.contains("const MOVE_MID_CAMERA_X")
                 && kid_core_source.contains("const FOLLOW_CAMERA_KID_X_OFFSET")),
+        flat_floor_fallback_present: kid_core_source
+            .contains("Flat floor fallback when no block grid is loaded")
+            || kid_core_source.contains("self.apply_floor_collision(None);"),
+        traversal_docs_aligned: repo_root
+            .join("tasks/prd-level-1-full-traversal.md")
+            .is_file()
+            && repo_root
+                .join("docs/source-port/level-1-full-traversal.md")
+                .is_file()
+            && repo_root
+                .join("docs/source-port/level-1-full-traversal-goal.json")
+                .is_file()
+            && readme.contains(README_TRAVERSAL_FRONTIER_MARKER)
+            && research_map.contains(RESEARCH_MAP_TRAVERSAL_MARKER),
         dossier_open_markers,
     })
 }
@@ -720,6 +773,48 @@ fn capability_completion_summary(
                 "The gameplay lifecycle slice still has unresolved lifecycle work.".to_owned()
             },
         ),
+        CapabilityId::TraversalDocsAligned => (
+            signals.traversal_docs_aligned,
+            if signals.traversal_docs_aligned {
+                "Tracked docs and autonomy inputs point at Level 1 full traversal as the active frontier.".to_owned()
+            } else {
+                "Tracked docs are not yet aligned on the Level 1 full traversal frontier."
+                    .to_owned()
+            },
+        ),
+        CapabilityId::TerrainRuntimeAuthority => (
+            !signals.flat_floor_fallback_present,
+            if signals.flat_floor_fallback_present {
+                "Static scan still finds the default flat-floor fallback in kid-core.".to_owned()
+            } else {
+                "Static scan no longer finds the default flat-floor fallback in kid-core."
+                    .to_owned()
+            },
+        ),
+        CapabilityId::ProgressTwoTransitionsOracle => (
+            signals.progress_two_transitions_oracle.ok,
+            if signals.progress_two_transitions_oracle.ok {
+                "The progress-two-transitions gameplay comparison matches the oracle.".to_owned()
+            } else {
+                format!(
+                    "The progress-two-transitions gameplay comparison still diverges: {}",
+                    signals.progress_two_transitions_oracle.detail
+                )
+            },
+        ),
+        CapabilityId::TraversalGoalLoopCompletion => (
+            signals.traversal_docs_aligned
+                && !signals.flat_floor_fallback_present
+                && signals.progress_two_transitions_oracle.ok,
+            if signals.traversal_docs_aligned
+                && !signals.flat_floor_fallback_present
+                && signals.progress_two_transitions_oracle.ok
+            {
+                "The full traversal slice contract is fully satisfied.".to_owned()
+            } else {
+                "The full traversal slice still has unresolved traversal work.".to_owned()
+            },
+        ),
     }
 }
 
@@ -851,6 +946,56 @@ fn evidence_for_capability(
         CapabilityId::GoalLoopCompletion => vec![
             check_evidence("compare-native-gameplay:pause-resume-level1", &signals.pause_oracle),
             check_evidence("compare-native-gameplay:death-respawn-level1", &signals.death_oracle),
+        ],
+        CapabilityId::TraversalDocsAligned => vec![EvidenceItem {
+            label: "tracked-traversal-docs".to_owned(),
+            status: if signals.traversal_docs_aligned {
+                "aligned".to_owned()
+            } else {
+                "stale".to_owned()
+            },
+            detail: "Checks for the tracked traversal PRD/dossier/goal plus aligned README and research-map frontier text.".to_owned(),
+            artefact_path: Some(PathBuf::from("docs/source-port/level-1-full-traversal.md")),
+        }],
+        CapabilityId::TerrainRuntimeAuthority => vec![EvidenceItem {
+            label: "kid-core-flat-floor-scan".to_owned(),
+            status: if signals.flat_floor_fallback_present {
+                "fallback-present".to_owned()
+            } else {
+                "fallback-removed".to_owned()
+            },
+            detail: "Static scan for the default flat-floor fallback in the runtime path.".to_owned(),
+            artefact_path: Some(PathBuf::from("crates/kid-core/src/lib.rs")),
+        }],
+        CapabilityId::ProgressTwoTransitionsOracle => vec![check_evidence(
+            "compare-native-gameplay:progress-two-transitions",
+            &signals.progress_two_transitions_oracle,
+        )],
+        CapabilityId::TraversalGoalLoopCompletion => vec![
+            EvidenceItem {
+                label: "tracked-traversal-docs".to_owned(),
+                status: if signals.traversal_docs_aligned {
+                    "aligned".to_owned()
+                } else {
+                    "stale".to_owned()
+                },
+                detail: "Checks whether tracked docs provide the traversal resume path.".to_owned(),
+                artefact_path: Some(PathBuf::from("docs/source-port/level-1-full-traversal.md")),
+            },
+            EvidenceItem {
+                label: "kid-core-flat-floor-scan".to_owned(),
+                status: if signals.flat_floor_fallback_present {
+                    "fallback-present".to_owned()
+                } else {
+                    "fallback-removed".to_owned()
+                },
+                detail: "Traversal closure requires the default runtime path to stop using the flat-floor fallback.".to_owned(),
+                artefact_path: Some(PathBuf::from("crates/kid-core/src/lib.rs")),
+            },
+            check_evidence(
+                "compare-native-gameplay:progress-two-transitions",
+                &signals.progress_two_transitions_oracle,
+            ),
         ],
     }
 }
@@ -1069,11 +1214,14 @@ mod tests {
             move_oracle: CheckOutcome::passing("passed", None),
             pause_oracle: CheckOutcome::passing("passed", None),
             death_oracle: CheckOutcome::passing("passed", None),
+            progress_two_transitions_oracle: CheckOutcome::passing("passed", None),
             has_level_one_header: true,
             has_level_one_start_and_flag: true,
             enemy_layout_count: Some(22),
             platform_layout_count: Some(1),
             scripted_level_one_movement_present: true,
+            flat_floor_fallback_present: true,
+            traversal_docs_aligned: false,
             dossier_open_markers,
         }
     }
@@ -1169,5 +1317,58 @@ mod tests {
             fingerprint_for_capabilities(&first),
             fingerprint_for_capabilities(&second)
         );
+    }
+
+    #[test]
+    fn full_traversal_resumes_at_terrain_after_docs_align() {
+        let spec: GoalSpec = serde_json::from_str(
+            r#"
+            {
+              "goal_id": "level1-full-traversal",
+              "title": "Level 1 full traversal",
+              "summary": "Test goal",
+              "capabilities": [
+                {
+                  "id": "traversal_docs_aligned",
+                  "title": "Docs",
+                  "summary": "Docs",
+                  "prerequisites": [],
+                  "sources": ["src/main.rs"],
+                  "implementation_targets": ["README.md"],
+                  "commands": ["cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal"],
+                  "done_criteria": ["docs aligned"]
+                },
+                {
+                  "id": "terrain_runtime_authority",
+                  "title": "Terrain",
+                  "summary": "Terrain",
+                  "prerequisites": ["traversal_docs_aligned"],
+                  "sources": ["../kid-core/src/lib.rs"],
+                  "implementation_targets": ["../kid-core/src/lib.rs"],
+                  "commands": ["cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions"],
+                  "done_criteria": ["flat-floor fallback removed"]
+                },
+                {
+                  "id": "progress_two_transitions_oracle",
+                  "title": "Transitions",
+                  "summary": "Transitions",
+                  "prerequisites": ["terrain_runtime_authority"],
+                  "sources": ["src/main.rs"],
+                  "implementation_targets": ["../kid-core/src/lib.rs"],
+                  "commands": ["cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions"],
+                  "done_criteria": ["transitions pass"]
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("goal spec should parse");
+
+        let mut signals = base_signals();
+        signals.traversal_docs_aligned = true;
+        let capabilities = evaluate_capabilities(&spec, Path::new("."), &signals);
+
+        let task = select_next_task(&spec, &capabilities, &signals).expect("task should exist");
+        assert_eq!(task.capability, CapabilityId::TerrainRuntimeAuthority);
     }
 }

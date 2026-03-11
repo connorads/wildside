@@ -8,10 +8,10 @@ This map records what the source port still needs to learn, where to source that
 
 ## Current frontier
 
-1. Level 1 enemy fidelity
-2. Oracle-driven per-enemy checkpoint comparison
-3. Matching native state against the same observable runtime object surface the oracle exposes
-4. Then broader Level 1 gameplay expansion
+1. Level 1 full traversal
+2. Real terrain authority on the default native runtime path
+3. Flag completion and next-level transition parity via `progress-two-transitions`
+4. Then deeper enemy-family fidelity work where traversal still exposes gaps
 
 ## Done
 
@@ -36,39 +36,40 @@ This map records what the source port still needs to learn, where to source that
 - Done: damage invulnerability (300 frames)
 - Source: oracle gameplay checkpoints
 
+### Level 1 visuals
+- Done: manifest-backed Level 1 visual loading and asset-backed native scene output
+- Done: ROM-backed HUD, player, background, terrain, visible platforms, and visible Level 1 families on the default render path
+- Source: generated bundle contract, `kid-render`, `kidcli::native_player`
+
 ### Object activation and tracing
 - Done: enemy roster built from camera window, platform preload + activation window
 - Done: native trace surface now records stable enemy layout identity and motion/state fields
 - Source: `doc/ram_layout.txt`, enemy layouts
 
-## Current next: Level 1 enemy fidelity
+## Current next: Level 1 full traversal
 
-### Native family behaviour
-- Done: `Diamond` remains stationary and collectible
-- Done: `MiniHoppingSkull` now uses a dedicated hopper loop in the native runtime
-- Need: tighten behaviour against oracle-visible timing and contact windows
+### Traversal authority
+- Need: remove the default flat-floor fallback from the main native runtime path
+- Need: source collision authority from real terrain data instead of test-only grid injection
+- Source: `kid-core`, generated Level 1 bundle, `doc/formats.txt`
 
-### Oracle object capture
-- Done: shared oracle/native checkpoint schema now includes per-enemy snapshots
-- Done: new `level1_enemy_window` scenario exists for the first Level 1 enemy slice
-- Need: map oracle runtime gfx objects cleanly back to stable enemy identity/family
-- Need: align native compare against the same observable enemy surface rather than the broader activated roster
-- Source: `code/enemy/*.asm`, `doc/ram_layout.txt`, `variables.asm`, `.cache/native-oracle-runs/`
+### Traversal parity
+- Need: make `compare-native-gameplay --scenario progress-two-transitions` pass
+- Current failure: `progress_mid@1999` diverges in game mode (`native 000C`, `oracle 0008`)
+- Source: `.cache/native-gameplay-oracle-runs/progress_two_transitions/`, `kid.asm`, gameplay comparison harness
 
-### Remaining enemy archetype work
-- Next families after this cycle should reuse the same seam:
-  - pacers
-  - flyers
-  - stationary attackers
+### Enemy fidelity after traversal
+- `Diamond` remains stationary and collectible
+- `MiniHoppingSkull` uses a hopper loop in the native runtime
+- Next deeper fidelity work should resume after traversal parity stops diverging
 - Source: `code/enemy/*.asm`, oracle per-object traces
 
 ## Remaining player/gameplay work
 
-- Air control (horizontal acceleration while airborne)
 - Terrain type switching (ice, rubber)
 - Y look-ahead camera offset (`$FFFFFB58`)
-- Flag collision and level transitions
-- Block interactions beyond the current Level 1 slice
+- Block interactions beyond the current traversal slice
+- Broader multi-level progression beyond the current transition scenario
 
 ## Deferred
 
@@ -91,6 +92,6 @@ This map records what the source port still needs to learn, where to source that
 
 ## Open questions
 
-- Which linked object/layout fields in oracle runtime RAM cleanly identify visible enemy families?
-- Which native enemies should be compared as activated roster members versus oracle-visible runtime objects?
-- Which collision/behaviour subroutines do the next Level 1 enemy families share? (`sub_36FF4`, `sub_36E84`, `sub_3C3CE`)
+- Which generated Level 1 asset path should become the default source of runtime terrain authority?
+- What is the first semantic cause of the `progress-two-transitions` game-mode divergence at `progress_mid@1999`?
+- After traversal parity lands, which enemy-family gaps remain visible enough to justify the next oracle-fidelity cycle?
