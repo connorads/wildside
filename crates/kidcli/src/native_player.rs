@@ -1,11 +1,13 @@
+use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
     FrameInput, GameMode, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame, PlayerForm,
-    terrain::{BlockGrid, BlockType, Cell, CollisionKind},
+    physics::Direction,
+    terrain::{BlockGrid, CollisionKind},
 };
-use kid_data::AssetManifest;
-use kid_render::{Palette, TileRef, TileSheet};
+use kid_data::{AssetManifest, LevelHeader};
+use kid_render::{Level1Visuals, Palette, TileRef, TileSheet, load_level1_visuals};
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
@@ -20,10 +22,12 @@ use std::time::{Duration, Instant};
 const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
+#[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
 const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
 const ENEMY_FLASH_COLOUR: [u8; 3] = [255, 255, 255];
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
+#[cfg(test)]
 const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
 const SKY_COLOUR: [u8; 3] = [28, 42, 56];
 const PALETTE_LINE_COLOUR_COUNT: usize = 15;
@@ -81,7 +85,26 @@ struct SpriteTile {
     tile: TileRef,
 }
 
+#[derive(Debug, Clone)]
+struct NativeSessionAssets {
+    level1_visuals: Level1Visuals,
+    level1_block_grid: BlockGrid,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedSceneTile {
+    tile_sheet: Arc<TileSheet>,
+    tile: TileRef,
+    palette: Arc<Palette>,
+}
+
+const FOREGROUND_TILE_VRAM_BASE: u16 = 0x00BC;
+const BLOCK_TILE_VRAM_BASE: u16 = 0x0220;
+const HUD_TILE_VRAM_BASE: u16 = 0x06BA;
+const HUD_DIAMOND_TILE_VRAM_BASE: u16 = 0x06EA;
+
 pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
+    let session_assets = load_native_session_assets(manifest, 0x00)?;
     let sdl = sdl2::init().map_err(|error| anyhow!("failed to init SDL: {error}"))?;
     let video = sdl
         .video()
@@ -128,13 +151,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
 
-    let mut runtime = NativeRuntime::new(manifest.clone());
-    try_load_block_grid(&mut runtime, manifest, 0x00);
+    let mut runtime = initialise_runtime(manifest, &session_assets);
     let mut trace = runtime.trace_frame();
     let mut hud_visible = true;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
-    let scene = build_scene(&trace, hud_visible, runtime.block_grid());
+    let scene = build_scene(
+        &trace,
+        hud_visible,
+        Some(&session_assets.level1_visuals),
+        runtime.block_grid(),
+    );
     render_scene(&scene, &mut frame);
     texture
         .update(None, &frame, (FRAME_WIDTH as usize) * 3)
@@ -194,14 +221,19 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         }
 
         if reset_runtime {
-            runtime = NativeRuntime::new(manifest.clone());
+            runtime = initialise_runtime(manifest, &session_assets);
             trace = runtime.trace_frame();
         } else {
             let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
         }
 
-        let scene = build_scene(&trace, hud_visible, runtime.block_grid());
+        let scene = build_scene(
+            &trace,
+            hud_visible,
+            Some(&session_assets.level1_visuals),
+            runtime.block_grid(),
+        );
         render_scene(&scene, &mut frame);
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
@@ -221,13 +253,51 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     Ok(())
 }
 
+fn load_native_session_assets(
+    manifest: &AssetManifest,
+    level_id: u8,
+) -> Result<NativeSessionAssets> {
+    load_native_session_assets_with(manifest, level_id, load_level1_visuals)
+}
+
+fn load_native_session_assets_with<F>(
+    manifest: &AssetManifest,
+    level_id: u8,
+    mut visuals_loader: F,
+) -> Result<NativeSessionAssets>
+where
+    F: FnMut(&AssetManifest) -> Result<Level1Visuals>,
+{
+    let level1_visuals = visuals_loader(manifest)?;
+    let level1_block_grid = try_load_block_grid(manifest, level_id)?;
+    Ok(NativeSessionAssets {
+        level1_visuals,
+        level1_block_grid,
+    })
+}
+
+fn initialise_runtime(
+    manifest: &AssetManifest,
+    session_assets: &NativeSessionAssets,
+) -> NativeRuntime {
+    let mut runtime = NativeRuntime::new(manifest.clone());
+    runtime.set_block_grid(session_assets.level1_block_grid.clone());
+    runtime
+}
+
 fn build_scene(
     trace: &NativeTraceFrame,
     hud_visible: bool,
+    level1_visuals: Option<&Level1Visuals>,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
     match trace.game_mode {
-        GameMode::InGame => build_game_scene(trace, hud_visible, block_grid),
+        GameMode::InGame => build_game_scene(
+            trace,
+            hud_visible,
+            level1_visuals.expect("Level 1 visuals are required for gameplay scenes"),
+            block_grid,
+        ),
         _ => build_status_scene(trace, hud_visible),
     }
 }
@@ -312,34 +382,146 @@ fn build_status_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
     }
 }
 
-/// Map a block grid cell to a display colour based on its collision kind and block type.
-fn cell_colour(cell: &Cell) -> Option<[u8; 3]> {
-    if cell.collision == CollisionKind::Empty {
-        return None;
-    }
-    if cell.has_block {
-        return Some(match cell.block_type {
-            BlockType::Prize => [232, 196, 56],   // yellow
-            BlockType::Smash => [220, 148, 52],   // orange
-            BlockType::Ice => [120, 210, 230],    // cyan
-            BlockType::Rubber => [220, 130, 180], // pink
-            BlockType::Metal => [160, 170, 180],  // steel grey
-            _ => [140, 140, 140],                 // generic block grey
+fn resolve_ingame_vram_tile(
+    level1_visuals: &Level1Visuals,
+    tile_ref: TileRef,
+) -> Option<ResolvedSceneTile> {
+    let foreground_range_end =
+        FOREGROUND_TILE_VRAM_BASE + level1_visuals.foreground_tiles.tiles.len() as u16;
+    if (FOREGROUND_TILE_VRAM_BASE..foreground_range_end).contains(&tile_ref.tile_index) {
+        return Some(ResolvedSceneTile {
+            tile_sheet: Arc::new(level1_visuals.foreground_tiles.clone()),
+            tile: TileRef {
+                tile_index: tile_ref.tile_index - FOREGROUND_TILE_VRAM_BASE,
+                ..tile_ref
+            },
+            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
         });
     }
-    Some(match cell.collision {
-        CollisionKind::Solid => [90, 100, 90],  // grey
-        CollisionKind::Spikes => [200, 60, 60], // red
-        CollisionKind::SlopeUp | CollisionKind::SlopeDown => [140, 100, 60], // brown
-        CollisionKind::HiddenBlock => [80, 80, 100], // dim blue-grey
-        CollisionKind::Empty => unreachable!(),
-    })
+
+    let block_range_end = BLOCK_TILE_VRAM_BASE + level1_visuals.block_tiles.tiles.len() as u16;
+    if (BLOCK_TILE_VRAM_BASE..block_range_end).contains(&tile_ref.tile_index) {
+        return Some(ResolvedSceneTile {
+            tile_sheet: Arc::new(level1_visuals.block_tiles.clone()),
+            tile: TileRef {
+                tile_index: tile_ref.tile_index - BLOCK_TILE_VRAM_BASE,
+                ..tile_ref
+            },
+            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+        });
+    }
+
+    let hud_range_end = HUD_TILE_VRAM_BASE + level1_visuals.hud.digits.tiles.len() as u16;
+    if (HUD_TILE_VRAM_BASE..hud_range_end).contains(&tile_ref.tile_index) {
+        return Some(ResolvedSceneTile {
+            tile_sheet: Arc::new(level1_visuals.hud.digits.clone()),
+            tile: TileRef {
+                tile_index: tile_ref.tile_index - HUD_TILE_VRAM_BASE,
+                ..tile_ref
+            },
+            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+        });
+    }
+
+    let hud_diamond_range_end =
+        HUD_DIAMOND_TILE_VRAM_BASE + level1_visuals.hud.diamond_tiles.tiles.len() as u16;
+    if (HUD_DIAMOND_TILE_VRAM_BASE..hud_diamond_range_end).contains(&tile_ref.tile_index) {
+        return Some(ResolvedSceneTile {
+            tile_sheet: Arc::new(level1_visuals.hud.diamond_tiles.clone()),
+            tile: TileRef {
+                tile_index: tile_ref.tile_index - HUD_DIAMOND_TILE_VRAM_BASE,
+                ..tile_ref
+            },
+            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+        });
+    }
+
+    None
 }
 
-/// Push draw commands for all block grid cells visible within the camera viewport.
+fn push_resolved_tile(commands: &mut Vec<DrawCommand>, x: i32, y: i32, tile: ResolvedSceneTile) {
+    commands.push(DrawCommand::IndexedTile {
+        x,
+        y,
+        tile_sheet: tile.tile_sheet,
+        tile: tile.tile,
+        palette: tile.palette,
+    });
+}
+
+fn push_background_tiles(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+) {
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let tile_sheet = Arc::new(level1_visuals.background_tiles.clone());
+    let palette = Arc::new(level1_visuals.palettes.background.clone());
+
+    for placement in &level1_visuals.background.placements {
+        let Some(chunk) = level1_visuals
+            .background
+            .chunks
+            .get(usize::from(placement.chunk_id))
+        else {
+            continue;
+        };
+        for row in 0..chunk.height_tiles {
+            for column in 0..chunk.width_tiles {
+                let tile_index =
+                    usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
+                let Some(background_tile) = chunk.tiles.get(tile_index) else {
+                    continue;
+                };
+                let screen_x =
+                    (i32::from(placement.x_tiles + column) * 8).saturating_sub(camera_x_px);
+                let screen_y = (i32::from(placement.y_tiles + row) * 8).saturating_sub(camera_y_px);
+                if screen_x <= -8
+                    || screen_y <= -8
+                    || screen_x >= FRAME_WIDTH as i32
+                    || screen_y >= FRAME_HEIGHT as i32
+                {
+                    continue;
+                }
+                commands.push(DrawCommand::IndexedTile {
+                    x: screen_x,
+                    y: screen_y,
+                    tile_sheet: tile_sheet.clone(),
+                    tile: TileRef {
+                        tile_index: background_tile.tile_index,
+                        palette_line: 0,
+                        priority: false,
+                        flip_x: background_tile.flip_x,
+                        flip_y: false,
+                    },
+                    palette: palette.clone(),
+                });
+            }
+        }
+    }
+}
+
+fn push_tile_quad(
+    commands: &mut Vec<DrawCommand>,
+    level1_visuals: &Level1Visuals,
+    x: i32,
+    y: i32,
+    quad: &kid_render::TileQuad,
+) {
+    for (index, tile_ref) in quad.tiles.iter().copied().enumerate() {
+        let tile_x = x + if index % 2 == 0 { 0 } else { 8 };
+        let tile_y = y + if index < 2 { 0 } else { 8 };
+        if let Some(tile) = resolve_ingame_vram_tile(level1_visuals, tile_ref) {
+            push_resolved_tile(commands, tile_x, tile_y, tile);
+        }
+    }
+}
+
 fn push_block_grid_cells(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
     block_grid: Option<&BlockGrid>,
 ) {
     let Some(grid) = block_grid else { return };
@@ -358,31 +540,116 @@ fn push_block_grid_cells(
     for row in row_start..row_end {
         for col in col_start..col_end {
             let cell = grid.cell_at(col, row);
-            if let Some(colour) = cell_colour(&cell) {
-                let world_x = i32::from(col) * 16;
-                let world_y = i32::from(row) * 16;
-                commands.push(DrawCommand::Rect {
-                    x: world_x - camera_x_px,
-                    y: world_y - camera_y_px,
-                    width: 16,
-                    height: 16,
-                    colour,
-                });
+            if cell.collision == CollisionKind::Empty {
+                continue;
             }
+
+            let Some(resolved) = level1_visuals
+                .level
+                .block_mapping
+                .resolve(cell.skin, cell.has_block.then_some(cell.block_type as u8))
+            else {
+                continue;
+            };
+            push_tile_quad(
+                commands,
+                level1_visuals,
+                i32::from(col) * 16 - camera_x_px,
+                i32::from(row) * 16 - camera_y_px,
+                resolved.quad,
+            );
         }
     }
 }
 
-const HP_PIP_FILLED: [u8; 3] = [220, 40, 40];
-const HP_PIP_EMPTY: [u8; 3] = [80, 30, 30];
-const HUD_TEXT_COLOUR: [u8; 3] = [240, 240, 240];
 const HUD_BG: [u8; 3] = [20, 20, 30];
 
-fn push_game_hud(commands: &mut Vec<DrawCommand>, trace: &NativeTraceFrame) {
+fn push_hud_number(
+    commands: &mut Vec<DrawCommand>,
+    level1_visuals: &Level1Visuals,
+    value: u16,
+    x: i32,
+    y: i32,
+) {
+    for (index, digit) in value.to_string().chars().enumerate() {
+        let Some(digit_value) = digit.to_digit(10) else {
+            continue;
+        };
+        let Some(tile) = resolve_ingame_vram_tile(
+            level1_visuals,
+            TileRef {
+                tile_index: level1_visuals.hud.digit_base_tile_index + digit_value as u16,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        ) else {
+            continue;
+        };
+        push_resolved_tile(commands, x + (index as i32 * 8), y, tile);
+    }
+}
+
+fn hud_counter_width(value: u16) -> i32 {
+    let digit_count = value.to_string().len() as i32;
+    if digit_count == 1 {
+        16
+    } else {
+        digit_count * 8
+    }
+}
+
+fn push_hud_counter(
+    commands: &mut Vec<DrawCommand>,
+    level1_visuals: &Level1Visuals,
+    value: u16,
+    x: i32,
+    y: i32,
+) {
+    push_hud_number(commands, level1_visuals, value, x, y);
+    if value < 10
+        && let Some(tile) = resolve_ingame_vram_tile(
+            level1_visuals,
+            TileRef {
+                tile_index: level1_visuals.hud.digit_base_tile_index + 11,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        )
+    {
+        push_resolved_tile(commands, x + 8, y, tile);
+    }
+}
+
+fn push_hud_icon(
+    commands: &mut Vec<DrawCommand>,
+    level1_visuals: &Level1Visuals,
+    icon_name: &str,
+    x: i32,
+    y: i32,
+) {
+    if let Some(icon) = level1_visuals
+        .hud
+        .icons
+        .iter()
+        .find(|icon| icon.name == icon_name)
+        && let Some(tile) = resolve_ingame_vram_tile(level1_visuals, icon.tile)
+    {
+        push_resolved_tile(commands, x, y, tile);
+    }
+}
+
+fn push_game_hud(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+) {
     let hud_y = (FRAME_HEIGHT - 18) as i32;
     let hud_h = 18;
 
-    // Background bar
     commands.push(DrawCommand::Rect {
         x: 0,
         y: hud_y,
@@ -391,106 +658,262 @@ fn push_game_hud(commands: &mut Vec<DrawCommand>, trace: &NativeTraceFrame) {
         colour: HUD_BG,
     });
 
-    // HP pips: small squares, filled = red, empty = dark red
-    let max_hp = trace.current_helmet_id.max(2) as i32; // Kid has 2 max HP
-    let pip_size = 8;
+    let max_hp = PlayerForm::from_helmet_id(trace.current_helmet_id)
+        .map(PlayerForm::max_hitpoints)
+        .unwrap_or_else(|| PlayerForm::TheKid.max_hitpoints()) as i32;
     let pip_gap = 2;
-    let pip_y = hud_y + (hud_h - pip_size) / 2;
+    let pip_y = hud_y + 5;
     for i in 0..max_hp {
-        let pip_x = 4 + i * (pip_size + pip_gap);
-        let filled = (i as u16) < trace.number_hitpoints;
-        commands.push(DrawCommand::Rect {
-            x: pip_x,
-            y: pip_y,
-            width: pip_size,
-            height: pip_size,
-            colour: if filled { HP_PIP_FILLED } else { HP_PIP_EMPTY },
-        });
+        let pip_tile = if (i as u16) < trace.number_hitpoints {
+            level1_visuals.hud.hitpoint_tiles[0]
+        } else {
+            level1_visuals.hud.hitpoint_tiles[2]
+        };
+        if let Some(tile) = resolve_ingame_vram_tile(level1_visuals, pip_tile) {
+            push_resolved_tile(commands, 4 + i * (8 + pip_gap), pip_y, tile);
+        }
     }
 
-    // Lives counter
-    let lives_x = 4 + max_hp * (pip_size + pip_gap) + 8;
-    commands.push(text(
-        lives_x,
-        hud_y + 4,
-        &format!("x{}", trace.number_lives),
-        HUD_TEXT_COLOUR,
-        1,
-    ));
+    let lives_x = 4 + max_hp * (8 + pip_gap) + 8;
+    push_hud_counter(commands, level1_visuals, trace.number_lives, lives_x, pip_y);
+    push_hud_icon(commands, level1_visuals, "ankh", lives_x + 18, pip_y);
 
-    // Diamond counter (right side)
-    commands.push(text(
-        (FRAME_WIDTH - 60) as i32,
-        hud_y + 4,
-        &format!("D:{}", trace.diamond_count),
-        [255, 220, 60],
-        1,
-    ));
+    let diamond_icon_x = FRAME_WIDTH as i32 - 12;
+    let diamond_counter_x = diamond_icon_x - 2 - hud_counter_width(trace.diamond_count);
+    push_hud_counter(
+        commands,
+        level1_visuals,
+        trace.diamond_count,
+        diamond_counter_x,
+        pip_y,
+    );
+    push_hud_icon(commands, level1_visuals, "diamond", diamond_icon_x, pip_y);
+}
+
+fn build_player_sprite_tiles(
+    frame: &kid_render::SpriteFrame,
+    facing: Direction,
+) -> Vec<SpriteTile> {
+    build_sprite_tiles(frame, facing, 0)
+}
+
+fn build_sprite_tiles(
+    frame: &kid_render::SpriteFrame,
+    facing: Direction,
+    palette_line: u8,
+) -> Vec<SpriteTile> {
+    let columns = usize::from(frame.width_px.div_ceil(8));
+    let rows = usize::from(frame.height_px.div_ceil(8));
+    let flip_x = matches!(facing, Direction::Left);
+    let mut tiles = Vec::with_capacity(columns * rows);
+
+    for row in 0..rows {
+        for column in 0..columns {
+            let tile_index = frame.tile_base_index + (row * columns + column) as u16;
+            let offset_x = if flip_x {
+                ((columns - 1 - column) * 8) as i32
+            } else {
+                (column * 8) as i32
+            };
+            tiles.push(SpriteTile {
+                offset_x,
+                offset_y: (row * 8) as i32,
+                tile: TileRef {
+                    tile_index,
+                    palette_line,
+                    priority: false,
+                    flip_x,
+                    flip_y: false,
+                },
+            });
+        }
+    }
+
+    tiles
+}
+
+fn select_player_frame<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a kid_render::PlayerVisuals,
+) -> &'a kid_render::SpriteFrame {
+    let on_ground = trace.kid_on_ground.unwrap_or(true);
+    let x_velocity = trace.kid_x_velocity.unwrap_or(0);
+    let y_velocity = trace.kid_y_velocity.unwrap_or(0);
+
+    if on_ground {
+        if x_velocity == 0 {
+            &player_visuals.idle
+        } else {
+            let frame_index = (trace.frame_index / 4) % player_visuals.walk.len();
+            &player_visuals.walk[frame_index]
+        }
+    } else if y_velocity < 0 {
+        &player_visuals.jump_rise
+    } else {
+        &player_visuals.jump_fall
+    }
+}
+
+fn player_screen_position(object: &NativeObjectSnapshot, trace: &NativeTraceFrame) -> (i32, i32) {
+    (
+        (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32,
+        (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32,
+    )
+}
+
+fn push_player_sprite(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+) {
+    let frame = select_player_frame(trace, &level1_visuals.player);
+    let facing = trace.kid_facing.unwrap_or(Direction::Right);
+    let (screen_x, screen_y) = player_screen_position(object, trace);
+
+    commands.push(DrawCommand::Sprite {
+        x: screen_x - i32::from(frame.origin_x),
+        y: screen_y - i32::from(frame.origin_y),
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(level1_visuals.player.palette.clone()),
+        tiles: build_player_sprite_tiles(frame, facing),
+    });
+}
+
+fn select_enemy_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+) -> &'a kid_render::SpriteFrame {
+    let frame_index = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len();
+    &enemy_visuals.frames[frame_index]
+}
+
+fn push_enemy_sprite(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+    object_type: u8,
+) {
+    let enemy_visuals = match object_type {
+        0x01 => &level1_visuals.enemies.diamond,
+        0x1C => &level1_visuals.enemies.mini_hopping_skull,
+        _ => {
+        commands.push(object_rect(
+            object,
+            trace,
+            16,
+            16,
+            if object.damage_flash {
+                ENEMY_FLASH_COLOUR
+            } else {
+                ENEMY_COLOUR
+            },
+        ));
+        return;
+        }
+    };
+
+    let frame = select_enemy_frame(trace, enemy_visuals);
+    let (screen_x, screen_y) = player_screen_position(object, trace);
+    commands.push(DrawCommand::Sprite {
+        x: screen_x - i32::from(frame.origin_x),
+        y: screen_y - i32::from(frame.origin_y),
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(enemy_visuals.palette.clone()),
+        tiles: build_sprite_tiles(frame, Direction::Right, 0),
+    });
+}
+
+fn push_platform_tiles(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+    kind: u8,
+) {
+    let frame = match kind {
+        0x00 => &level1_visuals.platforms.horizontal,
+        _ => &level1_visuals.platforms.vertical,
+    };
+    let (screen_x, screen_y) = player_screen_position(object, trace);
+    commands.push(DrawCommand::Sprite {
+        x: screen_x - i32::from(frame.origin_x),
+        y: screen_y - i32::from(frame.origin_y),
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(level1_visuals.platforms.palette.clone()),
+        tiles: build_sprite_tiles(frame, Direction::Right, 0),
+    });
+}
+
+pub(crate) fn render_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[GameplayCheckpoint],
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    let session_assets = load_native_session_assets(manifest, 0x00)?;
+    checkpoints
+        .iter()
+        .map(|checkpoint| {
+            let frame = trace
+                .iter()
+                .find(|frame| frame.frame_index == checkpoint.frame_index)
+                .or_else(|| trace.get(checkpoint.frame_index))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "missing native gameplay frame evidence {}@{}",
+                        checkpoint.label,
+                        checkpoint.frame_index
+                    )
+                })?;
+            let scene = build_scene(
+                frame,
+                false,
+                Some(&session_assets.level1_visuals),
+                Some(&session_assets.level1_block_grid),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            Ok((
+                checkpoint.label.to_string(),
+                checkpoint.frame_index,
+                FRAME_WIDTH as usize,
+                FRAME_HEIGHT as usize,
+                rgb,
+            ))
+        })
+        .collect()
 }
 
 fn build_game_scene(
     trace: &NativeTraceFrame,
     hud_visible: bool,
+    level1_visuals: &Level1Visuals,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
-    let mut commands = vec![
-        DrawCommand::Rect {
-            x: 0,
-            y: 0,
-            width: FRAME_WIDTH as i32,
-            height: FRAME_HEIGHT as i32,
-            colour: SKY_COLOUR,
-        },
-        DrawCommand::Rect {
-            x: 0,
-            y: 0,
-            width: FRAME_WIDTH as i32,
-            height: 1,
-            colour: GUIDE_COLOUR,
-        },
-        DrawCommand::Rect {
-            x: 0,
-            y: (FRAME_HEIGHT - 1) as i32,
-            width: FRAME_WIDTH as i32,
-            height: 1,
-            colour: GUIDE_COLOUR,
-        },
-        DrawCommand::Rect {
-            x: 0,
-            y: 0,
-            width: 1,
-            height: FRAME_HEIGHT as i32,
-            colour: GUIDE_COLOUR,
-        },
-        DrawCommand::Rect {
-            x: (FRAME_WIDTH - 1) as i32,
-            y: 0,
-            width: 1,
-            height: FRAME_HEIGHT as i32,
-            colour: GUIDE_COLOUR,
-        },
-    ];
+    let background = background_colour(level1_visuals);
+    let mut commands = Vec::new();
 
-    push_block_grid_cells(&mut commands, trace, block_grid);
+    push_background_tiles(&mut commands, trace, level1_visuals);
+    push_block_grid_cells(&mut commands, trace, level1_visuals, block_grid);
 
     for object in trace
         .active_objects
         .iter()
         .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Platform { .. }))
     {
-        commands.push(object_rect(object, trace, 32, 8, PLATFORM_COLOUR));
+        if let NativeObjectKind::Platform { kind, .. } = object.kind {
+            push_platform_tiles(&mut commands, object, trace, level1_visuals, kind);
+        }
     }
     for object in trace
         .active_objects
         .iter()
         .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Enemy { .. }))
     {
-        let colour = if object.damage_flash {
-            ENEMY_FLASH_COLOUR
-        } else {
-            ENEMY_COLOUR
-        };
-        commands.push(object_rect(object, trace, 16, 16, colour));
+        if let NativeObjectKind::Enemy { object_type } = object.kind {
+            push_enemy_sprite(&mut commands, object, trace, level1_visuals, object_type);
+        }
     }
     // Player: blink every 4 frames during invulnerability
     let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
@@ -500,12 +923,11 @@ fn build_game_scene(
             .iter()
             .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
         {
-            commands.push(object_rect(object, trace, 16, 32, PLAYER_COLOUR));
+            push_player_sprite(&mut commands, object, trace, level1_visuals);
         }
     }
 
-    // In-game HUD: HP pips, lives, diamond count (always visible in InGame)
-    push_game_hud(&mut commands, trace);
+    push_game_hud(&mut commands, trace, level1_visuals);
 
     if hud_visible {
         push_panel(&mut commands, 8, 8, 304, 44, [12, 18, 24], [160, 214, 255]);
@@ -551,9 +973,19 @@ fn build_game_scene(
     }
 
     Scene {
-        background: SKY_COLOUR,
+        background,
         commands,
     }
+}
+
+fn background_colour(level1_visuals: &Level1Visuals) -> [u8; 3] {
+    level1_visuals
+        .palettes
+        .background
+        .colours
+        .first()
+        .map(|colour| [colour.red, colour.green, colour.blue])
+        .unwrap_or(SKY_COLOUR)
 }
 
 fn object_rect(
@@ -1033,9 +1465,26 @@ fn on_off(value: bool) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kid_core::{LevelId, NativeObjectKind};
-    use kid_render::{MdColour, Palette, Tile, TileRef, TileSheet};
+    use kid_core::{
+        LevelId, NativeObjectKind,
+        physics::Direction,
+        terrain::{BlockType, Cell},
+    };
+    use kid_data::{
+        AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader,
+        LevelRecord, LevelResources,
+    };
+    use kid_render::{
+        BackgroundChunk, BackgroundPlacement, BackgroundTile, BackgroundVisuals,
+        AnimatedSpriteVisual, BlockVisualMapping, EnemyVisuals, HudIcon, HudVisuals,
+        Level1Visuals, LevelVisuals, MdColour, Palette, PaletteSet, PlatformVisuals,
+        PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
+    };
+    use std::fs;
+    use std::path::Path;
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tempfile::TempDir;
 
     fn sample_trace(mode: GameMode) -> NativeTraceFrame {
         NativeTraceFrame {
@@ -1060,6 +1509,10 @@ mod tests {
             paused: false,
             kid_x_pos: Some(0x0020_0000),
             kid_y_pos: Some(0x010F_0000),
+            kid_x_velocity: Some(0),
+            kid_y_velocity: Some(0),
+            kid_facing: Some(Direction::Right),
+            kid_on_ground: Some(true),
             active_objects: Vec::new(),
             camera_x_pos: 0x0010_0000,
             camera_y_pos: 0x0008_0000,
@@ -1092,6 +1545,65 @@ mod tests {
         )
     }
 
+    fn has_guide_rect(scene: &Scene) -> bool {
+        scene.commands.iter().any(
+            |command| matches!(command, DrawCommand::Rect { colour, .. } if *colour == GUIDE_COLOUR),
+        )
+    }
+
+    fn count_hud_hitpoint_tiles(scene: &Scene) -> usize {
+        scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                            && tile_sheet.tiles.len() == 0x200
+                            && [13, 15].contains(&tile.tile_index)
+                )
+            })
+            .count()
+    }
+
+    fn indexed_tile_at(
+        scene: &Scene,
+        x: i32,
+        y: i32,
+    ) -> Option<(&Arc<TileSheet>, TileRef, &Arc<Palette>)> {
+        scene.commands.iter().find_map(|command| match command {
+            DrawCommand::IndexedTile {
+                x: command_x,
+                y: command_y,
+                tile_sheet,
+                tile,
+                palette,
+            } if *command_x == x && *command_y == y => Some((tile_sheet, *tile, palette)),
+            _ => None,
+        })
+    }
+
+    fn indexed_tile_at_with_sheet_len(
+        scene: &Scene,
+        x: i32,
+        y: i32,
+        sheet_len: usize,
+    ) -> Option<(&Arc<TileSheet>, TileRef, &Arc<Palette>)> {
+        scene.commands.iter().find_map(|command| match command {
+            DrawCommand::IndexedTile {
+                x: command_x,
+                y: command_y,
+                tile_sheet,
+                tile,
+                palette,
+            } if *command_x == x && *command_y == y && tile_sheet.tiles.len() == sheet_len => {
+                Some((tile_sheet, *tile, palette))
+            }
+            _ => None,
+        })
+    }
+
     fn pixel_at(rgb: &[u8], x: u32, y: u32) -> [u8; 3] {
         let index = ((y * FRAME_WIDTH + x) * 3) as usize;
         [rgb[index], rgb[index + 1], rgb[index + 2]]
@@ -1112,6 +1624,320 @@ mod tests {
             tile.pixels[y * 8 + x] = *value;
         }
         tile
+    }
+
+    fn sample_tile_ref(tile_index: u16) -> TileRef {
+        TileRef {
+            tile_index,
+            palette_line: 0,
+            priority: false,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+
+    fn sample_tile_quad(tile_index: u16) -> TileQuad {
+        TileQuad {
+            tiles: [
+                sample_tile_ref(tile_index),
+                sample_tile_ref(tile_index + 1),
+                sample_tile_ref(tile_index + 2),
+                sample_tile_ref(tile_index + 3),
+            ],
+        }
+    }
+
+    fn blank_tile_sheet(tile_count: usize) -> TileSheet {
+        TileSheet {
+            tiles: vec![Tile { pixels: [0; 64] }; tile_count],
+        }
+    }
+
+    fn sample_player_frame(signature: u8) -> SpriteFrame {
+        let tile = Tile {
+            pixels: [signature; 64],
+        };
+        SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 16,
+            height_px: 32,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![
+                    tile.clone(),
+                    tile.clone(),
+                    tile.clone(),
+                    tile.clone(),
+                    tile.clone(),
+                    tile.clone(),
+                    tile.clone(),
+                    tile,
+                ],
+            },
+        }
+    }
+
+    fn sample_object_frame(signature: u8, width_px: u16, height_px: u16) -> SpriteFrame {
+        let tile_count = usize::from(width_px.div_ceil(8)) * usize::from(height_px.div_ceil(8));
+        SpriteFrame {
+            origin_x: i16::try_from(width_px / 2).expect("origin x"),
+            origin_y: i16::try_from(height_px).expect("origin y"),
+            width_px,
+            height_px,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![
+                    Tile {
+                        pixels: [signature; 64],
+                    };
+                    tile_count
+                ],
+            },
+        }
+    }
+
+    fn sample_player_visuals() -> PlayerVisuals {
+        PlayerVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+            },
+            idle: sample_player_frame(1),
+            walk: vec![
+                sample_player_frame(2),
+                sample_player_frame(3),
+                sample_player_frame(4),
+                sample_player_frame(5),
+                sample_player_frame(6),
+                sample_player_frame(7),
+            ],
+            jump_rise: sample_player_frame(8),
+            jump_fall: sample_player_frame(9),
+        }
+    }
+
+    fn sample_enemy_visuals() -> EnemyVisuals {
+        EnemyVisuals {
+            diamond: AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(120, 220, 255)],
+                },
+                frames: vec![
+                    sample_object_frame(21, 20, 20),
+                    sample_object_frame(22, 20, 20),
+                    sample_object_frame(23, 20, 20),
+                ],
+                frame_duration: 6,
+            },
+            mini_hopping_skull: AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 220, 160)],
+                },
+                frames: vec![sample_object_frame(31, 16, 17), sample_object_frame(32, 16, 18)],
+                frame_duration: 9,
+            },
+        }
+    }
+
+    fn sample_platform_visuals() -> PlatformVisuals {
+        PlatformVisuals {
+            palette: Palette {
+                colours: vec![colour(0, 0, 0), colour(232, 176, 64)],
+            },
+            horizontal: sample_object_frame(41, 72, 16),
+            vertical: sample_object_frame(51, 32, 32),
+        }
+    }
+
+    fn sample_background_visuals() -> BackgroundVisuals {
+        BackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 2,
+                height_tiles: 1,
+                tiles: vec![
+                    BackgroundTile {
+                        tile_index: 0,
+                        flip_x: false,
+                    },
+                    BackgroundTile {
+                        tile_index: 1,
+                        flip_x: true,
+                    },
+                ],
+            }],
+        }
+    }
+
+    fn sample_level1_visuals_with_background(background: [u8; 3]) -> Level1Visuals {
+        let foreground = (0..16)
+            .map(|skin| sample_tile_quad(0x00BC + (skin as u16 * 4)))
+            .collect();
+        let mut blocks = Vec::with_capacity(81);
+        blocks.push(sample_tile_quad(0x0220));
+        for group in 0..5 {
+            for skin in 0..16 {
+                let base = 0x0224 + ((group * 16 + skin) as u16 * 4);
+                blocks.push(sample_tile_quad(base));
+            }
+        }
+        Level1Visuals {
+            foreground_tiles: blank_tile_sheet(0x80),
+            background_tiles: blank_tile_sheet(0x20),
+            block_tiles: blank_tile_sheet(0x200),
+            palettes: PaletteSet {
+                foreground: Palette {
+                    colours: vec![colour(12, 34, 56)],
+                },
+                background: Palette {
+                    colours: vec![MdColour {
+                        red: background[0],
+                        green: background[1],
+                        blue: background[2],
+                        raw_word: 0,
+                    }],
+                },
+            },
+            background: sample_background_visuals(),
+            level: LevelVisuals {
+                level_id: 0x00,
+                foreground_theme_id: 0x08,
+                background_theme_id: 0x08,
+                foreground_layout_bytes: Vec::new(),
+                block_layout_bytes: Vec::new(),
+                background_layout_bytes: Vec::new(),
+                block_mapping: BlockVisualMapping::new(foreground, blocks)
+                    .expect("sample block mapping"),
+            },
+            hud: HudVisuals {
+                digits: blank_tile_sheet(12),
+                digit_base_tile_index: 0x06BA,
+                diamond_tiles: blank_tile_sheet(16),
+                diamond_base_tile_index: 0x06EA,
+                icons: vec![
+                    HudIcon::new("ankh", (0x01A1, 0x008D), TileRef::from_attr_word(0x8231)),
+                    HudIcon::new("colon", (0x0090, 0x0090), TileRef::from_attr_word(0x86C4)),
+                    HudIcon::new("diamond", (0x01A0, 0x00A2), TileRef::from_attr_word(0x86F2)),
+                ],
+                hitpoint_tiles: [
+                    sample_tile_ref(0x022D),
+                    sample_tile_ref(0x022E),
+                    sample_tile_ref(0x022F),
+                ],
+            },
+            player: sample_player_visuals(),
+            enemies: sample_enemy_visuals(),
+            platforms: sample_platform_visuals(),
+        }
+    }
+
+    fn sample_level1_visuals() -> Level1Visuals {
+        sample_level1_visuals_with_background([33, 66, 99])
+    }
+
+    fn build_ingame_scene(
+        trace: &NativeTraceFrame,
+        hud_visible: bool,
+        block_grid: Option<&BlockGrid>,
+    ) -> Scene {
+        let visuals = sample_level1_visuals();
+        build_scene(trace, hud_visible, Some(&visuals), block_grid)
+    }
+
+    struct ManifestFixture {
+        _root: TempDir,
+        manifest: AssetManifest,
+    }
+
+    impl ManifestFixture {
+        fn new() -> anyhow::Result<Self> {
+            let root = TempDir::new()?;
+            let decoded_path = "decoded/level/00/block.bin";
+            let legacy_path = "level-layout/00.bin";
+            let width_cells = 20usize;
+            let height_cells = 14usize;
+            let mut decoded_bytes = vec![0u8; width_cells * height_cells * 2];
+            decoded_bytes[0] = 0xE1;
+            decoded_bytes[1] = 0x05;
+            decoded_bytes[2] = 0x60;
+            decoded_bytes[3] = 0x07;
+            let mut legacy_bytes = vec![0u8; width_cells * height_cells * 2];
+            legacy_bytes[0] = 0x70;
+            legacy_bytes[1] = 0x33;
+            write_file(root.path(), decoded_path, &decoded_bytes)?;
+            write_file(root.path(), legacy_path, &legacy_bytes)?;
+
+            Ok(Self {
+                manifest: AssetManifest {
+                    generated_bundle_version: GENERATED_BUNDLE_VERSION,
+                    rom_sha1: String::from("fixture"),
+                    upstream_commit: String::from("fixture"),
+                    source_root: root.path().to_path_buf(),
+                    output_root: root.path().to_path_buf(),
+                    levels: vec![LevelRecord {
+                        level_id: 0x00,
+                        title_text_id: Some(0x4A),
+                        display_name: Some(String::from("Blue Lake Woods 1")),
+                        resource_paths: Vec::new(),
+                        resources: LevelResources::default(),
+                        header_metadata: Some(LevelHeader {
+                            width_screens: 1,
+                            height_screens: 1,
+                            height_flag_bits: 0,
+                            level_theme: 0x08,
+                            murder_wall_flags: 0,
+                            background_theme: 0x08,
+                            weather_flags: 0,
+                            player_start_x: 0x0750,
+                            player_start_y: 0x00E0,
+                            flag_x: 0x0750,
+                            flag_y: 0x0300,
+                        }),
+                        enemy_layout_metadata: None,
+                        bgscroll_metadata: None,
+                        platform_metadata: None,
+                    }],
+                    constants: Vec::new(),
+                    ram_variables: Vec::new(),
+                    enemy_sources: Vec::new(),
+                    theme_assets: Vec::new(),
+                    scene_assets: Vec::new(),
+                    animation_assets: Vec::new(),
+                    sound_assets: Vec::new(),
+                    ingame_assets: Vec::new(),
+                    decoded_level1: Some(DecodedLevelAssets {
+                        contract_version: 2,
+                        level_id: 0x00,
+                        foreground: decoded_asset("decoded/level/00/foreground.bin"),
+                        block: decoded_asset(decoded_path),
+                        background: decoded_asset("decoded/level/00/background.bin"),
+                    }),
+                },
+                _root: root,
+            })
+        }
+    }
+
+    fn decoded_asset(relative_path: &str) -> DecodedAssetFile {
+        DecodedAssetFile {
+            relative_path: relative_path.to_string(),
+            preview_png_path: format!("{relative_path}.png"),
+            size_bytes: 0,
+            sha1: String::from("fixture"),
+        }
+    }
+
+    fn write_file(root: &Path, relative_path: &str, bytes: &[u8]) -> anyhow::Result<()> {
+        let path = root.join(relative_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, bytes)?;
+        Ok(())
     }
 
     #[test]
@@ -1319,12 +2145,262 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_uses_loaded_level1_visuals_for_ingame() {
+        let trace = sample_trace(GameMode::InGame);
+        let visuals = sample_level1_visuals_with_background([12, 34, 56]);
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert_eq!(scene.background, [12, 34, 56]);
+    }
+
+    #[test]
+    fn build_game_scene_emits_background_tiles_instead_of_sky_rectangles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        let visuals = sample_level1_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let Some((tile_sheet, tile, palette)) = indexed_tile_at(&scene, 0, 0) else {
+            panic!("expected a background indexed tile at the origin");
+        };
+        assert_eq!(tile_sheet.tiles.len(), 0x20);
+        assert_eq!(palette.colours[0], colour(33, 66, 99));
+        assert_eq!(tile.tile_index, 0);
+        assert!(!has_guide_rect(&scene));
+        assert!(!scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Rect {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                    ..
+                } if *width == FRAME_WIDTH as i32 && *height == FRAME_HEIGHT as i32
+            )
+        }));
+    }
+
+    #[test]
+    fn build_game_scene_emits_block_family_tiles_from_skin_and_block_type() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        let data = [
+            0x60, 0x00, 0xE0, 0x01, 0xE1, 0x02, 0xE2, 0x03, 0xE5, 0x04, 0xE6, 0x05, 0xE7, 0x06,
+        ];
+        let grid = BlockGrid::from_level_layout(&data, 7, 1);
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        let expected_tiles = [
+            (0, 0, 0x80, 0),
+            (16, 0, 0x200, 8),
+            (32, 0, 0x200, 76),
+            (48, 0, 0x200, 144),
+            (64, 0, 0x200, 212),
+            (80, 0, 0x200, 280),
+            (96, 0, 0x200, 0),
+        ];
+        for (x, y, expected_sheet_len, expected_tile_index) in expected_tiles {
+            let Some((tile_sheet, tile, _)) =
+                indexed_tile_at_with_sheet_len(&scene, x, y, expected_sheet_len)
+            else {
+                panic!("expected indexed terrain tile at {x},{y}");
+            };
+            assert_eq!(tile_sheet.tiles.len(), expected_sheet_len);
+            assert_eq!(tile.tile_index, expected_tile_index);
+        }
+    }
+
+    #[test]
+    fn build_game_scene_emits_hud_art_without_text_placeholders() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.number_hitpoints = 1;
+        trace.number_lives = 3;
+        trace.diamond_count = 7;
+
+        let scene = build_ingame_scene(&trace, false, None);
+        let hud_digits = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                            && tile_sheet.tiles.len() == 12
+                            && tile.tile_index <= 11
+                )
+            })
+            .count();
+        let hud_hitpoints = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18) && tile_sheet.tiles.len() == 0x200
+                )
+            })
+            .count();
+
+        assert!(hud_digits >= 2, "expected digit tiles in the HUD");
+        assert!(hud_hitpoints >= 2, "expected hitpoint art tiles in the HUD");
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                            && tile_sheet.tiles.len() == 16
+                            && tile.tile_index == 8
+                )
+            }),
+            "expected the HUD diamond icon"
+        );
+        assert!(!contains_text(&scene, "x3"));
+        assert!(!contains_text(&scene, "D:7"));
+    }
+
+    #[test]
+    fn native_scene_builder_uses_asset_backed_commands_for_visible_level1_families() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.number_lives = 2;
+        trace.diamond_count = 4;
+        trace.active_objects = vec![
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Platform {
+                    kind: 0x00,
+                    subtype: 0x00,
+                },
+                x_pos: 0x0030_0000,
+                y_pos: 0x0018_0000,
+                damage_flash: false,
+            },
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x01 },
+                x_pos: 0x0040_0000,
+                y_pos: 0x0010_0000,
+                damage_flash: false,
+            },
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x1C },
+                x_pos: 0x0050_0000,
+                y_pos: 0x0010_0000,
+                damage_flash: false,
+            },
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Player,
+                x_pos: 0x0010_0000,
+                y_pos: 0x0010_0000,
+                damage_flash: false,
+            },
+        ];
+        let grid = BlockGrid::from_level_layout(&[0x60, 0x00, 0xE1, 0x02], 2, 1);
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        assert!(
+            indexed_tile_at(&scene, 0, 0).is_some(),
+            "missing background art"
+        );
+        assert!(
+            indexed_tile_at(&scene, 16, 0).is_some(),
+            "missing terrain/block art"
+        );
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                            && tile_sheet.tiles.len() == 16
+                            && tile.tile_index == 8
+                )
+            }),
+            "missing diamond HUD art"
+        );
+        assert!(has_asset_backed_command(&scene, 41), "missing platform art");
+        assert!(has_sprite_signature(&scene, 21), "missing collectible art");
+        assert!(
+            has_sprite_signature(&scene, 31) || has_sprite_signature(&scene, 32),
+            "missing enemy art"
+        );
+        assert_eq!(player_sprite_signature(&scene), Some(1));
+        assert!(!has_guide_rect(&scene));
+        assert!(!contains_text(&scene, "D:4"));
+        assert!(!scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR || *colour == ENEMY_COLOUR || *colour == ENEMY_FLASH_COLOUR || *colour == PLATFORM_COLOUR)
+        }));
+    }
+
+    #[test]
+    fn resolve_ingame_vram_tile_maps_hud_symbols_and_diamond_tiles() {
+        let visuals = sample_level1_visuals();
+
+        let colon = resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x86C4))
+            .expect("colon tile");
+        assert_eq!(colon.tile_sheet.tiles.len(), 12);
+        assert_eq!(colon.tile.tile_index, 10);
+
+        let diamond = resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x86F2))
+            .expect("diamond tile");
+        assert_eq!(diamond.tile_sheet.tiles.len(), 16);
+        assert_eq!(diamond.tile.tile_index, 8);
+    }
+
+    #[test]
     fn title_scene_stays_text_only() {
-        let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None);
+        let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None, None);
         assert!(contains_text(&scene, "Kid Chameleon Native"));
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR || *colour == ENEMY_COLOUR || *colour == PLATFORM_COLOUR)
         }));
+    }
+
+    #[test]
+    fn try_load_block_grid_reads_decoded_level1_layout_from_manifest_contract() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+
+        let grid = try_load_block_grid(&fixture.manifest, 0x00).expect("block grid");
+
+        assert_eq!(grid.width_cells, 20);
+        assert_eq!(grid.height_cells, 14);
+        assert_eq!(grid.cell_at(0, 0).block_type, BlockType::Prize);
+        assert_eq!(grid.cell_at(0, 0).skin, 0x05);
+        assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Solid);
+        assert_eq!(grid.cell_at(1, 0).skin, 0x07);
+        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Solid);
+    }
+
+    #[test]
+    fn run_native_player_loads_level1_visuals_once_before_main_loop() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let load_count = AtomicUsize::new(0);
+
+        let session_assets = load_native_session_assets_with(&fixture.manifest, 0x00, |_| {
+            load_count.fetch_add(1, Ordering::SeqCst);
+            Ok(sample_level1_visuals())
+        })
+        .expect("session assets");
+        let runtime = initialise_runtime(&fixture.manifest, &session_assets);
+
+        assert_eq!(load_count.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            runtime
+                .block_grid()
+                .expect("runtime block grid")
+                .cell_at(0, 0)
+                .block_type,
+            BlockType::Prize
+        );
     }
 
     #[test]
@@ -1353,21 +2429,21 @@ mod tests {
                 damage_flash: false,
             },
         ];
-        let scene = build_scene(&trace, true, None);
+        let scene = build_ingame_scene(&trace, true, None);
         assert!(has_rect(&scene, 32, 16, 32, 8, PLATFORM_COLOUR));
         assert!(has_rect(&scene, 24, 12, 16, 16, ENEMY_COLOUR));
-        assert!(has_rect(&scene, 8, 8, 16, 32, PLAYER_COLOUR));
+        assert_eq!(player_sprite_position(&scene), Some((8, 8)));
     }
 
     #[test]
     fn hud_toggle_removes_control_overlay() {
         let trace = sample_trace(GameMode::InGame);
         assert!(contains_text(
-            &build_scene(&trace, true, None),
+            &build_ingame_scene(&trace, true, None),
             "Controls Arrows"
         ));
         assert!(!contains_text(
-            &build_scene(&trace, false, None),
+            &build_ingame_scene(&trace, false, None),
             "Controls Arrows"
         ));
     }
@@ -1383,12 +2459,12 @@ mod tests {
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
-        let scene = build_scene(&trace, false, None);
+        let scene = build_ingame_scene(&trace, false, None);
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         render_scene(&scene, &mut rgb);
         assert!(
             !rgb.chunks_exact(3)
-                .any(|pixel| pixel == PLAYER_COLOUR.as_slice())
+                .any(|pixel| pixel == [200, 160, 120].as_slice())
         );
     }
 
@@ -1405,21 +2481,15 @@ mod tests {
             data[offset] = 0x60; // collision=6 (Solid)
         }
         let grid = BlockGrid::from_level_layout(&data, 4, 3);
-        let solid_colour = cell_colour(&grid.cell_at(0, 2)).unwrap();
 
-        let scene = build_scene(&trace, false, Some(&grid));
-        // Bottom-row cells (row 2) should produce 16x16 rects at y=32
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
         for col in 0..4 {
             assert!(
-                has_rect(&scene, col * 16, 32, 16, 16, solid_colour),
-                "missing solid cell at col {col}"
+                indexed_tile_at_with_sheet_len(&scene, col * 16, 32, 0x80).is_some(),
+                "missing solid cell art at col {col}"
             );
         }
-        // Top-row cells should NOT produce any rects (empty)
-        assert!(!scene.commands.iter().any(|command| {
-            matches!(command, DrawCommand::Rect { y, height, colour, .. }
-                if *y == 0 && *height == 16 && *colour == solid_colour)
-        }));
+        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80).is_none());
     }
 
     #[test]
@@ -1438,16 +2508,14 @@ mod tests {
             data[offset] = 0x60;
         }
         let grid = BlockGrid::from_level_layout(&data, w, h);
-        let solid_colour = cell_colour(&grid.cell_at(0, 1)).unwrap();
 
-        let scene = build_scene(&trace, false, Some(&grid));
-        // Cells at cols 0..19 (world x 0..320) are left of camera — should NOT appear
-        let offscreen_rects = scene.commands.iter().filter(|cmd| {
-            matches!(cmd, DrawCommand::Rect { x, colour, .. }
-                if *colour == solid_colour && *x < -16)
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+        let offscreen_tiles = scene.commands.iter().filter(|cmd| {
+            matches!(cmd, DrawCommand::IndexedTile { x, tile_sheet, .. }
+                if tile_sheet.tiles.len() == 0x80 && *x < -8)
         });
         assert_eq!(
-            offscreen_rects.count(),
+            offscreen_tiles.count(),
             0,
             "offscreen cells should not be drawn"
         );
@@ -1463,35 +2531,39 @@ mod tests {
         let mut data = vec![0u8; 2 * 2 * 2];
         data[0] = 0xE1; // block=true, collision=Solid, block_type=Prize
         let mut grid = BlockGrid::from_level_layout(&data, 2, 2);
-        let prize_colour = cell_colour(&grid.cell_at(0, 0)).unwrap();
 
         // Before destruction: prize cell visible
-        let scene = build_scene(&trace, false, Some(&grid));
-        assert!(has_rect(&scene, 0, 0, 16, 16, prize_colour));
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_some());
 
         // Destroy the block (set to empty)
         grid.set_cell_at(0, 0, Cell::from_be_bytes(0, 0));
-        let scene = build_scene(&trace, false, Some(&grid));
-        assert!(!has_rect(&scene, 0, 0, 16, 16, prize_colour));
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_none());
     }
 
     #[test]
-    fn block_types_have_distinct_colours() {
-        let prize = Cell::from_be_bytes(0xE1, 0); // Prize
-        let smash = Cell::from_be_bytes(0xE0, 0); // Smash
-        let ice = Cell::from_be_bytes(0xE2, 0); // Ice
-        let rubber = Cell::from_be_bytes(0xE6, 0); // Rubber
-
-        let colours: Vec<_> = [prize, smash, ice, rubber]
+    fn block_types_have_distinct_tile_mappings() {
+        let visuals = sample_level1_visuals();
+        let tile_indices: Vec<_> = [Some(0), Some(1), Some(2), Some(6)]
             .iter()
-            .map(|c| cell_colour(c).unwrap())
+            .map(|block_type| {
+                let resolved = visuals
+                    .level
+                    .block_mapping
+                    .resolve(0, *block_type)
+                    .expect("block mapping");
+                resolve_ingame_vram_tile(&visuals, resolved.quad.tiles[0])
+                    .expect("scene tile")
+                    .tile
+                    .tile_index
+            })
             .collect();
-        // All colours should be unique
-        for i in 0..colours.len() {
-            for j in (i + 1)..colours.len() {
+        for i in 0..tile_indices.len() {
+            for j in (i + 1)..tile_indices.len() {
                 assert_ne!(
-                    colours[i], colours[j],
-                    "block types at indices {i} and {j} share colour"
+                    tile_indices[i], tile_indices[j],
+                    "block mappings at indices {i} and {j} share the same tile"
                 );
             }
         }
@@ -1503,6 +2575,10 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = frame_index;
         trace.invulnerable_frames = invulnerable_frames;
+        trace.kid_x_velocity = Some(0);
+        trace.kid_y_velocity = Some(0);
+        trace.kid_facing = Some(Direction::Right);
+        trace.kid_on_ground = Some(true);
         trace.active_objects = vec![NativeObjectSnapshot {
             kind: NativeObjectKind::Player,
             x_pos: 0x0018_0000,
@@ -1512,43 +2588,183 @@ mod tests {
         trace
     }
 
-    fn scene_has_player(scene: &Scene) -> bool {
-        scene.commands.iter().any(|command| {
-            matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR)
+    fn scene_has_player_sprite(scene: &Scene) -> bool {
+        scene
+            .commands
+            .iter()
+            .any(|command| matches!(command, DrawCommand::Sprite { .. }))
+    }
+
+    fn player_sprite_signature(scene: &Scene) -> Option<u8> {
+        scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { tile_sheet, .. } => {
+                tile_sheet.tiles.first().map(|tile| tile.pixels[0])
+            }
+            _ => None,
+        })
+    }
+
+    fn player_sprite_position(scene: &Scene) -> Option<(i32, i32)> {
+        scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, .. } => Some((*x, *y)),
+            _ => None,
+        })
+    }
+
+    fn has_sprite_signature(scene: &Scene, signature: u8) -> bool {
+        scene.commands.iter().any(|command| match command {
+            DrawCommand::Sprite { tile_sheet, .. } => tile_sheet
+                .tiles
+                .first()
+                .is_some_and(|tile| tile.pixels[0] == signature),
+            _ => false,
+        })
+    }
+
+    fn has_asset_backed_command(scene: &Scene, signature: u8) -> bool {
+        scene.commands.iter().any(|command| match command {
+            DrawCommand::IndexedTile { tile_sheet, tile, .. } => tile_sheet
+                .tiles
+                .get(usize::from(tile.tile_index))
+                .is_some_and(|resolved| resolved.pixels[0] == signature),
+            DrawCommand::Sprite { tile_sheet, .. } => tile_sheet
+                .tiles
+                .first()
+                .is_some_and(|resolved| resolved.pixels[0] == signature),
+            _ => false,
         })
     }
 
     #[test]
-    fn player_visible_when_not_invulnerable() {
-        let trace = trace_with_player(100, 0);
-        let scene = build_scene(&trace, false, None);
-        assert!(scene_has_player(&scene));
+    fn build_game_scene_emits_enemy_sprite_commands_for_visible_level1_families() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x01 },
+                x_pos: 0x0028_0000,
+                y_pos: 0x0010_0000,
+                damage_flash: false,
+            },
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x1C },
+                x_pos: 0x0040_0000,
+                y_pos: 0x0010_0000,
+                damage_flash: false,
+            },
+        ];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(has_sprite_signature(&scene, 21), "expected diamond sprite art");
+        assert!(
+            has_sprite_signature(&scene, 31) || has_sprite_signature(&scene, 32),
+            "expected mini hopping skull sprite art"
+        );
+        assert!(!scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Rect { colour, .. } if *colour == ENEMY_COLOUR || *colour == ENEMY_FLASH_COLOUR)
+        }));
     }
 
     #[test]
-    fn player_blinks_during_invulnerability() {
-        // Frame 0 (0/4=0, 0%2=0 → visible)
+    fn build_game_scene_emits_platform_and_collectible_art_commands() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Platform {
+                    kind: 0x00,
+                    subtype: 0x00,
+                },
+                x_pos: 0x0010_0000,
+                y_pos: 0x0018_0000,
+                damage_flash: false,
+            },
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x01 },
+                x_pos: 0x0028_0000,
+                y_pos: 0x0010_0000,
+                damage_flash: false,
+            },
+        ];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_asset_backed_command(&scene, 41),
+            "expected platform ROM art command"
+        );
+        assert!(
+            has_sprite_signature(&scene, 21),
+            "expected collectible diamond ROM art"
+        );
+        assert!(!scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLATFORM_COLOUR)
+        }));
+    }
+
+    #[test]
+    fn build_game_scene_emits_player_sprite_tiles_for_idle_walk_jump_and_fall() {
+        let mut idle = trace_with_player(0, 0);
+        idle.kid_x_velocity = Some(0);
+        idle.kid_y_velocity = Some(0);
+        idle.kid_on_ground = Some(true);
+
+        let mut walk = trace_with_player(0, 0);
+        walk.kid_x_velocity = Some(0x0001_0000);
+        walk.kid_y_velocity = Some(0);
+        walk.kid_on_ground = Some(true);
+
+        let mut jump_rise = trace_with_player(0, 0);
+        jump_rise.kid_x_velocity = Some(0x0001_0000);
+        jump_rise.kid_y_velocity = Some(-0x0002_0000);
+        jump_rise.kid_on_ground = Some(false);
+
+        let mut jump_fall = trace_with_player(0, 0);
+        jump_fall.kid_x_velocity = Some(0x0001_0000);
+        jump_fall.kid_y_velocity = Some(0x0002_0000);
+        jump_fall.kid_on_ground = Some(false);
+
+        let idle_scene = build_ingame_scene(&idle, false, None);
+        let walk_scene = build_ingame_scene(&walk, false, None);
+        let jump_rise_scene = build_ingame_scene(&jump_rise, false, None);
+        let jump_fall_scene = build_ingame_scene(&jump_fall, false, None);
+
+        assert_eq!(player_sprite_signature(&idle_scene), Some(1));
+        assert_eq!(player_sprite_signature(&walk_scene), Some(2));
+        assert_eq!(player_sprite_signature(&jump_rise_scene), Some(8));
+        assert_eq!(player_sprite_signature(&jump_fall_scene), Some(9));
+        assert!(!has_rect(&idle_scene, 8, 8, 16, 32, PLAYER_COLOUR));
+    }
+
+    #[test]
+    fn player_invulnerability_blink_preserves_existing_visibility_rule() {
         let trace = trace_with_player(0, 100);
-        assert!(scene_has_player(&build_scene(&trace, false, None)));
+        assert!(scene_has_player_sprite(&build_ingame_scene(
+            &trace, false, None
+        )));
 
-        // Frame 4 (4/4=1, 1%2=1 → hidden)
         let trace = trace_with_player(4, 100);
-        assert!(!scene_has_player(&build_scene(&trace, false, None)));
+        assert!(!scene_has_player_sprite(&build_ingame_scene(
+            &trace, false, None
+        )));
 
-        // Frame 8 (8/4=2, 2%2=0 → visible)
         let trace = trace_with_player(8, 100);
-        assert!(scene_has_player(&build_scene(&trace, false, None)));
+        assert!(scene_has_player_sprite(&build_ingame_scene(
+            &trace, false, None
+        )));
 
-        // Frame 12 (12/4=3, 3%2=1 → hidden)
         let trace = trace_with_player(12, 100);
-        assert!(!scene_has_player(&build_scene(&trace, false, None)));
-    }
+        assert!(!scene_has_player_sprite(&build_ingame_scene(
+            &trace, false, None
+        )));
 
-    #[test]
-    fn player_visible_after_invulnerability_expires() {
-        // invulnerable_frames=0 means expired — always visible
         let trace = trace_with_player(4, 0);
-        assert!(scene_has_player(&build_scene(&trace, false, None)));
+        assert!(scene_has_player_sprite(&build_ingame_scene(
+            &trace, false, None
+        )));
     }
 
     // --- US-012: HUD display ---
@@ -1559,80 +2775,123 @@ mod tests {
         trace.number_hitpoints = 2;
         trace.number_lives = 3;
         trace.diamond_count = 7;
-        let scene = build_scene(&trace, false, None);
+        let scene = build_ingame_scene(&trace, false, None);
 
-        // HP pips: should have filled pips (red)
-        let has_filled_pip = scene
+        let hud_digits = scene
             .commands
             .iter()
-            .any(|c| matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_FILLED));
-        assert!(has_filled_pip, "HUD should show filled HP pips");
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                            && tile_sheet.tiles.len() == 12
+                            && tile.tile_index <= 11
+                )
+            })
+            .count();
+        let hitpoint_tiles = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                            && tile_sheet.tiles.len() == 0x200
+                            && [13, 15].contains(&tile.tile_index)
+                )
+            })
+            .count();
 
-        // Lives text
-        assert!(contains_text(&scene, "x3"), "HUD should show lives count");
-
-        // Diamond counter
-        assert!(
-            contains_text(&scene, "D:7"),
-            "HUD should show diamond count"
-        );
+        assert!(hud_digits >= 2, "HUD should show digit art");
+        assert!(hitpoint_tiles >= 2, "HUD should show hitpoint art");
+        assert!(!contains_text(&scene, "x3"));
+        assert!(!contains_text(&scene, "D:7"));
     }
 
     #[test]
     fn game_hud_reflects_damage() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.number_hitpoints = 1; // Took damage
-        let scene = build_scene(&trace, false, None);
+        let scene = build_ingame_scene(&trace, false, None);
 
-        // Should have at least one empty pip
-        let has_empty_pip = scene
-            .commands
-            .iter()
-            .any(|c| matches!(c, DrawCommand::Rect { colour, .. } if *colour == HP_PIP_EMPTY));
-        assert!(has_empty_pip, "HUD should show empty HP pips after damage");
+        let has_empty_pip = scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
+                    if *y >= (FRAME_HEIGHT as i32 - 18)
+                        && tile_sheet.tiles.len() == 0x200
+                        && tile.tile_index == 15
+            )
+        });
+        assert!(
+            has_empty_pip,
+            "HUD should show empty hitpoint art after damage"
+        );
+    }
+
+    #[test]
+    fn game_hud_uses_player_form_hitpoint_capacity_for_helmet_state() {
+        let mut skycutter = sample_trace(GameMode::InGame);
+        skycutter.current_helmet_id = PlayerForm::Skycutter.helmet_id();
+        skycutter.number_hitpoints = PlayerForm::Skycutter.max_hitpoints();
+
+        let skycutter_scene = build_ingame_scene(&skycutter, false, None);
+
+        assert_eq!(
+            count_hud_hitpoint_tiles(&skycutter_scene),
+            PlayerForm::Skycutter.max_hitpoints() as usize
+        );
+
+        let mut iron_knight = sample_trace(GameMode::InGame);
+        iron_knight.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        iron_knight.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+        let iron_knight_scene = build_ingame_scene(&iron_knight, false, None);
+
+        assert_eq!(
+            count_hud_hitpoint_tiles(&iron_knight_scene),
+            PlayerForm::IronKnight.max_hitpoints() as usize
+        );
     }
 }
 
-/// Attempt to load a pre-dumped block grid for the given level.
-/// Falls back silently to flat floor if the dump file doesn't exist.
-fn try_load_block_grid(runtime: &mut NativeRuntime, manifest: &AssetManifest, level_id: u8) {
-    let layout_dir = manifest.output_root.join("level-layout");
-    let layout_path = layout_dir.join(format!("{:02X}.bin", level_id));
-    let meta_path = layout_dir.join(format!("{:02X}.json", level_id));
-
-    let Ok(data) = std::fs::read(&layout_path) else {
-        eprintln!(
-            "no block grid at {}, using flat floor (run dump-level-layout to generate)",
-            layout_path.display()
+fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGrid> {
+    let level = manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == level_id)
+        .ok_or_else(|| anyhow!("generated bundle does not contain level 0x{level_id:02X}"))?;
+    let header = level.header_metadata.as_ref().ok_or_else(|| {
+        anyhow!("generated bundle is missing header metadata for level 0x{level_id:02X}")
+    })?;
+    let decoded = manifest
+        .decoded_level1
+        .as_ref()
+        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
+    if decoded.level_id != level_id {
+        bail!(
+            "decoded Level 1 block layout points at level 0x{:02X}, expected 0x{level_id:02X}",
+            decoded.level_id
         );
-        return;
-    };
-    let Ok(meta_bytes) = std::fs::read(&meta_path) else {
-        eprintln!(
-            "block grid data found but no metadata at {}",
-            meta_path.display()
-        );
-        return;
-    };
-    let Ok(meta) = serde_json::from_slice::<serde_json::Value>(&meta_bytes) else {
-        eprintln!("failed to parse block grid metadata");
-        return;
-    };
-
-    let width = meta["width_blocks"].as_u64().unwrap_or(0) as u16;
-    let height = meta["height_blocks"].as_u64().unwrap_or(0) as u16;
-    if width == 0 || height == 0 {
-        eprintln!("invalid block grid dimensions {}x{}", width, height);
-        return;
     }
 
-    let grid = BlockGrid::from_level_layout(&data, width, height);
-    eprintln!(
-        "loaded block grid: {}x{} cells ({}x{} px)",
-        width,
-        height,
-        u32::from(width) * 16,
-        u32::from(height) * 16
-    );
-    runtime.set_block_grid(grid);
+    let layout_path = manifest.output_root.join(&decoded.block.relative_path);
+    let data = std::fs::read(&layout_path).map_err(|error| {
+        anyhow!(
+            "failed to read Level 1 block layout from {}: {error}",
+            layout_path.display()
+        )
+    })?;
+    let (width, height) = level_layout_dimensions(header);
+    Ok(BlockGrid::from_level_layout(&data, width, height))
+}
+
+fn level_layout_dimensions(header: &LevelHeader) -> (u16, u16) {
+    // Kid's 16x16 collision grid spans 20x14 cells per 320x224 screen.
+    (
+        u16::from(header.width_screens) * 20,
+        u16::from(header.height_screens) * 14,
+    )
 }

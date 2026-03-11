@@ -1,13 +1,22 @@
+mod background;
 mod bundle;
 mod hud;
 mod level;
 mod palette;
+mod player;
 mod tiles;
 
+pub use background::{
+    BackgroundChunk, BackgroundPlacement, BackgroundTile, BackgroundVisuals,
+    parse_background_chunk, parse_chunked_background_layout,
+};
 pub use bundle::{Level1Visuals, load_level1_visuals};
 pub use hud::{HudIcon, HudVisuals};
 pub use level::{BlockVisualKind, BlockVisualMapping, LevelVisuals, ResolvedBlockVisual};
 pub use palette::{MdColour, Palette, PaletteSet};
+pub use player::{
+    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame,
+};
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
@@ -108,8 +117,10 @@ mod tests {
 
         let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
 
-        assert_eq!(visuals.hud.digits.tiles.len(), 10);
+        assert_eq!(visuals.hud.digits.tiles.len(), 12);
         assert_eq!(visuals.hud.digit_base_tile_index, 0x06BA);
+        assert_eq!(visuals.hud.diamond_tiles.tiles.len(), 16);
+        assert_eq!(visuals.hud.diamond_base_tile_index, 0x06EA);
         assert!(visuals.hud.icons.iter().any(|icon| {
             icon.name == "ankh"
                 && icon.position == (0x01A1, 0x008D)
@@ -120,6 +131,42 @@ mod tests {
                 && icon.position == (0x01A0, 0x00A2)
                 && icon.tile.tile_index == 0x06F2
         }));
+    }
+
+    #[test]
+    fn load_player_visuals_returns_required_kid_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+
+        assert_eq!(visuals.player.palette.colours.len(), 15);
+        assert_eq!(visuals.player.idle.origin_x, 0x0B);
+        assert_eq!(visuals.player.idle.origin_y, 0x01);
+        assert_eq!(visuals.player.idle.width_px, 0x14);
+        assert_eq!(visuals.player.idle.height_px, 0x20);
+        assert_eq!(visuals.player.idle.tile_sheet.tiles.len(), 12);
+        assert_eq!(visuals.player.walk.len(), 6);
+        assert_eq!(visuals.player.walk[0].origin_x, 0x0A);
+        assert_eq!(visuals.player.walk[0].width_px, 0x13);
+        assert_eq!(visuals.player.jump_rise.origin_x, 0x0A);
+        assert_eq!(visuals.player.jump_rise.width_px, 0x16);
+        assert_eq!(visuals.player.jump_fall.origin_x, 0x09);
+        assert_eq!(visuals.player.jump_fall.width_px, 0x14);
+        assert_eq!(visuals.player.idle.tile_base_index, 0);
+    }
+
+    #[test]
+    fn load_enemy_and_platform_visuals_returns_visible_level1_families() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+
+        assert_eq!(visuals.enemies.diamond.frames.len(), 3);
+        assert_eq!(visuals.enemies.diamond.frames[0].tile_base_index, 0x002F);
+        assert_eq!(visuals.enemies.mini_hopping_skull.frames.len(), 2);
+        assert_eq!(visuals.enemies.mini_hopping_skull.frames[0].tile_base_index, 0x002C);
+        assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
+        assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
     }
 
     #[test]
@@ -180,7 +227,7 @@ mod tests {
             write_file(
                 root.path(),
                 "decoded/level/00/background.bin",
-                &[0x30, 0x31, 0x32, 0x33],
+                &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
             )?;
             write_file(
                 root.path(),
@@ -205,7 +252,101 @@ mod tests {
             write_file(
                 root.path(),
                 "ingame/artcomp/HUD_numbers.bin",
-                &direct_copy_saxman(&(0..320).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+                &direct_copy_saxman(&(0..384).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy01_Diamond.bin",
+                &direct_copy_saxman(&(0..4096).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin",
+                &direct_copy_saxman(&(0..2048).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Horizontal_platform.bin",
+                &direct_copy_saxman(&(0..1024).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Vertical_platform.bin",
+                &direct_copy_saxman(&(0..1024).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/diamond_1.bin",
+                &(0..512).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Crystal_1.bin",
+                &(0..15)
+                    .map(|value| 0x0100_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Mini_Hopping_Skull_1.bin",
+                &(0..15)
+                    .map(|value| 0x0180_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Kid.bin",
+                &(0..15)
+                    .map(|value| 0x0200_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid.bin",
+                &vec![0x11; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_1.bin",
+                &vec![0x22; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_2.bin",
+                &vec![0x23; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_3.bin",
+                &vec![0x24; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_4.bin",
+                &vec![0x25; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_5.bin",
+                &vec![0x26; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_6.bin",
+                &vec![0x27; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_jumping_1.bin",
+                &vec![0x31; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_jumping_2.bin",
+                &vec![0x32; 32 * 12],
             )?;
             write_file(
                 root.path(),
@@ -239,6 +380,11 @@ mod tests {
                     .into_iter()
                     .flat_map(u16::to_be_bytes)
                     .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/bg_chunks/cave_00.bin",
+                &[0x00, 0x02, 0x00, 0x01, 0x00, 0x01],
             )?;
 
             let manifest = AssetManifest {
@@ -280,6 +426,7 @@ mod tests {
                     asset_file(root.path(), "theme/palette_bg/cave.bin"),
                     asset_file(root.path(), "theme/mappings/cave.bin"),
                     asset_file(root.path(), "theme/block_mappings.bin"),
+                    asset_file(root.path(), "theme/bg_chunks/cave_00.bin"),
                 ],
                 scene_assets: Vec::new(),
                 animation_assets: Vec::new(),
@@ -287,6 +434,23 @@ mod tests {
                 ingame_assets: vec![
                     asset_file(root.path(), "ingame/artcomp/Blocks.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Horizontal_platform.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Vertical_platform.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
+                    asset_file(root.path(), "ingame/palette_kid/Kid.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
                 ],
                 decoded_level1: Some(DecodedLevelAssets {
                     contract_version: LEVEL1_DECODED_ASSET_VERSION,

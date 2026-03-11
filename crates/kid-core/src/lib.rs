@@ -197,6 +197,10 @@ pub struct NativeTraceFrame {
     pub paused: bool,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
+    pub kid_x_velocity: Option<i32>,
+    pub kid_y_velocity: Option<i32>,
+    pub kid_facing: Option<Direction>,
+    pub kid_on_ground: Option<bool>,
     pub active_objects: Vec<NativeObjectSnapshot>,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
@@ -482,6 +486,10 @@ impl NativeRuntime {
             paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
+            kid_x_velocity: player_state.map(|state| state.x_velocity),
+            kid_y_velocity: player_state.map(|state| state.y_velocity),
+            kid_facing: player_state.map(|state| state.facing),
+            kid_on_ground: player_state.map(|state| state.on_ground),
             active_objects,
             camera_x_pos: camera_state.x_pos,
             camera_y_pos: camera_state.y_pos,
@@ -1932,6 +1940,10 @@ mod tests {
         assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
         assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
         assert_eq!(trace.kid_y_pos, Some(OPENING_ENTRY_KID_Y_POS));
+        assert_eq!(trace.kid_x_velocity, Some(0));
+        assert_eq!(trace.kid_y_velocity, Some(0));
+        assert_eq!(trace.kid_facing, Some(Direction::Right));
+        assert_eq!(trace.kid_on_ground, Some(false));
         assert_eq!(trace.active_objects.len(), 3);
         assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
         assert_eq!(

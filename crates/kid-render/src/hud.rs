@@ -4,6 +4,8 @@ use crate::tiles::{TileRef, TileSheet};
 pub struct HudVisuals {
     pub digits: TileSheet,
     pub digit_base_tile_index: u16,
+    pub diamond_tiles: TileSheet,
+    pub diamond_base_tile_index: u16,
     pub icons: Vec<HudIcon>,
     pub hitpoint_tiles: [TileRef; 3],
 }

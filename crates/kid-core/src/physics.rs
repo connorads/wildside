@@ -3,12 +3,13 @@
 /// All velocities and positions use the same fixed-point 16.16 format as the
 /// original 68k code: the upper 16 bits are the pixel value, the lower 16 are
 /// the fractional part.
+use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // Direction
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     Left,
     Right,

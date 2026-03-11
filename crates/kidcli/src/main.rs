@@ -17,7 +17,7 @@ use kid_data::{
 };
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
-use native_player::{NativePlayOptions, run_native_player};
+use native_player::{NativePlayOptions, render_gameplay_frame_evidence, run_native_player};
 use oracle::{
     OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
 };
@@ -1007,6 +1007,16 @@ struct GameplayState {
     kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
+}
+
+type GameplayFrameEvidence = (String, usize, usize, usize, Vec<u8>);
+
+#[derive(Debug, Clone, Serialize)]
+struct GameplayFrameEvidenceRecord {
+    label: String,
+    frame_index: usize,
+    png_path: String,
+    sha1: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -2545,11 +2555,37 @@ fn compare_native_gameplay(
     manifest: &AssetManifest,
     scenario: GameplayScenario,
 ) -> Result<()> {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    compare_native_gameplay_with(
+        repo_root,
+        scenario,
+        || capture_gameplay_scenario(&rom_bytes, scenario),
+        || capture_native_gameplay_scenario(manifest, scenario),
+        || capture_native_gameplay_frame_evidence(manifest, scenario),
+    )?;
+    println!("native gameplay comparison passed for {}", scenario.slug());
+    Ok(())
+}
+
+fn compare_native_gameplay_with<FO, FN, FE>(
+    repo_root: &Path,
+    scenario: GameplayScenario,
+    oracle_capture_fn: FO,
+    native_capture_fn: FN,
+    frame_evidence_fn: FE,
+) -> Result<()>
+where
+    FO: FnOnce() -> Result<GameplayCapture>,
+    FN: FnOnce() -> Result<GameplayCapture>,
+    FE: FnOnce() -> Result<Vec<GameplayFrameEvidence>>,
+{
     let run_dir = repo_root
         .join(".cache/native-gameplay-oracle-runs")
         .join(scenario.slug());
     let native_dir = run_dir.join("native");
     let oracle_dir = run_dir.join("oracle");
+    let review_dir = run_dir.join("review");
     if native_dir.exists() {
         fs::remove_dir_all(&native_dir)
             .with_context(|| format!("failed to remove {}", native_dir.display()))?;
@@ -2558,17 +2594,19 @@ fn compare_native_gameplay(
         fs::remove_dir_all(&oracle_dir)
             .with_context(|| format!("failed to remove {}", oracle_dir.display()))?;
     }
+    if review_dir.exists() {
+        fs::remove_dir_all(&review_dir)
+            .with_context(|| format!("failed to remove {}", review_dir.display()))?;
+    }
     fs::create_dir_all(&native_dir)
         .with_context(|| format!("failed to create {}", native_dir.display()))?;
     fs::create_dir_all(&oracle_dir)
         .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
 
-    let rom_bytes = fs::read(rom_path)
-        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
-    let oracle_capture = capture_gameplay_scenario(&rom_bytes, scenario)?;
+    let oracle_capture = oracle_capture_fn()?;
     write_gameplay_capture(&oracle_dir, &oracle_capture)?;
 
-    let native_capture = capture_native_gameplay_scenario(manifest, scenario)?;
+    let native_capture = native_capture_fn()?;
     write_gameplay_capture(&native_dir, &native_capture)?;
 
     compare_gameplay_checkpoints_against_oracle(
@@ -2577,8 +2615,18 @@ fn compare_native_gameplay(
         &native_capture.checkpoints,
         &oracle_capture.checkpoints,
     )?;
-    println!("native gameplay comparison passed for {}", scenario.slug());
+    let frame_evidence = frame_evidence_fn()?;
+    write_gameplay_frame_evidence(&review_dir, &frame_evidence)?;
     Ok(())
+}
+
+fn capture_native_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+) -> Result<Vec<GameplayFrameEvidence>> {
+    let script = scenario.script()?;
+    let trace = run_native_script(manifest.clone(), &script, scenario.frame_count());
+    render_gameplay_frame_evidence(manifest, &trace, scenario.checkpoints())
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3328,6 +3376,45 @@ fn write_gameplay_capture(out_dir: &Path, capture: &GameplayCapture) -> Result<(
         format!(
             "failed to write {}",
             out_dir.join("checkpoints.json").display()
+        )
+    })?;
+    Ok(())
+}
+
+fn write_gameplay_frame_evidence(
+    out_dir: &Path,
+    frames: &[GameplayFrameEvidence],
+) -> Result<()> {
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+    let mut records = Vec::with_capacity(frames.len());
+    for (label, frame_index, width, height, rgb) in frames {
+        let png_name = format!("{frame_index:04}_{label}.png");
+        let path = out_dir.join(&png_name);
+        image::save_buffer_with_format(
+            &path,
+            rgb,
+            *width as u32,
+            *height as u32,
+            ColorType::Rgb8,
+            ImageFormat::Png,
+        )
+        .with_context(|| format!("failed to write {}", path.display()))?;
+        records.push(GameplayFrameEvidenceRecord {
+            label: label.clone(),
+            frame_index: *frame_index,
+            png_path: png_name,
+            sha1: sha1_hex(rgb),
+        });
+    }
+    fs::write(
+        out_dir.join("frame-evidence.json"),
+        serde_json::to_vec_pretty(&records)?,
+    )
+    .with_context(|| {
+        format!(
+            "failed to write {}",
+            out_dir.join("frame-evidence.json").display()
         )
     })?;
     Ok(())
@@ -4105,9 +4192,10 @@ fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::{
-        ReferenceName, analyse_audio_samples, audio_envelope_similarity, build_controller_script,
-        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
-        selected_reference_repos,
+        GameplayCapture, GameplayScenario, GameplayState, NativePlayOptions, ReferenceName,
+        analyse_audio_samples, audio_envelope_similarity, build_controller_script,
+        compare_native_gameplay_with, parse_button_mask, parse_input_spec,
+        prepare_generated_assets_with, run_native_player, selected_reference_repos,
     };
     use kid_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
@@ -4125,6 +4213,11 @@ mod tests {
         fs::create_dir_all(source_root.join("code/enemy")).expect("enemy dir");
         fs::create_dir_all(source_root.join("doc")).expect("doc dir");
         fs::create_dir_all(source_root.join("ingame/anim")).expect("anim dir");
+        fs::create_dir_all(source_root.join("ingame/artcomp")).expect("artcomp dir");
+        fs::create_dir_all(source_root.join("ingame/artunc")).expect("artunc dir");
+        fs::create_dir_all(source_root.join("ingame/artunc_kid")).expect("kid art dir");
+        fs::create_dir_all(source_root.join("ingame/palette_enemy")).expect("enemy palette dir");
+        fs::create_dir_all(source_root.join("ingame/palette_kid")).expect("kid palette dir");
         fs::create_dir_all(source_root.join("level/platform")).expect("platform dir");
         fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll dir");
         fs::create_dir_all(source_root.join("level/header")).expect("header dir");
@@ -4140,6 +4233,68 @@ mod tests {
         fs::write(source_root.join("theme/sample.bin"), b"theme").expect("theme");
         fs::write(source_root.join("scenes/title.bin"), b"scene").expect("scene");
         fs::write(source_root.join("ingame/anim/idle.bin"), b"anim").expect("anim");
+        fs::write(
+            source_root.join("ingame/artcomp/Blocks.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("blocks");
+        fs::write(
+            source_root.join("ingame/artcomp/HUD_numbers.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("hud");
+        fs::write(
+            source_root.join("ingame/artcomp/Enemy01_Diamond.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("diamond art");
+        fs::write(
+            source_root.join("ingame/artcomp/Enemy1C_Mini_hopping_skull.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("skull art");
+        fs::write(
+            source_root.join("ingame/artcomp/Horizontal_platform.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("horizontal platform art");
+        fs::write(
+            source_root.join("ingame/artcomp/Vertical_platform.bin"),
+            SAXMAN_FIXTURE,
+        )
+        .expect("vertical platform art");
+        fs::write(source_root.join("ingame/artunc/diamond_1.bin"), &[0; 32]).expect("diamond");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid.bin"),
+            &[0; 32 * 12],
+        )
+        .expect("kid idle");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid_walk_1.bin"),
+            &[0; 32 * 12],
+        )
+        .expect("kid walk");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid_jumping_1.bin"),
+            &[0; 32 * 12],
+        )
+        .expect("kid jump rise");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid_jumping_2.bin"),
+            &[0; 32 * 12],
+        )
+        .expect("kid jump fall");
+        fs::write(
+            source_root.join("ingame/palette_enemy/Crystal_1.bin"),
+            &[0; 30],
+        )
+        .expect("diamond palette");
+        fs::write(
+            source_root.join("ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
+            &[0; 30],
+        )
+        .expect("skull palette");
+        fs::write(source_root.join("ingame/palette_kid/Kid.bin"), &[0; 30]).expect("kid palette");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
         fs::write(
             source_root.join("level/platform/00.asm"),
@@ -4359,5 +4514,97 @@ mod tests {
                 .join(decoded.foreground.relative_path)
                 .is_file()
         );
+    }
+
+    #[test]
+    fn play_native_fails_fast_when_required_level1_visuals_are_missing() {
+        let source_root = TempDir::new().expect("source root");
+        let bundle_root = TempDir::new().expect("bundle root");
+        write_generated_asset_source_fixture(source_root.path());
+
+        let manifest = export_split_bundle(source_root.path(), bundle_root.path(), "abc123", "deadbeef")
+            .expect("bundle export");
+        let missing_path = bundle_root.path().join("ingame/palette_enemy/Crystal_1.bin");
+        fs::remove_file(&missing_path).expect("remove required palette");
+
+        let error = run_native_player(
+            &manifest,
+            NativePlayOptions {
+                fullscreen: false,
+                scale: Some(1),
+            },
+        )
+        .expect_err("missing required visuals should fail startup");
+
+        let message = error.to_string();
+        assert!(message.contains("Crystal_1.bin"));
+        assert!(message.contains("diamond"));
+    }
+
+    #[test]
+    fn compare_native_gameplay_retains_semantic_passes_while_writing_frame_evidence() {
+        let repo_root = TempDir::new().expect("repo root");
+        let capture = GameplayCapture {
+            scenario: String::from("pause_resume_level1"),
+            frame_count: 4,
+            missed_vblank_frames: 0,
+            states: vec![
+                gameplay_state("level_settle", 0),
+                gameplay_state("pre_pause", 1),
+                gameplay_state("paused_tail", 2),
+                gameplay_state("resumed_tail", 3),
+            ],
+            checkpoints: vec![
+                gameplay_state("level_settle", 0),
+                gameplay_state("pre_pause", 1),
+                gameplay_state("paused_tail", 2),
+                gameplay_state("resumed_tail", 3),
+            ],
+        };
+
+        compare_native_gameplay_with(
+            repo_root.path(),
+            GameplayScenario::PauseResumeLevel1,
+            || Ok(capture.clone()),
+            || Ok(capture.clone()),
+            || {
+                Ok(vec![(
+                    String::from("paused_tail"),
+                    2usize,
+                    2usize,
+                    1usize,
+                    vec![1u8, 2, 3, 4, 5, 6],
+                )])
+            },
+        )
+        .expect("semantic comparison with frame evidence should pass");
+
+        let run_dir = repo_root
+            .path()
+            .join(".cache/native-gameplay-oracle-runs/pause-resume-level1");
+        assert!(run_dir.join("review/frame-evidence.json").is_file());
+        assert!(run_dir.join("review/0002_paused_tail.png").is_file());
+        assert!(run_dir.join("native/checkpoints.json").is_file());
+        assert!(run_dir.join("oracle/checkpoints.json").is_file());
+    }
+
+    fn gameplay_state(label: &str, frame_index: usize) -> GameplayState {
+        GameplayState {
+            label: label.to_owned(),
+            frame_index,
+            game_mode: 0x000C,
+            current_player: 0,
+            number_lives: 3,
+            number_hitpoints: 2,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            current_helmet_id: 0,
+            camera_x_pos: 0x0010_0000 + (frame_index as u32 * 0x0004_0000),
+            camera_y_pos: 0x0008_0000,
+            kid_x_pos: 0x0020_0000 + (frame_index as u32 * 0x0004_0000),
+            kid_y_pos: 0x0010_0000,
+            number_objects: 3,
+            number_gfx_objects: 3,
+        }
     }
 }

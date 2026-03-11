@@ -12,13 +12,17 @@ const COPIED_DIRECTORIES: &[&str] = &[
     "doc",
     "ingame/anim",
     "ingame/artcomp",
+    "ingame/artunc",
+    "ingame/artunc_kid",
+    "ingame/palette_enemy",
+    "ingame/palette_kid",
     "level",
     "scenes",
     "sound",
     "theme",
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
-pub const GENERATED_BUNDLE_VERSION: u32 = 2;
+pub const GENERATED_BUNDLE_VERSION: u32 = 5;
 pub const LEVEL1_DECODED_ASSET_VERSION: u32 = 2;
 const LEVEL1_ID: u8 = 0x00;
 const LEVEL1_DECODED_OUTPUT_DIR: &str = "decoded/level/00";
@@ -1481,6 +1485,10 @@ mod tests {
         fs::create_dir_all(source_root.join("doc")).expect("doc dir");
         fs::create_dir_all(source_root.join("ingame/anim")).expect("anim dir");
         fs::create_dir_all(source_root.join("ingame/artcomp")).expect("artcomp dir");
+        fs::create_dir_all(source_root.join("ingame/artunc")).expect("artunc dir");
+        fs::create_dir_all(source_root.join("ingame/artunc_kid")).expect("kid art dir");
+        fs::create_dir_all(source_root.join("ingame/palette_enemy")).expect("enemy palette dir");
+        fs::create_dir_all(source_root.join("ingame/palette_kid")).expect("kid palette dir");
         fs::create_dir_all(source_root.join("level")).expect("level dir");
         fs::create_dir_all(source_root.join("level/platform")).expect("platform assets dir");
         fs::create_dir_all(source_root.join("level/bgscroll")).expect("bgscroll assets dir");
@@ -1507,6 +1515,34 @@ mod tests {
             SAXMAN_FIXTURE,
         )
         .expect("hud numbers");
+        fs::write(source_root.join("ingame/artunc/diamond_1.bin"), &[0; 32]).expect("diamond");
+        fs::write(
+            source_root.join("ingame/palette_enemy/Crystal_1.bin"),
+            &[0; 30],
+        )
+        .expect("diamond palette");
+        fs::write(
+            source_root.join("ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
+            &[0; 30],
+        )
+        .expect("skull palette");
+        fs::write(source_root.join("ingame/palette_kid/Kid.bin"), &[0; 30]).expect("kid palette");
+        fs::write(source_root.join("ingame/artunc_kid/kid.bin"), &[0; 32 * 12]).expect("kid idle");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid_walk_1.bin"),
+            &[1; 32 * 12],
+        )
+        .expect("kid walk");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid_jumping_1.bin"),
+            &[2; 32 * 12],
+        )
+        .expect("kid jump rise");
+        fs::write(
+            source_root.join("ingame/artunc_kid/kid_jumping_2.bin"),
+            &[3; 32 * 12],
+        )
+        .expect("kid jump fall");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
         fs::write(
             source_root.join("level/platform/00.asm"),
@@ -1874,7 +1910,7 @@ mod tests {
         );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
-        assert_eq!(manifest.ingame_assets.len(), 3);
+        assert_eq!(manifest.ingame_assets.len(), 9);
         assert!(
             manifest
                 .ingame_assets
@@ -1892,6 +1928,54 @@ mod tests {
                 .ingame_assets
                 .iter()
                 .any(|asset| asset.relative_path == "artcomp/HUD_numbers.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artunc/diamond_1.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "palette_enemy/Crystal_1.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "palette_enemy/Mini_Hopping_Skull_1.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "palette_kid/Kid.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artunc_kid/kid.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artunc_kid/kid_walk_1.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artunc_kid/kid_jumping_1.bin")
+        );
+        assert!(
+            manifest
+                .ingame_assets
+                .iter()
+                .any(|asset| asset.relative_path == "artunc_kid/kid_jumping_2.bin")
         );
         assert!(manifest_path(output.path()).is_file());
 

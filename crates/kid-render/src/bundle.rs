@@ -1,6 +1,12 @@
+use crate::background::{
+    BackgroundChunk, BackgroundVisuals, parse_background_chunk, parse_chunked_background_layout,
+};
 use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
+use crate::player::{
+    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame,
+};
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
@@ -12,8 +18,17 @@ use std::path::Path;
 
 const LEVEL1_ID: u8 = 0x00;
 const HUD_DIGIT_BASE_TILE_INDEX: u16 = 0x06BA;
+const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
+const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
+const DIAMOND_ENEMY_ART_PATH: &str = "artcomp/Enemy01_Diamond.bin";
+const DIAMOND_ENEMY_PALETTE_PATH: &str = "palette_enemy/Crystal_1.bin";
+const MINI_HOPPING_SKULL_ART_PATH: &str = "artcomp/Enemy1C_Mini_hopping_skull.bin";
+const MINI_HOPPING_SKULL_PALETTE_PATH: &str = "palette_enemy/Mini_Hopping_Skull_1.bin";
+const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
+const VERTICAL_PLATFORM_ART_PATH: &str = "artcomp/Vertical_platform.bin";
+const KID_PALETTE_PATH: &str = "palette_kid/Kid.bin";
 const BLOCK_MAPPING_PATH: &str = "block_mappings.bin";
 const THEME_NAMES: [&str; 11] = [
     "theme0", "sky", "ice", "hill", "island", "desert", "swamp", "mountain", "cave", "forest",
@@ -26,8 +41,12 @@ pub struct Level1Visuals {
     pub background_tiles: TileSheet,
     pub block_tiles: TileSheet,
     pub palettes: PaletteSet,
+    pub background: BackgroundVisuals,
     pub level: LevelVisuals,
     pub hud: HudVisuals,
+    pub player: PlayerVisuals,
+    pub enemies: EnemyVisuals,
+    pub platforms: PlatformVisuals,
 }
 
 pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
@@ -89,6 +108,17 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
             .ok_or_else(|| anyhow!("missing HUD digit art asset ingame/{HUD_NUMBERS_ART_PATH}"))?,
         "HUD digit tile sheet",
     )?;
+    let hud_diamond_tiles = load_uncompressed_tile_sheet(
+        manifest,
+        "ingame",
+        find_ingame_asset(manifest, HUD_DIAMOND_ART_PATH).ok_or_else(|| {
+            anyhow!("missing HUD diamond art asset ingame/{HUD_DIAMOND_ART_PATH}")
+        })?,
+        "HUD diamond tile sheet",
+    )?;
+    let player = load_player_visuals(manifest)?;
+    let enemies = load_enemy_visuals(manifest)?;
+    let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
     let palettes = PaletteSet {
         foreground: Palette::from_bytes(&read_root_asset(
@@ -132,12 +162,15 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
             .ok_or_else(|| anyhow!("missing block mapping asset theme/{BLOCK_MAPPING_PATH}"))?,
         "block mapping",
     )?)?;
+    let background = load_background_visuals(manifest, background_theme, &background_layout)
+        .context("failed to load Level 1 background visuals")?;
 
     Ok(Level1Visuals {
         foreground_tiles,
         background_tiles,
         block_tiles,
         palettes,
+        background,
         level: LevelVisuals {
             level_id: LEVEL1_ID,
             foreground_theme_id: header.level_theme,
@@ -151,6 +184,8 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
         hud: HudVisuals {
             digits: hud_digits,
             digit_base_tile_index: HUD_DIGIT_BASE_TILE_INDEX,
+            diamond_tiles: hud_diamond_tiles,
+            diamond_base_tile_index: HUD_DIAMOND_BASE_TILE_INDEX,
             icons: vec![
                 HudIcon::new("ankh", (0x01A1, 0x008D), TileRef::from_attr_word(0x8231)),
                 HudIcon::new("colon", (0x0090, 0x0090), TileRef::from_attr_word(0x86C4)),
@@ -162,6 +197,9 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
                 TileRef::from_attr_word(0x822F),
             ],
         },
+        player,
+        enemies,
+        platforms,
     })
 }
 
@@ -186,6 +224,393 @@ fn find_ingame_asset<'a>(
         .find(|asset| asset.relative_path == relative_path)
 }
 
+fn load_background_visuals(
+    manifest: &AssetManifest,
+    theme_name: &str,
+    layout_bytes: &[u8],
+) -> Result<BackgroundVisuals> {
+    let placements = parse_chunked_background_layout(layout_bytes)
+        .context("failed to parse chunked background layout")?;
+    let prefix = format!("bg_chunks/{theme_name}_");
+    let mut chunk_assets = manifest
+        .theme_assets
+        .iter()
+        .filter_map(|asset| {
+            parse_background_chunk_id(&asset.relative_path, &prefix)
+                .map(|chunk_id| (chunk_id, asset))
+        })
+        .collect::<Vec<_>>();
+    chunk_assets.sort_by_key(|(chunk_id, _)| *chunk_id);
+
+    let max_chunk_id = chunk_assets
+        .iter()
+        .map(|(chunk_id, _)| *chunk_id)
+        .max()
+        .unwrap_or(0);
+    let mut chunks = vec![
+        BackgroundChunk {
+            width_tiles: 0,
+            height_tiles: 0,
+            tiles: Vec::new(),
+        };
+        usize::from(max_chunk_id) + 1
+    ];
+    for (chunk_id, asset) in chunk_assets {
+        let bytes =
+            read_root_asset(manifest, "theme", asset, "background chunk").with_context(|| {
+                format!(
+                    "failed to read background chunk {} for theme {theme_name}",
+                    asset.relative_path
+                )
+            })?;
+        chunks[usize::from(chunk_id)] = parse_background_chunk(&bytes).with_context(|| {
+            format!(
+                "failed to parse background chunk {} for theme {theme_name}",
+                asset.relative_path
+            )
+        })?;
+    }
+
+    for placement in &placements {
+        let chunk = chunks.get(usize::from(placement.chunk_id)).ok_or_else(|| {
+            anyhow!(
+                "background layout references missing chunk id 0x{:04X} for theme {theme_name}",
+                placement.chunk_id
+            )
+        })?;
+        if chunk.tiles.is_empty() {
+            bail!(
+                "background layout references unloaded chunk id 0x{:04X} for theme {theme_name}",
+                placement.chunk_id
+            );
+        }
+    }
+
+    Ok(BackgroundVisuals { placements, chunks })
+}
+
+#[derive(Clone, Copy)]
+struct PlayerFrameDescriptor {
+    relative_path: &'static str,
+    origin_x: i16,
+    origin_y: i16,
+    width_px: u16,
+    height_px: u16,
+}
+
+#[derive(Clone, Copy)]
+struct SpriteFrameDescriptor {
+    origin_x: i16,
+    origin_y: i16,
+    width_px: u16,
+    height_px: u16,
+    tile_base_index: u16,
+}
+
+const DIAMOND_FRAMES: [SpriteFrameDescriptor; 3] = [
+    SpriteFrameDescriptor {
+        origin_x: 0x0A,
+        origin_y: 0x00,
+        width_px: 0x14,
+        height_px: 0x14,
+        tile_base_index: 0x002F,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x0A,
+        origin_y: 0x00,
+        width_px: 0x14,
+        height_px: 0x14,
+        tile_base_index: 0x003B,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x0A,
+        origin_y: 0x00,
+        width_px: 0x14,
+        height_px: 0x14,
+        tile_base_index: 0x0047,
+    },
+];
+
+const MINI_HOPPING_SKULL_FRAMES: [SpriteFrameDescriptor; 2] = [
+    SpriteFrameDescriptor {
+        origin_x: 0x07,
+        origin_y: 0x00,
+        width_px: 0x0F,
+        height_px: 0x11,
+        tile_base_index: 0x002C,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x08,
+        origin_y: 0x00,
+        width_px: 0x0F,
+        height_px: 0x12,
+        tile_base_index: 0x0032,
+    },
+];
+
+const HORIZONTAL_PLATFORM_FRAME: SpriteFrameDescriptor = SpriteFrameDescriptor {
+    origin_x: 0,
+    origin_y: 0,
+    width_px: 0x48,
+    height_px: 0x10,
+    tile_base_index: 0,
+};
+
+const VERTICAL_PLATFORM_FRAME: SpriteFrameDescriptor = SpriteFrameDescriptor {
+    origin_x: 0,
+    origin_y: 0,
+    width_px: 0x20,
+    height_px: 0x20,
+    tile_base_index: 0,
+};
+
+const KID_IDLE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/kid.bin",
+    origin_x: 0x0B,
+    origin_y: 0x01,
+    width_px: 0x14,
+    height_px: 0x20,
+};
+
+const KID_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/kid_walk_1.bin",
+        origin_x: 0x0A,
+        origin_y: 0x01,
+        width_px: 0x13,
+        height_px: 0x1F,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/kid_walk_2.bin",
+        origin_x: 0x08,
+        origin_y: 0x01,
+        width_px: 0x11,
+        height_px: 0x20,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/kid_walk_3.bin",
+        origin_x: 0x08,
+        origin_y: 0x01,
+        width_px: 0x11,
+        height_px: 0x20,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/kid_walk_4.bin",
+        origin_x: 0x0A,
+        origin_y: 0x01,
+        width_px: 0x14,
+        height_px: 0x1F,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/kid_walk_5.bin",
+        origin_x: 0x08,
+        origin_y: 0x01,
+        width_px: 0x11,
+        height_px: 0x20,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/kid_walk_6.bin",
+        origin_x: 0x08,
+        origin_y: 0x01,
+        width_px: 0x11,
+        height_px: 0x20,
+    },
+];
+
+const KID_JUMP_RISE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/kid_jumping_1.bin",
+    origin_x: 0x0A,
+    origin_y: 0x00,
+    width_px: 0x16,
+    height_px: 0x20,
+};
+
+const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/kid_jumping_2.bin",
+    origin_x: 0x09,
+    origin_y: 0x00,
+    width_px: 0x14,
+    height_px: 0x20,
+};
+
+fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
+    Ok(EnemyVisuals {
+        diamond: AnimatedSpriteVisual {
+            palette: load_ingame_palette_asset(
+                manifest,
+                DIAMOND_ENEMY_PALETTE_PATH,
+                "diamond enemy palette",
+            )?,
+            frames: load_compressed_sprite_frames(
+                manifest,
+                DIAMOND_ENEMY_ART_PATH,
+                "diamond enemy art",
+                &DIAMOND_FRAMES,
+            )?,
+            frame_duration: 6,
+        },
+        mini_hopping_skull: AnimatedSpriteVisual {
+            palette: load_ingame_palette_asset(
+                manifest,
+                MINI_HOPPING_SKULL_PALETTE_PATH,
+                "mini hopping skull palette",
+            )?,
+            frames: load_compressed_sprite_frames(
+                manifest,
+                MINI_HOPPING_SKULL_ART_PATH,
+                "mini hopping skull art",
+                &MINI_HOPPING_SKULL_FRAMES,
+            )?,
+            frame_duration: 9,
+        },
+    })
+}
+
+fn load_platform_visuals(manifest: &AssetManifest, foreground_theme: &str) -> Result<PlatformVisuals> {
+    let palette = Palette::from_bytes(&read_root_asset(
+        manifest,
+        "theme",
+        find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(|| {
+            anyhow!(
+                "missing platform palette asset theme/palette_fg/{foreground_theme}.bin"
+            )
+        })?,
+        "platform palette",
+    )?)?;
+
+    Ok(PlatformVisuals {
+        palette,
+        horizontal: load_compressed_sprite_frame(
+            manifest,
+            HORIZONTAL_PLATFORM_ART_PATH,
+            "horizontal platform art",
+            HORIZONTAL_PLATFORM_FRAME,
+        )?,
+        vertical: load_compressed_sprite_frame(
+            manifest,
+            VERTICAL_PLATFORM_ART_PATH,
+            "vertical platform art",
+            VERTICAL_PLATFORM_FRAME,
+        )?,
+    })
+}
+
+fn load_player_visuals(manifest: &AssetManifest) -> Result<PlayerVisuals> {
+    let palette = Palette::from_bytes(&read_root_asset(
+        manifest,
+        "ingame",
+        find_ingame_asset(manifest, KID_PALETTE_PATH)
+            .ok_or_else(|| anyhow!("missing Kid palette asset ingame/{KID_PALETTE_PATH}"))?,
+        "Kid palette",
+    )?)?;
+
+    Ok(PlayerVisuals {
+        palette,
+        idle: load_player_frame(manifest, KID_IDLE_FRAME)?,
+        walk: KID_WALK_FRAMES
+            .into_iter()
+            .map(|descriptor| load_player_frame(manifest, descriptor))
+            .collect::<Result<Vec<_>>>()?,
+        jump_rise: load_player_frame(manifest, KID_JUMP_RISE_FRAME)?,
+        jump_fall: load_player_frame(manifest, KID_JUMP_FALL_FRAME)?,
+    })
+}
+
+fn load_player_frame(
+    manifest: &AssetManifest,
+    descriptor: PlayerFrameDescriptor,
+) -> Result<SpriteFrame> {
+    let asset = find_ingame_asset(manifest, descriptor.relative_path).ok_or_else(|| {
+        anyhow!(
+            "missing Kid sprite asset ingame/{}",
+            descriptor.relative_path
+        )
+    })?;
+    let tile_sheet = load_uncompressed_tile_sheet(
+        manifest,
+        "ingame",
+        asset,
+        &format!("Kid sprite frame {}", descriptor.relative_path),
+    )?;
+    Ok(SpriteFrame {
+        origin_x: descriptor.origin_x,
+        origin_y: descriptor.origin_y,
+        width_px: descriptor.width_px,
+        height_px: descriptor.height_px,
+        tile_base_index: 0,
+        tile_sheet,
+    })
+}
+
+fn load_ingame_palette_asset(
+    manifest: &AssetManifest,
+    relative_path: &str,
+    family: &str,
+) -> Result<Palette> {
+    Palette::from_bytes(&read_root_asset(
+        manifest,
+        "ingame",
+        find_ingame_asset(manifest, relative_path)
+            .ok_or_else(|| anyhow!("missing {family} asset ingame/{relative_path}"))?,
+        family,
+    )?)
+}
+
+fn load_compressed_sprite_frames(
+    manifest: &AssetManifest,
+    relative_path: &str,
+    family: &str,
+    descriptors: &[SpriteFrameDescriptor],
+) -> Result<Vec<SpriteFrame>> {
+    let tile_sheet = load_compressed_sprite_sheet(manifest, relative_path, family)?;
+    Ok(descriptors
+        .iter()
+        .copied()
+        .map(|descriptor| SpriteFrame {
+            origin_x: descriptor.origin_x,
+            origin_y: descriptor.origin_y,
+            width_px: descriptor.width_px,
+            height_px: descriptor.height_px,
+            tile_base_index: descriptor.tile_base_index,
+            tile_sheet: tile_sheet.clone(),
+        })
+        .collect())
+}
+
+fn load_compressed_sprite_frame(
+    manifest: &AssetManifest,
+    relative_path: &str,
+    family: &str,
+    descriptor: SpriteFrameDescriptor,
+) -> Result<SpriteFrame> {
+    Ok(SpriteFrame {
+        origin_x: descriptor.origin_x,
+        origin_y: descriptor.origin_y,
+        width_px: descriptor.width_px,
+        height_px: descriptor.height_px,
+        tile_base_index: descriptor.tile_base_index,
+        tile_sheet: load_compressed_sprite_sheet(manifest, relative_path, family)?,
+    })
+}
+
+fn load_compressed_sprite_sheet(
+    manifest: &AssetManifest,
+    relative_path: &str,
+    family: &str,
+) -> Result<TileSheet> {
+    let asset = find_ingame_asset(manifest, relative_path)
+        .ok_or_else(|| anyhow!("missing {family} asset ingame/{relative_path}"))?;
+    load_tile_sheet(manifest, "ingame", asset, family)
+}
+
+fn parse_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {
+    let suffix = relative_path.strip_prefix(prefix)?.strip_suffix(".bin")?;
+    if suffix.contains("_eni_") {
+        return None;
+    }
+    u16::from_str_radix(suffix, 16).ok()
+}
+
 fn load_tile_sheet(
     manifest: &AssetManifest,
     root_name: &str,
@@ -200,6 +625,21 @@ fn load_tile_sheet(
         )
     })?;
     TileSheet::from_4bpp_bytes(&decoded).with_context(|| {
+        format!(
+            "failed to parse {family} from {root_name}/{}",
+            asset.relative_path
+        )
+    })
+}
+
+fn load_uncompressed_tile_sheet(
+    manifest: &AssetManifest,
+    root_name: &str,
+    asset: &AssetFile,
+    family: &str,
+) -> Result<TileSheet> {
+    let bytes = read_root_asset(manifest, root_name, asset, family)?;
+    TileSheet::from_4bpp_bytes(&bytes).with_context(|| {
         format!(
             "failed to parse {family} from {root_name}/{}",
             asset.relative_path
