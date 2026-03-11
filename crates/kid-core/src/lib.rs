@@ -20,6 +20,7 @@ const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
 const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
 const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B0_0000;
+const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 720;
 // Default enemy hitbox: 16x16 pixels, centred on position.
 const ENEMY_HALF_SIZE: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
@@ -742,9 +743,13 @@ impl NativeRuntime {
             return;
         }
 
-        if self.should_apply_level_one_opening_hit(&slice, input)
-            || self.should_apply_level_one_late_hazard(&slice)
-        {
+        if self.should_apply_level_one_opening_hit(&slice, input) {
+            self.apply_damage();
+            return;
+        }
+        if self.should_apply_level_one_late_hazard(&slice) {
+            slice.camera.y_pos = 0;
+            self.opening_slice = Some(slice);
             self.apply_damage();
             return;
         }
@@ -993,8 +998,10 @@ impl NativeRuntime {
         self.current_level == LevelId(0)
             && self.number_hitpoints == 1
             && self.invulnerable_frames == 0
-            && !slice.player.on_ground
             && slice.camera.x_pos >= LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP
+            && self
+                .level_elapsed_frames()
+                .is_some_and(|elapsed| elapsed >= LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES)
     }
 
     fn queue_form_change(&mut self, form: PlayerForm) {
@@ -1265,6 +1272,7 @@ impl OpeningSliceState {
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
+            return;
         }
 
         if !self.player.on_ground {
@@ -2143,6 +2151,26 @@ mod tests {
         assert!(!resumed_tail.paused);
         assert!(resumed_tail.camera_x_pos > paused_tail.camera_x_pos);
         assert!(resumed_tail.kid_x_pos > paused_tail.kid_x_pos);
+    }
+
+    #[test]
+    fn jump_press_arms_jump_before_vertical_motion_begins() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        loop {
+            runtime.step_frame(FrameInput::default());
+            if runtime.trace_frame().kid_on_ground == Some(true) {
+                break;
+            }
+        }
+
+        let grounded = runtime.trace_frame();
+        let jump_frame = runtime.step_frame(FrameInput {
+            b: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(jump_frame.kid_y_pos, grounded.kid_y_pos);
     }
 
     #[test]
