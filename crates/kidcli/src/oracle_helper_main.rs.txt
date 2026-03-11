@@ -26,6 +26,7 @@ enum Scenario {
     BootTitleIdle10s,
     BootTitleStartLevel1,
     BootTitleStartLevel1MoveRight5s,
+    Level1EnemyWindow,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +51,23 @@ struct OracleFrame {
     sha1: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+enum EnemyFacing {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleEnemyState {
+    object_type: u8,
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+    facing: EnemyFacing,
+}
+
 #[derive(Debug, Serialize)]
 struct OracleState {
     label: String,
@@ -66,6 +84,7 @@ struct OracleState {
     kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
+    active_enemies: Vec<OracleEnemyState>,
 }
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
@@ -80,6 +99,16 @@ const KID_X_POS_ADDR: usize = 0xFF_24FA;
 const KID_Y_POS_ADDR: usize = 0xFF_24FE;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
+const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
+const GFX_OBJECT_SLOT_SIZE: usize = 0x4C;
+const GFX_OBJECT_SLOT_COUNT: usize = 0x4D;
+const DISPLAY_FLAG_OFFSET: usize = 0x13;
+const X_DIRECTION_OFFSET: usize = 0x16;
+const OBJECT_X_POS_OFFSET: usize = 0x1A;
+const OBJECT_Y_POS_OFFSET: usize = 0x1E;
+const OBJECT_X_VEL_OFFSET: usize = 0x26;
+const OBJECT_Y_VEL_OFFSET: usize = 0x2A;
+const OBJECT_META_OFFSET: usize = 0x3A;
 
 struct NullSaveWriter;
 
@@ -235,6 +264,7 @@ fn parse_scenario(value: &str) -> Result<Scenario> {
         "boot_title_idle_10s" => Ok(Scenario::BootTitleIdle10s),
         "boot_title_start_level1" => Ok(Scenario::BootTitleStartLevel1),
         "boot_title_start_level1_move_right_5s" => Ok(Scenario::BootTitleStartLevel1MoveRight5s),
+        "level1_enemy_window" => Ok(Scenario::Level1EnemyWindow),
         _ => Err(anyhow!("unknown scenario {value}")),
     }
 }
@@ -244,6 +274,7 @@ fn scenario_frame_count(scenario: Scenario) -> usize {
         Scenario::BootTitleIdle10s => 600,
         Scenario::BootTitleStartLevel1 => 720,
         Scenario::BootTitleStartLevel1MoveRight5s => 1_020,
+        Scenario::Level1EnemyWindow => 900,
     }
 }
 
@@ -291,6 +322,20 @@ fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
                 frame_index: 1_019,
             },
         ],
+        Scenario::Level1EnemyWindow => &[
+            FrameCheckpoint {
+                label: "level_settle",
+                frame_index: 719,
+            },
+            FrameCheckpoint {
+                label: "enemy_window_open",
+                frame_index: 810,
+            },
+            FrameCheckpoint {
+                label: "enemy_window_tail",
+                frame_index: 899,
+            },
+        ],
     }
 }
 
@@ -306,6 +351,11 @@ fn scenario_script(scenario: Scenario) -> Vec<u8> {
             apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
             apply_range(&mut script, 460, 460, 0x80);
             apply_range(&mut script, 720, 1_019, 1 << 3);
+        }
+        Scenario::Level1EnemyWindow => {
+            apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
+            apply_range(&mut script, 460, 460, 0x80);
+            apply_range(&mut script, 720, 899, 1 << 3);
         }
     }
     script
@@ -333,7 +383,41 @@ fn capture_state(
         kid_y_pos: read_u32(memory.as_ref(), KID_Y_POS_ADDR),
         number_objects: read_u16(memory.as_ref(), NUMBER_OBJECTS_ADDR),
         number_gfx_objects: read_u16(memory.as_ref(), NUMBER_GFX_OBJECTS_ADDR),
+        active_enemies: capture_enemy_states(memory.as_ref()),
     }
+}
+
+fn capture_enemy_states(
+    memory: &dyn jgenesis_common::debug::DebugMemoryView,
+) -> Vec<OracleEnemyState> {
+    let mut enemies = Vec::new();
+    for slot_index in 0..GFX_OBJECT_SLOT_COUNT {
+        let base = GFX_OBJECT_RAM_ADDR + slot_index * GFX_OBJECT_SLOT_SIZE;
+        if read_u8(memory, base + DISPLAY_FLAG_OFFSET) == 0 {
+            continue;
+        }
+        let object_type = read_u16(memory, base + OBJECT_META_OFFSET) & 0x7F;
+        let Ok(object_type) = u8::try_from(object_type) else {
+            continue;
+        };
+        if !matches!(object_type, 0x01 | 0x1C) {
+            continue;
+        }
+        enemies.push(OracleEnemyState {
+            object_type,
+            x_pos: read_u32(memory, base + OBJECT_X_POS_OFFSET),
+            y_pos: read_u32(memory, base + OBJECT_Y_POS_OFFSET),
+            x_velocity: read_i32(memory, base + OBJECT_X_VEL_OFFSET),
+            y_velocity: read_i32(memory, base + OBJECT_Y_VEL_OFFSET),
+            facing: if read_u8(memory, base + X_DIRECTION_OFFSET) == 0 {
+                EnemyFacing::Left
+            } else {
+                EnemyFacing::Right
+            },
+        });
+    }
+    enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
+    enemies
 }
 
 fn work_ram_index(address: usize) -> usize {
@@ -350,6 +434,10 @@ fn read_u16(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize
 
 fn read_u32(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u32 {
     (u32::from(read_u16(memory, address)) << 16) | u32::from(read_u16(memory, address + 2))
+}
+
+fn read_i32(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> i32 {
+    read_u32(memory, address) as i32
 }
 
 fn apply_single_frames(script: &mut [u8], frames: &[usize], buttons: u8) {

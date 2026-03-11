@@ -6,6 +6,7 @@ pub enum Scenario {
     BootTitleIdle10s,
     BootTitleStartLevel1,
     BootTitleStartLevel1MoveRight5s,
+    Level1EnemyWindow,
     WalkRight3s,
     JumpFromStandstill,
 }
@@ -67,6 +68,21 @@ const WALK_RIGHT_3S_CHECKPOINTS: [FrameCheckpoint; 3] = [
     },
     FrameCheckpoint {
         label: "walk_end",
+        frame_index: 899,
+    },
+];
+
+const LEVEL_1_ENEMY_WINDOW_CHECKPOINTS: [FrameCheckpoint; 3] = [
+    FrameCheckpoint {
+        label: "level_settle",
+        frame_index: 719,
+    },
+    FrameCheckpoint {
+        label: "enemy_window_open",
+        frame_index: 810,
+    },
+    FrameCheckpoint {
+        label: "enemy_window_tail",
         frame_index: 899,
     },
 ];
@@ -187,6 +203,7 @@ impl Scenario {
             Self::BootTitleIdle10s => "boot_title_idle_10s",
             Self::BootTitleStartLevel1 => "boot_title_start_level1",
             Self::BootTitleStartLevel1MoveRight5s => "boot_title_start_level1_move_right_5s",
+            Self::Level1EnemyWindow => "level1_enemy_window",
             Self::WalkRight3s => "walk_right_3s",
             Self::JumpFromStandstill => "jump_from_standstill",
         }
@@ -197,6 +214,7 @@ impl Scenario {
             Self::BootTitleIdle10s => 600,
             Self::BootTitleStartLevel1 => 720,
             Self::BootTitleStartLevel1MoveRight5s => 1_020,
+            Self::Level1EnemyWindow => 900,
             Self::WalkRight3s => 900,
             Self::JumpFromStandstill => 780,
         }
@@ -209,6 +227,7 @@ impl Scenario {
             Self::BootTitleStartLevel1MoveRight5s => {
                 &BOOT_TITLE_START_LEVEL_1_MOVE_RIGHT_5S_CHECKPOINTS
             }
+            Self::Level1EnemyWindow => &LEVEL_1_ENEMY_WINDOW_CHECKPOINTS,
             Self::WalkRight3s => &WALK_RIGHT_3S_CHECKPOINTS,
             Self::JumpFromStandstill => &JUMP_FROM_STANDSTILL_CHECKPOINTS,
         }
@@ -226,6 +245,10 @@ impl Scenario {
                 apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
                 apply_range(&mut script, 460, 460, 0x80);
                 apply_range(&mut script, 720, 1_019, 1 << 3);
+            }
+            Self::Level1EnemyWindow => {
+                apply_boot_to_level_1(&mut script);
+                apply_range(&mut script, 720, 899, 1 << 3);
             }
             Self::WalkRight3s => {
                 apply_boot_to_level_1(&mut script);
@@ -408,6 +431,25 @@ mod tests {
         assert_eq!(script[720], 1 << 3);
         assert_eq!(script[899], 1 << 3);
         assert_eq!(script[900], 0);
+    }
+
+    #[test]
+    fn level_1_enemy_window_scenario_tracks_the_first_enemy_slice() {
+        let script = Scenario::Level1EnemyWindow
+            .script()
+            .expect("scenario script should build");
+        assert_eq!(script[719], 0);
+        assert_eq!(script[720], 1 << 3);
+        assert_eq!(script[899], 1 << 3);
+        assert_eq!(script[900], 0);
+        assert_eq!(
+            Scenario::Level1EnemyWindow
+                .checkpoints()
+                .iter()
+                .map(|checkpoint| checkpoint.label)
+                .collect::<Vec<_>>(),
+            vec!["level_settle", "enemy_window_open", "enemy_window_tail"]
+        );
     }
 
     #[test]

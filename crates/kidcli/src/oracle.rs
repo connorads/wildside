@@ -36,6 +36,23 @@ pub struct OracleFrame {
     pub sha1: String,
 }
 
+#[derive(Debug, Clone, Copy, serde::Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum EnemyFacing {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleEnemyState {
+    pub object_type: u8,
+    pub x_pos: u32,
+    pub y_pos: u32,
+    pub x_velocity: i32,
+    pub y_velocity: i32,
+    pub facing: EnemyFacing,
+}
+
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
 pub struct OracleState {
     pub label: String,
@@ -52,6 +69,7 @@ pub struct OracleState {
     pub kid_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
+    pub active_enemies: Vec<OracleEnemyState>,
 }
 
 pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {

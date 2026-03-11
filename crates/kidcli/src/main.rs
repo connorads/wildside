@@ -9,6 +9,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use autonomy::{AutonomyGoal, run_autonomous_loop};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
+use kid_core::physics::Direction as NativeDirection;
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script as run_native_script};
 use kid_data::{
     AssetManifest, ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
@@ -19,7 +20,8 @@ use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
 use native_player::{NativePlayOptions, render_gameplay_frame_evidence, run_native_player};
 use oracle::{
-    OracleEnvironment, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
+    EnemyFacing, OracleEnemyState, OracleEnvironment, OracleManifest, OracleState, ensure_oracles,
+    run_jgenesis_capture,
 };
 use player::{PlayOptions, run_player};
 use scenarios::{GameplayScenario, Scenario};
@@ -988,6 +990,7 @@ struct CapturedState {
     kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
+    active_enemies: Vec<OracleEnemyState>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1105,6 +1108,7 @@ fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapt
                 kid_y_pos: snapshot.kid_y_pos,
                 number_objects: snapshot.number_objects,
                 number_gfx_objects: snapshot.number_gfx_objects,
+                active_enemies: Vec::new(),
             });
             checkpoint_index += 1;
         }
@@ -2943,7 +2947,39 @@ fn native_trace_to_oracle_state(
         kid_y_pos: frame.kid_y_pos.unwrap_or(0),
         number_objects: frame.number_objects,
         number_gfx_objects: frame.number_gfx_objects,
+        active_enemies: active_enemy_states_from_native_frame(frame),
     }
+}
+
+fn active_enemy_states_from_native_frame(frame: &NativeTraceFrame) -> Vec<OracleEnemyState> {
+    let mut enemies = frame
+        .active_objects
+        .iter()
+        .filter_map(|object| match object.kind {
+            kid_core::NativeObjectKind::Enemy { object_type } => Some(OracleEnemyState {
+                object_type,
+                x_pos: object.x_pos,
+                y_pos: object.y_pos,
+                x_velocity: object.x_velocity.unwrap_or(0),
+                y_velocity: object.y_velocity.unwrap_or(0),
+                facing: enemy_facing_from_native(object.facing),
+            }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    sort_enemy_states(&mut enemies);
+    enemies
+}
+
+fn enemy_facing_from_native(facing: Option<NativeDirection>) -> EnemyFacing {
+    match facing.unwrap_or(NativeDirection::Left) {
+        NativeDirection::Left => EnemyFacing::Left,
+        NativeDirection::Right => EnemyFacing::Right,
+    }
+}
+
+fn sort_enemy_states(enemies: &mut [OracleEnemyState]) {
+    enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
 }
 
 fn compare_native_states_against_oracle(
@@ -2951,6 +2987,9 @@ fn compare_native_states_against_oracle(
     native_states: &[OracleState],
     oracle_states: &[OracleState],
 ) -> Result<()> {
+    const ENEMY_POSITION_TOLERANCE: u32 = 0x0010_0000;
+    const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
+
     if native_states.len() != oracle_states.len() {
         bail!(
             "native captured {} states but oracle captured {}; artefacts in {}",
@@ -3062,6 +3101,92 @@ fn compare_native_states_against_oracle(
                 native.number_gfx_objects,
                 oracle.number_objects,
                 oracle.number_gfx_objects,
+                run_dir.display()
+            );
+        }
+        compare_enemy_snapshots_against_oracle(
+            run_dir,
+            native.label.as_str(),
+            native.frame_index,
+            &native.active_enemies,
+            &oracle.active_enemies,
+            ENEMY_POSITION_TOLERANCE,
+            ENEMY_VELOCITY_TOLERANCE,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn compare_enemy_snapshots_against_oracle(
+    run_dir: &Path,
+    label: &str,
+    frame_index: usize,
+    native_enemies: &[OracleEnemyState],
+    oracle_enemies: &[OracleEnemyState],
+    position_tolerance: u32,
+    velocity_tolerance: i32,
+) -> Result<()> {
+    if native_enemies.len() != oracle_enemies.len() {
+        bail!(
+            "state {}@{} diverged in enemy count (native {}, oracle {}); artefacts in {}",
+            label,
+            frame_index,
+            native_enemies.len(),
+            oracle_enemies.len(),
+            run_dir.display()
+        );
+    }
+
+    for (native, oracle) in native_enemies.iter().zip(oracle_enemies) {
+        if native.object_type != oracle.object_type {
+            bail!(
+                "state {}@{} diverged in enemy type ordering (native {:02X}, oracle {:02X}); artefacts in {}",
+                label,
+                frame_index,
+                native.object_type,
+                oracle.object_type,
+                run_dir.display()
+            );
+        }
+        if native.x_pos.abs_diff(oracle.x_pos) > position_tolerance
+            || native.y_pos.abs_diff(oracle.y_pos) > position_tolerance
+        {
+            bail!(
+                "state {}@{} diverged in enemy {:02X} position (native {:08X},{:08X}; oracle {:08X},{:08X}); artefacts in {}",
+                label,
+                frame_index,
+                native.object_type,
+                native.x_pos,
+                native.y_pos,
+                oracle.x_pos,
+                oracle.y_pos,
+                run_dir.display()
+            );
+        }
+        if (native.x_velocity - oracle.x_velocity).abs() > velocity_tolerance
+            || (native.y_velocity - oracle.y_velocity).abs() > velocity_tolerance
+        {
+            bail!(
+                "state {}@{} diverged in enemy {:02X} velocity (native {},{}; oracle {},{}); artefacts in {}",
+                label,
+                frame_index,
+                native.object_type,
+                native.x_velocity,
+                native.y_velocity,
+                oracle.x_velocity,
+                oracle.y_velocity,
+                run_dir.display()
+            );
+        }
+        if native.facing != oracle.facing {
+            bail!(
+                "state {}@{} diverged in enemy {:02X} facing (native {:?}, oracle {:?}); artefacts in {}",
+                label,
+                frame_index,
+                native.object_type,
+                native.facing,
+                oracle.facing,
                 run_dir.display()
             );
         }
@@ -3381,10 +3506,7 @@ fn write_gameplay_capture(out_dir: &Path, capture: &GameplayCapture) -> Result<(
     Ok(())
 }
 
-fn write_gameplay_frame_evidence(
-    out_dir: &Path,
-    frames: &[GameplayFrameEvidence],
-) -> Result<()> {
+fn write_gameplay_frame_evidence(out_dir: &Path, frames: &[GameplayFrameEvidence]) -> Result<()> {
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
     let mut records = Vec::with_capacity(frames.len());
@@ -4012,6 +4134,7 @@ fn native_state_to_oracle_state(state: &CapturedState) -> OracleState {
         kid_y_pos: state.kid_y_pos,
         number_objects: state.number_objects,
         number_gfx_objects: state.number_gfx_objects,
+        active_enemies: state.active_enemies.clone(),
     }
 }
 
@@ -4194,10 +4317,12 @@ mod tests {
     use super::{
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
         audio_envelope_similarity, build_controller_script, compare_native_gameplay_with,
-        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
-        selected_reference_repos,
+        compare_native_states_against_oracle, native_trace_to_oracle_state, parse_button_mask,
+        parse_input_spec, prepare_generated_assets_with, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
+    use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
+    use kid_core::{GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
     use kid_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
     };
@@ -4265,11 +4390,7 @@ mod tests {
         )
         .expect("vertical platform art");
         fs::write(source_root.join("ingame/artunc/diamond_1.bin"), &[0; 32]).expect("diamond");
-        fs::write(
-            source_root.join("ingame/artunc_kid/kid.bin"),
-            &[0; 32 * 12],
-        )
-        .expect("kid idle");
+        fs::write(source_root.join("ingame/artunc_kid/kid.bin"), &[0; 32 * 12]).expect("kid idle");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_walk_1.bin"),
             &[0; 32 * 12],
@@ -4379,6 +4500,177 @@ mod tests {
         assert_eq!(script[120], 0x80);
         assert_eq!(script[122], 1 << 3);
         assert_eq!(script[123], 1 << 3);
+    }
+
+    fn oracle_enemy(
+        object_type: u8,
+        x_pos: u32,
+        y_pos: u32,
+        x_velocity: i32,
+        y_velocity: i32,
+        facing: EnemyFacing,
+    ) -> OracleEnemyState {
+        OracleEnemyState {
+            object_type,
+            x_pos,
+            y_pos,
+            x_velocity,
+            y_velocity,
+            facing,
+        }
+    }
+
+    fn oracle_state(
+        label: &str,
+        frame_index: usize,
+        active_enemies: Vec<OracleEnemyState>,
+    ) -> OracleState {
+        OracleState {
+            label: label.to_owned(),
+            frame_index,
+            game_mode: 0x000C,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0x0010_0000,
+            camera_y_pos: 0x0008_0000,
+            kid_x_pos: 0x0020_0000,
+            kid_y_pos: 0x0010_0000,
+            number_objects: 3,
+            number_gfx_objects: 3,
+            active_enemies,
+        }
+    }
+
+    #[test]
+    fn native_trace_to_oracle_state_includes_sorted_enemy_snapshots() {
+        let frame = NativeTraceFrame {
+            frame_index: 810,
+            game_mode: GameMode::InGame,
+            game_mode_value: 0x000C,
+            start_press_count: 6,
+            current_player: 0,
+            current_level: LevelId(0),
+            player_1_level_id: LevelId(0),
+            current_level_name: Some(String::from("Blue Lake Woods 1")),
+            player_start_x: Some(1872),
+            player_start_y: Some(224),
+            flag_x: Some(1872),
+            flag_y: Some(768),
+            level_enemy_object_count: Some(22),
+            active_enemy_object_count: 2,
+            active_platform_object_count: 0,
+            number_lives: 3,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            paused: false,
+            kid_x_pos: Some(0x0020_0000),
+            kid_y_pos: Some(0x0010_0000),
+            kid_x_velocity: Some(0),
+            kid_y_velocity: Some(0),
+            kid_facing: None,
+            kid_on_ground: Some(true),
+            active_objects: vec![
+                NativeObjectSnapshot {
+                    kind: NativeObjectKind::Enemy { object_type: 0x1C },
+                    x_pos: 0x0030_0000,
+                    y_pos: 0x0010_0000,
+                    layout_index: Some(7),
+                    x_velocity: Some(-0x0001_8000),
+                    y_velocity: Some(-0x0002_0000),
+                    facing: Some(kid_core::physics::Direction::Left),
+                    on_ground: Some(false),
+                    hit_points: Some(1),
+                    damage_flash: false,
+                },
+                NativeObjectSnapshot {
+                    kind: NativeObjectKind::Enemy { object_type: 0x01 },
+                    x_pos: 0x0010_0000,
+                    y_pos: 0x0010_0000,
+                    layout_index: Some(2),
+                    x_velocity: Some(0),
+                    y_velocity: Some(0),
+                    facing: Some(kid_core::physics::Direction::Right),
+                    on_ground: Some(true),
+                    hit_points: Some(1),
+                    damage_flash: false,
+                },
+            ],
+            camera_x_pos: 0x0010_0000,
+            camera_y_pos: 0x0008_0000,
+            number_objects: 3,
+            number_gfx_objects: 3,
+            level_complete: false,
+            invulnerable_frames: 0,
+            diamond_count: 0,
+        };
+
+        let state = native_trace_to_oracle_state("enemy_window_open", 810, &frame);
+
+        assert_eq!(state.active_enemies.len(), 2);
+        assert_eq!(state.active_enemies[0].object_type, 0x01);
+        assert_eq!(state.active_enemies[1].object_type, 0x1C);
+        assert_eq!(state.active_enemies[1].x_velocity, -0x0001_8000);
+        assert_eq!(state.active_enemies[1].facing, EnemyFacing::Left);
+    }
+
+    #[test]
+    fn compare_native_states_against_oracle_rejects_enemy_position_divergence() {
+        let run_dir = TempDir::new().expect("run dir");
+        let native = vec![oracle_state(
+            "enemy_window_open",
+            810,
+            vec![oracle_enemy(
+                0x1C,
+                0x0030_0000,
+                0x0010_0000,
+                -0x0001_8000,
+                -0x0002_0000,
+                EnemyFacing::Left,
+            )],
+        )];
+        let oracle = vec![oracle_state(
+            "enemy_window_open",
+            810,
+            vec![oracle_enemy(
+                0x1C,
+                0x0050_0000,
+                0x0010_0000,
+                -0x0001_8000,
+                -0x0002_0000,
+                EnemyFacing::Left,
+            )],
+        )];
+
+        let error = compare_native_states_against_oracle(run_dir.path(), &native, &oracle)
+            .expect_err("enemy position drift should fail");
+
+        assert!(format!("{error:#}").contains("enemy 1C position"));
+    }
+
+    #[test]
+    fn compare_native_states_against_oracle_accepts_matching_enemy_snapshots() {
+        let run_dir = TempDir::new().expect("run dir");
+        let native = vec![oracle_state(
+            "enemy_window_open",
+            810,
+            vec![
+                oracle_enemy(0x01, 0x0010_0000, 0x0010_0000, 0, 0, EnemyFacing::Left),
+                oracle_enemy(
+                    0x1C,
+                    0x0030_0000,
+                    0x0010_0000,
+                    -0x0001_8000,
+                    -0x0002_0000,
+                    EnemyFacing::Left,
+                ),
+            ],
+        )];
+
+        compare_native_states_against_oracle(run_dir.path(), &native, &native)
+            .expect("matching enemy snapshots should pass");
     }
 
     #[test]
@@ -4523,8 +4815,9 @@ mod tests {
         let bundle_root = TempDir::new().expect("bundle root");
         write_generated_asset_source_fixture(source_root.path());
 
-        let manifest = export_split_bundle(source_root.path(), bundle_root.path(), "abc123", "deadbeef")
-            .expect("bundle export");
+        let manifest =
+            export_split_bundle(source_root.path(), bundle_root.path(), "abc123", "deadbeef")
+                .expect("bundle export");
         let error = validate_native_session_assets(&manifest, 0x00)
             .expect_err("missing required visuals should fail startup");
 

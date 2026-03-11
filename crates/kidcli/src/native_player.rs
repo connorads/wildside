@@ -2,8 +2,8 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
-    NativeTraceFrame, PlayerForm,
+    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
+    PlayerForm,
     physics::Direction,
     terrain::{BlockGrid, CollisionKind},
 };
@@ -263,10 +263,7 @@ fn load_native_session_assets(
 }
 
 #[cfg(test)]
-pub(crate) fn validate_native_session_assets(
-    manifest: &AssetManifest,
-    level_id: u8,
-) -> Result<()> {
+pub(crate) fn validate_native_session_assets(manifest: &AssetManifest, level_id: u8) -> Result<()> {
     load_native_session_assets(manifest, level_id).map(|_| ())
 }
 
@@ -794,7 +791,8 @@ fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
 ) -> &'a kid_render::SpriteFrame {
-    let frame_index = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len();
+    let frame_index =
+        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len();
     &enemy_visuals.frames[frame_index]
 }
 
@@ -809,18 +807,18 @@ fn push_enemy_sprite(
         0x01 => &level1_visuals.enemies.diamond,
         0x1C => &level1_visuals.enemies.mini_hopping_skull,
         _ => {
-        commands.push(object_rect(
-            object,
-            trace,
-            16,
-            16,
-            if object.damage_flash {
-                ENEMY_FLASH_COLOUR
-            } else {
-                ENEMY_COLOUR
-            },
-        ));
-        return;
+            commands.push(object_rect(
+                object,
+                trace,
+                16,
+                16,
+                if object.damage_flash {
+                    ENEMY_FLASH_COLOUR
+                } else {
+                    ENEMY_COLOUR
+                },
+            ));
+            return;
         }
     };
 
@@ -1485,10 +1483,10 @@ mod tests {
         LevelRecord, LevelResources,
     };
     use kid_render::{
-        BackgroundChunk, BackgroundPlacement, BackgroundTile, BackgroundVisuals,
-        AnimatedSpriteVisual, BlockVisualMapping, EnemyVisuals, HudIcon, HudVisuals,
-        Level1Visuals, LevelVisuals, MdColour, Palette, PaletteSet, PlatformVisuals,
-        PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
+        AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
+        BackgroundVisuals, BlockVisualMapping, EnemyVisuals, HudIcon, HudVisuals, Level1Visuals,
+        LevelVisuals, MdColour, Palette, PaletteSet, PlatformVisuals, PlayerVisuals, SpriteFrame,
+        Tile, TileQuad, TileRef, TileSheet,
     };
     use std::fs;
     use std::path::Path;
@@ -1743,7 +1741,10 @@ mod tests {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 220, 160)],
                 },
-                frames: vec![sample_object_frame(31, 16, 17), sample_object_frame(32, 16, 18)],
+                frames: vec![
+                    sample_object_frame(31, 16, 17),
+                    sample_object_frame(32, 16, 18),
+                ],
                 frame_duration: 9,
             },
         }
@@ -2292,24 +2293,48 @@ mod tests {
                 },
                 x_pos: 0x0030_0000,
                 y_pos: 0x0018_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
                 x_pos: 0x0040_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
                 x_pos: 0x0050_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
                 x_pos: 0x0010_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
         ];
@@ -2424,18 +2449,36 @@ mod tests {
                 },
                 x_pos: 0x0030_0000,
                 y_pos: 0x0018_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
                 x_pos: 0x0028_0000,
                 y_pos: 0x0014_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
                 x_pos: 0x0018_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
         ];
@@ -2465,6 +2508,12 @@ mod tests {
             kind: NativeObjectKind::Player,
             x_pos: 0,
             y_pos: 0,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
             damage_flash: false,
         }];
         trace.camera_x_pos = 0x0040_0000;
@@ -2593,6 +2642,12 @@ mod tests {
             kind: NativeObjectKind::Player,
             x_pos: 0x0018_0000,
             y_pos: 0x0010_0000,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
             damage_flash: false,
         }];
         trace
@@ -2616,11 +2671,12 @@ mod tests {
 
     fn sprite_position(scene: &Scene, signature: u8) -> Option<(i32, i32)> {
         scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tile_sheet, .. }
-                if tile_sheet
-                    .tiles
-                    .first()
-                    .is_some_and(|tile| tile.pixels[0] == signature) =>
+            DrawCommand::Sprite {
+                x, y, tile_sheet, ..
+            } if tile_sheet
+                .tiles
+                .first()
+                .is_some_and(|tile| tile.pixels[0] == signature) =>
             {
                 Some((*x, *y))
             }
@@ -2640,7 +2696,9 @@ mod tests {
 
     fn has_asset_backed_command(scene: &Scene, signature: u8) -> bool {
         scene.commands.iter().any(|command| match command {
-            DrawCommand::IndexedTile { tile_sheet, tile, .. } => tile_sheet
+            DrawCommand::IndexedTile {
+                tile_sheet, tile, ..
+            } => tile_sheet
                 .tiles
                 .get(usize::from(tile.tile_index))
                 .is_some_and(|resolved| resolved.pixels[0] == signature),
@@ -2662,19 +2720,34 @@ mod tests {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
                 x_pos: 0x0028_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
                 x_pos: 0x0040_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
         ];
 
         let scene = build_ingame_scene(&trace, false, None);
 
-        assert!(has_sprite_signature(&scene, 21), "expected diamond sprite art");
+        assert!(
+            has_sprite_signature(&scene, 21),
+            "expected diamond sprite art"
+        );
         assert!(
             has_sprite_signature(&scene, 31) || has_sprite_signature(&scene, 32),
             "expected mini hopping skull sprite art"
@@ -2697,12 +2770,24 @@ mod tests {
                 },
                 x_pos: 0x0010_0000,
                 y_pos: 0x0018_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
                 x_pos: 0x0028_0000,
                 y_pos: 0x0010_0000,
+                layout_index: None,
+                x_velocity: None,
+                y_velocity: None,
+                facing: None,
+                on_ground: None,
+                hit_points: None,
                 damage_flash: false,
             },
         ];
