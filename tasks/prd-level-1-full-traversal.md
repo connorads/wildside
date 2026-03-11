@@ -9,12 +9,12 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 | System | Status |
 |--------|--------|
 | Opening-slice boot/title/load/oracle checkpoints | Done; Level 1 opening damage now lands on the oracle frame under the run-right gameplay script |
-| Pause/resume and death/respawn lifecycle parity | Partial; pause is now green on dumped terrain, death is green on the default path, the landing floor no longer masquerades as a wall on dumped terrain, and dumped-terrain death parity is still pending |
+| Pause/resume and death/respawn lifecycle parity | Partial; pause is now green on dumped terrain, death is green on the default path, the landing floor no longer masquerades as a wall on dumped terrain, Diamonds no longer enter stomp bounce, and dumped-terrain death parity is still pending |
 | Asset-backed native Level 1 visuals | Done |
 | Flag touch and level advance code path | Done in `kid-core` tests |
 | `progress-two-transitions` gameplay scenario | Passing with explicit generated `Level_Layout` loading |
 | Default native runtime terrain authority | Incomplete; still falls back to flat floor outside the generated-terrain path |
-| Full traversal oracle parity | Partial; progress and pause are green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending after the landing-wall and held-input latch fixes because the jump arc still lands early and clips the overhang before `pre_death@1279` |
+| Full traversal oracle parity | Partial; progress and pause are green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending after the landing-wall, held-input latch, and diamond-stomp fixes because the route still separates at frame `743` and clips the overhang before `pre_death@1279` |
 
 ## Scope
 

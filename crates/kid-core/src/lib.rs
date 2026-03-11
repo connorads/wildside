@@ -964,6 +964,11 @@ impl NativeRuntime {
 
         let mut stomped_indices = Vec::new();
         for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
+            let is_diamond =
+                matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
+            if is_diamond {
+                continue;
+            }
             if classify_enemy_contact(slice.player, enemy) == EnemyContactResult::Stomp {
                 stomped_indices.push(i);
             }
@@ -4031,10 +4036,9 @@ mod tests {
 
     // --- US-011: Stomp-kill enemies ---
 
-    /// Set up a stomp scenario: camera at origin so Diamond is active,
-    /// then position player above or on the Diamond.
+    /// Set up a stomp scenario around the first active test enemy.
     fn setup_stomp_scenario(runtime: &mut NativeRuntime, stomp: bool) {
-        // First: set camera near origin so Diamond activates
+        // First: set camera near origin so the test enemy activates.
         if let Some(ref mut slice) = runtime.opening_slice {
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
@@ -4044,16 +4048,16 @@ mod tests {
 
         // Now position player for stomp or side contact
         if let Some(ref mut slice) = runtime.opening_slice {
-            slice.player.x_pos = 0x0120_0000; // same X as Diamond (288px)
+            slice.player.x_pos = 0x0120_0000; // same X as test enemy (288px)
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
             if stomp {
-                // Above Diamond, falling downward
-                slice.player.y_pos = 0x00D8_0000; // 216px, Diamond at 224px
+                // Above enemy, falling downward
+                slice.player.y_pos = 0x00D8_0000; // 216px, enemy at 224px
                 slice.player.y_velocity = 0x0002_0000;
                 slice.player.on_ground = false;
             } else {
-                // Same height as Diamond (side contact)
+                // Same height as enemy (side contact)
                 slice.player.y_pos = 0x00E0_0000; // 224px
                 slice.player.y_velocity = 0;
                 slice.player.on_ground = true;
@@ -4063,7 +4067,7 @@ mod tests {
 
     #[test]
     fn stomp_from_above_kills_enemy() {
-        let mut runtime = NativeRuntime::new(manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
         for _ in 0..260 {
@@ -4072,7 +4076,7 @@ mod tests {
 
         setup_stomp_scenario(&mut runtime, true);
         let enemies_before = runtime.active_enemies.len();
-        assert!(enemies_before > 0, "Diamond should be activated");
+        assert!(enemies_before > 0, "Skull should be activated");
 
         runtime.step_frame(FrameInput::default());
         assert!(
@@ -4084,7 +4088,7 @@ mod tests {
 
     #[test]
     fn stomp_bounces_player_upward() {
-        let mut runtime = NativeRuntime::new(manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
         for _ in 0..260 {
@@ -4105,7 +4109,6 @@ mod tests {
 
     #[test]
     fn side_contact_damages_not_stomps() {
-        // Use a skull (not Diamond) — Diamonds are collected, not damaging.
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
@@ -4133,7 +4136,7 @@ mod tests {
 
     #[test]
     fn stomp_works_during_invulnerability() {
-        let mut runtime = NativeRuntime::new(manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
         for _ in 0..260 {
@@ -4143,12 +4146,58 @@ mod tests {
         runtime.invulnerable_frames = 100;
         setup_stomp_scenario(&mut runtime, true);
         let enemies_before = runtime.active_enemies.len();
-        assert!(enemies_before > 0, "Diamond should be activated");
+        assert!(enemies_before > 0, "Skull should be activated");
 
         runtime.step_frame(FrameInput::default());
         assert!(
             runtime.active_enemies.len() < enemies_before,
             "stomp should still kill enemy during invulnerability"
+        );
+    }
+
+    #[test]
+    fn falling_onto_diamond_collects_without_stomp_bounce() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let diamonds_before = runtime.diamond_count;
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00D8_0000;
+            slice.player.y_velocity = 0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        let slice = runtime.opening_slice.expect("opening slice should remain active");
+        assert_eq!(
+            runtime.diamond_count,
+            diamonds_before + 1,
+            "falling through a diamond should still collect it"
+        );
+        assert_ne!(
+            slice.player.y_velocity, STOMP_BOUNCE_VELOCITY,
+            "diamond collection should not trigger stomp bounce"
+        );
+        assert!(
+            !runtime
+                .active_enemies
+                .iter()
+                .any(|enemy| enemy.family == EnemyFamily::Diamond),
+            "diamond should be removed after collection"
         );
     }
 

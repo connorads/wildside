@@ -28,6 +28,7 @@ This dossier covers the current post-opening frontier:
 - `compare-native-gameplay --scenario death-respawn-level1`: passing again after locking the death camera, snapping the synthetic late hazard onto the oracle camera checkpoint, and extending the respawn settle slightly
 - Dumped-terrain wall probing no longer treats the landing floor cell as a side wall; the lower-body wall probe now stays above the feet and has a regression test in `kid-core`
 - Gameplay movement now latches held left/right/run from the previous frame, removing the frame-720 eagerness against the oracle while keeping jump-edge handling on the current frame
+- Diamonds no longer enter `process_stomps`; falling through a Diamond now collects it without applying stomp bounce, and the stomp regressions now run against the static skull fixture instead of the old Diamond placeholder
 - Transition parity currently uses an explicit generated `Level_Layout` mode for `pause-resume-level1` and `progress-two-transitions`
 - The default runtime still keeps the flat-floor fallback outside those explicit generated-terrain paths
 
@@ -36,9 +37,9 @@ This dossier covers the current post-opening frontier:
 - Real terrain is not yet the default runtime path for all gameplay scenarios
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
 - The remaining blocker is `death-respawn-level1` on dumped terrain; pause and progress now hold there, but death still trails the oracle route before `pre_death@1279`
-- After the opening-hit, skull-timing, landing-wall, and held-input latch fixes, dumped-terrain death now reaches the oracle camera checkpoint with a smaller X lead, but still diverges in kid Y at `pre_death@1279` (`native 0x008F0000`, `oracle 0x00F88900`)
+- After the opening-hit, skull-timing, landing-wall, held-input latch, and diamond-stomp fixes, dumped-terrain death still diverges in kid Y at `pre_death@1279` (`native 0x008F0000`, `oracle 0x00F88900`)
 - The false floor-as-wall clamp at the first landing is fixed, but the dumped-terrain route is still ahead of the oracle before the death window and now clips the underside of the overhang around frames 888-904
-- The surviving route drift is still a jump-arc mismatch: the initial held-input timing now matches the oracle startup, but dumped terrain still carries too much lead into the mid-level jump chain, clips the overhang, and misses the late high-route window before `pre_death@1279`
+- The surviving route drift now starts as a smaller kid-X mismatch at frame `743` and is still a jump-arc/high-route problem: startup eagerness and diamond bounce are fixed, but dumped terrain still reaches the overhang late, clips the underside around frames 888-904, and misses the late high-route window before `pre_death@1279`
 - Top-level docs were pointing at older slices; this file is now the canonical traversal hand-off
 
 ## Useful commands
