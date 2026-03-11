@@ -22,8 +22,9 @@ This dossier covers the current post-opening frontier:
 - Gameplay-lifecycle autonomy goal: complete
 - Asset-backed Level 1 visuals: landed
 - `compare-native-gameplay --scenario progress-two-transitions`: passing
-- `compare-native-gameplay --scenario pause-resume-level1`: passing
-- `compare-native-gameplay --scenario death-respawn-level1`: passing
+- Jump take-off no longer re-grounds on the first held-button frame, and solid terrain now grounds one pixel above the cell top
+- `compare-native-gameplay --scenario pause-resume-level1`: currently diverging at `resumed_tail@1119` in camera X after the jump-takeoff fix
+- `compare-native-gameplay --scenario death-respawn-level1`: currently diverging at `pre_death@1279` in form state (`native hp 1` vs `oracle hp 0`)
 - Transition parity currently uses an explicit generated `Level_Layout` mode for `progress-two-transitions`
 - The default runtime still keeps the flat-floor fallback outside that explicit generated-terrain path
 
@@ -31,7 +32,7 @@ This dossier covers the current post-opening frontier:
 
 - Real terrain is not yet the default runtime path for all gameplay scenarios
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
-- Pause/death parity still relies on the older flat-floor path; the next step is making those scenarios pass on dumped terrain too
+- Pause/death parity no longer stays green even on the older path; the next step is closing the remaining movement drift after the jump-takeoff fix, then re-checking dumped terrain
 - Top-level docs were pointing at older slices; this file is now the canonical traversal hand-off
 
 ## Useful commands
@@ -41,6 +42,7 @@ cargo test -p kid-core
 cargo test -p kidcli
 cargo run -p kidcli -- dump-level-layout --level 00
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
+cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
@@ -61,7 +63,7 @@ KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gamepl
 
 ## Next expected implementation order
 
-1. Generalise dumped `Level_Layout` loading beyond `progress-two-transitions`.
-2. Re-run `pause-resume-level1` and `death-respawn-level1` on dumped terrain and fix the first traversal divergence.
+1. Close the remaining pause/death movement drift after the jump-takeoff fix.
+2. Re-run `pause-resume-level1` and `death-respawn-level1` on dumped terrain and fix the first traversal divergence that remains there.
 3. Remove the flat-floor fallback from the default runtime path only after the dumped-terrain path keeps all gameplay comparisons green.
 4. Leave the next frontier explicit in tracked docs.

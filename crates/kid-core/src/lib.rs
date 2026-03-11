@@ -1434,7 +1434,7 @@ impl OpeningSliceState {
     fn update_vertical_motion(&mut self, input: FrameInput, form: PlayerForm) {
         let near_ground =
             self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
-        if (self.player.on_ground || near_ground) && input.b {
+        if (self.player.on_ground || near_ground) && self.player.y_velocity >= 0 && input.b {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1528,11 +1528,21 @@ impl OpeningSliceState {
             let y_px = (self.player.y_pos >> 16) as i32;
             let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
             if probe.on_ground {
-                let floor_y_fp = (probe.floor_y_px as u32) << 16;
+                let floor_y_px = match probe.cell.collision {
+                    terrain::CollisionKind::Solid
+                    | terrain::CollisionKind::HiddenBlock
+                    | terrain::CollisionKind::Spikes => probe.floor_y_px.saturating_sub(1),
+                    terrain::CollisionKind::SlopeDown
+                    | terrain::CollisionKind::SlopeUp
+                    | terrain::CollisionKind::Empty => probe.floor_y_px,
+                };
+                let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
                 self.terrain.floor_y_pos = floor_y_fp;
                 let within_snap =
                     self.player.y_pos.abs_diff(floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP;
-                if self.player.y_pos >= floor_y_fp || self.player.y_velocity > 0 || within_snap {
+                if self.player.y_velocity >= 0
+                    && (self.player.y_pos >= floor_y_fp || within_snap)
+                {
                     self.player.y_pos = floor_y_fp;
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
@@ -1545,7 +1555,7 @@ impl OpeningSliceState {
             }
         } else {
             // Flat floor fallback when no block grid is loaded
-            if self.player.y_pos >= self.terrain.floor_y_pos {
+            if self.player.y_velocity >= 0 && self.player.y_pos >= self.terrain.floor_y_pos {
                 self.player.y_pos = self.terrain.floor_y_pos;
                 self.player.on_ground = true;
                 self.player.y_velocity = 0;
@@ -2453,6 +2463,82 @@ mod tests {
         });
 
         assert_eq!(jump_frame.kid_y_pos, grounded.kid_y_pos);
+        assert_eq!(jump_frame.kid_on_ground, Some(false));
+        assert!(
+            jump_frame.kid_y_velocity.expect("jump velocity") < 0,
+            "jump press should arm an upward velocity"
+        );
+    }
+
+    #[test]
+    fn held_jump_advances_upward_on_second_frame() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        loop {
+            runtime.step_frame(FrameInput::default());
+            if runtime.trace_frame().kid_on_ground == Some(true) {
+                break;
+            }
+        }
+
+        let grounded = runtime.trace_frame();
+        let jump_frame = runtime.step_frame(FrameInput {
+            b: true,
+            ..FrameInput::default()
+        });
+        let rising_frame = runtime.step_frame(FrameInput {
+            b: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(jump_frame.kid_y_pos, grounded.kid_y_pos);
+        assert!(
+            rising_frame.kid_y_pos.expect("rising y") < grounded.kid_y_pos.expect("grounded y"),
+            "held jump should begin moving upward on the next frame"
+        );
+    }
+
+    #[test]
+    fn jump_press_on_block_grid_does_not_reground_on_takeoff_frame() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        loop {
+            runtime.step_frame(FrameInput::default());
+            if runtime.trace_frame().kid_on_ground == Some(true) {
+                break;
+            }
+        }
+
+        let grounded = runtime.trace_frame();
+        let jump_frame = runtime.step_frame(FrameInput {
+            right: true,
+            a: true,
+            b: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(jump_frame.kid_y_pos, grounded.kid_y_pos);
+        assert_eq!(jump_frame.kid_on_ground, Some(false));
+        assert!(
+            jump_frame.kid_y_velocity.expect("jump velocity") < 0,
+            "block-grid take-off should keep the player airborne"
+        );
+    }
+
+    #[test]
+    fn solid_block_grid_grounds_one_pixel_above_cell_top() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        loop {
+            runtime.step_frame(FrameInput::default());
+            let trace = runtime.trace_frame();
+            if trace.kid_on_ground == Some(true) {
+                assert_eq!(trace.kid_y_pos, Some(0x010F_0000));
+                break;
+            }
+        }
     }
 
     #[test]
