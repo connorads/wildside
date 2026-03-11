@@ -2638,7 +2638,10 @@ fn capture_native_gameplay_frame_evidence(
 
 fn scenario_uses_generated_level_layout(scenario: GameplayScenario) -> bool {
     std::env::var_os("KID_NATIVE_GENERATED_LEVEL_LAYOUT").is_some()
-        || matches!(scenario, GameplayScenario::ProgressTwoTransitions)
+        || matches!(
+            scenario,
+            GameplayScenario::PauseResumeLevel1 | GameplayScenario::ProgressTwoTransitions
+        )
 }
 
 fn run_native_script_for_scenario(
@@ -4961,7 +4964,7 @@ mod tests {
         assert!(scenario_uses_generated_level_layout(
             GameplayScenario::ProgressTwoTransitions
         ));
-        assert!(!scenario_uses_generated_level_layout(
+        assert!(scenario_uses_generated_level_layout(
             GameplayScenario::PauseResumeLevel1
         ));
     }

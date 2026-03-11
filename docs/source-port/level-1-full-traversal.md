@@ -23,16 +23,16 @@ This dossier covers the current post-opening frontier:
 - Asset-backed Level 1 visuals: landed
 - `compare-native-gameplay --scenario progress-two-transitions`: passing
 - Jump take-off no longer re-grounds on the first held-button frame, solid terrain grounds one pixel above the cell top, and player jump-air control now uses the disassembly-backed per-helmet tables
-- `compare-native-gameplay --scenario pause-resume-level1`: passing again
+- `compare-native-gameplay --scenario pause-resume-level1`: passing on dumped terrain
 - `compare-native-gameplay --scenario death-respawn-level1`: passing again after locking the death camera, snapping the synthetic late hazard onto the oracle camera checkpoint, and extending the respawn settle slightly
-- Transition parity currently uses an explicit generated `Level_Layout` mode for `progress-two-transitions`
-- The default runtime still keeps the flat-floor fallback outside that explicit generated-terrain path
+- Transition parity currently uses an explicit generated `Level_Layout` mode for `pause-resume-level1` and `progress-two-transitions`
+- The default runtime still keeps the flat-floor fallback outside those explicit generated-terrain paths
 
 ## Immediate blockers
 
 - Real terrain is not yet the default runtime path for all gameplay scenarios
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
-- The remaining blocker is moving pause/death onto the dumped-terrain path without regressing the green gameplay comparisons
+- The remaining blocker is `death-respawn-level1` on dumped terrain; pause and progress now hold there, but death still trails the oracle route before `pre_death@1279`
 - Top-level docs were pointing at older slices; this file is now the canonical traversal hand-off
 
 ## Useful commands
@@ -64,6 +64,6 @@ KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -p kidcli -- compare-native-gamepl
 ## Next expected implementation order
 
 1. Move `death-respawn-level1` onto the dumped-terrain path by default and fix the first route divergence that remains there.
-2. Move `pause-resume-level1` onto the dumped-terrain path by default once its compare stays green there without the env override.
-3. Remove the flat-floor fallback from the default runtime path only after the dumped-terrain path keeps all gameplay comparisons green.
+2. Remove the flat-floor fallback from the default runtime path only after the dumped-terrain path keeps all gameplay comparisons green.
+3. Keep `progress-two-transitions` green while moving death onto dumped terrain.
 4. Leave the next frontier explicit in tracked docs after each MVP slice.

@@ -9,12 +9,12 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 | System | Status |
 |--------|--------|
 | Opening-slice boot/title/load/oracle checkpoints | Done |
-| Pause/resume and death/respawn lifecycle parity | Partial; pause and death are green again on the default path, but dumped-terrain parity is not yet the default for either scenario |
+| Pause/resume and death/respawn lifecycle parity | Partial; pause is now green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending |
 | Asset-backed native Level 1 visuals | Done |
 | Flag touch and level advance code path | Done in `kid-core` tests |
 | `progress-two-transitions` gameplay scenario | Passing with explicit generated `Level_Layout` loading |
 | Default native runtime terrain authority | Incomplete; still falls back to flat floor outside the generated-terrain path |
-| Full traversal oracle parity | Partial; progress, pause, and death are green on the default path, but dumped terrain is not yet the default path for pause/death scenarios |
+| Full traversal oracle parity | Partial; progress and pause are green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending |
 
 ## Scope
 
@@ -30,8 +30,8 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 - Use the existing gameplay comparison harness to validate start-to-transition traversal
 - Make `compare-native-gameplay --scenario progress-two-transitions` pass
 - Keep pause/resume green and recover death/respawn parity after the jump-air fix
-- Move pause/resume onto the dumped-terrain path once its route parity holds
 - Move death/respawn onto the dumped-terrain path once its route parity holds
+- Keep pause/resume on the dumped-terrain path by default now that its compare holds there
 
 ### 3. Tracked source of truth
 
