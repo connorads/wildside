@@ -14,6 +14,7 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
+use serde::Deserialize;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -97,6 +98,13 @@ struct ResolvedSceneTile {
     tile_sheet: Arc<TileSheet>,
     tile: TileRef,
     palette: Arc<Palette>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+struct GeneratedLevelLayoutMetadata {
+    data_bytes: usize,
+    width_blocks: u16,
+    height_blocks: u16,
 }
 
 const FOREGROUND_TILE_VRAM_BASE: u16 = 0x00BC;
@@ -2152,6 +2160,7 @@ mod tests {
             let root = TempDir::new()?;
             let decoded_path = "decoded/level/00/block.bin";
             let legacy_path = "level-layout/00.bin";
+            let legacy_metadata_path = "level-layout/00.json";
             let width_cells = 20usize;
             let height_cells = 14usize;
             let mut decoded_bytes = vec![0u8; width_cells * height_cells * 2];
@@ -2164,6 +2173,11 @@ mod tests {
             legacy_bytes[1] = 0x33;
             write_file(root.path(), decoded_path, &decoded_bytes)?;
             write_file(root.path(), legacy_path, &legacy_bytes)?;
+            write_file(
+                root.path(),
+                legacy_metadata_path,
+                br#"{"data_bytes":4,"width_blocks":20,"height_blocks":14}"#,
+            )?;
 
             Ok(Self {
                 manifest: AssetManifest {
@@ -2767,10 +2781,27 @@ mod tests {
     }
 
     #[test]
-    fn try_load_block_grid_reads_decoded_level1_layout_from_manifest_contract() {
+    fn try_load_block_grid_prefers_generated_level_layout_dump() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
 
         let grid = try_load_block_grid(&fixture.manifest, 0x00).expect("block grid");
+
+        assert_eq!(grid.width_cells, 20);
+        assert_eq!(grid.height_cells, 14);
+        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Spikes);
+        assert_eq!(grid.cell_at(0, 0).skin, 0x33);
+        assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Empty);
+        assert_eq!(grid.cell_at(1, 0).skin, 0x00);
+    }
+
+    #[test]
+    fn try_load_block_grid_falls_back_to_decoded_block_layout_without_level_layout_dump() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");
+        fs::remove_file(fixture._root.path().join("level-layout/00.json"))
+            .expect("remove layout metadata");
+
+        let grid = try_load_block_grid(&fixture.manifest, 0x00).expect("fallback block grid");
 
         assert_eq!(grid.width_cells, 20);
         assert_eq!(grid.height_cells, 14);
@@ -2794,14 +2825,13 @@ mod tests {
         let runtime = initialise_runtime(&fixture.manifest, &session_assets);
 
         assert_eq!(load_count.load(Ordering::SeqCst), 1);
-        assert_eq!(
-            runtime
-                .block_grid()
-                .expect("runtime block grid")
-                .cell_at(0, 0)
-                .block_type,
-            BlockType::Prize
-        );
+        let opening_cell = runtime
+            .block_grid()
+            .expect("runtime block grid")
+            .cell_at(0, 0);
+        assert_eq!(opening_cell.collision, CollisionKind::Spikes);
+        assert_eq!(opening_cell.block_type, BlockType::None);
+        assert_eq!(opening_cell.skin, 0x33);
         let trace = runtime.trace_frame();
         assert_eq!(trace.game_mode, GameMode::InGame);
         assert_eq!(trace.current_level.0, 0);
@@ -3399,6 +3429,10 @@ mod tests {
 }
 
 fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGrid> {
+    if let Some(grid) = try_load_generated_level_layout(manifest, level_id)? {
+        return Ok(grid);
+    }
+
     let level = manifest
         .levels
         .iter()
@@ -3427,6 +3461,45 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
     })?;
     let (width, height) = level_layout_dimensions(header);
     Ok(BlockGrid::from_level_layout(&data, width, height))
+}
+
+fn try_load_generated_level_layout(
+    manifest: &AssetManifest,
+    level_id: u8,
+) -> Result<Option<BlockGrid>> {
+    let layout_dir = manifest.output_root.join("level-layout");
+    let layout_path = layout_dir.join(format!("{level_id:02X}.bin"));
+    let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+    if !layout_path.is_file() || !metadata_path.is_file() {
+        return Ok(None);
+    }
+
+    let mut data = std::fs::read(&layout_path).map_err(|error| {
+        anyhow!(
+            "failed to read generated Level_Layout from {}: {error}",
+            layout_path.display()
+        )
+    })?;
+    let metadata = serde_json::from_slice::<GeneratedLevelLayoutMetadata>(
+        &std::fs::read(&metadata_path).map_err(|error| {
+            anyhow!(
+                "failed to read Level_Layout metadata from {}: {error}",
+                metadata_path.display()
+            )
+        })?,
+    )
+    .map_err(|error| {
+        anyhow!(
+            "failed to parse Level_Layout metadata from {}: {error}",
+            metadata_path.display()
+        )
+    })?;
+    data.truncate(metadata.data_bytes.min(data.len()));
+    Ok(Some(BlockGrid::from_level_layout(
+        &data,
+        metadata.width_blocks,
+        metadata.height_blocks,
+    )))
 }
 
 fn level_layout_dimensions(header: &LevelHeader) -> (u16, u16) {
