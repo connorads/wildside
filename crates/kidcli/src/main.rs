@@ -84,6 +84,7 @@ enum Commands {
         #[arg(long)]
         rom: Option<PathBuf>,
     },
+    /// Launch the emulator-backed player shell.
     Play {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -94,6 +95,7 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         mute: bool,
     },
+    /// Launch the native Level 1 playtest runtime in release mode.
     PlayNative {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -103,6 +105,8 @@ enum Commands {
         fullscreen: bool,
         #[arg(long)]
         scale: Option<u32>,
+        #[arg(long, default_value_t = false)]
+        debug_overlay: bool,
     },
     ProbeCpu {
         #[arg(long)]
@@ -373,12 +377,20 @@ fn main() -> Result<()> {
             dir,
             fullscreen,
             scale,
+            debug_overlay,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            run_native_player(&manifest, NativePlayOptions { fullscreen, scale })?;
+            run_native_player(
+                &manifest,
+                NativePlayOptions {
+                    fullscreen,
+                    scale,
+                    debug_overlay,
+                },
+            )?;
         }
         Commands::ProbeCpu {
             rom,
@@ -4718,9 +4730,14 @@ mod tests {
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
         audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
         capture_native_gameplay_scenario,
-        compare_native_gameplay_with, compare_native_states_against_oracle,
-        find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
-        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        compare_native_gameplay_with,
+        compare_native_states_against_oracle,
+        find_gameplay_live_drifts,
+        gameplay_checkpoint_window,
+        native_trace_to_oracle_state,
+        parse_button_mask,
+        parse_input_spec,
+        prepare_generated_assets_with,
         selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;

@@ -7,7 +7,7 @@ The current delivery frontier is Level 1 full traversal, now green on the defaul
 ## Current status
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
-- `kidcli play-native` starts a separate SDL debug visualiser for the current `kid-core` native runtime slice.
+- `kidcli play-native` starts the native Level 1 playtest path in a release build. It launches directly into a settled native Level 1 state with the asset-backed scene visible and optional debug overlay support.
 - `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
 - `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
@@ -90,17 +90,22 @@ mise run reference-build
 
 For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-full-traversal.md`.
 
+If you want to play or test the project, pick the runtime first:
+
+- `cargo run --release -p kidcli -- play` for the emulator-backed shell with menus and audio.
+- `cargo run --release -p kidcli -- play-native --rom ./kc.md` for the native source-port Level 1 playtest path.
+
 For a player-facing launch with the default ROM search path, use:
 
 ```bash
 cargo run -p kidcli -- play
 ```
 
-For the native debug host, use:
+For the native Level 1 playtest path, use:
 
 ```bash
-cargo run -p kidcli -- play-native
-cargo run -p kidcli -- play-native --rom ./kc.md
+cargo run --release -p kidcli -- play-native
+cargo run --release -p kidcli -- play-native --rom ./kc.md
 ```
 
 Useful launch overrides:
@@ -110,8 +115,9 @@ cargo run -p kidcli -- play --rom ./kc.md
 cargo run -p kidcli -- play --fullscreen
 cargo run -p kidcli -- play --scale 3
 cargo run -p kidcli -- play --mute
-cargo run -p kidcli -- play-native --fullscreen
-cargo run -p kidcli -- play-native --scale 3
+cargo run --release -p kidcli -- play-native --fullscreen
+cargo run --release -p kidcli -- play-native --scale 3
+cargo run --release -p kidcli -- play-native --debug-overlay
 ```
 
 For long CPU probes, prefer the compact mode so the output stays readable:
@@ -181,7 +187,7 @@ The new generated source-port bundle is written under `.cache/generated/<rom-sha
 
 The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
-`play-native` is intentionally a silent debug host for the current semantic runtime, not a full player shell. It launches straight into the native runtime, draws the current Level 1 native scene plus optional debug overlay from `NativeTraceFrame`, and is aimed at interactive debugging of the current source-port slice.
+`play-native` is the native Level 1 playtest path. It does not run the emulator shell and it does not currently include native menus or title flow. It launches straight into a settled Level 1 native runtime state so movement, jumping, terrain, HUD, and the first visible enemy window are testable immediately. Use `--debug-overlay` or `Tab` if you want the trace overlay while testing.
 
 The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
@@ -238,6 +244,17 @@ Player shell features:
   - mute
   - keyboard bindings
 - If SDL audio initialisation fails, the shell continues silently and shows a warning toast instead of exiting
+
+Native playtest defaults:
+
+- `Arrow keys`: move
+- `Z`: jump
+- `X`: special
+- `C`: run
+- `R`: restart the native Level 1 playtest
+- `Tab`: toggle debug overlay
+- `F11`: toggle fullscreen
+- `Escape`: quit
 
 The current `Restart Run` option restarts the game from boot. It does not yet restore the current level in place; that would need runtime snapshots or save-state support, which is intentionally out of scope for this alpha.
 

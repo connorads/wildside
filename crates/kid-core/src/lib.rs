@@ -9,6 +9,9 @@ use std::fs;
 const SEGA_SCREEN_FRAMES: usize = 120;
 const INTRO_SEGMENT_FRAMES: usize = 80;
 const TITLE_TO_LEVEL_FRAMES: usize = 60;
+// The native playtest host should open on the first fully settled Level 1 frame,
+// past the long entry animation where the kid drifts into place.
+const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
 const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
 const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES: usize = OPENING_SCROLL_START_FRAME + 23;
@@ -458,6 +461,22 @@ impl NativeRuntime {
 
     pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
         self.block_grid.as_ref()
+    }
+
+    pub fn enter_level_playtest(&mut self, level_id: LevelId) -> NativeTraceFrame {
+        self.begin_level_entry(level_id);
+        let max_bootstrap_frames = TITLE_TO_LEVEL_FRAMES + PLAYTEST_LEVEL_SETTLE_FRAMES + 2;
+        for _ in 0..max_bootstrap_frames {
+            let trace = self.trace_frame();
+            if trace.game_mode == GameMode::InGame
+                && trace.kid_on_ground == Some(true)
+                && trace.kid_y_pos == Some(OPENING_GROUNDED_KID_Y_POS)
+            {
+                return trace;
+            }
+            self.step_frame(FrameInput::default());
+        }
+        self.trace_frame()
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
@@ -2757,6 +2776,33 @@ mod tests {
         while runtime.trace_frame().frame_index < 719 {
             runtime.step_frame(FrameInput::default());
         }
+    }
+
+    #[test]
+    fn enter_level_playtest_starts_on_a_settled_ingame_frame() {
+        let mut runtime = NativeRuntime::new(manifest());
+        if runtime.block_grid().is_none() {
+            runtime.set_block_grid(grid_with_floor_at_row(17));
+        }
+
+        let trace = runtime.enter_level_playtest(LevelId(0));
+
+        assert_eq!(trace.game_mode, GameMode::InGame);
+        assert_eq!(trace.current_level, LevelId(0));
+        assert_eq!(
+            trace.current_level_name.as_deref(),
+            Some("Blue Lake Woods 1")
+        );
+        assert_eq!(trace.kid_on_ground, Some(true));
+        assert_eq!(trace.camera_x_pos, 0);
+        assert_eq!(trace.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
+        assert!(
+            trace
+                .active_objects
+                .iter()
+                .any(|object| matches!(object.kind, NativeObjectKind::Player)),
+            "playtest bootstrap should expose the player immediately"
+        );
     }
 
     fn pause_resume_script_input(frame_index: usize) -> FrameInput {

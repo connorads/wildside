@@ -2,8 +2,8 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
-    PlayerForm,
+    FrameInput, GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
+    NativeTraceFrame, PlayerForm,
     physics::Direction,
     terrain::{BlockGrid, CollisionKind},
 };
@@ -38,6 +38,7 @@ const PALETTE_LINE_COLOUR_COUNT: usize = 15;
 pub struct NativePlayOptions {
     pub fullscreen: bool,
     pub scale: Option<u32>,
+    pub debug_overlay: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,12 +156,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
     let mut runtime = initialise_runtime(manifest, &session_assets);
     let mut trace = runtime.trace_frame();
-    let mut hud_visible = true;
+    let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
 
     let scene = build_scene(
         &trace,
-        hud_visible,
+        debug_overlay_visible,
         Some(&session_assets.level1_visuals),
         runtime.block_grid(),
     );
@@ -207,7 +208,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     keycode: Some(Keycode::Tab),
                     repeat: false,
                     ..
-                } => hud_visible = !hud_visible,
+                } => debug_overlay_visible = !debug_overlay_visible,
                 Event::KeyDown {
                     keycode: Some(Keycode::R),
                     repeat: false,
@@ -232,7 +233,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
         let scene = build_scene(
             &trace,
-            hud_visible,
+            debug_overlay_visible,
             Some(&session_assets.level1_visuals),
             runtime.block_grid(),
         );
@@ -259,7 +260,11 @@ fn load_native_session_assets(
     manifest: &AssetManifest,
     level_id: u8,
 ) -> Result<NativeSessionAssets> {
-    load_native_session_assets_with(manifest, level_id, load_level1_visuals)
+    load_native_session_assets_with(manifest, level_id, load_level1_visuals).map_err(|error| {
+        anyhow!(
+            "{error:#}. play-native needs extracted Level 1 visuals and block layout; run `mise run extract-assets` if they are missing"
+        )
+    })
 }
 
 #[cfg(test)]
@@ -289,27 +294,28 @@ fn initialise_runtime(
 ) -> NativeRuntime {
     let mut runtime = NativeRuntime::new(manifest.clone());
     runtime.set_block_grid(session_assets.level1_block_grid.clone());
+    runtime.enter_level_playtest(LevelId(0));
     runtime
 }
 
 fn build_scene(
     trace: &NativeTraceFrame,
-    hud_visible: bool,
+    debug_overlay_visible: bool,
     level1_visuals: Option<&Level1Visuals>,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
     match trace.game_mode {
         GameMode::InGame => build_game_scene(
             trace,
-            hud_visible,
+            debug_overlay_visible,
             level1_visuals.expect("Level 1 visuals are required for gameplay scenes"),
             block_grid,
         ),
-        _ => build_status_scene(trace, hud_visible),
+        _ => build_status_scene(trace, debug_overlay_visible),
     }
 }
 
-fn build_status_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
+fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {
     let mut commands = Vec::new();
     push_panel(
         &mut commands,
@@ -320,7 +326,13 @@ fn build_status_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
         [10, 16, 24],
         [205, 196, 173],
     );
-    commands.push(text(30, 28, "Kid Chameleon Native", [255, 240, 196], 2));
+    commands.push(text(
+        30,
+        28,
+        "Kid Chameleon Native Playtest",
+        [255, 240, 196],
+        2,
+    ));
     commands.push(text(
         30,
         54,
@@ -352,25 +364,25 @@ fn build_status_scene(trace: &NativeTraceFrame, hud_visible: bool) -> Scene {
     commands.push(text(
         30,
         96,
-        "Native runtime: silent debug host",
+        "Direct Level 1 native playtest",
         [255, 188, 140],
         1,
     ));
     commands.push(text(
         30,
         118,
-        "Enter start  Arrows move  Z jump  X special",
+        "Arrows move  Z jump  X special  C run",
         [190, 190, 190],
         1,
     ));
     commands.push(text(
         30,
         130,
-        "C run  R reset  Tab HUD  F11 fullscreen  Esc quit",
+        "R restart level  Tab debug overlay  F11 fullscreen  Esc quit",
         [190, 190, 190],
         1,
     ));
-    if hud_visible {
+    if debug_overlay_visible {
         commands.push(text(
             30,
             160,
@@ -895,7 +907,7 @@ pub(crate) fn render_gameplay_frame_evidence(
 
 fn build_game_scene(
     trace: &NativeTraceFrame,
-    hud_visible: bool,
+    debug_overlay_visible: bool,
     level1_visuals: &Level1Visuals,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
@@ -937,7 +949,7 @@ fn build_game_scene(
 
     push_game_hud(&mut commands, trace, level1_visuals);
 
-    if hud_visible {
+    if debug_overlay_visible {
         push_panel(&mut commands, 8, 8, 304, 44, [12, 18, 24], [160, 214, 255]);
         commands.push(text(
             16,
@@ -1853,11 +1865,11 @@ mod tests {
 
     fn build_ingame_scene(
         trace: &NativeTraceFrame,
-        hud_visible: bool,
+        debug_overlay_visible: bool,
         block_grid: Option<&BlockGrid>,
     ) -> Scene {
         let visuals = sample_level1_visuals();
-        build_scene(trace, hud_visible, Some(&visuals), block_grid)
+        build_scene(trace, debug_overlay_visible, Some(&visuals), block_grid)
     }
 
     struct ManifestFixture {
@@ -2395,7 +2407,7 @@ mod tests {
     #[test]
     fn title_scene_stays_text_only() {
         let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None, None);
-        assert!(contains_text(&scene, "Kid Chameleon Native"));
+        assert!(contains_text(&scene, "Kid Chameleon Native Playtest"));
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR || *colour == ENEMY_COLOUR || *colour == PLATFORM_COLOUR)
         }));
@@ -2436,6 +2448,21 @@ mod tests {
                 .cell_at(0, 0)
                 .block_type,
             BlockType::Prize
+        );
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.game_mode, GameMode::InGame);
+        assert_eq!(trace.current_level.0, 0);
+        assert_eq!(
+            trace.current_level_name.as_deref(),
+            Some("Blue Lake Woods 1")
+        );
+        assert_eq!(trace.kid_on_ground, Some(true));
+        assert!(
+            trace
+                .active_objects
+                .iter()
+                .any(|object| matches!(object.kind, NativeObjectKind::Player)),
+            "native playtest should spawn with the player visible"
         );
     }
 
