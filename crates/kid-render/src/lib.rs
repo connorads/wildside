@@ -14,9 +14,7 @@ pub use bundle::{Level1Visuals, load_level1_visuals};
 pub use hud::{HudIcon, HudVisuals};
 pub use level::{BlockVisualKind, BlockVisualMapping, LevelVisuals, ResolvedBlockVisual};
 pub use palette::{MdColour, Palette, PaletteSet};
-pub use player::{
-    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame,
-};
+pub use player::{AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame};
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
@@ -164,7 +162,10 @@ mod tests {
         assert_eq!(visuals.enemies.diamond.frames.len(), 3);
         assert_eq!(visuals.enemies.diamond.frames[0].tile_base_index, 0x002F);
         assert_eq!(visuals.enemies.mini_hopping_skull.frames.len(), 2);
-        assert_eq!(visuals.enemies.mini_hopping_skull.frames[0].tile_base_index, 0x002C);
+        assert_eq!(
+            visuals.enemies.mini_hopping_skull.frames[0].tile_base_index,
+            0x002C
+        );
         assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
         assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
     }
@@ -257,22 +258,38 @@ mod tests {
             write_file(
                 root.path(),
                 "ingame/artcomp/Enemy01_Diamond.bin",
-                &direct_copy_saxman(&(0..4096).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+                &direct_copy_saxman(
+                    &(0..4096)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
             )?;
             write_file(
                 root.path(),
                 "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin",
-                &direct_copy_saxman(&(0..2048).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+                &direct_copy_saxman(
+                    &(0..2048)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
             )?;
             write_file(
                 root.path(),
                 "ingame/artcomp/Horizontal_platform.bin",
-                &direct_copy_saxman(&(0..1024).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+                &direct_copy_saxman(
+                    &(0..1024)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
             )?;
             write_file(
                 root.path(),
                 "ingame/artcomp/Vertical_platform.bin",
-                &direct_copy_saxman(&(0..1024).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+                &direct_copy_saxman(
+                    &(0..1024)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
             )?;
             write_file(
                 root.path(),

@@ -930,5 +930,4 @@ mod tests {
         assert_eq!(probe.cell.collision, CollisionKind::SlopeDown);
         assert_eq!(probe.floor_y_px, 28);
     }
-
 }

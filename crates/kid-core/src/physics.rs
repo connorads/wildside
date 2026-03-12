@@ -1168,15 +1168,14 @@ mod tests {
             right_walk(),
             JUMP_AIR_PROFILES[0],
         );
-        let (run_vel, _) = update_jump_horizontal_velocity(
-            0,
-            Direction::Right,
-            right_run(),
-            JUMP_AIR_PROFILES[0],
-        );
+        let (run_vel, _) =
+            update_jump_horizontal_velocity(0, Direction::Right, right_run(), JUMP_AIR_PROFILES[0]);
 
         assert_eq!(walk_vel, JUMP_AIR_PROFILES[0].accel);
-        assert_eq!(run_vel, JUMP_AIR_PROFILES[0].accel + (JUMP_AIR_PROFILES[0].accel >> 1));
+        assert_eq!(
+            run_vel,
+            JUMP_AIR_PROFILES[0].accel + (JUMP_AIR_PROFILES[0].accel >> 1)
+        );
     }
 
     #[test]

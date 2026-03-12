@@ -466,15 +466,16 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
     })
 }
 
-fn load_platform_visuals(manifest: &AssetManifest, foreground_theme: &str) -> Result<PlatformVisuals> {
+fn load_platform_visuals(
+    manifest: &AssetManifest,
+    foreground_theme: &str,
+) -> Result<PlatformVisuals> {
     let palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "theme",
-        find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(|| {
-            anyhow!(
-                "missing platform palette asset theme/palette_fg/{foreground_theme}.bin"
-            )
-        })?,
+        find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
+            || anyhow!("missing platform palette asset theme/palette_fg/{foreground_theme}.bin"),
+        )?,
         "platform palette",
     )?)?;
 
