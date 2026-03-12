@@ -21,6 +21,10 @@ This dossier covers the current post-opening frontier:
 - Opening-slice autonomy goal: complete
 - Gameplay-lifecycle autonomy goal: complete
 - Asset-backed Level 1 visuals: landed
+- `play-native` is the primary Level 1 path; it now renders background, decoded foreground terrain, live block overrides, sprites, and HUD directly from the generated bundle
+- `verify-native-bootstrap`: passing
+- `verify-native-gameplay --scenario pause-resume-level1`: passing
+- `verify-native-gameplay --scenario death-respawn-level1`: passing
 - `compare-native-gameplay --scenario pause-resume-level1`: passing on the default runtime path
 - `compare-native-gameplay --scenario death-respawn-level1`: passing on the default runtime path
 - `compare-native-gameplay --scenario progress-two-transitions`: passing on the default runtime path
@@ -36,19 +40,23 @@ This dossier covers the current post-opening frontier:
 
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
 - Traversal closure no longer has an open runtime blocker in-repo: default terrain authority is real, the three gameplay compares are green, and the autonomy contract closes
+- Oracle compares remain useful as optional differential checks, not the primary sign-off path for whether Level 1 is playable
 - The next explicit frontier should move back to post-traversal Level 1 fidelity work rather than more traversal plumbing
 
 ## Useful commands
 
 ```bash
+cargo run --release -p kidcli -- play-native
+cargo run -p kidcli -- verify-native-bootstrap
+cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
+cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1
 mise run verify-slice-fast
 cargo test -p kid-core
 cargo test -p kidcli
-cargo run -p kidcli -- dump-level-layout --level 00
+# optional differential checks
 cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
 cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
-cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
 ```
 
 ## Continuation protocol

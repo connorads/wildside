@@ -3,9 +3,7 @@ use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
     FrameInput, GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
-    NativeTraceFrame, PlayerForm,
-    physics::Direction,
-    terrain::{BlockGrid, CollisionKind},
+    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader};
 use kid_render::{Level1Visuals, Palette, TileRef, TileSheet, load_level1_visuals};
@@ -537,7 +535,40 @@ fn push_tile_quad(
     }
 }
 
-fn push_block_grid_cells(
+fn push_foreground_tiles(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+) {
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let layout = &level1_visuals.level.foreground_layout;
+
+    let col_start = (camera_x_px / 16).max(0) as u16;
+    let col_end =
+        ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16).min(i32::from(layout.width_cells)) as u16;
+    let row_start = (camera_y_px / 16).max(0) as u16;
+    let row_end =
+        ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(layout.height_cells)) as u16;
+
+    for row in row_start..row_end {
+        for col in col_start..col_end {
+            let skin = layout.skin_at(col, row);
+            let Some(resolved) = level1_visuals.level.block_mapping.resolve(skin, None) else {
+                continue;
+            };
+            push_tile_quad(
+                commands,
+                level1_visuals,
+                i32::from(col) * 16 - camera_x_px,
+                i32::from(row) * 16 - camera_y_px,
+                resolved.quad,
+            );
+        }
+    }
+}
+
+fn push_block_grid_overrides(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level1_visuals: &Level1Visuals,
@@ -559,14 +590,14 @@ fn push_block_grid_cells(
     for row in row_start..row_end {
         for col in col_start..col_end {
             let cell = grid.cell_at(col, row);
-            if cell.collision == CollisionKind::Empty {
+            if !cell.has_block {
                 continue;
             }
 
             let Some(resolved) = level1_visuals
                 .level
                 .block_mapping
-                .resolve(cell.skin, cell.has_block.then_some(cell.block_type as u8))
+                .resolve(cell.skin, Some(cell.block_type as u8))
             else {
                 continue;
             };
@@ -915,7 +946,8 @@ fn build_game_scene(
     let mut commands = Vec::new();
 
     push_background_tiles(&mut commands, trace, level1_visuals);
-    push_block_grid_cells(&mut commands, trace, level1_visuals, block_grid);
+    push_foreground_tiles(&mut commands, trace, level1_visuals);
+    push_block_grid_overrides(&mut commands, trace, level1_visuals, block_grid);
 
     for object in trace
         .active_objects
@@ -1489,7 +1521,7 @@ mod tests {
     use kid_core::{
         LevelId, NativeObjectKind,
         physics::Direction,
-        terrain::{BlockType, Cell},
+        terrain::{BlockType, Cell, CollisionKind},
     };
     use kid_data::{
         AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader,
@@ -1497,9 +1529,9 @@ mod tests {
     };
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
-        BackgroundVisuals, BlockVisualMapping, EnemyVisuals, HudIcon, HudVisuals, Level1Visuals,
-        LevelVisuals, MdColour, Palette, PaletteSet, PlatformVisuals, PlayerVisuals, SpriteFrame,
-        Tile, TileQuad, TileRef, TileSheet,
+        BackgroundVisuals, BlockVisualMapping, EnemyVisuals, ForegroundLayout, HudIcon, HudVisuals,
+        Level1Visuals, LevelVisuals, MdColour, Palette, PaletteSet, PlatformVisuals, PlayerVisuals,
+        SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
     use std::fs;
     use std::path::Path;
@@ -1623,6 +1655,30 @@ mod tests {
             }
             _ => None,
         })
+    }
+
+    fn topmost_indexed_tile_at_with_sheet_len(
+        scene: &Scene,
+        x: i32,
+        y: i32,
+        sheet_len: usize,
+    ) -> Option<(&Arc<TileSheet>, TileRef, &Arc<Palette>)> {
+        scene
+            .commands
+            .iter()
+            .rev()
+            .find_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    x: command_x,
+                    y: command_y,
+                    tile_sheet,
+                    tile,
+                    palette,
+                } if *command_x == x && *command_y == y && tile_sheet.tiles.len() == sheet_len => {
+                    Some((tile_sheet, *tile, palette))
+                }
+                _ => None,
+            })
     }
 
     fn pixel_at(rgb: &[u8], x: u32, y: u32) -> [u8; 3] {
@@ -1809,6 +1865,9 @@ mod tests {
                 blocks.push(sample_tile_quad(base));
             }
         }
+        let foreground_layout_bytes = sample_foreground_layout_bytes();
+        let foreground_layout =
+            ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
         Level1Visuals {
             foreground_tiles: blank_tile_sheet(0x80),
             background_tiles: blank_tile_sheet(0x20),
@@ -1831,7 +1890,8 @@ mod tests {
                 level_id: 0x00,
                 foreground_theme_id: 0x08,
                 background_theme_id: 0x08,
-                foreground_layout_bytes: Vec::new(),
+                foreground_layout,
+                foreground_layout_bytes,
                 block_layout_bytes: Vec::new(),
                 background_layout_bytes: Vec::new(),
                 block_mapping: BlockVisualMapping::new(foreground, blocks)
@@ -1861,6 +1921,14 @@ mod tests {
 
     fn sample_level1_visuals() -> Level1Visuals {
         sample_level1_visuals_with_background([33, 66, 99])
+    }
+
+    fn sample_foreground_layout_bytes() -> Vec<u8> {
+        let mut bytes = vec![0; 20 * 14];
+        bytes[0] = 0;
+        bytes[1] = 3;
+        bytes[20] = 5;
+        bytes
     }
 
     fn build_ingame_scene(
@@ -2209,6 +2277,31 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_emits_foreground_tiles_from_decoded_layout() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let Some((tile_sheet, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80) else {
+            panic!("expected a foreground tile at the origin");
+        };
+        assert_eq!(tile_sheet.tiles.len(), 0x80);
+        assert_eq!(tile.tile_index, 0);
+
+        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!("expected a second foreground tile in the opening row");
+        };
+        assert_eq!(tile.tile_index, 12);
+
+        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 0, 16, 0x80) else {
+            panic!("expected a foreground tile in the second row");
+        };
+        assert_eq!(tile.tile_index, 20);
+    }
+
+    #[test]
     fn build_game_scene_emits_block_family_tiles_from_skin_and_block_type() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
@@ -2221,23 +2314,23 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, Some(&grid));
 
         let expected_tiles = [
-            (0, 0, 0x80, 0),
             (16, 0, 0x200, 8),
             (32, 0, 0x200, 76),
             (48, 0, 0x200, 144),
             (64, 0, 0x200, 212),
             (80, 0, 0x200, 280),
-            (96, 0, 0x200, 0),
         ];
         for (x, y, expected_sheet_len, expected_tile_index) in expected_tiles {
             let Some((tile_sheet, tile, _)) =
-                indexed_tile_at_with_sheet_len(&scene, x, y, expected_sheet_len)
+                topmost_indexed_tile_at_with_sheet_len(&scene, x, y, expected_sheet_len)
             else {
-                panic!("expected indexed terrain tile at {x},{y}");
+                panic!("expected indexed block override at {x},{y}");
             };
             assert_eq!(tile_sheet.tiles.len(), expected_sheet_len);
             assert_eq!(tile.tile_index, expected_tile_index);
         }
+        assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_none());
+        assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 96, 0, 0x200).is_some());
     }
 
     #[test]
@@ -2556,31 +2649,23 @@ mod tests {
     }
 
     #[test]
-    fn block_grid_renders_visible_cells() {
+    fn foreground_layer_renders_visible_cells() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
-        // 4x3 grid: top two rows empty, bottom row solid
-        let mut data = vec![0u8; 4 * 3 * 2];
-        for col in 0..4 {
-            let offset = (2 * 4 + col) * 2;
-            data[offset] = 0x60; // collision=6 (Solid)
-        }
-        let grid = BlockGrid::from_level_layout(&data, 4, 3);
-
-        let scene = build_ingame_scene(&trace, false, Some(&grid));
-        for col in 0..4 {
+        let scene = build_ingame_scene(&trace, false, None);
+        for col in 0..2 {
             assert!(
-                indexed_tile_at_with_sheet_len(&scene, col * 16, 32, 0x80).is_some(),
-                "missing solid cell art at col {col}"
+                indexed_tile_at_with_sheet_len(&scene, col * 16, 16, 0x80).is_some(),
+                "missing foreground tile art at col {col}"
             );
         }
-        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80).is_none());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 320, 0, 0x80).is_none());
     }
 
     #[test]
-    fn block_grid_only_draws_visible_cells() {
+    fn block_grid_only_draws_visible_block_overrides() {
         let mut trace = sample_trace(GameMode::InGame);
         // Camera at (320px, 0) — first 20 columns offscreen
         trace.camera_x_pos = 0x0140_0000;
@@ -2592,19 +2677,19 @@ mod tests {
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
         for col in 0..40 {
             let offset = (1 * 40 + col) * 2;
-            data[offset] = 0x60;
+            data[offset] = 0xE1;
         }
         let grid = BlockGrid::from_level_layout(&data, w, h);
 
         let scene = build_ingame_scene(&trace, false, Some(&grid));
         let offscreen_tiles = scene.commands.iter().filter(|cmd| {
             matches!(cmd, DrawCommand::IndexedTile { x, tile_sheet, .. }
-                if tile_sheet.tiles.len() == 0x80 && *x < -8)
+                if tile_sheet.tiles.len() == 0x200 && *x < -8)
         });
         assert_eq!(
             offscreen_tiles.count(),
             0,
-            "offscreen cells should not be drawn"
+            "offscreen block overrides should not be drawn"
         );
     }
 

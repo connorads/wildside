@@ -2,12 +2,12 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
-The current delivery frontier is Level 1 full traversal, now green on the default generated-terrain runtime path; the next likely source-port slice is deeper Level 1 enemy-family fidelity.
+The current delivery frontier is a directly playable `play-native` Level 1 path with readable asset-backed rendering and native smoke coverage. Oracle commands remain in-repo for spot-checking, but they are no longer the primary definition of whether Level 1 is working.
 
 ## Current status
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
-- `kidcli play-native` starts the native Level 1 playtest path in a release build. It launches directly into a settled native Level 1 state with the asset-backed scene visible and optional debug overlay support.
+- `kidcli play-native` starts the native Level 1 playtest path in a release build. It launches directly into a settled native Level 1 state with background, decoded foreground terrain, live block overrides, sprites, and optional debug overlay support.
 - `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
 - `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
@@ -21,8 +21,8 @@ The current delivery frontier is Level 1 full traversal, now green on the defaul
 - `kidcli inspect-level --level ...` loads a typed level bundle from the generated cache and prints parsed level header metadata, bgscroll profile summary, platform layout summary, enemy layout summary, and the concrete resource files and byte sizes for that level.
 - `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
-- `kidcli compare-native-oracle --scenario ...` compares native semantic checkpoint state, including scoped per-enemy snapshots, directly against the `jgenesis` oracle without using `kid-md`.
-- `kidcli compare-native-gameplay --scenario ...` compares native gameplay checkpoints for pause/resume, death/respawn, and long traversal/transition scenarios against the gameplay oracle capture.
+- `kidcli compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `kid-md`.
+- `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
@@ -95,6 +95,15 @@ If you want to play or test the project, pick the runtime first:
 - `cargo run --release -p kidcli -- play` for the emulator-backed shell with menus and audio.
 - `cargo run --release -p kidcli -- play-native --rom ./kc.md` for the native source-port Level 1 playtest path.
 
+For the fastest Level 1 feedback loop, use:
+
+```bash
+cargo run --release -p kidcli -- play-native
+cargo run -p kidcli -- verify-native-bootstrap
+cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
+cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1
+```
+
 For a player-facing launch with the default ROM search path, use:
 
 ```bash
@@ -166,7 +175,7 @@ To dump a longer capture for inspection, use:
 cargo run -p kidcli -- dump-audio --scenario boot-title-start-level1 --out .cache/long-audio.wav
 ```
 
-To compare the native host against the `jgenesis` oracle, use:
+If you want an oracle spot-check after the native path looks right, use:
 
 ```bash
 cargo run -p kidcli -- oracle-setup

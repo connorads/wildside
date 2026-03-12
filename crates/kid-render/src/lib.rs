@@ -12,7 +12,9 @@ pub use background::{
 };
 pub use bundle::{Level1Visuals, load_level1_visuals};
 pub use hud::{HudIcon, HudVisuals};
-pub use level::{BlockVisualKind, BlockVisualMapping, LevelVisuals, ResolvedBlockVisual};
+pub use level::{
+    BlockVisualKind, BlockVisualMapping, ForegroundLayout, LevelVisuals, ResolvedBlockVisual,
+};
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame};
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
@@ -209,10 +211,13 @@ mod tests {
     impl TestBundle {
         fn new() -> anyhow::Result<Self> {
             let root = TempDir::new()?;
+            let foreground_bytes = (0..(6 * 4 * 20 * 14))
+                .map(|value| (value % 16) as u8)
+                .collect::<Vec<_>>();
             write_file(
                 root.path(),
                 "decoded/level/00/foreground.bin",
-                &[0x10, 0x11, 0x12, 0x13],
+                &foreground_bytes,
             )?;
             write_file(
                 root.path(),

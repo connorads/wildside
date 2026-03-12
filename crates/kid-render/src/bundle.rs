@@ -2,7 +2,7 @@ use crate::background::{
     BackgroundChunk, BackgroundVisuals, parse_background_chunk, parse_chunked_background_layout,
 };
 use crate::hud::{HudIcon, HudVisuals};
-use crate::level::{BlockVisualMapping, LevelVisuals};
+use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame,
@@ -77,6 +77,12 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
     let foreground_layout = read_decoded_file(manifest, &decoded.foreground, "foreground layout")?;
     let block_layout = read_decoded_file(manifest, &decoded.block, "block layout")?;
     let background_layout = read_decoded_file(manifest, &decoded.background, "background layout")?;
+    let parsed_foreground_layout = ForegroundLayout::parse(
+        &foreground_layout,
+        header.width_screens,
+        header.height_screens,
+    )
+    .context("failed to parse Level 1 foreground layout")?;
 
     let foreground_tiles = load_tile_sheet(
         manifest,
@@ -175,6 +181,7 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
             level_id: LEVEL1_ID,
             foreground_theme_id: header.level_theme,
             background_theme_id: header.background_theme,
+            foreground_layout: parsed_foreground_layout,
             foreground_layout_bytes: foreground_layout,
             block_layout_bytes: block_layout,
             background_layout_bytes: background_layout,

@@ -20,7 +20,11 @@ This dossier covers the first vertical slice: boot to title, title to level load
 
 ```bash
 cargo run -p kidcli -- inspect-level --level 00
+cargo run --release -p kidcli -- play-native
+cargo run -p kidcli -- verify-native-bootstrap
+cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- inspect-enemy --enemy 01
+# optional spot-checks once the native path looks right
 cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 ```
@@ -29,7 +33,7 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 
 - level id: `0x00`
 - display name: `Blue Lake Woods 1`
-- header size: `10x2` screens (200x28 cells, 3200x448 px)
+- header size: `6x4` screens (120x56 cells, 1920x896 px)
 - player start: `1872,224`
 - flag: `1872,768`
 - bgscroll entries: 49 layers
@@ -61,6 +65,7 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 - Jump height per form is transcribed from `unk_A49E`; RedStealth has a higher factor ($4A vs $42).
 - The visible Level 1 enemy-family mapping is `Diamond` plus slot-decoded `MiniHoppingSkull`.
 - Platform paths use preload plus activation-window logic over `level/platform/00.asm` placements.
+- `play-native` now renders the decoded foreground layout as the base Level 1 scene, then layers live block overrides, sprites, and HUD on top so the opening area is readable without relying on oracle artefacts.
 - This opening-slice dossier is complete; the next tracked frontier lives in `docs/source-port/level-1-full-traversal.md`.
 
 ## Next for Level 1: full traversal
