@@ -144,12 +144,16 @@ pub struct LevelHeader {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnemyLayout {
+    #[serde(default)]
+    pub axis_uses_y_position: bool,
     pub unknown_prefix: u32,
     pub enemy_type_slots: Vec<u16>,
     pub unknown_word: u16,
     pub header_byte: u8,
     pub object_count: u8,
     pub objects: Vec<EnemyLayoutObject>,
+    #[serde(default)]
+    pub segments: Vec<EnemyLayoutSegment>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -159,6 +163,16 @@ pub struct EnemyLayoutObject {
     pub hit_points_plus_one: u16,
     pub x: u16,
     pub y: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EnemyLayoutSegment {
+    pub lower_bound: u16,
+    pub upper_bound: u16,
+    pub enemy_type_slots: Vec<u16>,
+    pub object_batch_flags: u8,
+    pub object_count: u8,
+    pub objects: Vec<EnemyLayoutObject>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -563,18 +577,22 @@ pub fn parse_level_header(bytes: &[u8]) -> Result<LevelHeader> {
 }
 
 pub fn parse_enemy_layout(bytes: &[u8]) -> Result<EnemyLayout> {
-    const HEADER_LEN: usize = 14;
+    const HEADER_LEN: usize = 12;
+    const OBJECT_BATCH_HEADER_LEN: usize = 2;
     const OBJECT_LEN: usize = 8;
 
-    if bytes.len() < HEADER_LEN {
+    if bytes.len() < HEADER_LEN + OBJECT_BATCH_HEADER_LEN {
         bail!(
-            "enemy layout was {} bytes, expected at least {HEADER_LEN} bytes",
-            bytes.len()
+            "enemy layout was {} bytes, expected at least {} bytes",
+            bytes.len(),
+            HEADER_LEN + OBJECT_BATCH_HEADER_LEN
         );
     }
 
-    let object_count = bytes[13];
-    let expected_len = HEADER_LEN + usize::from(object_count) * OBJECT_LEN;
+    let object_batch_flags = bytes[HEADER_LEN];
+    let object_count = bytes[HEADER_LEN + 1];
+    let expected_len =
+        HEADER_LEN + OBJECT_BATCH_HEADER_LEN + usize::from(object_count) * OBJECT_LEN;
     if bytes.len() < expected_len {
         bail!(
             "enemy layout was {} bytes, expected at least {expected_len} bytes for {object_count} objects",
@@ -583,7 +601,8 @@ pub fn parse_enemy_layout(bytes: &[u8]) -> Result<EnemyLayout> {
     }
 
     let mut objects = Vec::with_capacity(usize::from(object_count));
-    for chunk in bytes[HEADER_LEN..expected_len].chunks_exact(OBJECT_LEN) {
+    for chunk in bytes[HEADER_LEN + OBJECT_BATCH_HEADER_LEN..expected_len].chunks_exact(OBJECT_LEN)
+    {
         objects.push(EnemyLayoutObject {
             object_type: chunk[0],
             flags: chunk[1],
@@ -593,17 +612,31 @@ pub fn parse_enemy_layout(bytes: &[u8]) -> Result<EnemyLayout> {
         });
     }
 
+    let enemy_type_slots = vec![
+        read_u16_be(bytes, 4),
+        read_u16_be(bytes, 6),
+        read_u16_be(bytes, 8),
+    ];
+    let lower_bound = read_u16_be(bytes, 2);
+    let upper_bound = read_u16_be(bytes, 10);
+    let segment = EnemyLayoutSegment {
+        lower_bound,
+        upper_bound,
+        enemy_type_slots: enemy_type_slots.clone(),
+        object_batch_flags,
+        object_count,
+        objects: objects.clone(),
+    };
+
     Ok(EnemyLayout {
+        axis_uses_y_position: read_u16_be(bytes, 0) != 0,
         unknown_prefix: read_u32_be(bytes, 0),
-        enemy_type_slots: vec![
-            read_u16_be(bytes, 4),
-            read_u16_be(bytes, 6),
-            read_u16_be(bytes, 8),
-        ],
-        unknown_word: read_u16_be(bytes, 10),
-        header_byte: bytes[12],
+        enemy_type_slots,
+        unknown_word: upper_bound,
+        header_byte: object_batch_flags,
         object_count,
         objects,
+        segments: vec![segment],
     })
 }
 
@@ -745,7 +778,10 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
                 level.header_metadata = Some(parse_level_header(&bytes)?);
             }
         }
-        if level.enemy_layout_metadata.is_none()
+        if level
+            .enemy_layout_metadata
+            .as_ref()
+            .is_none_or(|layout| layout.segments.is_empty())
             && let Some(relative_path) = level.resources.enemy.as_deref()
         {
             let full_path = manifest.output_root.join("level").join(relative_path);
@@ -1750,11 +1786,20 @@ mod tests {
         ])
         .expect("enemy layout should parse");
 
+        assert!(!layout.axis_uses_y_position);
         assert_eq!(layout.unknown_prefix, 0x0000_0000);
         assert_eq!(layout.enemy_type_slots, vec![0xFFFF, 0x0001, 0x401C]);
         assert_eq!(layout.unknown_word, 0x7D00);
         assert_eq!(layout.header_byte, 0x80);
         assert_eq!(layout.object_count, 0x02);
+        assert_eq!(layout.segments.len(), 1);
+        assert_eq!(layout.segments[0].lower_bound, 0x0000);
+        assert_eq!(layout.segments[0].upper_bound, 0x7D00);
+        assert_eq!(layout.segments[0].object_batch_flags, 0x80);
+        assert_eq!(
+            layout.segments[0].enemy_type_slots,
+            vec![0xFFFF, 0x0001, 0x401C]
+        );
         assert_eq!(layout.objects.len(), 2);
         assert_eq!(layout.objects[0].object_type, 0x80);
         assert_eq!(layout.objects[0].flags, 0x16);
@@ -1910,7 +1955,7 @@ mod tests {
         );
         assert_eq!(manifest.enemy_sources.len(), 1);
         assert_eq!(manifest.theme_assets.len(), 1);
-        assert_eq!(manifest.ingame_assets.len(), 9);
+        assert_eq!(manifest.ingame_assets.len(), 11);
         assert!(
             manifest
                 .ingame_assets

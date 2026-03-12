@@ -1826,14 +1826,52 @@ fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
     }
     if let Some(enemy_layout) = &bundle.parsed_enemy_layout {
         println!(
-            "enemy layout: {} objects, header 0x{:02X}, marker 0x{:04X}",
-            enemy_layout.object_count, enemy_layout.header_byte, enemy_layout.unknown_word
+            "enemy layout: {} objects across {} segment{} ({})",
+            enemy_layout.object_count,
+            enemy_layout.segments.len().max(1),
+            if enemy_layout.segments.len() == 1 {
+                ""
+            } else {
+                "s"
+            },
+            if enemy_layout.axis_uses_y_position {
+                "camera-y keyed"
+            } else {
+                "camera-x keyed"
+            }
         );
-        for (slot_index, slot) in enemy_layout.enemy_type_slots.iter().enumerate() {
+        let primary_slots = enemy_layout
+            .segments
+            .first()
+            .map(|segment| segment.enemy_type_slots.as_slice())
+            .unwrap_or(enemy_layout.enemy_type_slots.as_slice());
+        for (slot_index, slot) in primary_slots.iter().enumerate() {
             println!(
                 "enemy slot {}: {}",
                 slot_index + 1,
                 describe_enemy_slot(manifest, *slot)
+            );
+        }
+        if let Some(segment) = enemy_layout.segments.first() {
+            println!(
+                "enemy segment 1: 0x{:04X}..0x{:04X}, batch 0x{:02X}, {} object{}",
+                segment.lower_bound,
+                segment.upper_bound,
+                segment.object_batch_flags,
+                segment.object_count,
+                if segment.object_count == 1 { "" } else { "s" }
+            );
+        } else {
+            println!(
+                "enemy segment 1: 0x0000..0x{:04X}, batch 0x{:02X}, {} object{}",
+                enemy_layout.unknown_word,
+                enemy_layout.header_byte,
+                enemy_layout.object_count,
+                if enemy_layout.object_count == 1 {
+                    ""
+                } else {
+                    "s"
+                }
             );
         }
         println!(
@@ -3392,6 +3430,11 @@ fn compare_native_states_against_oracle(
     let compare_enemy_snapshots = oracle_states
         .iter()
         .any(|state| !state.active_enemies.is_empty());
+    let native_enemy_labels = native_states
+        .iter()
+        .filter(|state| !state.active_enemies.is_empty())
+        .map(|state| format!("{}@{}", state.label, state.frame_index))
+        .collect::<Vec<_>>();
 
     if native_states.len() != oracle_states.len() {
         bail!(
@@ -3521,10 +3564,18 @@ fn compare_native_states_against_oracle(
     }
 
     if !compare_enemy_snapshots {
-        eprintln!(
-            "warning: oracle captured no enemy snapshots; skipped per-enemy comparison for {}",
-            run_dir.display()
-        );
+        if native_enemy_labels.is_empty() {
+            eprintln!(
+                "warning: oracle captured no enemy snapshots; skipped per-enemy comparison for {}",
+                run_dir.display()
+            );
+        } else {
+            eprintln!(
+                "warning: oracle captured no Diamond/MiniHoppingSkull snapshots, but native captured enemy snapshots at {}; skipped per-enemy comparison for {}",
+                native_enemy_labels.join(", "),
+                run_dir.display()
+            );
+        }
     }
 
     Ok(())
@@ -4729,16 +4780,10 @@ mod tests {
     use super::{
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
         audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
-        capture_native_gameplay_scenario,
-        compare_native_gameplay_with,
-        compare_native_states_against_oracle,
-        find_gameplay_live_drifts,
-        gameplay_checkpoint_window,
-        native_trace_to_oracle_state,
-        parse_button_mask,
-        parse_input_spec,
-        prepare_generated_assets_with,
-        selected_reference_repos,
+        capture_native_gameplay_scenario, compare_native_gameplay_with,
+        compare_native_states_against_oracle, find_gameplay_live_drifts,
+        gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
+        parse_input_spec, prepare_generated_assets_with, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -5330,11 +5375,15 @@ mod tests {
     #[test]
     fn gameplay_regression_native_gameplay_capture_uses_default_runtime_path() {
         let (_source_root, _bundle_root, manifest) = exported_test_manifest();
-        let capture = capture_native_gameplay_scenario(&manifest, GameplayScenario::DeathRespawnLevel1)
-            .expect("capture");
+        let capture =
+            capture_native_gameplay_scenario(&manifest, GameplayScenario::DeathRespawnLevel1)
+                .expect("capture");
         assert_eq!(capture.checkpoints.len(), 4);
         assert!(
-            capture.checkpoints.iter().any(|state| state.label == "respawn_tail"),
+            capture
+                .checkpoints
+                .iter()
+                .any(|state| state.label == "respawn_tail"),
             "default native gameplay capture should reach the scripted respawn checkpoint"
         );
     }

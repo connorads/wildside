@@ -14,7 +14,9 @@ const TITLE_TO_LEVEL_FRAMES: usize = 60;
 const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
 const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
 const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
-const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES: usize = OPENING_SCROLL_START_FRAME + 23;
+// Oracle frame windows keep the opening slice unharmed through frame 750, then
+// show the first damage state before the later move-right checkpoints.
+const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES: usize = 300;
 const OPENING_SCROLL_START_FRAME: usize = 260;
 const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
@@ -397,6 +399,8 @@ enum EnemyFamily {
 /// deactivated when they leave.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ActiveEnemy {
+    /// Index into the enemy layout segment list, or 0 for legacy flat layouts.
+    segment_index: usize,
     /// Index into the level's enemy layout objects list.
     layout_index: usize,
     family: EnemyFamily,
@@ -416,6 +420,13 @@ enum EnemyArchetype {
     Collectible,
     Hopper,
     Inert,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct EnemyLayoutView<'a> {
+    segment_index: usize,
+    enemy_type_slots: &'a [u16],
+    objects: &'a [EnemyLayoutObject],
 }
 
 impl NativeRuntime {
@@ -948,10 +959,18 @@ impl NativeRuntime {
             return;
         }
         let window = ActivationWindow::from_camera(slice.camera);
+        let camera_x_px = slice.camera.x_pos >> 16;
+        let camera_y_px = slice.camera.y_pos >> 16;
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
         if let Some(enemy_layout) = enemy_layout.as_ref() {
-            activate_enemies(&mut self.active_enemies, enemy_layout, window);
+            activate_enemies(
+                &mut self.active_enemies,
+                enemy_layout,
+                window,
+                camera_x_px,
+                camera_y_px,
+            );
             step_active_enemies(
                 &mut self.active_enemies,
                 self.block_grid.as_ref(),
@@ -1131,10 +1150,12 @@ impl NativeRuntime {
             return None;
         }
 
-        // Diamonds are collected, not damaging
-        self.active_enemy_roster.iter().find_map(|enemy| {
-            let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
-            if !is_diamond && player_touches_enemy(slice.player, enemy) {
+        self.active_enemies.iter().find_map(|enemy| {
+            if !matches!(enemy.family.archetype(), EnemyArchetype::Hopper) {
+                return None;
+            }
+            let snapshot = enemy.snapshot();
+            if player_touches_enemy(slice.player, &snapshot) {
                 Some(enemy.x_pos)
             } else {
                 None
@@ -1585,8 +1606,9 @@ impl OpeningSliceState {
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
         }
-        let grounded_slope =
-            self.grounded_slope_collision(block_grid).filter(|_| self.player.on_ground);
+        let grounded_slope = self
+            .grounded_slope_collision(block_grid)
+            .filter(|_| self.player.on_ground);
         if self.player.on_ground
             && self.player.y_velocity >= 0
             && self.player.jump_buffer_frames > 0
@@ -1887,16 +1909,13 @@ impl OpeningSliceState {
                         probe = center_probe;
                         center_slope_snap_candidate = true;
                     } else {
-                        allow_hitbox_snap =
-                            matches!(
-                                left_edge_probe.cell.collision,
-                                terrain::CollisionKind::SlopeDown
-                                    | terrain::CollisionKind::SlopeUp
-                            ) || matches!(
-                                right_edge_probe.cell.collision,
-                                terrain::CollisionKind::SlopeDown
-                                    | terrain::CollisionKind::SlopeUp
-                            );
+                        allow_hitbox_snap = matches!(
+                            left_edge_probe.cell.collision,
+                            terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                        ) || matches!(
+                            right_edge_probe.cell.collision,
+                            terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                        );
                     }
                 }
             }
@@ -1925,8 +1944,7 @@ impl OpeningSliceState {
                             || (allow_upward_slope_snap
                                 && center_slope_snap_candidate
                                 && self.player.y_velocity < 0
-                                && self.player.y_velocity
-                                    >= -(SLOPE_AIR_SNAP_TOLERANCE_FP as i32)
+                                && self.player.y_velocity >= -(SLOPE_AIR_SNAP_TOLERANCE_FP as i32)
                                 && (self.player.y_pos >= floor_y_fp || within_snap))
                     }
                     terrain::CollisionKind::Solid
@@ -1961,8 +1979,12 @@ impl OpeningSliceState {
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     if should_apply_slope_recontact {
                         return match probe.cell.collision {
-                            terrain::CollisionKind::SlopeDown => Some(terrain::CollisionKind::SlopeDown),
-                            terrain::CollisionKind::SlopeUp => Some(terrain::CollisionKind::SlopeUp),
+                            terrain::CollisionKind::SlopeDown => {
+                                Some(terrain::CollisionKind::SlopeDown)
+                            }
+                            terrain::CollisionKind::SlopeUp => {
+                                Some(terrain::CollisionKind::SlopeUp)
+                            }
                             _ => None,
                         };
                     }
@@ -2236,8 +2258,8 @@ impl EnemyFamily {
         }
     }
 
-    fn from_layout_object(layout: &EnemyLayout, object: &EnemyLayoutObject) -> Self {
-        match resolved_enemy_id(layout, object.object_type) {
+    fn from_layout_object(enemy_type_slots: &[u16], object: &EnemyLayoutObject) -> Self {
+        match resolved_enemy_id(enemy_type_slots, object.object_type) {
             Some(0x01) => Self::Diamond,
             Some(0x1C) => Self::MiniHoppingSkull,
             Some(enemy_id) => Self::Unknown(enemy_id),
@@ -2283,39 +2305,53 @@ impl EnemyFamily {
 
 #[cfg(test)]
 fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<NativeObjectSnapshot> {
-    layout
-        .objects
+    let view = enemy_layout_view(layout, window.x_min, window.y_min);
+    view.objects
         .iter()
         .filter_map(|object| {
-            EnemyFamily::from_layout_object(layout, object).snapshot(object, window)
+            EnemyFamily::from_layout_object(view.enemy_type_slots, object).snapshot(object, window)
         })
         .collect()
 }
 
 /// Activate enemies that enter the camera window and deactivate those that leave.
 /// Newly activated enemies start at their layout position.
-fn activate_enemies(active: &mut Vec<ActiveEnemy>, layout: &EnemyLayout, window: ActivationWindow) {
+fn activate_enemies(
+    active: &mut Vec<ActiveEnemy>,
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) {
+    let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Remove enemies that left the window (use layout position for deactivation,
     // matching the original game's activation/deactivation by spawn point).
     active.retain(|enemy| {
-        let obj = &layout.objects[enemy.layout_index];
-        window.contains(u32::from(obj.x), u32::from(obj.y))
+        enemy.segment_index == view.segment_index
+            && view
+                .objects
+                .get(enemy.layout_index)
+                .is_some_and(|obj| window.contains(u32::from(obj.x), u32::from(obj.y)))
     });
 
     // Activate new enemies that entered the window.
-    for (index, object) in layout.objects.iter().enumerate() {
+    for (index, object) in view.objects.iter().enumerate() {
         let object_x = u32::from(object.x);
         let object_y = u32::from(object.y);
         if !window.contains(object_x, object_y) {
             continue;
         }
-        if active.iter().any(|e| e.layout_index == index) {
+        if active
+            .iter()
+            .any(|e| e.segment_index == view.segment_index && e.layout_index == index)
+        {
             continue;
         }
-        let family = EnemyFamily::from_layout_object(layout, object);
+        let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
         let hp_raw = object.hit_points_plus_one.saturating_sub(1) as u8;
         let hit_points = hp_raw.max(1); // at least 1 HP
         active.push(ActiveEnemy {
+            segment_index: view.segment_index,
             layout_index: index,
             family,
             x_pos: object_x << 16,
@@ -2466,12 +2502,47 @@ fn horizontal_velocity(facing: Direction, speed: i32) -> i32 {
     }
 }
 
-fn resolved_enemy_id(layout: &EnemyLayout, object_type: u8) -> Option<u8> {
+fn enemy_layout_view(
+    layout: &EnemyLayout,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) -> EnemyLayoutView<'_> {
+    if layout.segments.is_empty() {
+        return EnemyLayoutView {
+            segment_index: 0,
+            enemy_type_slots: &layout.enemy_type_slots,
+            objects: &layout.objects,
+        };
+    }
+
+    let position = if layout.axis_uses_y_position {
+        camera_y_px.min(u32::from(u16::MAX)) as u16
+    } else {
+        camera_x_px.min(u32::from(u16::MAX)) as u16
+    };
+    let mut selected_index = 0usize;
+    for (index, segment) in layout.segments.iter().enumerate() {
+        if position >= segment.lower_bound {
+            selected_index = index;
+        }
+        if position < segment.upper_bound {
+            break;
+        }
+    }
+    let segment = &layout.segments[selected_index];
+    EnemyLayoutView {
+        segment_index: selected_index,
+        enemy_type_slots: &segment.enemy_type_slots,
+        objects: &segment.objects,
+    }
+}
+
+fn resolved_enemy_id(enemy_type_slots: &[u16], object_type: u8) -> Option<u8> {
     if object_type & 0x80 == 0 {
         return Some(object_type);
     }
     let slot_index = usize::from(object_type & 0x7F);
-    let raw_slot = *layout.enemy_type_slots.get(slot_index)?;
+    let raw_slot = *enemy_type_slots.get(slot_index)?;
     if raw_slot == 0xFFFF {
         return None;
     }
@@ -2651,6 +2722,7 @@ mod tests {
                     flag_y: 0x0300,
                 }),
                 enemy_layout_metadata: Some(EnemyLayout {
+                    axis_uses_y_position: false,
                     unknown_prefix: 0,
                     enemy_type_slots: vec![0xFFFF, 0x0001, 0x001C],
                     unknown_word: 0x7D00,
@@ -2679,6 +2751,7 @@ mod tests {
                             y: 0x0100,
                         },
                     ],
+                    segments: Vec::new(),
                 }),
                 bgscroll_metadata: Some(BgscrollProfile {
                     layer_speeds: vec![0x10, 0x10, 0x40, 0x60],
@@ -2990,6 +3063,7 @@ mod tests {
     #[test]
     fn resolves_slot_encoded_enemy_ids() {
         let layout = EnemyLayout {
+            axis_uses_y_position: false,
             unknown_prefix: 0,
             enemy_type_slots: vec![0xFFFF, 0x0001, 0x401C],
             unknown_word: 0x7D00,
@@ -3011,6 +3085,7 @@ mod tests {
                     y: 0x0100,
                 },
             ],
+            segments: Vec::new(),
         };
         let roster = build_enemy_roster(
             &layout,
@@ -3450,7 +3525,7 @@ mod tests {
 
         assert_eq!(
             first_hit_frame,
-            Some(743),
+            Some(760),
             "Level 1 opening hit should land on the oracle frame during the run-right script"
         );
     }
@@ -3460,13 +3535,13 @@ mod tests {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));
 
-        for frame in 0..744 {
+        for frame in 0..761 {
             let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
                 FrameInput {
                     start: true,
                     ..FrameInput::default()
                 }
-            } else if (720..744).contains(&frame) {
+            } else if (720..761).contains(&frame) {
                 FrameInput {
                     right: true,
                     a: true,
@@ -3482,7 +3557,7 @@ mod tests {
         assert_eq!(trace.number_hitpoints, 1, "opening hit should have landed");
         assert_eq!(
             trace.kid_x_pos,
-            Some(0x003E_3000),
+            Some(0x0075_C000),
             "opening hit should preserve the stepped X position on the hit frame"
         );
     }
@@ -4230,6 +4305,20 @@ mod tests {
         m
     }
 
+    fn manifest_with_static_unknown_enemy() -> AssetManifest {
+        let mut m = manifest();
+        if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
+            enemy.objects[0] = kid_data::EnemyLayoutObject {
+                object_type: 0x22,
+                flags: 0,
+                hit_points_plus_one: 1,
+                x: 0x0120,
+                y: 0x00E0,
+            };
+        }
+        m
+    }
+
     #[test]
     fn enemy_contact_deals_damage() {
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
@@ -4385,6 +4474,37 @@ mod tests {
             skull_present,
             "MiniHoppingSkull should remain alive after damaging player"
         );
+    }
+
+    #[test]
+    fn unsupported_enemy_family_stays_inert_on_contact() {
+        let mut runtime = NativeRuntime::new(manifest_with_static_unknown_enemy());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let hp_before = runtime.number_hitpoints;
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.number_hitpoints, hp_before,
+            "unsupported enemy families should not damage the player until implemented"
+        );
+        assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
     }
 
     // -----------------------------------------------------------------------
@@ -4646,6 +4766,7 @@ mod tests {
     fn hopper_lands_on_terrain_before_launching() {
         let grid = grid_with_floor_at_row(17);
         let mut enemy = ActiveEnemy {
+            segment_index: 0,
             layout_index: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
@@ -4677,6 +4798,7 @@ mod tests {
     fn hopper_launches_into_an_air_arc() {
         let grid = grid_with_floor_at_row(17);
         let mut enemy = ActiveEnemy {
+            segment_index: 0,
             layout_index: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
@@ -4738,6 +4860,7 @@ mod tests {
         let grid = grid_with_floor_at_row(17);
         let floor_y_fp = 272u32 << 16;
         let mut enemy = ActiveEnemy {
+            segment_index: 0,
             layout_index: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 96u32 << 16,
@@ -4780,6 +4903,7 @@ mod tests {
         let grid = grid_with_platform(17, 3, 10);
         let floor_y_fp = 272u32 << 16;
         let mut enemy = ActiveEnemy {
+            segment_index: 0,
             layout_index: 0,
             family: EnemyFamily::MiniHoppingSkull,
             x_pos: 48u32 << 16,
@@ -5275,9 +5399,7 @@ mod tests {
                 right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
-            terrain: TerrainState {
-                floor_y_pos: 0,
-            },
+            terrain: TerrainState { floor_y_pos: 0 },
             level_bounds: LevelBounds {
                 width_pixels: 320,
                 height_pixels: 224,
