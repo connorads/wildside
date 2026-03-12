@@ -35,12 +35,24 @@ struct FrameCheckpoint {
     frame_index: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutputMode {
+    Capture,
+    EnemyLayoutTrace,
+}
+
 #[derive(Debug, Serialize)]
 struct OracleManifest {
     sample_rate: u32,
     audio_path: PathBuf,
     frames: Vec<OracleFrame>,
     states: Vec<OracleState>,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleEnemyLayoutTraceManifest {
+    scenario: String,
+    checkpoints: Vec<OracleEnemyLayoutCheckpoint>,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,6 +78,42 @@ struct OracleEnemyState {
     x_velocity: i32,
     y_velocity: i32,
     facing: EnemyFacing,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleEnemyLayoutCheckpoint {
+    label: String,
+    frame_index: usize,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    header_ptr: u32,
+    object_ptr: u32,
+    axis_uses_y_position: bool,
+    enemy_type_slots: Vec<u16>,
+    upper_bound: u16,
+    object_batch_flags: u8,
+    object_count: u8,
+    objects: Vec<OracleEnemyLayoutObject>,
+    visible_enemies: Vec<OracleVisibleEnemyLayout>,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleEnemyLayoutObject {
+    object_type: u8,
+    resolved_object_type: Option<u8>,
+    flags: u8,
+    hit_points_plus_one: u16,
+    x: u16,
+    y: u16,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleVisibleEnemyLayout {
+    object_type: u8,
+    layout_ptr: u32,
+    parent_object_ptr: u32,
+    x_pos: u32,
+    y_pos: u32,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,6 +147,8 @@ const KID_X_POS_ADDR: usize = 0xFF_24FA;
 const KID_Y_POS_ADDR: usize = 0xFF_24FE;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
+const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
+const ENEMY_LAYOUT_OBJECT_PTR_ADDR: usize = 0xFF_F8F6;
 const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
 const GFX_OBJECT_SLOT_SIZE: usize = 0x4C;
 const GFX_OBJECT_SLOT_COUNT: usize = 0x4D;
@@ -185,12 +235,14 @@ fn main() -> Result<()> {
     let mut rom_path = None;
     let mut out_dir = None;
     let mut scenario = None;
+    let mut mode = OutputMode::Capture;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--rom" => rom_path = args.next().map(PathBuf::from),
             "--out-dir" => out_dir = args.next().map(PathBuf::from),
             "--scenario" => scenario = args.next().map(|value| parse_scenario(&value)),
+            "--mode" => mode = parse_mode(&args.next().context("missing --mode value")?)?,
             other => return Err(anyhow!("unknown arg {other}")),
         }
     }
@@ -205,60 +257,102 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     let script = scenario_script(scenario);
     let checkpoints = scenario_checkpoints(scenario);
-    let mut checkpoint_index = 0usize;
+    match mode {
+        OutputMode::Capture => {
+            let mut checkpoint_index = 0usize;
+            let mut save_writer = NullSaveWriter;
+            let mut emulator = GenesisEmulator::create(rom, genesis_config(), &mut save_writer);
+            emulator.update_audio_output_frequency(SAMPLE_RATE);
+            let mut renderer = CaptureRenderer::default();
+            let mut audio = AudioCollector::default();
+            let mut frame_index = 0usize;
+            let mut rendered_frames = Vec::new();
+            let mut captured_states = Vec::new();
 
-    let mut save_writer = NullSaveWriter;
-    let mut emulator = GenesisEmulator::create(rom, genesis_config(), &mut save_writer);
-    emulator.update_audio_output_frequency(SAMPLE_RATE);
-    let mut renderer = CaptureRenderer::default();
-    let mut audio = AudioCollector::default();
-    let mut frame_index = 0usize;
-    let mut rendered_frames = Vec::new();
-    let mut captured_states = Vec::new();
-
-    while frame_index < scenario_frame_count(scenario) {
-        let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
-        loop {
-            if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
-                TickEffect::FrameRendered
-            {
-                while checkpoint_index < checkpoints.len()
-                    && checkpoints[checkpoint_index].frame_index == frame_index
-                {
-                    let checkpoint = checkpoints[checkpoint_index];
-                    let png_path = out_dir.join(format!(
-                        "{:04}_{}.png",
-                        checkpoint.frame_index, checkpoint.label
-                    ));
-                    write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
-                    rendered_frames.push(OracleFrame {
-                        label: checkpoint.label.to_string(),
-                        frame_index: checkpoint.frame_index,
-                        sha1: sha1_hex(&renderer.rgb),
-                        png_path,
-                    });
-                    captured_states.push(capture_state(
-                        &mut emulator,
-                        checkpoint.label,
-                        checkpoint.frame_index,
-                    ));
-                    checkpoint_index += 1;
+            while frame_index < scenario_frame_count(scenario) {
+                let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
+                loop {
+                    if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
+                        TickEffect::FrameRendered
+                    {
+                        while checkpoint_index < checkpoints.len()
+                            && checkpoints[checkpoint_index].frame_index == frame_index
+                        {
+                            let checkpoint = checkpoints[checkpoint_index];
+                            let png_path = out_dir.join(format!(
+                                "{:04}_{}.png",
+                                checkpoint.frame_index, checkpoint.label
+                            ));
+                            write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
+                            rendered_frames.push(OracleFrame {
+                                label: checkpoint.label.to_string(),
+                                frame_index: checkpoint.frame_index,
+                                sha1: sha1_hex(&renderer.rgb),
+                                png_path,
+                            });
+                            captured_states.push(capture_state(
+                                &mut emulator,
+                                checkpoint.label,
+                                checkpoint.frame_index,
+                            ));
+                            checkpoint_index += 1;
+                        }
+                        frame_index += 1;
+                        break;
+                    }
                 }
-                frame_index += 1;
-                break;
             }
+
+            let audio_path = out_dir.join("audio.wav");
+            write_wav(&audio_path, &audio.samples)?;
+            let manifest = OracleManifest {
+                sample_rate: SAMPLE_RATE as u32,
+                audio_path,
+                frames: rendered_frames,
+                states: captured_states,
+            };
+            println!("{}", serde_json::to_string_pretty(&manifest)?);
+        }
+        OutputMode::EnemyLayoutTrace => {
+            let mut checkpoint_index = 0usize;
+            let mut save_writer = NullSaveWriter;
+            let mut emulator = GenesisEmulator::create(rom, genesis_config(), &mut save_writer);
+            emulator.update_audio_output_frequency(SAMPLE_RATE);
+            let mut renderer = CaptureRenderer::default();
+            let mut audio = AudioCollector::default();
+            let mut frame_index = 0usize;
+            let mut checkpoints_out = Vec::new();
+
+            while frame_index < scenario_frame_count(scenario) {
+                let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
+                loop {
+                    if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
+                        TickEffect::FrameRendered
+                    {
+                        while checkpoint_index < checkpoints.len()
+                            && checkpoints[checkpoint_index].frame_index == frame_index
+                        {
+                            let checkpoint = checkpoints[checkpoint_index];
+                            checkpoints_out.push(capture_enemy_layout_checkpoint(
+                                &mut emulator,
+                                checkpoint.label,
+                                checkpoint.frame_index,
+                            ));
+                            checkpoint_index += 1;
+                        }
+                        frame_index += 1;
+                        break;
+                    }
+                }
+            }
+
+            let manifest = OracleEnemyLayoutTraceManifest {
+                scenario: scenario_slug(scenario).to_string(),
+                checkpoints: checkpoints_out,
+            };
+            println!("{}", serde_json::to_string_pretty(&manifest)?);
         }
     }
-
-    let audio_path = out_dir.join("audio.wav");
-    write_wav(&audio_path, &audio.samples)?;
-    let manifest = OracleManifest {
-        sample_rate: SAMPLE_RATE as u32,
-        audio_path,
-        frames: rendered_frames,
-        states: captured_states,
-    };
-    println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())
 }
 
@@ -269,6 +363,23 @@ fn parse_scenario(value: &str) -> Result<Scenario> {
         "boot_title_start_level1_move_right_5s" => Ok(Scenario::BootTitleStartLevel1MoveRight5s),
         "level1_enemy_window" => Ok(Scenario::Level1EnemyWindow),
         _ => Err(anyhow!("unknown scenario {value}")),
+    }
+}
+
+fn parse_mode(value: &str) -> Result<OutputMode> {
+    match value {
+        "capture" => Ok(OutputMode::Capture),
+        "enemy-layout-trace" => Ok(OutputMode::EnemyLayoutTrace),
+        _ => Err(anyhow!("unknown mode {value}")),
+    }
+}
+
+fn scenario_slug(scenario: Scenario) -> &'static str {
+    match scenario {
+        Scenario::BootTitleIdle10s => "boot_title_idle_10s",
+        Scenario::BootTitleStartLevel1 => "boot_title_start_level1",
+        Scenario::BootTitleStartLevel1MoveRight5s => "boot_title_start_level1_move_right_5s",
+        Scenario::Level1EnemyWindow => "level1_enemy_window",
     }
 }
 
@@ -409,9 +520,6 @@ fn capture_enemy_states(
             continue;
         }
         let object_type = read_rom_u8(rom, layout_ptr);
-        if !matches!(object_type, 0x01 | 0x1C) {
-            continue;
-        }
         enemies.push(OracleEnemyState {
             object_type,
             x_pos: read_wram_u32(work_ram, base + OBJECT_X_POS_OFFSET),
@@ -427,6 +535,83 @@ fn capture_enemy_states(
     }
     enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
     enemies
+}
+
+fn capture_enemy_layout_checkpoint(
+    emulator: &mut GenesisEmulator,
+    label: &str,
+    frame_index: usize,
+) -> OracleEnemyLayoutCheckpoint {
+    let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
+    let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
+    let header_ptr = read_wram_u32(&work_ram, ENEMY_LAYOUT_HEADER_PTR_ADDR);
+    let object_ptr = read_wram_u32(&work_ram, ENEMY_LAYOUT_OBJECT_PTR_ADDR);
+    let slot0 = read_rom_u16(rom.as_ref(), header_ptr as usize + 2);
+    let slot1 = read_rom_u16(rom.as_ref(), header_ptr as usize + 4);
+    let slot2 = read_rom_u16(rom.as_ref(), header_ptr as usize + 6);
+    let enemy_type_slots = vec![slot0, slot1, slot2];
+    let object_batch_flags = read_rom_u8(rom.as_ref(), object_ptr as usize);
+    let object_count = read_rom_u8(rom.as_ref(), object_ptr as usize + 1);
+    let mut objects = Vec::with_capacity(object_count as usize);
+    for object_index in 0..usize::from(object_count) {
+        let base = object_ptr as usize + 2 + object_index * 8;
+        let object_type = read_rom_u8(rom.as_ref(), base);
+        objects.push(OracleEnemyLayoutObject {
+            object_type,
+            resolved_object_type: resolve_object_type(object_type, &enemy_type_slots),
+            flags: read_rom_u8(rom.as_ref(), base + 1),
+            hit_points_plus_one: read_rom_u16(rom.as_ref(), base + 2),
+            x: read_rom_u16(rom.as_ref(), base + 4),
+            y: read_rom_u16(rom.as_ref(), base + 6),
+        });
+    }
+
+    OracleEnemyLayoutCheckpoint {
+        label: label.to_string(),
+        frame_index,
+        camera_x_pos: read_wram_u32(&work_ram, CAMERA_X_POS_ADDR),
+        camera_y_pos: read_wram_u32(&work_ram, CAMERA_Y_POS_ADDR),
+        header_ptr,
+        object_ptr,
+        axis_uses_y_position: read_rom_u16(rom.as_ref(), header_ptr as usize) != 0,
+        enemy_type_slots,
+        upper_bound: read_rom_u16(rom.as_ref(), header_ptr as usize + 8),
+        object_batch_flags,
+        object_count,
+        objects,
+        visible_enemies: capture_visible_enemy_layouts(&work_ram, rom.as_ref()),
+    }
+}
+
+fn capture_visible_enemy_layouts(
+    work_ram: &[u8],
+    rom: &dyn jgenesis_common::debug::DebugMemoryView,
+) -> Vec<OracleVisibleEnemyLayout> {
+    let mut visible_enemies = Vec::new();
+    for slot_index in 0..GFX_OBJECT_SLOT_COUNT {
+        let base = GFX_OBJECT_RAM_ADDR + slot_index * GFX_OBJECT_SLOT_SIZE;
+        if read_wram_u8(work_ram, base + DISPLAY_FLAG_OFFSET) == 0 {
+            continue;
+        }
+        let parent_object_ptr = read_wram_u32(work_ram, base + PARENT_OBJECT_OFFSET);
+        let parent_object = parent_object_ptr as usize;
+        if !(OBJECT_RAM_ADDR..OBJECT_RAM_END_ADDR).contains(&parent_object) {
+            continue;
+        }
+        let layout_ptr = read_wram_u32(work_ram, parent_object + OBJECT_LAYOUT_PTR_OFFSET);
+        if layout_ptr == 0 {
+            continue;
+        }
+        visible_enemies.push(OracleVisibleEnemyLayout {
+            object_type: read_rom_u8(rom, layout_ptr as usize),
+            layout_ptr,
+            parent_object_ptr,
+            x_pos: read_wram_u32(work_ram, base + OBJECT_X_POS_OFFSET),
+            y_pos: read_wram_u32(work_ram, base + OBJECT_Y_POS_OFFSET),
+        });
+    }
+    visible_enemies.sort_by_key(|enemy| (enemy.object_type, enemy.layout_ptr, enemy.x_pos));
+    visible_enemies
 }
 
 fn work_ram_index(address: usize) -> usize {
@@ -461,6 +646,22 @@ fn read_wram_i32(memory: &[u8], address: usize) -> i32 {
 
 fn read_rom_u8(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u8 {
     memory.read(address)
+}
+
+fn read_rom_u16(memory: &dyn jgenesis_common::debug::DebugMemoryView, address: usize) -> u16 {
+    u16::from_be_bytes([read_rom_u8(memory, address), read_rom_u8(memory, address + 1)])
+}
+
+fn resolve_object_type(object_type: u8, enemy_type_slots: &[u16]) -> Option<u8> {
+    if object_type & 0x80 == 0 {
+        return Some(object_type);
+    }
+    let slot_index = usize::from(object_type & 0x7F);
+    let raw_slot = *enemy_type_slots.get(slot_index)?;
+    if raw_slot == 0xFFFF {
+        return None;
+    }
+    u8::try_from(raw_slot & 0x3FFF).ok()
 }
 
 fn apply_single_frames(script: &mut [u8], frames: &[usize], buttons: u8) {

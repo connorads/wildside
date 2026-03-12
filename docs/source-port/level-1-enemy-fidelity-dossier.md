@@ -24,6 +24,8 @@ This dossier covers the current enemy-fidelity frontier for Blue Lake Woods 1:
 cargo run -p kidcli -- inspect-level --level 00
 cargo run -p kidcli -- inspect-enemy --enemy 01
 cargo run -p kidcli -- inspect-enemy --enemy 1c
+cargo run -p kidcli -- trace-oracle-enemy-layout --scenario boot-title-start-level1
+cargo run -p kidcli -- trace-oracle-enemy-layout --scenario level1-enemy-window
 cargo test -p kid-core
 cargo test -p kidcli
 cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
@@ -45,41 +47,44 @@ cargo run -p kidcli -- compare-native-oracle --scenario level1-enemy-window
 
 ## Level 1 family facts
 
-- Level 1 enemy layout contains 22 objects
-- Current generated/native parse says the first visible families are:
-  - `Diamond` (`0x01`)
-  - `MiniHoppingSkull` (`0x1C`)
-- Parsed Level 1 layout object ordering begins with diamonds, then skulls later in the file
-- Oracle runtime evidence now contradicts that early-window assumption:
-  - the first linked enemy object seen in the real game decodes to `0x0D`
-  - that family is `Dragon`, not `Diamond` or `MiniHoppingSkull`
+- The split `level/enemy/00.bin` blob still decodes as 22 objects (`Diamond` + `MiniHoppingSkull`), but that data is not what the runtime is using in the local verified ROM
+- Oracle layout tracing for `boot-title-start-level1` and `level1-enemy-window` shows the real Level 1 enemy batch as:
+  - header `0x0792EE`
+  - object batch `0x0792F8`
+  - slots `[0xFFFF, 0x000C, 0xFFFF]`
+  - 4 direct `0x0D` objects
+- The first visible hostile in the real game is therefore `Dragon` (`0x0D`), not `Diamond` or `MiniHoppingSkull`
 
 ## Current oracle findings
 
-- The cache-local `jgenesis` helper now follows `gfx slot -> parent object -> layout pointer` and can recover family IDs from cartridge ROM when they are needed
-- Real oracle runs for:
-  - `boot-title-start-level1`
-  - `boot-title-start-level1-move-right5s`
-  still capture no active `Diamond` or `MiniHoppingSkull` snapshots in the first 5 seconds
-- Direct helper instrumentation showed:
-  - active Level 1 gfx slots are present at the target checkpoints
-  - a stable parent-object layout pointer at `0x0007930A`
-  - the linked ROM object entry begins with `0x0D`, matching `Dragon`
-- That means the current native/generated enemy-layout interpretation is still ahead of the source-port research, not the oracle helper capture
+- `kidcli trace-oracle-enemy-layout` now writes checkpointed oracle layout truth to `.cache/native-oracle-runs/<scenario>/enemy-layout-trace.json`
+- The cache-local `jgenesis` helper now records:
+  - `Addr_EnemyLayoutHeader`
+  - `Addr_EnemyLayout`
+  - current slot table
+  - object batch header/count
+  - decoded batch objects
+  - visible enemy layout pointers from active gfx slots
+- The traced visible Level 1 enemy uses layout pointer `0x0007930A` and family `0x0D`
+- Native now uses the traced Level 1 roster via a `prepare_generated_assets` override, so:
+  - `inspect-level --level 00` reports 4 `0x0D` objects
+  - `probe-native --scenario boot-title-start-level1` activates `enemy_0D`
+  - `compare-native-oracle --scenario boot-title-start-level1` passes
+  - `compare-native-oracle --scenario level1-enemy-window` passes
 
 ## Working hypothesis
 
-- Native currently over-counts Level 1 enemies by comparing against a parsed roster that does not yet match the original segmented enemy layout
-- The oracle helper mapping step is now good enough to rule out the original “gfx object capture is blind” theory for the early Level 1 window
-- The first remaining fidelity task is to decode the real enemy layout/header segmentation used by `Addr_EnemyLayout` and `Addr_EnemyLayoutHeader`, then rebuild native activation against that source data
+- The split enemy blob and the runtime ROM diverge for Level 1, so the immediate bottleneck was not just parser shape but source authority
+- The oracle helper mapping step has ruled out the old “gfx object capture is blind” theory for the early Level 1 window
+- The traced Level 1 override is the current authority for native/runtime work until the upstream split/source-data gap is decoded properly
 
 ## Next actions
 
-- Decode the real Level 1 enemy layout/header segmentation from `kid.asm` loader code
-- Rebuild `kid-data` Level 1 enemy parsing so early runtime families match oracle evidence
-- Keep the oracle helper ROM-backed family decode in place as the regression check for that parser fix
+- Decode why the upstream split `level/enemy/00.bin` does not match the traced ROM batch at `0x0792EA`
+- Replace the current Level 1 trace override with a reproducible ROM/source decode path once that source gap is understood
+- Keep the oracle layout trace as the regression check for any future parser replacement
 - Re-run:
   - `boot-title-start-level1`
   - `boot-title-start-level1-move-right5s`
   - `level1-enemy-window`
-- Once the first two families compare cleanly, extend the same seam to the next Level 1 hostile family
+- Once the Level 1 data-source gap is closed, extend the same seam to the next hostile family beyond the opening Dragon window

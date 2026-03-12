@@ -28,6 +28,12 @@ pub struct OracleManifest {
     pub states: Vec<OracleState>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleEnemyLayoutTraceManifest {
+    pub scenario: String,
+    pub checkpoints: Vec<OracleEnemyLayoutCheckpoint>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
 pub struct OracleFrame {
     pub label: String,
@@ -51,6 +57,42 @@ pub struct OracleEnemyState {
     pub x_velocity: i32,
     pub y_velocity: i32,
     pub facing: EnemyFacing,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleEnemyLayoutCheckpoint {
+    pub label: String,
+    pub frame_index: usize,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+    pub header_ptr: u32,
+    pub object_ptr: u32,
+    pub axis_uses_y_position: bool,
+    pub enemy_type_slots: Vec<u16>,
+    pub upper_bound: u16,
+    pub object_batch_flags: u8,
+    pub object_count: u8,
+    pub objects: Vec<OracleEnemyLayoutObject>,
+    pub visible_enemies: Vec<OracleVisibleEnemyLayout>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleEnemyLayoutObject {
+    pub object_type: u8,
+    pub resolved_object_type: Option<u8>,
+    pub flags: u8,
+    pub hit_points_plus_one: u16,
+    pub x: u16,
+    pub y: u16,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleVisibleEnemyLayout {
+    pub object_type: u8,
+    pub layout_ptr: u32,
+    pub parent_object_ptr: u32,
+    pub x_pos: u32,
+    pub y_pos: u32,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
@@ -118,6 +160,29 @@ pub fn run_jgenesis_capture(
         None,
     )?;
     serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
+}
+
+pub fn run_jgenesis_enemy_layout_trace(
+    env: &OracleEnvironment,
+    rom_path: &Path,
+    scenario: Scenario,
+    out_dir: &Path,
+) -> Result<OracleEnemyLayoutTraceManifest> {
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+    let stdout = capture_stdout(
+        Command::new(&env.jgenesis_helper_bin)
+            .arg("--rom")
+            .arg(rom_path)
+            .arg("--out-dir")
+            .arg(out_dir)
+            .arg("--scenario")
+            .arg(scenario.slug())
+            .arg("--mode")
+            .arg("enemy-layout-trace"),
+        None,
+    )?;
+    serde_json::from_slice(&stdout).context("failed to parse jgenesis enemy-layout trace")
 }
 
 fn write_helper_project(helper_dir: &Path, jgenesis_dir: &Path) -> Result<()> {

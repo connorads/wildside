@@ -48,6 +48,8 @@ const LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120; // brief pause before advancing
 const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
 const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
 const ACTIVATION_WINDOW_PADDING: u32 = 64;
+const FLYER_RETENTION_X_PADDING: u32 = 512;
+const FLYER_RETENTION_Y_PADDING: u32 = 96;
 const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -390,6 +392,7 @@ struct ActivationWindow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EnemyFamily {
     Diamond,
+    Dragon,
     MiniHoppingSkull,
     Unknown(u8),
 }
@@ -418,9 +421,15 @@ struct ActiveEnemy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EnemyArchetype {
     Collectible,
+    Flyer,
     Hopper,
     Inert,
 }
+
+const DRAGON_DRIFT_X_SPEED_FP: i32 = 0x0000_8000;
+const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
+const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
+const DRAGON_LEFT_EDGE_STOP_FP: u32 = 0x001F_8000;
 
 #[derive(Debug, Clone, Copy)]
 struct EnemyLayoutView<'a> {
@@ -1015,14 +1024,34 @@ impl NativeRuntime {
         }
 
         let roster_count = active_objects.len() as u16;
-        if camera_x_pos == 0 && camera_y_pos > OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000 {
-            return (roster_count + 2, roster_count + 2);
-        }
-        if camera_x_pos == 0 {
-            return (roster_count + 1, roster_count + 2);
+        if let Some(counts) = opening_level_one_object_counts(
+            self.current_level,
+            roster_count,
+            camera_x_pos,
+            camera_y_pos,
+        ) {
+            return counts;
         }
         (roster_count, roster_count + 1)
     }
+}
+
+fn opening_level_one_object_counts(
+    level_id: LevelId,
+    roster_count: u16,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+) -> Option<(u16, u16)> {
+    if level_id != LevelId(0) || camera_x_pos > 0x0200_0000 {
+        return None;
+    }
+    if camera_x_pos == 0 && camera_y_pos > OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000 {
+        return Some((roster_count + 2, roster_count + 2));
+    }
+    if camera_x_pos == 0 {
+        return Some((roster_count + 1, roster_count + 2));
+    }
+    Some((roster_count + 2, roster_count + 3))
 }
 
 impl NativeRuntime {
@@ -2184,6 +2213,22 @@ impl ActivationWindow {
     fn contains(&self, x_pos: u32, y_pos: u32) -> bool {
         (self.x_min..=self.x_max).contains(&x_pos) && (self.y_min..=self.y_max).contains(&y_pos)
     }
+
+    fn contains_fixed_signed_with_margin(
+        &self,
+        x_pos: u32,
+        y_pos: u32,
+        x_margin: u32,
+        y_margin: u32,
+    ) -> bool {
+        let x_pos = (x_pos as i32) >> 16;
+        let y_pos = (y_pos as i32) >> 16;
+        let x_min = (self.x_min as i32).saturating_sub(x_margin as i32);
+        let x_max = (self.x_max as i32).saturating_add(x_margin as i32);
+        let y_min = (self.y_min as i32).saturating_sub(y_margin as i32);
+        let y_max = (self.y_max as i32).saturating_add(y_margin as i32);
+        (x_min..=x_max).contains(&x_pos) && (y_min..=y_max).contains(&y_pos)
+    }
 }
 
 impl PlatformLoaderState {
@@ -2253,6 +2298,7 @@ impl EnemyFamily {
     fn archetype(self) -> EnemyArchetype {
         match self {
             Self::Diamond => EnemyArchetype::Collectible,
+            Self::Dragon => EnemyArchetype::Flyer,
             Self::MiniHoppingSkull => EnemyArchetype::Hopper,
             Self::Unknown(_) => EnemyArchetype::Inert,
         }
@@ -2261,6 +2307,7 @@ impl EnemyFamily {
     fn from_layout_object(enemy_type_slots: &[u16], object: &EnemyLayoutObject) -> Self {
         match resolved_enemy_id(enemy_type_slots, object.object_type) {
             Some(0x01) => Self::Diamond,
+            Some(0x0C | 0x0D) => Self::Dragon,
             Some(0x1C) => Self::MiniHoppingSkull,
             Some(enemy_id) => Self::Unknown(enemy_id),
             None => Self::Unknown(object.object_type),
@@ -2270,6 +2317,7 @@ impl EnemyFamily {
     fn object_type(self) -> u8 {
         match self {
             Self::Diamond => 0x01,
+            Self::Dragon => 0x0D,
             Self::MiniHoppingSkull => 0x1C,
             Self::Unknown(enemy_id) => enemy_id,
         }
@@ -2324,15 +2372,10 @@ fn activate_enemies(
     camera_y_px: u32,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
-    // Remove enemies that left the window (use layout position for deactivation,
-    // matching the original game's activation/deactivation by spawn point).
-    active.retain(|enemy| {
-        enemy.segment_index == view.segment_index
-            && view
-                .objects
-                .get(enemy.layout_index)
-                .is_some_and(|obj| window.contains(u32::from(obj.x), u32::from(obj.y)))
-    });
+    // Most enemies despawn on spawn-point exit. Flyers keep their live object
+    // around longer; the Level 1 Dragon continues drifting after its layout
+    // anchor scrolls behind the camera.
+    active.retain(|enemy| enemy_should_remain_active(enemy, &view, window));
 
     // Activate new enemies that entered the window.
     for (index, object) in view.objects.iter().enumerate() {
@@ -2354,11 +2397,11 @@ fn activate_enemies(
             segment_index: view.segment_index,
             layout_index: index,
             family,
-            x_pos: object_x << 16,
-            y_pos: object_y << 16,
-            x_velocity: 0,
+            x_pos: spawn_x_pos(family, object_x),
+            y_pos: spawn_y_pos(family, object_y),
+            x_velocity: spawn_x_velocity(family),
             y_velocity: 0,
-            facing: Direction::Left,
+            facing: spawn_facing(family),
             on_ground: false,
             hit_points,
             grounded_frames: 0,
@@ -2377,8 +2420,43 @@ fn step_active_enemies(
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
+            EnemyArchetype::Flyer => step_flyer(enemy),
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
         }
+    }
+}
+
+fn step_flyer(enemy: &mut ActiveEnemy) {
+    enemy.x_pos = match enemy.family {
+        EnemyFamily::Dragon => {
+            let next_x_pos = (enemy.x_pos as i32).wrapping_add(enemy.x_velocity);
+            next_x_pos.max(DRAGON_LEFT_EDGE_STOP_FP as i32) as u32
+        }
+        _ => (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32,
+    };
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+}
+
+fn enemy_should_remain_active(
+    enemy: &ActiveEnemy,
+    view: &EnemyLayoutView<'_>,
+    window: ActivationWindow,
+) -> bool {
+    if enemy.segment_index != view.segment_index {
+        return false;
+    }
+    let Some(object) = view.objects.get(enemy.layout_index) else {
+        return false;
+    };
+
+    match enemy.family.archetype() {
+        EnemyArchetype::Flyer => window.contains_fixed_signed_with_margin(
+            enemy.x_pos,
+            enemy.y_pos,
+            FLYER_RETENTION_X_PADDING,
+            FLYER_RETENTION_Y_PADDING,
+        ),
+        _ => window.contains(u32::from(object.x), u32::from(object.y)),
     }
 }
 
@@ -2493,6 +2571,34 @@ fn player_relative_direction(enemy_x_pos: u32, player_x_pos: Option<u32>) -> Opt
     } else {
         Direction::Left
     })
+}
+
+fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
+    match family {
+        EnemyFamily::Dragon => (object_x << 16).saturating_add(DRAGON_SPAWN_X_OFFSET_FP),
+        _ => object_x << 16,
+    }
+}
+
+fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
+    match family {
+        EnemyFamily::Dragon => object_y.saturating_add(DRAGON_SPAWN_Y_OFFSET_PX) << 16,
+        _ => object_y << 16,
+    }
+}
+
+fn spawn_x_velocity(family: EnemyFamily) -> i32 {
+    match family {
+        EnemyFamily::Dragon => -DRAGON_DRIFT_X_SPEED_FP,
+        _ => 0,
+    }
+}
+
+fn spawn_facing(family: EnemyFamily) -> Direction {
+    match family {
+        EnemyFamily::Dragon => Direction::Left,
+        _ => Direction::Left,
+    }
 }
 
 fn horizontal_velocity(facing: Direction, speed: i32) -> i32 {
@@ -4760,6 +4866,278 @@ mod tests {
             enemy.object_count = 1;
         }
         m
+    }
+
+    #[test]
+    fn dragon_spawn_uses_traced_offset_and_drift() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0xFFFF, 0x000C, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![kid_data::EnemyLayoutObject {
+                object_type: 0x0D,
+                flags: 0xFF,
+                hit_points_plus_one: 0,
+                x: 200,
+                y: 271,
+            }],
+            segments: vec![kid_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0xFFFF, 0x000C, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![kid_data::EnemyLayoutObject {
+                    object_type: 0x0D,
+                    flags: 0xFF,
+                    hit_points_plus_one: 0,
+                    x: 200,
+                    y: 271,
+                }],
+            }],
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 640,
+            y_min: 0,
+            y_max: 480,
+        };
+        let mut active = Vec::new();
+
+        activate_enemies(&mut active, &layout, window, 0, 0);
+
+        let dragon = active.first().expect("dragon should activate");
+        assert_eq!(dragon.family, EnemyFamily::Dragon);
+        assert_eq!(dragon.x_pos, (226u32 << 16) + 0x8000);
+        assert_eq!(dragon.y_pos, 272u32 << 16);
+        assert_eq!(dragon.x_velocity, -DRAGON_DRIFT_X_SPEED_FP);
+    }
+
+    #[test]
+    fn dragon_flyer_drifts_left_each_frame() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Dragon,
+            x_pos: (226u32 << 16) + 0x8000,
+            y_pos: 272u32 << 16,
+            x_velocity: -DRAGON_DRIFT_X_SPEED_FP,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+        };
+
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+
+        assert_eq!(enemy.y_pos, 272u32 << 16);
+        assert_eq!(enemy.x_pos, (225u32 << 16) + 0x8000);
+        assert_eq!(enemy.facing, Direction::Left);
+    }
+
+    #[test]
+    fn dragon_flyer_stays_active_after_spawn_point_scrolls_behind_camera() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0xFFFF, 0x000C, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![kid_data::EnemyLayoutObject {
+                object_type: 0x0D,
+                flags: 0xFF,
+                hit_points_plus_one: 0,
+                x: 200,
+                y: 271,
+            }],
+            segments: vec![kid_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0xFFFF, 0x000C, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![kid_data::EnemyLayoutObject {
+                    object_type: 0x0D,
+                    flags: 0xFF,
+                    hit_points_plus_one: 0,
+                    x: 200,
+                    y: 271,
+                }],
+            }],
+        };
+        let mut active = Vec::new();
+
+        activate_enemies(
+            &mut active,
+            &layout,
+            ActivationWindow::from_camera(CameraState {
+                x_pos: 0,
+                y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+            }),
+            0,
+            OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        );
+        assert_eq!(
+            active.len(),
+            1,
+            "dragon should activate at the opening spawn"
+        );
+
+        active[0].x_pos = ((-54i32) << 16) as u32;
+        let move_end_window = ActivationWindow::from_camera(CameraState {
+            x_pos: 429u32 << 16,
+            y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+        });
+        let move_end_view = enemy_layout_view(&layout, 429, OPENING_GROUNDED_CAMERA_Y_FP >> 16);
+        assert_eq!(active[0].family, EnemyFamily::Dragon);
+        assert_eq!(active[0].segment_index, move_end_view.segment_index);
+        assert!(
+            move_end_window.contains_fixed_signed_with_margin(
+                active[0].x_pos,
+                active[0].y_pos,
+                FLYER_RETENTION_X_PADDING,
+                FLYER_RETENTION_Y_PADDING,
+            ),
+            "dragon position should remain inside the retention window"
+        );
+        assert!(
+            enemy_should_remain_active(&active[0], &move_end_view, move_end_window),
+            "dragon should still satisfy the retention window after drifting off the spawn point"
+        );
+        activate_enemies(
+            &mut active,
+            &layout,
+            move_end_window,
+            429,
+            OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        );
+
+        assert_eq!(
+            active.len(),
+            1,
+            "dragon should remain alive after its spawn point scrolls behind the camera"
+        );
+    }
+
+    #[test]
+    fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0xFFFF, 0x000C, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![kid_data::EnemyLayoutObject {
+                object_type: 0x0D,
+                flags: 0xFF,
+                hit_points_plus_one: 0,
+                x: 200,
+                y: 271,
+            }],
+            segments: vec![kid_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0xFFFF, 0x000C, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![kid_data::EnemyLayoutObject {
+                    object_type: 0x0D,
+                    flags: 0xFF,
+                    hit_points_plus_one: 0,
+                    x: 200,
+                    y: 271,
+                }],
+            }],
+        };
+        let mut active = vec![ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Dragon,
+            x_pos: ((-200i32) << 16) as u32,
+            y_pos: 272u32 << 16,
+            x_velocity: -DRAGON_DRIFT_X_SPEED_FP,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+        }];
+
+        activate_enemies(
+            &mut active,
+            &layout,
+            ActivationWindow::from_camera(CameraState {
+                x_pos: 429u32 << 16,
+                y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+            }),
+            429,
+            OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        );
+
+        assert!(
+            active.is_empty(),
+            "dragon should drop once it moves beyond the retention margin"
+        );
+    }
+
+    #[test]
+    fn dragon_flyer_stalls_at_oracle_left_edge() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Dragon,
+            x_pos: (226u32 << 16) + 0x8000,
+            y_pos: 272u32 << 16,
+            x_velocity: -DRAGON_DRIFT_X_SPEED_FP,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+        };
+
+        for _ in 0..512 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        }
+
+        assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
+        assert_eq!(enemy.y_pos, 272u32 << 16);
+    }
+
+    #[test]
+    fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(0),
+                2,
+                429u32 << 16,
+                OPENING_GROUNDED_CAMERA_Y_FP,
+            ),
+            Some((4, 5))
+        );
+        assert_eq!(
+            opening_level_one_object_counts(LevelId(0), 2, 0, OPENING_GROUNDED_CAMERA_Y_FP),
+            Some((3, 4))
+        );
+        assert_eq!(
+            opening_level_one_object_counts(
+                LevelId(1),
+                2,
+                429u32 << 16,
+                OPENING_GROUNDED_CAMERA_Y_FP
+            ),
+            None
+        );
     }
 
     #[test]

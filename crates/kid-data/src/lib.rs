@@ -480,11 +480,10 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .transpose()?
         .or(level.header_metadata.clone());
     let enemy = load_asset(manifest, level.resources.enemy.as_deref())?;
-    let parsed_enemy_layout = enemy
+    let parsed_enemy_layout = level.enemy_layout_metadata.clone().or(enemy
         .as_ref()
         .map(|asset| parse_enemy_layout(&asset.bytes))
-        .transpose()?
-        .or(level.enemy_layout_metadata.clone());
+        .transpose()?);
     let bgscroll = load_asset(manifest, level.resources.bgscroll.as_deref())?;
     let parsed_bgscroll = bgscroll
         .as_ref()

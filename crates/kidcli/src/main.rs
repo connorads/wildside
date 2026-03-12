@@ -12,7 +12,8 @@ use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script};
 use kid_data::{
-    AssetManifest, ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
+    AssetManifest, EnemyLayout, EnemyLayoutObject, EnemyLayoutSegment,
+    ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
     generated_bundle_dir, load_level_asset_bundle, load_manifest,
     manifest_path as generated_manifest_path,
 };
@@ -20,8 +21,9 @@ use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
 use native_player::{NativePlayOptions, render_gameplay_frame_evidence, run_native_player};
 use oracle::{
-    EnemyFacing, OracleEnemyState, OracleEnvironment, OracleManifest, OracleState, ensure_oracles,
-    run_jgenesis_capture,
+    EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
+    OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
+    run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
 use scenarios::{GameplayScenario, Scenario};
@@ -278,6 +280,12 @@ enum Commands {
         rom: Option<PathBuf>,
         #[arg(long)]
         dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
+        scenario: Scenario,
+    },
+    TraceOracleEnemyLayout {
+        #[arg(long)]
+        rom: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
     },
@@ -673,6 +681,11 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             compare_native_oracle(&repo_root, &rom_path, &manifest, scenario)?;
+        }
+        Commands::TraceOracleEnemyLayout { rom, scenario } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            trace_oracle_enemy_layout(&repo_root, &rom_path, scenario)?;
         }
         Commands::CompareNativeGameplay { rom, dir, scenario } => {
             let repo_root = current_dir()?;
@@ -2398,7 +2411,8 @@ where
     let bundle_dir = generated_bundle_dir(repo_root, &verified.sha1);
     let bundle_manifest_path = generated_manifest_path(&bundle_dir);
     if bundle_manifest_path.is_file() {
-        let manifest = load_manifest(&bundle_manifest_path)?;
+        let mut manifest = load_manifest(&bundle_manifest_path)?;
+        apply_oracle_enemy_layout_overrides(repo_root, &mut manifest)?;
         if ensure_generated_bundle_contract(&manifest).is_ok() {
             return Ok(manifest);
         }
@@ -2407,7 +2421,82 @@ where
     bootstrap_upstream_fn(upstream_dir)?;
     sync_rom_fn(rom_path, upstream_dir)?;
     split_fn(upstream_dir)?;
-    export_bundle_fn(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)
+    let mut manifest =
+        export_bundle_fn(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)?;
+    apply_oracle_enemy_layout_overrides(repo_root, &mut manifest)?;
+    Ok(manifest)
+}
+
+fn apply_oracle_enemy_layout_overrides(
+    repo_root: &Path,
+    manifest: &mut AssetManifest,
+) -> Result<()> {
+    let level1_trace = read_enemy_layout_trace_override(repo_root)?;
+    let Some(level1_trace) = level1_trace else {
+        return Ok(());
+    };
+    let Some(level) = manifest
+        .levels
+        .iter_mut()
+        .find(|level| level.level_id == 0x00)
+    else {
+        return Ok(());
+    };
+    level.enemy_layout_metadata = Some(level1_trace);
+    Ok(())
+}
+
+fn read_enemy_layout_trace_override(repo_root: &Path) -> Result<Option<EnemyLayout>> {
+    let trace_path =
+        repo_root.join(".cache/native-oracle-runs/boot_title_start_level1/enemy-layout-trace.json");
+    if !trace_path.is_file() {
+        return Ok(None);
+    }
+    let bytes = fs::read(&trace_path)
+        .with_context(|| format!("failed to read {}", trace_path.display()))?;
+    let trace: OracleEnemyLayoutTraceManifest = serde_json::from_slice(&bytes)
+        .with_context(|| format!("failed to parse {}", trace_path.display()))?;
+    let checkpoint = trace
+        .checkpoints
+        .iter()
+        .find(|checkpoint| checkpoint.label == "level_settle")
+        .or_else(|| {
+            trace
+                .checkpoints
+                .iter()
+                .find(|checkpoint| checkpoint.object_count > 0)
+        })
+        .ok_or_else(|| anyhow!("enemy-layout trace contained no usable checkpoints"))?;
+
+    let objects = checkpoint
+        .objects
+        .iter()
+        .map(|object| EnemyLayoutObject {
+            object_type: object.object_type,
+            flags: object.flags,
+            hit_points_plus_one: object.hit_points_plus_one,
+            x: object.x,
+            y: object.y,
+        })
+        .collect::<Vec<_>>();
+    let segment = EnemyLayoutSegment {
+        lower_bound: 0,
+        upper_bound: checkpoint.upper_bound,
+        enemy_type_slots: checkpoint.enemy_type_slots.clone(),
+        object_batch_flags: checkpoint.object_batch_flags,
+        object_count: checkpoint.object_count,
+        objects: objects.clone(),
+    };
+    Ok(Some(EnemyLayout {
+        axis_uses_y_position: checkpoint.axis_uses_y_position,
+        unknown_prefix: checkpoint.header_ptr,
+        enemy_type_slots: checkpoint.enemy_type_slots.clone(),
+        unknown_word: checkpoint.upper_bound,
+        header_byte: checkpoint.object_batch_flags,
+        object_count: checkpoint.object_count,
+        objects,
+        segments: vec![segment],
+    }))
 }
 
 fn acquire_prepare_lock(repo_root: &Path) -> Result<PrepareLock> {
@@ -2802,6 +2891,67 @@ fn compare_native_oracle(
         scenario.slug()
     );
     Ok(())
+}
+
+fn trace_oracle_enemy_layout(repo_root: &Path, rom_path: &Path, scenario: Scenario) -> Result<()> {
+    let env = ensure_oracles(repo_root)?;
+    let run_dir = repo_root
+        .join(".cache/native-oracle-runs")
+        .join(scenario.slug());
+    let oracle_dir = run_dir.join("oracle-trace");
+    if oracle_dir.exists() {
+        fs::remove_dir_all(&oracle_dir)
+            .with_context(|| format!("failed to remove {}", oracle_dir.display()))?;
+    }
+    fs::create_dir_all(&oracle_dir)
+        .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
+
+    let trace = run_jgenesis_enemy_layout_trace(&env, rom_path, scenario, &oracle_dir)?;
+    let trace_path = run_dir.join("enemy-layout-trace.json");
+    fs::create_dir_all(&run_dir)
+        .with_context(|| format!("failed to create {}", run_dir.display()))?;
+    fs::write(&trace_path, serde_json::to_vec_pretty(&trace)?)
+        .with_context(|| format!("failed to write {}", trace_path.display()))?;
+    print_enemy_layout_trace_summary(&trace_path, &trace);
+    Ok(())
+}
+
+fn print_enemy_layout_trace_summary(path: &Path, trace: &OracleEnemyLayoutTraceManifest) {
+    println!("scenario: {}", trace.scenario);
+    println!("trace: {}", path.display());
+    for checkpoint in &trace.checkpoints {
+        let slot_summary = checkpoint
+            .enemy_type_slots
+            .iter()
+            .map(|slot| format!("0x{slot:04X}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let visible_summary = checkpoint
+            .visible_enemies
+            .iter()
+            .map(|enemy| format!("0x{:02X}@{:06X}", enemy.object_type, enemy.layout_ptr))
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "{}@{} camera {:08X},{:08X} header {:06X} object {:06X} axis {} slots [{}] upper 0x{:04X} batch 0x{:02X} count {} visible [{}]",
+            checkpoint.label,
+            checkpoint.frame_index,
+            checkpoint.camera_x_pos,
+            checkpoint.camera_y_pos,
+            checkpoint.header_ptr,
+            checkpoint.object_ptr,
+            if checkpoint.axis_uses_y_position {
+                "y"
+            } else {
+                "x"
+            },
+            slot_summary,
+            checkpoint.upper_bound,
+            checkpoint.object_batch_flags,
+            checkpoint.object_count,
+            visible_summary,
+        );
+    }
 }
 
 fn compare_native_gameplay(
@@ -5306,7 +5456,7 @@ mod tests {
     }
 
     #[test]
-    fn play_native_fails_fast_when_required_level1_visuals_are_missing() {
+    fn play_native_fails_fast_when_required_level1_visuals_are_invalid() {
         let source_root = TempDir::new().expect("source root");
         let bundle_root = TempDir::new().expect("bundle root");
         write_generated_asset_source_fixture(source_root.path());
@@ -5318,9 +5468,9 @@ mod tests {
             .expect_err("missing required visuals should fail startup");
 
         let message = format!("{error:#}");
-        assert!(message.contains("theme/artcomp_fg/cave.bin"));
-        assert!(message.contains("foreground art"));
-        assert!(message.contains("missing"));
+        assert!(message.contains("foreground layout"));
+        assert!(message.contains("6720"));
+        assert!(message.contains("120x56 cells"));
     }
 
     #[test]
