@@ -796,39 +796,152 @@ fn build_player_sprite_tiles(
     build_sprite_tiles(frame, facing, 0)
 }
 
+fn align_sprite_dimension(px: u16) -> u16 {
+    px.div_ceil(8) * 8
+}
+
+fn sprite_draw_position(
+    frame: &kid_render::SpriteFrame,
+    screen_x: i32,
+    screen_y: i32,
+    facing: Direction,
+) -> (i32, i32) {
+    let draw_x = match facing {
+        Direction::Right => screen_x - i32::from(frame.origin_x),
+        Direction::Left => {
+            screen_x + i32::from(frame.origin_x) - i32::from(align_sprite_dimension(frame.width_px))
+        }
+    };
+    (draw_x, screen_y - i32::from(frame.origin_y))
+}
+
 fn build_sprite_tiles(
     frame: &kid_render::SpriteFrame,
     facing: Direction,
     palette_line: u8,
 ) -> Vec<SpriteTile> {
-    let columns = usize::from(frame.width_px.div_ceil(8));
-    let rows = usize::from(frame.height_px.div_ceil(8));
     let flip_x = matches!(facing, Direction::Left);
-    let mut tiles = Vec::with_capacity(columns * rows);
+    let aligned_width_px = align_sprite_dimension(frame.width_px);
+    let aligned_height_px = align_sprite_dimension(frame.height_px);
+    let mut tiles =
+        Vec::with_capacity(usize::from(aligned_width_px / 8) * usize::from(aligned_height_px / 8));
+    let mut next_tile_index = frame.tile_base_index;
+    let mut band_y_px = 0u16;
+    let mut remaining_height_px = frame.height_px;
+
+    while remaining_height_px >= 32 {
+        append_sprite_band_tiles(
+            &mut tiles,
+            &mut next_tile_index,
+            band_y_px,
+            32,
+            frame.width_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+        band_y_px += 32;
+        remaining_height_px -= 32;
+    }
+
+    let tail_height_px = align_sprite_dimension(remaining_height_px);
+    if tail_height_px > 0 {
+        append_sprite_band_tiles(
+            &mut tiles,
+            &mut next_tile_index,
+            band_y_px,
+            tail_height_px,
+            frame.width_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+    }
+
+    tiles
+}
+
+fn append_sprite_band_tiles(
+    tiles: &mut Vec<SpriteTile>,
+    next_tile_index: &mut u16,
+    band_y_px: u16,
+    band_height_px: u16,
+    frame_width_px: u16,
+    aligned_width_px: u16,
+    flip_x: bool,
+    palette_line: u8,
+) {
+    let mut remaining_width_px = frame_width_px;
+    let mut chunk_x_px = 0u16;
+
+    while remaining_width_px >= 32 {
+        append_sprite_chunk_tiles(
+            tiles,
+            next_tile_index,
+            chunk_x_px,
+            band_y_px,
+            32,
+            band_height_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+        chunk_x_px += 32;
+        remaining_width_px -= 32;
+    }
+
+    let tail_width_px = align_sprite_dimension(remaining_width_px);
+    if tail_width_px > 0 {
+        append_sprite_chunk_tiles(
+            tiles,
+            next_tile_index,
+            chunk_x_px,
+            band_y_px,
+            tail_width_px,
+            band_height_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+    }
+}
+
+fn append_sprite_chunk_tiles(
+    tiles: &mut Vec<SpriteTile>,
+    next_tile_index: &mut u16,
+    chunk_x_px: u16,
+    chunk_y_px: u16,
+    chunk_width_px: u16,
+    chunk_height_px: u16,
+    aligned_width_px: u16,
+    flip_x: bool,
+    palette_line: u8,
+) {
+    let columns = chunk_width_px / 8;
+    let rows = chunk_height_px / 8;
 
     for row in 0..rows {
         for column in 0..columns {
-            let tile_index = frame.tile_base_index + (row * columns + column) as u16;
+            let unflipped_x_px = chunk_x_px + column * 8;
             let offset_x = if flip_x {
-                ((columns - 1 - column) * 8) as i32
+                i32::from(aligned_width_px - unflipped_x_px - 8)
             } else {
-                (column * 8) as i32
+                i32::from(unflipped_x_px)
             };
             tiles.push(SpriteTile {
                 offset_x,
-                offset_y: (row * 8) as i32,
+                offset_y: i32::from(chunk_y_px + row * 8),
                 tile: TileRef {
-                    tile_index,
+                    tile_index: *next_tile_index,
                     palette_line,
                     priority: false,
                     flip_x,
                     flip_y: false,
                 },
             });
+            *next_tile_index += 1;
         }
     }
-
-    tiles
 }
 
 fn select_player_frame<'a>(
@@ -869,10 +982,11 @@ fn push_player_sprite(
     let frame = select_player_frame(trace, &level1_visuals.player);
     let facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
 
     commands.push(DrawCommand::Sprite {
-        x: screen_x - i32::from(frame.origin_x),
-        y: screen_y - i32::from(frame.origin_y),
+        x: draw_x,
+        y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(level1_visuals.player.palette.clone()),
         tiles: build_player_sprite_tiles(frame, facing),
@@ -917,12 +1031,14 @@ fn push_enemy_sprite(
 
     let frame = select_enemy_frame(trace, enemy_visuals);
     let (screen_x, screen_y) = player_screen_position(object, trace);
+    let facing = object.facing.unwrap_or(Direction::Right);
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
     commands.push(DrawCommand::Sprite {
-        x: screen_x - i32::from(frame.origin_x),
-        y: screen_y - i32::from(frame.origin_y),
+        x: draw_x,
+        y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(enemy_visuals.palette.clone()),
-        tiles: build_sprite_tiles(frame, Direction::Right, 0),
+        tiles: build_sprite_tiles(frame, facing, 0),
     });
 }
 
@@ -1826,6 +1942,23 @@ mod tests {
                     tile_count
                 ],
             },
+        }
+    }
+
+    fn numbered_object_frame(width_px: u16, height_px: u16) -> SpriteFrame {
+        let tile_count = usize::from(width_px.div_ceil(8)) * usize::from(height_px.div_ceil(8));
+        let tiles = (0..tile_count)
+            .map(|index| Tile {
+                pixels: [u8::try_from(index + 1).expect("tile signature"); 64],
+            })
+            .collect();
+        SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px,
+            height_px,
+            tile_base_index: 0,
+            tile_sheet: TileSheet { tiles },
         }
     }
 
@@ -3080,6 +3213,71 @@ mod tests {
         assert_eq!(player_sprite_signature(&jump_rise_scene), Some(8));
         assert_eq!(player_sprite_signature(&jump_fall_scene), Some(9));
         assert!(!has_rect(&idle_scene, 8, 8, 16, 32, PLAYER_COLOUR));
+    }
+
+    #[test]
+    fn build_sprite_tiles_matches_original_dma_chunk_order() {
+        let frame = numbered_object_frame(48, 16);
+
+        let tiles = build_sprite_tiles(&frame, Direction::Right, 0);
+        let actual = tiles
+            .iter()
+            .map(|tile| (tile.tile.tile_index, tile.offset_x, tile.offset_y))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            actual,
+            vec![
+                (0, 0, 0),
+                (1, 8, 0),
+                (2, 16, 0),
+                (3, 24, 0),
+                (4, 0, 8),
+                (5, 8, 8),
+                (6, 16, 8),
+                (7, 24, 8),
+                (8, 32, 0),
+                (9, 40, 0),
+                (10, 32, 8),
+                (11, 40, 8),
+            ]
+        );
+    }
+
+    #[test]
+    fn build_sprite_tiles_mirrors_chunk_layout_for_left_facing_frames() {
+        let frame = numbered_object_frame(48, 16);
+
+        let tiles = build_sprite_tiles(&frame, Direction::Left, 0);
+        let actual = tiles
+            .iter()
+            .map(|tile| {
+                (
+                    tile.tile.tile_index,
+                    tile.offset_x,
+                    tile.offset_y,
+                    tile.tile.flip_x,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            actual,
+            vec![
+                (0, 40, 0, true),
+                (1, 32, 0, true),
+                (2, 24, 0, true),
+                (3, 16, 0, true),
+                (4, 40, 8, true),
+                (5, 32, 8, true),
+                (6, 24, 8, true),
+                (7, 16, 8, true),
+                (8, 8, 0, true),
+                (9, 0, 0, true),
+                (10, 8, 8, true),
+                (11, 0, 8, true),
+            ]
+        );
     }
 
     #[test]
