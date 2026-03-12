@@ -27,6 +27,8 @@ enum Scenario {
     BootTitleStartLevel1,
     BootTitleStartLevel1MoveRight5s,
     Level1EnemyWindow,
+    WalkRight3s,
+    JumpFromStandstill,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -362,6 +364,8 @@ fn parse_scenario(value: &str) -> Result<Scenario> {
         "boot_title_start_level1" => Ok(Scenario::BootTitleStartLevel1),
         "boot_title_start_level1_move_right_5s" => Ok(Scenario::BootTitleStartLevel1MoveRight5s),
         "level1_enemy_window" => Ok(Scenario::Level1EnemyWindow),
+        "walk_right_3s" => Ok(Scenario::WalkRight3s),
+        "jump_from_standstill" => Ok(Scenario::JumpFromStandstill),
         _ => Err(anyhow!("unknown scenario {value}")),
     }
 }
@@ -380,6 +384,8 @@ fn scenario_slug(scenario: Scenario) -> &'static str {
         Scenario::BootTitleStartLevel1 => "boot_title_start_level1",
         Scenario::BootTitleStartLevel1MoveRight5s => "boot_title_start_level1_move_right_5s",
         Scenario::Level1EnemyWindow => "level1_enemy_window",
+        Scenario::WalkRight3s => "walk_right_3s",
+        Scenario::JumpFromStandstill => "jump_from_standstill",
     }
 }
 
@@ -389,6 +395,8 @@ fn scenario_frame_count(scenario: Scenario) -> usize {
         Scenario::BootTitleStartLevel1 => 720,
         Scenario::BootTitleStartLevel1MoveRight5s => 1_020,
         Scenario::Level1EnemyWindow => 900,
+        Scenario::WalkRight3s => 900,
+        Scenario::JumpFromStandstill => 781,
     }
 }
 
@@ -432,6 +440,18 @@ fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
                 frame_index: 840,
             },
             FrameCheckpoint {
+                label: "move_turn",
+                frame_index: 849,
+            },
+            FrameCheckpoint {
+                label: "move_post_turn",
+                frame_index: 899,
+            },
+            FrameCheckpoint {
+                label: "move_tail",
+                frame_index: 959,
+            },
+            FrameCheckpoint {
                 label: "move_end",
                 frame_index: 1_019,
             },
@@ -448,6 +468,38 @@ fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
             FrameCheckpoint {
                 label: "enemy_window_tail",
                 frame_index: 750,
+            },
+        ],
+        Scenario::WalkRight3s => &[
+            FrameCheckpoint {
+                label: "level_settle",
+                frame_index: 719,
+            },
+            FrameCheckpoint {
+                label: "walk_mid",
+                frame_index: 810,
+            },
+            FrameCheckpoint {
+                label: "walk_turn",
+                frame_index: 849,
+            },
+            FrameCheckpoint {
+                label: "walk_end",
+                frame_index: 899,
+            },
+        ],
+        Scenario::JumpFromStandstill => &[
+            FrameCheckpoint {
+                label: "level_settle",
+                frame_index: 719,
+            },
+            FrameCheckpoint {
+                label: "jump_apex",
+                frame_index: 730,
+            },
+            FrameCheckpoint {
+                label: "jump_land",
+                frame_index: 780,
             },
         ],
     }
@@ -470,6 +522,16 @@ fn scenario_script(scenario: Scenario) -> Vec<u8> {
             apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
             apply_range(&mut script, 460, 460, 0x80);
             apply_range(&mut script, 720, 899, 1 << 3);
+        }
+        Scenario::WalkRight3s => {
+            apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
+            apply_range(&mut script, 460, 460, 0x80);
+            apply_range(&mut script, 720, 899, 1 << 3);
+        }
+        Scenario::JumpFromStandstill => {
+            apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
+            apply_range(&mut script, 460, 460, 0x80);
+            apply_range(&mut script, 720, 723, 1 << 4);
         }
     }
     script

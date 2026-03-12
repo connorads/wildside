@@ -397,6 +397,19 @@ enum EnemyFamily {
     Unknown(u8),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum DragonMotionPhase {
+    #[default]
+    None,
+    GlideLeftToPerch,
+    PerchLeft,
+    TurnRightDelay,
+    SwoopRight,
+    PerchLeftAtApex,
+    GlideLeftToEdge,
+    ParkedLeft,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -416,6 +429,8 @@ struct ActiveEnemy {
     hit_points: u8,
     grounded_frames: u8,
     damage_flash_frames: u8,
+    dragon_phase: DragonMotionPhase,
+    dragon_phase_frames: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -430,6 +445,11 @@ const DRAGON_DRIFT_X_SPEED_FP: i32 = 0x0000_8000;
 const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
 const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
 const DRAGON_LEFT_EDGE_STOP_FP: u32 = 0x001F_8000;
+const DRAGON_PERCH_X_FP: u32 = 0x0032_8000;
+const DRAGON_SWOOP_APEX_X_FP: u32 = 0x003D_8000;
+const DRAGON_PERCH_LEFT_FRAMES: u16 = 39;
+const DRAGON_TURN_RIGHT_DELAY_FRAMES: u16 = 38;
+const DRAGON_PERCH_LEFT_AT_APEX_FRAMES: u16 = 49;
 
 #[derive(Debug, Clone, Copy)]
 struct EnemyLayoutView<'a> {
@@ -2406,6 +2426,8 @@ fn activate_enemies(
             hit_points,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            dragon_phase: spawn_dragon_phase(family),
+            dragon_phase_frames: 0,
         });
     }
 }
@@ -2427,14 +2449,86 @@ fn step_active_enemies(
 }
 
 fn step_flyer(enemy: &mut ActiveEnemy) {
-    enemy.x_pos = match enemy.family {
-        EnemyFamily::Dragon => {
-            let next_x_pos = (enemy.x_pos as i32).wrapping_add(enemy.x_velocity);
-            next_x_pos.max(DRAGON_LEFT_EDGE_STOP_FP as i32) as u32
-        }
-        _ => (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32,
-    };
+    if matches!(enemy.family, EnemyFamily::Dragon) {
+        step_dragon(enemy);
+        return;
+    }
+
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+}
+
+fn step_dragon(enemy: &mut ActiveEnemy) {
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    match enemy.dragon_phase {
+        DragonMotionPhase::None => {
+            enemy.facing = Direction::Left;
+        }
+        DragonMotionPhase::GlideLeftToPerch => {
+            enemy.facing = Direction::Left;
+            let next_x_pos = enemy.x_pos.saturating_sub(DRAGON_DRIFT_X_SPEED_FP as u32);
+            if next_x_pos <= DRAGON_PERCH_X_FP {
+                enemy.x_pos = DRAGON_PERCH_X_FP;
+                enemy.dragon_phase = DragonMotionPhase::PerchLeft;
+                enemy.dragon_phase_frames = 0;
+            } else {
+                enemy.x_pos = next_x_pos;
+            }
+        }
+        DragonMotionPhase::PerchLeft => {
+            enemy.facing = Direction::Left;
+            if dragon_phase_elapsed(enemy, DRAGON_PERCH_LEFT_FRAMES) {
+                enemy.dragon_phase = DragonMotionPhase::TurnRightDelay;
+                enemy.dragon_phase_frames = 0;
+            }
+        }
+        DragonMotionPhase::TurnRightDelay => {
+            enemy.facing = Direction::Right;
+            if dragon_phase_elapsed(enemy, DRAGON_TURN_RIGHT_DELAY_FRAMES) {
+                enemy.dragon_phase = DragonMotionPhase::SwoopRight;
+                enemy.dragon_phase_frames = 0;
+            }
+        }
+        DragonMotionPhase::SwoopRight => {
+            enemy.facing = Direction::Right;
+            let next_x_pos = enemy.x_pos.saturating_add(DRAGON_DRIFT_X_SPEED_FP as u32);
+            if next_x_pos >= DRAGON_SWOOP_APEX_X_FP {
+                enemy.x_pos = DRAGON_SWOOP_APEX_X_FP;
+                enemy.dragon_phase = DragonMotionPhase::PerchLeftAtApex;
+                enemy.dragon_phase_frames = 0;
+            } else {
+                enemy.x_pos = next_x_pos;
+            }
+        }
+        DragonMotionPhase::PerchLeftAtApex => {
+            enemy.facing = Direction::Left;
+            if dragon_phase_elapsed(enemy, DRAGON_PERCH_LEFT_AT_APEX_FRAMES) {
+                enemy.dragon_phase = DragonMotionPhase::GlideLeftToEdge;
+                enemy.dragon_phase_frames = 0;
+            }
+        }
+        DragonMotionPhase::GlideLeftToEdge => {
+            enemy.facing = Direction::Left;
+            let next_x_pos = enemy.x_pos.saturating_sub(DRAGON_DRIFT_X_SPEED_FP as u32);
+            if next_x_pos <= DRAGON_LEFT_EDGE_STOP_FP {
+                enemy.x_pos = DRAGON_LEFT_EDGE_STOP_FP;
+                enemy.dragon_phase = DragonMotionPhase::ParkedLeft;
+                enemy.dragon_phase_frames = 0;
+            } else {
+                enemy.x_pos = next_x_pos;
+            }
+        }
+        DragonMotionPhase::ParkedLeft => {
+            enemy.facing = Direction::Left;
+            enemy.x_pos = DRAGON_LEFT_EDGE_STOP_FP;
+        }
+    }
+}
+
+fn dragon_phase_elapsed(enemy: &mut ActiveEnemy, phase_duration_frames: u16) -> bool {
+    enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_add(1);
+    enemy.dragon_phase_frames >= phase_duration_frames
 }
 
 fn enemy_should_remain_active(
@@ -2589,7 +2683,7 @@ fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
 
 fn spawn_x_velocity(family: EnemyFamily) -> i32 {
     match family {
-        EnemyFamily::Dragon => -DRAGON_DRIFT_X_SPEED_FP,
+        EnemyFamily::Dragon => 0,
         _ => 0,
     }
 }
@@ -2598,6 +2692,13 @@ fn spawn_facing(family: EnemyFamily) -> Direction {
     match family {
         EnemyFamily::Dragon => Direction::Left,
         _ => Direction::Left,
+    }
+}
+
+fn spawn_dragon_phase(family: EnemyFamily) -> DragonMotionPhase {
+    match family {
+        EnemyFamily::Dragon => DragonMotionPhase::GlideLeftToPerch,
+        _ => DragonMotionPhase::None,
     }
 }
 
@@ -4913,7 +5014,8 @@ mod tests {
         assert_eq!(dragon.family, EnemyFamily::Dragon);
         assert_eq!(dragon.x_pos, (226u32 << 16) + 0x8000);
         assert_eq!(dragon.y_pos, 272u32 << 16);
-        assert_eq!(dragon.x_velocity, -DRAGON_DRIFT_X_SPEED_FP);
+        assert_eq!(dragon.x_velocity, 0);
+        assert_eq!(dragon.dragon_phase, DragonMotionPhase::GlideLeftToPerch);
     }
 
     #[test]
@@ -4931,6 +5033,8 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::GlideLeftToPerch,
+            dragon_phase_frames: 0,
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
@@ -5063,13 +5167,15 @@ mod tests {
             family: EnemyFamily::Dragon,
             x_pos: ((-200i32) << 16) as u32,
             y_pos: 272u32 << 16,
-            x_velocity: -DRAGON_DRIFT_X_SPEED_FP,
+            x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::GlideLeftToPerch,
+            dragon_phase_frames: 0,
         }];
 
         activate_enemies(
@@ -5090,28 +5196,61 @@ mod tests {
     }
 
     #[test]
-    fn dragon_flyer_stalls_at_oracle_left_edge() {
+    fn dragon_flyer_matches_oracle_turn_sequence() {
         let mut enemy = ActiveEnemy {
             segment_index: 0,
             layout_index: 0,
             family: EnemyFamily::Dragon,
-            x_pos: (226u32 << 16) + 0x8000,
+            x_pos: 196u32 << 16,
             y_pos: 272u32 << 16,
-            x_velocity: -DRAGON_DRIFT_X_SPEED_FP,
+            x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::GlideLeftToPerch,
+            dragon_phase_frames: 0,
         };
 
-        for _ in 0..512 {
+        for _ in 0..199 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        }
+        assert_eq!(enemy.x_pos, 0x0060_8000);
+        assert_eq!(enemy.facing, Direction::Left);
+
+        for _ in 0..91 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        }
+        assert_eq!(enemy.x_pos, 0x0033_0000);
+        assert_eq!(enemy.facing, Direction::Left);
+
+        for _ in 0..39 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        }
+        assert_eq!(enemy.x_pos, DRAGON_PERCH_X_FP);
+        assert_eq!(enemy.facing, Direction::Left);
+
+        for _ in 0..50 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        }
+        assert_eq!(enemy.x_pos, 0x0038_0000);
+        assert_eq!(enemy.facing, Direction::Right);
+
+        for _ in 0..60 {
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        }
+        assert_eq!(enemy.x_pos, DRAGON_SWOOP_APEX_X_FP);
+        assert_eq!(enemy.facing, Direction::Left);
+
+        for _ in 0..60 {
             step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
         }
 
         assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
         assert_eq!(enemy.y_pos, 272u32 << 16);
+        assert_eq!(enemy.facing, Direction::Left);
     }
 
     #[test]
@@ -5156,6 +5295,8 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
         };
 
         let mut grounded_skull = None;
@@ -5188,6 +5329,8 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
         };
 
         let mut grounded_skull = None;
@@ -5250,6 +5393,8 @@ mod tests {
             hit_points: 1,
             grounded_frames: HOPPER_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
         };
 
         for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
@@ -5293,6 +5438,8 @@ mod tests {
             hit_points: 1,
             grounded_frames: HOPPER_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
         };
 
         for _ in 0..HOPPER_GROUND_DELAY_FRAMES {

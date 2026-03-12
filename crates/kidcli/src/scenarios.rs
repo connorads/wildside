@@ -57,7 +57,7 @@ const BOOT_TITLE_START_LEVEL_1_CHECKPOINTS: [FrameCheckpoint; 3] = [
     },
 ];
 
-const WALK_RIGHT_3S_CHECKPOINTS: [FrameCheckpoint; 3] = [
+const WALK_RIGHT_3S_CHECKPOINTS: [FrameCheckpoint; 4] = [
     FrameCheckpoint {
         label: "level_settle",
         frame_index: 719,
@@ -65,6 +65,10 @@ const WALK_RIGHT_3S_CHECKPOINTS: [FrameCheckpoint; 3] = [
     FrameCheckpoint {
         label: "walk_mid",
         frame_index: 810,
+    },
+    FrameCheckpoint {
+        label: "walk_turn",
+        frame_index: 849,
     },
     FrameCheckpoint {
         label: "walk_end",
@@ -102,7 +106,7 @@ const JUMP_FROM_STANDSTILL_CHECKPOINTS: [FrameCheckpoint; 3] = [
     },
 ];
 
-const BOOT_TITLE_START_LEVEL_1_MOVE_RIGHT_5S_CHECKPOINTS: [FrameCheckpoint; 4] = [
+const BOOT_TITLE_START_LEVEL_1_MOVE_RIGHT_5S_CHECKPOINTS: [FrameCheckpoint; 7] = [
     FrameCheckpoint {
         label: "title",
         frame_index: 360,
@@ -114,6 +118,18 @@ const BOOT_TITLE_START_LEVEL_1_MOVE_RIGHT_5S_CHECKPOINTS: [FrameCheckpoint; 4] =
     FrameCheckpoint {
         label: "move_mid",
         frame_index: 840,
+    },
+    FrameCheckpoint {
+        label: "move_turn",
+        frame_index: 849,
+    },
+    FrameCheckpoint {
+        label: "move_post_turn",
+        frame_index: 899,
+    },
+    FrameCheckpoint {
+        label: "move_tail",
+        frame_index: 959,
     },
     FrameCheckpoint {
         label: "move_end",
@@ -216,7 +232,7 @@ impl Scenario {
             Self::BootTitleStartLevel1MoveRight5s => 1_020,
             Self::Level1EnemyWindow => 900,
             Self::WalkRight3s => 900,
-            Self::JumpFromStandstill => 780,
+            Self::JumpFromStandstill => 781,
         }
     }
 
@@ -461,6 +477,32 @@ mod tests {
         assert_eq!(script[720], 1 << 4);
         assert_eq!(script[723], 1 << 4);
         assert_eq!(script[724], 0);
+    }
+
+    #[test]
+    fn scenario_frame_count_covers_all_declared_checkpoints() {
+        for scenario in [
+            Scenario::BootTitleIdle10s,
+            Scenario::BootTitleStartLevel1,
+            Scenario::BootTitleStartLevel1MoveRight5s,
+            Scenario::Level1EnemyWindow,
+            Scenario::WalkRight3s,
+            Scenario::JumpFromStandstill,
+        ] {
+            let max_checkpoint = scenario
+                .checkpoints()
+                .iter()
+                .map(|checkpoint| checkpoint.frame_index)
+                .max()
+                .expect("scenario checkpoints");
+            assert!(
+                scenario.frame_count() > max_checkpoint,
+                "{} frame_count {} should exceed max checkpoint {}",
+                scenario.slug(),
+                scenario.frame_count(),
+                max_checkpoint
+            );
+        }
     }
 
     #[test]
