@@ -163,6 +163,8 @@ mod tests {
 
         assert_eq!(visuals.enemies.diamond.frames.len(), 3);
         assert_eq!(visuals.enemies.diamond.frames[0].tile_base_index, 0x002F);
+        assert_eq!(visuals.enemies.dragon.frames.len(), 5);
+        assert_eq!(visuals.enemies.dragon.frames[0].tile_base_index, 0x011D);
         assert_eq!(visuals.enemies.mini_hopping_skull.frames.len(), 2);
         assert_eq!(
             visuals.enemies.mini_hopping_skull.frames[0].tile_base_index,
@@ -306,6 +308,23 @@ mod tests {
                 "ingame/palette_enemy/Crystal_1.bin",
                 &(0..15)
                     .map(|value| 0x0100_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy0C_Dragon.bin",
+                &direct_copy_saxman(
+                    &(0..16_384)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Dragon_1.bin",
+                &(0..15)
+                    .map(|value| 0x0120_u16 + value)
                     .flat_map(u16::to_be_bytes)
                     .collect::<Vec<_>>(),
             )?;
@@ -457,11 +476,13 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Blocks.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin"),
                     asset_file(root.path(), "ingame/artcomp/Horizontal_platform.bin"),
                     asset_file(root.path(), "ingame/artcomp/Vertical_platform.bin"),
                     asset_file(root.path(), "ingame/artunc/diamond_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
                     asset_file(root.path(), "ingame/palette_kid/Kid.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid.bin"),

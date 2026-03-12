@@ -369,7 +369,7 @@ fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> 
     commands.push(text(
         30,
         118,
-        "Arrows move  Z jump  X special  C run",
+        "Arrows/WASD move  Z/Space jump  X special  C/Shift run",
         [190, 190, 190],
         1,
     ));
@@ -491,9 +491,14 @@ fn push_background_tiles(
                 let Some(background_tile) = chunk.tiles.get(tile_index) else {
                     continue;
                 };
-                let screen_x =
-                    (i32::from(placement.x_tiles + column) * 8).saturating_sub(camera_x_px);
-                let screen_y = (i32::from(placement.y_tiles + row) * 8).saturating_sub(camera_y_px);
+                let (screen_x, screen_y) = background_tile_screen_position(
+                    trace,
+                    level1_visuals,
+                    placement.x_tiles + column,
+                    placement.y_tiles + row,
+                    camera_x_px,
+                    camera_y_px,
+                );
                 if screen_x <= -8
                     || screen_y <= -8
                     || screen_x >= FRAME_WIDTH as i32
@@ -519,6 +524,47 @@ fn push_background_tiles(
     }
 }
 
+fn background_tile_screen_position(
+    trace: &NativeTraceFrame,
+    level1_visuals: &Level1Visuals,
+    x_tiles: u16,
+    y_tiles: u16,
+    camera_x_px: i32,
+    camera_y_px: i32,
+) -> (i32, i32) {
+    let world_x_px = i32::from(x_tiles) * 8;
+    let world_y_px = i32::from(y_tiles) * 8;
+    let Some(profile) = level1_visuals.level.background_scroll.as_ref() else {
+        return (
+            world_x_px.saturating_sub(camera_x_px),
+            world_y_px.saturating_sub(camera_y_px),
+        );
+    };
+
+    let layer_speed = profile
+        .layer_speeds
+        .get(usize::from(y_tiles))
+        .copied()
+        .unwrap_or(0x10);
+    (
+        world_x_px.saturating_sub(background_scroll_x_px(trace, camera_x_px, layer_speed)),
+        world_y_px,
+    )
+}
+
+fn background_scroll_x_px(trace: &NativeTraceFrame, camera_x_px: i32, layer_speed: u8) -> i32 {
+    match layer_speed {
+        0x00 => (trace.frame_index as i32 / 2).rem_euclid(512),
+        0x08 => (trace.frame_index as i32 / 4).rem_euclid(512),
+        0x10 => 0,
+        0x18..=0x88 if (layer_speed - 0x10) % 8 == 0 => {
+            let step = i32::from((layer_speed - 0x10) / 8);
+            camera_x_px.saturating_mul(step) / 15
+        }
+        _ => camera_x_px,
+    }
+}
+
 fn push_tile_quad(
     commands: &mut Vec<DrawCommand>,
     level1_visuals: &Level1Visuals,
@@ -535,26 +581,29 @@ fn push_tile_quad(
     }
 }
 
-fn push_foreground_tiles(
+fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level1_visuals: &Level1Visuals,
+    block_grid: Option<&BlockGrid>,
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-    let layout = &level1_visuals.level.foreground_layout;
+    let Some(grid) = block_grid else {
+        return;
+    };
 
     let col_start = (camera_x_px / 16).max(0) as u16;
     let col_end =
-        ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16).min(i32::from(layout.width_cells)) as u16;
+        ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16).min(i32::from(grid.width_cells)) as u16;
     let row_start = (camera_y_px / 16).max(0) as u16;
     let row_end =
-        ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(layout.height_cells)) as u16;
+        ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(grid.height_cells)) as u16;
 
     for row in row_start..row_end {
         for col in col_start..col_end {
-            let skin = layout.skin_at(col, row);
-            let Some(resolved) = level1_visuals.level.block_mapping.resolve(skin, None) else {
+            let cell = grid.cell_at(col, row);
+            let Some(resolved) = level1_visuals.level.block_mapping.resolve(cell.skin, None) else {
                 continue;
             };
             push_tile_quad(
@@ -848,6 +897,7 @@ fn push_enemy_sprite(
 ) {
     let enemy_visuals = match object_type {
         0x01 => &level1_visuals.enemies.diamond,
+        0x0C | 0x0D => &level1_visuals.enemies.dragon,
         0x1C => &level1_visuals.enemies.mini_hopping_skull,
         _ => {
             commands.push(object_rect(
@@ -946,7 +996,7 @@ fn build_game_scene(
     let mut commands = Vec::new();
 
     push_background_tiles(&mut commands, trace, level1_visuals);
-    push_foreground_tiles(&mut commands, trace, level1_visuals);
+    push_level_layout_terrain(&mut commands, trace, level1_visuals, block_grid);
     push_block_grid_overrides(&mut commands, trace, level1_visuals, block_grid);
 
     for object in trace
@@ -1335,12 +1385,17 @@ fn resolve_palette_colour(
         return None;
     }
 
-    let palette_offset =
-        usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);
-    palette
-        .colours
-        .get(palette_offset + usize::from(palette_index - 1))
-        .map(|colour| [colour.red, colour.green, colour.blue])
+    let colour = if palette.colours.len() == 8 && selected_palette_line == 0 {
+        palette.colours.get(usize::from(palette_index))
+    } else {
+        let palette_offset =
+            usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);
+        palette
+            .colours
+            .get(palette_offset + usize::from(palette_index - 1))
+    }?;
+
+    Some([colour.red, colour.green, colour.blue])
 }
 
 fn set_pixel(
@@ -1411,21 +1466,21 @@ fn apply_window_mode(
 fn keyboard_buttons(events: &sdl2::EventPump) -> u8 {
     let keyboard = events.keyboard_state();
     let bindings = [
-        (Keycode::Up, 1 << 0),
-        (Keycode::Down, 1 << 1),
-        (Keycode::Left, 1 << 2),
-        (Keycode::Right, 1 << 3),
-        (Keycode::Z, 1 << 4),
-        (Keycode::X, 1 << 5),
-        (Keycode::C, 1 << 6),
-        (Keycode::Return, 1 << 7),
+        (&[Keycode::Up, Keycode::W][..], 1 << 0),
+        (&[Keycode::Down, Keycode::S][..], 1 << 1),
+        (&[Keycode::Left, Keycode::A][..], 1 << 2),
+        (&[Keycode::Right, Keycode::D][..], 1 << 3),
+        (&[Keycode::Z, Keycode::Space][..], 1 << 4),
+        (&[Keycode::X][..], 1 << 5),
+        (&[Keycode::C, Keycode::LShift, Keycode::RShift][..], 1 << 6),
+        (&[Keycode::Return][..], 1 << 7),
     ];
     let mut buttons = 0u8;
-    for (keycode, mask) in bindings {
-        let Some(scancode) = Scancode::from_keycode(keycode) else {
-            continue;
-        };
-        if keyboard.is_scancode_pressed(scancode) {
+    for (keycodes, mask) in bindings {
+        if keycodes.iter().copied().any(|keycode| {
+            Scancode::from_keycode(keycode)
+                .is_some_and(|scancode| keyboard.is_scancode_pressed(scancode))
+        }) {
             buttons |= mask;
         }
     }
@@ -1806,6 +1861,19 @@ mod tests {
                 ],
                 frame_duration: 6,
             },
+            dragon: AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 140, 96)],
+                },
+                frames: vec![
+                    sample_object_frame(24, 46, 30),
+                    sample_object_frame(25, 48, 25),
+                    sample_object_frame(26, 47, 26),
+                    sample_object_frame(27, 46, 25),
+                    sample_object_frame(28, 46, 30),
+                ],
+                frame_duration: 7,
+            },
             mini_hopping_skull: AnimatedSpriteVisual {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 220, 160)],
@@ -1890,6 +1958,7 @@ mod tests {
                 level_id: 0x00,
                 foreground_theme_id: 0x08,
                 background_theme_id: 0x08,
+                background_scroll: None,
                 foreground_layout,
                 foreground_layout_bytes,
                 block_layout_bytes: Vec::new(),
@@ -2109,6 +2178,47 @@ mod tests {
     }
 
     #[test]
+    fn render_background_palette_uses_backdrop_slot_zero_without_shifting_visible_colours() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 1), (1, 0, 7)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![
+                colour(1, 2, 3),
+                colour(10, 20, 30),
+                colour(40, 50, 60),
+                colour(70, 80, 90),
+                colour(100, 110, 120),
+                colour(130, 140, 150),
+                colour(160, 170, 180),
+                colour(190, 200, 210),
+            ],
+        });
+        let scene = Scene {
+            background: [1, 2, 3],
+            commands: vec![DrawCommand::IndexedTile {
+                x: 0,
+                y: 0,
+                tile_sheet,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+                palette,
+            }],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(pixel_at(&rgb, 0, 0), [10, 20, 30]);
+        assert_eq!(pixel_at(&rgb, 1, 0), [190, 200, 210]);
+    }
+
+    #[test]
     fn render_sprite_command_honours_mapping_priority_and_transparency() {
         let tile_sheet = Arc::new(TileSheet {
             tiles: vec![
@@ -2277,12 +2387,29 @@ mod tests {
     }
 
     #[test]
-    fn build_game_scene_emits_foreground_tiles_from_decoded_layout() {
+    fn build_game_scene_keeps_no_scroll_background_layers_screen_fixed() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0020_0000;
+        trace.camera_y_pos = 0x0010_0000;
+        let mut visuals = sample_level1_visuals();
+        visuals.level.background_scroll = Some(kid_data::BgscrollProfile {
+            layer_speeds: vec![0x10; 8],
+            has_terminator: true,
+        });
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(indexed_tile_at(&scene, 0, 0).is_some());
+    }
+
+    #[test]
+    fn build_game_scene_emits_level_layout_terrain_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
+        let grid = BlockGrid::from_level_layout(&[0x00, 0x00, 0x00, 0x03, 0x00, 0x05], 3, 1);
 
-        let scene = build_ingame_scene(&trace, false, None);
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
 
         let Some((tile_sheet, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80) else {
             panic!("expected a foreground tile at the origin");
@@ -2295,8 +2422,8 @@ mod tests {
         };
         assert_eq!(tile.tile_index, 12);
 
-        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 0, 16, 0x80) else {
-            panic!("expected a foreground tile in the second row");
+        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 32, 0, 0x80) else {
+            panic!("expected a third terrain tile in the opening row");
         };
         assert_eq!(tile.tile_index, 20);
     }
@@ -2649,16 +2776,17 @@ mod tests {
     }
 
     #[test]
-    fn foreground_layer_renders_visible_cells() {
+    fn level_layout_terrain_renders_visible_cells() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
+        let grid = BlockGrid::from_level_layout(&[0x00, 0x01, 0x00, 0x02, 0x00, 0x03], 3, 1);
 
-        let scene = build_ingame_scene(&trace, false, None);
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
         for col in 0..2 {
             assert!(
-                indexed_tile_at_with_sheet_len(&scene, col * 16, 16, 0x80).is_some(),
-                "missing foreground tile art at col {col}"
+                indexed_tile_at_with_sheet_len(&scene, col * 16, 0, 0x80).is_some(),
+                "missing terrain tile art at col {col}"
             );
         }
         assert!(indexed_tile_at_with_sheet_len(&scene, 320, 0, 0x80).is_none());

@@ -29,6 +29,7 @@ pub struct PlayerVisuals {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyVisuals {
     pub diamond: AnimatedSpriteVisual,
+    pub dragon: AnimatedSpriteVisual,
     pub mini_hopping_skull: AnimatedSpriteVisual,
 }
 

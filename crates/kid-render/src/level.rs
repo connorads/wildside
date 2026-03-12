@@ -1,5 +1,6 @@
 use crate::tiles::TileQuad;
 use anyhow::{Result, bail};
+use kid_data::BgscrollProfile;
 
 const BLOCK_VARIANT_SKIN_COUNT: usize = 16;
 const BLOCK_VARIANT_GROUP_COUNT: usize = 5;
@@ -19,6 +20,7 @@ pub struct LevelVisuals {
     pub level_id: u8,
     pub foreground_theme_id: u8,
     pub background_theme_id: u8,
+    pub background_scroll: Option<BgscrollProfile>,
     pub foreground_layout: ForegroundLayout,
     pub foreground_layout_bytes: Vec<u8>,
     pub block_layout_bytes: Vec<u8>,

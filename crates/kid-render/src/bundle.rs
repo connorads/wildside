@@ -24,6 +24,8 @@ const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
 const DIAMOND_ENEMY_ART_PATH: &str = "artcomp/Enemy01_Diamond.bin";
 const DIAMOND_ENEMY_PALETTE_PATH: &str = "palette_enemy/Crystal_1.bin";
+const DRAGON_ENEMY_ART_PATH: &str = "artcomp/Enemy0C_Dragon.bin";
+const DRAGON_ENEMY_PALETTE_PATH: &str = "palette_enemy/Dragon_1.bin";
 const MINI_HOPPING_SKULL_ART_PATH: &str = "artcomp/Enemy1C_Mini_hopping_skull.bin";
 const MINI_HOPPING_SKULL_PALETTE_PATH: &str = "palette_enemy/Mini_Hopping_Skull_1.bin";
 const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
@@ -181,6 +183,7 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
             level_id: LEVEL1_ID,
             foreground_theme_id: header.level_theme,
             background_theme_id: header.background_theme,
+            background_scroll: level.bgscroll_metadata.clone(),
             foreground_layout: parsed_foreground_layout,
             foreground_layout_bytes: foreground_layout,
             block_layout_bytes: block_layout,
@@ -355,6 +358,44 @@ const MINI_HOPPING_SKULL_FRAMES: [SpriteFrameDescriptor; 2] = [
     },
 ];
 
+const DRAGON_FLYING_FRAMES: [SpriteFrameDescriptor; 5] = [
+    SpriteFrameDescriptor {
+        origin_x: 0x0D,
+        origin_y: 0x10,
+        width_px: 0x2E,
+        height_px: 0x1E,
+        tile_base_index: 0x011D,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x0D,
+        origin_y: 0x10,
+        width_px: 0x30,
+        height_px: 0x19,
+        tile_base_index: 0x0135,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x0E,
+        origin_y: 0x10,
+        width_px: 0x2F,
+        height_px: 0x1A,
+        tile_base_index: 0x014D,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x0D,
+        origin_y: 0x10,
+        width_px: 0x2E,
+        height_px: 0x19,
+        tile_base_index: 0x0165,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x0D,
+        origin_y: 0x10,
+        width_px: 0x2E,
+        height_px: 0x1E,
+        tile_base_index: 0x017D,
+    },
+];
+
 const HORIZONTAL_PLATFORM_FRAME: SpriteFrameDescriptor = SpriteFrameDescriptor {
     origin_x: 0,
     origin_y: 0,
@@ -455,6 +496,20 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
                 &DIAMOND_FRAMES,
             )?,
             frame_duration: 6,
+        },
+        dragon: AnimatedSpriteVisual {
+            palette: load_ingame_palette_asset(
+                manifest,
+                DRAGON_ENEMY_PALETTE_PATH,
+                "dragon enemy palette",
+            )?,
+            frames: load_compressed_sprite_frames(
+                manifest,
+                DRAGON_ENEMY_ART_PATH,
+                "dragon enemy art",
+                &DRAGON_FLYING_FRAMES,
+            )?,
+            frame_duration: 7,
         },
         mini_hopping_skull: AnimatedSpriteVisual {
             palette: load_ingame_palette_asset(
