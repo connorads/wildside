@@ -1,5 +1,9 @@
 # PRD: Level 1 Full Traversal
 
+## Status
+
+Completed on 2026-03-12.
+
 ## Goal
 
 Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one coherent Level 1 traversal milestone: real terrain on the default native path, flag reachability, and clean next-level transition parity against the oracle.
@@ -9,12 +13,12 @@ Turn the completed opening-slice, gameplay-lifecycle, and graphics work into one
 | System | Status |
 |--------|--------|
 | Opening-slice boot/title/load/oracle checkpoints | Done; Level 1 opening damage now lands on the oracle frame under the run-right gameplay script |
-| Pause/resume and death/respawn lifecycle parity | Partial; pause is now green on dumped terrain, death is green on the default path, the landing floor no longer masquerades as a wall on dumped terrain, Diamonds no longer enter stomp bounce, and dumped-terrain death parity is still pending |
+| Pause/resume and death/respawn lifecycle parity | Done on the default generated-terrain runtime path |
 | Asset-backed native Level 1 visuals | Done |
 | Flag touch and level advance code path | Done in `kid-core` tests |
-| `progress-two-transitions` gameplay scenario | Passing with explicit generated `Level_Layout` loading |
-| Default native runtime terrain authority | Incomplete; still falls back to flat floor outside the generated-terrain path |
-| Full traversal oracle parity | Partial; progress and pause are green on dumped terrain, death is green on the default path, and dumped-terrain death parity is still pending after the landing-wall, held-input latch, and diamond-stomp fixes because the route still separates at frame `743` and clips the overhang before `pre_death@1279` |
+| `progress-two-transitions` gameplay scenario | Done on the default generated-terrain runtime path |
+| Default native runtime terrain authority | Done; `NativeRuntime::new` now reloads generated `Level_Layout` terrain on construction |
+| Full traversal oracle parity | Done; pause, death, and progress gameplay compares are green on the default path |
 
 ## Scope
 

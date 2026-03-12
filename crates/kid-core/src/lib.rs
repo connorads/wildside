@@ -288,15 +288,8 @@ pub struct NativeRuntime {
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
-    terrain_source: RuntimeTerrainSource,
     block_grid: Option<terrain::BlockGrid>,
     diamond_count: u16,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RuntimeTerrainSource {
-    None,
-    GeneratedLevelLayout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -319,7 +312,7 @@ struct LevelSkipHoldPose {
     number_gfx_objects: u16,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct LevelLayoutMetadata {
     width_blocks: u16,
     height_blocks: u16,
@@ -424,7 +417,7 @@ enum EnemyArchetype {
 
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
-        Self {
+        let mut runtime = Self {
             assets,
             frame_index: 0,
             boot_state: BootState::SegaScreen { elapsed: 0 },
@@ -446,17 +439,15 @@ impl NativeRuntime {
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
-            terrain_source: RuntimeTerrainSource::None,
             block_grid: None,
             diamond_count: 0,
-        }
+        };
+        runtime.reload_block_grid_for_level(LevelId(0));
+        runtime
     }
 
     pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
-        let mut runtime = Self::new(assets);
-        runtime.terrain_source = RuntimeTerrainSource::GeneratedLevelLayout;
-        runtime.reload_block_grid_for_level(LevelId(0));
-        runtime
+        Self::new(assets)
     }
 
     /// Set the block collision grid for the current level.
@@ -1336,12 +1327,6 @@ impl NativeRuntime {
     }
 
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
-        if !matches!(
-            self.terrain_source,
-            RuntimeTerrainSource::GeneratedLevelLayout
-        ) {
-            return;
-        }
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
             self.block_grid = Some(grid);
         }
@@ -2612,7 +2597,13 @@ mod tests {
         PlatformLayout, PlatformPlacement, PlatformScriptRef,
     };
     use std::path::PathBuf;
-    use std::{collections::BTreeMap, ops::RangeInclusive};
+    use std::{
+        collections::BTreeMap,
+        env, fs,
+        ops::RangeInclusive,
+        process,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn manifest() -> AssetManifest {
         AssetManifest {
@@ -2822,6 +2813,37 @@ mod tests {
         expanded
     }
 
+    fn unique_temp_path(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        env::temp_dir().join(format!("kc-{label}-{}-{nanos}", process::id()))
+    }
+
+    fn write_generated_level_layout(
+        output_root: &std::path::Path,
+        level_id: u8,
+        width_blocks: u16,
+        height_blocks: u16,
+        data: &[u8],
+    ) {
+        let layout_dir = output_root.join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir should be creatable");
+        fs::write(layout_dir.join(format!("{level_id:02X}.bin")), data)
+            .expect("layout data should be writable");
+        let metadata = LevelLayoutMetadata {
+            width_blocks,
+            height_blocks,
+            data_bytes: data.len(),
+        };
+        fs::write(
+            layout_dir.join(format!("{level_id:02X}.json")),
+            serde_json::to_vec(&metadata).expect("layout metadata should serialise"),
+        )
+        .expect("layout metadata should be writable");
+    }
+
     #[test]
     fn reaches_title_screen_without_input() {
         let trace = run_script(manifest(), &[], 400);
@@ -2837,6 +2859,29 @@ mod tests {
         assert!(trace[359].active_objects.is_empty());
         assert_eq!(trace[359].number_objects, 4);
         assert_eq!(trace[359].number_gfx_objects, 4);
+    }
+
+    #[test]
+    fn new_runtime_loads_generated_level_layout_by_default() {
+        let output_root = unique_temp_path("generated-layout-default");
+        let mut manifest = manifest();
+        manifest.output_root = output_root.clone();
+
+        let mut data = vec![0u8; 2 * 2 * 2];
+        data[4] = 0x60;
+        data[6] = 0x60;
+        write_generated_level_layout(&output_root, 0, 2, 2, &data);
+
+        let runtime = NativeRuntime::new(manifest);
+        let grid = runtime
+            .block_grid()
+            .expect("default runtime should load generated level layout");
+        let floor = terrain::probe_floor(grid, 8, 16);
+
+        assert!(floor.on_ground);
+        assert_eq!(floor.cell.collision, terrain::CollisionKind::Solid);
+
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
     }
 
     #[test]

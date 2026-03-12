@@ -2,7 +2,7 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
-The current delivery frontier is Level 1 full traversal: real terrain on the default native path, flag reachability, and next-level transition parity for Blue Lake Woods 1.
+The current delivery frontier is Level 1 full traversal, now green on the default generated-terrain runtime path; the next likely source-port slice is deeper Level 1 enemy-family fidelity.
 
 ## Current status
 
@@ -182,6 +182,8 @@ The new generated source-port bundle is written under `.cache/generated/<rom-sha
 The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
 `play-native` is intentionally a silent debug host for the current semantic runtime, not a full player shell. It launches straight into the native runtime, draws the current Level 1 native scene plus optional debug overlay from `NativeTraceFrame`, and is aimed at interactive debugging of the current source-port slice.
+
+The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
 The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
 
