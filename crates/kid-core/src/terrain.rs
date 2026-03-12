@@ -275,15 +275,13 @@ pub fn probe_at(grid: &BlockGrid, x_px: i32, y_px: i32) -> TerrainProbe {
 /// Compute the floor Y surface within a slope cell using linear interpolation.
 ///
 /// Slopes span 15 pixels vertically within a 16x16 cell (full diagonal).
-/// - `SlopeUp`: floor rises left-to-right (lower Y as x increases). `/`
-/// - `SlopeDown`: floor falls left-to-right (higher Y as x increases). `\`
+/// - `SlopeUp`: floor rises left-to-right (higher on the left, lower on the right). `\`
+/// - `SlopeDown`: floor falls left-to-right (lower on the left, higher on the right). `/`
 fn slope_floor_y(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
     let x_within_cell = (x_px & 0x0F).clamp(0, 15);
     match collision {
-        // `/` — high on right (low Y), low on left (high Y)
-        CollisionKind::SlopeUp => cell_top_y + 15 - x_within_cell,
-        // `\` — low on left (low Y), high on right (high Y)
-        CollisionKind::SlopeDown => cell_top_y + x_within_cell,
+        CollisionKind::SlopeUp => cell_top_y + x_within_cell,
+        CollisionKind::SlopeDown => cell_top_y + 15 - x_within_cell,
         _ => cell_top_y,
     }
 }
@@ -374,29 +372,36 @@ pub fn probe_floor_hitbox(
     foot_y_px: i32,
     half_width: i32,
 ) -> FloorProbe {
+    let center = probe_floor(grid, center_x_px, foot_y_px);
+    if center.on_ground {
+        return center;
+    }
+
     let left = probe_floor(grid, center_x_px - half_width, foot_y_px);
     let right = probe_floor(grid, center_x_px + half_width, foot_y_px);
+    let select_higher_floor = |a: FloorProbe, b: FloorProbe| {
+        if a.floor_y_px <= b.floor_y_px { a } else { b }
+    };
 
     match (left.on_ground, right.on_ground) {
-        (true, true) => {
-            if left.floor_y_px <= right.floor_y_px {
-                left
-            } else {
-                right
-            }
-        }
+        (true, true) => select_higher_floor(left, right),
         (true, false) => left,
         (false, true) => right,
-        (false, false) => left,
+        (false, false) => match (left.cell.is_solid_floor(), right.cell.is_solid_floor()) {
+            (true, true) => select_higher_floor(left, right),
+            (true, false) => left,
+            (false, true) => right,
+            (false, false) => left,
+        },
     }
 }
 
 /// Check for a wall blocking horizontal movement.
 ///
-/// Probes the leading edge of the hitbox at two Y positions: lower-body and
-/// mid-body. The lower probe stays several pixels above the feet so landing
-/// frames do not misclassify the floor cell as a side wall before floor
-/// resolution runs.
+/// Probes the leading edge of the hitbox at lower-body, mid-body, and a
+/// near-head position. The lower probe stays several pixels above the feet so
+/// landing frames do not misclassify the floor cell as a side wall before
+/// floor resolution runs.
 /// Only `Solid` cells count as walls — slopes allow pass-through.
 pub fn probe_wall(
     grid: &BlockGrid,
@@ -407,7 +412,7 @@ pub fn probe_wall(
     moving_right: bool,
 ) -> WallProbe {
     let edge_x = if moving_right {
-        center_x_px + half_width
+        center_x_px + half_width + 1
     } else {
         center_x_px - half_width
     };
@@ -416,7 +421,8 @@ pub fn probe_wall(
     // player can clip a few pixels into the floor and get snapped sideways as
     // if the floor were a wall.
     let lower_body_y = foot_y_px - 8;
-    let probe_ys = [lower_body_y, foot_y_px - height / 2];
+    let upper_body_y = foot_y_px - height + 8;
+    let probe_ys = [lower_body_y, foot_y_px - height / 2, upper_body_y];
 
     for &py in &probe_ys {
         let probe = probe_at(grid, edge_x, py);
@@ -434,6 +440,46 @@ pub fn probe_wall(
                 cell: probe.cell,
             };
         }
+    }
+
+    WallProbe {
+        hit: false,
+        wall_x_px: 0,
+        cell: Cell::from_be_bytes(0, 0),
+    }
+}
+
+/// Probe only the player's exact top edge against a side wall.
+///
+/// This is intentionally narrower than `probe_wall`: it is used to keep the
+/// player pinned under a right-side overhang for a few extra airborne frames
+/// after a real wall hit, until the top edge has actually cleared the tile.
+pub fn probe_wall_top_edge(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+    moving_right: bool,
+) -> WallProbe {
+    let edge_x = if moving_right {
+        center_x_px + half_width + 1
+    } else {
+        center_x_px - half_width
+    };
+    let top_y = foot_y_px - height;
+    let probe = probe_at(grid, edge_x, top_y);
+    if probe.cell.collision == CollisionKind::Solid {
+        let wall_x = if moving_right {
+            i32::from(probe.cell_x) * 16
+        } else {
+            (i32::from(probe.cell_x) + 1) * 16
+        };
+        return WallProbe {
+            hit: true,
+            wall_x_px: wall_x,
+            cell: probe.cell,
+        };
     }
 
     WallProbe {
@@ -722,6 +768,33 @@ mod tests {
     }
 
     #[test]
+    fn probe_wall_hits_upper_overhang_edge() {
+        let mut data = vec![0u8; 5 * 5 * 2];
+        let offset = (1 * 5 + 2) * 2;
+        data[offset] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, 5, 5);
+
+        let probe = probe_wall(&grid, 26, 48, 5, 31, true);
+        assert!(probe.hit);
+        assert_eq!(probe.wall_x_px, 32);
+    }
+
+    #[test]
+    fn probe_wall_top_edge_keeps_overhang_contact_after_upper_probe_clears() {
+        let mut data = vec![0u8; 5 * 5 * 2];
+        let offset = (1 * 5 + 2) * 2;
+        data[offset] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, 5, 5);
+
+        let probe = probe_wall(&grid, 26, 56, 5, 31, true);
+        assert!(!probe.hit);
+
+        let top_edge_probe = probe_wall_top_edge(&grid, 26, 56, 5, 31, true);
+        assert!(top_edge_probe.hit);
+        assert_eq!(top_edge_probe.wall_x_px, 32);
+    }
+
+    #[test]
     fn probe_ceiling_hits_solid_above() {
         let grid = make_wall_grid();
         // Ceiling test: wall at col 5 rows 1-2. Put player below with head
@@ -777,50 +850,49 @@ mod tests {
     #[test]
     fn slope_up_floor_y_interpolates_left_to_right() {
         let grid = make_slope_grid();
-        // SlopeUp `/` at col 0, row 1 (cell_top = 16px).
-        // Left edge (x=0): floor should be low (high Y = 16+15 = 31)
-        // Right edge (x=15): floor should be high (low Y = 16+0 = 16)
+        // SlopeUp `\` at col 0, row 1 (cell_top = 16px).
+        // Left edge (x=0): floor should be high (low Y = 16)
+        // Right edge (x=15): floor should be low (high Y = 31)
         let left = probe_floor(&grid, 0, 31);
         assert!(left.on_ground);
-        assert_eq!(left.floor_y_px, 31); // cell_top(16) + 15 - 0
+        assert_eq!(left.floor_y_px, 16);
 
-        let right = probe_floor(&grid, 15, 16);
+        let right = probe_floor(&grid, 15, 31);
         assert!(right.on_ground);
-        assert_eq!(right.floor_y_px, 16); // cell_top(16) + 15 - 15
+        assert_eq!(right.floor_y_px, 31);
     }
 
     #[test]
     fn slope_down_floor_y_interpolates_left_to_right() {
         let grid = make_slope_grid();
-        // SlopeDown `\` at col 1, row 1 (cell_top = 16px).
-        // Left edge (x=16): floor should be high (low Y = 16+0 = 16)
-        // Right edge (x=31): floor should be low (high Y = 16+15 = 31)
-        let left = probe_floor(&grid, 16, 16);
+        // SlopeDown `/` at col 1, row 1 (cell_top = 16px).
+        // Left edge (x=16): floor should be low (high Y = 31)
+        // Right edge (x=31): floor should be high (low Y = 16)
+        let left = probe_floor(&grid, 16, 31);
         assert!(left.on_ground);
-        assert_eq!(left.floor_y_px, 16); // cell_top(16) + 0
+        assert_eq!(left.floor_y_px, 31);
 
-        let right = probe_floor(&grid, 31, 31);
+        let right = probe_floor(&grid, 31, 16);
         assert!(right.on_ground);
-        assert_eq!(right.floor_y_px, 31); // cell_top(16) + 15
+        assert_eq!(right.floor_y_px, 16);
     }
 
     #[test]
     fn slope_up_mid_cell_interpolation() {
         let grid = make_slope_grid();
-        // SlopeUp at col 0, row 1. x=8 (mid-cell): floor_y = 16 + 15 - 8 = 23
-        let probe = probe_floor(&grid, 8, 23);
+        let probe = probe_floor(&grid, 8, 24);
         assert!(probe.on_ground);
-        assert_eq!(probe.floor_y_px, 23);
+        assert_eq!(probe.floor_y_px, 24);
     }
 
     #[test]
     fn slope_not_on_ground_when_above_surface() {
         let grid = make_slope_grid();
-        // SlopeUp at col 0, row 1. x=8: floor_y=23.
+        // SlopeUp at col 0, row 1. x=8: floor_y=24.
         // Player at y=20 (above slope surface) should not be on ground.
         let probe = probe_floor(&grid, 8, 20);
         assert!(!probe.on_ground);
-        assert_eq!(probe.floor_y_px, 23);
+        assert_eq!(probe.floor_y_px, 24);
     }
 
     #[test]
@@ -837,14 +909,26 @@ mod tests {
     }
 
     #[test]
-    fn probe_floor_hitbox_on_slope_picks_highest() {
+    fn probe_floor_hitbox_prefers_center_support_on_slope() {
         let grid = make_slope_grid();
-        // SlopeUp `/` at col 0. Player centre at x=8, half_width=5.
-        // Left edge x=3: floor_y = 16 + 15 - 3 = 28
-        // Right edge x=13: floor_y = 16 + 15 - 13 = 18
-        // Should pick the higher floor (lower Y = 18)
-        let probe = probe_floor_hitbox(&grid, 8, 28, 5);
+        let probe = probe_floor_hitbox(&grid, 8, 24, 5);
         assert!(probe.on_ground);
-        assert_eq!(probe.floor_y_px, 18);
+        assert_eq!(probe.floor_y_px, 24);
     }
+
+    #[test]
+    fn probe_floor_hitbox_prefers_center_support_before_edge_probes() {
+        let w = 3u16;
+        let h = 3u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x40;
+        data[(usize::from(2u16) * usize::from(w) + usize::from(0u16)) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        let probe = probe_floor_hitbox(&grid, 19, 28, 5);
+        assert!(probe.on_ground);
+        assert_eq!(probe.cell.collision, CollisionKind::SlopeDown);
+        assert_eq!(probe.floor_y_px, 28);
+    }
+
 }

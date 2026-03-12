@@ -10,10 +10,7 @@ use autonomy::{AutonomyGoal, run_autonomous_loop};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
-use kid_core::{
-    GameMode as NativeGameMode, NativeTraceFrame, run_script,
-    run_script_with_generated_level_layout,
-};
+use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script};
 use kid_data::{
     AssetManifest, ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
     generated_bundle_dir, load_level_asset_bundle, load_manifest,
@@ -2896,25 +2893,12 @@ fn capture_native_gameplay_frame_evidence(
     render_gameplay_frame_evidence(manifest, &trace, scenario.checkpoints())
 }
 
-fn scenario_uses_generated_level_layout(scenario: GameplayScenario) -> bool {
-    std::env::var_os("KID_NATIVE_GENERATED_LEVEL_LAYOUT").is_some()
-        || matches!(
-            scenario,
-            GameplayScenario::PauseResumeLevel1 | GameplayScenario::ProgressTwoTransitions
-        )
-}
-
 fn run_native_script_for_scenario(
     manifest: &AssetManifest,
     script: &[u8],
     scenario: Scenario,
 ) -> Vec<NativeTraceFrame> {
-    run_native_script_with_generated_layout_flag(
-        manifest,
-        script,
-        scenario.frame_count(),
-        std::env::var_os("KID_NATIVE_GENERATED_LEVEL_LAYOUT").is_some(),
-    )
+    run_script(manifest.clone(), script, scenario.frame_count())
 }
 
 fn run_native_script_for_gameplay(
@@ -2922,25 +2906,7 @@ fn run_native_script_for_gameplay(
     script: &[u8],
     scenario: GameplayScenario,
 ) -> Vec<NativeTraceFrame> {
-    run_native_script_with_generated_layout_flag(
-        manifest,
-        script,
-        scenario.frame_count(),
-        scenario_uses_generated_level_layout(scenario),
-    )
-}
-
-fn run_native_script_with_generated_layout_flag(
-    manifest: &AssetManifest,
-    script: &[u8],
-    frame_count: usize,
-    use_generated_level_layout: bool,
-) -> Vec<NativeTraceFrame> {
-    if use_generated_level_layout {
-        run_script_with_generated_level_layout(manifest.clone(), script, frame_count)
-    } else {
-        run_script(manifest.clone(), script, frame_count)
-    }
+    run_script(manifest.clone(), script, scenario.frame_count())
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -4751,10 +4717,11 @@ mod tests {
     use super::{
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
         audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
+        capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
         parse_button_mask, parse_input_spec, prepare_generated_assets_with,
-        scenario_uses_generated_level_layout, selected_reference_repos,
+        selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -4898,6 +4865,16 @@ mod tests {
             "Camera_X_pos = $FFFFF81C ; long (16.16 fixed point)\n",
         )
         .expect("variables");
+    }
+
+    fn exported_test_manifest() -> (TempDir, TempDir, AssetManifest) {
+        let source_root = TempDir::new().expect("source root");
+        let bundle_root = TempDir::new().expect("bundle root");
+        write_generated_asset_source_fixture(source_root.path());
+        let manifest =
+            export_split_bundle(source_root.path(), bundle_root.path(), "abc123", "deadbeef")
+                .expect("bundle export");
+        (source_root, bundle_root, manifest)
     }
 
     #[test]
@@ -5334,13 +5311,15 @@ mod tests {
     }
 
     #[test]
-    fn gameplay_regression_progress_two_transitions_uses_generated_level_layout_by_default() {
-        assert!(scenario_uses_generated_level_layout(
-            GameplayScenario::ProgressTwoTransitions
-        ));
-        assert!(scenario_uses_generated_level_layout(
-            GameplayScenario::PauseResumeLevel1
-        ));
+    fn gameplay_regression_native_gameplay_capture_uses_default_runtime_path() {
+        let (_source_root, _bundle_root, manifest) = exported_test_manifest();
+        let capture = capture_native_gameplay_scenario(&manifest, GameplayScenario::DeathRespawnLevel1)
+            .expect("capture");
+        assert_eq!(capture.checkpoints.len(), 4);
+        assert!(
+            capture.checkpoints.iter().any(|state| state.label == "respawn_tail"),
+            "default native gameplay capture should reach the scripted respawn checkpoint"
+        );
     }
 
     #[test]

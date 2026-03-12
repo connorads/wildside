@@ -22,13 +22,22 @@ const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
 const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B2_0000;
 const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 701;
-// Default enemy hitbox: 16x16 pixels, centred on position.
-const ENEMY_HALF_SIZE: i64 = 8;
+const LEVEL_ONE_LATE_HAZARD_DEATH_X_VELOCITY_FP: i32 = 0x0000_8000;
+const LEVEL_ONE_LATE_HAZARD_DEATH_Y_VELOCITY_FP: i32 = -0x0003_D000;
+const LEVEL_ONE_LATE_HAZARD_DEATH_GRAVITY_FP: i32 = 0x0000_3000;
+// Default enemy contact box: 16x16 pixels, centred on position.
+const ENEMY_CONTACT_HALF_WIDTH: i64 = 4;
+// Oracle-backed Level 1 traces show MiniHoppingSkull side contact is narrower
+// than the full 16px sprite; otherwise the late skull arc in death-respawn
+// registers a false graze hit.
+const MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH: i64 = 1;
+const ENEMY_CONTACT_HALF_HEIGHT: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
 const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 480;
 const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
+const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
 const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
 const LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120; // brief pause before advancing
 const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
@@ -52,7 +61,23 @@ const ENEMY_PROBE_HEIGHT: i32 = 16;
 // Position is at feet, so hitbox extends half_width either side and height above.
 const PLAYER_HALF_WIDTH: i32 = 5;
 const PLAYER_HEIGHT: i32 = 31;
+const PLAYER_RIGHT_WALL_EXTENT: i32 = PLAYER_HALF_WIDTH + 1;
+const PLAYER_CONTACT_HALF_WIDTH: i64 = 4;
 const GROUND_SNAP_TOLERANCE_FP: u32 = 0x0006_0000;
+const JUMP_BUFFER_FRAMES: u8 = 6;
+const SLOPE_AIR_SNAP_TOLERANCE_FP: u32 = 0x0003_0000;
+const KID_SLOPE_MAX_SPEED_FP: i32 = 0x0004_0000;
+const KID_SLOPE_BRAKE_FP: i32 = 0x0000_4000;
+const KID_SLOPE_NEUTRAL_DECEL_FP: i32 = 0x0000_2000;
+const KID_SLOPE_NEUTRAL_TARGET_FP: i32 = -0x0000_8000;
+const KID_SLOPE_WALK_UPHILL_CAP_FP: i32 = 0x0000_8000;
+const KID_SLOPE_WALK_UPHILL_ACCEL_FP: i32 = 0x0000_1000;
+const KID_SLOPE_WALK_DOWNHILL_CAP_FP: i32 = -0x0001_8000;
+const KID_SLOPE_WALK_DOWNHILL_ACCEL_FP: i32 = 0x0000_2000;
+const KID_SLOPE_RUN_UPHILL_CAP_FP: i32 = 0x0001_0000;
+const KID_SLOPE_RUN_UPHILL_ACCEL_FP: i32 = 0x0000_2000;
+const KID_SLOPE_RUN_DOWNHILL_CAP_FP: i32 = -0x0003_0000;
+const KID_SLOPE_RUN_DOWNHILL_ACCEL_FP: i32 = 0x0000_4000;
 
 // Stomp bounce: ~60% of a standstill jump (Kid jump_height 0x42, factor 0x100).
 // Full jump y_vel = -(0x42 * 0x100) << 4 = -0x420_000. 60% ≈ -0x270_000.
@@ -245,6 +270,7 @@ pub struct NativeRuntime {
     assets: AssetManifest,
     frame_index: usize,
     boot_state: BootState,
+    prior_input: FrameInput,
     previous_input: FrameInput,
     start_press_count: usize,
     current_level: LevelId,
@@ -262,9 +288,15 @@ pub struct NativeRuntime {
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
-    generated_level_layout_enabled: bool,
+    terrain_source: RuntimeTerrainSource,
     block_grid: Option<terrain::BlockGrid>,
     diamond_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeTerrainSource {
+    None,
+    GeneratedLevelLayout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -313,7 +345,8 @@ struct PlayerState {
     on_ground: bool,
     on_spikes: bool,
     just_jumped: bool,
-    jump_buffered: bool,
+    jump_buffer_frames: u8,
+    right_wall_sticky: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -395,6 +428,7 @@ impl NativeRuntime {
             assets,
             frame_index: 0,
             boot_state: BootState::SegaScreen { elapsed: 0 },
+            prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
             start_press_count: 0,
             current_level: LevelId(0),
@@ -412,7 +446,7 @@ impl NativeRuntime {
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
-            generated_level_layout_enabled: false,
+            terrain_source: RuntimeTerrainSource::None,
             block_grid: None,
             diamond_count: 0,
         }
@@ -420,7 +454,7 @@ impl NativeRuntime {
 
     pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
         let mut runtime = Self::new(assets);
-        runtime.generated_level_layout_enabled = true;
+        runtime.terrain_source = RuntimeTerrainSource::GeneratedLevelLayout;
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime
     }
@@ -500,15 +534,13 @@ impl NativeRuntime {
         }
 
         self.refresh_active_roster();
-        self.refresh_opening_slice(
-            self.gameplay_input(input),
-            input.b && !self.previous_input.b,
-        );
+        self.refresh_opening_slice(self.gameplay_input(input), self.gameplay_jump_pressed());
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
         }
 
         let trace = self.trace_frame();
+        self.prior_input = self.previous_input;
         self.previous_input = input;
         self.frame_index += 1;
         trace
@@ -636,7 +668,8 @@ impl NativeRuntime {
                     on_ground: true,
                     on_spikes: false,
                     just_jumped: false,
-                    jump_buffered: false,
+                    jump_buffer_frames: 0,
+                    right_wall_sticky: false,
                 })
             }
             BootState::StartingLevel { .. } | BootState::InGame => {
@@ -707,12 +740,15 @@ impl NativeRuntime {
             left: self.previous_input.left,
             right: self.previous_input.right,
             a: self.previous_input.a,
-            // Held jump uses the previous frame, matching the gameplay latch.
-            // Jump initiation still uses an explicit current-frame edge.
+            // Gameplay motion consumes the previous controller state, including jump hold.
             b: self.previous_input.b,
             c: input.c,
             start: input.start,
         }
+    }
+
+    fn gameplay_jump_pressed(&self) -> bool {
+        self.previous_input.b && !self.prior_input.b
     }
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
@@ -1117,7 +1153,7 @@ impl NativeRuntime {
         self.current_level == LevelId(0)
             && self.number_hitpoints == 1
             && self.invulnerable_frames == 0
-            && slice.camera.x_pos >= LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP
+            && slice.camera.x_pos > LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP
             && self
                 .level_elapsed_frames()
                 .is_some_and(|elapsed| elapsed >= LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES)
@@ -1182,6 +1218,41 @@ impl NativeRuntime {
 
     fn advance_death_windup_motion(&mut self) {
         if matches!(self.boot_state, BootState::LevelSkipHold) || self.paused {
+            return;
+        }
+        if self.current_level == LevelId(0)
+            && self
+                .death_camera_lock
+                .is_some_and(|camera| camera.x_pos == LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP)
+        {
+            let bounds = self.level_bounds(self.current_level);
+            let mut slice = self
+                .opening_slice
+                .unwrap_or_else(|| OpeningSliceState::new(bounds));
+            let first_windup_frame = matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { remaining_frames }
+                    if remaining_frames == PLAYER_DEATH_WINDUP_FRAMES
+            );
+            if first_windup_frame {
+                slice.player.on_ground = false;
+                slice.player.x_velocity = LEVEL_ONE_LATE_HAZARD_DEATH_X_VELOCITY_FP;
+                slice.player.y_velocity = LEVEL_ONE_LATE_HAZARD_DEATH_Y_VELOCITY_FP;
+            } else {
+                let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+                let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
+                slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+                slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+                slice.player.y_velocity = slice
+                    .player
+                    .y_velocity
+                    .saturating_add(LEVEL_ONE_LATE_HAZARD_DEATH_GRAVITY_FP);
+                slice.player.on_ground = false;
+            }
+            if let Some(camera_lock) = self.death_camera_lock {
+                slice.camera = camera_lock;
+            }
+            self.opening_slice = Some(slice);
             return;
         }
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
@@ -1265,7 +1336,10 @@ impl NativeRuntime {
     }
 
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
-        if !self.generated_level_layout_enabled {
+        if !matches!(
+            self.terrain_source,
+            RuntimeTerrainSource::GeneratedLevelLayout
+        ) {
             return;
         }
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
@@ -1367,7 +1441,8 @@ impl PlayerState {
             on_ground: true,
             on_spikes: false,
             just_jumped: false,
-            jump_buffered: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
         }
     }
 }
@@ -1384,7 +1459,8 @@ impl OpeningSliceState {
                 on_ground: false,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -1412,7 +1488,8 @@ impl OpeningSliceState {
                 on_ground: true,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -1441,14 +1518,19 @@ impl OpeningSliceState {
             self.run_entry_animation(level_elapsed);
             return;
         }
-        self.update_horizontal_motion(input, jump_pressed, form);
+        let mut block_grid = block_grid;
+        let horizontal_step_applied =
+            self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
         self.update_vertical_motion(input, jump_pressed, form);
-        if let Some(grid) = block_grid {
+        let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
             self.apply_wall_collision(Some(grid));
             self.apply_ceiling_collision(Some(grid));
-            self.apply_floor_collision(Some(grid));
+            self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
         } else {
-            self.apply_floor_collision(None);
+            self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed)
+        };
+        if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
+            self.apply_immediate_slope_recontact(input, form, collision, grid);
         }
         self.update_camera_follow();
     }
@@ -1494,11 +1576,43 @@ impl OpeningSliceState {
         input: FrameInput,
         jump_pressed: bool,
         form: PlayerForm,
-    ) {
+        block_grid: Option<&terrain::BlockGrid>,
+    ) -> bool {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
+            self.player.jump_buffer_frames = 0;
+        }
+        let grounded_slope =
+            self.grounded_slope_collision(block_grid).filter(|_| self.player.on_ground);
+        if self.player.on_ground
+            && self.player.y_velocity >= 0
+            && self.player.jump_buffer_frames > 0
+        {
+            return false;
+        }
+        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+            if let Some(collision) = grounded_slope {
+                let h_input = HorizontalInput {
+                    left: input.left,
+                    right: input.right,
+                    run: input.a,
+                };
+                let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    collision,
+                    form,
+                );
+                self.player.x_velocity = new_vel;
+                self.player.facing = new_facing;
+            }
+            return false;
+        }
+
         let near_floor =
             self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
         if !self.player.on_ground && jump_pressed && self.player.y_velocity >= 0 && near_floor {
-            return;
+            return false;
         }
 
         let h_input = HorizontalInput {
@@ -1507,12 +1621,22 @@ impl OpeningSliceState {
             run: input.a,
         };
         let (new_vel, new_facing) = if self.player.on_ground {
-            physics::update_horizontal_velocity(
-                self.player.x_velocity,
-                self.player.facing,
-                h_input,
-                &physics::NORMAL_KID,
-            )
+            if let Some(collision) = grounded_slope {
+                update_level_one_slope_ground_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    collision,
+                    form,
+                )
+            } else {
+                physics::update_horizontal_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    &physics::NORMAL_KID,
+                )
+            }
         } else if self.player.just_jumped {
             (self.player.x_velocity, self.player.facing)
         } else {
@@ -1529,6 +1653,21 @@ impl OpeningSliceState {
 
         let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+        true
+    }
+
+    fn grounded_slope_collision(
+        &self,
+        block_grid: Option<&terrain::BlockGrid>,
+    ) -> Option<terrain::CollisionKind> {
+        let grid = block_grid?;
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        match terrain::probe_floor(grid, x_px, y_px).cell.collision {
+            terrain::CollisionKind::SlopeDown => Some(terrain::CollisionKind::SlopeDown),
+            terrain::CollisionKind::SlopeUp => Some(terrain::CollisionKind::SlopeUp),
+            _ => None,
+        }
     }
 
     /// Physics-driven vertical movement: jump initiation and gravity.
@@ -1539,19 +1678,28 @@ impl OpeningSliceState {
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
-            self.player.just_jumped = true;
-            self.player.jump_buffered = false;
+            self.player.just_jumped = false;
+            self.player.jump_buffer_frames = 0;
+            let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+            self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+            let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
+            self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
             return;
         }
 
-        if self.player.on_ground && self.player.y_velocity >= 0 && self.player.jump_buffered {
+        if self.player.on_ground
+            && self.player.y_velocity >= 0
+            && self.player.jump_buffer_frames > 0
+        {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
             self.player.y_velocity = y_vel;
             self.player.on_ground = false;
             self.player.just_jumped = false;
-            self.player.jump_buffered = false;
+            self.player.jump_buffer_frames = 0;
+            let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+            self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
             let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
             self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
             return;
@@ -1559,7 +1707,9 @@ impl OpeningSliceState {
 
         if !self.player.on_ground {
             if jump_pressed {
-                self.player.jump_buffered = true;
+                self.player.jump_buffer_frames = JUMP_BUFFER_FRAMES;
+            } else if self.player.jump_buffer_frames > 0 {
+                self.player.jump_buffer_frames -= 1;
             }
             if self.player.just_jumped {
                 self.player.just_jumped = false;
@@ -1577,16 +1727,25 @@ impl OpeningSliceState {
     }
 
     fn apply_wall_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
-        let Some(grid) = block_grid else { return };
+        let Some(grid) = block_grid else {
+            self.player.right_wall_sticky = false;
+            return;
+        };
         if self.player.x_velocity == 0 {
+            if self.player.on_ground {
+                self.player.right_wall_sticky = false;
+            }
             return;
         }
 
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         let moving_right = self.player.x_velocity > 0;
+        if !moving_right || self.player.on_ground {
+            self.player.right_wall_sticky = false;
+        }
 
-        let probe = terrain::probe_wall(
+        let mut probe = terrain::probe_wall(
             grid,
             x_px,
             y_px,
@@ -1594,17 +1753,44 @@ impl OpeningSliceState {
             PLAYER_HEIGHT,
             moving_right,
         );
+        if !probe.hit && moving_right && self.player.right_wall_sticky {
+            let top_edge_probe = terrain::probe_wall_top_edge(
+                grid,
+                x_px,
+                y_px,
+                PLAYER_HALF_WIDTH,
+                PLAYER_HEIGHT,
+                true,
+            );
+            if top_edge_probe.hit {
+                probe = top_edge_probe;
+            } else {
+                // Release from the tighter inclusive clamp onto the normal
+                // right-edge clearance pixel before air acceleration resumes.
+                self.player.x_pos = ((self.player.x_pos >> 16) + 1) << 16;
+                self.player.x_velocity = 0;
+                self.player.right_wall_sticky = false;
+                return;
+            }
+        }
 
         if probe.hit {
             let clamped_center = if moving_right {
-                // Player centre must stay left of wall: centre + half_width <= wall_x
-                probe.wall_x_px - PLAYER_HALF_WIDTH
+                // The disassembly hitbox stores left=-5, width=10, so the right edge is inclusive.
+                probe.wall_x_px - PLAYER_RIGHT_WALL_EXTENT
             } else {
                 // Player centre must stay right of wall: centre - half_width >= wall_x
                 probe.wall_x_px + PLAYER_HALF_WIDTH
             };
+            if moving_right && x_px < clamped_center {
+                self.player.right_wall_sticky = false;
+                return;
+            }
             self.player.x_pos = (clamped_center.max(0) as u32) << 16;
             self.player.x_velocity = 0;
+            self.player.right_wall_sticky = moving_right && !self.player.on_ground;
+        } else {
+            self.player.right_wall_sticky = false;
         }
     }
 
@@ -1644,12 +1830,76 @@ impl OpeningSliceState {
         }
     }
 
-    fn apply_floor_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
+    fn apply_floor_collision(
+        &mut self,
+        block_grid: Option<&terrain::BlockGrid>,
+        horizontal_step_applied: bool,
+        allow_upward_slope_snap: bool,
+    ) -> Option<terrain::CollisionKind> {
         if let Some(grid) = block_grid {
+            let was_on_ground = self.player.on_ground;
             let x_px = (self.player.x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
-            let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
-            if probe.on_ground {
+            let left_edge_probe = terrain::probe_floor(grid, x_px - PLAYER_HALF_WIDTH, y_px);
+            let right_edge_probe = terrain::probe_floor(grid, x_px + PLAYER_HALF_WIDTH, y_px);
+            let mut probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+            if was_on_ground
+                && matches!(
+                    probe.cell.collision,
+                    terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                )
+            {
+                let edge_probe = match (left_edge_probe.on_ground, right_edge_probe.on_ground) {
+                    (true, true) => {
+                        if left_edge_probe.floor_y_px >= right_edge_probe.floor_y_px {
+                            Some(left_edge_probe)
+                        } else {
+                            Some(right_edge_probe)
+                        }
+                    }
+                    (true, false) => Some(left_edge_probe),
+                    (false, true) => Some(right_edge_probe),
+                    (false, false) => None,
+                };
+                if let Some(edge_probe) = edge_probe {
+                    if edge_probe.floor_y_px > probe.floor_y_px {
+                        probe = edge_probe;
+                    }
+                }
+            }
+            let mut allow_hitbox_snap = true;
+            let mut center_slope_snap_candidate = false;
+            if !was_on_ground {
+                let center_probe = terrain::probe_floor(grid, x_px, y_px);
+                if matches!(
+                    center_probe.cell.collision,
+                    terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                ) {
+                    let center_floor_fp = (center_probe.floor_y_px.max(0) as u32) << 16;
+                    let near_center_slope = self.player.y_pos >= center_floor_fp
+                        || self.player.y_pos.abs_diff(center_floor_fp)
+                            <= SLOPE_AIR_SNAP_TOLERANCE_FP;
+                    if near_center_slope {
+                        probe = center_probe;
+                        center_slope_snap_candidate = true;
+                    } else {
+                        allow_hitbox_snap =
+                            matches!(
+                                left_edge_probe.cell.collision,
+                                terrain::CollisionKind::SlopeDown
+                                    | terrain::CollisionKind::SlopeUp
+                            ) || matches!(
+                                right_edge_probe.cell.collision,
+                                terrain::CollisionKind::SlopeDown
+                                    | terrain::CollisionKind::SlopeUp
+                            );
+                    }
+                }
+            }
+            let preserving_ground_contact = self.player.on_ground && probe.cell.is_solid_floor();
+            if center_slope_snap_candidate
+                || (allow_hitbox_snap && (probe.on_ground || preserving_ground_contact))
+            {
                 let floor_y_px = match probe.cell.collision {
                     terrain::CollisionKind::Solid
                     | terrain::CollisionKind::HiddenBlock
@@ -1662,25 +1912,110 @@ impl OpeningSliceState {
                 self.terrain.floor_y_pos = floor_y_fp;
                 let within_snap =
                     self.player.y_pos.abs_diff(floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP;
-                if self.player.y_velocity >= 0 && (self.player.y_pos >= floor_y_fp || within_snap) {
+                let can_land = match probe.cell.collision {
+                    terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp => {
+                        let within_slope_touch_snap =
+                            self.player.y_pos.abs_diff(floor_y_fp) <= 0x0001_0000;
+                        (self.player.y_velocity >= 0
+                            && (self.player.y_pos >= floor_y_fp || within_slope_touch_snap))
+                            || (allow_upward_slope_snap
+                                && center_slope_snap_candidate
+                                && self.player.y_velocity < 0
+                                && self.player.y_velocity
+                                    >= -(SLOPE_AIR_SNAP_TOLERANCE_FP as i32)
+                                && (self.player.y_pos >= floor_y_fp || within_snap))
+                    }
+                    terrain::CollisionKind::Solid
+                    | terrain::CollisionKind::HiddenBlock
+                    | terrain::CollisionKind::Spikes
+                    | terrain::CollisionKind::Empty => {
+                        self.player.y_velocity >= 0
+                            && (self.player.y_pos >= floor_y_fp || within_snap)
+                    }
+                };
+                if can_land {
+                    let should_apply_slope_recontact = !was_on_ground
+                        && self.player.y_velocity < 0
+                        && matches!(
+                            probe.cell.collision,
+                            terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                        );
+                    if !was_on_ground
+                        && horizontal_step_applied
+                        && !matches!(
+                            probe.cell.collision,
+                            terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
+                        )
+                    {
+                        let landing_x =
+                            i64::from(self.player.x_pos) - i64::from(self.player.x_velocity);
+                        self.player.x_pos = landing_x.clamp(0, i64::from(u32::MAX)) as u32;
+                    }
                     self.player.y_pos = floor_y_fp;
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
+                    if should_apply_slope_recontact {
+                        return match probe.cell.collision {
+                            terrain::CollisionKind::SlopeDown => Some(terrain::CollisionKind::SlopeDown),
+                            terrain::CollisionKind::SlopeUp => Some(terrain::CollisionKind::SlopeUp),
+                            _ => None,
+                        };
+                    }
                 }
             } else if self.player.on_ground {
                 // Was on ground but no longer — start falling
                 self.player.on_ground = false;
                 self.player.on_spikes = false;
             }
-        } else {
-            // Flat floor fallback when no block grid is loaded
-            if self.player.y_velocity >= 0 && self.player.y_pos >= self.terrain.floor_y_pos {
-                self.player.y_pos = self.terrain.floor_y_pos;
-                self.player.on_ground = true;
-                self.player.y_velocity = 0;
-            }
+        } else if self.player.on_ground {
+            self.player.on_ground = false;
+            self.player.on_spikes = false;
         }
+        None
+    }
+
+    fn apply_immediate_slope_recontact(
+        &mut self,
+        input: FrameInput,
+        form: PlayerForm,
+        collision: terrain::CollisionKind,
+        grid: &terrain::BlockGrid,
+    ) {
+        let h_input = HorizontalInput {
+            left: input.left,
+            right: input.right,
+            run: input.a,
+        };
+        let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+            self.player.x_velocity,
+            self.player.facing,
+            h_input,
+            collision,
+            form,
+        );
+        self.player.x_velocity = new_vel;
+        self.player.facing = new_facing;
+        let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+        self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+        let floor_y_px = match probe.cell.collision {
+            terrain::CollisionKind::Solid
+            | terrain::CollisionKind::HiddenBlock
+            | terrain::CollisionKind::Spikes => probe.floor_y_px.saturating_sub(1),
+            terrain::CollisionKind::SlopeDown
+            | terrain::CollisionKind::SlopeUp
+            | terrain::CollisionKind::Empty => probe.floor_y_px,
+        };
+        let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+        self.terrain.floor_y_pos = floor_y_fp;
+        self.player.y_pos = floor_y_fp;
+        self.player.on_ground = true;
+        self.player.y_velocity = 0;
+        self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
     }
 
     /// Camera follows player using the real sub_71E4 follow algorithm.
@@ -1701,6 +2036,111 @@ impl OpeningSliceState {
         self.camera.x_pos = (new_cx.max(0) as u32) << 16;
         self.camera.y_pos = (new_cy.max(0) as u32) << 16;
     }
+}
+
+fn update_level_one_slope_ground_velocity(
+    x_vel: i32,
+    facing: Direction,
+    input: HorizontalInput,
+    collision: terrain::CollisionKind,
+    form: PlayerForm,
+) -> (i32, Direction) {
+    if form != PlayerForm::TheKid {
+        return physics::update_horizontal_velocity(x_vel, facing, input, &physics::NORMAL_KID);
+    }
+
+    let slope_descends_right = collision == terrain::CollisionKind::SlopeDown;
+    let mut canonical_vel = if slope_descends_right { x_vel } else { -x_vel };
+    let uphill_pressed = if slope_descends_right {
+        input.right
+    } else {
+        input.left
+    };
+    let downhill_pressed = if slope_descends_right {
+        input.left
+    } else {
+        input.right
+    };
+    let (uphill_cap, uphill_accel, downhill_cap, downhill_accel) = if input.run {
+        (
+            KID_SLOPE_RUN_UPHILL_CAP_FP,
+            KID_SLOPE_RUN_UPHILL_ACCEL_FP,
+            KID_SLOPE_RUN_DOWNHILL_CAP_FP,
+            KID_SLOPE_RUN_DOWNHILL_ACCEL_FP,
+        )
+    } else {
+        (
+            KID_SLOPE_WALK_UPHILL_CAP_FP,
+            KID_SLOPE_WALK_UPHILL_ACCEL_FP,
+            KID_SLOPE_WALK_DOWNHILL_CAP_FP,
+            KID_SLOPE_WALK_DOWNHILL_ACCEL_FP,
+        )
+    };
+
+    if uphill_pressed {
+        if canonical_vel < 0 {
+            canonical_vel += uphill_accel * 2;
+        } else if canonical_vel <= uphill_cap {
+            canonical_vel += uphill_accel;
+            if canonical_vel > uphill_cap {
+                canonical_vel = uphill_cap;
+            }
+        } else {
+            canonical_vel -= KID_SLOPE_BRAKE_FP;
+            if canonical_vel > KID_SLOPE_MAX_SPEED_FP {
+                canonical_vel = KID_SLOPE_MAX_SPEED_FP;
+            }
+        }
+    } else if downhill_pressed {
+        if canonical_vel >= 0 {
+            canonical_vel -= downhill_accel * 2;
+        } else if canonical_vel >= downhill_cap {
+            canonical_vel -= downhill_accel;
+            if canonical_vel < downhill_cap {
+                canonical_vel = downhill_cap;
+            }
+        } else {
+            canonical_vel += KID_SLOPE_BRAKE_FP;
+            if canonical_vel < -KID_SLOPE_MAX_SPEED_FP {
+                canonical_vel = -KID_SLOPE_MAX_SPEED_FP;
+            }
+        }
+    } else if canonical_vel < KID_SLOPE_NEUTRAL_TARGET_FP {
+        canonical_vel += KID_SLOPE_NEUTRAL_DECEL_FP;
+        if canonical_vel > KID_SLOPE_NEUTRAL_TARGET_FP {
+            canonical_vel = KID_SLOPE_NEUTRAL_TARGET_FP;
+        }
+    } else {
+        canonical_vel -= KID_SLOPE_NEUTRAL_DECEL_FP;
+        if canonical_vel < KID_SLOPE_NEUTRAL_TARGET_FP {
+            canonical_vel = KID_SLOPE_NEUTRAL_TARGET_FP;
+        }
+    }
+
+    let next_facing = if uphill_pressed {
+        if slope_descends_right {
+            Direction::Right
+        } else {
+            Direction::Left
+        }
+    } else if downhill_pressed {
+        if slope_descends_right {
+            Direction::Left
+        } else {
+            Direction::Right
+        }
+    } else if slope_descends_right == (canonical_vel >= 0) {
+        Direction::Right
+    } else {
+        Direction::Left
+    };
+
+    let next_x_vel = if slope_descends_right {
+        canonical_vel
+    } else {
+        -canonical_vel
+    };
+    (next_x_vel, next_facing)
 }
 
 impl ActivationWindow {
@@ -2071,32 +2511,61 @@ enum EnemyContactResult {
 
 /// Classify contact between player and enemy as stomp, damage, or no contact.
 ///
-/// Stomp: player is falling (y_velocity > 0) and player's feet are above
-/// the enemy's vertical midpoint. This is the core "jump on head" mechanic.
+/// Stomp: player is falling (y_velocity > 0) and the player's feet are at or
+/// above the enemy's top edge. Contacts lower on the sprite deal damage
+/// instead of granting a bounce.
 fn classify_enemy_contact(player: PlayerState, enemy: &NativeObjectSnapshot) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
-    let p_left = px - (i64::from(PLAYER_HALF_WIDTH) << 16);
-    let p_right = px + (i64::from(PLAYER_HALF_WIDTH) << 16);
+    let p_left = px - (PLAYER_CONTACT_HALF_WIDTH << 16);
+    let p_right = px + (PLAYER_CONTACT_HALF_WIDTH << 16);
     let p_top = py - (i64::from(PLAYER_HEIGHT) << 16);
     let p_bottom = py;
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
-    let e_left = ex - (ENEMY_HALF_SIZE << 16);
-    let e_right = ex + (ENEMY_HALF_SIZE << 16);
-    let e_top = ey - (ENEMY_HALF_SIZE << 16);
-    let e_bottom = ey + (ENEMY_HALF_SIZE << 16);
+    let stomp_enemy_half_width = ENEMY_CONTACT_HALF_WIDTH;
+    let damage_enemy_half_width = match enemy.kind {
+        NativeObjectKind::Enemy { object_type: 0x1C } => MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
+        _ => ENEMY_CONTACT_HALF_WIDTH,
+    };
+    let stomp_e_left = ex - (stomp_enemy_half_width << 16);
+    let stomp_e_right = ex + (stomp_enemy_half_width << 16);
+    let damage_e_left = ex - (damage_enemy_half_width << 16);
+    let damage_e_right = ex + (damage_enemy_half_width << 16);
+    let stomp_e_top = ey - (ENEMY_CONTACT_HALF_HEIGHT << 16);
+    let damage_e_top = ey - (ENEMY_CONTACT_HALF_HEIGHT << 16);
+    let damage_e_bottom = ey + (ENEMY_CONTACT_HALF_HEIGHT << 16);
 
-    // No overlap → no contact
-    if !(p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top) {
+    // Stomp: player must be falling and their feet must still be at or above
+    // the enemy's top edge on the previous frame, so this frame crosses or
+    // touches the stomp line instead of already interpenetrating from the side.
+    let stomp_horizontal_overlap = p_right.min(stomp_e_right) - p_left.max(stomp_e_left);
+    let previous_bottom = p_bottom - i64::from(player.y_velocity);
+    if player.y_velocity > 0
+        && previous_bottom <= stomp_e_top
+        && stomp_horizontal_overlap >= ENEMY_CONTACT_MIN_OVERLAP_FP
+    {
+        return EnemyContactResult::Stomp;
+    }
+
+    if matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x1C })
+        && enemy.on_ground == Some(false)
+        && enemy.y_velocity.is_some_and(|y_velocity| y_velocity < 0)
+    {
         return EnemyContactResult::None;
     }
 
-    // Stomp: player must be falling AND feet above enemy midpoint
-    let e_mid_y = (e_top + e_bottom) / 2;
-    if player.y_velocity > 0 && p_bottom <= e_mid_y {
-        return EnemyContactResult::Stomp;
+    if !(p_left < damage_e_right
+        && p_right > damage_e_left
+        && p_top < damage_e_bottom
+        && p_bottom > damage_e_top)
+    {
+        return EnemyContactResult::None;
+    }
+    let damage_horizontal_overlap = p_right.min(damage_e_right) - p_left.max(damage_e_left);
+    if damage_horizontal_overlap < ENEMY_CONTACT_MIN_OVERLAP_FP {
+        return EnemyContactResult::None;
     }
 
     EnemyContactResult::Damage
@@ -2110,15 +2579,6 @@ fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bo
 }
 
 pub fn run_script(
-    assets: AssetManifest,
-    script: &[u8],
-    frame_count: usize,
-) -> Vec<NativeTraceFrame> {
-    let mut runtime = NativeRuntime::new(assets);
-    run_script_with_runtime(&mut runtime, script, frame_count)
-}
-
-pub fn run_script_with_generated_level_layout(
     assets: AssetManifest,
     script: &[u8],
     frame_count: usize,
@@ -2268,6 +2728,9 @@ mod tests {
     }
 
     fn start_level(runtime: &mut NativeRuntime) {
+        if runtime.block_grid().is_none() {
+            runtime.set_block_grid(grid_with_floor_at_row(17));
+        }
         for _ in 0..360 {
             runtime.step_frame(FrameInput::default());
         }
@@ -2630,7 +3093,7 @@ mod tests {
     }
 
     #[test]
-    fn timing_regression_jump_press_arms_jump_before_vertical_motion_begins() {
+    fn timing_regression_jump_press_primes_takeoff_for_next_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         loop {
@@ -2645,12 +3108,16 @@ mod tests {
             b: true,
             ..FrameInput::default()
         });
+        let rising_frame = runtime.step_frame(FrameInput {
+            b: true,
+            ..FrameInput::default()
+        });
 
         assert_eq!(jump_frame.kid_y_pos, grounded.kid_y_pos);
-        assert_eq!(jump_frame.kid_on_ground, Some(false));
+        assert_eq!(jump_frame.kid_on_ground, Some(true));
         assert!(
-            jump_frame.kid_y_velocity.expect("jump velocity") < 0,
-            "jump press should arm an upward velocity"
+            rising_frame.kid_y_pos.expect("rising y") < grounded.kid_y_pos.expect("grounded y"),
+            "held jump should begin moving upward on the next frame"
         );
     }
 
@@ -2715,7 +3182,7 @@ mod tests {
     }
 
     #[test]
-    fn timing_regression_jump_press_on_block_grid_does_not_reground_on_takeoff_frame() {
+    fn timing_regression_jump_press_on_block_grid_primes_takeoff_for_next_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));
         start_level(&mut runtime);
@@ -2733,12 +3200,18 @@ mod tests {
             b: true,
             ..FrameInput::default()
         });
+        let rising_frame = runtime.step_frame(FrameInput {
+            right: true,
+            a: true,
+            b: true,
+            ..FrameInput::default()
+        });
 
         assert_eq!(jump_frame.kid_y_pos, grounded.kid_y_pos);
-        assert_eq!(jump_frame.kid_on_ground, Some(false));
+        assert_eq!(jump_frame.kid_on_ground, Some(true));
         assert!(
-            jump_frame.kid_y_velocity.expect("jump velocity") < 0,
-            "block-grid take-off should keep the player airborne"
+            rising_frame.kid_on_ground == Some(false),
+            "block-grid take-off should keep the player airborne once the jump begins"
         );
     }
 
@@ -2825,6 +3298,7 @@ mod tests {
     #[test]
     fn moves_camera_when_holding_right_in_game() {
         let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
         for frame in 0..1_020 {
             let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
                 FrameInput {
@@ -2858,6 +3332,7 @@ mod tests {
     #[test]
     fn level_one_opening_hit_matches_oracle_frame() {
         let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
         let mut first_hit_frame = None;
 
         for frame in 0..900 {
@@ -2892,6 +3367,7 @@ mod tests {
     #[test]
     fn timing_regression_level_one_opening_hit_keeps_advanced_position() {
         let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
 
         for frame in 0..744 {
             let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
@@ -2963,6 +3439,62 @@ mod tests {
     }
 
     #[test]
+    fn timing_regression_grounded_jump_moves_on_takeoff_frame() {
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        let mut grid = grid_with_floor_at_row(17);
+        slice.player.x_pos = 0x00B1_2300;
+        slice.player.y_pos = slice.terrain.floor_y_pos;
+        slice.player.x_velocity = 0x0003_4000;
+        slice.player.on_ground = true;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+        );
+
+        assert!(!slice.player.on_ground);
+        assert_eq!(slice.player.x_velocity, 0x0002_7000);
+        assert_eq!(slice.player.y_velocity, -0x0004_F680);
+        assert_eq!(slice.player.x_pos, 0x00B3_9300);
+        assert_eq!(slice.player.y_pos, 0x010A_0980);
+        assert!(!slice.player.just_jumped);
+    }
+
+    #[test]
+    fn airborne_landing_prefers_center_slope_before_edge_solid() {
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x40;
+        data[(usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 64,
+            height_pixels: 64,
+        });
+        slice.player.x_pos = 27 << 16;
+        slice.player.y_pos = 19 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+
+        slice.apply_floor_collision(Some(&grid), false, false);
+
+        assert_eq!(slice.player.y_pos, 20 << 16);
+        assert!(slice.player.on_ground);
+    }
+
+    #[test]
     fn timing_regression_airborne_within_ground_snap_tolerance_cannot_jump_early() {
         let mut slice = OpeningSliceState::respawn(LevelBounds {
             width_pixels: 320,
@@ -2998,6 +3530,9 @@ mod tests {
             width_pixels: 320,
             height_pixels: 224,
         });
+        let mut grid = grid_with_floor_at_row(17);
+        slice.player.x_pos = 0x00B1_2300;
+        slice.player.x_velocity = 0x0002_8A00;
         slice.player.y_pos = slice.terrain.floor_y_pos.saturating_sub(0x0002_0000);
         slice.player.y_velocity = 0x0003_C000;
         slice.player.on_ground = false;
@@ -3011,12 +3546,12 @@ mod tests {
             },
             true,
             PlayerForm::TheKid,
-            None,
+            Some(&mut grid),
         );
 
         assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
         assert!(slice.player.on_ground);
-        assert!(slice.player.jump_buffered);
+        assert!(slice.player.jump_buffer_frames > 0);
 
         slice.step(
             OPENING_SCROLL_START_FRAME,
@@ -3028,14 +3563,16 @@ mod tests {
             },
             false,
             PlayerForm::TheKid,
-            None,
+            Some(&mut grid),
         );
 
         assert!(!slice.player.on_ground);
+        assert_eq!(slice.player.x_pos, 0x00B3_0A80);
         assert!(slice.player.y_pos < slice.terrain.floor_y_pos);
+        assert_eq!(slice.player.x_velocity, 0x0001_E780);
         assert!(slice.player.y_velocity < 0);
         assert!(!slice.player.just_jumped);
-        assert!(!slice.player.jump_buffered);
+        assert_eq!(slice.player.jump_buffer_frames, 0);
     }
 
     #[test]
@@ -3044,6 +3581,7 @@ mod tests {
             width_pixels: 320,
             height_pixels: 224,
         });
+        let mut grid = grid_with_floor_at_row(17);
         slice.player.x_pos = 0x00B1_2300;
         slice.player.y_pos = slice.terrain.floor_y_pos.saturating_sub(0x0002_0000);
         slice.player.x_velocity = 0x0002_8900;
@@ -3059,13 +3597,185 @@ mod tests {
             },
             true,
             PlayerForm::TheKid,
-            None,
+            Some(&mut grid),
         );
 
         assert_eq!(slice.player.x_pos, 0x00B1_2300);
         assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
         assert!(slice.player.on_ground);
-        assert!(slice.player.jump_buffered);
+        assert!(slice.player.jump_buffer_frames > 0);
+    }
+
+    #[test]
+    fn slope_ground_run_right_brakes_before_level_one_jump() {
+        let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+            0x0003_8000,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: true,
+            },
+            terrain::CollisionKind::SlopeDown,
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(new_vel, 0x0003_4000);
+        assert_eq!(new_facing, Direction::Right);
+    }
+
+    #[test]
+    fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
+        let w = 64u16;
+        let h = 20u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_collision = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = hi;
+        };
+        set_collision(&mut data, 50, 11, 0x40);
+        set_collision(&mut data, 51, 11, 0x60);
+        set_collision(&mut data, 52, 11, 0x50);
+        set_collision(&mut data, 49, 12, 0x40);
+        set_collision(&mut data, 50, 12, 0x60);
+        set_collision(&mut data, 51, 12, 0x60);
+        set_collision(&mut data, 52, 12, 0x60);
+        set_collision(&mut data, 53, 12, 0x50);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 0x0325_6D6A;
+        slice.player.y_pos = 0x00B4_2780;
+        slice.player.x_velocity = 0x0002_9D80;
+        slice.player.y_velocity = -0x0000_5680;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+        );
+
+        assert_eq!(slice.player.x_pos, 0x032A_666A);
+        assert_eq!(slice.player.y_pos, 0x00B5_0000);
+        assert_eq!(slice.player.x_velocity, 0x0002_5C80);
+        assert!(slice.player.on_ground);
+    }
+
+    #[test]
+    fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
+        let w = 8u16;
+        let h = 12u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_collision = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = hi;
+        };
+        set_collision(&mut data, 2, 9, 0x40);
+        set_collision(&mut data, 3, 9, 0x60);
+        set_collision(&mut data, 4, 9, 0x60);
+        set_collision(&mut data, 5, 9, 0x60);
+        set_collision(&mut data, 2, 10, 0x60);
+        set_collision(&mut data, 3, 10, 0x60);
+        set_collision(&mut data, 4, 10, 0x60);
+        set_collision(&mut data, 5, 10, 0x60);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: (46u32 << 16) | 0x1980,
+                y_pos: (142u32 << 16) | 0x4600,
+                x_velocity: 0x0002_6E80,
+                y_velocity: 0x0002_3E00,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 143u32 << 16,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.y_pos, 143u32 << 16);
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.y_pos, 143u32 << 16);
+    }
+
+    #[test]
+    fn grounded_frame_clears_released_jump_buffer_before_auto_jump() {
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        let mut grid = grid_with_floor_at_row(17);
+        slice.player.x_pos = 0x00B1_2300;
+        slice.player.x_velocity = 0x0002_6D80;
+        slice.player.y_pos = slice.terrain.floor_y_pos;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.player.jump_buffer_frames = 1;
+
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.y_velocity, 0);
+        assert_eq!(slice.player.jump_buffer_frames, 0);
     }
 
     #[test]
@@ -4150,7 +4860,8 @@ mod tests {
                 on_ground: false,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4192,7 +4903,8 @@ mod tests {
                 on_ground: false,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4238,7 +4950,8 @@ mod tests {
                 on_ground: false,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4280,7 +4993,8 @@ mod tests {
                 on_ground: false,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4323,7 +5037,8 @@ mod tests {
                 on_ground: false,
                 on_spikes: false,
                 just_jumped: false,
-                jump_buffered: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -4349,6 +5064,146 @@ mod tests {
 
         // Velocity should remain negative (no ceiling hit)
         assert!(slice.player.y_velocity < 0);
+    }
+
+    #[test]
+    fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (usize::from(1u16) * usize::from(w) + usize::from(3u16)) * 2;
+        data[offset] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 43 << 16,
+                y_pos: 31 << 16,
+                x_velocity: 0x0001_0000,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 48 << 16,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 64,
+                height_pixels: 64,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        slice.apply_wall_collision(Some(&grid));
+
+        assert_eq!(slice.player.x_pos, 42 << 16);
+        assert_eq!(slice.player.x_velocity, 0);
+    }
+
+    #[test]
+    fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
+        let w = 5u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2;
+        data[offset] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 26 << 16,
+                y_pos: 48 << 16,
+                x_velocity: 0x0001_0000,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 64 << 16,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 80,
+                height_pixels: 80,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        slice.apply_wall_collision(Some(&grid));
+        assert_eq!(slice.player.x_pos, 26 << 16);
+        assert_eq!(slice.player.x_velocity, 0);
+        assert!(slice.player.right_wall_sticky);
+
+        slice.player.y_pos = 56 << 16;
+        slice.player.x_velocity = 0x0000_4000;
+        slice.apply_wall_collision(Some(&grid));
+        assert_eq!(slice.player.x_pos, 26 << 16);
+        assert_eq!(slice.player.x_velocity, 0);
+        assert!(slice.player.right_wall_sticky);
+
+        slice.player.y_pos = 64 << 16;
+        slice.player.x_velocity = 0x0000_4000;
+        slice.player.x_pos = (26 << 16) + 0x0000_4000;
+        slice.apply_wall_collision(Some(&grid));
+        assert_eq!(slice.player.x_pos, 27 << 16);
+        assert_eq!(slice.player.x_velocity, 0);
+        assert!(!slice.player.right_wall_sticky);
+    }
+
+    #[test]
+    fn landing_frame_rewinds_airborne_horizontal_step() {
+        let grid = grid_with_floor_at_row(4);
+        let previous_x_pos = 100 << 16;
+        let x_velocity = 0x0001_8000;
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: previous_x_pos + x_velocity as u32,
+                y_pos: 64 << 16,
+                x_velocity,
+                y_velocity: 0x0001_0000,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 0,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        slice.apply_floor_collision(Some(&grid), true, false);
+
+        assert_eq!(slice.player.x_pos, previous_x_pos);
+        assert_eq!(slice.player.y_pos, 63 << 16);
+        assert_eq!(slice.player.x_velocity, x_velocity);
+        assert_eq!(slice.player.y_velocity, 0);
+        assert!(slice.player.on_ground);
     }
 
     // --- US-011: Stomp-kill enemies ---
@@ -4452,6 +5307,72 @@ mod tests {
     }
 
     #[test]
+    fn stomp_requires_feet_above_enemy_top_edge() {
+        let player = PlayerState {
+            x_pos: 100 << 16,
+            y_pos: 219 << 16,
+            x_velocity: 0,
+            y_velocity: 0x0002_0000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+        };
+        let enemy = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x1C },
+            x_pos: 100 << 16,
+            y_pos: 224 << 16,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+        };
+
+        assert_eq!(
+            classify_enemy_contact(player, &enemy),
+            EnemyContactResult::Damage
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_graze_does_not_damage() {
+        let player = PlayerState {
+            x_pos: 0x042E_1980,
+            y_pos: 0x008E_4600,
+            x_velocity: 0x0002_6E80,
+            y_velocity: 0x0002_3E00,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+        };
+        let enemy = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x1C },
+            x_pos: 0x0434_0000,
+            y_pos: 0x007D_8800,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+        };
+
+        assert_eq!(
+            classify_enemy_contact(player, &enemy),
+            EnemyContactResult::None
+        );
+    }
+
+    #[test]
     fn stomp_works_during_invulnerability() {
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
@@ -4538,7 +5459,7 @@ mod tests {
         runtime.step_frame(FrameInput::default());
         if let Some(ref mut slice) = runtime.opening_slice {
             // Player slightly left of skull (skull at 0x0120)
-            slice.player.x_pos = 0x0118_0000;
+            slice.player.x_pos = 0x011C_0000;
             slice.player.y_pos = 0x00E0_0000;
             slice.player.on_ground = true;
             slice.player.x_velocity = 0;
@@ -4580,7 +5501,7 @@ mod tests {
         runtime.step_frame(FrameInput::default());
         if let Some(ref mut slice) = runtime.opening_slice {
             // Player slightly right of skull (skull at 0x0120)
-            slice.player.x_pos = 0x0128_0000;
+            slice.player.x_pos = 0x0124_0000;
             slice.player.y_pos = 0x00E0_0000;
             slice.player.on_ground = true;
             slice.player.x_velocity = 0;
@@ -4620,7 +5541,7 @@ mod tests {
         }
         runtime.step_frame(FrameInput::default());
         if let Some(ref mut slice) = runtime.opening_slice {
-            slice.player.x_pos = 0x0118_0000;
+            slice.player.x_pos = 0x011C_0000;
             slice.player.y_pos = 0x00E0_0000;
             slice.player.on_ground = true;
             slice.player.x_velocity = 0;
