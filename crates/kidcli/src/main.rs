@@ -495,6 +495,7 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             verify_native_gameplay_scenario(&repo_root, &manifest, scenario)?;
             println!("native gameplay verification passed: {}", scenario.slug());
         }
@@ -652,6 +653,7 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             probe_native_gameplay_scenario(&manifest, scenario, frame_start, frame_end)?;
         }
         Commands::InspectLevel { rom, dir, level } => {
@@ -692,6 +694,7 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             compare_native_gameplay(&repo_root, &rom_path, &manifest, scenario)?;
         }
         Commands::DiagnoseNativeGameplayDrift {
@@ -705,6 +708,7 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             diagnose_native_gameplay_drift(
                 &repo_root, &rom_path, &manifest, scenario, from_frame, limit,
             )?;
@@ -2391,6 +2395,44 @@ fn prepare_generated_assets(
         |dir| run_command(Command::new("python3").arg("split.py"), Some(dir)),
         export_split_bundle,
     )
+}
+
+fn ensure_gameplay_level_layouts(
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+) -> Result<()> {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    ensure_gameplay_level_layouts_with(&rom_bytes, manifest, scenario, dump_level_layout)
+}
+
+fn ensure_gameplay_level_layouts_with<FDump>(
+    rom_bytes: &[u8],
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+    dump_level_layout_fn: FDump,
+) -> Result<()>
+where
+    FDump: Fn(&[u8], u8, &Path) -> Result<()>,
+{
+    let (start_level, end_level) = scenario.required_level_layout_range();
+    let layout_dir = manifest.output_root.join("level-layout");
+    let missing_levels = (start_level..=end_level)
+        .filter(|level_id| {
+            let data_path = layout_dir.join(format!("{level_id:02X}.bin"));
+            let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+            !(data_path.is_file() && metadata_path.is_file())
+        })
+        .collect::<Vec<_>>();
+    if missing_levels.is_empty() {
+        return Ok(());
+    }
+
+    for level_id in missing_levels {
+        dump_level_layout_fn(rom_bytes, level_id, &layout_dir)?;
+    }
+    Ok(())
 }
 
 fn prepare_generated_assets_with<FVerify, FBootstrap, FSync, FSplit, FExport>(
@@ -4936,8 +4978,9 @@ mod tests {
         audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
         capture_native_gameplay_scenario, compare_native_gameplay_with,
         compare_native_states_against_oracle, find_gameplay_live_drifts,
-        gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, selected_reference_repos,
+        ensure_gameplay_level_layouts_with, gameplay_checkpoint_window,
+        native_trace_to_oracle_state, parse_button_mask, parse_input_spec,
+        prepare_generated_assets_with, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -4946,7 +4989,7 @@ mod tests {
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
     };
     use kid_rom::{RomHeader, RomIdentity, VerifiedRom};
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
     use std::fs;
     use std::path::Path;
     use tempfile::TempDir;
@@ -5458,6 +5501,61 @@ mod tests {
                 .join(decoded.foreground.relative_path)
                 .is_file()
         );
+    }
+
+    #[test]
+    fn ensure_gameplay_level_layouts_only_dumps_missing_levels() {
+        let bundle_root = TempDir::new().expect("bundle root");
+        let layout_dir = bundle_root.path().join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir");
+        fs::write(layout_dir.join("00.bin"), [0x60, 0x00]).expect("existing layout");
+        fs::write(
+            layout_dir.join("00.json"),
+            br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+        )
+        .expect("existing layout metadata");
+
+        let manifest = AssetManifest {
+            generated_bundle_version: 7,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("deadbeef"),
+            source_root: bundle_root.path().to_path_buf(),
+            output_root: bundle_root.path().to_path_buf(),
+            map_order: vec![],
+            levels: vec![],
+            constants: vec![],
+            ram_variables: vec![],
+            enemy_sources: vec![],
+            theme_assets: vec![],
+            scene_assets: vec![],
+            animation_assets: vec![],
+            sound_assets: vec![],
+            ingame_assets: vec![],
+            decoded_level1: None,
+        };
+
+        let dumped_levels = RefCell::new(Vec::new());
+        ensure_gameplay_level_layouts_with(
+            b"rom",
+            &manifest,
+            GameplayScenario::ProgressTwoTransitions,
+            |_, level_id, out_dir| {
+                dumped_levels.borrow_mut().push(level_id);
+                fs::write(out_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                    .expect("dumped layout");
+                fs::write(
+                    out_dir.join(format!("{level_id:02X}.json")),
+                    br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+                )
+                .expect("dumped layout metadata");
+                Ok(())
+            },
+        )
+        .expect("missing layouts should be dumped");
+
+        assert_eq!(*dumped_levels.borrow(), vec![0x01, 0x02]);
+        assert!(layout_dir.join("02.bin").is_file());
+        assert!(layout_dir.join("02.json").is_file());
     }
 
     #[test]

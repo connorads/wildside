@@ -313,6 +313,14 @@ impl GameplayScenario {
         matches!(self, Self::ProgressTwoTransitions | Self::SoakLevel10m)
     }
 
+    pub fn required_level_layout_range(self) -> (u8, u8) {
+        match self {
+            Self::PauseResumeLevel1 | Self::DeathRespawnLevel1 => (0x00, 0x00),
+            Self::ProgressTwoTransitions => (0x00, 0x02),
+            Self::SoakLevel10m => (0x00, 0x1F),
+        }
+    }
+
     pub fn script(self) -> Result<Vec<u8>> {
         let mut script = vec![0; self.frame_count().saturating_add(1)];
         apply_boot_to_level_1(&mut script);
@@ -512,5 +520,21 @@ mod tests {
             .expect("gameplay scenario script should build");
         assert_eq!(script[1_400], 0x80);
         assert_eq!(script[1_560] & (1 << 3), 1 << 3);
+    }
+
+    #[test]
+    fn gameplay_scenarios_report_required_level_layout_ranges() {
+        assert_eq!(
+            GameplayScenario::PauseResumeLevel1.required_level_layout_range(),
+            (0x00, 0x00)
+        );
+        assert_eq!(
+            GameplayScenario::ProgressTwoTransitions.required_level_layout_range(),
+            (0x00, 0x02)
+        );
+        assert_eq!(
+            GameplayScenario::SoakLevel10m.required_level_layout_range(),
+            (0x00, 0x1F)
+        );
     }
 }
