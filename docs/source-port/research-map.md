@@ -8,10 +8,9 @@ This map records what the source port still needs to learn, where to source that
 
 ## Current frontier
 
-1. Level 1 full traversal
-2. Preserve traversal closure while expanding Level 1 fidelity
-3. Deeper enemy-family fidelity work now that traversal is green on the default runtime path
-4. Then broader multi-level progression and presentation work
+1. Preserve Level 1 traversal closure on the default runtime path
+2. Deeper enemy-family fidelity work now that traversal is green
+3. Then broader multi-level progression and presentation work
 
 ## Done
 

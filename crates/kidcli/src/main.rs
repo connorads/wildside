@@ -12,8 +12,7 @@ use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script};
 use kid_data::{
-    AssetManifest, EnemyLayout, EnemyLayoutObject, EnemyLayoutSegment,
-    ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
+    AssetManifest, ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
     generated_bundle_dir, load_level_asset_bundle, load_manifest,
     manifest_path as generated_manifest_path, resource_level_id,
 };
@@ -2457,8 +2456,7 @@ where
     let bundle_dir = generated_bundle_dir(repo_root, &verified.sha1);
     let bundle_manifest_path = generated_manifest_path(&bundle_dir);
     if bundle_manifest_path.is_file() {
-        let mut manifest = load_manifest(&bundle_manifest_path)?;
-        apply_oracle_enemy_layout_overrides(repo_root, &mut manifest)?;
+        let manifest = load_manifest(&bundle_manifest_path)?;
         if ensure_generated_bundle_contract(&manifest).is_ok() {
             return Ok(manifest);
         }
@@ -2467,82 +2465,7 @@ where
     bootstrap_upstream_fn(upstream_dir)?;
     sync_rom_fn(rom_path, upstream_dir)?;
     split_fn(upstream_dir)?;
-    let mut manifest =
-        export_bundle_fn(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)?;
-    apply_oracle_enemy_layout_overrides(repo_root, &mut manifest)?;
-    Ok(manifest)
-}
-
-fn apply_oracle_enemy_layout_overrides(
-    repo_root: &Path,
-    manifest: &mut AssetManifest,
-) -> Result<()> {
-    let level1_trace = read_enemy_layout_trace_override(repo_root)?;
-    let Some(level1_trace) = level1_trace else {
-        return Ok(());
-    };
-    let Some(level) = manifest
-        .levels
-        .iter_mut()
-        .find(|level| level.level_id == 0x00)
-    else {
-        return Ok(());
-    };
-    level.enemy_layout_metadata = Some(level1_trace);
-    Ok(())
-}
-
-fn read_enemy_layout_trace_override(repo_root: &Path) -> Result<Option<EnemyLayout>> {
-    let trace_path =
-        repo_root.join(".cache/native-oracle-runs/boot_title_start_level1/enemy-layout-trace.json");
-    if !trace_path.is_file() {
-        return Ok(None);
-    }
-    let bytes = fs::read(&trace_path)
-        .with_context(|| format!("failed to read {}", trace_path.display()))?;
-    let trace: OracleEnemyLayoutTraceManifest = serde_json::from_slice(&bytes)
-        .with_context(|| format!("failed to parse {}", trace_path.display()))?;
-    let checkpoint = trace
-        .checkpoints
-        .iter()
-        .find(|checkpoint| checkpoint.label == "level_settle")
-        .or_else(|| {
-            trace
-                .checkpoints
-                .iter()
-                .find(|checkpoint| checkpoint.object_count > 0)
-        })
-        .ok_or_else(|| anyhow!("enemy-layout trace contained no usable checkpoints"))?;
-
-    let objects = checkpoint
-        .objects
-        .iter()
-        .map(|object| EnemyLayoutObject {
-            object_type: object.object_type,
-            flags: object.flags,
-            hit_points_plus_one: object.hit_points_plus_one,
-            x: object.x,
-            y: object.y,
-        })
-        .collect::<Vec<_>>();
-    let segment = EnemyLayoutSegment {
-        lower_bound: 0,
-        upper_bound: checkpoint.upper_bound,
-        enemy_type_slots: checkpoint.enemy_type_slots.clone(),
-        object_batch_flags: checkpoint.object_batch_flags,
-        object_count: checkpoint.object_count,
-        objects: objects.clone(),
-    };
-    Ok(Some(EnemyLayout {
-        axis_uses_y_position: checkpoint.axis_uses_y_position,
-        unknown_prefix: checkpoint.header_ptr,
-        enemy_type_slots: checkpoint.enemy_type_slots.clone(),
-        unknown_word: checkpoint.upper_bound,
-        header_byte: checkpoint.object_batch_flags,
-        object_count: checkpoint.object_count,
-        objects,
-        segments: vec![segment],
-    }))
+    export_bundle_fn(upstream_dir, &bundle_dir, &verified.sha1, UPSTREAM_COMMIT)
 }
 
 fn acquire_prepare_lock(repo_root: &Path) -> Result<PrepareLock> {
@@ -4977,10 +4900,10 @@ mod tests {
         GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
         audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
         capture_native_gameplay_scenario, compare_native_gameplay_with,
-        compare_native_states_against_oracle, find_gameplay_live_drifts,
-        ensure_gameplay_level_layouts_with, gameplay_checkpoint_window,
-        native_trace_to_oracle_state, parse_button_mask, parse_input_spec,
-        prepare_generated_assets_with, selected_reference_repos,
+        compare_native_states_against_oracle, ensure_gameplay_level_layouts_with,
+        find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
+        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
+        selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -5501,6 +5424,62 @@ mod tests {
                 .join(decoded.foreground.relative_path)
                 .is_file()
         );
+    }
+
+    #[test]
+    fn prepare_generated_assets_ignores_enemy_layout_trace_sidecar() {
+        let repo_root = TempDir::new().expect("repo root");
+        let upstream_dir = TempDir::new().expect("upstream");
+        let rom_dir = TempDir::new().expect("rom dir");
+        let rom_path = rom_dir.path().join("kid.bin");
+        fs::write(&rom_path, b"not used").expect("rom placeholder");
+        write_generated_asset_source_fixture(upstream_dir.path());
+
+        let verified = VerifiedRom {
+            path: rom_path.clone(),
+            size: 0x200,
+            sha1: String::from("abc123"),
+            identity: RomIdentity::HeaderMatchesKidChameleon,
+            header: RomHeader {
+                console_name: String::from("SEGA MEGA DRIVE"),
+                domestic_title: String::from("KID CHAMELEON"),
+                overseas_title: String::from("KID CHAMELEON"),
+                serial: String::from("GM MK-1010"),
+                regions: String::from("JUE"),
+            },
+        };
+
+        let existing_manifest = export_split_bundle(
+            upstream_dir.path(),
+            repo_root.path().join(".cache/generated/abc123").as_path(),
+            "abc123",
+            "deadbeef",
+        )
+        .expect("initial export");
+        let trace_path = repo_root
+            .path()
+            .join(".cache/native-oracle-runs/boot_title_start_level1/enemy-layout-trace.json");
+        fs::create_dir_all(trace_path.parent().expect("trace dir")).expect("trace dir");
+        fs::write(&trace_path, b"{ not json").expect("stale trace");
+
+        let export_calls = Cell::new(0usize);
+        let prepared = prepare_generated_assets_with(
+            repo_root.path(),
+            &rom_path,
+            upstream_dir.path(),
+            |_| Ok(verified.clone()),
+            |_| Ok(()),
+            |_, _| Ok(()),
+            |_| Ok(()),
+            |source_root, bundle_dir, sha1, upstream_commit| {
+                export_calls.set(export_calls.get() + 1);
+                export_split_bundle(source_root, bundle_dir, sha1, upstream_commit)
+            },
+        )
+        .expect("prepare should ignore trace sidecar");
+
+        assert_eq!(export_calls.get(), 0);
+        assert_eq!(prepared, existing_manifest);
     }
 
     #[test]

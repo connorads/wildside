@@ -525,10 +525,10 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .transpose()?
         .or(resource_level.header_metadata.clone());
     let enemy = load_asset(manifest, resource_level.resources.enemy.as_deref())?;
-    let parsed_enemy_layout = level
+    let parsed_enemy_layout = resource_level
         .enemy_layout_metadata
         .clone()
-        .or(resource_level.enemy_layout_metadata.clone())
+        .or(level.enemy_layout_metadata.clone())
         .or(enemy
             .as_ref()
             .map(|asset| parse_enemy_layout(&asset.bytes))
@@ -2278,6 +2278,23 @@ mod tests {
                 .as_ref()
                 .map(|header| (header.player_start_x, header.flag_x)),
             Some((0x0020, 0x0C50))
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_enemy_layout
+                .as_ref()
+                .map(|layout| layout.enemy_type_slots.clone()),
+            Some(vec![0xFFFF, 0x000C, 0x0000])
+        );
+        assert_eq!(
+            level_bundle.parsed_enemy_layout.as_ref().map(|layout| {
+                layout
+                    .objects
+                    .iter()
+                    .map(|object| object.object_type)
+                    .collect::<Vec<_>>()
+            }),
+            Some(vec![0x0D])
         );
     }
 

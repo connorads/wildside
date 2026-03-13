@@ -2,7 +2,7 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
-The current delivery frontier is Level 1 full traversal on the default native runtime path, with `play-native` as the direct playtest surface and gameplay/oracle compares kept green as the acceptance baseline.
+The current delivery frontier is post-traversal Level 1 fidelity on the default native runtime path, with `play-native` as the direct playtest surface and gameplay/oracle compares kept green while enemy and presentation accuracy deepen.
 
 ## Current status
 

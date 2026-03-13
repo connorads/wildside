@@ -2,8 +2,8 @@ pub mod physics;
 pub mod terrain;
 
 use kid_data::{
-    resource_level_record, AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout,
-    PlatformPlacement,
+    AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
+    resource_level_record,
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use serde::{Deserialize, Serialize};
@@ -699,10 +699,10 @@ impl NativeRuntime {
     }
 
     fn enemy_layout(&self, level_id: LevelId) -> Option<&kid_data::EnemyLayout> {
-        self.level_record(level_id)
+        self.resource_level_record(level_id)
             .and_then(|level| level.enemy_layout_metadata.as_ref())
             .or_else(|| {
-                self.resource_level_record(level_id)
+                self.level_record(level_id)
                     .and_then(|level| level.enemy_layout_metadata.as_ref())
             })
     }
@@ -1505,10 +1505,16 @@ impl NativeRuntime {
         };
         let kid_x_pos = u32::from(header.player_start_x) << 16;
         let kid_y_pos = u32::from(header.player_start_y) << 16;
-        let camera_x_pos =
-            start_camera_axis(bounds.width_pixels, 320, header.player_start_x.saturating_sub(160));
-        let camera_y_pos =
-            start_camera_axis(bounds.height_pixels, 224, header.player_start_y.saturating_sub(112));
+        let camera_x_pos = start_camera_axis(
+            bounds.width_pixels,
+            320,
+            header.player_start_x.saturating_sub(160),
+        );
+        let camera_y_pos = start_camera_axis(
+            bounds.height_pixels,
+            224,
+            header.player_start_y.saturating_sub(112),
+        );
         LevelStartPose {
             kid_x_pos,
             kid_y_pos,
@@ -3400,6 +3406,77 @@ mod tests {
                 .iter()
                 .any(|placement| placement.kind == 0x02 && placement.subtype == 0x03),
             "aliased level should expose resource-level platform placements"
+        );
+    }
+
+    #[test]
+    fn aliased_levels_resolve_enemy_layout_from_resource_level() {
+        let mut manifest = manifest_with_levels(7);
+        manifest.map_order[6] = 2;
+
+        let resource_level = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 2)
+            .expect("resource level should exist");
+        let resource_enemy_layout = resource_level
+            .enemy_layout_metadata
+            .as_mut()
+            .expect("resource enemy layout should exist");
+        resource_enemy_layout.enemy_type_slots = vec![0xFFFF, 0x000C, 0xFFFF];
+        resource_enemy_layout.object_count = 1;
+        resource_enemy_layout.objects = vec![kid_data::EnemyLayoutObject {
+            object_type: 0x0D,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x: 200,
+            y: 271,
+        }];
+
+        let aliased_level = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 6)
+            .expect("aliased level should exist");
+        aliased_level.enemy_layout_metadata = Some(EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0xFFFF, 0x0001, 0x001C],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 2,
+            objects: vec![
+                kid_data::EnemyLayoutObject {
+                    object_type: 0x01,
+                    flags: 0,
+                    hit_points_plus_one: 1,
+                    x: 288,
+                    y: 224,
+                },
+                kid_data::EnemyLayoutObject {
+                    object_type: 0x1C,
+                    flags: 0,
+                    hit_points_plus_one: 1,
+                    x: 672,
+                    y: 256,
+                },
+            ],
+            segments: Vec::new(),
+        });
+
+        let runtime = NativeRuntime::new(manifest);
+        let enemy_layout = runtime
+            .enemy_layout(LevelId(6))
+            .expect("aliased level should reuse resource enemy layout");
+
+        assert_eq!(enemy_layout.enemy_type_slots, vec![0xFFFF, 0x000C, 0xFFFF]);
+        assert_eq!(
+            enemy_layout
+                .objects
+                .iter()
+                .map(|object| object.object_type)
+                .collect::<Vec<_>>(),
+            vec![0x0D]
         );
     }
 
