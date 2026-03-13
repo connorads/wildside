@@ -22,6 +22,7 @@ const COPIED_DIRECTORIES: &[&str] = &[
     "theme",
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
+const PRESERVED_BUNDLE_DIRECTORIES: &[&str] = &["level-layout"];
 pub const GENERATED_BUNDLE_VERSION: u32 = 7;
 pub const LEVEL1_DECODED_ASSET_VERSION: u32 = 2;
 const LEVEL1_ID: u8 = 0x00;
@@ -254,6 +255,7 @@ pub fn export_split_bundle(
     let staging_root = create_bundle_staging_dir(output_root)?;
     let mut manifest =
         export_split_bundle_into(source_root, &staging_root, rom_sha1, upstream_commit)?;
+    preserve_bundle_sidecars(output_root, &staging_root)?;
     replace_bundle_from_staging(&staging_root, output_root)?;
     manifest.output_root = output_root.to_path_buf();
     fs::write(
@@ -262,6 +264,19 @@ pub fn export_split_bundle(
     )
     .with_context(|| format!("failed to write {}", manifest_path(output_root).display()))?;
     Ok(manifest)
+}
+
+fn preserve_bundle_sidecars(existing_bundle_root: &Path, staging_root: &Path) -> Result<()> {
+    if !existing_bundle_root.exists() {
+        return Ok(());
+    }
+    for relative in PRESERVED_BUNDLE_DIRECTORIES {
+        copy_directory_recursive(
+            &existing_bundle_root.join(relative),
+            &staging_root.join(relative),
+        )?;
+    }
+    Ok(())
 }
 
 fn export_split_bundle_into(
@@ -2263,6 +2278,37 @@ mod tests {
                 .as_ref()
                 .map(|header| (header.player_start_x, header.flag_x)),
             Some((0x0020, 0x0C50))
+        );
+    }
+
+    #[test]
+    fn export_split_bundle_preserves_level_layout_sidecars() {
+        let source = TempDir::new().expect("temp dir");
+        write_default_test_bundle_source(source.path());
+        let output_root = TempDir::new().expect("temp dir");
+        let bundle_root = output_root.path().join("bundle");
+
+        export_split_bundle(source.path(), &bundle_root, "abc123", "deadbeef")
+            .expect("initial export should succeed");
+        fs::create_dir_all(bundle_root.join("level-layout")).expect("level-layout dir");
+        fs::write(bundle_root.join("level-layout/00.bin"), [0x70, 0x33]).expect("layout");
+        fs::write(
+            bundle_root.join("level-layout/00.json"),
+            br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
+        )
+        .expect("layout metadata");
+
+        export_split_bundle(source.path(), &bundle_root, "abc123", "deadbeef")
+            .expect("second export should preserve sidecars");
+
+        assert_eq!(
+            fs::read(bundle_root.join("level-layout/00.bin")).expect("preserved layout"),
+            vec![0x70, 0x33]
+        );
+        assert_eq!(
+            fs::read_to_string(bundle_root.join("level-layout/00.json"))
+                .expect("preserved metadata"),
+            r#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#
         );
     }
 
