@@ -2909,6 +2909,7 @@ mod tests {
             upstream_commit: String::from("deadbeef"),
             source_root: PathBuf::from("/tmp/source"),
             output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
             levels: vec![LevelRecord {
                 level_id: 0,
                 title_text_id: Some(0x4A),

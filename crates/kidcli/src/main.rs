@@ -15,7 +15,7 @@ use kid_data::{
     AssetManifest, EnemyLayout, EnemyLayoutObject, EnemyLayoutSegment,
     ensure_generated_bundle_contract, export_split_bundle, find_enemy_definition,
     generated_bundle_dir, load_level_asset_bundle, load_manifest,
-    manifest_path as generated_manifest_path,
+    manifest_path as generated_manifest_path, resource_level_id,
 };
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
@@ -1767,6 +1767,10 @@ fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
     println!("level: 0x{:02X}", level_id);
     if let Some(name) = &level.display_name {
         println!("name: {name}");
+    }
+    let effective_resource_level_id = resource_level_id(manifest, level_id);
+    if effective_resource_level_id != level_id {
+        println!("resource level: 0x{effective_resource_level_id:02X}");
     }
     if let Some(title_text_id) = level.title_text_id {
         println!("title text id: 0x{:02X}", title_text_id);
@@ -5071,6 +5075,7 @@ mod tests {
             "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n",
         )
         .expect("level files");
+        fs::write(source_root.join("level/maporder.asm"), "\tdc.b\t$00\t; 0\n").expect("map order");
         fs::write(source_root.join("constants.asm"), "Theme_Sky = 1 ; sky\n").expect("constants");
         fs::write(
             source_root.join("variables.asm"),

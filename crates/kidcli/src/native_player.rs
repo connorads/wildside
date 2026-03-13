@@ -2186,6 +2186,7 @@ mod tests {
                     upstream_commit: String::from("fixture"),
                     source_root: root.path().to_path_buf(),
                     output_root: root.path().to_path_buf(),
+                    map_order: Vec::new(),
                     levels: vec![LevelRecord {
                         level_id: 0x00,
                         title_text_id: Some(0x4A),

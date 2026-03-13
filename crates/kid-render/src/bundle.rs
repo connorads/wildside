@@ -11,6 +11,7 @@ use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
     AssetFile, AssetManifest, DecodedAssetFile, decode_saxman, ensure_generated_bundle_contract,
+    load_level_asset_bundle,
 };
 use sha1::{Digest, Sha1};
 use std::fs;
@@ -53,13 +54,9 @@ pub struct Level1Visuals {
 
 pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
     ensure_generated_bundle_contract(manifest)?;
-    let level = manifest
-        .levels
-        .iter()
-        .find(|level| level.level_id == LEVEL1_ID)
-        .ok_or_else(|| anyhow!("generated bundle does not contain Level 1 metadata"))?;
-    let header = level
-        .header_metadata
+    let level_bundle = load_level_asset_bundle(manifest, LEVEL1_ID)?;
+    let header = level_bundle
+        .parsed_header
         .as_ref()
         .ok_or_else(|| anyhow!("generated bundle is missing Level 1 header metadata"))?;
     let decoded = manifest
@@ -76,9 +73,20 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
         )
     })?;
 
-    let foreground_layout = read_decoded_file(manifest, &decoded.foreground, "foreground layout")?;
+    let foreground_layout = match level_bundle.foreground.as_ref() {
+        Some(asset) => decode_level_saxman_asset(asset, "foreground layout")?,
+        None => read_decoded_file(manifest, &decoded.foreground, "foreground layout")?,
+    };
     let block_layout = read_decoded_file(manifest, &decoded.block, "block layout")?;
-    let background_layout = read_decoded_file(manifest, &decoded.background, "background layout")?;
+    let background_layout = level_bundle
+        .background
+        .as_ref()
+        .map(|asset| asset.bytes.clone())
+        .unwrap_or(read_decoded_file(
+            manifest,
+            &decoded.background,
+            "background layout",
+        )?);
     let parsed_foreground_layout = ForegroundLayout::parse(
         &foreground_layout,
         header.width_screens,
@@ -183,7 +191,7 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
             level_id: LEVEL1_ID,
             foreground_theme_id: header.level_theme,
             background_theme_id: header.background_theme,
-            background_scroll: level.bgscroll_metadata.clone(),
+            background_scroll: level_bundle.parsed_bgscroll.clone(),
             foreground_layout: parsed_foreground_layout,
             foreground_layout_bytes: foreground_layout,
             block_layout_bytes: block_layout,
@@ -708,6 +716,11 @@ fn load_uncompressed_tile_sheet(
             asset.relative_path
         )
     })
+}
+
+fn decode_level_saxman_asset(asset: &kid_data::LoadedAsset, family: &str) -> Result<Vec<u8>> {
+    decode_saxman(&asset.bytes)
+        .with_context(|| format!("failed to decode {family} from {}", asset.relative_path))
 }
 
 fn read_decoded_file(

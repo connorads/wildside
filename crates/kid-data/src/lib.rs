@@ -22,7 +22,7 @@ const COPIED_DIRECTORIES: &[&str] = &[
     "theme",
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
-pub const GENERATED_BUNDLE_VERSION: u32 = 5;
+pub const GENERATED_BUNDLE_VERSION: u32 = 7;
 pub const LEVEL1_DECODED_ASSET_VERSION: u32 = 2;
 const LEVEL1_ID: u8 = 0x00;
 const LEVEL1_DECODED_OUTPUT_DIR: &str = "decoded/level/00";
@@ -36,6 +36,8 @@ pub struct AssetManifest {
     pub upstream_commit: String,
     pub source_root: PathBuf,
     pub output_root: PathBuf,
+    #[serde(default)]
+    pub map_order: Vec<u8>,
     pub levels: Vec<LevelRecord>,
     pub constants: Vec<NamedValue>,
     pub ram_variables: Vec<RamVariable>,
@@ -291,6 +293,14 @@ fn export_split_bundle_into(
             )
         })?,
     )?;
+    let map_order = parse_map_order(
+        &fs::read_to_string(output_root.join("level/maporder.asm")).with_context(|| {
+            format!(
+                "failed to read {}",
+                output_root.join("level/maporder.asm").display()
+            )
+        })?,
+    )?;
     let constants = parse_named_values(
         &fs::read_to_string(output_root.join("constants.asm")).with_context(|| {
             format!(
@@ -314,6 +324,7 @@ fn export_split_bundle_into(
         upstream_commit: upstream_commit.to_owned(),
         source_root: source_root.to_path_buf(),
         output_root: output_root.to_path_buf(),
+        map_order,
         levels: merge_level_catalogues(level_names, level_files),
         constants,
         ram_variables,
@@ -466,6 +477,22 @@ pub fn ensure_generated_bundle_contract(manifest: &AssetManifest) -> Result<()> 
     Ok(())
 }
 
+pub fn resource_level_id(manifest: &AssetManifest, level_id: u8) -> u8 {
+    manifest
+        .map_order
+        .get(usize::from(level_id))
+        .copied()
+        .unwrap_or(level_id)
+}
+
+pub fn resource_level_record(manifest: &AssetManifest, level_id: u8) -> Option<&LevelRecord> {
+    let resource_level_id = resource_level_id(manifest, level_id);
+    manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == resource_level_id)
+}
+
 pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result<LevelAssetBundle> {
     let level = manifest
         .levels
@@ -473,29 +500,39 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .find(|level| level.level_id == level_id)
         .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?
         .clone();
-    let header = load_asset(manifest, level.resources.header.as_deref())?;
+    let resource_level = resource_level_record(manifest, level_id)
+        .cloned()
+        .unwrap_or_else(|| level.clone());
+    let header = load_asset(manifest, resource_level.resources.header.as_deref())?;
     let parsed_header = header
         .as_ref()
         .map(|asset| parse_level_header(&asset.bytes))
         .transpose()?
-        .or(level.header_metadata.clone());
-    let enemy = load_asset(manifest, level.resources.enemy.as_deref())?;
-    let parsed_enemy_layout = level.enemy_layout_metadata.clone().or(enemy
-        .as_ref()
-        .map(|asset| parse_enemy_layout(&asset.bytes))
-        .transpose()?);
-    let bgscroll = load_asset(manifest, level.resources.bgscroll.as_deref())?;
+        .or(resource_level.header_metadata.clone());
+    let enemy = load_asset(manifest, resource_level.resources.enemy.as_deref())?;
+    let parsed_enemy_layout = level
+        .enemy_layout_metadata
+        .clone()
+        .or(resource_level.enemy_layout_metadata.clone())
+        .or(enemy
+            .as_ref()
+            .map(|asset| parse_enemy_layout(&asset.bytes))
+            .transpose()?);
+    let bgscroll = load_asset(manifest, resource_level.resources.bgscroll.as_deref())?;
     let parsed_bgscroll = bgscroll
         .as_ref()
         .map(|asset| parse_bgscroll_profile(&asset.bytes))
         .transpose()?
-        .or(level.bgscroll_metadata.clone());
-    let platform_script = load_asset(manifest, level.resources.platform_script.as_deref())?;
+        .or(resource_level.bgscroll_metadata.clone());
+    let platform_script = load_asset(
+        manifest,
+        resource_level.resources.platform_script.as_deref(),
+    )?;
     let parsed_platform_layout = platform_script
         .as_ref()
         .map(|asset| parse_platform_layout(std::str::from_utf8(&asset.bytes)?))
         .transpose()?
-        .or(level.platform_metadata.clone());
+        .or(resource_level.platform_metadata.clone());
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
@@ -507,9 +544,9 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         parsed_header,
         enemy,
         parsed_enemy_layout,
-        foreground: load_asset(manifest, level.resources.foreground.as_deref())?,
-        block: load_asset(manifest, level.resources.block.as_deref())?,
-        background: load_asset(manifest, level.resources.background.as_deref())?,
+        foreground: load_asset(manifest, resource_level.resources.foreground.as_deref())?,
+        block: load_asset(manifest, resource_level.resources.block.as_deref())?,
+        background: load_asset(manifest, resource_level.resources.background.as_deref())?,
     })
 }
 
@@ -1397,6 +1434,37 @@ fn parse_level_files(contents: &str) -> Result<BTreeMap<u8, Vec<String>>> {
     Ok(levels)
 }
 
+fn parse_map_order(contents: &str) -> Result<Vec<u8>> {
+    let mut map_order = Vec::new();
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let (statement, _) = split_comment(trimmed);
+        let Some(data) = statement.strip_prefix("dc.b") else {
+            continue;
+        };
+        for value in data
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            let parsed = parse_numeric_value(value)
+                .with_context(|| format!("failed to parse map-order byte on line {}", index + 1))?;
+            let level_id = u8::try_from(parsed).map_err(|_| {
+                anyhow!(
+                    "map-order byte on line {} was out of range for u8: {}",
+                    index + 1,
+                    parsed
+                )
+            })?;
+            map_order.push(level_id);
+        }
+    }
+    Ok(map_order)
+}
+
 fn parse_named_values(contents: &str) -> Result<Vec<NamedValue>> {
     let mut values = Vec::new();
     for line in contents.lines() {
@@ -1625,6 +1693,7 @@ mod tests {
             "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n",
         )
         .expect("level files");
+        fs::write(source_root.join("level/maporder.asm"), "\tdc.b\t$00\t; 0\n").expect("map order");
         fs::write(source_root.join("constants.asm"), "Theme_Sky = 1 ; sky\n").expect("constants");
         fs::write(
             source_root.join("variables.asm"),
@@ -1672,6 +1741,14 @@ mod tests {
     }
 
     #[test]
+    fn parses_map_order_bytes() {
+        let parsed = parse_map_order("\tdc.b\t$4A\t; 0\n\tdc.b\t$4B, $2D\t; 1, 2\n")
+            .expect("map order should parse");
+
+        assert_eq!(parsed, vec![0x4A, 0x4B, 0x2D]);
+    }
+
+    #[test]
     fn classifies_level_resources() {
         let resources = level_resources_from_paths(&[
             String::from("platform/00.asm"),
@@ -1702,6 +1779,7 @@ mod tests {
             upstream_commit: String::from("deadbeef"),
             source_root: PathBuf::from("/tmp/source"),
             output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
             levels: Vec::new(),
             constants: vec![
                 NamedValue {
@@ -2082,6 +2160,109 @@ mod tests {
                 .and_then(|layout| layout.objects.first())
                 .map(|object| object.object_type),
             Some(0x80)
+        );
+    }
+
+    #[test]
+    fn export_split_bundle_resolves_logical_level_resources_through_map_order() {
+        let source = TempDir::new().expect("temp dir");
+        let output = TempDir::new().expect("temp dir");
+        let source_root = source.path();
+        write_default_test_bundle_source(source_root);
+        fs::write(
+            source_root.join("doc/level_list.txt"),
+            "0x00 0x4A Blue Lake Woods 1\n0x4A 0x5E Elsewhere 2\n",
+        )
+        .expect("level names");
+        fs::write(
+            source_root.join("level/level_files.txt"),
+            "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n4A platform/4A.asm bgscroll/4A.bin header/4A.bin enemy/4A.bin foreground/4A.bin block/4A.bin background/4A.bin\n",
+        )
+        .expect("level files");
+        fs::write(source_root.join("level/maporder.asm"), "\tdc.b\t$4A\t; 0\n").expect("map order");
+        fs::write(
+            source_root.join("level/platform/4A.asm"),
+            b"\tptfm\t0,0,0,0,0,0,0,0,0,0,PlatformScript_Nothing-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
+        )
+        .expect("platform");
+        fs::write(
+            source_root.join("level/bgscroll/4A.bin"),
+            [0x30, 0x50, 0xFF],
+        )
+        .expect("bgscroll");
+        fs::write(
+            source_root.join("level/header/4A.bin"),
+            [
+                0x0A, 0x02, 0x09, 0x09, 0x00, 0x20, 0x01, 0x00, 0x0C, 0x50, 0x00, 0xB0,
+            ],
+        )
+        .expect("header");
+        fs::write(
+            source_root.join("level/enemy/4A.bin"),
+            [
+                0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x0C, 0x00, 0x00, 0x7D, 0x00, 0x80, 0x01,
+                0x0D, 0x00, 0x00, 0x01, 0x00, 0x60, 0x00, 0x00,
+            ],
+        )
+        .expect("enemy");
+        fs::write(source_root.join("level/foreground/4A.bin"), SAXMAN_FIXTURE).expect("foreground");
+        fs::write(
+            source_root.join("level/block/4A.bin"),
+            REAL_STYLE_BLOCK_FIXTURE,
+        )
+        .expect("block");
+        fs::write(
+            source_root.join("level/background/4A.bin"),
+            REAL_STYLE_BACKGROUND_FIXTURE,
+        )
+        .expect("background");
+
+        let manifest = export_split_bundle(source_root, output.path(), "abc123", "deadbeef")
+            .expect("bundle export should succeed");
+        assert_eq!(resource_level_id(&manifest, 0x00), 0x4A);
+        let level = manifest
+            .levels
+            .iter()
+            .find(|level| level.level_id == 0x00)
+            .expect("logical level 00");
+        assert_eq!(level.resources.header.as_deref(), Some("header/00.bin"));
+        assert_eq!(
+            level
+                .header_metadata
+                .as_ref()
+                .map(|header| header.level_theme),
+            Some(0x08)
+        );
+
+        let decoded_level1 = manifest
+            .decoded_level1
+            .as_ref()
+            .expect("decoded Level 1 contract");
+        assert_eq!(
+            fs::read(output.path().join(&decoded_level1.foreground.relative_path))
+                .expect("decoded foreground"),
+            b"ABCD"
+        );
+
+        let level_bundle =
+            load_level_asset_bundle(&manifest, 0x00).expect("level bundle should load");
+        assert_eq!(
+            level_bundle.display_name.as_deref(),
+            Some("Blue Lake Woods 1")
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_header
+                .as_ref()
+                .map(|header| (header.level_theme, header.background_theme)),
+            Some((0x09, 0x09))
+        );
+        assert_eq!(
+            level_bundle
+                .parsed_header
+                .as_ref()
+                .map(|header| (header.player_start_x, header.flag_x)),
+            Some((0x0020, 0x0C50))
         );
     }
 
