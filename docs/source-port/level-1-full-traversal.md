@@ -30,10 +30,12 @@ This dossier covers the current post-opening frontier:
 - `compare-native-gameplay --scenario progress-two-transitions`: passing on the default runtime path
 - Jump take-off no longer re-grounds on the first held-button frame, solid terrain grounds one pixel above the cell top, and player jump-air control now uses the disassembly-backed per-helmet tables
 - Level 1 opening damage now lands on the oracle frame under the run-right gameplay script, and Mini Hopping Skulls now wait longer on the floor and retarget hops toward the kid before launch
+- The long `progress-two-transitions` gameplay script now also drops the first Level 1 HP on the oracle frame under walk-only input (`frame 749`), so the opening Dragon hit no longer drifts between checkpoints
 - The default `NativeRuntime::new` path now reloads generated `Level_Layout` terrain on construction, so real terrain is the default runtime authority for Level 1
 - Dumped-terrain wall probing no longer treats the landing floor cell as a side wall; the lower-body wall probe now stays above the feet and has a regression test in `kid-core`
 - Gameplay movement now latches held left/right/run from the previous frame, removing the frame-720 eagerness against the oracle while keeping jump-edge handling on the current frame
 - Diamonds no longer enter `process_stomps`; falling through a Diamond now collects it without applying stomp bounce, and the stomp regressions now run against the static skull fixture instead of the old Diamond placeholder
+- Level-skip choreography now matches the oracle through both `progress-two-transitions` skips: the first hold sequence freezes/hides/preloads on the native frames, the second skip resumes through the oracle-timed Level 1 hold/blank/entry window, and the Level 2 transition uses its own traced animation arc
 - `cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal` now reports `status: complete`
 
 ## Closure state
@@ -41,6 +43,7 @@ This dossier covers the current post-opening frontier:
 - Generated terrain currently depends on a dumped Level 0 `Level_Layout` cache under `.cache/generated/<rom-sha1>/level-layout/00.bin`
 - Traversal closure no longer has an open runtime blocker in-repo: default terrain authority is real, the three gameplay compares are green, and the autonomy contract closes
 - Oracle compares remain useful as optional differential checks, not the primary sign-off path for whether Level 1 is playable
+- `diagnose-native-gameplay-drift --scenario progress-two-transitions --from-frame 719` now reports no live drift
 - The next explicit frontier should move back to post-traversal Level 1 fidelity work rather than more traversal plumbing
 
 ## Useful commands

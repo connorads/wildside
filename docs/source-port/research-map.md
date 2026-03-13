@@ -55,6 +55,8 @@ This map records what the source port still needs to learn, where to source that
 ### Traversal parity
 - Done: `compare-native-gameplay --scenario progress-two-transitions` passes on the default path
 - Done: pause/resume and death/respawn stay green on the same default path
+- Done: the long traversal script now takes the first opening Dragon hit on the oracle frame (`749`) under walk-only input as well as the existing run-held regression
+- Done: `diagnose-native-gameplay-drift --scenario progress-two-transitions --from-frame 719` now reports no live drift after the skip choreography and Level 2 transition-arc fixes
 - Source: `.cache/native-gameplay-oracle-runs/progress_two_transitions/`, gameplay comparison harness
 
 ### Enemy fidelity after traversal

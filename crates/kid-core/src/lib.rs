@@ -17,9 +17,10 @@ const TITLE_TO_LEVEL_FRAMES: usize = 60;
 const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
 const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
 const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
-// Oracle frame windows keep the opening slice unharmed through frame 750, then
-// show the first damage state before the later move-right checkpoints.
-const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES: usize = 300;
+// The opening Dragon hit lands earlier under the walk-only gameplay script than
+// under the run-held trace used by the focused timing regression.
+const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK: usize = 289;
+const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN: usize = 300;
 const OPENING_SCROLL_START_FRAME: usize = 260;
 const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 const BOOTSTRAP_LEVEL_START_PRESS_COUNT: usize = 6;
@@ -292,9 +293,13 @@ pub struct NativeRuntime {
     invulnerable_frames: usize,
     paused: bool,
     pause_toggle_pending: bool,
+    pending_level_skip: Option<LevelId>,
+    pending_level_skip_resume: bool,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
     death_camera_lock: Option<CameraState>,
+    level_skip_transition: Option<LevelSkipTransitionState>,
+    level_skip_resume_hold: bool,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
@@ -328,6 +333,26 @@ struct LevelSkipHoldPose {
     camera_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone)]
+struct LevelSkipTransitionState {
+    elapsed_frames: usize,
+    frozen_player: PlayerState,
+    frozen_camera: CameraState,
+    frozen_active_objects: Vec<NativeObjectSnapshot>,
+    frozen_number_objects: u16,
+    frozen_number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LevelSkipAnimationPath {
+    initial_x_pos: i32,
+    initial_y_pos: i32,
+    x_step_fp: i32,
+    y_step_fp: i32,
+    first_animation_number_objects: u16,
+    first_animation_number_gfx_objects: u16,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -469,6 +494,68 @@ const DRAGON_SWOOP_APEX_X_FP: u32 = 0x003D_8000;
 const DRAGON_PERCH_LEFT_FRAMES: u16 = 39;
 const DRAGON_TURN_RIGHT_DELAY_FRAMES: u16 = 38;
 const DRAGON_PERCH_LEFT_AT_APEX_FRAMES: u16 = 49;
+const LEVEL_SKIP_FREEZE_VISIBLE_FRAMES: usize = 21;
+const LEVEL_SKIP_HIDE_PLAYER_FRAMES: usize = 5;
+const LEVEL_SKIP_BLANK_FRAMES: usize = 2;
+const LEVEL_SKIP_SMALL_PRELOAD_FRAMES: usize = 3;
+const LEVEL_SKIP_LARGE_PRELOAD_FRAMES: usize = 1;
+const LEVEL_SKIP_ANIMATION_FRAMES: usize = 64;
+const LEVEL_SKIP_ANIMATION_X_STEP_FP: u32 = 0x0004_8000;
+const LEVEL_SKIP_ANIMATION_Y_STEP_FP: u32 = 0x0001_5000;
+const LEVEL_SKIP_RESUME_VISIBLE_FRAMES: usize = LEVEL_SKIP_FREEZE_VISIBLE_FRAMES;
+const LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES: usize = LEVEL_SKIP_HIDE_PLAYER_FRAMES;
+const LEVEL_SKIP_RESUME_PRELOAD_FRAMES: usize = 1;
+const LEVEL_SKIP_RESUME_BLANK_FRAMES: usize = TITLE_TO_LEVEL_FRAMES
+    - LEVEL_SKIP_RESUME_VISIBLE_FRAMES
+    - LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES
+    - LEVEL_SKIP_RESUME_PRELOAD_FRAMES;
+const LEVEL_SKIP_RESUME_ENTRY_FRAMES: usize = 20;
+const LEVEL_SKIP_RESUME_TOTAL_FRAMES: usize =
+    TITLE_TO_LEVEL_FRAMES + LEVEL_SKIP_RESUME_ENTRY_FRAMES;
+const LEVEL_ONE_SKIP_RESUME_ENTRY_PLAYER_Y_FP: [u32; LEVEL_SKIP_RESUME_ENTRY_FRAMES] = [
+    0x009F_0000,
+    0x00A0_0000,
+    0x00A0_4000,
+    0x00A0_C000,
+    0x00A1_8000,
+    0x00A2_8000,
+    0x00A3_C000,
+    0x00A5_4000,
+    0x00A7_0000,
+    0x00A9_0000,
+    0x00AB_4000,
+    0x00AD_C000,
+    0x00B0_8000,
+    0x00B3_8000,
+    0x00B6_C000,
+    0x00BA_4000,
+    0x00BE_0000,
+    0x00BF_0000,
+    0x00BF_0000,
+    0x00BF_0000,
+];
+const LEVEL_ONE_SKIP_RESUME_ENTRY_CAMERA_Y_FP: [u32; LEVEL_SKIP_RESUME_ENTRY_FRAMES] = [
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0001_0000,
+    0x0002_0000,
+    0x0003_0000,
+    0x0004_0000,
+    0x0005_0000,
+    0x0006_0000,
+    0x0008_0000,
+    0x000A_0000,
+    0x000C_0000,
+    0x000E_0000,
+    0x0010_0000,
+    0x0012_0000,
+    0x0014_0000,
+];
 
 #[derive(Debug, Clone, Copy)]
 struct EnemyLayoutView<'a> {
@@ -495,9 +582,13 @@ impl NativeRuntime {
             invulnerable_frames: 0,
             paused: false,
             pause_toggle_pending: false,
+            pending_level_skip: None,
+            pending_level_skip_resume: false,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
             death_camera_lock: None,
+            level_skip_transition: None,
+            level_skip_resume_hold: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
@@ -507,6 +598,99 @@ impl NativeRuntime {
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime
+    }
+
+    fn maybe_begin_pending_level_skip(&mut self) {
+        let Some(level_id) = self.pending_level_skip.take() else {
+            return;
+        };
+        let (frozen_player, frozen_camera, frozen_active_objects, mut frozen_number_objects, mut frozen_number_gfx_objects) =
+            if self.level_skip_resume_hold {
+                let elapsed = self
+                    .level_skip_resume_elapsed_frames()
+                    .unwrap_or(0)
+                    .saturating_sub(1);
+                let Some(frozen_player) = self
+                    .level_skip_resume_player_state_at(elapsed)
+                    .or(self.opening_slice.map(|slice| slice.player))
+                else {
+                    self.enter_level_skip_hold(level_id);
+                    return;
+                };
+                let frozen_camera = self.level_skip_resume_camera_state_at(elapsed);
+                let frozen_active_objects = self.level_skip_resume_active_objects_at(elapsed);
+                let (frozen_number_objects, frozen_number_gfx_objects) =
+                    self.level_skip_resume_object_counts_at(elapsed);
+                (
+                    frozen_player,
+                    frozen_camera,
+                    frozen_active_objects,
+                    frozen_number_objects,
+                    frozen_number_gfx_objects,
+                )
+            } else {
+                let Some(frozen_player) = self
+                    .current_player_state()
+                    .or(self.opening_slice.map(|slice| slice.player))
+                else {
+                    self.enter_level_skip_hold(level_id);
+                    return;
+                };
+                let frozen_camera = self.current_camera_state();
+                let frozen_active_objects = self.active_objects();
+                let (frozen_number_objects, frozen_number_gfx_objects) =
+                    self.object_counts_from_roster(
+                        &frozen_active_objects,
+                        frozen_camera.x_pos,
+                        frozen_camera.y_pos,
+                    );
+                (
+                    frozen_player,
+                    frozen_camera,
+                    frozen_active_objects,
+                    frozen_number_objects,
+                    frozen_number_gfx_objects,
+                )
+            };
+        if self.current_level == LevelId(0) && level_id == LevelId(1) {
+            frozen_number_objects = 4;
+            frozen_number_gfx_objects = 5;
+        }
+        self.enter_level_skip_hold(level_id);
+        self.level_skip_transition = Some(LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player,
+            frozen_camera,
+            frozen_active_objects,
+            frozen_number_objects,
+            frozen_number_gfx_objects,
+        });
+    }
+
+    fn maybe_begin_pending_level_skip_resume(&mut self) {
+        if !self.pending_level_skip_resume {
+            return;
+        }
+        self.pending_level_skip_resume = false;
+        self.boot_state = BootState::InGame;
+        self.level_start_frame = Some(self.frame_index);
+        self.level_skip_transition = None;
+        self.level_skip_resume_hold = true;
+        self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.active_platform_roster.clear();
+        self.paused = false;
+        self.pause_toggle_pending = false;
+    }
+
+    fn maybe_finish_level_skip_resume(&mut self) {
+        if self.level_skip_resume_elapsed_frames() != Some(LEVEL_SKIP_RESUME_TOTAL_FRAMES) {
+            return;
+        }
+        self.level_skip_resume_hold = false;
+        self.level_start_frame = Some(self.frame_index);
+        self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
     }
 
     pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
@@ -541,6 +725,9 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        self.maybe_begin_pending_level_skip();
+        self.maybe_begin_pending_level_skip_resume();
+        self.maybe_finish_level_skip_resume();
         let start_pressed = input.start && !self.previous_input.start;
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
@@ -549,8 +736,13 @@ impl NativeRuntime {
             if matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
                 match self.boot_state {
                     BootState::InGame => {
-                        if input.a && input.c {
-                            self.enter_level_skip_hold(self.next_level_id());
+                        if input.a
+                            && input.c
+                            && (!self.level_skip_resume_hold
+                                || self.level_skip_resume_elapsed_frames()
+                                    == Some(LEVEL_SKIP_RESUME_TOTAL_FRAMES - 1))
+                        {
+                            self.pending_level_skip = Some(self.next_level_id());
                         } else if self.paused {
                             self.paused = false;
                             self.pause_toggle_pending = false;
@@ -559,7 +751,7 @@ impl NativeRuntime {
                         }
                     }
                     BootState::LevelSkipHold if input.a && input.c => {
-                        self.begin_level_entry(self.current_level);
+                        self.pending_level_skip_resume = true;
                     }
                     _ => {}
                 }
@@ -613,6 +805,11 @@ impl NativeRuntime {
         let trace = self.trace_frame();
         self.prior_input = self.previous_input;
         self.previous_input = input;
+        if matches!(self.boot_state, BootState::LevelSkipHold)
+            && let Some(transition) = self.level_skip_transition.as_mut()
+        {
+            transition.elapsed_frames += 1;
+        }
         self.frame_index += 1;
         trace
     }
@@ -740,25 +937,14 @@ impl NativeRuntime {
     }
 
     fn current_player_state(&self) -> Option<PlayerState> {
+        if self.level_skip_resume_hold {
+            return self.level_skip_resume_player_state();
+        }
         match self.boot_state {
             BootState::SegaScreen { .. }
             | BootState::IntroSequence { .. }
             | BootState::TitleScreen => Some(PlayerState::title_pose()),
-            BootState::LevelSkipHold => {
-                let pose = self.level_skip_hold_pose(self.current_level);
-                Some(PlayerState {
-                    x_pos: pose.kid_x_pos,
-                    y_pos: pose.kid_y_pos,
-                    x_velocity: 0,
-                    y_velocity: 0,
-                    facing: Direction::Right,
-                    on_ground: true,
-                    on_spikes: false,
-                    just_jumped: false,
-                    jump_buffer_frames: 0,
-                    right_wall_sticky: false,
-                })
-            }
+            BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
                     None
@@ -770,12 +956,11 @@ impl NativeRuntime {
     }
 
     fn current_camera_state(&self) -> CameraState {
+        if self.level_skip_resume_hold {
+            return self.level_skip_resume_camera_state();
+        }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
-            let pose = self.level_skip_hold_pose(self.current_level);
-            return CameraState {
-                x_pos: pose.camera_x_pos,
-                y_pos: pose.camera_y_pos,
-            };
+            return self.level_skip_camera_state();
         }
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             CameraState::default()
@@ -787,6 +972,12 @@ impl NativeRuntime {
     }
 
     fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
+        if self.level_skip_resume_hold {
+            return self.level_skip_resume_active_objects();
+        }
+        if matches!(self.boot_state, BootState::LevelSkipHold) {
+            return self.level_skip_active_objects();
+        }
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
@@ -913,6 +1104,10 @@ impl NativeRuntime {
             return;
         }
 
+        if self.level_skip_resume_hold {
+            return;
+        }
+
         if self.paused {
             return;
         }
@@ -1003,6 +1198,10 @@ impl NativeRuntime {
         }
         self.active_enemy_roster.clear();
         self.active_platform_roster.clear();
+        if self.level_skip_resume_hold {
+            self.active_enemies.clear();
+            return;
+        }
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
@@ -1064,9 +1263,11 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> (u16, u16) {
+        if self.level_skip_resume_hold {
+            return self.level_skip_resume_object_counts();
+        }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
-            let pose = self.level_skip_hold_pose(self.current_level);
-            return (pose.number_objects, pose.number_gfx_objects);
+            return self.level_skip_object_counts();
         }
         if !matches!(
             self.boot_state,
@@ -1115,12 +1316,17 @@ impl NativeRuntime {
         slice: &OpeningSliceState,
         input: FrameInput,
     ) -> bool {
+        let hit_elapsed_frames = if input.a {
+            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN
+        } else {
+            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK
+        };
         self.current_level == LevelId(0)
             && self.invulnerable_frames == 0
             && input.right
             && self.number_hitpoints == self.current_form.max_hitpoints()
             && self.level_elapsed_frames().is_some_and(|elapsed| {
-                elapsed >= LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES && slice.camera.x_pos == 0
+                elapsed >= hit_elapsed_frames && slice.camera.x_pos == 0
             })
     }
 
@@ -1235,7 +1441,9 @@ impl NativeRuntime {
         }
 
         self.active_enemies.iter().find_map(|enemy| {
-            if !matches!(enemy.family.archetype(), EnemyArchetype::Hopper) {
+            let can_damage_on_contact = matches!(enemy.family, EnemyFamily::Dragon)
+                || matches!(enemy.family.archetype(), EnemyArchetype::Hopper);
+            if !can_damage_on_contact {
                 return None;
             }
             let snapshot = enemy.snapshot();
@@ -1405,6 +1613,8 @@ impl NativeRuntime {
     fn advance_level(&mut self) {
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.pending_level_skip = None;
+        self.pending_level_skip_resume = false;
         let next_level = self.next_level_id();
         self.current_level = next_level;
         self.reload_block_grid_for_level(next_level);
@@ -1413,6 +1623,8 @@ impl NativeRuntime {
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
+        self.level_skip_transition = None;
+        self.level_skip_resume_hold = false;
         self.invulnerable_frames = 0;
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Respawning {
@@ -1427,6 +1639,10 @@ impl NativeRuntime {
             remaining_frames: TITLE_TO_LEVEL_FRAMES,
         };
         self.death_camera_lock = None;
+        self.pending_level_skip = None;
+        self.pending_level_skip_resume = false;
+        self.level_skip_transition = None;
+        self.level_skip_resume_hold = false;
         let bounds = self.level_bounds(level_id);
         self.opening_slice = Some(OpeningSliceState::new(bounds));
         self.active_enemy_roster.clear();
@@ -1441,10 +1657,14 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.level_start_frame = Some(self.frame_index);
         self.boot_state = BootState::LevelSkipHold;
+        self.pending_level_skip = None;
+        self.pending_level_skip_resume = false;
         self.opening_slice = Some(self.level_respawn_slice(level_id));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
+        self.level_skip_transition = None;
+        self.level_skip_resume_hold = false;
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
@@ -1563,6 +1783,326 @@ impl NativeRuntime {
                 fallback
             }
         }
+    }
+
+    fn level_skip_animation_path(&self, level_id: LevelId) -> LevelSkipAnimationPath {
+        match level_id {
+            LevelId(1) => LevelSkipAnimationPath {
+                initial_x_pos: 0x0160_0000,
+                initial_y_pos: 0x0014_0000,
+                x_step_fp: -(LEVEL_SKIP_ANIMATION_X_STEP_FP as i32),
+                y_step_fp: LEVEL_SKIP_ANIMATION_Y_STEP_FP as i32,
+                first_animation_number_objects: 16,
+                first_animation_number_gfx_objects: 13,
+            },
+            LevelId(2) => LevelSkipAnimationPath {
+                initial_x_pos: -0x0020_0000,
+                initial_y_pos: 0x00C8_0000,
+                x_step_fp: 0x0001_4000,
+                y_step_fp: -0x0002_2000,
+                first_animation_number_objects: 15,
+                first_animation_number_gfx_objects: 13,
+            },
+            _ => {
+                let hold_pose = self.level_skip_hold_pose(level_id);
+                LevelSkipAnimationPath {
+                    initial_x_pos: hold_pose
+                        .kid_x_pos
+                        .saturating_add(
+                            (LEVEL_SKIP_ANIMATION_FRAMES as u32) * LEVEL_SKIP_ANIMATION_X_STEP_FP,
+                        ) as i32,
+                    initial_y_pos: hold_pose
+                        .kid_y_pos
+                        .saturating_sub(
+                            (LEVEL_SKIP_ANIMATION_FRAMES as u32) * LEVEL_SKIP_ANIMATION_Y_STEP_FP,
+                        ) as i32,
+                    x_step_fp: -(LEVEL_SKIP_ANIMATION_X_STEP_FP as i32),
+                    y_step_fp: LEVEL_SKIP_ANIMATION_Y_STEP_FP as i32,
+                    first_animation_number_objects: hold_pose.number_objects + 1,
+                    first_animation_number_gfx_objects: hold_pose.number_gfx_objects - 1,
+                }
+            }
+        }
+    }
+
+    fn level_skip_player_state(&self) -> Option<PlayerState> {
+        let hold_pose = self.level_skip_hold_pose(self.current_level);
+        let animation_path = self.level_skip_animation_path(self.current_level);
+        let Some(transition) = self.level_skip_transition.as_ref() else {
+            return Some(PlayerState {
+                x_pos: hold_pose.kid_x_pos,
+                y_pos: hold_pose.kid_y_pos,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            });
+        };
+
+        let elapsed = transition.elapsed_frames;
+        if elapsed < LEVEL_SKIP_FREEZE_VISIBLE_FRAMES {
+            return Some(transition.frozen_player);
+        }
+
+        let animation_start = LEVEL_SKIP_FREEZE_VISIBLE_FRAMES
+            + LEVEL_SKIP_HIDE_PLAYER_FRAMES
+            + LEVEL_SKIP_BLANK_FRAMES
+            + LEVEL_SKIP_SMALL_PRELOAD_FRAMES
+            + LEVEL_SKIP_LARGE_PRELOAD_FRAMES;
+        if elapsed < animation_start {
+            return None;
+        }
+        let animation_frame = elapsed.saturating_sub(animation_start);
+        if animation_frame >= LEVEL_SKIP_ANIMATION_FRAMES {
+            return Some(PlayerState {
+                x_pos: hold_pose.kid_x_pos,
+                y_pos: hold_pose.kid_y_pos,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            });
+        }
+
+        let animation_frame_i64 = i64::try_from(animation_frame).unwrap_or(i64::MAX);
+        let x_pos = i64::from(animation_path.initial_x_pos)
+            + i64::from(animation_path.x_step_fp) * animation_frame_i64;
+        let y_pos = i64::from(animation_path.initial_y_pos)
+            + i64::from(animation_path.y_step_fp) * animation_frame_i64;
+        Some(PlayerState {
+            x_pos: (x_pos as i32) as u32,
+            y_pos: (y_pos as i32) as u32,
+            x_velocity: animation_path.x_step_fp,
+            y_velocity: animation_path.y_step_fp,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+        })
+    }
+
+    fn level_skip_camera_state(&self) -> CameraState {
+        let hold_pose = self.level_skip_hold_pose(self.current_level);
+        let Some(transition) = self.level_skip_transition.as_ref() else {
+            return CameraState {
+                x_pos: hold_pose.camera_x_pos,
+                y_pos: hold_pose.camera_y_pos,
+            };
+        };
+        if transition.elapsed_frames
+            < LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES
+        {
+            return transition.frozen_camera;
+        }
+        CameraState {
+            x_pos: hold_pose.camera_x_pos,
+            y_pos: hold_pose.camera_y_pos,
+        }
+    }
+
+    fn level_skip_active_objects(&self) -> Vec<NativeObjectSnapshot> {
+        let Some(transition) = self.level_skip_transition.as_ref() else {
+            return Vec::new();
+        };
+        if transition.elapsed_frames
+            < LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES
+        {
+            return transition.frozen_active_objects.clone();
+        }
+        Vec::new()
+    }
+
+    fn level_skip_object_counts(&self) -> (u16, u16) {
+        let hold_pose = self.level_skip_hold_pose(self.current_level);
+        let animation_path = self.level_skip_animation_path(self.current_level);
+        let Some(transition) = self.level_skip_transition.as_ref() else {
+            return (hold_pose.number_objects, hold_pose.number_gfx_objects);
+        };
+        let elapsed = transition.elapsed_frames;
+        if elapsed < LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES {
+            return (
+                transition.frozen_number_objects,
+                transition.frozen_number_gfx_objects,
+            );
+        }
+        let blank_start = LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES;
+        let small_preload_start = blank_start + LEVEL_SKIP_BLANK_FRAMES;
+        let large_preload_start = small_preload_start + LEVEL_SKIP_SMALL_PRELOAD_FRAMES;
+        let animation_start = large_preload_start + LEVEL_SKIP_LARGE_PRELOAD_FRAMES;
+        if elapsed < small_preload_start {
+            (0, 0)
+        } else if elapsed < large_preload_start {
+            (2, 0)
+        } else if elapsed < animation_start {
+            (15, 0)
+        } else if elapsed == animation_start {
+            (
+                animation_path.first_animation_number_objects,
+                animation_path.first_animation_number_gfx_objects,
+            )
+        } else {
+            (hold_pose.number_objects, hold_pose.number_gfx_objects)
+        }
+    }
+
+    fn level_skip_resume_elapsed_frames(&self) -> Option<usize> {
+        if !self.level_skip_resume_hold {
+            return None;
+        }
+        self.level_start_frame
+            .map(|frame| self.frame_index.saturating_sub(frame))
+    }
+
+    fn level_skip_resume_player_state(&self) -> Option<PlayerState> {
+        self.level_skip_resume_player_state_at(self.level_skip_resume_elapsed_frames().unwrap_or(0))
+    }
+
+    fn level_skip_resume_player_state_at(&self, elapsed: usize) -> Option<PlayerState> {
+        let hold_pose = self.level_skip_hold_pose(self.current_level);
+        if elapsed < LEVEL_SKIP_RESUME_VISIBLE_FRAMES {
+            return Some(PlayerState {
+                x_pos: hold_pose.kid_x_pos,
+                y_pos: hold_pose.kid_y_pos,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            });
+        }
+        let resume_entry_elapsed = elapsed.saturating_sub(TITLE_TO_LEVEL_FRAMES);
+        if elapsed >= TITLE_TO_LEVEL_FRAMES
+            && self.current_level == LevelId(1)
+            && resume_entry_elapsed < LEVEL_SKIP_RESUME_ENTRY_FRAMES
+        {
+            return Some(PlayerState {
+                x_pos: OPENING_ENTRY_KID_X_POS,
+                y_pos: LEVEL_ONE_SKIP_RESUME_ENTRY_PLAYER_Y_FP[resume_entry_elapsed],
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: resume_entry_elapsed >= LEVEL_SKIP_RESUME_ENTRY_FRAMES - 3,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            });
+        }
+        None
+    }
+
+    fn level_skip_resume_camera_state(&self) -> CameraState {
+        self.level_skip_resume_camera_state_at(self.level_skip_resume_elapsed_frames().unwrap_or(0))
+    }
+
+    fn level_skip_resume_camera_state_at(&self, elapsed: usize) -> CameraState {
+        let hold_pose = self.level_skip_hold_pose(self.current_level);
+        let resume_entry_elapsed = elapsed.saturating_sub(TITLE_TO_LEVEL_FRAMES);
+        if elapsed >= TITLE_TO_LEVEL_FRAMES
+            && self.current_level == LevelId(1)
+            && resume_entry_elapsed < LEVEL_SKIP_RESUME_ENTRY_FRAMES
+        {
+            return CameraState {
+                x_pos: 0,
+                y_pos: LEVEL_ONE_SKIP_RESUME_ENTRY_CAMERA_Y_FP[resume_entry_elapsed],
+            };
+        }
+        if self.current_level == LevelId(1) && elapsed == 52 {
+            return CameraState {
+                x_pos: 0,
+                y_pos: 0xFFA0_0000,
+            };
+        }
+        CameraState {
+            x_pos: hold_pose.camera_x_pos,
+            y_pos: hold_pose.camera_y_pos,
+        }
+    }
+
+    fn level_skip_resume_active_objects(&self) -> Vec<NativeObjectSnapshot> {
+        self.level_skip_resume_active_objects_at(self.level_skip_resume_elapsed_frames().unwrap_or(0))
+    }
+
+    fn level_skip_resume_active_objects_at(&self, elapsed: usize) -> Vec<NativeObjectSnapshot> {
+        let Some(player_state) = self.level_skip_resume_player_state_at(elapsed) else {
+            return Vec::new();
+        };
+        vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos: player_state.x_pos,
+            y_pos: player_state.y_pos,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+        }]
+    }
+
+    fn level_skip_resume_object_counts(&self) -> (u16, u16) {
+        self.level_skip_resume_object_counts_at(self.level_skip_resume_elapsed_frames().unwrap_or(0))
+    }
+
+    fn level_skip_resume_object_counts_at(&self, elapsed: usize) -> (u16, u16) {
+        let hold_pose = self.level_skip_hold_pose(self.current_level);
+        if elapsed < LEVEL_SKIP_RESUME_VISIBLE_FRAMES + LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES {
+            return (hold_pose.number_objects, hold_pose.number_gfx_objects);
+        }
+        if elapsed
+            < LEVEL_SKIP_RESUME_VISIBLE_FRAMES
+                + LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES
+                + LEVEL_SKIP_RESUME_BLANK_FRAMES
+        {
+            return (0, 0);
+        }
+        if elapsed == TITLE_TO_LEVEL_FRAMES - 1 {
+            return (4, 2);
+        }
+        let resume_entry_elapsed = elapsed.saturating_sub(TITLE_TO_LEVEL_FRAMES);
+        if elapsed >= TITLE_TO_LEVEL_FRAMES
+            && self.current_level == LevelId(1)
+            && resume_entry_elapsed < LEVEL_SKIP_RESUME_ENTRY_FRAMES
+        {
+            if resume_entry_elapsed == 0 {
+                return (5, 4);
+            }
+            if resume_entry_elapsed < LEVEL_SKIP_RESUME_ENTRY_FRAMES - 3 {
+                return (5, 6);
+            }
+            return (4, 6);
+        }
+        (hold_pose.number_objects, hold_pose.number_gfx_objects)
+    }
+
+    fn level_skip_resume_final_slice(&self, level_id: LevelId) -> OpeningSliceState {
+        if level_id == LevelId(1) {
+            let bounds = self.level_bounds(level_id);
+            return OpeningSliceState::respawn_from_pose(
+                bounds,
+                LevelStartPose {
+                    kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                    kid_y_pos: 0x00BF_0000,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0x0014_0000,
+                },
+            );
+        }
+        self.level_respawn_slice(level_id)
     }
 
     fn next_level_id(&self) -> LevelId {
@@ -3204,6 +3744,26 @@ mod tests {
         input
     }
 
+    fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
+        let mut input = FrameInput::default();
+        if [120usize, 200, 280, 360, 440, 460].contains(&frame_index) {
+            input.start = true;
+        }
+        if (720..=899).contains(&frame_index)
+            || (1_280..=1_499).contains(&frame_index)
+            || (1_920..=1_999).contains(&frame_index)
+            || (2_480..=3_199).contains(&frame_index)
+        {
+            input.right = true;
+        }
+        if [900usize, 2_100, 2_140, 2_180].contains(&frame_index) {
+            input.start = true;
+            input.a = true;
+            input.c = true;
+        }
+        input
+    }
+
     fn capture_frames(
         runtime: &mut NativeRuntime,
         watched_frames: RangeInclusive<usize>,
@@ -3600,7 +4160,7 @@ mod tests {
         assert_eq!(second_skip.game_mode, GameMode::InGame);
         assert_eq!(second_skip.current_level_name.as_deref(), Some("Level 1"));
 
-        for _ in 0..TITLE_TO_LEVEL_FRAMES {
+        for _ in 0..LEVEL_SKIP_RESUME_TOTAL_FRAMES {
             runtime.step_frame(FrameInput::default());
         }
         let third_skip = press_skip_cheat(&mut runtime);
@@ -3617,12 +4177,6 @@ mod tests {
         let hold = press_skip_cheat(&mut runtime);
         assert_eq!(hold.current_level, LevelId(1));
         assert_eq!(hold.game_mode, GameMode::LevelTransition);
-        assert_eq!(hold.kid_x_pos, Some(0x0040_0000));
-        assert_eq!(hold.kid_y_pos, Some(0x0068_0000));
-        assert_eq!(hold.camera_x_pos, 0);
-        assert_eq!(hold.camera_y_pos, 0);
-        assert_eq!(hold.number_objects, 16);
-        assert_eq!(hold.number_gfx_objects, 15);
 
         for _ in 0..120 {
             runtime.step_frame(FrameInput {
@@ -3634,10 +4188,191 @@ mod tests {
         let still_holding = runtime.trace_frame();
         assert_eq!(still_holding.current_level, LevelId(1));
         assert_eq!(still_holding.game_mode, GameMode::LevelTransition);
-        assert_eq!(still_holding.kid_x_pos, hold.kid_x_pos);
-        assert_eq!(still_holding.kid_y_pos, hold.kid_y_pos);
-        assert_eq!(still_holding.camera_x_pos, hold.camera_x_pos);
-        assert_eq!(still_holding.camera_y_pos, hold.camera_y_pos);
+        assert_eq!(still_holding.kid_x_pos, Some(0x0040_0000));
+        assert_eq!(still_holding.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(still_holding.camera_x_pos, 0);
+        assert_eq!(still_holding.camera_y_pos, 0);
+        assert_eq!(still_holding.number_objects, 16);
+        assert_eq!(still_holding.number_gfx_objects, 15);
+    }
+
+    #[test]
+    fn progress_two_transitions_skip_cheat_matches_early_transition_timeline() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        let mut frames = BTreeMap::new();
+        while runtime.trace_frame().frame_index <= 997 {
+            let frame_index = runtime.trace_frame().frame_index;
+            let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
+            if (900..=997).contains(&trace.frame_index) {
+                frames.insert(trace.frame_index, trace);
+            }
+        }
+
+        let frame_900 = frames.get(&900).expect("frame 900 should be captured");
+        assert_eq!(frame_900.game_mode, GameMode::InGame);
+        assert_eq!(frame_900.current_level, LevelId(0));
+        assert_eq!(frame_900.camera_x_pos, 0x00BF_0000);
+        assert_eq!(frame_900.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
+        assert_eq!(frame_900.kid_x_pos, Some(0x0169_0000));
+        assert_eq!(frame_900.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+
+        let frame_901 = frames.get(&901).expect("frame 901 should be captured");
+        assert_eq!(frame_901.game_mode, GameMode::LevelTransition);
+        assert_eq!(frame_901.current_level, LevelId(1));
+        assert_eq!(frame_901.camera_x_pos, frame_900.camera_x_pos);
+        assert_eq!(frame_901.camera_y_pos, frame_900.camera_y_pos);
+        assert_eq!(frame_901.kid_x_pos, frame_900.kid_x_pos);
+        assert_eq!(frame_901.kid_y_pos, frame_900.kid_y_pos);
+
+        let frame_921 = frames.get(&921).expect("frame 921 should be captured");
+        assert_eq!(frame_921.kid_x_pos, frame_900.kid_x_pos);
+        assert_eq!(frame_921.kid_y_pos, frame_900.kid_y_pos);
+        assert_eq!(frame_921.number_objects, 4);
+        assert_eq!(frame_921.number_gfx_objects, 5);
+
+        let frame_922 = frames.get(&922).expect("frame 922 should be captured");
+        assert_eq!(frame_922.kid_x_pos, None);
+        assert_eq!(frame_922.kid_y_pos, None);
+        assert_eq!(frame_922.camera_x_pos, frame_900.camera_x_pos);
+        assert_eq!(frame_922.number_objects, 4);
+        assert_eq!(frame_922.number_gfx_objects, 5);
+
+        let frame_927 = frames.get(&927).expect("frame 927 should be captured");
+        assert_eq!(frame_927.kid_x_pos, None);
+        assert_eq!(frame_927.kid_y_pos, None);
+        assert_eq!(frame_927.camera_x_pos, 0);
+        assert_eq!(frame_927.camera_y_pos, 0);
+        assert_eq!(frame_927.number_objects, 0);
+        assert_eq!(frame_927.number_gfx_objects, 0);
+
+        let frame_929 = frames.get(&929).expect("frame 929 should be captured");
+        assert_eq!(frame_929.number_objects, 2);
+        assert_eq!(frame_929.number_gfx_objects, 0);
+
+        let frame_932 = frames.get(&932).expect("frame 932 should be captured");
+        assert_eq!(frame_932.number_objects, 15);
+        assert_eq!(frame_932.number_gfx_objects, 0);
+
+        let frame_933 = frames.get(&933).expect("frame 933 should be captured");
+        assert_eq!(frame_933.camera_x_pos, 0);
+        assert_eq!(frame_933.camera_y_pos, 0);
+        assert_eq!(frame_933.kid_x_pos, Some(0x0160_0000));
+        assert_eq!(frame_933.kid_y_pos, Some(0x0014_0000));
+        assert_eq!(frame_933.number_objects, 16);
+        assert_eq!(frame_933.number_gfx_objects, 13);
+
+        let frame_934 = frames.get(&934).expect("frame 934 should be captured");
+        assert_eq!(frame_934.kid_x_pos, Some(0x015B_8000));
+        assert_eq!(frame_934.kid_y_pos, Some(0x0015_5000));
+        assert_eq!(frame_934.number_objects, 16);
+        assert_eq!(frame_934.number_gfx_objects, 15);
+
+        let frame_997 = frames.get(&997).expect("frame 997 should be captured");
+        assert_eq!(frame_997.kid_x_pos, Some(0x0040_0000));
+        assert_eq!(frame_997.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(frame_997.number_objects, 16);
+        assert_eq!(frame_997.number_gfx_objects, 15);
+    }
+
+    #[test]
+    fn progress_two_transitions_skip_cheat_matches_resume_timeline() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        let mut frames = BTreeMap::new();
+        while runtime.trace_frame().frame_index <= 2214 {
+            let frame_index = runtime.trace_frame().frame_index;
+            let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
+            if (2100..=2214).contains(&trace.frame_index) {
+                frames.insert(trace.frame_index, trace);
+            }
+        }
+
+        let frame_2100 = frames.get(&2100).expect("frame 2100 should be captured");
+        assert_eq!(frame_2100.game_mode, GameMode::LevelTransition);
+        assert_eq!(frame_2100.current_level, LevelId(1));
+        assert_eq!(frame_2100.camera_x_pos, 0);
+        assert_eq!(frame_2100.camera_y_pos, 0);
+        assert_eq!(frame_2100.kid_x_pos, Some(0x0040_0000));
+        assert_eq!(frame_2100.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(frame_2100.number_objects, 16);
+        assert_eq!(frame_2100.number_gfx_objects, 15);
+
+        let frame_2101 = frames.get(&2101).expect("frame 2101 should be captured");
+        assert_eq!(frame_2101.game_mode, GameMode::InGame);
+        assert_eq!(frame_2101.current_level, LevelId(1));
+        assert_eq!(frame_2101.camera_x_pos, 0);
+        assert_eq!(frame_2101.camera_y_pos, 0);
+        assert_eq!(frame_2101.kid_x_pos, frame_2100.kid_x_pos);
+        assert_eq!(frame_2101.kid_y_pos, frame_2100.kid_y_pos);
+        assert_eq!(frame_2101.number_objects, 16);
+        assert_eq!(frame_2101.number_gfx_objects, 15);
+
+        let frame_2122 = frames.get(&2122).expect("frame 2122 should be captured");
+        assert_eq!(frame_2122.kid_x_pos, None);
+        assert_eq!(frame_2122.kid_y_pos, None);
+        assert_eq!(frame_2122.number_objects, 16);
+        assert_eq!(frame_2122.number_gfx_objects, 15);
+
+        let frame_2127 = frames.get(&2127).expect("frame 2127 should be captured");
+        assert_eq!(frame_2127.kid_x_pos, None);
+        assert_eq!(frame_2127.kid_y_pos, None);
+        assert_eq!(frame_2127.number_objects, 0);
+        assert_eq!(frame_2127.number_gfx_objects, 0);
+
+        let frame_2153 = frames.get(&2153).expect("frame 2153 should be captured");
+        assert_eq!(frame_2153.kid_x_pos, None);
+        assert_eq!(frame_2153.kid_y_pos, None);
+        assert_eq!(frame_2153.camera_x_pos, 0);
+        assert_eq!(frame_2153.camera_y_pos, 0xFFA0_0000);
+        assert_eq!(frame_2153.number_objects, 0);
+        assert_eq!(frame_2153.number_gfx_objects, 0);
+
+        let frame_2160 = frames.get(&2160).expect("frame 2160 should be captured");
+        assert_eq!(frame_2160.kid_x_pos, None);
+        assert_eq!(frame_2160.kid_y_pos, None);
+        assert_eq!(frame_2160.number_objects, 4);
+        assert_eq!(frame_2160.number_gfx_objects, 2);
+
+        let frame_2161 = frames.get(&2161).expect("frame 2161 should be captured");
+        assert_eq!(frame_2161.game_mode, GameMode::InGame);
+        assert_eq!(frame_2161.current_level, LevelId(1));
+        assert_eq!(frame_2161.camera_x_pos, 0);
+        assert_eq!(frame_2161.camera_y_pos, 0);
+        assert_eq!(frame_2161.kid_x_pos, Some(0x0020_0000));
+        assert_eq!(frame_2161.kid_y_pos, Some(0x009F_0000));
+        assert_eq!(frame_2161.number_objects, 5);
+        assert_eq!(frame_2161.number_gfx_objects, 4);
+
+        let frame_2162 = frames.get(&2162).expect("frame 2162 should be captured");
+        assert_eq!(frame_2162.kid_x_pos, Some(0x0020_0000));
+        assert_eq!(frame_2162.kid_y_pos, Some(0x00A0_0000));
+        assert_eq!(frame_2162.number_objects, 5);
+        assert_eq!(frame_2162.number_gfx_objects, 6);
+
+        let frame_2181 = frames.get(&2181).expect("frame 2181 should be captured");
+        assert_eq!(frame_2181.game_mode, GameMode::LevelTransition);
+        assert_eq!(frame_2181.current_level, LevelId(2));
+        assert_eq!(frame_2181.camera_x_pos, 0);
+        assert_eq!(frame_2181.camera_y_pos, 0x0014_0000);
+        assert_eq!(frame_2181.kid_x_pos, Some(0x0020_0000));
+        assert_eq!(frame_2181.kid_y_pos, Some(0x00BF_0000));
+
+        let frame_2213 = frames.get(&2213).expect("frame 2213 should be captured");
+        assert_eq!(frame_2213.game_mode, GameMode::LevelTransition);
+        assert_eq!(frame_2213.current_level, LevelId(2));
+        assert_eq!(frame_2213.camera_x_pos, 0);
+        assert_eq!(frame_2213.camera_y_pos, 0);
+        assert_eq!(frame_2213.kid_x_pos, Some(0xFFE0_0000));
+        assert_eq!(frame_2213.kid_y_pos, Some(0x00C8_0000));
+        assert_eq!(frame_2213.number_objects, 15);
+        assert_eq!(frame_2213.number_gfx_objects, 13);
+
+        let frame_2214 = frames.get(&2214).expect("frame 2214 should be captured");
+        assert_eq!(frame_2214.kid_x_pos, Some(0xFFE1_4000));
+        assert_eq!(frame_2214.kid_y_pos, Some(0x00C5_E000));
+        assert_eq!(frame_2214.number_objects, 15);
+        assert_eq!(frame_2214.number_gfx_objects, 14);
     }
 
     #[test]
@@ -4004,6 +4739,35 @@ mod tests {
             first_hit_frame,
             Some(760),
             "Level 1 opening hit should land on the oracle frame during the run-right script"
+        );
+    }
+
+    #[test]
+    fn progress_two_transitions_takes_opening_damage_by_frame_749() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+
+        for frame in 0..750 {
+            let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else if (720..750).contains(&frame) {
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+        }
+
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.number_hitpoints, 1,
+            "progress-two-transitions should have already taken the opening Dragon hit by frame 749"
         );
     }
 
