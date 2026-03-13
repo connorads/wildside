@@ -1,5 +1,7 @@
 use crate::background::{
-    BackgroundChunk, BackgroundVisuals, parse_background_chunk, parse_chunked_background_layout,
+    BackgroundChunk, BackgroundVisuals, ChunkedBackgroundVisuals, compose_layered_background,
+    parse_background_chunk, parse_chunked_background_layout, parse_layered_background_layout,
+    parse_layered_background_plane,
 };
 use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
@@ -10,8 +12,8 @@ use crate::player::{
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
-    AssetFile, AssetManifest, DecodedAssetFile, decode_saxman, ensure_generated_bundle_contract,
-    load_level_asset_bundle,
+    AssetFile, AssetManifest, DecodedAssetFile, decode_enigma, decode_saxman,
+    ensure_generated_bundle_contract, load_level_asset_bundle,
 };
 use sha1::{Digest, Sha1};
 use std::fs;
@@ -247,6 +249,10 @@ fn load_background_visuals(
     theme_name: &str,
     layout_bytes: &[u8],
 ) -> Result<BackgroundVisuals> {
+    if uses_layered_backgrounds(theme_name) {
+        return load_layered_background_visuals(manifest, theme_name, layout_bytes);
+    }
+
     let placements = parse_chunked_background_layout(layout_bytes)
         .context("failed to parse chunked background layout")?;
     let prefix = format!("bg_chunks/{theme_name}_");
@@ -304,7 +310,62 @@ fn load_background_visuals(
         }
     }
 
-    Ok(BackgroundVisuals { placements, chunks })
+    Ok(BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+        placements,
+        chunks,
+    }))
+}
+
+fn load_layered_background_visuals(
+    manifest: &AssetManifest,
+    theme_name: &str,
+    layout_bytes: &[u8],
+) -> Result<BackgroundVisuals> {
+    let layout = parse_layered_background_layout(layout_bytes, theme_name).with_context(|| {
+        format!("failed to parse layered background layout for theme {theme_name}")
+    })?;
+    let prefix = format!("bg_chunks/{theme_name}_eni_");
+    let mut plane_assets = manifest
+        .theme_assets
+        .iter()
+        .filter_map(|asset| {
+            parse_layered_background_chunk_id(&asset.relative_path, &prefix)
+                .map(|plane_id| (plane_id, asset))
+        })
+        .collect::<Vec<_>>();
+    plane_assets.sort_by_key(|(plane_id, _)| *plane_id);
+
+    let mut planes = Vec::with_capacity(plane_assets.len());
+    for (plane_id, asset) in plane_assets {
+        let encoded = read_root_asset(manifest, "theme", asset, "layered background plane")
+            .with_context(|| {
+                format!(
+                    "failed to read layered background plane {} for theme {theme_name}",
+                    asset.relative_path
+                )
+            })?;
+        let decoded = decode_enigma(&encoded).with_context(|| {
+            format!(
+                "failed to decode layered background plane {} for theme {theme_name}",
+                asset.relative_path
+            )
+        })?;
+        planes.push(parse_layered_background_plane(&decoded).with_context(|| {
+            format!(
+                "failed to parse layered background plane {plane_id:02X} for theme {theme_name}"
+            )
+        })?);
+    }
+
+    Ok(BackgroundVisuals::Layered(
+        compose_layered_background(&layout, &planes).with_context(|| {
+            format!("failed to compose layered background rows for theme {theme_name}")
+        })?,
+    ))
+}
+
+fn uses_layered_backgrounds(theme_name: &str) -> bool {
+    matches!(theme_name, "hill" | "desert" | "mountain" | "forest")
 }
 
 #[derive(Clone, Copy)]
@@ -679,6 +740,11 @@ fn parse_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {
     if suffix.contains("_eni_") {
         return None;
     }
+    u16::from_str_radix(suffix, 16).ok()
+}
+
+fn parse_layered_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {
+    let suffix = relative_path.strip_prefix(prefix)?.strip_suffix(".bin")?;
     u16::from_str_radix(suffix, 16).ok()
 }
 

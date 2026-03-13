@@ -8,7 +8,10 @@ mod tiles;
 
 pub use background::{
     BackgroundChunk, BackgroundPlacement, BackgroundTile, BackgroundVisuals,
-    parse_background_chunk, parse_chunked_background_layout,
+    ChunkedBackgroundVisuals, LayeredBackgroundLayout, LayeredBackgroundPlane,
+    LayeredBackgroundRow, LayeredBackgroundVisuals, compose_layered_background,
+    parse_background_chunk, parse_chunked_background_layout, parse_layered_background_layout,
+    parse_layered_background_plane,
 };
 pub use bundle::{Level1Visuals, load_level1_visuals};
 pub use hud::{HudIcon, HudVisuals};

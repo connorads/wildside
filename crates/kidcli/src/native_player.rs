@@ -484,49 +484,77 @@ fn push_background_tiles(
     let tile_sheet = Arc::new(level1_visuals.background_tiles.clone());
     let palette = Arc::new(level1_visuals.palettes.background.clone());
 
-    for placement in &level1_visuals.background.placements {
-        let Some(chunk) = level1_visuals
-            .background
-            .chunks
-            .get(usize::from(placement.chunk_id))
-        else {
-            continue;
-        };
-        for row in 0..chunk.height_tiles {
-            for column in 0..chunk.width_tiles {
-                let tile_index =
-                    usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
-                let Some(background_tile) = chunk.tiles.get(tile_index) else {
+    match &level1_visuals.background {
+        kid_render::BackgroundVisuals::Chunked(background) => {
+            for placement in &background.placements {
+                let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
                     continue;
                 };
-                let (screen_x, screen_y) = background_tile_screen_position(
-                    trace,
-                    level1_visuals,
-                    placement.x_tiles + column,
-                    placement.y_tiles + row,
-                    camera_x_px,
-                    camera_y_px,
-                );
-                if screen_x <= -8
-                    || screen_y <= -8
-                    || screen_x >= FRAME_WIDTH as i32
-                    || screen_y >= FRAME_HEIGHT as i32
-                {
-                    continue;
+                for row in 0..chunk.height_tiles {
+                    for column in 0..chunk.width_tiles {
+                        let tile_index =
+                            usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
+                        let Some(background_tile) = chunk.tiles.get(tile_index) else {
+                            continue;
+                        };
+                        let (screen_x, screen_y) = background_tile_screen_position(
+                            trace,
+                            level1_visuals,
+                            placement.x_tiles + column,
+                            placement.y_tiles + row,
+                            camera_x_px,
+                            camera_y_px,
+                        );
+                        if screen_x <= -8
+                            || screen_y <= -8
+                            || screen_x >= FRAME_WIDTH as i32
+                            || screen_y >= FRAME_HEIGHT as i32
+                        {
+                            continue;
+                        }
+                        commands.push(DrawCommand::IndexedTile {
+                            x: screen_x,
+                            y: screen_y,
+                            tile_sheet: tile_sheet.clone(),
+                            tile: TileRef {
+                                tile_index: background_tile.tile_index,
+                                palette_line: 0,
+                                priority: false,
+                                flip_x: background_tile.flip_x,
+                                flip_y: false,
+                            },
+                            palette: palette.clone(),
+                        });
+                    }
                 }
-                commands.push(DrawCommand::IndexedTile {
-                    x: screen_x,
-                    y: screen_y,
-                    tile_sheet: tile_sheet.clone(),
-                    tile: TileRef {
-                        tile_index: background_tile.tile_index,
-                        palette_line: 0,
-                        priority: false,
-                        flip_x: background_tile.flip_x,
-                        flip_y: false,
-                    },
-                    palette: palette.clone(),
-                });
+            }
+        }
+        kid_render::BackgroundVisuals::Layered(background) => {
+            for (row_index, row) in background.rows.iter().enumerate() {
+                for (column, tile) in row.tiles.iter().enumerate() {
+                    let (screen_x, screen_y) = background_tile_screen_position(
+                        trace,
+                        level1_visuals,
+                        column as u16,
+                        row_index as u16,
+                        camera_x_px,
+                        camera_y_px,
+                    );
+                    if screen_x <= -8
+                        || screen_y <= -8
+                        || screen_x >= FRAME_WIDTH as i32
+                        || screen_y >= FRAME_HEIGHT as i32
+                    {
+                        continue;
+                    }
+                    commands.push(DrawCommand::IndexedTile {
+                        x: screen_x,
+                        y: screen_y,
+                        tile_sheet: tile_sheet.clone(),
+                        tile: *tile,
+                        palette: palette.clone(),
+                    });
+                }
             }
         }
     }
@@ -1708,9 +1736,10 @@ mod tests {
     };
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
-        BackgroundVisuals, BlockVisualMapping, EnemyVisuals, ForegroundLayout, HudIcon, HudVisuals,
-        Level1Visuals, LevelVisuals, MdColour, Palette, PaletteSet, PlatformVisuals, PlayerVisuals,
-        SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
+        BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
+        ForegroundLayout, HudIcon, HudVisuals, Level1Visuals, LevelVisuals, MdColour, Palette,
+        PaletteSet, PlatformVisuals, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef,
+        TileSheet,
     };
     use std::fs;
     use std::path::Path;
@@ -2039,7 +2068,7 @@ mod tests {
     }
 
     fn sample_background_visuals() -> BackgroundVisuals {
-        BackgroundVisuals {
+        BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
             placements: vec![BackgroundPlacement {
                 chunk_id: 0,
                 x_tiles: 0,
@@ -2059,7 +2088,7 @@ mod tests {
                     },
                 ],
             }],
-        }
+        })
     }
 
     fn sample_level1_visuals_with_background(background: [u8; 3]) -> Level1Visuals {

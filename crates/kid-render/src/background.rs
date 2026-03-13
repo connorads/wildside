@@ -1,9 +1,39 @@
-use anyhow::{Result, bail};
+use crate::tiles::TileRef;
+use anyhow::{Result, anyhow, bail};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BackgroundVisuals {
+pub enum BackgroundVisuals {
+    Chunked(ChunkedBackgroundVisuals),
+    Layered(LayeredBackgroundVisuals),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChunkedBackgroundVisuals {
     pub placements: Vec<BackgroundPlacement>,
     pub chunks: Vec<BackgroundChunk>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayeredBackgroundVisuals {
+    pub effect_start_row_selector: Option<u8>,
+    pub rows: Vec<LayeredBackgroundRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayeredBackgroundRow {
+    pub selector: u8,
+    pub tiles: Vec<TileRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayeredBackgroundLayout {
+    pub effect_start_row_selector: Option<u8>,
+    pub row_selectors: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayeredBackgroundPlane {
+    pub rows: Vec<Vec<TileRef>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,6 +55,8 @@ pub struct BackgroundTile {
     pub tile_index: u16,
     pub flip_x: bool,
 }
+
+const LAYERED_BACKGROUND_PLANE_WIDTH_TILES: usize = 32;
 
 pub fn parse_chunked_background_layout(bytes: &[u8]) -> Result<Vec<BackgroundPlacement>> {
     let mut placements = Vec::new();
@@ -85,4 +117,193 @@ pub fn parse_background_chunk(bytes: &[u8]) -> Result<BackgroundChunk> {
             })
             .collect(),
     })
+}
+
+pub fn parse_layered_background_layout(
+    bytes: &[u8],
+    theme_name: &str,
+) -> Result<LayeredBackgroundLayout> {
+    let prefix_len = layered_background_prefix_len(theme_name)?;
+    if bytes.len() < prefix_len {
+        bail!(
+            "layered background layout for theme {theme_name} is too short: expected at least {prefix_len} bytes, got {}",
+            bytes.len()
+        );
+    }
+
+    let effect_start_row_selector = match theme_name {
+        "forest" | "desert" => bytes.first().copied(),
+        _ => None,
+    };
+
+    Ok(LayeredBackgroundLayout {
+        effect_start_row_selector,
+        row_selectors: bytes[prefix_len..].to_vec(),
+    })
+}
+
+pub fn parse_layered_background_plane(words: &[u16]) -> Result<LayeredBackgroundPlane> {
+    if words.is_empty() {
+        bail!("layered background plane is empty");
+    }
+    if words.len() % LAYERED_BACKGROUND_PLANE_WIDTH_TILES != 0 {
+        bail!(
+            "layered background plane width mismatch: expected a multiple of {LAYERED_BACKGROUND_PLANE_WIDTH_TILES} tiles, got {}",
+            words.len()
+        );
+    }
+
+    Ok(LayeredBackgroundPlane {
+        rows: words
+            .chunks_exact(LAYERED_BACKGROUND_PLANE_WIDTH_TILES)
+            .map(|row| row.iter().copied().map(TileRef::from_attr_word).collect())
+            .collect(),
+    })
+}
+
+pub fn compose_layered_background(
+    layout: &LayeredBackgroundLayout,
+    planes: &[LayeredBackgroundPlane],
+) -> Result<LayeredBackgroundVisuals> {
+    if planes.len() < 2 {
+        bail!(
+            "layered background needs at least two decoded planes, got {}",
+            planes.len()
+        );
+    }
+
+    let base_plane_row_count = planes[0].rows.len();
+    if base_plane_row_count == 0 {
+        bail!("layered background base plane is empty");
+    }
+    if planes[1].rows.len() != base_plane_row_count {
+        bail!(
+            "layered background base planes disagree on row count: {} vs {}",
+            base_plane_row_count,
+            planes[1].rows.len()
+        );
+    }
+    for (plane_index, plane) in planes.iter().enumerate().skip(2) {
+        if plane.rows.len() != base_plane_row_count {
+            bail!(
+                "layered background plane {} row count {} does not match the base plane row count {}",
+                plane_index,
+                plane.rows.len(),
+                base_plane_row_count
+            );
+        }
+    }
+
+    let mut rows = Vec::with_capacity(layout.row_selectors.len());
+    for &selector in &layout.row_selectors {
+        let selector_index = usize::from(selector);
+        let tiles = if selector_index < base_plane_row_count {
+            let mut tiles = planes[0].rows[selector_index].clone();
+            tiles.extend_from_slice(&planes[1].rows[selector_index]);
+            tiles
+        } else {
+            let overflow_index = selector_index - base_plane_row_count;
+            let source_plane_index = 2 + overflow_index / base_plane_row_count;
+            let source_row_index = overflow_index % base_plane_row_count;
+            let source_plane = planes.get(source_plane_index).ok_or_else(|| {
+                anyhow!(
+                    "layered background selector 0x{selector:02X} references missing plane {}",
+                    source_plane_index
+                )
+            })?;
+            let mut tiles = source_plane.rows[source_row_index].clone();
+            tiles.extend_from_slice(&source_plane.rows[source_row_index]);
+            tiles
+        };
+        rows.push(LayeredBackgroundRow { selector, tiles });
+    }
+
+    Ok(LayeredBackgroundVisuals {
+        effect_start_row_selector: layout.effect_start_row_selector,
+        rows,
+    })
+}
+
+fn layered_background_prefix_len(theme_name: &str) -> Result<usize> {
+    match theme_name {
+        "forest" | "hill" | "mountain" => Ok(1),
+        "desert" => Ok(2),
+        _ => bail!("theme {theme_name} does not use layered backgrounds"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        LayeredBackgroundLayout, LayeredBackgroundPlane, compose_layered_background,
+        parse_layered_background_layout, parse_layered_background_plane,
+    };
+    use crate::tiles::TileRef;
+
+    #[test]
+    fn parses_forest_layered_background_layout() {
+        let layout = parse_layered_background_layout(&[0x11, 0x13, 0x14, 0x35], "forest")
+            .expect("forest layout");
+
+        assert_eq!(layout.effect_start_row_selector, Some(0x11));
+        assert_eq!(layout.row_selectors, vec![0x13, 0x14, 0x35]);
+    }
+
+    #[test]
+    fn parses_desert_layered_background_layout_with_unused_second_byte() {
+        let layout = parse_layered_background_layout(&[0x09, 0x00, 0x1C, 0x1D], "desert")
+            .expect("desert layout");
+
+        assert_eq!(layout.effect_start_row_selector, Some(0x09));
+        assert_eq!(layout.row_selectors, vec![0x1C, 0x1D]);
+    }
+
+    #[test]
+    fn parses_layered_background_plane_rows_from_attr_words() {
+        let plane = parse_layered_background_plane(&(0..64_u16).collect::<Vec<_>>())
+            .expect("plane should parse");
+
+        assert_eq!(plane.rows.len(), 2);
+        assert_eq!(plane.rows[0].len(), 32);
+        assert_eq!(plane.rows[1].len(), 32);
+        assert_eq!(plane.rows[1][0].tile_index, 32);
+    }
+
+    #[test]
+    fn composes_layered_background_rows_from_base_and_overflow_planes() {
+        let layout = LayeredBackgroundLayout {
+            effect_start_row_selector: Some(0x11),
+            row_selectors: vec![0x00, 0x01, 0x02],
+        };
+        let planes = vec![
+            LayeredBackgroundPlane {
+                rows: vec![
+                    vec![TileRef::from_attr_word(0x0001); 32],
+                    vec![TileRef::from_attr_word(0x0002); 32],
+                ],
+            },
+            LayeredBackgroundPlane {
+                rows: vec![
+                    vec![TileRef::from_attr_word(0x0011); 32],
+                    vec![TileRef::from_attr_word(0x0012); 32],
+                ],
+            },
+            LayeredBackgroundPlane {
+                rows: vec![
+                    vec![TileRef::from_attr_word(0x0021); 32],
+                    vec![TileRef::from_attr_word(0x0022); 32],
+                ],
+            },
+        ];
+
+        let visuals = compose_layered_background(&layout, &planes).expect("layered background");
+
+        assert_eq!(visuals.effect_start_row_selector, Some(0x11));
+        assert_eq!(visuals.rows.len(), 3);
+        assert_eq!(visuals.rows[0].tiles.len(), 64);
+        assert_eq!(visuals.rows[0].tiles[0].tile_index, 1);
+        assert_eq!(visuals.rows[0].tiles[32].tile_index, 17);
+        assert_eq!(visuals.rows[2].tiles[0].tile_index, 33);
+        assert_eq!(visuals.rows[2].tiles[32].tile_index, 33);
+    }
 }
