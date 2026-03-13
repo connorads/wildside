@@ -1,7 +1,10 @@
 pub mod physics;
 pub mod terrain;
 
-use kid_data::{AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement};
+use kid_data::{
+    resource_level_record, AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout,
+    PlatformPlacement,
+};
 use physics::{Direction, HorizontalInput, LevelBounds};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -296,6 +299,7 @@ pub struct NativeRuntime {
     active_enemies: Vec<ActiveEnemy>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     block_grid: Option<terrain::BlockGrid>,
+    block_grid_source: BlockGridSource,
     diamond_count: u16,
 }
 
@@ -307,6 +311,13 @@ enum BootState {
     StartingLevel { remaining_frames: usize },
     LevelSkipHold,
     InGame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BlockGridSource {
+    None,
+    Manual,
+    Generated,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -353,6 +364,14 @@ struct PlayerState {
 struct CameraState {
     x_pos: u32,
     y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LevelStartPose {
+    kid_x_pos: u32,
+    kid_y_pos: u32,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -483,6 +502,7 @@ impl NativeRuntime {
             active_enemies: Vec::new(),
             active_platform_roster: Vec::new(),
             block_grid: None,
+            block_grid_source: BlockGridSource::None,
             diamond_count: 0,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -497,6 +517,7 @@ impl NativeRuntime {
     /// Call after constructing the runtime, before stepping frames.
     pub fn set_block_grid(&mut self, grid: terrain::BlockGrid) {
         self.block_grid = Some(grid);
+        self.block_grid_source = BlockGridSource::Manual;
     }
 
     pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
@@ -671,16 +692,28 @@ impl NativeRuntime {
     fn level_header(&self, level_id: LevelId) -> Option<&kid_data::LevelHeader> {
         self.level_record(level_id)
             .and_then(|level| level.header_metadata.as_ref())
+            .or_else(|| {
+                self.resource_level_record(level_id)
+                    .and_then(|level| level.header_metadata.as_ref())
+            })
     }
 
     fn enemy_layout(&self, level_id: LevelId) -> Option<&kid_data::EnemyLayout> {
         self.level_record(level_id)
             .and_then(|level| level.enemy_layout_metadata.as_ref())
+            .or_else(|| {
+                self.resource_level_record(level_id)
+                    .and_then(|level| level.enemy_layout_metadata.as_ref())
+            })
     }
 
     fn platform_layout(&self, level_id: LevelId) -> Option<&kid_data::PlatformLayout> {
         self.level_record(level_id)
             .and_then(|level| level.platform_metadata.as_ref())
+            .or_else(|| {
+                self.resource_level_record(level_id)
+                    .and_then(|level| level.platform_metadata.as_ref())
+            })
     }
 
     fn level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
@@ -688,6 +721,10 @@ impl NativeRuntime {
             .levels
             .iter()
             .find(|level| level.level_id == level_id.0)
+    }
+
+    fn resource_level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
+        resource_level_record(&self.assets, level_id.0)
     }
 
     fn level_bounds(&self, level_id: LevelId) -> LevelBounds {
@@ -843,9 +880,7 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
-                    self.opening_slice = Some(OpeningSliceState::respawn(
-                        self.level_bounds(self.current_level),
-                    ));
+                    self.opening_slice = Some(self.level_respawn_slice(self.current_level));
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -1374,7 +1409,7 @@ impl NativeRuntime {
         self.current_level = next_level;
         self.reload_block_grid_for_level(next_level);
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(next_level)));
+        self.opening_slice = Some(self.level_respawn_slice(next_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
@@ -1406,7 +1441,7 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.level_start_frame = Some(self.frame_index);
         self.boot_state = BootState::LevelSkipHold;
-        self.opening_slice = Some(OpeningSliceState::respawn(self.level_bounds(level_id)));
+        self.opening_slice = Some(self.level_respawn_slice(level_id));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platform_roster.clear();
@@ -1418,6 +1453,10 @@ impl NativeRuntime {
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
             self.block_grid = Some(grid);
+            self.block_grid_source = BlockGridSource::Generated;
+        } else if self.block_grid_source == BlockGridSource::Generated {
+            self.block_grid = None;
+            self.block_grid_source = BlockGridSource::None;
         }
     }
 
@@ -1438,6 +1477,44 @@ impl NativeRuntime {
             metadata.width_blocks,
             metadata.height_blocks,
         ))
+    }
+
+    fn level_respawn_slice(&self, level_id: LevelId) -> OpeningSliceState {
+        let bounds = self.level_bounds(level_id);
+        let pose = self.level_start_pose(level_id, bounds);
+        OpeningSliceState::respawn_from_pose(bounds, pose)
+    }
+
+    fn level_start_pose(&self, level_id: LevelId, bounds: LevelBounds) -> LevelStartPose {
+        if level_id == LevelId(0) {
+            return LevelStartPose {
+                kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                camera_x_pos: 0,
+                camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+            };
+        }
+
+        let Some(header) = self.level_header(level_id) else {
+            return LevelStartPose {
+                kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                camera_x_pos: 0,
+                camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+            };
+        };
+        let kid_x_pos = u32::from(header.player_start_x) << 16;
+        let kid_y_pos = u32::from(header.player_start_y) << 16;
+        let camera_x_pos =
+            start_camera_axis(bounds.width_pixels, 320, header.player_start_x.saturating_sub(160));
+        let camera_y_pos =
+            start_camera_axis(bounds.height_pixels, 224, header.player_start_y.saturating_sub(112));
+        LevelStartPose {
+            kid_x_pos,
+            kid_y_pos,
+            camera_x_pos,
+            camera_y_pos,
+        }
     }
 
     fn level_skip_hold_pose(&self, level_id: LevelId) -> LevelSkipHoldPose {
@@ -1551,11 +1628,24 @@ impl OpeningSliceState {
         }
     }
 
+    #[cfg(test)]
     fn respawn(bounds: LevelBounds) -> Self {
+        Self::respawn_from_pose(
+            bounds,
+            LevelStartPose {
+                kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                camera_x_pos: 0,
+                camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+            },
+        )
+    }
+
+    fn respawn_from_pose(bounds: LevelBounds, pose: LevelStartPose) -> Self {
         Self {
             player: PlayerState {
-                x_pos: OPENING_ENTRY_KID_X_POS,
-                y_pos: OPENING_GROUNDED_KID_Y_POS,
+                x_pos: pose.kid_x_pos,
+                y_pos: pose.kid_y_pos,
                 x_velocity: 0,
                 y_velocity: 0,
                 facing: Direction::Right,
@@ -1566,11 +1656,11 @@ impl OpeningSliceState {
                 right_wall_sticky: false,
             },
             camera: CameraState {
-                x_pos: 0,
-                y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+                x_pos: pose.camera_x_pos,
+                y_pos: pose.camera_y_pos,
             },
             terrain: TerrainState {
-                floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                floor_y_pos: pose.kid_y_pos,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -2784,6 +2874,11 @@ fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
     }
 }
 
+fn start_camera_axis(level_extent_px: u16, viewport_extent_px: u16, centred_start_px: u16) -> u32 {
+    let max_camera_px = level_extent_px.saturating_sub(viewport_extent_px);
+    u32::from(centred_start_px.min(max_camera_px)) << 16
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EnemyContactResult {
     None,
@@ -3137,6 +3232,7 @@ mod tests {
                 level
             })
             .collect();
+        expanded.map_order = (0..count).collect();
         expanded
     }
 
@@ -3209,6 +3305,102 @@ mod tests {
         assert_eq!(floor.cell.collision, terrain::CollisionKind::Solid);
 
         fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
+    fn reload_block_grid_clears_stale_layout_when_next_level_has_no_dump() {
+        let output_root = unique_temp_path("generated-layout-clear");
+        let mut manifest = manifest_with_levels(2);
+        manifest.output_root = output_root.clone();
+
+        let mut data = vec![0u8; 2 * 2 * 2];
+        data[4] = 0x60;
+        write_generated_level_layout(&output_root, 0, 2, 2, &data);
+
+        let mut runtime = NativeRuntime::new(manifest);
+        assert!(runtime.block_grid().is_some(), "level 0 layout should load");
+
+        runtime.reload_block_grid_for_level(LevelId(1));
+
+        assert!(
+            runtime.block_grid().is_none(),
+            "moving to a level without a dumped layout should clear the stale grid"
+        );
+
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
+    fn aliased_levels_resolve_header_and_platform_metadata_from_resource_level() {
+        let mut manifest = manifest_with_levels(7);
+        manifest.map_order[6] = 2;
+
+        let resource_level = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 2)
+            .expect("resource level should exist");
+        let resource_header = resource_level
+            .header_metadata
+            .as_mut()
+            .expect("resource header should exist");
+        resource_header.player_start_x = 0x0042;
+        resource_header.player_start_y = 0x0088;
+        resource_header.width_screens = 5;
+        resource_header.height_screens = 3;
+        resource_level
+            .platform_metadata
+            .as_mut()
+            .expect("resource platforms should exist")
+            .placements
+            .push(PlatformPlacement {
+                x: 0x0042,
+                y: 0x0088,
+                buffer_left: 0,
+                buffer_right: 0,
+                buffer_top: 0,
+                buffer_bottom: 0,
+                kind: 0x02,
+                subtype: 0x03,
+                h_variant: 0,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("PlatformScript_Test-PlatformScript_BaseAddress"),
+                    relative_offset: None,
+                },
+            });
+
+        let aliased_level = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 6)
+            .expect("aliased level should exist");
+        aliased_level.header_metadata = None;
+        aliased_level.platform_metadata = None;
+
+        let runtime = NativeRuntime::new(manifest);
+        let slice = runtime.level_respawn_slice(LevelId(6));
+        let platforms = runtime
+            .platform_layout(LevelId(6))
+            .expect("aliased level should reuse resource platforms");
+
+        assert_eq!(slice.player.x_pos, 0x0042_0000);
+        assert_eq!(slice.player.y_pos, 0x0088_0000);
+        assert_eq!(
+            slice.camera.x_pos,
+            start_camera_axis(320 * 5, 320, 0x0042_u16.saturating_sub(160))
+        );
+        assert_eq!(
+            slice.camera.y_pos,
+            start_camera_axis(224 * 3, 224, 0x0088_u16.saturating_sub(112))
+        );
+        assert!(
+            platforms
+                .placements
+                .iter()
+                .any(|placement| placement.kind == 0x02 && placement.subtype == 0x03),
+            "aliased level should expose resource-level platform placements"
+        );
     }
 
     #[test]
@@ -4463,6 +4655,19 @@ mod tests {
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
             "expected Respawning after level advance, got {:?}",
             runtime.player_lifecycle
+        );
+        let slice = runtime
+            .opening_slice
+            .expect("advanced level should install a respawn slice");
+        assert_eq!(slice.player.x_pos, 0x0751_0000);
+        assert_eq!(slice.player.y_pos, 0x00E0_0000);
+        assert_eq!(
+            slice.camera.x_pos,
+            start_camera_axis(320 * 6, 320, 0x0751_u16.saturating_sub(160))
+        );
+        assert_eq!(
+            slice.camera.y_pos,
+            start_camera_axis(224 * 4, 224, 0x00E0_u16.saturating_sub(112))
         );
     }
 
