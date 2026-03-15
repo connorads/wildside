@@ -8,9 +8,10 @@ This map records what the source port still needs to learn, where to source that
 
 ## Current frontier
 
-1. Preserve Level 1 traversal closure on the default runtime path
-2. Deeper enemy-family fidelity work now that traversal is green
-3. Then broader multi-level progression and presentation work
+1. Tier 1 enemy families (Pacer archetype: Goat, Armadillo, Tank, Crab, Scorpion, Driller) — **done**
+2. Block interactions + prize system + terrain type physics
+3. Platform collision + multi-theme visual generalisation
+4. See `roadmap.md` for the full 10-milestone plan
 
 ## Done
 
@@ -62,7 +63,8 @@ This map records what the source port still needs to learn, where to source that
 ### Enemy fidelity after traversal
 - `Diamond` remains stationary and collectible
 - `MiniHoppingSkull` uses a hopper loop in the native runtime
-- Next deeper fidelity work should resume from this now-closed traversal baseline
+- Done: Pacer archetype for 6 Tier 1 families (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
+- Done: family-specific HP initialisation from ASM init routines
 - Source: `code/enemy/*.asm`, oracle per-object traces
 
 ## Remaining player/gameplay work
@@ -81,6 +83,7 @@ This map records what the source port still needs to learn, where to source that
 
 ### Player forms
 - Done: speed tables for all forms
+- Done: form-specific ground speed table wiring (Micromax/Juggernaut use distinct tables)
 - Remaining: form-specific abilities (Skycutter flight, Cyclone climb, etc.)
 - Deferred until the enemy/object surface is trustworthy
 
@@ -93,4 +96,5 @@ This map records what the source port still needs to learn, where to source that
 
 ## Open questions
 
-- After traversal parity lands, which enemy-family gaps remain visible enough to justify the next oracle-fidelity cycle?
+- Which levels have the most block interactions to exercise first for oracle regression?
+- Platform collision: what is the minimal set of levels to exercise riding + movement scripts?
