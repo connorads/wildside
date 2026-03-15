@@ -198,13 +198,19 @@ impl PlayerForm {
         }
     }
 
-    /// Select the ground speed table for this form on normal terrain.
-    /// Three form groups share speed tables: Kid (most forms), Micromax, Juggernaut.
-    fn ground_speed_table(self) -> &'static physics::SpeedTable {
-        match self {
-            Self::Micromax => &physics::NORMAL_MICROMAX,
-            Self::Juggernaut => &physics::NORMAL_JUGGERNAUT,
-            _ => &physics::NORMAL_KID,
+    /// Select the ground speed table for this form and terrain type.
+    /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
+    fn ground_speed_table(self, terrain_type: TerrainType) -> &'static physics::SpeedTable {
+        match (self, terrain_type) {
+            (Self::Micromax, TerrainType::Normal) => &physics::NORMAL_MICROMAX,
+            (Self::Micromax, TerrainType::Ice) => &physics::ICE_MICROMAX,
+            (Self::Micromax, TerrainType::Rubber) => &physics::RUBBER_MICROMAX,
+            (Self::Juggernaut, TerrainType::Normal) => &physics::NORMAL_JUGGERNAUT,
+            (Self::Juggernaut, TerrainType::Ice) => &physics::ICE_JUGGERNAUT,
+            (Self::Juggernaut, TerrainType::Rubber) => &physics::RUBBER_JUGGERNAUT,
+            (_, TerrainType::Normal) => &physics::NORMAL_KID,
+            (_, TerrainType::Ice) => &physics::ICE_KID,
+            (_, TerrainType::Rubber) => &physics::RUBBER_KID,
         }
     }
 
@@ -433,9 +439,28 @@ struct LevelStartPose {
     camera_y_pos: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum TerrainType {
+    #[default]
+    Normal,
+    Ice,
+    Rubber,
+}
+
+impl TerrainType {
+    fn from_block_type(bt: terrain::BlockType) -> Self {
+        match bt {
+            terrain::BlockType::Ice => Self::Ice,
+            terrain::BlockType::Rubber => Self::Rubber,
+            _ => Self::Normal,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TerrainState {
     floor_y_pos: u32,
+    floor_terrain_type: TerrainType,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -2211,6 +2236,7 @@ impl OpeningSliceState {
             },
             terrain: TerrainState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -2253,6 +2279,7 @@ impl OpeningSliceState {
             },
             terrain: TerrainState {
                 floor_y_pos: pose.kid_y_pos,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: bounds,
             objects: ObjectSystemState {
@@ -2359,6 +2386,7 @@ impl OpeningSliceState {
                     h_input,
                     collision,
                     form,
+                    self.terrain.floor_terrain_type,
                 );
                 self.player.x_velocity = new_vel;
                 self.player.facing = new_facing;
@@ -2385,13 +2413,14 @@ impl OpeningSliceState {
                     h_input,
                     collision,
                     form,
+                    self.terrain.floor_terrain_type,
                 )
             } else {
                 physics::update_horizontal_velocity(
                     self.player.x_velocity,
                     self.player.facing,
                     h_input,
-                    form.ground_speed_table(),
+                    form.ground_speed_table(self.terrain.floor_terrain_type),
                 )
             }
         } else if self.player.just_jumped {
@@ -2708,6 +2737,8 @@ impl OpeningSliceState {
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
+                    self.terrain.floor_terrain_type =
+                        TerrainType::from_block_type(probe.cell.block_type);
                     if should_apply_slope_recontact {
                         return match probe.cell.collision {
                             terrain::CollisionKind::SlopeDown => {
@@ -2724,10 +2755,12 @@ impl OpeningSliceState {
                 // Was on ground but no longer — start falling
                 self.player.on_ground = false;
                 self.player.on_spikes = false;
+                self.terrain.floor_terrain_type = TerrainType::Normal;
             }
         } else if self.player.on_ground {
             self.player.on_ground = false;
             self.player.on_spikes = false;
+            self.terrain.floor_terrain_type = TerrainType::Normal;
         }
         None
     }
@@ -2750,6 +2783,7 @@ impl OpeningSliceState {
             h_input,
             collision,
             form,
+            self.terrain.floor_terrain_type,
         );
         self.player.x_velocity = new_vel;
         self.player.facing = new_facing;
@@ -2801,13 +2835,14 @@ fn update_level_one_slope_ground_velocity(
     input: HorizontalInput,
     collision: terrain::CollisionKind,
     form: PlayerForm,
+    terrain_type: TerrainType,
 ) -> (i32, Direction) {
     if form != PlayerForm::TheKid {
         return physics::update_horizontal_velocity(
             x_vel,
             facing,
             input,
-            form.ground_speed_table(),
+            form.ground_speed_table(terrain_type),
         );
     }
 
@@ -5169,6 +5204,7 @@ mod tests {
             },
             terrain::CollisionKind::SlopeDown,
             PlayerForm::TheKid,
+            TerrainType::Normal,
         );
 
         assert_eq!(new_vel, 0x0003_4000);
@@ -5256,6 +5292,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 143u32 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: w * 16,
@@ -6797,6 +6834,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -6840,6 +6878,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -6887,6 +6926,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -6930,6 +6970,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -6974,6 +7015,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 96,
@@ -7022,6 +7064,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 48 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 64,
@@ -7064,6 +7107,7 @@ mod tests {
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
                 floor_y_pos: 64 << 16,
+                floor_terrain_type: TerrainType::Normal,
             },
             level_bounds: LevelBounds {
                 width_pixels: 80,
@@ -7115,7 +7159,10 @@ mod tests {
                 right_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
-            terrain: TerrainState { floor_y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 0,
+                floor_terrain_type: TerrainType::Normal,
+            },
             level_bounds: LevelBounds {
                 width_pixels: 320,
                 height_pixels: 224,
@@ -7814,5 +7861,139 @@ mod tests {
             EnemyFamily::from_layout_object(&slots, &object),
             EnemyFamily::Goat
         );
+    }
+
+    // --- Terrain type speed table selection ---
+
+    #[test]
+    fn terrain_type_from_block_type_maps_ice_and_rubber() {
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::Ice),
+            TerrainType::Ice
+        );
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::Rubber),
+            TerrainType::Rubber
+        );
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::Prize),
+            TerrainType::Normal
+        );
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::None),
+            TerrainType::Normal
+        );
+    }
+
+    #[test]
+    fn ground_speed_table_selects_by_form_and_terrain() {
+        assert_eq!(
+            PlayerForm::TheKid.ground_speed_table(TerrainType::Normal),
+            &physics::NORMAL_KID
+        );
+        assert_eq!(
+            PlayerForm::TheKid.ground_speed_table(TerrainType::Ice),
+            &physics::ICE_KID
+        );
+        assert_eq!(
+            PlayerForm::TheKid.ground_speed_table(TerrainType::Rubber),
+            &physics::RUBBER_KID
+        );
+        assert_eq!(
+            PlayerForm::Micromax.ground_speed_table(TerrainType::Ice),
+            &physics::ICE_MICROMAX
+        );
+        assert_eq!(
+            PlayerForm::Juggernaut.ground_speed_table(TerrainType::Rubber),
+            &physics::RUBBER_JUGGERNAUT
+        );
+    }
+
+    #[test]
+    fn floor_collision_sets_terrain_type_from_block() {
+        // Build a grid with an ice block at row 4 (y=64)
+        let w = 4u16;
+        let h = 6u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Row 4, col 1: solid ice block
+        // has_block=1, collision=6 (solid), block_type=2 (ice)
+        // hi byte: 1_110_0010 = 0xE2
+        let offset = (4 * usize::from(w) + 1) * 2;
+        data[offset] = 0xE2;
+        data[offset + 1] = 0x01;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 24 << 16, // col 1 centre
+                y_pos: 64 << 16, // at floor level
+                x_velocity: 0,
+                y_velocity: 0x1_0000, // falling
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 0,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        slice.apply_floor_collision(Some(&grid), false, false);
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Ice);
+    }
+
+    #[test]
+    fn leaving_ground_resets_terrain_type_to_normal() {
+        let w = 4u16;
+        let h = 4u16;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: 24 << 16,
+                y_pos: 32 << 16,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 32 << 16,
+                floor_terrain_type: TerrainType::Ice,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        // No floor under player → should leave ground and reset terrain type
+        slice.apply_floor_collision(Some(&grid), false, false);
+        assert!(!slice.player.on_ground);
+        assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Normal);
     }
 }
