@@ -3101,8 +3101,8 @@ fn activate_enemies(
             continue;
         }
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
-        let hp_raw = object.hit_points_plus_one.saturating_sub(1) as u8;
-        let hit_points = hp_raw.max(1); // at least 1 HP
+        let enemy_level = object.hit_points_plus_one.saturating_sub(1) as u8;
+        let hit_points = spawn_hit_points(family, enemy_level);
         active.push(ActiveEnemy {
             segment_index: view.segment_index,
             layout_index: index,
@@ -3440,6 +3440,24 @@ fn spawn_facing(family: EnemyFamily) -> Direction {
         EnemyFamily::Dragon => Direction::Left,
         _ => Direction::Left,
     }
+}
+
+/// Compute initial HP from the enemy family and the raw `enemy_level` field
+/// in the layout. Each family's ASM init adds a base offset to `enemy_level`
+/// to produce the actual HP value.
+fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
+    let base = match family {
+        EnemyFamily::Goat => 3,
+        EnemyFamily::Armadillo => 1,
+        EnemyFamily::Crab => 2,
+        EnemyFamily::Tank => 2,
+        EnemyFamily::Scorpion => 3,
+        EnemyFamily::Driller => 2,
+        // Existing families: Diamond and MiniHoppingSkull use raw level as
+        // HP with a minimum of 1 (legacy behaviour preserved).
+        _ => 0,
+    };
+    (enemy_level + base).max(1)
 }
 
 fn spawn_dragon_phase(family: EnemyFamily) -> DragonMotionPhase {
@@ -7749,6 +7767,22 @@ mod tests {
         assert_eq!(EnemyFamily::Crab.archetype(), EnemyArchetype::Pacer);
         assert_eq!(EnemyFamily::Scorpion.archetype(), EnemyArchetype::Pacer);
         assert_eq!(EnemyFamily::Driller.archetype(), EnemyArchetype::Pacer);
+    }
+
+    #[test]
+    #[test]
+    fn spawn_hit_points_applies_family_base() {
+        // Goat: enemy_level + 3
+        assert_eq!(spawn_hit_points(EnemyFamily::Goat, 0), 3);
+        assert_eq!(spawn_hit_points(EnemyFamily::Goat, 1), 4);
+        assert_eq!(spawn_hit_points(EnemyFamily::Goat, 2), 5);
+        // Armadillo: enemy_level + 1
+        assert_eq!(spawn_hit_points(EnemyFamily::Armadillo, 0), 1);
+        assert_eq!(spawn_hit_points(EnemyFamily::Armadillo, 1), 2);
+        assert_eq!(spawn_hit_points(EnemyFamily::Armadillo, 2), 3);
+        // Diamond: raw enemy_level, min 1
+        assert_eq!(spawn_hit_points(EnemyFamily::Diamond, 0), 1);
+        assert_eq!(spawn_hit_points(EnemyFamily::Diamond, 2), 2);
     }
 
     #[test]
