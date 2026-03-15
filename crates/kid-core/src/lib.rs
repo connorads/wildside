@@ -66,6 +66,30 @@ const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 // Enemy height for terrain probes (16px).
 const ENEMY_PROBE_HEIGHT: i32 = 16;
 
+/// Compute pacer walk speed from the enemy family and HP.
+///
+/// The ASM init routines all follow the same pattern: start at $8000 and
+/// add $10000 for each HP tier above the family's minimum.
+fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
+    let (base_hp, base_speed, speed_step) = match family {
+        // Goat: HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
+        EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
+        // Armadillo: HP = enemy_level + 1 (min 1). Base speed $8000, step $10000.
+        EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
+        // Crab: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
+        EnemyFamily::Crab => (2, 0x0000_8000, 0x0001_0000),
+        // Scorpion: HP = enemy_level + 3 (min 3). Fixed speed $18000.
+        EnemyFamily::Scorpion => (3, 0x0001_8000, 0),
+        // Driller: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
+        // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
+        EnemyFamily::Tank => (2, 0x0000_8000, 0x0001_0000),
+        _ => (1, 0x0001_0000, 0),
+    };
+    let tiers = hit_points.saturating_sub(base_hp) as i32;
+    base_speed + tiers * speed_step
+}
+
 // Player collision hitbox for "The Kid" (form 0).
 // From ASM hitbox data: dc.w -$5, $A, -$1F, $1F
 // x_offset=-5, x_size=10, y_offset=-31, y_size=31
@@ -437,6 +461,12 @@ struct ActivationWindow {
 enum EnemyFamily {
     Diamond,
     Dragon,
+    Goat,
+    Armadillo,
+    Tank,
+    Crab,
+    Scorpion,
+    Driller,
     MiniHoppingSkull,
     Unknown(u8),
 }
@@ -482,6 +512,7 @@ enum EnemyArchetype {
     Collectible,
     Flyer,
     Hopper,
+    Pacer,
     Inert,
 }
 
@@ -604,54 +635,59 @@ impl NativeRuntime {
         let Some(level_id) = self.pending_level_skip.take() else {
             return;
         };
-        let (frozen_player, frozen_camera, frozen_active_objects, mut frozen_number_objects, mut frozen_number_gfx_objects) =
-            if self.level_skip_resume_hold {
-                let elapsed = self
-                    .level_skip_resume_elapsed_frames()
-                    .unwrap_or(0)
-                    .saturating_sub(1);
-                let Some(frozen_player) = self
-                    .level_skip_resume_player_state_at(elapsed)
-                    .or(self.opening_slice.map(|slice| slice.player))
-                else {
-                    self.enter_level_skip_hold(level_id);
-                    return;
-                };
-                let frozen_camera = self.level_skip_resume_camera_state_at(elapsed);
-                let frozen_active_objects = self.level_skip_resume_active_objects_at(elapsed);
-                let (frozen_number_objects, frozen_number_gfx_objects) =
-                    self.level_skip_resume_object_counts_at(elapsed);
-                (
-                    frozen_player,
-                    frozen_camera,
-                    frozen_active_objects,
-                    frozen_number_objects,
-                    frozen_number_gfx_objects,
-                )
-            } else {
-                let Some(frozen_player) = self
-                    .current_player_state()
-                    .or(self.opening_slice.map(|slice| slice.player))
-                else {
-                    self.enter_level_skip_hold(level_id);
-                    return;
-                };
-                let frozen_camera = self.current_camera_state();
-                let frozen_active_objects = self.active_objects();
-                let (frozen_number_objects, frozen_number_gfx_objects) =
-                    self.object_counts_from_roster(
-                        &frozen_active_objects,
-                        frozen_camera.x_pos,
-                        frozen_camera.y_pos,
-                    );
-                (
-                    frozen_player,
-                    frozen_camera,
-                    frozen_active_objects,
-                    frozen_number_objects,
-                    frozen_number_gfx_objects,
-                )
+        let (
+            frozen_player,
+            frozen_camera,
+            frozen_active_objects,
+            mut frozen_number_objects,
+            mut frozen_number_gfx_objects,
+        ) = if self.level_skip_resume_hold {
+            let elapsed = self
+                .level_skip_resume_elapsed_frames()
+                .unwrap_or(0)
+                .saturating_sub(1);
+            let Some(frozen_player) = self
+                .level_skip_resume_player_state_at(elapsed)
+                .or(self.opening_slice.map(|slice| slice.player))
+            else {
+                self.enter_level_skip_hold(level_id);
+                return;
             };
+            let frozen_camera = self.level_skip_resume_camera_state_at(elapsed);
+            let frozen_active_objects = self.level_skip_resume_active_objects_at(elapsed);
+            let (frozen_number_objects, frozen_number_gfx_objects) =
+                self.level_skip_resume_object_counts_at(elapsed);
+            (
+                frozen_player,
+                frozen_camera,
+                frozen_active_objects,
+                frozen_number_objects,
+                frozen_number_gfx_objects,
+            )
+        } else {
+            let Some(frozen_player) = self
+                .current_player_state()
+                .or(self.opening_slice.map(|slice| slice.player))
+            else {
+                self.enter_level_skip_hold(level_id);
+                return;
+            };
+            let frozen_camera = self.current_camera_state();
+            let frozen_active_objects = self.active_objects();
+            let (frozen_number_objects, frozen_number_gfx_objects) = self
+                .object_counts_from_roster(
+                    &frozen_active_objects,
+                    frozen_camera.x_pos,
+                    frozen_camera.y_pos,
+                );
+            (
+                frozen_player,
+                frozen_camera,
+                frozen_active_objects,
+                frozen_number_objects,
+                frozen_number_gfx_objects,
+            )
+        };
         if self.current_level == LevelId(0) && level_id == LevelId(1) {
             frozen_number_objects = 4;
             frozen_number_gfx_objects = 5;
@@ -1325,9 +1361,9 @@ impl NativeRuntime {
             && self.invulnerable_frames == 0
             && input.right
             && self.number_hitpoints == self.current_form.max_hitpoints()
-            && self.level_elapsed_frames().is_some_and(|elapsed| {
-                elapsed >= hit_elapsed_frames && slice.camera.x_pos == 0
-            })
+            && self
+                .level_elapsed_frames()
+                .is_some_and(|elapsed| elapsed >= hit_elapsed_frames && slice.camera.x_pos == 0)
     }
 
     /// Check for stomp-kills: player landing on enemies from above.
@@ -1806,16 +1842,12 @@ impl NativeRuntime {
             _ => {
                 let hold_pose = self.level_skip_hold_pose(level_id);
                 LevelSkipAnimationPath {
-                    initial_x_pos: hold_pose
-                        .kid_x_pos
-                        .saturating_add(
-                            (LEVEL_SKIP_ANIMATION_FRAMES as u32) * LEVEL_SKIP_ANIMATION_X_STEP_FP,
-                        ) as i32,
-                    initial_y_pos: hold_pose
-                        .kid_y_pos
-                        .saturating_sub(
-                            (LEVEL_SKIP_ANIMATION_FRAMES as u32) * LEVEL_SKIP_ANIMATION_Y_STEP_FP,
-                        ) as i32,
+                    initial_x_pos: hold_pose.kid_x_pos.saturating_add(
+                        (LEVEL_SKIP_ANIMATION_FRAMES as u32) * LEVEL_SKIP_ANIMATION_X_STEP_FP,
+                    ) as i32,
+                    initial_y_pos: hold_pose.kid_y_pos.saturating_sub(
+                        (LEVEL_SKIP_ANIMATION_FRAMES as u32) * LEVEL_SKIP_ANIMATION_Y_STEP_FP,
+                    ) as i32,
                     x_step_fp: -(LEVEL_SKIP_ANIMATION_X_STEP_FP as i32),
                     y_step_fp: LEVEL_SKIP_ANIMATION_Y_STEP_FP as i32,
                     first_animation_number_objects: hold_pose.number_objects + 1,
@@ -2033,7 +2065,9 @@ impl NativeRuntime {
     }
 
     fn level_skip_resume_active_objects(&self) -> Vec<NativeObjectSnapshot> {
-        self.level_skip_resume_active_objects_at(self.level_skip_resume_elapsed_frames().unwrap_or(0))
+        self.level_skip_resume_active_objects_at(
+            self.level_skip_resume_elapsed_frames().unwrap_or(0),
+        )
     }
 
     fn level_skip_resume_active_objects_at(&self, elapsed: usize) -> Vec<NativeObjectSnapshot> {
@@ -2055,7 +2089,9 @@ impl NativeRuntime {
     }
 
     fn level_skip_resume_object_counts(&self) -> (u16, u16) {
-        self.level_skip_resume_object_counts_at(self.level_skip_resume_elapsed_frames().unwrap_or(0))
+        self.level_skip_resume_object_counts_at(
+            self.level_skip_resume_elapsed_frames().unwrap_or(0),
+        )
     }
 
     fn level_skip_resume_object_counts_at(&self, elapsed: usize) -> (u16, u16) {
@@ -2956,6 +2992,12 @@ impl EnemyFamily {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon => EnemyArchetype::Flyer,
             Self::MiniHoppingSkull => EnemyArchetype::Hopper,
+            Self::Goat
+            | Self::Armadillo
+            | Self::Tank
+            | Self::Crab
+            | Self::Scorpion
+            | Self::Driller => EnemyArchetype::Pacer,
             Self::Unknown(_) => EnemyArchetype::Inert,
         }
     }
@@ -2963,7 +3005,13 @@ impl EnemyFamily {
     fn from_layout_object(enemy_type_slots: &[u16], object: &EnemyLayoutObject) -> Self {
         match resolved_enemy_id(enemy_type_slots, object.object_type) {
             Some(0x01) => Self::Diamond,
+            Some(0x04) => Self::Armadillo,
+            Some(0x09) => Self::Crab,
+            Some(0x0A) => Self::Tank,
             Some(0x0C | 0x0D) => Self::Dragon,
+            Some(0x10) => Self::Goat,
+            Some(0x13) => Self::Scorpion,
+            Some(0x1A) => Self::Driller,
             Some(0x1C) => Self::MiniHoppingSkull,
             Some(enemy_id) => Self::Unknown(enemy_id),
             None => Self::Unknown(object.object_type),
@@ -2973,7 +3021,13 @@ impl EnemyFamily {
     fn object_type(self) -> u8 {
         match self {
             Self::Diamond => 0x01,
+            Self::Armadillo => 0x04,
+            Self::Crab => 0x09,
+            Self::Tank => 0x0A,
             Self::Dragon => 0x0D,
+            Self::Goat => 0x10,
+            Self::Scorpion => 0x13,
+            Self::Driller => 0x1A,
             Self::MiniHoppingSkull => 0x1C,
             Self::Unknown(enemy_id) => enemy_id,
         }
@@ -3058,7 +3112,7 @@ fn activate_enemies(
             x_velocity: spawn_x_velocity(family),
             y_velocity: 0,
             facing: spawn_facing(family),
-            on_ground: false,
+            on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
             hit_points,
             grounded_frames: 0,
             damage_flash_frames: 0,
@@ -3080,6 +3134,7 @@ fn step_active_enemies(
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
             EnemyArchetype::Flyer => step_flyer(enemy),
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
+            EnemyArchetype::Pacer => step_pacer(enemy, block_grid),
         }
     }
 }
@@ -3281,6 +3336,62 @@ fn hopper_should_reverse(facing: Direction, grid: &terrain::BlockGrid, cx: i32, 
         cx - ENEMY_PROBE_HALF_WIDTH
     };
     !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
+}
+
+/// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
+/// floor edge. Matches the shared walker subroutines in the disassembly
+/// (loc_3E392 / loc_3E546 / loc_3E560 / loc_3E3AC).
+fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    let Some(grid) = block_grid else {
+        return;
+    };
+
+    let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
+    enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+    enemy.y_velocity = 0;
+
+    // Apply horizontal movement.
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+
+    // Wall probe: reverse if we hit a wall.
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        // Push out of wall.
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+        if moving_right {
+            if enemy.x_pos + edge_fp > wall_fp {
+                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+            }
+        } else if enemy.x_pos < wall_fp + edge_fp {
+            enemy.x_pos = wall_fp + edge_fp;
+        }
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        return;
+    }
+
+    // Edge probe: reverse if there's no floor ahead.
+    let look_ahead_x = if moving_right {
+        cx + ENEMY_PROBE_HALF_WIDTH
+    } else {
+        cx - ENEMY_PROBE_HALF_WIDTH
+    };
+    if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+    }
 }
 
 fn reverse_enemy_direction(enemy: &mut ActiveEnemy) {
@@ -7481,6 +7592,178 @@ mod tests {
             slice.player.y_velocity < 0,
             "player should bounce upward even when enemy survives (y_vel={})",
             slice.player.y_velocity
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Pacer archetype (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
+    // -----------------------------------------------------------------------
+
+    fn manifest_with_pacer(enemy_id: u8, hp: u16) -> AssetManifest {
+        let mut m = manifest();
+        if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
+            // Put the pacer family in slot 1 and place one enemy object.
+            // object_type 0x81 = slot 1 (high bit set for slot reference).
+            enemy.enemy_type_slots = vec![0xFFFF, enemy_id as u16, 0x001C];
+            enemy.objects = vec![kid_data::EnemyLayoutObject {
+                object_type: 0x81, // slot 1 (0x80 | 1)
+                flags: 0,
+                hit_points_plus_one: hp,
+                x: 0x0120,
+                y: 0x00C0,
+            }];
+        }
+        m
+    }
+
+    #[test]
+    fn pacer_walk_speed_goat_scales_with_hp() {
+        // Goat: base_hp=3, base_speed=$8000, step=$10000
+        assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 3), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 4), 0x0001_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Goat, 5), 0x0002_8000);
+    }
+
+    #[test]
+    fn pacer_walk_speed_armadillo_scales_with_hp() {
+        // Armadillo: base_hp=1, base_speed=$8000, step=$10000
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 2), 0x0001_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 3), 0x0002_8000);
+    }
+
+    #[test]
+    fn pacer_walk_speed_scorpion_is_fixed() {
+        // Scorpion: fixed $18000 regardless of HP.
+        assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 3), 0x0001_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 4), 0x0001_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 5), 0x0001_8000);
+    }
+
+    #[test]
+    fn pacer_walk_speed_driller_scales_with_hp() {
+        // Driller: base_hp=2, base_speed=$8000, step=$8000
+        assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 2), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 3), 0x0001_0000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 4), 0x0001_8000);
+    }
+
+    /// Build a small grid (width_cells x height_cells) where specific cells are
+    /// solid and everything else is empty. Each entry in `solid_cells` is (col, row).
+    fn grid_with_solid_cells(
+        width_cells: u16,
+        height_cells: u16,
+        solid_cells: &[(u16, u16)],
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for &(col, row) in solid_cells {
+            let offset = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0x60; // collision=6 (Solid)
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            hit_points: hp,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        }
+    }
+
+    #[test]
+    fn goat_walks_left_from_spawn() {
+        // Full-width floor at row 14 (y=224px). Enemy foot at y=224 (row 14)
+        // so probe_floor sees solid beneath.
+        let grid = grid_with_floor_at_row(14);
+        let mut enemy = make_pacer(EnemyFamily::Goat, 3, 128, 224);
+        let x_before = enemy.x_pos;
+        step_pacer(&mut enemy, Some(&grid));
+        assert!(
+            enemy.x_pos < x_before,
+            "goat should move left (x_before={:#x}, x_after={:#x})",
+            x_before,
+            enemy.x_pos
+        );
+        assert_eq!(enemy.facing, Direction::Left);
+    }
+
+    #[test]
+    fn goat_reverses_at_floor_edge() {
+        // Small platform: floor only at columns 5-10, row 13 (y=208..224).
+        let solid: Vec<(u16, u16)> = (5..=10).map(|col| (col, 13)).collect();
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        // Place goat near left edge of platform, x=88px (col 5.5).
+        // With speed 0x8000 (0.5 px/frame) it reaches the edge in ~8 frames.
+        let mut enemy = make_pacer(EnemyFamily::Goat, 3, 88, 208);
+
+        let mut reversed = false;
+        for _ in 0..50 {
+            let facing_before = enemy.facing;
+            step_pacer(&mut enemy, Some(&grid));
+            if enemy.facing != facing_before {
+                reversed = true;
+                break;
+            }
+        }
+        assert!(reversed, "goat should reverse at floor edge");
+    }
+
+    #[test]
+    fn goat_reverses_at_wall() {
+        // Floor at row 13 across full width, wall at col 2 blocking leftward path.
+        let mut solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+        for row in 10..13 {
+            solid.push((2, row));
+        }
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        // Goat at col 5 (x=80+8=88), foot at row 13 (y=208).
+        let mut enemy = make_pacer(EnemyFamily::Goat, 3, 88, 208);
+
+        for _ in 0..300 {
+            step_pacer(&mut enemy, Some(&grid));
+        }
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "goat should reverse on hitting wall"
+        );
+    }
+
+    #[test]
+    fn pacer_families_map_to_pacer_archetype() {
+        assert_eq!(EnemyFamily::Goat.archetype(), EnemyArchetype::Pacer);
+        assert_eq!(EnemyFamily::Armadillo.archetype(), EnemyArchetype::Pacer);
+        assert_eq!(EnemyFamily::Tank.archetype(), EnemyArchetype::Pacer);
+        assert_eq!(EnemyFamily::Crab.archetype(), EnemyArchetype::Pacer);
+        assert_eq!(EnemyFamily::Scorpion.archetype(), EnemyArchetype::Pacer);
+        assert_eq!(EnemyFamily::Driller.archetype(), EnemyArchetype::Pacer);
+    }
+
+    #[test]
+    fn pacer_from_layout_object_resolves_goat() {
+        let slots = vec![0xFFFF, 0x0010, 0x001C]; // slot 1 = Goat ($10)
+        let object = kid_data::EnemyLayoutObject {
+            object_type: 0x81, // slot 1 (0x80 | 1)
+            flags: 0,
+            hit_points_plus_one: 1,
+            x: 0x0100,
+            y: 0x00C0,
+        };
+        assert_eq!(
+            EnemyFamily::from_layout_object(&slots, &object),
+            EnemyFamily::Goat
         );
     }
 }
