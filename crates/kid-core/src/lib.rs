@@ -198,6 +198,16 @@ impl PlayerForm {
         }
     }
 
+    /// Select the ground speed table for this form on normal terrain.
+    /// Three form groups share speed tables: Kid (most forms), Micromax, Juggernaut.
+    fn ground_speed_table(self) -> &'static physics::SpeedTable {
+        match self {
+            Self::Micromax => &physics::NORMAL_MICROMAX,
+            Self::Juggernaut => &physics::NORMAL_JUGGERNAUT,
+            _ => &physics::NORMAL_KID,
+        }
+    }
+
     pub fn from_helmet_id(helmet_id: u16) -> Option<Self> {
         match helmet_id {
             0 => Some(Self::TheKid),
@@ -2381,7 +2391,7 @@ impl OpeningSliceState {
                     self.player.x_velocity,
                     self.player.facing,
                     h_input,
-                    &physics::NORMAL_KID,
+                    form.ground_speed_table(),
                 )
             }
         } else if self.player.just_jumped {
@@ -2793,7 +2803,12 @@ fn update_level_one_slope_ground_velocity(
     form: PlayerForm,
 ) -> (i32, Direction) {
     if form != PlayerForm::TheKid {
-        return physics::update_horizontal_velocity(x_vel, facing, input, &physics::NORMAL_KID);
+        return physics::update_horizontal_velocity(
+            x_vel,
+            facing,
+            input,
+            form.ground_speed_table(),
+        );
     }
 
     let slope_descends_right = collision == terrain::CollisionKind::SlopeDown;
