@@ -1262,10 +1262,19 @@ fn push_game_hud(
     push_hud_counter(commands, level_visuals, trace.number_lives, lives_x, pip_y);
     push_hud_icon(commands, level_visuals, "ankh", lives_x + 18, pip_y);
 
-    // Level timer: M:SS in centre of HUD
+    // Level timer: M:SS in centre of HUD (flash red background when under 30s)
     let minutes = trace.level_timer_seconds / 60;
     let seconds = trace.level_timer_seconds % 60;
     let timer_x = (FRAME_WIDTH as i32) / 2 - 16;
+    if trace.level_timer_seconds <= 30 && (trace.frame_index / 15) % 2 == 0 {
+        commands.push(DrawCommand::Rect {
+            x: timer_x - 2,
+            y: pip_y - 1,
+            width: 40,
+            height: 10,
+            colour: [140, 20, 20],
+        });
+    }
     push_hud_number(commands, level_visuals, minutes, timer_x, pip_y);
     // Colon character: use digit tile index + 11 (separator glyph)
     if let Some(tile) = resolve_ingame_vram_tile(
@@ -2546,6 +2555,13 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(330.0, 80, 0.1);
         sfx.play(440.0, 80, 0.1);
         sfx.play(550.0, 120, 0.1);
+    }
+    // Timer warning tick (under 30s, tick every second change)
+    if curr.level_timer_seconds <= 30
+        && curr.level_timer_seconds > 0
+        && curr.level_timer_seconds < prev.level_timer_seconds
+    {
+        sfx.play(1200.0, 20, 0.08);
     }
     // Diamond Power activation (diamonds dropped by 20+)
     if prev.diamond_count >= 20 && curr.diamond_count + 20 <= prev.diamond_count && curr.invulnerable_frames > 0 {
