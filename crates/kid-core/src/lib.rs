@@ -6849,6 +6849,39 @@ mod tests {
         assert_eq!(runtime.number_lives, lives_before + 1);
     }
 
+    #[test]
+    fn prize_content_ten_diamonds_at_boundary_grants_extra_life() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.diamond_count = 45;
+        let lives_before = runtime.number_lives;
+        runtime.apply_prize_content(terrain::PrizeContent::TenDiamonds);
+        assert_eq!(runtime.diamond_count, 55);
+        assert_eq!(
+            runtime.number_lives,
+            lives_before + 1,
+            "crossing 50 diamond threshold should grant extra life"
+        );
+    }
+
+    #[test]
+    fn prize_content_helmet_resolves_form_on_next_frame() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        assert_eq!(runtime.current_form, PlayerForm::TheKid);
+        runtime.apply_prize_content(terrain::PrizeContent::Juggernaut);
+        // Form is queued, not yet applied
+        assert_eq!(runtime.current_form, PlayerForm::TheKid);
+        assert_eq!(runtime.pending_form, Some(PlayerForm::Juggernaut));
+        // Step one frame to resolve
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.current_form, PlayerForm::Juggernaut);
+        assert_eq!(
+            runtime.number_hitpoints,
+            PlayerForm::Juggernaut.max_hitpoints()
+        );
+    }
+
     // -----------------------------------------------------------------------
     // MiniHoppingSkull hopper behaviour
     // -----------------------------------------------------------------------
