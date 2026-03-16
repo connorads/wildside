@@ -222,6 +222,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut shake_seed: u32 = 1;
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false;  // true: fade from black to clear
+    let mut damage_flash: u8 = 0; // red tint intensity, decays per frame
 
     let scene = build_scene(
         &trace,
@@ -322,6 +323,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 && prev_trace.number_hitpoints > 0
             {
                 shake_frames = 8;
+                damage_flash = 60;
             }
             if trace.number_lives < prev_trace.number_lives {
                 shake_frames = 12;
@@ -372,6 +374,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             if fading_in {
                 fade_alpha = fade_alpha.saturating_sub(8);
             }
+        }
+
+        // Damage flash: brief red tint
+        if damage_flash > 0 {
+            for pixel in frame.chunks_exact_mut(3) {
+                pixel[0] = pixel[0].saturating_add(damage_flash);
+            }
+            damage_flash = damage_flash.saturating_sub(8);
         }
 
         // Diamond Power golden tint: add warm overlay when active
