@@ -5220,6 +5220,7 @@ mod tests {
             active_projectiles: Vec::new(),
             active_geysers: Vec::new(),
             options_cursor: None,
+            two_player: false,
         };
 
         let state = native_trace_to_oracle_state("enemy_window_open", 810, &frame);

@@ -357,6 +357,7 @@ pub struct NativeTraceFrame {
     pub game_over: bool,
     pub game_complete: bool,
     pub options_cursor: Option<u8>,
+    pub two_player: bool,
     pub invulnerable_frames: usize,
     pub diamond_power_active: bool,
     pub diamond_count: u16,
@@ -476,6 +477,12 @@ pub struct NativeRuntime {
     level_timer: LevelTimer,
     /// Set to true when player takes damage during current level (for no-hit bonus).
     level_damage_taken: bool,
+    /// Two-player alternating mode enabled.
+    two_player: bool,
+    /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
+    current_player_index: u8,
+    /// Per-player persistent state slots.
+    player_slots: [PlayerSlot; 2],
 }
 
 /// A lift block that has been activated and is now a moving platform.
@@ -511,6 +518,33 @@ struct LavaGeyser {
 const LAVA_GEYSER_HOLD_FRAMES: u16 = 30;
 const LAVA_GEYSER_DORMANT_FRAMES: u16 = 60;
 const LAVA_GEYSER_ERUPT_SPEED: u16 = 4; // pixels per frame
+
+/// Per-player persistent state for 2P alternating mode.
+/// Mirrors the ASM Player_1_*/Player_2_* RAM slots ($FFFFFC54-$FFFFFC80).
+#[derive(Debug, Clone)]
+struct PlayerSlot {
+    lives: u16,
+    hitpoints: u16,
+    diamonds: u16,
+    level_id: LevelId,
+    form: PlayerForm,
+    continues: u8,
+    score: u32,
+}
+
+impl Default for PlayerSlot {
+    fn default() -> Self {
+        Self {
+            lives: 3,
+            hitpoints: PlayerForm::TheKid.max_hitpoints(),
+            diamonds: 0,
+            level_id: LevelId(0),
+            form: PlayerForm::TheKid,
+            continues: 3,
+            score: 0,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum BootState {
@@ -1346,6 +1380,9 @@ impl NativeRuntime {
             shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
             level_damage_taken: false,
+            two_player: false,
+            current_player_index: 0,
+            player_slots: [PlayerSlot::default(), PlayerSlot::default()],
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -1567,12 +1604,18 @@ impl NativeRuntime {
             }
             BootState::OptionsMenu { cursor } => {
                 let b_pressed = input.b && !self.prior_input.b;
-                // Up/Down navigate cursor
+                let a_pressed = input.a && !self.prior_input.a;
+                let c_pressed = input.c && !self.prior_input.c;
+                // Up/Down navigate cursor (3 items: 2P, SOUND TEST, EXIT)
                 if input.up && !self.prior_input.up && *cursor > 0 {
                     *cursor -= 1;
                 }
-                if input.down && !self.prior_input.down && *cursor < 1 {
+                if input.down && !self.prior_input.down && *cursor < 2 {
                     *cursor += 1;
+                }
+                // A/C on "2 PLAYERS" toggles the flag
+                if *cursor == 0 && (a_pressed || c_pressed) {
+                    self.two_player = !self.two_player;
                 }
                 // Start or B exits back to title
                 if start_pressed || b_pressed {
@@ -1639,7 +1682,7 @@ impl NativeRuntime {
             game_mode,
             game_mode_value: game_mode.as_disassembly_value(),
             start_press_count: self.start_press_count,
-            current_player: 0,
+            current_player: self.current_player_index,
             current_level: self.current_level,
             player_1_level_id: self.current_level,
             current_level_name,
@@ -1673,6 +1716,7 @@ impl NativeRuntime {
                 BootState::OptionsMenu { cursor } => Some(cursor),
                 _ => None,
             },
+            two_player: self.two_player,
             invulnerable_frames: self.invulnerable_frames,
             diamond_power_active: self.diamond_power_frames > 0,
             diamond_count: self.diamond_count,
@@ -1895,6 +1939,9 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
                     };
+                } else if self.try_switch_player() {
+                    // 2P: both have lives, switch turns
+                    self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
                     self.reload_block_grid_for_level(self.current_level);
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
@@ -1944,8 +1991,11 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
+                } else if self.try_switch_player() {
+                    // 2P mode: switched to other player's turn
+                    self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
-                    // No continues left — return to title screen
+                    // No continues left (and no other player) — return to title screen
                     self.boot_state = BootState::TitleScreen;
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.number_lives = 3;
@@ -1953,6 +2003,9 @@ impl NativeRuntime {
                     self.diamond_count = 0;
                     self.current_level = LevelId(0);
                     self.opening_slice = None;
+                    self.two_player = false;
+                    self.current_player_index = 0;
+                    self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
                 }
                 return;
             }
@@ -2875,6 +2928,49 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
+    }
+
+    /// Save working state to the current player's slot (ASM sub_8C2).
+    fn save_player_slot(&mut self) {
+        let slot = &mut self.player_slots[self.current_player_index as usize];
+        slot.lives = self.number_lives;
+        slot.hitpoints = self.number_hitpoints;
+        slot.diamonds = self.diamond_count;
+        slot.level_id = self.current_level;
+        slot.form = self.current_form;
+        slot.continues = self.number_continues;
+        slot.score = self.score;
+    }
+
+    /// Load a player slot into working state (ASM sub_8A4).
+    fn load_player_slot(&mut self) {
+        let slot = &self.player_slots[self.current_player_index as usize];
+        self.number_lives = slot.lives;
+        self.number_hitpoints = slot.hitpoints;
+        self.diamond_count = slot.diamonds;
+        self.current_level = slot.level_id;
+        self.current_form = slot.form;
+        self.pending_form = None;
+        self.number_continues = slot.continues;
+        self.score = slot.score;
+    }
+
+    /// In 2P mode, switch to the other player if they have lives remaining.
+    /// Returns true if a switch occurred.
+    fn try_switch_player(&mut self) -> bool {
+        if !self.two_player {
+            return false;
+        }
+        self.save_player_slot();
+        let other = 1 - self.current_player_index;
+        if self.player_slots[other as usize].lives > 0 {
+            self.current_player_index = other;
+            self.load_player_slot();
+            self.begin_level_entry(self.current_level);
+            true
+        } else {
+            false
+        }
     }
 
     fn enter_level_skip_hold(&mut self, level_id: LevelId) {
@@ -16325,5 +16421,143 @@ mod tests {
                 runtime.step_frame(FrameInput::default());
             }
         }
+    }
+
+    // --- 2P alternating mode tests ---
+
+    #[test]
+    fn two_player_toggle_in_options() {
+        let mut runtime = NativeRuntime::new(manifest());
+        assert!(!runtime.two_player);
+
+        // Navigate to options menu (B on title)
+        runtime.boot_state = BootState::TitleScreen;
+        runtime.step_frame(FrameInput::default()); // settle
+        runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+
+        // Press A to toggle 2P on
+        runtime.step_frame(FrameInput { a: true, ..FrameInput::default() });
+        assert!(runtime.two_player, "A press on cursor 0 should enable 2P");
+
+        // Press A again to toggle off
+        runtime.prior_input = FrameInput::default(); // reset so A counts as fresh press
+        runtime.step_frame(FrameInput { a: true, ..FrameInput::default() });
+        assert!(!runtime.two_player, "second A press should disable 2P");
+    }
+
+    #[test]
+    fn two_player_switch_on_death() {
+        let manifest = manifest_with_levels(4);
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.two_player = true;
+        runtime.player_slots[0].lives = 3;
+        runtime.player_slots[0].level_id = LevelId(0);
+        runtime.player_slots[1].lives = 3;
+        runtime.player_slots[1].level_id = LevelId(1);
+        runtime.current_player_index = 0;
+        runtime.number_lives = 3;
+        runtime.current_level = LevelId(0);
+
+        // Simulate death: decrement lives and enter Dying state
+        runtime.number_lives = 2;
+        runtime.player_lifecycle = PlayerLifecycle::Dying { remaining_frames: 1 };
+        runtime.boot_state = BootState::InGame;
+
+        // Step to finish Dying countdown — should switch to P2
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.current_player_index, 1,
+            "should switch to P2 after P1 death"
+        );
+        assert_eq!(
+            runtime.current_level,
+            LevelId(1),
+            "should load P2's level"
+        );
+    }
+
+    #[test]
+    fn two_player_game_over_when_both_out_of_lives() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.two_player = true;
+        runtime.current_player_index = 0;
+        runtime.number_lives = 0;
+        runtime.number_continues = 0;
+        runtime.player_slots[0].lives = 0;
+        runtime.player_slots[0].continues = 0;
+        runtime.player_slots[1].lives = 0;
+        runtime.player_slots[1].continues = 0;
+
+        runtime.player_lifecycle = PlayerLifecycle::GameOver { remaining_frames: 1 };
+        runtime.boot_state = BootState::InGame;
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen,
+            "should return to title when both players out of lives and continues"
+        );
+        assert!(!runtime.two_player, "2P should be reset on game over");
+    }
+
+    #[test]
+    fn two_player_game_over_switches_when_other_has_lives() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.two_player = true;
+        runtime.current_player_index = 0;
+        runtime.number_lives = 0;
+        runtime.number_continues = 0;
+        runtime.player_slots[0].lives = 0;
+        runtime.player_slots[0].continues = 0;
+        runtime.player_slots[1].lives = 2;
+        runtime.player_slots[1].level_id = LevelId(2);
+
+        runtime.player_lifecycle = PlayerLifecycle::GameOver { remaining_frames: 1 };
+        runtime.boot_state = BootState::InGame;
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.current_player_index, 1,
+            "should switch to P2 when P1 is game over"
+        );
+        assert_eq!(runtime.number_lives, 2, "should have P2's lives");
+    }
+
+    #[test]
+    fn save_load_player_slot_round_trips() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_player_index = 0;
+        runtime.number_lives = 5;
+        runtime.score = 42_000;
+        runtime.diamond_count = 30;
+        runtime.current_form = PlayerForm::Skycutter;
+
+        runtime.save_player_slot();
+
+        // Modify working state
+        runtime.number_lives = 1;
+        runtime.score = 0;
+
+        // Load it back
+        runtime.load_player_slot();
+
+        assert_eq!(runtime.number_lives, 5);
+        assert_eq!(runtime.score, 42_000);
+        assert_eq!(runtime.diamond_count, 30);
+        assert_eq!(runtime.current_form, PlayerForm::Skycutter);
+    }
+
+    #[test]
+    fn trace_frame_reports_current_player() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_player_index = 1;
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.current_player, 1);
     }
 }

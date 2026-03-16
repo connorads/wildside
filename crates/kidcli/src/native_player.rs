@@ -741,7 +741,8 @@ fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
     ));
 
     let cursor = trace.options_cursor.unwrap_or(0) as i32;
-    let items = ["SOUND TEST", "EXIT"];
+    let two_p_label = if trace.two_player { "2 PLAYERS: ON" } else { "2 PLAYERS: OFF" };
+    let items = [two_p_label, "SOUND TEST", "EXIT"];
     for (i, item) in items.iter().enumerate() {
         let y = 80 + i as i32 * 24;
         let colour = if i as i32 == cursor {
@@ -757,8 +758,8 @@ fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
 
     commands.push(text(
         60,
-        160,
-        "Up/Down select  Start/B back",
+        172,
+        "Up/Down select  A/C toggle  Start/B back",
         [100, 100, 100],
         1,
     ));
@@ -1337,6 +1338,17 @@ fn push_game_hud(
             [255, 180, 0]
         };
         commands.push(text(diamond_counter_x - 24, pip_y, "DP", dp_colour, 1));
+    }
+
+    // 2P player turn indicator
+    if trace.two_player {
+        let label = if trace.current_player == 0 { "P1" } else { "P2" };
+        let colour = if trace.current_player == 0 {
+            [100, 180, 255]
+        } else {
+            [255, 140, 100]
+        };
+        commands.push(text(diamond_counter_x - 48, pip_y, label, colour, 1));
     }
 }
 
@@ -2676,6 +2688,7 @@ mod tests {
             game_over: false,
             game_complete: false,
             options_cursor: None,
+            two_player: false,
             number_continues: 3,
             invulnerable_frames: 0,
             diamond_power_active: false,
