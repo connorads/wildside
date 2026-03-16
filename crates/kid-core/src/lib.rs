@@ -11,8 +11,6 @@ mod projectiles;
 mod weather;
 
 use enemies::*;
-use combat::*;
-use movement::*;
 use platforms::*;
 use kid_data::{
     AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
@@ -2093,6 +2091,8 @@ fn run_script_with_runtime(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::combat::*;
+    use crate::movement::*;
     use kid_data::{
         AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
         PlatformLayout, PlatformPlacement, PlatformScriptRef,
