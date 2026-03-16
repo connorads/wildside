@@ -10,6 +10,7 @@ mod native_player;
 mod oracle;
 mod player;
 mod scenarios;
+mod sweep;
 mod verify;
 
 use verify::*;
@@ -32,10 +33,10 @@ use native_player::{NativePlayOptions, render_gameplay_frame_evidence, run_nativ
 use oracle::{
     EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
     OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
-    run_jgenesis_capture_dynamic, run_jgenesis_enemy_layout_trace,
+    run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
-use scenarios::{DynamicScenario, GameplayScenario, Scenario};
+use scenarios::{GameplayScenario, Scenario};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
@@ -324,6 +325,38 @@ enum Commands {
         /// Output directory (default: .cache/generated/<sha1>/level-layout/)
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// Sweep levels for native vs oracle parity, producing a JSON report.
+    Sweep {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Level range: "0-104", "0,5,10", or "0-10"
+        #[arg(long, default_value = "0-104")]
+        levels: String,
+        /// Collection tier: state, frames, or full
+        #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
+        tier: sweep::SweepTier,
+    },
+    /// Deep diagnosis of a single failing level.
+    DiagnoseLevel {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Hex level ID (e.g. 05)
+        #[arg(long)]
+        level: String,
+    },
+    /// Agent-driven parity loop: sweep → diagnose worst → report.
+    ParityLoop {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 1)]
+        max_cycles: u32,
     },
 }
 
@@ -753,6 +786,39 @@ fn main() -> Result<()> {
                     .join("level-layout")
             });
             dump_level_layout(&rom_bytes, level_id, &out_dir)?;
+        }
+        Commands::Sweep {
+            rom,
+            dir,
+            levels,
+            tier,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let level_ids = sweep::parse_level_range(&levels)?;
+            sweep::run_sweep(&repo_root, &rom_path, &manifest, &level_ids, tier)?;
+        }
+        Commands::DiagnoseLevel { rom, dir, level } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let level_id =
+                u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 05)")?;
+            sweep::diagnose_level(&repo_root, &rom_path, &manifest, level_id)?;
+        }
+        Commands::ParityLoop {
+            rom,
+            dir,
+            max_cycles,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            sweep::run_parity_loop(&repo_root, &rom_path, &manifest, max_cycles)?;
         }
     }
     Ok(())
