@@ -2200,12 +2200,7 @@ impl NativeRuntime {
 
         for &idx in collected_indices.iter().rev() {
             self.active_enemies.remove(idx);
-            self.diamond_count += 1;
-            self.score += 500;
-            // 50 diamonds → extra life
-            if self.diamond_count % 50 == 0 {
-                self.number_lives += 1;
-            }
+            self.collect_diamond();
         }
 
         if !collected_indices.is_empty() {
@@ -2218,27 +2213,33 @@ impl NativeRuntime {
         }
     }
 
+    /// Increment diamond count (capped at 99 per ASM). Awards extra life at 50/100.
+    fn collect_diamond(&mut self) {
+        if self.diamond_count >= 99 {
+            return;
+        }
+        self.diamond_count += 1;
+        self.score += 500;
+        if self.diamond_count % 50 == 0 {
+            self.number_lives += 1;
+        }
+    }
+
     fn apply_prize_content(&mut self, content: terrain::PrizeContent) {
         match content {
             terrain::PrizeContent::Diamond => {
-                self.diamond_count += 1;
-                if self.diamond_count % 50 == 0 {
-                    self.number_lives += 1;
-                }
+                self.collect_diamond();
             }
             terrain::PrizeContent::TenDiamonds => {
                 for _ in 0..10 {
-                    self.diamond_count += 1;
-                    if self.diamond_count % 50 == 0 {
-                        self.number_lives += 1;
-                    }
+                    self.collect_diamond();
                 }
             }
             terrain::PrizeContent::Clock => {
                 self.level_timer.add_clock_bonus();
             }
             terrain::PrizeContent::Continue => {
-                // Continue token — grants an extra continue (not yet tracked)
+                self.number_continues = self.number_continues.saturating_add(1);
             }
             terrain::PrizeContent::Ankh => {
                 self.number_lives += 1;
