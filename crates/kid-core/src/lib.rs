@@ -1094,6 +1094,16 @@ enum TarMonsterState {
     Submerging,
 }
 
+/// SpinningTwins: orbits first, then drops into walking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum SpinningTwinsPhase {
+    /// Orbiting at spawn position with visual oscillation.
+    #[default]
+    Orbiting,
+    /// Dropped to ground, walking as a pacer.
+    Walking,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -1126,6 +1136,8 @@ struct ActiveEnemy {
     robot_state: RobotState,
     orca_state: OrcaState,
     tar_monster_state: TarMonsterState,
+    spinning_twins_phase: SpinningTwinsPhase,
+    spinning_twins_orbit_index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5256,7 +5268,7 @@ impl EnemyFamily {
             Self::Ninja => EnemyArchetype::Pacer, // uses Pacer in stealth, but step_active_enemies dispatches to step_ninja
             Self::EmoRock => EnemyArchetype::Hoverer,
             Self::Archer => EnemyArchetype::Stationary,
-            Self::SpinningTwins => EnemyArchetype::Pacer, // walk after landing phase; full orbit TODO
+            Self::SpinningTwins => EnemyArchetype::Pacer, // orbit phase dispatched to step_spinning_twins
             Self::TarMonster => EnemyArchetype::Stationary, // emerge/submerge cycle
             Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
                 EnemyArchetype::Tracker
@@ -5434,6 +5446,8 @@ fn activate_enemies(
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         });
     }
 }
@@ -5468,6 +5482,8 @@ fn step_active_enemies(
                     step_robot(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     step_orca(enemy, block_grid, player_x_pos);
+                } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
+                    step_spinning_twins(enemy, block_grid);
                 } else {
                     step_pacer(enemy, block_grid);
                     // Tank fires horizontal bullets at intervals
@@ -6689,6 +6705,67 @@ fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
     enemy.wait_timer = DRIPS_DROP_INTERVAL;
 }
 
+// SpinningTwins: 8-entry orbit X offset table from ASM (word_3B9A0).
+// Applied relative to spawn position during orbit phase.
+const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] = [
+    -0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11,
+];
+// Frames spent in orbit before dropping to walking.
+const SPINNING_TWINS_ORBIT_FRAMES: u16 = 120;
+// Gravity applied each frame once the twins drop. ASM: $2800 FP.
+const SPINNING_TWINS_GRAVITY: i32 = 0x2800;
+// Launch Y velocity when transitioning from orbit. ASM: -$10000.
+const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
+
+/// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
+fn step_spinning_twins(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    match enemy.spinning_twins_phase {
+        SpinningTwinsPhase::Orbiting => {
+            // Advance orbit index each frame
+            enemy.spinning_twins_orbit_index =
+                (enemy.spinning_twins_orbit_index + 1) % SPINNING_TWINS_ORBIT_OFFSETS.len() as u8;
+            let offset = SPINNING_TWINS_ORBIT_OFFSETS
+                [enemy.spinning_twins_orbit_index as usize];
+            // Apply X oscillation as velocity (visual only, resets each frame)
+            enemy.x_velocity = offset << 16;
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.x_velocity = 0;
+
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                // Drop to walking phase
+                enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
+                enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+                enemy.on_ground = false;
+            }
+        }
+        SpinningTwinsPhase::Walking => {
+            // Apply gravity while airborne until grounded, then walk as pacer
+            if !enemy.on_ground {
+                enemy.y_velocity += SPINNING_TWINS_GRAVITY;
+                enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+                // Check floor
+                if let Some(grid) = block_grid {
+                    let x_px = (enemy.x_pos >> 16) as i32;
+                    let y_px = (enemy.y_pos >> 16) as i32;
+                    let probe = terrain::probe_floor(grid, x_px, y_px);
+                    if probe.on_ground {
+                        enemy.y_pos = (probe.floor_y_px as u32) << 16;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                    }
+                }
+            } else {
+                step_pacer(enemy, block_grid);
+            }
+        }
+    }
+}
+
 /// EmoRock hover height above player, indexed by enemy_level (derived from HP).
 /// Level 0: 80px, Level 1: 60px, Level 2: 40px.
 const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
@@ -7058,6 +7135,8 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
+        // SpinningTwins: orbit for N frames before dropping.
+        EnemyFamily::SpinningTwins => SPINNING_TWINS_ORBIT_FRAMES,
         _ => 0,
     }
 }
@@ -10427,6 +10506,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
@@ -10577,6 +10658,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         }];
 
         activate_enemies(
@@ -10622,6 +10705,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         for _ in 0..199 {
@@ -10741,6 +10826,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         let mut grounded_skull = None;
@@ -10784,6 +10871,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         let mut grounded_skull = None;
@@ -10857,6 +10946,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -10917,6 +11008,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -12061,6 +12154,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         }
     }
 
@@ -12207,6 +12302,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -12247,6 +12344,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -12315,6 +12414,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -12388,6 +12489,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -12428,6 +12531,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -12473,6 +12578,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -12522,6 +12629,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -12571,6 +12680,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
 
         // Step until it lands
@@ -12677,6 +12788,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12711,6 +12824,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12790,6 +12905,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12825,6 +12942,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12874,6 +12993,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -12908,6 +13029,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -12945,6 +13068,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -13443,6 +13568,33 @@ mod tests {
         step_drips(&mut enemy, &mut projectiles);
         assert!(projectiles.is_empty(), "should not drop while timer active");
         assert_eq!(enemy.wait_timer, 4);
+    }
+
+    // --- SpinningTwins ---
+
+    #[test]
+    fn spinning_twins_orbits_then_drops_to_walking() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+        enemy.wait_timer = SPINNING_TWINS_ORBIT_FRAMES;
+        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
+
+        // Step through orbit phase — X position should oscillate
+        let initial_x = enemy.x_pos;
+        step_spinning_twins(&mut enemy, None);
+        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
+        assert_ne!(enemy.x_pos, initial_x, "orbit should move X position");
+
+        // Fast-forward to end of orbit
+        enemy.wait_timer = 1;
+        step_spinning_twins(&mut enemy, None);
+        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
+        assert_eq!(enemy.wait_timer, 0);
+
+        // Next step should transition to Walking
+        step_spinning_twins(&mut enemy, None);
+        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Walking);
+        assert!(!enemy.on_ground, "should be airborne after drop");
+        assert!(enemy.y_velocity < 0, "should have upward launch velocity");
     }
 
     // --- Ghost blocks ---
@@ -15202,6 +15354,8 @@ mod tests {
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
             tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
         }
     }
 
