@@ -220,6 +220,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut current_level_id: u8 = 0x00;
     let mut shake_frames: u32 = 0;
     let mut shake_seed: u32 = 1;
+    let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
+    let mut fading_in = false;  // true: fade from black to clear
 
     let scene = build_scene(
         &trace,
@@ -323,6 +325,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             }
             if trace.number_lives < prev_trace.number_lives {
                 shake_frames = 12;
+                fade_alpha = 0;
+                fading_in = false; // will fade to black when death sequence plays
             }
         }
 
@@ -336,6 +340,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
         if trace.current_level.0 != current_level_id {
             let new_level = trace.current_level.0;
+            fade_alpha = 255;
+            fading_in = true;
             match load_native_session_assets(manifest, new_level) {
                 Ok(new_assets) => {
                     session_assets = new_assets;
@@ -356,6 +362,18 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             runtime.block_grid(),
         );
         render_scene(&scene, &mut frame);
+
+        // Apply fade overlay: darken all pixels by fade_alpha/255
+        if fade_alpha > 0 {
+            let inv = 255 - u16::from(fade_alpha);
+            for pixel in frame.iter_mut() {
+                *pixel = (u16::from(*pixel) * inv / 255) as u8;
+            }
+            if fading_in {
+                fade_alpha = fade_alpha.saturating_sub(8);
+            }
+        }
+
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
