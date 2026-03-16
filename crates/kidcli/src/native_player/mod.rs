@@ -226,6 +226,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     if let Some(ref aq) = audio_queue {
         aq.resume();
     }
+    match (&audio_queue, &gems_engine) {
+        (Some(_), Some(_)) => eprintln!("Audio: GEMS engine active (stereo)"),
+        (Some(_), None) => eprintln!("Audio: SFX fallback (GEMS data unavailable)"),
+        (None, _) => eprintln!("Audio: disabled (SDL2 audio unavailable)"),
+    }
     let mut sfx_engine = SfxEngine::new();
 
     let mut runtime = initialise_runtime(manifest, &session_assets);
@@ -687,11 +692,21 @@ struct SfxTone {
 /// Try to load a GEMS audio engine from extracted sound data in the disassembly.
 fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
     let sound_dir = manifest.source_root.join("sound");
-    let driver = std::fs::read(sound_dir.join("GEMS_Sounddriver.bin")).ok()?;
-    let patches = std::fs::read(sound_dir.join("instruments.bin")).ok()?;
-    let envelopes = std::fs::read(sound_dir.join("envelopes.bin")).ok()?;
-    let sequences = std::fs::read(sound_dir.join("sequences.bin")).ok()?;
-    let samples = std::fs::read(sound_dir.join("samples.bin")).ok()?;
+    let driver = std::fs::read(sound_dir.join("GEMS_Sounddriver.bin"))
+        .map_err(|e| eprintln!("GEMS: failed to read driver: {e}"))
+        .ok()?;
+    let patches = std::fs::read(sound_dir.join("instruments.bin"))
+        .map_err(|e| eprintln!("GEMS: failed to read patches: {e}"))
+        .ok()?;
+    let envelopes = std::fs::read(sound_dir.join("envelopes.bin"))
+        .map_err(|e| eprintln!("GEMS: failed to read envelopes: {e}"))
+        .ok()?;
+    let sequences = std::fs::read(sound_dir.join("sequences.bin"))
+        .map_err(|e| eprintln!("GEMS: failed to read sequences: {e}"))
+        .ok()?;
+    let samples = std::fs::read(sound_dir.join("samples.bin"))
+        .map_err(|e| eprintln!("GEMS: failed to read samples: {e}"))
+        .ok()?;
 
     let mut engine = GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
     engine.init();
