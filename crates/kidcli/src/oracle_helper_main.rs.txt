@@ -12,7 +12,7 @@ use jgenesis_common::frontend::{
     AudioOutput, Color, EmulatorTrait, FrameSize, RenderFrameOptions, Renderer, SaveWriter,
     TickEffect,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::env;
 use std::fs;
@@ -41,6 +41,31 @@ struct FrameCheckpoint {
 enum OutputMode {
     Capture,
     EnemyLayoutTrace,
+}
+
+/// JSON-serialisable scenario definition — matches DynamicScenario in kidcli.
+#[derive(Debug, Clone, Deserialize)]
+struct ScenarioFile {
+    slug: String,
+    script: Vec<u8>,
+    frame_count: usize,
+    checkpoints: Vec<ScenarioFileCheckpoint>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ScenarioFileCheckpoint {
+    label: String,
+    frame_index: usize,
+}
+
+/// Resolved scenario data — either from a built-in slug or a JSON file.
+struct ResolvedScenario {
+    slug: String,
+    script: Vec<u8>,
+    frame_count: usize,
+    checkpoints: Vec<FrameCheckpoint>,
+    /// Owned labels for dynamic checkpoints (static scenarios borrow from 'static str).
+    _owned_labels: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -236,14 +261,16 @@ fn main() -> Result<()> {
     let mut args = env::args().skip(1);
     let mut rom_path = None;
     let mut out_dir = None;
-    let mut scenario = None;
+    let mut scenario_slug = None;
+    let mut scenario_file = None;
     let mut mode = OutputMode::Capture;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--rom" => rom_path = args.next().map(PathBuf::from),
             "--out-dir" => out_dir = args.next().map(PathBuf::from),
-            "--scenario" => scenario = args.next().map(|value| parse_scenario(&value)),
+            "--scenario" => scenario_slug = args.next(),
+            "--scenario-file" => scenario_file = args.next().map(PathBuf::from),
             "--mode" => mode = parse_mode(&args.next().context("missing --mode value")?)?,
             other => return Err(anyhow!("unknown arg {other}")),
         }
@@ -251,110 +278,161 @@ fn main() -> Result<()> {
 
     let rom_path = rom_path.context("missing --rom")?;
     let out_dir = out_dir.context("missing --out-dir")?;
-    let scenario = scenario.transpose()?.context("missing --scenario")?;
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
+    let resolved = resolve_scenario(scenario_slug.as_deref(), scenario_file.as_deref())?;
+
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
-    let script = scenario_script(scenario);
-    let checkpoints = scenario_checkpoints(scenario);
     match mode {
         OutputMode::Capture => {
-            let mut checkpoint_index = 0usize;
-            let mut save_writer = NullSaveWriter;
-            let mut emulator = GenesisEmulator::create(rom, genesis_config(), &mut save_writer);
-            emulator.update_audio_output_frequency(SAMPLE_RATE);
-            let mut renderer = CaptureRenderer::default();
-            let mut audio = AudioCollector::default();
-            let mut frame_index = 0usize;
-            let mut rendered_frames = Vec::new();
-            let mut captured_states = Vec::new();
-
-            while frame_index < scenario_frame_count(scenario) {
-                let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
-                loop {
-                    if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
-                        TickEffect::FrameRendered
-                    {
-                        while checkpoint_index < checkpoints.len()
-                            && checkpoints[checkpoint_index].frame_index == frame_index
-                        {
-                            let checkpoint = checkpoints[checkpoint_index];
-                            let png_path = out_dir.join(format!(
-                                "{:04}_{}.png",
-                                checkpoint.frame_index, checkpoint.label
-                            ));
-                            write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
-                            rendered_frames.push(OracleFrame {
-                                label: checkpoint.label.to_string(),
-                                frame_index: checkpoint.frame_index,
-                                sha1: sha1_hex(&renderer.rgb),
-                                png_path,
-                            });
-                            captured_states.push(capture_state(
-                                &mut emulator,
-                                checkpoint.label,
-                                checkpoint.frame_index,
-                            ));
-                            checkpoint_index += 1;
-                        }
-                        frame_index += 1;
-                        break;
-                    }
-                }
-            }
-
-            let audio_path = out_dir.join("audio.wav");
-            write_wav(&audio_path, &audio.samples)?;
-            let manifest = OracleManifest {
-                sample_rate: SAMPLE_RATE as u32,
-                audio_path,
-                frames: rendered_frames,
-                states: captured_states,
-            };
-            println!("{}", serde_json::to_string_pretty(&manifest)?);
+            run_capture(&rom, &out_dir, &resolved)?;
         }
         OutputMode::EnemyLayoutTrace => {
-            let mut checkpoint_index = 0usize;
-            let mut save_writer = NullSaveWriter;
-            let mut emulator = GenesisEmulator::create(rom, genesis_config(), &mut save_writer);
-            emulator.update_audio_output_frequency(SAMPLE_RATE);
-            let mut renderer = CaptureRenderer::default();
-            let mut audio = AudioCollector::default();
-            let mut frame_index = 0usize;
-            let mut checkpoints_out = Vec::new();
-
-            while frame_index < scenario_frame_count(scenario) {
-                let inputs = inputs_from_mask(script.get(frame_index).copied().unwrap_or(0));
-                loop {
-                    if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
-                        TickEffect::FrameRendered
-                    {
-                        while checkpoint_index < checkpoints.len()
-                            && checkpoints[checkpoint_index].frame_index == frame_index
-                        {
-                            let checkpoint = checkpoints[checkpoint_index];
-                            checkpoints_out.push(capture_enemy_layout_checkpoint(
-                                &mut emulator,
-                                checkpoint.label,
-                                checkpoint.frame_index,
-                            ));
-                            checkpoint_index += 1;
-                        }
-                        frame_index += 1;
-                        break;
-                    }
-                }
-            }
-
-            let manifest = OracleEnemyLayoutTraceManifest {
-                scenario: scenario_slug(scenario).to_string(),
-                checkpoints: checkpoints_out,
-            };
-            println!("{}", serde_json::to_string_pretty(&manifest)?);
+            run_enemy_layout_trace(&rom, &resolved)?;
         }
     }
+    Ok(())
+}
+
+fn resolve_scenario(
+    slug: Option<&str>,
+    file_path: Option<&Path>,
+) -> Result<ResolvedScenario> {
+    match (slug, file_path) {
+        (Some(_), Some(_)) => Err(anyhow!("pass --scenario or --scenario-file, not both")),
+        (None, None) => Err(anyhow!("missing --scenario or --scenario-file")),
+        (Some(slug), None) => {
+            let scenario = parse_scenario(slug)?;
+            Ok(ResolvedScenario {
+                slug: scenario_slug(scenario).to_string(),
+                script: scenario_script(scenario),
+                frame_count: scenario_frame_count(scenario),
+                checkpoints: scenario_checkpoints(scenario).to_vec(),
+                _owned_labels: Vec::new(),
+            })
+        }
+        (None, Some(path)) => {
+            let json = fs::read_to_string(path)
+                .with_context(|| format!("failed to read scenario file {}", path.display()))?;
+            let sf: ScenarioFile = serde_json::from_str(&json)
+                .with_context(|| format!("failed to parse scenario file {}", path.display()))?;
+            // Build owned FrameCheckpoints — labels are leaked to 'static for API compat.
+            // This is fine: one allocation per run, lives for the process lifetime.
+            let owned_labels: Vec<String> = sf.checkpoints.iter().map(|cp| cp.label.clone()).collect();
+            let checkpoints: Vec<FrameCheckpoint> = sf.checkpoints.iter().enumerate().map(|(i, cp)| {
+                FrameCheckpoint {
+                    label: Box::leak(owned_labels[i].clone().into_boxed_str()),
+                    frame_index: cp.frame_index,
+                }
+            }).collect();
+            Ok(ResolvedScenario {
+                slug: sf.slug,
+                script: sf.script,
+                frame_count: sf.frame_count,
+                checkpoints,
+                _owned_labels: owned_labels,
+            })
+        }
+    }
+}
+
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Result<()> {
+    let mut checkpoint_index = 0usize;
+    let mut save_writer = NullSaveWriter;
+    let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
+    emulator.update_audio_output_frequency(SAMPLE_RATE);
+    let mut renderer = CaptureRenderer::default();
+    let mut audio = AudioCollector::default();
+    let mut frame_index = 0usize;
+    let mut rendered_frames = Vec::new();
+    let mut captured_states = Vec::new();
+
+    while frame_index < resolved.frame_count {
+        let inputs = inputs_from_mask(resolved.script.get(frame_index).copied().unwrap_or(0));
+        loop {
+            if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
+                TickEffect::FrameRendered
+            {
+                while checkpoint_index < resolved.checkpoints.len()
+                    && resolved.checkpoints[checkpoint_index].frame_index == frame_index
+                {
+                    let checkpoint = resolved.checkpoints[checkpoint_index];
+                    let png_path = out_dir.join(format!(
+                        "{:04}_{}.png",
+                        checkpoint.frame_index, checkpoint.label
+                    ));
+                    write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
+                    rendered_frames.push(OracleFrame {
+                        label: checkpoint.label.to_string(),
+                        frame_index: checkpoint.frame_index,
+                        sha1: sha1_hex(&renderer.rgb),
+                        png_path,
+                    });
+                    captured_states.push(capture_state(
+                        &mut emulator,
+                        checkpoint.label,
+                        checkpoint.frame_index,
+                    ));
+                    checkpoint_index += 1;
+                }
+                frame_index += 1;
+                break;
+            }
+        }
+    }
+
+    let audio_path = out_dir.join("audio.wav");
+    write_wav(&audio_path, &audio.samples)?;
+    let manifest = OracleManifest {
+        sample_rate: SAMPLE_RATE as u32,
+        audio_path,
+        frames: rendered_frames,
+        states: captured_states,
+    };
+    println!("{}", serde_json::to_string_pretty(&manifest)?);
+    Ok(())
+}
+
+fn run_enemy_layout_trace(rom: &[u8], resolved: &ResolvedScenario) -> Result<()> {
+    let mut checkpoint_index = 0usize;
+    let mut save_writer = NullSaveWriter;
+    let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
+    emulator.update_audio_output_frequency(SAMPLE_RATE);
+    let mut renderer = CaptureRenderer::default();
+    let mut audio = AudioCollector::default();
+    let mut frame_index = 0usize;
+    let mut checkpoints_out = Vec::new();
+
+    while frame_index < resolved.frame_count {
+        let inputs = inputs_from_mask(resolved.script.get(frame_index).copied().unwrap_or(0));
+        loop {
+            if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
+                TickEffect::FrameRendered
+            {
+                while checkpoint_index < resolved.checkpoints.len()
+                    && resolved.checkpoints[checkpoint_index].frame_index == frame_index
+                {
+                    let checkpoint = resolved.checkpoints[checkpoint_index];
+                    checkpoints_out.push(capture_enemy_layout_checkpoint(
+                        &mut emulator,
+                        checkpoint.label,
+                        checkpoint.frame_index,
+                    ));
+                    checkpoint_index += 1;
+                }
+                frame_index += 1;
+                break;
+            }
+        }
+    }
+
+    let manifest = OracleEnemyLayoutTraceManifest {
+        scenario: resolved.slug.clone(),
+        checkpoints: checkpoints_out,
+    };
+    println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())
 }
 

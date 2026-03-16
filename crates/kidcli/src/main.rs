@@ -30,10 +30,10 @@ use native_player::{NativePlayOptions, render_gameplay_frame_evidence, run_nativ
 use oracle::{
     EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
     OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
-    run_jgenesis_enemy_layout_trace,
+    run_jgenesis_capture_dynamic, run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
-use scenarios::{GameplayScenario, Scenario};
+use scenarios::{DynamicScenario, GameplayScenario, Scenario};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
