@@ -1942,18 +1942,34 @@ impl SfxEngine {
 }
 
 fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut SfxEngine) {
+    // Jump (left ground with upward velocity)
+    if prev.kid_on_ground == Some(true)
+        && curr.kid_on_ground == Some(false)
+        && curr.kid_y_velocity.is_some_and(|v| v < 0)
+    {
+        sfx.play(440.0, 40, 0.1);
+    }
     // Diamond collected
     if curr.diamond_count > prev.diamond_count {
-        sfx.play(880.0, 60, 0.15); // high A, short
+        sfx.play(880.0, 60, 0.15);
     }
     // Enemy killed (score jumped by 1000+)
     if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
-        sfx.play(523.0, 80, 0.12); // C5
-        sfx.play(659.0, 80, 0.12); // E5
+        sfx.play(523.0, 80, 0.12);
+        sfx.play(659.0, 80, 0.12);
     }
     // Took damage (HP decreased)
     if curr.number_hitpoints < prev.number_hitpoints && prev.number_hitpoints > 0 {
-        sfx.play(220.0, 150, 0.2); // low A, longer
+        sfx.play(220.0, 150, 0.2);
+    }
+    // Form change (helmet changed)
+    if curr.current_helmet_id != prev.current_helmet_id
+        && curr.game_mode == prev.game_mode
+        && !curr.game_over
+    {
+        sfx.play(392.0, 60, 0.12); // G4
+        sfx.play(523.0, 60, 0.12); // C5
+        sfx.play(659.0, 80, 0.12); // E5
     }
     // Level complete
     if curr.level_complete && !prev.level_complete {
