@@ -2526,12 +2526,46 @@ fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
 /// GEMS sound IDs for Kid Chameleon (from constants.asm).
 #[allow(dead_code)]
 mod gems_sfx {
-    pub const JUMP: u8 = 0x17;
+    // General
+    pub const SCORE_COUNTER: u8 = 0x0C;
     pub const BLOCK_HIT: u8 = 0x0D;
+    pub const CLOCK_PRIZE: u8 = 0x0E;
     pub const DESTROY_BLOCK: u8 = 0x11;
+    pub const REVEAL_HIDDEN: u8 = 0x12;
+    pub const EVANESCENT: u8 = 0x14;
+    pub const SHIFTING: u8 = 0x15;
+    pub const JUMP: u8 = 0x17;
+    pub const LAVA_GEYSER: u8 = 0x1E;
+    pub const ELEVATOR: u8 = 0x27;
+    pub const DIAMOND_POWER_AVAILABLE: u8 = 0x28;
+    pub const ANKH_PRIZE: u8 = 0x29;
+    pub const REPLENISH_HEALTH: u8 = 0x2A;
+    pub const COIN_PRIZE: u8 = 0x2C;
+    pub const DIAMOND_PRIZE: u8 = 0x2D;
     pub const JUMP_ON_ENEMY: u8 = 0x4C;
+    pub const VOICE_NO_TIME: u8 = 0x51;
+    pub const RUBBER_BLOCK: u8 = 0x56;
+    pub const VOICE_DIE: u8 = 0x60;
+    pub const VOICE_OUCH: u8 = 0x61;
+    pub const VOICE_DIAMOND: u8 = 0x62;
     pub const TELEPORT: u8 = 0x76;
     pub const THUNDERSTORM: u8 = 0x77;
+    // Helmet transforms
+    pub const IRON_KNIGHT_TRANSFORM: u8 = 0x1A;
+    pub const MANIAXE_TRANSFORM: u8 = 0x1B;
+    pub const RED_STEALTH_TRANSFORM: u8 = 0x2E;
+    pub const BERZERKER_TRANSFORM: u8 = 0x2F;
+    pub const SKYCUTTER_TRANSFORM: u8 = 0x30;
+    pub const EYECLOPS_TRANSFORM: u8 = 0x31;
+    pub const CYCLONE_TRANSFORM: u8 = 0x32;
+    pub const MICROMAX_TRANSFORM: u8 = 0x33;
+    pub const JUGGERNAUT_TRANSFORM: u8 = 0x34;
+    // Helmet abilities
+    pub const MANIAXE_THROW: u8 = 0x20;
+    pub const RED_STEALTH_SWORD: u8 = 0x23;
+    pub const EYECLOPS_BEAM: u8 = 0x35;
+    pub const SKYCUTTER_FLIPBOARD: u8 = 0x17;
+    pub const MICROMAX_STICK: u8 = 0x22;
 }
 
 /// GEMS BGM IDs (from constants.asm).
@@ -2583,14 +2617,58 @@ fn detect_gems_events(
         gems.play_sound(gems_sfx::JUMP);
     }
 
-    // Stomp enemy (score jumped by 1000+)
+    // Stomp enemy (score jumped by 1000+, not from diamond collection)
     if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
         gems.play_sound(gems_sfx::JUMP_ON_ENEMY);
     }
 
-    // Block hit (HP decreased via headbutt area)
-    if curr.number_hitpoints < prev.number_hitpoints {
-        gems.play_sound(gems_sfx::BLOCK_HIT);
+    // Diamond collected
+    if curr.diamond_count > prev.diamond_count {
+        gems.play_sound(gems_sfx::DIAMOND_PRIZE);
+    }
+
+    // Damage taken (HP decreased)
+    if curr.number_hitpoints < prev.number_hitpoints && prev.number_hitpoints > 0 {
+        gems.play_sound(gems_sfx::VOICE_OUCH);
+    }
+
+    // Death (lives decreased)
+    if curr.number_lives < prev.number_lives {
+        gems.play_sound(gems_sfx::VOICE_DIE);
+    }
+
+    // Form change (helmet ID changed)
+    if curr.current_helmet_id != prev.current_helmet_id {
+        let sfx = match curr.current_helmet_id {
+            1 => Some(gems_sfx::IRON_KNIGHT_TRANSFORM),
+            2 => Some(gems_sfx::RED_STEALTH_TRANSFORM),
+            3 => Some(gems_sfx::SKYCUTTER_TRANSFORM),
+            4 => Some(gems_sfx::CYCLONE_TRANSFORM),
+            5 => Some(gems_sfx::MANIAXE_TRANSFORM),
+            6 => Some(gems_sfx::JUGGERNAUT_TRANSFORM),
+            7 => Some(gems_sfx::EYECLOPS_TRANSFORM),
+            8 => Some(gems_sfx::MICROMAX_TRANSFORM),
+            9 => Some(gems_sfx::BERZERKER_TRANSFORM),
+            _ => None,
+        };
+        if let Some(id) = sfx {
+            gems.play_sound(id);
+        }
+    }
+
+    // Diamond Power activation
+    if curr.diamond_power_active && !prev.diamond_power_active {
+        gems.play_sound(gems_sfx::DIAMOND_POWER_AVAILABLE);
+    }
+
+    // Level complete (score counter ticking)
+    if curr.level_complete && !prev.level_complete {
+        gems.play_sound(gems_sfx::SCORE_COUNTER);
+    }
+
+    // Clock pickup (timer jumped up)
+    if curr.level_timer_seconds > prev.level_timer_seconds + 5 {
+        gems.play_sound(gems_sfx::CLOCK_PRIZE);
     }
 }
 
