@@ -34,6 +34,14 @@ pub(crate) enum AutonomyGoal {
     #[value(name = "level1-full-traversal")]
     #[serde(rename = "level1-full-traversal")]
     Level1FullTraversal,
+    /// Parity for a single level's idle scenario against oracle.
+    #[value(name = "level-idle-parity")]
+    #[serde(rename = "level-idle-parity")]
+    LevelIdleParity,
+    /// Sweep parity across a range of levels.
+    #[value(name = "sweep-parity")]
+    #[serde(rename = "sweep-parity")]
+    SweepParity,
 }
 
 impl AutonomyGoal {
@@ -42,6 +50,8 @@ impl AutonomyGoal {
             Self::Level1OpeningSlice => "level1-opening-slice",
             Self::Level1GameplayLifecycle => "level1-gameplay-lifecycle",
             Self::Level1FullTraversal => "level1-full-traversal",
+            Self::LevelIdleParity => "level-idle-parity",
+            Self::SweepParity => "sweep-parity",
         }
     }
 
@@ -53,6 +63,11 @@ impl AutonomyGoal {
             }
             Self::Level1FullTraversal => {
                 repo_root.join("docs/source-port/level-1-full-traversal-goal.json")
+            }
+            Self::LevelIdleParity | Self::SweepParity => {
+                // Sweep-based goals derive capabilities from the sweep report
+                // rather than a static spec file.
+                repo_root.join("docs/source-port/sweep-parity-goal.json")
             }
         }
     }
