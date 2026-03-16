@@ -5646,6 +5646,10 @@ fn step_active_enemies(
             }
             EnemyArchetype::Tracker => {
                 step_tracker(enemy, player_x_pos, player_y_pos);
+                // Bosses periodically spawn projectiles while tracking
+                if let Some(ref mut projs) = projectiles {
+                    step_boss_fire(enemy, projs, player_x_pos, player_y_pos);
+                }
             }
         }
     }
@@ -7162,6 +7166,97 @@ fn step_tracker(enemy: &mut ActiveEnemy, player_x_pos: Option<u32>, player_y_pos
     enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
 }
 
+/// Boss periodic projectile fire interval (frames).
+const BOSS_FIRE_INTERVAL: u16 = 180; // ~3 seconds
+/// Boss skewer speed (Shishkaboss downward projectiles).
+const BOSS_SKEWER_SPEED: i32 = 0x2_0000;
+
+/// Bosses periodically fire projectiles at the player.
+fn step_boss_fire(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    enemy.wait_timer = BOSS_FIRE_INTERVAL;
+
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    match enemy.family {
+        EnemyFamily::HeadyMetal => {
+            // Spawn homing eye projectile with gravity
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: 0,
+                y_velocity: 0,
+                lifetime: 120,
+                gravity: 0x2710,
+                friendly: false,
+                homing: true,
+            });
+        }
+        EnemyFamily::Shishkaboss => {
+            // Downward skewer from above
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: 0,
+                y_velocity: BOSS_SKEWER_SPEED,
+                lifetime: 90,
+                gravity: 0,
+                friendly: false,
+                homing: false,
+            });
+        }
+        EnemyFamily::BoomerangBosses => {
+            // Boomerang arc: fast horizontal, slight upward
+            let dir = if let Some(px) = player_x_pos {
+                if px >= enemy.x_pos { 1i32 } else { -1 }
+            } else {
+                match enemy.facing {
+                    Direction::Right => 1,
+                    Direction::Left => -1,
+                }
+            };
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: dir * 0x3_0000,
+                y_velocity: -0x1_0000,
+                lifetime: 60,
+                gravity: 0x1000,
+                friendly: false,
+                homing: false,
+            });
+        }
+        EnemyFamily::BagelBrothers => {
+            // Fast horizontal dash projectile
+            let (Some(px), Some(_py)) = (player_x_pos, player_y_pos) else {
+                return;
+            };
+            let dir = if px >= enemy.x_pos { 1i32 } else { -1 };
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: dir * 0x4_0000,
+                y_velocity: 0,
+                lifetime: 45,
+                gravity: 0,
+                friendly: false,
+                homing: false,
+            });
+        }
+        _ => {}
+    }
+}
+
 fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
     match family {
         EnemyFamily::Dragon => (object_x << 16).saturating_add(DRAGON_SPAWN_X_OFFSET_FP),
@@ -7247,10 +7342,10 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Hand => 1,
         EnemyFamily::Tornado => 1,
         EnemyFamily::DragonWalking => 2, // HP 2-3
-        EnemyFamily::HeadyMetal => 37, // ASM: 0x25 = 37 hits to defeat
-        EnemyFamily::Shishkaboss => 10,
-        EnemyFamily::BoomerangBosses => 10,
-        EnemyFamily::BagelBrothers => 10,
+        EnemyFamily::HeadyMetal => 37, // ASM: $25 = 37 hits
+        EnemyFamily::Shishkaboss => 20, // ASM: $14 per head × 3 = 60 total; we use 20
+        EnemyFamily::BoomerangBosses => 30, // ASM: $1E per head × 3 = 90 total; we use 30
+        EnemyFamily::BagelBrothers => 30, // ASM: $1E per head × 3 = 90 total; we use 30
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
@@ -7279,6 +7374,11 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
         // SpinningTwins: orbit for N frames before dropping.
         EnemyFamily::SpinningTwins => SPINNING_TWINS_ORBIT_FRAMES,
+        // Bosses: fire first projectile after initial delay.
+        EnemyFamily::HeadyMetal
+        | EnemyFamily::Shishkaboss
+        | EnemyFamily::BoomerangBosses
+        | EnemyFamily::BagelBrothers => BOSS_FIRE_INTERVAL,
         _ => 0,
     }
 }
