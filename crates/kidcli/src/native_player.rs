@@ -1280,6 +1280,16 @@ fn build_game_scene(
 
     push_game_hud(&mut commands, trace, level_visuals);
 
+    // Pause overlay
+    if trace.paused {
+        let pause_text = "PAUSED";
+        let text_w = pause_text.len() as i32 * 8 * 2;
+        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
+        push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 24, [0, 0, 0], [255, 255, 255]);
+        commands.push(text(text_x, text_y, pause_text, [255, 255, 255], 2));
+    }
+
     if debug_overlay_visible {
         push_panel(&mut commands, 8, 8, 304, 44, [12, 18, 24], [160, 214, 255]);
         commands.push(text(
