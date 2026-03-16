@@ -831,6 +831,28 @@ fn push_game_hud(
     push_hud_counter(commands, level_visuals, trace.number_lives, lives_x, pip_y);
     push_hud_icon(commands, level_visuals, "ankh", lives_x + 18, pip_y);
 
+    // Level timer: M:SS in centre of HUD
+    let minutes = trace.level_timer_seconds / 60;
+    let seconds = trace.level_timer_seconds % 60;
+    let timer_x = (FRAME_WIDTH as i32) / 2 - 16;
+    push_hud_number(commands, level_visuals, minutes, timer_x, pip_y);
+    // Colon character: use digit tile index + 11 (separator glyph)
+    if let Some(tile) = resolve_ingame_vram_tile(
+        level_visuals,
+        TileRef {
+            tile_index: level_visuals.hud.digit_base_tile_index + 11,
+            palette_line: 0,
+            priority: false,
+            flip_x: false,
+            flip_y: false,
+        },
+    ) {
+        push_resolved_tile(commands, timer_x + 8, pip_y, tile);
+    }
+    // Two-digit seconds: zero-pad by rendering tens then ones
+    push_hud_number(commands, level_visuals, seconds / 10, timer_x + 16, pip_y);
+    push_hud_number(commands, level_visuals, seconds % 10, timer_x + 24, pip_y);
+
     let diamond_icon_x = FRAME_WIDTH as i32 - 12;
     let diamond_counter_x = diamond_icon_x - 2 - hud_counter_width(trace.diamond_count);
     push_hud_counter(
