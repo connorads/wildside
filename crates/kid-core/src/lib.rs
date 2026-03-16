@@ -57,10 +57,40 @@ const FLYER_RETENTION_Y_PADDING: u32 = 96;
 const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
-const HOPPER_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
-const HOPPER_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
-const HOPPER_GRAVITY_FP: i32 = 0x0000_1200;
-const HOPPER_GROUND_DELAY_FRAMES: u8 = 32;
+const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
+const MINI_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
+const MINI_SKULL_GRAVITY_FP: i32 = 0x0000_1200;
+const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
+
+// Big Hopping Skull: gravity $FA0, x_vel ±$10000, y_vel -$20000
+const BIG_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_0000;
+const BIG_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0002_0000;
+const BIG_SKULL_GRAVITY_FP: i32 = 0x0000_0FA0;
+const BIG_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
+
+struct HopperConstants {
+    jump_x_speed: i32,
+    jump_y_speed: i32,
+    gravity: i32,
+    ground_delay: u8,
+}
+
+fn hopper_constants(family: EnemyFamily) -> HopperConstants {
+    match family {
+        EnemyFamily::BigHoppingSkull => HopperConstants {
+            jump_x_speed: BIG_SKULL_JUMP_X_SPEED_FP,
+            jump_y_speed: BIG_SKULL_JUMP_Y_SPEED_FP,
+            gravity: BIG_SKULL_GRAVITY_FP,
+            ground_delay: BIG_SKULL_GROUND_DELAY_FRAMES,
+        },
+        _ => HopperConstants {
+            jump_x_speed: MINI_SKULL_JUMP_X_SPEED_FP,
+            jump_y_speed: MINI_SKULL_JUMP_Y_SPEED_FP,
+            gravity: MINI_SKULL_GRAVITY_FP,
+            ground_delay: MINI_SKULL_GROUND_DELAY_FRAMES,
+        },
+    }
+}
 // Enemy half-width for terrain probes (8px, matching the 16px sprite).
 const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 // Enemy height for terrain probes (16px).
@@ -608,6 +638,7 @@ enum EnemyFamily {
     Dragon,
     Cloud,
     Sphere,
+    BigHoppingSkull,
     Goat,
     Armadillo,
     Tank,
@@ -3192,7 +3223,7 @@ impl EnemyFamily {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
             Self::Sphere => EnemyArchetype::Bouncer,
-            Self::MiniHoppingSkull => EnemyArchetype::Hopper,
+            Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
             Self::Goat
             | Self::Armadillo
             | Self::Tank
@@ -3216,6 +3247,7 @@ impl EnemyFamily {
             Some(0x13) => Self::Scorpion,
             Some(0x1A) => Self::Driller,
             Some(0x1C) => Self::MiniHoppingSkull,
+            Some(0x1D) => Self::BigHoppingSkull,
             Some(enemy_id) => Self::Unknown(enemy_id),
             None => Self::Unknown(object.object_type),
         }
@@ -3234,6 +3266,7 @@ impl EnemyFamily {
             Self::Scorpion => 0x13,
             Self::Driller => 0x1A,
             Self::MiniHoppingSkull => 0x1C,
+            Self::BigHoppingSkull => 0x1D,
             Self::Unknown(enemy_id) => enemy_id,
         }
     }
@@ -3548,6 +3581,7 @@ fn step_hopper(
     let Some(grid) = block_grid else {
         return;
     };
+    let hc = hopper_constants(enemy.family);
 
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
@@ -3563,12 +3597,12 @@ fn step_hopper(
             enemy.x_velocity = 0;
             return;
         }
-        enemy.x_velocity = horizontal_velocity(enemy.facing, HOPPER_JUMP_X_SPEED_FP);
-        enemy.y_velocity = HOPPER_JUMP_Y_SPEED_FP;
+        enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
+        enemy.y_velocity = hc.jump_y_speed;
         enemy.on_ground = false;
     }
 
-    enemy.y_velocity = (enemy.y_velocity + HOPPER_GRAVITY_FP).min(physics::MAX_FALL_SPEED);
+    enemy.y_velocity = (enemy.y_velocity + hc.gravity).min(physics::MAX_FALL_SPEED);
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
@@ -3594,7 +3628,7 @@ fn step_hopper(
         } else if enemy.x_pos < wall_fp + edge_fp {
             enemy.x_pos = wall_fp + edge_fp;
         }
-        enemy.x_velocity = horizontal_velocity(enemy.facing, HOPPER_JUMP_X_SPEED_FP);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
     }
 
     let floor = terrain::probe_floor(grid, cx, cy);
@@ -3605,7 +3639,7 @@ fn step_hopper(
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             enemy.on_ground = true;
-            enemy.grounded_frames = HOPPER_GROUND_DELAY_FRAMES;
+            enemy.grounded_frames = hc.ground_delay;
         }
     } else {
         enemy.on_ground = false;
@@ -3756,6 +3790,7 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
         EnemyFamily::Sphere => 1,
+        EnemyFamily::BigHoppingSkull => 2,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
@@ -6887,7 +6922,7 @@ mod tests {
             "skull should be grounded before launch"
         );
 
-        for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
+        for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
             step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
         }
         assert!(
@@ -6930,13 +6965,13 @@ mod tests {
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
-            grounded_frames: HOPPER_GROUND_DELAY_FRAMES,
+            grounded_frames: MINI_SKULL_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
 
-        for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
+        for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
             step_active_enemies(
                 std::slice::from_mut(&mut enemy),
                 Some(&grid),
@@ -6975,13 +7010,13 @@ mod tests {
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
-            grounded_frames: HOPPER_GROUND_DELAY_FRAMES,
+            grounded_frames: MINI_SKULL_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
 
-        for _ in 0..HOPPER_GROUND_DELAY_FRAMES {
+        for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
             step_active_enemies(
                 std::slice::from_mut(&mut enemy),
                 Some(&grid),
@@ -7052,7 +7087,7 @@ mod tests {
                 .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
             {
                 assert!(
-                    skull.x_pos >= wall_limit_fp.saturating_sub(HOPPER_JUMP_X_SPEED_FP as u32),
+                    skull.x_pos >= wall_limit_fp.saturating_sub(MINI_SKULL_JUMP_X_SPEED_FP as u32),
                     "hopper should not cross the wall. x_pos={:#010X}, wall_limit={:#010X}",
                     skull.x_pos,
                     wall_limit_fp,
@@ -8258,6 +8293,34 @@ mod tests {
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 0), 1);
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 1), 2);
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 2), 3);
+    }
+
+    // --- Big Hopping Skull enemy ---
+
+    #[test]
+    fn big_hopping_skull_maps_to_hopper() {
+        assert_eq!(
+            EnemyFamily::BigHoppingSkull.archetype(),
+            EnemyArchetype::Hopper
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_hp_table() {
+        // enemy_level 0→2, 1→3, 2→4
+        assert_eq!(spawn_hit_points(EnemyFamily::BigHoppingSkull, 0), 2);
+        assert_eq!(spawn_hit_points(EnemyFamily::BigHoppingSkull, 1), 3);
+        assert_eq!(spawn_hit_points(EnemyFamily::BigHoppingSkull, 2), 4);
+    }
+
+    #[test]
+    fn big_hopping_skull_uses_slower_gravity() {
+        let hc = hopper_constants(EnemyFamily::BigHoppingSkull);
+        let mini = hopper_constants(EnemyFamily::MiniHoppingSkull);
+        assert!(
+            hc.gravity < mini.gravity,
+            "BHS gravity ($FA0) should be less than MHS ($1200)"
+        );
     }
 
     // --- Sphere enemy ---
