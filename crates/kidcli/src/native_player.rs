@@ -1285,6 +1285,16 @@ fn push_game_hud(
         pip_y,
     );
     push_hud_icon(commands, level_visuals, "diamond", diamond_icon_x, pip_y);
+
+    // Diamond Power indicator
+    if trace.diamond_power_active {
+        let dp_colour = if (trace.frame_index / 4) % 2 == 0 {
+            [255, 220, 50]
+        } else {
+            [255, 180, 0]
+        };
+        commands.push(text(diamond_counter_x - 24, pip_y, "DP", dp_colour, 1));
+    }
 }
 
 fn helmet_display_name(form: PlayerForm) -> &'static str {
