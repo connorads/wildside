@@ -400,6 +400,8 @@ pub struct NativeRuntime {
     cyclone_y_accel: i16,
     /// RedStealth sword swing timer: counts down from startup+active to 0.
     red_stealth_sword_timer: u8,
+    /// Eyeclops beam active flag (one beam at a time).
+    eyeclops_beam_active: bool,
     /// Maniaxe axe in flight (reuses projectile system with turnaround).
     maniaxe_axe_active: bool,
     /// Maniaxe axe turnaround counter (frames until direction reversal).
@@ -726,6 +728,9 @@ struct EnemyProjectile {
     y_velocity: i32,
     /// Remaining lifetime in frames (destroyed when zero).
     lifetime: u16,
+    /// True for player-fired projectiles (Eyeclops beam, Maniaxe axe) — these
+    /// damage enemies, not the player.
+    friendly: bool,
 }
 
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
@@ -762,6 +767,11 @@ const RED_STEALTH_HIT_HALF: i32 = 8;
 const MANIAXE_STARTUP_FRAMES: u8 = 6;
 const MANIAXE_BASE_SPEED: i32 = 5;
 const MANIAXE_TRAVEL_FRAMES: u8 = 12;
+
+/// Eyeclops beam: C press fires a horizontal beam projectile.
+/// Normal beam (C button) has no diamond cost; hard beam (A+B held) costs 2.
+const EYECLOPS_BEAM_SPEED: i32 = 0x8_0000; // 8 px/frame
+const EYECLOPS_BEAM_LIFETIME: u16 = 60;
 
 /// Cyclone flight: acceleration-based vertical flight.
 /// Per-frame gravity added to acceleration accumulator.
@@ -1061,6 +1071,7 @@ impl NativeRuntime {
             cyclone_flying: false,
             cyclone_y_accel: 0,
             red_stealth_sword_timer: 0,
+            eyeclops_beam_active: false,
             maniaxe_axe_active: false,
             maniaxe_turnaround: 0,
             paused: false,
@@ -1638,6 +1649,7 @@ impl NativeRuntime {
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
         self.step_red_stealth_sword(input);
+        self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
 
         // Either Skycutter board or Cyclone flight replaces normal gravity
@@ -1730,8 +1742,9 @@ impl NativeRuntime {
             return;
         }
 
-        // Combat abilities: sword/axe damage enemies
+        // Combat abilities: sword/axe/beam damage enemies
         self.process_sword_hits(&slice);
+        self.process_friendly_projectile_hits();
 
         // Diamond collection: touching a Diamond picks it up
         self.collect_diamonds(&slice);
@@ -2118,6 +2131,7 @@ impl NativeRuntime {
         self.cyclone_flying = false;
         self.cyclone_y_accel = 0;
         self.red_stealth_sword_timer = 0;
+        self.eyeclops_beam_active = false;
         self.maniaxe_axe_active = false;
         self.maniaxe_turnaround = 0;
     }
@@ -2556,6 +2570,87 @@ impl NativeRuntime {
         }
     }
 
+    /// Check friendly projectiles (Eyeclops beam, Maniaxe axe) against enemies.
+    fn process_friendly_projectile_hits(&mut self) {
+        let mut kill_indices = Vec::new();
+        let mut projectile_consumed = Vec::new();
+
+        for (pi, proj) in self.projectiles.iter().enumerate() {
+            if !proj.friendly || proj.lifetime == 0 {
+                continue;
+            }
+            let prx = (proj.x_pos >> 16) as i32;
+            let pry = (proj.y_pos >> 16) as i32;
+
+            for (ei, enemy) in self.active_enemies.iter_mut().enumerate() {
+                if matches!(enemy.family, EnemyFamily::Diamond) {
+                    continue;
+                }
+                let ex = (enemy.x_pos >> 16) as i32;
+                let ey = (enemy.y_pos >> 16) as i32;
+                let dx = (prx - ex).abs();
+                let dy = (pry - ey).abs();
+                if dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
+                    && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+                {
+                    enemy.hit_points = enemy.hit_points.saturating_sub(1);
+                    if enemy.hit_points == 0 {
+                        kill_indices.push(ei);
+                    } else {
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    }
+                    projectile_consumed.push(pi);
+                    break; // one enemy per projectile per frame
+                }
+            }
+        }
+
+        // Remove consumed projectiles
+        for &pi in projectile_consumed.iter().rev() {
+            self.projectiles.remove(pi);
+        }
+
+        // Remove dead enemies
+        for &idx in kill_indices.iter().rev() {
+            self.active_enemies.remove(idx);
+        }
+        if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+        }
+    }
+
+    /// Step Eyeclops beam: C press fires a horizontal beam projectile.
+    fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.current_form != PlayerForm::Eyeclops {
+            self.eyeclops_beam_active = false;
+            return;
+        }
+
+        // Check if beam expired
+        if self.eyeclops_beam_active && !self.projectiles.iter().any(|p| p.lifetime > 0) {
+            self.eyeclops_beam_active = false;
+        }
+
+        // C rising edge fires beam (one at a time)
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && !self.eyeclops_beam_active {
+            self.eyeclops_beam_active = true;
+            let dir = if slice.player.facing == Direction::Right { 1 } else { -1 };
+            self.projectiles.push(EnemyProjectile {
+                x_pos: slice.player.x_pos,
+                y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
+                x_velocity: EYECLOPS_BEAM_SPEED * dir,
+                y_velocity: 0,
+                lifetime: EYECLOPS_BEAM_LIFETIME,
+                friendly: true,
+            });
+        }
+    }
+
     /// Step Maniaxe thrown axe: boomerang projectile that reverses after 12 frames.
     fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.current_form != PlayerForm::Maniaxe {
@@ -2576,6 +2671,7 @@ impl NativeRuntime {
                 x_velocity: speed,
                 y_velocity: 0,
                 lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
+                friendly: true,
             });
         }
 
@@ -2618,6 +2714,9 @@ impl NativeRuntime {
         let half = PROJECTILE_HITBOX_HALF;
         let mut hit = false;
         self.projectiles.retain(|p| {
+            if p.friendly {
+                return true; // player-fired projectiles don't damage player
+            }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
             let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
@@ -4884,6 +4983,7 @@ fn step_archer(
         x_velocity,
         y_velocity,
         lifetime: ARCHER_FIRE_TIMER[level],
+        friendly: false,
     });
 }
 
@@ -4906,6 +5006,7 @@ fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile
         x_velocity,
         y_velocity: 0,
         lifetime: TANK_BULLET_LIFETIME,
+        friendly: false,
     });
 }
 
@@ -9947,6 +10048,7 @@ mod tests {
             x_velocity: 0x2_0000,
             y_velocity: -0x1_0000,
             lifetime: 10,
+            friendly: false,
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
@@ -9970,6 +10072,7 @@ mod tests {
             x_velocity: 0x1000,
             y_velocity: 0,
             lifetime: 1,
+            friendly: false,
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
