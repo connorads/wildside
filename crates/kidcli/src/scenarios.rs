@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Scenario {
@@ -213,6 +214,84 @@ const SOAK_LEVEL_10M_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
 ];
 
+/// A scenario defined at runtime — generated programmatically rather than
+/// hard-coded as an enum variant. Carries its own script, frame count, and
+/// checkpoints so both the native and oracle sides can execute it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicScenario {
+    pub slug: String,
+    /// Per-frame button mask (index = frame number).
+    pub script: Vec<u8>,
+    pub frame_count: usize,
+    pub checkpoints: Vec<DynamicCheckpoint>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicCheckpoint {
+    pub label: String,
+    pub frame_index: usize,
+}
+
+/// Boot → title → start game → idle on level 0x00 for 300 frames.
+///
+/// All idle-level scenarios share the same boot prefix (start presses to reach
+/// gameplay). For level 0x00 (the default starting level) no warp is needed.
+/// For other levels, the native runtime's debug-warp key (N) is pressed
+/// repeatedly to advance. The oracle side must use the same key sequence.
+///
+/// `idle_frames` defaults to 300 (~5 s at 60 fps) when `None`.
+pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicScenario {
+    let idle = idle_frames.unwrap_or(300);
+
+    // Boot prefix: press Start repeatedly to navigate title → game start.
+    // Level 0x00 loads automatically after the boot sequence settles at frame 720.
+    // For later levels we press the debug-warp key (N = Up, mapped to bit 0)
+    // once per level advance. Each warp takes ~80 frames to settle.
+    let warps_needed = u16::from(level_id);
+    let warp_period: usize = 80;
+    let post_boot_frame: usize = 720;
+    let warp_end = post_boot_frame + (warps_needed as usize) * warp_period;
+    let settle_start = warp_end;
+    // 60 frames for the level to settle after last warp (or boot).
+    let settle_frames: usize = 60;
+    let idle_start = settle_start + settle_frames;
+    let total_frames = idle_start + idle;
+
+    let mut script = vec![0u8; total_frames.saturating_add(1)];
+
+    // Boot to level 1: same as apply_boot_to_level_1
+    apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
+    apply_range(&mut script, 460, 460, 0x80);
+
+    // Debug warp presses (Start+A+Up combo on a single frame per warp).
+    // In the native runtime the N key triggers `debug_warp_next_level()`.
+    // For the oracle, Start+A+Up (0x80|0x40|0x01 = 0xC1) is sent as input.
+    for warp in 0..warps_needed {
+        let frame = post_boot_frame + (warp as usize) * warp_period;
+        if let Some(slot) = script.get_mut(frame) {
+            *slot |= 0xC1; // Start + A + Up
+        }
+    }
+
+    let checkpoints = vec![
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: idle_start,
+        },
+        DynamicCheckpoint {
+            label: "idle_tail".into(),
+            frame_index: total_frames.saturating_sub(1),
+        },
+    ];
+
+    DynamicScenario {
+        slug: format!("idle_level_{level_id:02x}"),
+        script,
+        frame_count: total_frames,
+        checkpoints,
+    }
+}
+
 impl Scenario {
     pub fn slug(self) -> &'static str {
         match self {
@@ -278,6 +357,23 @@ impl Scenario {
             }
         }
         Ok(script)
+    }
+
+    /// Convert a static scenario into the runtime DynamicScenario representation.
+    pub fn to_dynamic(self) -> Result<DynamicScenario> {
+        Ok(DynamicScenario {
+            slug: self.slug().to_string(),
+            script: self.script()?,
+            frame_count: self.frame_count(),
+            checkpoints: self
+                .checkpoints()
+                .iter()
+                .map(|cp| DynamicCheckpoint {
+                    label: cp.label.to_string(),
+                    frame_index: cp.frame_index,
+                })
+                .collect(),
+        })
     }
 }
 
@@ -370,6 +466,23 @@ impl GameplayScenario {
         }
         Ok(script)
     }
+
+    /// Convert a static gameplay scenario into the runtime DynamicScenario representation.
+    pub fn to_dynamic(self) -> Result<DynamicScenario> {
+        Ok(DynamicScenario {
+            slug: self.slug().to_string(),
+            script: self.script()?,
+            frame_count: self.frame_count(),
+            checkpoints: self
+                .checkpoints()
+                .iter()
+                .map(|cp| DynamicCheckpoint {
+                    label: cp.label.to_string(),
+                    frame_index: cp.frame_index,
+                })
+                .collect(),
+        })
+    }
 }
 
 fn apply_boot_to_level_1(script: &mut [u8]) {
@@ -405,7 +518,7 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 
 #[cfg(test)]
 mod tests {
-    use super::{GameplayScenario, Scenario};
+    use super::{DynamicScenario, GameplayScenario, Scenario, idle_level_scenario};
 
     #[test]
     fn move_right_scenario_holds_right_for_five_seconds() {
@@ -536,5 +649,95 @@ mod tests {
             GameplayScenario::SoakLevel10m.required_level_layout_range(),
             (0x00, 0x1F)
         );
+    }
+
+    #[test]
+    fn idle_level_0_scenario_boots_to_level_1_and_idles() {
+        let scenario = idle_level_scenario(0x00, None);
+        assert_eq!(scenario.slug, "idle_level_00");
+        // No warps needed — boot lands on level 0x00 directly.
+        // settle at 720+60=780, idle for 300, total=1080
+        assert_eq!(scenario.frame_count, 1_080);
+        assert_eq!(scenario.checkpoints.len(), 2);
+        assert_eq!(scenario.checkpoints[0].label, "level_settle");
+        assert_eq!(scenario.checkpoints[0].frame_index, 780);
+        assert_eq!(scenario.checkpoints[1].label, "idle_tail");
+        assert_eq!(scenario.checkpoints[1].frame_index, 1_079);
+        // Boot presses present
+        assert_eq!(scenario.script[120], 0x80);
+        assert_eq!(scenario.script[460], 0x80);
+        // No warp presses at frame 720
+        assert_eq!(scenario.script[720], 0);
+    }
+
+    #[test]
+    fn idle_level_5_scenario_warps_five_times() {
+        let scenario = idle_level_scenario(0x05, Some(120));
+        assert_eq!(scenario.slug, "idle_level_05");
+        // 5 warps * 80 frames = 400, post_boot=720, settle_start=1120
+        // settle_frames=60, idle_start=1180, total=1180+120=1300
+        assert_eq!(scenario.frame_count, 1_300);
+        // Each warp is Start+A+Up (0xC1) at 720, 800, 880, 960, 1040
+        assert_eq!(scenario.script[720], 0xC1);
+        assert_eq!(scenario.script[800], 0xC1);
+        assert_eq!(scenario.script[880], 0xC1);
+        assert_eq!(scenario.script[960], 0xC1);
+        assert_eq!(scenario.script[1_040], 0xC1);
+        // No warp at frame 1120 (only 5 warps needed)
+        assert_eq!(scenario.script[1_120], 0);
+    }
+
+    #[test]
+    fn idle_level_scenario_frame_count_covers_checkpoints() {
+        for level_id in [0x00, 0x05, 0x10, 0x68] {
+            let scenario = idle_level_scenario(level_id, None);
+            let max_cp = scenario
+                .checkpoints
+                .iter()
+                .map(|cp| cp.frame_index)
+                .max()
+                .expect("checkpoints");
+            assert!(
+                scenario.frame_count > max_cp,
+                "level {level_id:#04x}: frame_count {} should exceed max checkpoint {max_cp}",
+                scenario.frame_count
+            );
+        }
+    }
+
+    #[test]
+    fn idle_level_scenario_script_length_matches_frame_count() {
+        let scenario = idle_level_scenario(0x03, Some(200));
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn scenario_to_dynamic_preserves_slug_and_checkpoints() {
+        let dynamic = Scenario::BootTitleStartLevel1
+            .to_dynamic()
+            .expect("to_dynamic");
+        assert_eq!(dynamic.slug, "boot_title_start_level1");
+        assert_eq!(dynamic.frame_count, 720);
+        assert_eq!(dynamic.checkpoints.len(), 3);
+        assert_eq!(dynamic.checkpoints[0].label, "title");
+        assert_eq!(dynamic.checkpoints[2].label, "level_settle");
+    }
+
+    #[test]
+    fn gameplay_scenario_to_dynamic_preserves_slug_and_checkpoints() {
+        let dynamic = GameplayScenario::PauseResumeLevel1
+            .to_dynamic()
+            .expect("to_dynamic");
+        assert_eq!(dynamic.slug, "pause_resume_level1");
+        assert_eq!(dynamic.frame_count, 1_120);
+        assert_eq!(dynamic.checkpoints.len(), 4);
+    }
+
+    #[test]
+    fn dynamic_scenario_round_trips_through_json() {
+        let original = idle_level_scenario(0x0A, Some(60));
+        let json = serde_json::to_string(&original).expect("serialize");
+        let restored: DynamicScenario = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(original, restored);
     }
 }
