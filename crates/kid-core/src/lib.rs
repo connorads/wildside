@@ -1078,6 +1078,19 @@ enum HandState {
     Jumping,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum TarMonsterState {
+    /// Hidden underground, waiting to emerge.
+    #[default]
+    Submerged,
+    /// Rising from the floor (animation frames).
+    Emerging,
+    /// Visible and vulnerable, attacks on a timer.
+    Visible,
+    /// Sinking back into the floor.
+    Submerging,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -1109,6 +1122,7 @@ struct ActiveEnemy {
     lion_state: LionState,
     robot_state: RobotState,
     orca_state: OrcaState,
+    tar_monster_state: TarMonsterState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2201,6 +2215,10 @@ impl NativeRuntime {
             if is_diamond {
                 continue;
             }
+            // Skip invulnerable enemies (e.g. submerged TarMonster)
+            if i < self.active_enemies.len() && !self.active_enemies[i].is_vulnerable() {
+                continue;
+            }
             if classify_enemy_contact(slice.player, enemy) == EnemyContactResult::Stomp {
                 stomped_indices.push(i);
             }
@@ -2248,6 +2266,12 @@ impl NativeRuntime {
                             gravity: 0x800,
                             friendly: false,
                         });
+                    }
+                    // TarMonster fires 5 tar blobs in a spread pattern when damaged
+                    if matches!(enemy.family, EnemyFamily::TarMonster) {
+                        let tx = enemy.x_pos;
+                        let ty = enemy.y_pos;
+                        spawn_tar_monster_retaliation(&mut self.projectiles, tx, ty);
                     }
                 }
             }
@@ -2384,6 +2408,10 @@ impl NativeRuntime {
         self.active_enemies.iter().find_map(|enemy| {
             // All enemies damage on contact except collectible diamonds
             if matches!(enemy.family, EnemyFamily::Diamond) {
+                return None;
+            }
+            // Skip invulnerable enemies (e.g. submerged TarMonster)
+            if !enemy.is_vulnerable() {
                 return None;
             }
             let snapshot = enemy.snapshot();
@@ -5080,6 +5108,14 @@ impl PlatformLoaderState {
 }
 
 impl ActiveEnemy {
+    /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
+    fn is_vulnerable(&self) -> bool {
+        if matches!(self.family, EnemyFamily::TarMonster) {
+            return matches!(self.tar_monster_state, TarMonsterState::Visible);
+        }
+        true
+    }
+
     fn snapshot(&self) -> NativeObjectSnapshot {
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
@@ -5122,7 +5158,8 @@ impl EnemyFamily {
             Self::Ninja => EnemyArchetype::Pacer, // uses Pacer in stealth, but step_active_enemies dispatches to step_ninja
             Self::EmoRock => EnemyArchetype::Hoverer,
             Self::Archer => EnemyArchetype::Stationary,
-            Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Pacer, // walk after spawn; full orbit/emerge cycles TODO
+            Self::SpinningTwins => EnemyArchetype::Pacer, // walk after landing phase; full orbit TODO
+            Self::TarMonster => EnemyArchetype::Stationary, // emerge/submerge cycle
             Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
                 EnemyArchetype::Tracker
             }
@@ -5296,6 +5333,7 @@ fn activate_enemies(
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         });
     }
 }
@@ -5341,7 +5379,9 @@ fn step_active_enemies(
                 }
             }
             EnemyArchetype::Stationary => {
-                if let Some(ref mut projs) = projectiles {
+                if matches!(enemy.family, EnemyFamily::TarMonster) {
+                    step_tar_monster(enemy);
+                } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
                 }
             }
@@ -6415,6 +6455,63 @@ fn step_orca(
     }
 }
 
+// --- TarMonster constants ---
+// Emerge/submerge cycle durations (frames). From ASM bytecode: appear for ~120 frames, hide for ~90.
+const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 90;
+const TAR_MONSTER_EMERGE_FRAMES: u16 = 16;
+const TAR_MONSTER_VISIBLE_FRAMES: u16 = 120;
+const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 16;
+
+/// Step a TarMonster through its emerge/submerge cycle.
+/// Submerged → Emerging → Visible → Submerging → Submerged.
+/// While Submerged, the enemy is invulnerable and invisible (handled by collision/render).
+fn step_tar_monster(enemy: &mut ActiveEnemy) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    match enemy.tar_monster_state {
+        TarMonsterState::Submerged => {
+            enemy.tar_monster_state = TarMonsterState::Emerging;
+            enemy.wait_timer = TAR_MONSTER_EMERGE_FRAMES;
+        }
+        TarMonsterState::Emerging => {
+            enemy.tar_monster_state = TarMonsterState::Visible;
+            enemy.wait_timer = TAR_MONSTER_VISIBLE_FRAMES;
+        }
+        TarMonsterState::Visible => {
+            enemy.tar_monster_state = TarMonsterState::Submerging;
+            enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
+        }
+        TarMonsterState::Submerging => {
+            enemy.tar_monster_state = TarMonsterState::Submerged;
+            enemy.wait_timer = TAR_MONSTER_SUBMERGED_FRAMES;
+        }
+    }
+}
+
+/// Spawn 5 tar blob projectiles in a spread pattern when a TarMonster is damaged.
+fn spawn_tar_monster_retaliation(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
+    let blobs: [(i32, i32); 5] = [
+        (0x1_0000, -0x1_0000),   // up-right
+        (-0x1_0000, -0x1_0000),  // up-left
+        (0x0_8000, -0x2_0000),   // steep up-right
+        (-0x0_8000, -0x2_0000),  // steep up-left
+        (0x0_2000, -0x1_C000),   // gentle arc
+    ];
+    for (xv, yv) in blobs {
+        projectiles.push(EnemyProjectile {
+            x_pos: x,
+            y_pos: y,
+            x_velocity: xv,
+            y_velocity: yv,
+            lifetime: 60,
+            gravity: 0x1000,
+            friendly: false,
+        });
+    }
+}
+
 /// EmoRock hover height above player, indexed by enemy_level (derived from HP).
 /// Level 0: 80px, Level 1: 60px, Level 2: 40px.
 const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
@@ -6777,6 +6874,8 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
         // Robot: shoot interval timer ($4A = 32 frames).
         EnemyFamily::Robot => ROBOT_SHOOT_INTERVAL,
+        // TarMonster: starts submerged, waits before first emergence.
+        EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
         _ => 0,
     }
 }
@@ -10087,6 +10186,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
@@ -10236,6 +10336,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         }];
 
         activate_enemies(
@@ -10280,6 +10381,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         for _ in 0..199 {
@@ -10373,6 +10475,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         let mut grounded_skull = None;
@@ -10415,6 +10518,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         let mut grounded_skull = None;
@@ -10487,6 +10591,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -10546,6 +10651,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -11681,6 +11787,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         }
     }
 
@@ -11826,6 +11933,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -11865,6 +11973,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -11932,6 +12041,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -12004,6 +12114,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -12043,6 +12154,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -12087,6 +12199,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -12135,6 +12248,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         // During hover: tracks player x, hovers above player y
@@ -12183,6 +12297,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
 
         // Step until it lands
@@ -12288,6 +12403,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12321,6 +12437,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12399,6 +12516,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12433,6 +12551,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12481,6 +12600,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -12514,6 +12634,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -12550,6 +12671,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -12952,6 +13074,77 @@ mod tests {
         assert_eq!(enemy.orca_state, OrcaState::Walking);
         assert_eq!(enemy.wait_timer, ORCA_LUNGE_COOLDOWN);
         assert!(enemy.on_ground);
+    }
+
+    // --- TarMonster ---
+
+    #[test]
+    fn tar_monster_cycles_through_states() {
+        let mut enemy = test_enemy(EnemyFamily::TarMonster, 60 << 16, 200 << 16, 4);
+        enemy.tar_monster_state = TarMonsterState::Submerged;
+        enemy.wait_timer = 0;
+
+        // Submerged → Emerging
+        step_tar_monster(&mut enemy);
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Emerging);
+        assert_eq!(enemy.wait_timer, TAR_MONSTER_EMERGE_FRAMES);
+
+        // Wait through emerge animation (timer ticks down, then next call transitions)
+        for _ in 0..TAR_MONSTER_EMERGE_FRAMES {
+            step_tar_monster(&mut enemy);
+        }
+        assert_eq!(enemy.wait_timer, 0);
+        step_tar_monster(&mut enemy);
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Visible);
+        assert_eq!(enemy.wait_timer, TAR_MONSTER_VISIBLE_FRAMES);
+
+        // Wait through visible period
+        for _ in 0..TAR_MONSTER_VISIBLE_FRAMES {
+            step_tar_monster(&mut enemy);
+        }
+        step_tar_monster(&mut enemy);
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
+
+        // Wait through submerge animation
+        for _ in 0..TAR_MONSTER_SUBMERGE_FRAMES {
+            step_tar_monster(&mut enemy);
+        }
+        step_tar_monster(&mut enemy);
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerged);
+        assert_eq!(enemy.wait_timer, TAR_MONSTER_SUBMERGED_FRAMES);
+    }
+
+    #[test]
+    fn tar_monster_is_invulnerable_when_submerged() {
+        let mut enemy = test_enemy(EnemyFamily::TarMonster, 60 << 16, 200 << 16, 4);
+        enemy.tar_monster_state = TarMonsterState::Submerged;
+        assert!(!enemy.is_vulnerable());
+
+        enemy.tar_monster_state = TarMonsterState::Emerging;
+        assert!(!enemy.is_vulnerable());
+
+        enemy.tar_monster_state = TarMonsterState::Visible;
+        assert!(enemy.is_vulnerable());
+
+        enemy.tar_monster_state = TarMonsterState::Submerging;
+        assert!(!enemy.is_vulnerable());
+    }
+
+    #[test]
+    fn tar_monster_retaliation_spawns_five_projectiles() {
+        let mut projectiles = Vec::new();
+        spawn_tar_monster_retaliation(&mut projectiles, 100 << 16, 200 << 16);
+        assert_eq!(projectiles.len(), 5);
+        for p in &projectiles {
+            assert!(p.y_velocity < 0, "all tar blobs should launch upward");
+            assert!(!p.friendly);
+            assert!(p.gravity > 0, "tar blobs have gravity");
+        }
+        // Verify spread: some go left, some go right
+        let left_count = projectiles.iter().filter(|p| p.x_velocity < 0).count();
+        let right_count = projectiles.iter().filter(|p| p.x_velocity > 0).count();
+        assert!(left_count >= 2, "at least 2 blobs go left");
+        assert!(right_count >= 2, "at least 2 blobs go right");
     }
 
     // --- Ghost blocks ---
@@ -14702,6 +14895,7 @@ mod tests {
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
         }
     }
 
