@@ -2154,6 +2154,35 @@ impl NativeRuntime {
                     kill_indices.push(roster_idx);
                 } else {
                     enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    // Bosses retaliate with projectiles when damaged
+                    if matches!(
+                        enemy.family,
+                        EnemyFamily::HeadyMetal
+                            | EnemyFamily::Shishkaboss
+                            | EnemyFamily::BoomerangBosses
+                            | EnemyFamily::BagelBrothers
+                    ) {
+                        let boss_x = enemy.x_pos;
+                        let boss_y = enemy.y_pos;
+                        self.projectiles.push(EnemyProjectile {
+                            x_pos: boss_x,
+                            y_pos: boss_y,
+                            x_velocity: 0x2_0000, // rightward
+                            y_velocity: -0x1_0000, // slight upward arc
+                            lifetime: 90,
+                            gravity: 0x800,
+                            friendly: false,
+                        });
+                        self.projectiles.push(EnemyProjectile {
+                            x_pos: boss_x,
+                            y_pos: boss_y,
+                            x_velocity: -0x2_0000, // leftward
+                            y_velocity: -0x1_0000,
+                            lifetime: 90,
+                            gravity: 0x800,
+                            friendly: false,
+                        });
+                    }
                 }
             }
         }
@@ -11660,6 +11689,48 @@ mod tests {
         step_tracker(&mut enemy, px, py);
         assert!(enemy.x_pos < 200 << 16, "should move leftward toward player");
         assert_eq!(enemy.facing, Direction::Left);
+    }
+
+    #[test]
+    fn boss_fires_projectiles_when_stomped() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        // Place a boss below the player
+        let boss = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::HeadyMetal,
+            x_pos: 100 << 16,
+            y_pos: 120 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 10,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        runtime.active_enemies = vec![boss];
+        runtime.projectiles.clear();
+
+        // Simulate a stomp: player above boss, falling
+        let mut slice = runtime.opening_slice.clone().unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = (120 - 20) << 16; // above boss
+        slice.player.y_velocity = 0x1_0000; // falling
+        slice.player.on_ground = false;
+        // Rebuild roster
+        runtime.active_enemy_roster = runtime.active_enemies.iter().map(ActiveEnemy::snapshot).collect();
+        let stomped = runtime.process_stomps(&mut slice);
+        assert!(stomped, "should register a stomp");
+        assert_eq!(runtime.projectiles.len(), 2, "boss should fire 2 projectiles on damage");
+        assert!(runtime.projectiles[0].x_velocity > 0, "first projectile rightward");
+        assert!(runtime.projectiles[1].x_velocity < 0, "second projectile leftward");
     }
 
     // --- UFO and Tornado flyer tests ---
