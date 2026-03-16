@@ -274,6 +274,23 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     repeat: false,
                     ..
                 } => reset_runtime = true,
+                // Debug: N = next level, P = previous level
+                Event::KeyDown {
+                    keycode: Some(Keycode::N),
+                    repeat: false,
+                    ..
+                } => {
+                    let next = runtime.next_level_id();
+                    runtime.warp_to_level(next);
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::P),
+                    repeat: false,
+                    ..
+                } => {
+                    let prev = runtime.prev_level_id();
+                    runtime.warp_to_level(prev);
+                }
                 _ => {}
             }
         }

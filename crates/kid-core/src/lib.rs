@@ -2691,6 +2691,51 @@ impl NativeRuntime {
         };
     }
 
+    /// Previous level in map order (for debug warping).
+    pub fn prev_level_id(&self) -> LevelId {
+        if !self.assets.map_order.is_empty() {
+            let current_pos = self
+                .assets
+                .map_order
+                .iter()
+                .position(|&id| id == self.current_level.0);
+            if let Some(pos) = current_pos {
+                if pos > 0 {
+                    return LevelId(self.assets.map_order[pos - 1]);
+                }
+            }
+        }
+        self.current_level
+    }
+
+    /// Warp to a specific level (debug feature).
+    pub fn warp_to_level(&mut self, level_id: LevelId) {
+        self.current_level = level_id;
+        self.reload_block_grid_for_level(level_id);
+        self.level_start_frame = Some(self.frame_index);
+        self.opening_slice = Some(self.level_respawn_slice(level_id));
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
+        self.projectiles.clear();
+        self.lift_platforms.clear();
+        self.init_murder_wall(level_id, 0);
+        self.init_weather(level_id);
+        self.level_timer = LevelTimer::new();
+        self.level_skip_transition = None;
+        self.level_skip_resume_hold = false;
+        self.invulnerable_frames = 0;
+        self.death_camera_lock = None;
+        self.paused = false;
+        self.boot_state = BootState::InGame;
+        self.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
+        };
+    }
+
     fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = Some(self.frame_index);
@@ -4219,7 +4264,7 @@ impl NativeRuntime {
         self.level_respawn_slice(level_id)
     }
 
-    fn next_level_id(&self) -> LevelId {
+    pub fn next_level_id(&self) -> LevelId {
         if !self.assets.map_order.is_empty() {
             let current_pos = self
                 .assets
