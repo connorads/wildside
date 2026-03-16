@@ -113,7 +113,7 @@ const HUD_TILE_VRAM_BASE: u16 = 0x06BA;
 const HUD_DIAMOND_TILE_VRAM_BASE: u16 = 0x06EA;
 
 pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
-    let session_assets = load_native_session_assets(manifest, 0x00)?;
+    let mut session_assets = load_native_session_assets(manifest, 0x00)?;
     let sdl = sdl2::init().map_err(|error| anyhow!("failed to init SDL: {error}"))?;
     let video = sdl
         .video()
@@ -164,6 +164,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut trace = runtime.trace_frame();
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+    let mut current_level_id: u8 = 0x00;
 
     let scene = build_scene(
         &trace,
@@ -230,11 +231,28 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         }
 
         if reset_runtime {
+            session_assets = load_native_session_assets(manifest, 0x00)?;
             runtime = initialise_runtime(manifest, &session_assets);
             trace = runtime.trace_frame();
+            current_level_id = 0x00;
         } else {
             let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
+        }
+
+        if trace.current_level.0 != current_level_id {
+            let new_level = trace.current_level.0;
+            match load_native_session_assets(manifest, new_level) {
+                Ok(new_assets) => {
+                    session_assets = new_assets;
+                    current_level_id = new_level;
+                }
+                Err(error) => {
+                    eprintln!(
+                        "failed to load visuals for level 0x{new_level:02X}: {error:#}"
+                    );
+                }
+            }
         }
 
         let scene = build_scene(

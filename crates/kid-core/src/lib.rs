@@ -2587,6 +2587,20 @@ impl NativeRuntime {
     }
 
     fn next_level_id(&self) -> LevelId {
+        if !self.assets.map_order.is_empty() {
+            let current_pos = self
+                .assets
+                .map_order
+                .iter()
+                .position(|&id| id == self.current_level.0);
+            if let Some(pos) = current_pos {
+                let next_pos = pos + 1;
+                if next_pos < self.assets.map_order.len() {
+                    return LevelId(self.assets.map_order[next_pos]);
+                }
+            }
+        }
+        // Fallback: next numerically higher level ID
         let mut level_ids = self
             .assets
             .levels
@@ -9620,5 +9634,35 @@ mod tests {
             1,
             "same evanescent block should not be triggered twice"
         );
+    }
+
+    #[test]
+    fn next_level_id_follows_map_order() {
+        let mut manifest = manifest_with_levels(4);
+        // map_order: [0, 1, 2, 3] by default; rearrange to [0, 3, 1, 2]
+        manifest.map_order = vec![0, 3, 1, 2];
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.current_level = LevelId(0);
+        assert_eq!(runtime.next_level_id(), LevelId(3));
+
+        runtime.current_level = LevelId(3);
+        assert_eq!(runtime.next_level_id(), LevelId(1));
+
+        runtime.current_level = LevelId(1);
+        assert_eq!(runtime.next_level_id(), LevelId(2));
+    }
+
+    #[test]
+    fn next_level_id_falls_back_when_map_order_empty() {
+        let mut manifest = manifest_with_levels(3);
+        manifest.map_order = Vec::new();
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.current_level = LevelId(0);
+        assert_eq!(runtime.next_level_id(), LevelId(1));
+
+        runtime.current_level = LevelId(1);
+        assert_eq!(runtime.next_level_id(), LevelId(2));
     }
 }
