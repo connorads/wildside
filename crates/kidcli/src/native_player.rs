@@ -1512,7 +1512,7 @@ fn build_game_scene(
     }
 
     if debug_overlay_visible {
-        push_panel(&mut commands, 8, 8, 304, 44, [12, 18, 24], [160, 214, 255]);
+        push_panel(&mut commands, 8, 8, 304, 56, [12, 18, 24], [160, 214, 255]);
         commands.push(text(
             16,
             16,
@@ -1543,7 +1543,20 @@ fn build_game_scene(
             16,
             40,
             &format!(
-                "Camera {:08X},{:08X}  Objects {}/{}  Controls Arrows Z X C Enter R Tab Esc",
+                "Score {}  Diamonds {}  Timer {}s  Projectiles {}",
+                trace.score,
+                trace.diamond_count,
+                trace.level_timer_seconds,
+                trace.active_projectiles.len()
+            ),
+            [220, 220, 190],
+            1,
+        ));
+        commands.push(text(
+            16,
+            52,
+            &format!(
+                "Camera {:08X},{:08X}  Objects {}/{}",
                 trace.camera_x_pos,
                 trace.camera_y_pos,
                 trace.number_objects,
