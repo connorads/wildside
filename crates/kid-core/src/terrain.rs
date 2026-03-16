@@ -305,6 +305,26 @@ pub struct PrizeBlockEntry {
     pub disguised: bool,
 }
 
+/// A ghost block group entry from the Block List.
+/// Ghost blocks cycle between solid and vanished states on timers.
+#[derive(Debug, Clone, Copy)]
+pub struct GhostBlockEntry {
+    pub col: u16,
+    pub row: u16,
+    /// Number of blocks in the group (1-based).
+    pub count: u8,
+    /// True = vertical group, false = horizontal group.
+    pub vertical: bool,
+    /// Frames the group stays solid.
+    pub solid_time: u16,
+    /// Frames the group stays vanished.
+    pub vanished_time: u16,
+    /// Current timer (counts down to next transition).
+    pub timer: u16,
+    /// True when the ghost blocks are currently solid.
+    pub solid: bool,
+}
+
 /// Parsed Block List from the RAM dump at FF3B24.
 ///
 /// The Block List stores runtime data for interactive blocks: prizes,
@@ -313,6 +333,7 @@ pub struct PrizeBlockEntry {
 #[derive(Debug, Clone)]
 pub struct BlockList {
     pub prize_blocks: Vec<PrizeBlockEntry>,
+    pub ghost_blocks: Vec<GhostBlockEntry>,
 }
 
 impl BlockList {
@@ -356,7 +377,42 @@ impl BlockList {
             });
             offset += 8;
         }
-        Self { prize_blocks }
+
+        // Ghost block group entries follow prizes (16 bytes each).
+        // Detect end by checking for zero timer and zero layout address.
+        let mut ghost_blocks = Vec::new();
+        while offset + 16 <= data.len() {
+            let timer = u16::from_be_bytes([data[offset], data[offset + 1]]);
+            let mapping_frame = data[offset + 3];
+            let solid_time = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
+            let vanished_time = u16::from_be_bytes([data[offset + 6], data[offset + 7]]);
+            let layout_addr = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
+            if layout_addr == 0 && timer == 0 && solid_time == 0 {
+                break;
+            }
+            let col = u16::from_be_bytes([data[offset + 10], data[offset + 11]]);
+            let row = u16::from_be_bytes([data[offset + 12], data[offset + 13]]);
+            let count = (data[offset + 14] & 0x0F) + 1;
+            let vertical = data[offset + 15] & 0x01 != 0;
+            let solid = mapping_frame == 0;
+
+            ghost_blocks.push(GhostBlockEntry {
+                col,
+                row,
+                count,
+                vertical,
+                solid_time,
+                vanished_time,
+                timer,
+                solid,
+            });
+            offset += 16;
+        }
+
+        Self {
+            prize_blocks,
+            ghost_blocks,
+        }
     }
 
     /// Look up prize content for a block at the given cell position.

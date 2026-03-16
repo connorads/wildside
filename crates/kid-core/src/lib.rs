@@ -408,6 +408,7 @@ pub struct NativeRuntime {
     block_grid_source: BlockGridSource,
     diamond_count: u16,
     evanescent_blocks: Vec<EvanescentEntry>,
+    ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
     murder_wall: Option<MurderWallState>,
     level_timer: LevelTimer,
@@ -686,6 +687,19 @@ struct EvanescentEntry {
     row: u16,
     /// Timer value (starts negative from skin offset, incremented each frame).
     timer: i16,
+}
+
+/// Runtime state for a ghost block group that cycles solid/vanished.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct GhostGroup {
+    col: u16,
+    row: u16,
+    count: u8,
+    vertical: bool,
+    solid_time: u16,
+    vanished_time: u16,
+    timer: u16,
+    solid: bool,
 }
 
 /// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
@@ -994,6 +1008,7 @@ impl NativeRuntime {
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
             evanescent_blocks: Vec::new(),
+            ghost_groups: Vec::new(),
             projectiles: Vec::new(),
             murder_wall: None,
             level_timer: LevelTimer::new(),
@@ -1100,6 +1115,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
         self.level_timer = LevelTimer::new();
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -1567,6 +1583,9 @@ impl NativeRuntime {
         // and clear expired blocks from the grid.
         self.step_evanescent_blocks(&slice);
 
+        // Ghost blocks: cycle between solid and vanished states
+        self.step_ghost_blocks();
+
         // Prize block item spawning: apply the prize content
         if let Some(content) = slice.prize_block_hit {
             self.apply_prize_content(content);
@@ -1663,6 +1682,7 @@ impl NativeRuntime {
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
             self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
             return;
         }
         if !matches!(
@@ -2121,6 +2141,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
@@ -2142,6 +2163,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
         self.projectiles.clear();
         self.init_murder_wall(next_level, 0);
         self.level_timer = LevelTimer::new();
@@ -2172,6 +2194,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
         self.init_murder_wall(level_id, 0);
         self.level_timer = LevelTimer::new();
         self.paused = false;
@@ -2191,6 +2214,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.ghost_groups.clear();
         self.init_murder_wall(level_id, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
@@ -2341,15 +2365,72 @@ impl NativeRuntime {
         }
     }
 
+    /// Ghost blocks: tick timers, toggle solid/vanished, update block grid.
+    fn step_ghost_blocks(&mut self) {
+        let Some(grid) = &mut self.block_grid else {
+            return;
+        };
+        for group in &mut self.ghost_groups {
+            if group.timer > 0 {
+                group.timer -= 1;
+                continue;
+            }
+            // Transition
+            group.solid = !group.solid;
+            group.timer = if group.solid {
+                group.solid_time
+            } else {
+                group.vanished_time
+            };
+
+            // Update grid cells for each block in the group
+            for i in 0..group.count {
+                let (col, row) = if group.vertical {
+                    (group.col, group.row + u16::from(i))
+                } else {
+                    (group.col + u16::from(i), group.row)
+                };
+                if group.solid {
+                    // Restore solid ghost block (collision type 7 = full solid, block type 3 = SolidGhost)
+                    let hi = 0x80 | (0x07 << 4) | 0x03;
+                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(hi, 0));
+                } else {
+                    // Clear the cell (vanished)
+                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                }
+            }
+        }
+    }
+
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
             let width = grid.width_cells;
             self.block_grid = Some(grid);
             self.block_list = self.load_block_list_for_level(level_id, width);
+            self.ghost_groups = self
+                .block_list
+                .as_ref()
+                .map(|bl| {
+                    bl.ghost_blocks
+                        .iter()
+                        .map(|g| GhostGroup {
+                            col: g.col,
+                            row: g.row,
+                            count: g.count,
+                            vertical: g.vertical,
+                            solid_time: g.solid_time,
+                            vanished_time: g.vanished_time,
+                            timer: g.timer,
+                            solid: g.solid,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             self.block_grid_source = BlockGridSource::Generated;
         } else if self.block_grid_source == BlockGridSource::Generated {
             self.block_grid = None;
             self.block_list = None;
+            self.ghost_groups.clear();
             self.block_grid_source = BlockGridSource::None;
         }
     }
@@ -9611,6 +9692,120 @@ mod tests {
         assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
         assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
         assert_eq!(ARCHER_FIRE_TIMER[2], 0x0A, "HP 3: 10 frames");
+    }
+
+    // --- Ghost blocks ---
+
+    #[test]
+    fn ghost_block_toggles_on_timer_expiry() {
+        let mut group = GhostGroup {
+            col: 3,
+            row: 5,
+            count: 2,
+            vertical: false,
+            solid_time: 10,
+            vanished_time: 5,
+            timer: 1,
+            solid: true,
+        };
+        // Timer = 1: tick it down, still solid (timer goes to 0)
+        assert!(group.solid);
+        // Simulate one step
+        if group.timer > 0 {
+            group.timer -= 1;
+        }
+        assert_eq!(group.timer, 0);
+        // Next step: timer is 0, transition happens
+        group.solid = !group.solid;
+        group.timer = if group.solid {
+            group.solid_time
+        } else {
+            group.vanished_time
+        };
+        assert!(!group.solid, "should become vanished");
+        assert_eq!(group.timer, 5, "vanished timer should be set");
+    }
+
+    #[test]
+    fn ghost_block_group_cells_horizontal() {
+        let group = GhostGroup {
+            col: 3,
+            row: 5,
+            count: 3,
+            vertical: false,
+            solid_time: 10,
+            vanished_time: 10,
+            timer: 0,
+            solid: true,
+        };
+        let cells: Vec<(u16, u16)> = (0..group.count)
+            .map(|i| {
+                if group.vertical {
+                    (group.col, group.row + u16::from(i))
+                } else {
+                    (group.col + u16::from(i), group.row)
+                }
+            })
+            .collect();
+        assert_eq!(cells, vec![(3, 5), (4, 5), (5, 5)]);
+    }
+
+    #[test]
+    fn ghost_block_group_cells_vertical() {
+        let group = GhostGroup {
+            col: 3,
+            row: 5,
+            count: 2,
+            vertical: true,
+            solid_time: 10,
+            vanished_time: 10,
+            timer: 0,
+            solid: true,
+        };
+        let cells: Vec<(u16, u16)> = (0..group.count)
+            .map(|i| {
+                if group.vertical {
+                    (group.col, group.row + u16::from(i))
+                } else {
+                    (group.col + u16::from(i), group.row)
+                }
+            })
+            .collect();
+        assert_eq!(cells, vec![(3, 5), (3, 6)]);
+    }
+
+    #[test]
+    fn ghost_block_list_parsing() {
+        // Ghost entry with timer=0 (the prize parser sees layout_addr=0 → ends prizes,
+        // then ghost parser picks up). This mirrors a level with no prizes.
+        let ghost_entry: [u8; 16] = [
+            0x00, 0x00, // timer = 0 (also acts as prize terminator since layout_addr=0)
+            0x00, 0x00, // flags, mapping_frame = 0 (solid)
+            0x00, 0x14, // solid_time = 20
+            0x00, 0x0A, // vanished_time = 10
+            0x00, 0x10, // layout_addr (non-zero → not a ghost terminator)
+            0x00, 0x03, // col = 3
+            0x00, 0x05, // row = 5
+            0x02,       // count nibble = 2 → count = 3
+            0x01,       // vertical = true
+        ];
+        // Ghost terminator (all zeros)
+        let ghost_end: [u8; 16] = [0u8; 16];
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&ghost_entry);
+        data.extend_from_slice(&ghost_end);
+
+        let bl = terrain::BlockList::from_raw(&data, 20);
+        assert_eq!(bl.prize_blocks.len(), 0, "no prizes");
+        assert_eq!(bl.ghost_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks[0].col, 3);
+        assert_eq!(bl.ghost_blocks[0].row, 5);
+        assert_eq!(bl.ghost_blocks[0].count, 3);
+        assert!(bl.ghost_blocks[0].vertical);
+        assert_eq!(bl.ghost_blocks[0].solid_time, 20);
+        assert_eq!(bl.ghost_blocks[0].vanished_time, 10);
+        assert!(bl.ghost_blocks[0].solid, "mapping_frame=0 means solid");
     }
 
     // --- Terrain type speed table selection ---
