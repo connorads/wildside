@@ -1831,9 +1831,18 @@ fn build_game_scene(
         let pause_text = "PAUSED";
         let text_w = pause_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
-        push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 24, [0, 0, 0], [255, 255, 255]);
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
+        push_panel(&mut commands, text_x - 12, text_y - 6, text_w + 24, 44, [0, 0, 0], [255, 255, 255]);
         commands.push(text(text_x, text_y, pause_text, [255, 255, 255], 2));
+        let hint = "Press Start to resume";
+        let hint_w = hint.len() as i32 * 8;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - hint_w) / 2,
+            text_y + 24,
+            hint,
+            [140, 140, 140],
+            1,
+        ));
     }
 
     // Game over overlay
