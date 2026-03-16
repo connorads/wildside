@@ -1020,6 +1020,17 @@ enum DragonMotionPhase {
     ParkedLeft,
 }
 
+/// Ninja stealth/attack state machine (Ninja.asm).
+/// Stealth = pacing invisibly. JumpAttack = airborne lunge at player.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum NinjaState {
+    /// Walking invisibly, checking detection cone each frame.
+    #[default]
+    Stealth,
+    /// Airborne jump-attack toward the player.
+    JumpAttack,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -1046,6 +1057,7 @@ struct ActiveEnemy {
     wait_timer: u16,
     dragon_phase: DragonMotionPhase,
     dragon_phase_frames: u16,
+    ninja_state: NinjaState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2021,6 +2033,7 @@ impl NativeRuntime {
                 self.block_grid.as_ref(),
                 Some(slice.player.x_pos),
                 Some(slice.player.y_pos),
+                self.current_form,
                 Some(&mut self.projectiles),
             );
             self.active_enemy_roster = self
@@ -5025,12 +5038,12 @@ impl EnemyFamily {
             | Self::Crab
             | Self::Scorpion
             | Self::Driller
-            | Self::Ninja
             | Self::Orca
             | Self::Hand
             | Self::Robot
             | Self::Lion
             | Self::FireDemon => EnemyArchetype::Pacer,
+            Self::Ninja => EnemyArchetype::Pacer, // uses Pacer in stealth, but step_active_enemies dispatches to step_ninja
             Self::EmoRock => EnemyArchetype::Hoverer,
             Self::Archer => EnemyArchetype::Stationary,
             Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Pacer, // walk after spawn; full orbit/emerge cycles TODO
@@ -5202,6 +5215,7 @@ fn activate_enemies(
             wait_timer: spawn_wait_timer(family),
             dragon_phase: spawn_dragon_phase(family),
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         });
     }
 }
@@ -5212,6 +5226,7 @@ fn step_active_enemies(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    player_form: PlayerForm,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
 ) {
     for enemy in active.iter_mut() {
@@ -5225,11 +5240,15 @@ fn step_active_enemies(
                 step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos)
             }
             EnemyArchetype::Pacer => {
-                step_pacer(enemy, block_grid);
-                // Tank fires horizontal bullets at intervals
-                if matches!(enemy.family, EnemyFamily::Tank) {
-                    if let Some(ref mut projs) = projectiles {
-                        step_tank_fire(enemy, projs);
+                if matches!(enemy.family, EnemyFamily::Ninja) {
+                    step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
+                } else {
+                    step_pacer(enemy, block_grid);
+                    // Tank fires horizontal bullets at intervals
+                    if matches!(enemy.family, EnemyFamily::Tank) {
+                        if let Some(ref mut projs) = projectiles {
+                            step_tank_fire(enemy, projs);
+                        }
                     }
                 }
             }
@@ -5699,6 +5718,110 @@ fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) 
     if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+    }
+}
+
+/// Ninja detection cone: player must be 0x20–0x50 pixels above and ±0x10 pixels
+/// horizontally (Ninja.asm lines 148-161).
+const NINJA_DETECT_Y_MIN: i32 = 0x20;
+const NINJA_DETECT_Y_MAX: i32 = 0x50;
+const NINJA_DETECT_X_RANGE: i32 = 0x10;
+
+/// Ninja jump-attack velocities (Ninja.asm lines 384-392).
+const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
+const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
+const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
+const NINJA_GRAVITY: i32 = 0x2800;
+
+/// Step a Ninja enemy: stealth-paces until player enters detection cone,
+/// then faces player and jump-attacks. Returns to stealth on landing.
+fn step_ninja(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    player_form: PlayerForm,
+) {
+    match enemy.ninja_state {
+        NinjaState::Stealth => {
+            // Pace like normal
+            step_pacer(enemy, block_grid);
+
+            // Check detection cone (skip if player wears Red Stealth)
+            if player_form == PlayerForm::RedStealth {
+                return;
+            }
+            let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            let dy = (enemy.y_pos as i64 - py as i64) >> 16;
+
+            // Player must be 0x20–0x50 px above ninja and within ±0x10 px horizontally
+            if dy >= NINJA_DETECT_Y_MIN as i64
+                && dy <= NINJA_DETECT_Y_MAX as i64
+                && dx.abs() <= NINJA_DETECT_X_RANGE as i64
+            {
+                // Face the player
+                enemy.facing = if dx >= 0 {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                };
+                // Launch jump attack
+                enemy.ninja_state = NinjaState::JumpAttack;
+                enemy.x_velocity = match enemy.facing {
+                    Direction::Left => -NINJA_JUMP_X_SPEED_LEFT,
+                    Direction::Right => NINJA_JUMP_X_SPEED_RIGHT,
+                };
+                enemy.y_velocity = NINJA_JUMP_Y_SPEED;
+                enemy.on_ground = false;
+            }
+        }
+        NinjaState::JumpAttack => {
+            // Apply gravity
+            enemy.y_velocity = (enemy.y_velocity + NINJA_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // Move
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let Some(grid) = block_grid else {
+                return;
+            };
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+
+            // Wall bounce: reverse x on wall hit
+            let moving_right = enemy.x_velocity >= 0;
+            let wall = terrain::probe_wall(
+                grid,
+                cx,
+                cy,
+                ENEMY_PROBE_HALF_WIDTH,
+                ENEMY_PROBE_HEIGHT,
+                moving_right,
+            );
+            if wall.hit {
+                enemy.x_velocity = -enemy.x_velocity;
+                enemy.facing = opposite_direction(enemy.facing);
+            }
+
+            // Floor landing: return to stealth
+            if enemy.y_velocity > 0 {
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground {
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.ninja_state = NinjaState::Stealth;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -9365,10 +9488,11 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
 
         assert_eq!(enemy.y_pos, 272u32 << 16);
         assert_eq!(enemy.x_pos, (225u32 << 16) + 0x8000);
@@ -9509,6 +9633,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         }];
 
         activate_enemies(
@@ -9548,40 +9673,41 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         for _ in 0..199 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
         }
         assert_eq!(enemy.x_pos, 0x0060_8000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..91 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
         }
         assert_eq!(enemy.x_pos, 0x0033_0000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..39 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
         }
         assert_eq!(enemy.x_pos, DRAGON_PERCH_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..50 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
         }
         assert_eq!(enemy.x_pos, 0x0038_0000);
         assert_eq!(enemy.facing, Direction::Right);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
         }
         assert_eq!(enemy.x_pos, DRAGON_SWOOP_APEX_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
         }
 
         assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
@@ -9636,11 +9762,12 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -9673,11 +9800,12 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -9691,16 +9819,16 @@ mod tests {
         );
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
         }
         assert!(
             enemy.on_ground,
             "hopper should remain grounded through the disassembly-backed wait window"
         );
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
         for _ in 0..12 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
         }
 
         let airborne_skull = enemy;
@@ -9740,6 +9868,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -9748,6 +9877,7 @@ mod tests {
                 Some(&grid),
                 Some(128u32 << 16),
                 None,
+                PlayerForm::TheKid,
                 None,
             );
         }
@@ -9756,6 +9886,7 @@ mod tests {
             Some(&grid),
             Some(128u32 << 16),
             None,
+            PlayerForm::TheKid,
             None,
         );
 
@@ -9792,6 +9923,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -9800,6 +9932,7 @@ mod tests {
                 Some(&grid),
                 Some(32u32 << 16),
                 None,
+                PlayerForm::TheKid,
                 None,
             );
         }
@@ -9808,6 +9941,7 @@ mod tests {
             Some(&grid),
             Some(32u32 << 16),
             None,
+            PlayerForm::TheKid,
             None,
         );
 
@@ -10920,6 +11054,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         }
     }
 
@@ -11060,6 +11195,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -11094,6 +11230,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -11156,6 +11293,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -11223,6 +11361,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -11257,6 +11396,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -11296,6 +11436,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -11339,6 +11480,7 @@ mod tests {
             wait_timer: 3, // short wait for test
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -11382,6 +11524,7 @@ mod tests {
             wait_timer: 0, // already past hover, will drop
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
 
         // Step until it lands
@@ -11482,6 +11625,7 @@ mod tests {
             wait_timer: 10, // not ready to fire yet
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11510,6 +11654,7 @@ mod tests {
             wait_timer: 0, // ready to fire
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11583,6 +11728,7 @@ mod tests {
             wait_timer: 0, // ready to fire
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -11612,6 +11758,7 @@ mod tests {
             wait_timer: 10,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -11655,6 +11802,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -11683,6 +11831,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -11714,6 +11863,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -11772,6 +11922,71 @@ mod tests {
         assert_eq!(enemy.x_acceleration, -TORNADO_ACCELERATION);
         assert_eq!(enemy.y_acceleration, TORNADO_ACCELERATION);
         assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES);
+    }
+
+    // --- Ninja ---
+
+    #[test]
+    fn ninja_paces_in_stealth_without_player() {
+        let grid = grid_with_platform(17, 0, 120);
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 60 << 16, (17 * 16) << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.on_ground = true;
+        let start_x = enemy.x_pos;
+        step_ninja(&mut enemy, Some(&grid), None, None, PlayerForm::TheKid);
+        assert_eq!(enemy.ninja_state, NinjaState::Stealth);
+        assert_ne!(enemy.x_pos, start_x, "should move while pacing");
+    }
+
+    #[test]
+    fn ninja_detects_player_in_cone_and_jumps() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        // Player 0x30 px above (within 0x20-0x50 range) and 0x08 px right (within ±0x10)
+        let player_x = Some((100 + 0x08) << 16);
+        let player_y = Some((200 - 0x30) << 16);
+        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::TheKid);
+        assert_eq!(enemy.ninja_state, NinjaState::JumpAttack);
+        assert_eq!(enemy.facing, Direction::Right);
+        assert!(enemy.y_velocity < 0, "should jump upward");
+    }
+
+    #[test]
+    fn ninja_ignores_player_with_red_stealth() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        let player_x = Some(100 << 16);
+        let player_y = Some((200 - 0x30) << 16);
+        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "should stay stealthy when player wears Red Stealth"
+        );
+    }
+
+    #[test]
+    fn ninja_lands_and_returns_to_stealth() {
+        // Floor at row 17 spanning full width — ninja will land on it
+        let grid = grid_with_platform(17, 0, 120);
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 50 << 16, (17 * 16 - 40) << 16, 2);
+        enemy.ninja_state = NinjaState::JumpAttack;
+        enemy.x_velocity = NINJA_JUMP_X_SPEED_RIGHT;
+        enemy.y_velocity = NINJA_JUMP_Y_SPEED;
+        enemy.on_ground = false;
+        // Step until ninja lands (gravity pulls it down)
+        for _ in 0..300 {
+            step_ninja(&mut enemy, Some(&grid), None, None, PlayerForm::TheKid);
+            if enemy.ninja_state == NinjaState::Stealth {
+                break;
+            }
+        }
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "ninja should return to stealth after landing"
+        );
+        assert!(enemy.on_ground);
     }
 
     // --- Ghost blocks ---
@@ -13482,6 +13697,7 @@ mod tests {
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
         }
     }
 
