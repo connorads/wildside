@@ -1,0 +1,312 @@
+use super::*;
+
+pub(super) fn build_player_sprite_tiles(
+    frame: &kid_render::SpriteFrame,
+    facing: Direction,
+) -> Vec<SpriteTile> {
+    build_sprite_tiles(frame, facing, 0)
+}
+
+pub(super) fn align_sprite_dimension(px: u16) -> u16 {
+    px.div_ceil(8) * 8
+}
+
+pub(super) fn sprite_draw_position(
+    frame: &kid_render::SpriteFrame,
+    screen_x: i32,
+    screen_y: i32,
+    facing: Direction,
+) -> (i32, i32) {
+    let draw_x = match facing {
+        Direction::Right => screen_x - i32::from(frame.origin_x),
+        Direction::Left => {
+            screen_x + i32::from(frame.origin_x) - i32::from(align_sprite_dimension(frame.width_px))
+        }
+    };
+    (draw_x, screen_y - i32::from(frame.origin_y))
+}
+
+pub(super) fn build_sprite_tiles(
+    frame: &kid_render::SpriteFrame,
+    facing: Direction,
+    palette_line: u8,
+) -> Vec<SpriteTile> {
+    let flip_x = matches!(facing, Direction::Left);
+    let aligned_width_px = align_sprite_dimension(frame.width_px);
+    let aligned_height_px = align_sprite_dimension(frame.height_px);
+    let mut tiles =
+        Vec::with_capacity(usize::from(aligned_width_px / 8) * usize::from(aligned_height_px / 8));
+    let mut next_tile_index = frame.tile_base_index;
+    let mut band_y_px = 0u16;
+    let mut remaining_height_px = frame.height_px;
+
+    while remaining_height_px >= 32 {
+        append_sprite_band_tiles(
+            &mut tiles,
+            &mut next_tile_index,
+            band_y_px,
+            32,
+            frame.width_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+        band_y_px += 32;
+        remaining_height_px -= 32;
+    }
+
+    let tail_height_px = align_sprite_dimension(remaining_height_px);
+    if tail_height_px > 0 {
+        append_sprite_band_tiles(
+            &mut tiles,
+            &mut next_tile_index,
+            band_y_px,
+            tail_height_px,
+            frame.width_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+    }
+
+    tiles
+}
+
+pub(super) fn append_sprite_band_tiles(
+    tiles: &mut Vec<SpriteTile>,
+    next_tile_index: &mut u16,
+    band_y_px: u16,
+    band_height_px: u16,
+    frame_width_px: u16,
+    aligned_width_px: u16,
+    flip_x: bool,
+    palette_line: u8,
+) {
+    let mut remaining_width_px = frame_width_px;
+    let mut chunk_x_px = 0u16;
+
+    while remaining_width_px >= 32 {
+        append_sprite_chunk_tiles(
+            tiles,
+            next_tile_index,
+            chunk_x_px,
+            band_y_px,
+            32,
+            band_height_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+        chunk_x_px += 32;
+        remaining_width_px -= 32;
+    }
+
+    let tail_width_px = align_sprite_dimension(remaining_width_px);
+    if tail_width_px > 0 {
+        append_sprite_chunk_tiles(
+            tiles,
+            next_tile_index,
+            chunk_x_px,
+            band_y_px,
+            tail_width_px,
+            band_height_px,
+            aligned_width_px,
+            flip_x,
+            palette_line,
+        );
+    }
+}
+
+pub(super) fn append_sprite_chunk_tiles(
+    tiles: &mut Vec<SpriteTile>,
+    next_tile_index: &mut u16,
+    chunk_x_px: u16,
+    chunk_y_px: u16,
+    chunk_width_px: u16,
+    chunk_height_px: u16,
+    aligned_width_px: u16,
+    flip_x: bool,
+    palette_line: u8,
+) {
+    let columns = chunk_width_px / 8;
+    let rows = chunk_height_px / 8;
+
+    for row in 0..rows {
+        for column in 0..columns {
+            let unflipped_x_px = chunk_x_px + column * 8;
+            let offset_x = if flip_x {
+                i32::from(aligned_width_px - unflipped_x_px - 8)
+            } else {
+                i32::from(unflipped_x_px)
+            };
+            tiles.push(SpriteTile {
+                offset_x,
+                offset_y: i32::from(chunk_y_px + row * 8),
+                tile: TileRef {
+                    tile_index: *next_tile_index,
+                    palette_line,
+                    priority: false,
+                    flip_x,
+                    flip_y: false,
+                },
+            });
+            *next_tile_index += 1;
+        }
+    }
+}
+
+pub(super) fn select_player_frame<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a kid_render::PlayerVisuals,
+) -> &'a kid_render::SpriteFrame {
+    let on_ground = trace.kid_on_ground.unwrap_or(true);
+    let x_velocity = trace.kid_x_velocity.unwrap_or(0);
+    let y_velocity = trace.kid_y_velocity.unwrap_or(0);
+
+    if on_ground {
+        if x_velocity == 0 {
+            &player_visuals.idle
+        } else {
+            let frame_index = (trace.frame_index / 4) % player_visuals.walk.len();
+            &player_visuals.walk[frame_index]
+        }
+    } else if y_velocity < 0 {
+        &player_visuals.jump_rise
+    } else {
+        &player_visuals.jump_fall
+    }
+}
+
+pub(super) fn player_screen_position(
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+) -> (i32, i32) {
+    (
+        (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32,
+        (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32,
+    )
+}
+
+pub(super) fn push_player_sprite(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let frame = select_player_frame(trace, &level_visuals.player);
+    let facing = trace.kid_facing.unwrap_or(Direction::Right);
+    let (screen_x, screen_y) = player_screen_position(object, trace);
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(level_visuals.player.palette.clone()),
+        tiles: build_player_sprite_tiles(frame, facing),
+    });
+}
+
+pub(super) fn select_enemy_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+) -> &'a kid_render::SpriteFrame {
+    let frame_index =
+        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len();
+    &enemy_visuals.frames[frame_index]
+}
+
+pub(super) fn push_enemy_sprite(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    object_type: u8,
+) {
+    let enemy_visuals = match object_type {
+        0x01 => &level_visuals.enemies.diamond,
+        0x0C | 0x0D => &level_visuals.enemies.dragon,
+        0x1C => &level_visuals.enemies.mini_hopping_skull,
+        _ => {
+            let colour = if object.damage_flash {
+                ENEMY_FLASH_COLOUR
+            } else {
+                enemy_family_colour(object_type)
+            };
+            commands.push(object_rect(object, trace, 16, 16, colour));
+            return;
+        }
+    };
+
+    let frame = select_enemy_frame(trace, enemy_visuals);
+    let (screen_x, screen_y) = player_screen_position(object, trace);
+    let facing = object.facing.unwrap_or(Direction::Right);
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(enemy_visuals.palette.clone()),
+        tiles: build_sprite_tiles(frame, facing, 0),
+    });
+}
+
+pub(super) fn push_platform_tiles(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    kind: u8,
+) {
+    let frame = match kind {
+        0x00 => &level_visuals.platforms.horizontal,
+        _ => &level_visuals.platforms.vertical,
+    };
+    let (screen_x, screen_y) = player_screen_position(object, trace);
+    commands.push(DrawCommand::Sprite {
+        x: screen_x - i32::from(frame.origin_x),
+        y: screen_y - i32::from(frame.origin_y),
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(level_visuals.platforms.palette.clone()),
+        tiles: build_sprite_tiles(frame, Direction::Right, 0),
+    });
+}
+
+pub(crate) fn render_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[GameplayCheckpoint],
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    let session_assets = load_native_session_assets(manifest, 0x00)?;
+    checkpoints
+        .iter()
+        .map(|checkpoint| {
+            let frame = trace
+                .iter()
+                .find(|frame| frame.frame_index == checkpoint.frame_index)
+                .or_else(|| trace.get(checkpoint.frame_index))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "missing native gameplay frame evidence {}@{}",
+                        checkpoint.label,
+                        checkpoint.frame_index
+                    )
+                })?;
+            let scene = build_scene(
+                frame,
+                false,
+                Some(&session_assets.level_visuals),
+                Some(&session_assets.block_grid),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            Ok((
+                checkpoint.label.to_string(),
+                checkpoint.frame_index,
+                FRAME_WIDTH as usize,
+                FRAME_HEIGHT as usize,
+                rgb,
+            ))
+        })
+        .collect()
+}
