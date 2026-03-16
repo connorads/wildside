@@ -173,6 +173,13 @@ const EVANESCENT_SKIN_OFFSET: i16 = 0x1C; // 28
 const EVANESCENT_REMOVAL_THRESHOLD: i16 = 0x16; // 22
 const EVANESCENT_MAX_ENTRIES: usize = 19; // ASM limit $13
 
+// Level timer: every level starts at 3:00 and counts down 1 second per 60 frames.
+// Time-up = death. Clocks add 3 minutes (capped at 10:00).
+const LEVEL_TIMER_START_SECONDS: u16 = 180; // 3:00
+const LEVEL_TIMER_MAX_SECONDS: u16 = 600; // 10:00
+const LEVEL_TIMER_CLOCK_BONUS_SECONDS: u16 = 180; // +3:00
+const LEVEL_TIMER_FRAMES_PER_SECOND: u16 = 60;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
@@ -341,6 +348,7 @@ pub struct NativeTraceFrame {
     pub level_complete: bool,
     pub invulnerable_frames: usize,
     pub diamond_count: u16,
+    pub level_timer_seconds: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -397,6 +405,7 @@ pub struct NativeRuntime {
     block_grid_source: BlockGridSource,
     diamond_count: u16,
     evanescent_blocks: Vec<EvanescentEntry>,
+    level_timer: LevelTimer,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -608,6 +617,57 @@ impl ActivePlatform {
                 state.command_index = 0; // loop
             }
             state.remaining_duration = script.commands[state.command_index].duration;
+        }
+    }
+}
+
+/// Countdown timer for the level. Ticks down once per 60 frames.
+/// When it reaches zero the player dies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LevelTimer {
+    /// Remaining whole seconds (3:00 = 180).
+    seconds: u16,
+    /// Frames remaining until the next second tick (counts down from 60).
+    sub_frames: u16,
+}
+
+impl LevelTimer {
+    fn new() -> Self {
+        Self {
+            seconds: LEVEL_TIMER_START_SECONDS,
+            // ASM sets Time_SubSeconds to 1 — first frame immediately
+            // decrements a second and reloads to 60.
+            sub_frames: 1,
+        }
+    }
+
+    /// Tick one frame. Returns true when the timer has just expired (0:00).
+    fn tick(&mut self) -> bool {
+        if self.seconds == 0 && self.sub_frames == 0 {
+            return true; // already expired
+        }
+        self.sub_frames = self.sub_frames.saturating_sub(1);
+        if self.sub_frames == 0 {
+            if self.seconds > 0 {
+                self.seconds -= 1;
+                self.sub_frames = LEVEL_TIMER_FRAMES_PER_SECOND;
+                false
+            } else {
+                true // just hit 0:00
+            }
+        } else {
+            false
+        }
+    }
+
+    #[allow(dead_code)]
+    fn add_clock_bonus(&mut self) {
+        let new_seconds = self.seconds + LEVEL_TIMER_CLOCK_BONUS_SECONDS;
+        if new_seconds >= LEVEL_TIMER_MAX_SECONDS {
+            self.seconds = LEVEL_TIMER_MAX_SECONDS;
+            self.sub_frames = LEVEL_TIMER_FRAMES_PER_SECOND;
+        } else {
+            self.seconds = new_seconds;
         }
     }
 }
@@ -846,6 +906,7 @@ impl NativeRuntime {
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
             evanescent_blocks: Vec::new(),
+            level_timer: LevelTimer::new(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -949,6 +1010,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.level_timer = LevelTimer::new();
         self.paused = false;
         self.pause_toggle_pending = false;
     }
@@ -1135,6 +1197,7 @@ impl NativeRuntime {
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             invulnerable_frames: self.invulnerable_frames,
             diamond_count: self.diamond_count,
+            level_timer_seconds: self.level_timer.seconds,
         }
     }
 
@@ -1341,6 +1404,7 @@ impl NativeRuntime {
                     };
                 } else {
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+                    self.level_timer = LevelTimer::new();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -1417,6 +1481,14 @@ impl NativeRuntime {
                     self.number_lives += 1;
                 }
             }
+        }
+
+        // Level timer: tick down and kill the player on expiry
+        if self.level_timer.tick() {
+            self.opening_slice = Some(slice);
+            self.number_hitpoints = 0;
+            self.begin_death_windup();
+            return;
         }
 
         // Pit death: falling below the level floor boundary is instant death
@@ -1920,6 +1992,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.invulnerable_frames = 0;
@@ -1947,6 +2020,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.level_timer = LevelTimer::new();
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
@@ -1964,6 +2038,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.paused = false;
@@ -9244,6 +9319,116 @@ mod tests {
             !runtime.block_grid.as_ref().unwrap().cell_at(2, 3).has_block,
             "block should be cleared from grid at tick 50"
         );
+    }
+
+    // --- Level timer ---
+
+    #[test]
+    fn level_timer_starts_at_three_minutes() {
+        let timer = LevelTimer::new();
+        assert_eq!(timer.seconds, 180);
+        // ASM starts Time_SubSeconds at 1 so first frame immediately ticks a second
+        assert_eq!(timer.sub_frames, 1);
+    }
+
+    #[test]
+    fn level_timer_first_frame_decrements_immediately() {
+        let mut timer = LevelTimer::new();
+        // First tick: sub_frames 1→0, seconds 180→179, sub_frames reloads to 60
+        assert!(!timer.tick());
+        assert_eq!(timer.seconds, 179);
+        assert_eq!(timer.sub_frames, 60);
+    }
+
+    #[test]
+    fn level_timer_ticks_down_one_second_per_60_frames() {
+        let mut timer = LevelTimer::new();
+        timer.tick(); // first tick → 179
+        // Then 60 more ticks → 178
+        for _ in 0..60 {
+            assert!(!timer.tick());
+        }
+        assert_eq!(timer.seconds, 178);
+    }
+
+    #[test]
+    fn level_timer_expires_after_full_countdown() {
+        let mut timer = LevelTimer::new();
+        // First tick → 179 seconds, sub_frames=60
+        // Then 179×60 more ticks → 0 seconds, sub_frames=60
+        // Total: 1 + 179×60 = 10741 ticks to reach seconds=0
+        // Then 60 more to drain sub_frames → expired at tick 10801
+        let total_frames = 1 + 179 * 60 + 60;
+        for i in 0..total_frames {
+            let expired = timer.tick();
+            if i < total_frames - 1 {
+                assert!(!expired, "timer should not expire at frame {i}");
+            } else {
+                assert!(expired, "timer should expire at frame {total_frames}");
+            }
+        }
+        assert_eq!(timer.seconds, 0);
+    }
+
+    #[test]
+    fn level_timer_clock_bonus_adds_three_minutes() {
+        let mut timer = LevelTimer::new();
+        // Tick down 60 seconds
+        for _ in 0..(60 * 60) {
+            timer.tick();
+        }
+        assert_eq!(timer.seconds, 120); // 2:00 remaining
+        timer.add_clock_bonus();
+        assert_eq!(timer.seconds, 300); // 5:00 remaining
+    }
+
+    #[test]
+    fn level_timer_clock_bonus_caps_at_ten_minutes() {
+        let mut timer = LevelTimer::new();
+        // At 3:00, add clock → 6:00
+        timer.add_clock_bonus();
+        assert_eq!(timer.seconds, 360);
+        // Add another → 9:00
+        timer.add_clock_bonus();
+        assert_eq!(timer.seconds, 540);
+        // Add another → would be 12:00, capped to 10:00
+        timer.add_clock_bonus();
+        assert_eq!(timer.seconds, 600);
+    }
+
+    #[test]
+    fn level_timer_death_on_expiry() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        // Fast-forward timer to near-expiry
+        runtime.level_timer.seconds = 0;
+        runtime.level_timer.sub_frames = 2;
+
+        // Tick one frame — timer goes to sub_frames=1, not yet expired
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+            "player should still be alive with 1 sub_frame remaining"
+        );
+
+        // Tick one more — timer expires, death triggered
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
+            "timer expiry should trigger death, got {:?}",
+            runtime.player_lifecycle
+        );
+    }
+
+    #[test]
+    fn level_timer_exposed_in_trace_frame() {
+        let timer = LevelTimer::new();
+        // The trace frame should expose the timer seconds
+        assert_eq!(timer.seconds, LEVEL_TIMER_START_SECONDS);
     }
 
     #[test]

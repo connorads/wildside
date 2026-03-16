@@ -1782,6 +1782,7 @@ mod tests {
             level_complete: false,
             invulnerable_frames: 0,
             diamond_count: 0,
+            level_timer_seconds: 180,
         }
     }
 
