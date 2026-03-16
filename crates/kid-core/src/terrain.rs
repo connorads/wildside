@@ -178,6 +178,10 @@ pub struct WallProbe {
     /// right edge when moving left). Only meaningful when `hit` is true.
     pub wall_x_px: i32,
     pub cell: Cell,
+    /// Column in cell grid (0-based). Only meaningful when `hit` is true.
+    pub cell_x: u16,
+    /// Row in cell grid (0-based). Only meaningful when `hit` is true.
+    pub cell_y: u16,
 }
 
 /// Result of checking for a ceiling above the player.
@@ -708,6 +712,8 @@ pub fn probe_wall(
                 hit: true,
                 wall_x_px: wall_x,
                 cell: probe.cell,
+                cell_x: probe.cell_x,
+                cell_y: probe.cell_y,
             };
         }
     }
@@ -716,6 +722,8 @@ pub fn probe_wall(
         hit: false,
         wall_x_px: 0,
         cell: Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
     }
 }
 
@@ -749,6 +757,8 @@ pub fn probe_wall_top_edge(
             hit: true,
             wall_x_px: wall_x,
             cell: probe.cell,
+            cell_x: probe.cell_x,
+            cell_y: probe.cell_y,
         };
     }
 
@@ -756,6 +766,8 @@ pub fn probe_wall_top_edge(
         hit: false,
         wall_x_px: 0,
         cell: Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
     }
 }
 

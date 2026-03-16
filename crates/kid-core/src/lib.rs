@@ -1906,6 +1906,11 @@ impl NativeRuntime {
             custom_gravity,
         );
 
+        // Berzerker charge: break Smash blocks on wall contact
+        if self.berzerker_charging {
+            self.berzerker_break_wall_block(&slice);
+        }
+
         // Step platform movement scripts
         if let Some(ref script_table) = self.platform_script_table {
             for platform in &mut self.active_platforms {
@@ -3271,6 +3276,21 @@ impl NativeRuntime {
             self.berzerker_charging = true;
         } else {
             self.berzerker_charge_accum = new_accum;
+        }
+    }
+
+    /// Berzerker charge wall break: when charging into a Smash block wall, break it.
+    fn berzerker_break_wall_block(&mut self, slice: &OpeningSliceState) {
+        let Some(grid) = self.block_grid.as_mut() else {
+            return;
+        };
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let moving_right = slice.player.x_velocity > 0
+            || (slice.player.x_velocity == 0 && slice.player.facing == Direction::Right);
+        let probe = terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, moving_right);
+        if probe.hit && probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Smash {
+            grid.set_cell_at(probe.cell_x, probe.cell_y, terrain::Cell::from_be_bytes(0, 0));
         }
     }
 
@@ -15444,6 +15464,53 @@ mod tests {
         assert!(
             damage_source.is_none(),
             "charging Berzerker should be immune to contact damage"
+        );
+    }
+
+    #[test]
+    fn berzerker_charge_breaks_smash_block_wall() {
+        let mut rt = NativeRuntime::new(manifest());
+        // Build a grid with a smash block wall at col 5, rows 2-3
+        let w = 10u16;
+        let h = 6u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = 0x01;
+        };
+        // Smash block wall at col 5 (collision=6 Solid, has_block, block_type=0 Smash)
+        // 1_110_0000 = 0xE0
+        set_cell(&mut data, 5, 2, 0xE0);
+        set_cell(&mut data, 5, 3, 0xE0);
+        // Floor at row 4
+        for col in 0..10 {
+            set_cell(&mut data, col, 4, 0x60);
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        rt.set_block_grid(grid);
+
+        rt.current_form = PlayerForm::Berzerker;
+        rt.berzerker_charging = true;
+
+        // Player just left of the smash block, moving right
+        let bounds = rt.level_bounds(rt.current_level);
+        let mut slice = OpeningSliceState::new(bounds);
+        // Col 5 starts at x=80px. Player at x=74 with half_width=5, right edge = 79.
+        slice.player.x_pos = 74 << 16;
+        slice.player.y_pos = (4 * 16) << 16; // on floor
+        slice.player.x_velocity = 0x2_0000; // moving right
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = true;
+
+        rt.berzerker_break_wall_block(&slice);
+
+        // Check the smash block at col 5, row 3 (at player height) was broken
+        let grid = rt.block_grid.as_ref().unwrap();
+        let cell = grid.cell_at(5, 3);
+        assert!(
+            !cell.has_block,
+            "smash block should be broken by Berzerker charge"
         );
     }
 }
