@@ -349,6 +349,7 @@ pub struct NativeTraceFrame {
     pub invulnerable_frames: usize,
     pub diamond_count: u16,
     pub level_timer_seconds: u16,
+    pub murder_wall_x: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -406,6 +407,7 @@ pub struct NativeRuntime {
     block_grid_source: BlockGridSource,
     diamond_count: u16,
     evanescent_blocks: Vec<EvanescentEntry>,
+    murder_wall: Option<MurderWallState>,
     level_timer: LevelTimer,
 }
 
@@ -684,6 +686,29 @@ struct EvanescentEntry {
     timer: i16,
 }
 
+/// Murder wall: an advancing wall that kills the player on contact.
+/// Accelerates from zero to max_speed at $100/frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MurderWallState {
+    /// Current X position in fixed-point 16.16.
+    x_pos: i64,
+    /// Current speed in fixed-point 16.16.
+    speed: i32,
+    /// Terminal speed in fixed-point 16.16.
+    max_speed: i32,
+    /// True if wall moves right-to-left (reversed).
+    reversed: bool,
+}
+
+/// Murder wall acceleration per frame (fixed-point 16.16).
+const MURDER_WALL_ACCELERATION: i32 = 0x0100;
+/// Default max speed for most murder wall levels.
+const MURDER_WALL_DEFAULT_MAX_SPEED: i32 = 0x2_0000;
+/// Slower max speed for Hills of the Warrior 1.
+const MURDER_WALL_SLOW_MAX_SPEED: i32 = 0x1_8000;
+/// Initial offset from camera (48 pixels in fixed-point).
+const MURDER_WALL_CAMERA_OFFSET_PX: i32 = 0x30;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct PlatformLoaderState {
     next_index: usize,
@@ -911,6 +936,7 @@ impl NativeRuntime {
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
             evanescent_blocks: Vec::new(),
+            murder_wall: None,
             level_timer: LevelTimer::new(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -1203,6 +1229,7 @@ impl NativeRuntime {
             invulnerable_frames: self.invulnerable_frames,
             diamond_count: self.diamond_count,
             level_timer_seconds: self.level_timer.seconds,
+            murder_wall_x: self.murder_wall.map(|w| w.x_pos),
         }
     }
 
@@ -1503,6 +1530,15 @@ impl NativeRuntime {
 
         // Spike death: contacting a spike cell is instant death
         if slice.player.on_spikes {
+            self.opening_slice = Some(slice);
+            self.number_hitpoints = 0;
+            self.begin_death_windup();
+            return;
+        }
+
+        // Murder wall: advance and kill player on contact
+        self.step_murder_wall();
+        if self.murder_wall_kills_player(&slice) {
             self.opening_slice = Some(slice);
             self.number_hitpoints = 0;
             self.begin_death_windup();
@@ -2037,6 +2073,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.init_murder_wall(next_level, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
@@ -2065,6 +2102,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.init_murder_wall(level_id, 0);
         self.level_timer = LevelTimer::new();
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -2083,12 +2121,71 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.init_murder_wall(level_id, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
+    }
+
+    /// Advance the murder wall position by applying acceleration and speed.
+    fn step_murder_wall(&mut self) {
+        let Some(wall) = self.murder_wall.as_mut() else {
+            return;
+        };
+        wall.speed = (wall.speed + MURDER_WALL_ACCELERATION).min(wall.max_speed);
+        if wall.reversed {
+            wall.x_pos -= i64::from(wall.speed);
+        } else {
+            wall.x_pos += i64::from(wall.speed);
+        }
+    }
+
+    /// Check if the murder wall overlaps the player, triggering instant death.
+    fn murder_wall_kills_player(&self, slice: &OpeningSliceState) -> bool {
+        let Some(wall) = &self.murder_wall else {
+            return false;
+        };
+        let player_x = slice.player.x_pos as i64;
+        let wall_x = wall.x_pos;
+        if wall.reversed {
+            // Wall moves right-to-left: kill if player's right side touches wall
+            let wall_left = wall_x;
+            player_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16) >= wall_left
+        } else {
+            // Wall moves left-to-right: kill if wall passes player's left side
+            let wall_right = wall_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
+            wall_right >= player_x
+        }
+    }
+
+    /// Initialize murder wall state from level header flags.
+    fn init_murder_wall(&mut self, level_id: LevelId, camera_x: u32) {
+        let header = self.level_header(level_id);
+        let flags = header.map(|h| h.murder_wall_flags).unwrap_or(0);
+        if flags & 0b10 != 0 {
+            let reversed = flags & 0b01 != 0;
+            let max_speed = if level_id.0 == 0x08 {
+                MURDER_WALL_SLOW_MAX_SPEED
+            } else {
+                MURDER_WALL_DEFAULT_MAX_SPEED
+            };
+            let initial_x = if camera_x == 0 {
+                -(i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
+            } else {
+                (i64::from(camera_x) << 16) + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
+            };
+            self.murder_wall = Some(MurderWallState {
+                x_pos: initial_x,
+                speed: 0,
+                max_speed,
+                reversed,
+            });
+        } else {
+            self.murder_wall = None;
+        }
     }
 
     /// Trigger evanescent blocks the player is standing on, tick timers,
@@ -9871,5 +9968,101 @@ mod tests {
 
         runtime.current_level = LevelId(1);
         assert_eq!(runtime.next_level_id(), LevelId(2));
+    }
+
+    // --- Murder wall ---
+
+    #[test]
+    fn murder_wall_initialises_from_header_flags() {
+        let mut manifest = manifest_with_levels(2);
+        // Set level 0 to have murder wall (flags = 0b10 = enabled, left-to-right)
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .murder_wall_flags = 0b10;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_murder_wall(LevelId(0), 0);
+
+        let wall = runtime.murder_wall.expect("murder wall should be active");
+        assert!(!wall.reversed);
+        assert_eq!(wall.speed, 0);
+        assert_eq!(wall.max_speed, MURDER_WALL_DEFAULT_MAX_SPEED);
+    }
+
+    #[test]
+    fn murder_wall_not_initialised_when_flags_zero() {
+        let manifest = manifest_with_levels(2);
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_murder_wall(LevelId(0), 0);
+
+        assert!(runtime.murder_wall.is_none());
+    }
+
+    #[test]
+    fn murder_wall_accelerates_each_frame() {
+        let mut wall = MurderWallState {
+            x_pos: 0,
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        };
+
+        // Simulate a few frames manually
+        wall.speed = (wall.speed + MURDER_WALL_ACCELERATION).min(wall.max_speed);
+        wall.x_pos += i64::from(wall.speed);
+        assert_eq!(wall.speed, 0x0100);
+        assert_eq!(wall.x_pos, 0x0100);
+
+        wall.speed = (wall.speed + MURDER_WALL_ACCELERATION).min(wall.max_speed);
+        wall.x_pos += i64::from(wall.speed);
+        assert_eq!(wall.speed, 0x0200);
+        assert_eq!(wall.x_pos, 0x0300);
+    }
+
+    #[test]
+    fn murder_wall_speed_caps_at_max() {
+        let mut wall = MurderWallState {
+            x_pos: 0,
+            speed: MURDER_WALL_DEFAULT_MAX_SPEED - 1,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        };
+        wall.speed = (wall.speed + MURDER_WALL_ACCELERATION).min(wall.max_speed);
+        assert_eq!(wall.speed, MURDER_WALL_DEFAULT_MAX_SPEED);
+    }
+
+    #[test]
+    fn murder_wall_reversed_flag() {
+        let mut manifest = manifest_with_levels(2);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .murder_wall_flags = 0b11; // enabled + reversed
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_murder_wall(LevelId(0), 0);
+
+        let wall = runtime.murder_wall.expect("murder wall should be active");
+        assert!(wall.reversed);
+    }
+
+    #[test]
+    fn murder_wall_hills_of_warrior_uses_slow_max_speed() {
+        let mut manifest = manifest_with_levels(9);
+        // Level 0x08 = Hills of the Warrior 1
+        manifest.levels[8]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .murder_wall_flags = 0b10;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_murder_wall(LevelId(8), 0);
+
+        let wall = runtime.murder_wall.expect("murder wall should be active");
+        assert_eq!(wall.max_speed, MURDER_WALL_SLOW_MAX_SPEED);
     }
 }

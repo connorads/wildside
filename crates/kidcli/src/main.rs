@@ -5211,6 +5211,7 @@ mod tests {
             invulnerable_frames: 0,
             diamond_count: 0,
             level_timer_seconds: 180,
+            murder_wall_x: None,
         };
 
         let state = native_trace_to_oracle_state("enemy_window_open", 810, &frame);
