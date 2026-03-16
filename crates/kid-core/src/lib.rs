@@ -442,6 +442,8 @@ pub struct NativeRuntime {
     block_grid_source: BlockGridSource,
     diamond_count: u16,
     score: u32,
+    /// Diamond Power active: grants invulnerability and clears nearby enemies.
+    diamond_power_frames: u16,
     evanescent_blocks: Vec<EvanescentEntry>,
     ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
@@ -1181,6 +1183,7 @@ impl NativeRuntime {
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
             score: 0,
+            diamond_power_frames: 0,
             evanescent_blocks: Vec::new(),
             ghost_groups: Vec::new(),
             projectiles: Vec::new(),
@@ -1359,6 +1362,12 @@ impl NativeRuntime {
                                     == Some(LEVEL_SKIP_RESUME_TOTAL_FRAMES - 1))
                         {
                             self.pending_level_skip = Some(self.next_level_id());
+                        } else if input.a
+                            && !input.c
+                            && self.current_form != PlayerForm::Eyeclops
+                            && self.diamond_count >= 20
+                        {
+                            // Diamond Power activation suppresses pause toggle
                         } else if self.paused {
                             self.paused = false;
                             self.pause_toggle_pending = false;
@@ -1413,6 +1422,13 @@ impl NativeRuntime {
         }
 
         self.refresh_active_roster();
+        // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
+        if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+            && matches!(self.boot_state, BootState::InGame)
+            && !self.paused
+        {
+            self.step_diamond_power(input);
+        }
         self.refresh_opening_slice(self.gameplay_input(input), self.gameplay_jump_pressed());
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
@@ -3116,6 +3132,57 @@ impl NativeRuntime {
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
         });
+    }
+
+    /// Diamond Power: Start+A with 20+ diamonds grants invulnerability and
+    /// damages nearby enemies. Costs 20 diamonds per activation. Eyeclops excluded.
+    fn step_diamond_power(&mut self, input: FrameInput) {
+        // Count down active Diamond Power
+        if self.diamond_power_frames > 0 {
+            self.diamond_power_frames -= 1;
+            self.invulnerable_frames = self.invulnerable_frames.max(1);
+
+            // Damage all active non-diamond enemies each frame of Diamond Power
+            let mut kill_indices = Vec::new();
+            for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
+                if matches!(enemy.family, EnemyFamily::Diamond) {
+                    continue;
+                }
+                enemy.hit_points = enemy.hit_points.saturating_sub(1);
+                if enemy.hit_points == 0 {
+                    kill_indices.push(i);
+                } else {
+                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                }
+            }
+            for &idx in kill_indices.iter().rev() {
+                self.active_enemies.remove(idx);
+                self.score += 1000;
+            }
+            if !kill_indices.is_empty() {
+                self.active_enemy_roster = self
+                    .active_enemies
+                    .iter()
+                    .map(ActiveEnemy::snapshot)
+                    .collect();
+            }
+            return;
+        }
+
+        // Activation: Start+A held, not Eyeclops, 20+ diamonds
+        if !(input.start && input.a) {
+            return;
+        }
+        if self.current_form == PlayerForm::Eyeclops {
+            return;
+        }
+        if self.diamond_count < 20 {
+            return;
+        }
+
+        // Consume 20 diamonds, activate for 120 frames (2 seconds)
+        self.diamond_count -= 20;
+        self.diamond_power_frames = 120;
     }
 
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
@@ -8796,6 +8863,65 @@ mod tests {
             lives_before + 1,
             "50th diamond should grant extra life"
         );
+    }
+
+    #[test]
+    fn diamond_power_activates_with_start_a_and_20_diamonds() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        // Advance past entry
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.diamond_count = 25;
+        assert_eq!(runtime.diamond_power_frames, 0);
+
+        // Press Start+A
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert!(
+            runtime.diamond_power_frames > 0,
+            "Diamond Power should activate"
+        );
+        assert_eq!(runtime.diamond_count, 5, "should consume 20 diamonds");
+    }
+
+    #[test]
+    fn diamond_power_requires_20_diamonds() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.diamond_count = 19;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(runtime.diamond_power_frames, 0, "should not activate with <20 diamonds");
+        assert_eq!(runtime.diamond_count, 19, "diamonds should not be consumed");
+    }
+
+    #[test]
+    fn diamond_power_blocked_for_eyeclops() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.diamond_count = 25;
+        runtime.current_form = PlayerForm::Eyeclops;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(runtime.diamond_power_frames, 0, "Eyeclops cannot use Diamond Power");
     }
 
     // -----------------------------------------------------------------------
