@@ -366,7 +366,34 @@ fn build_scene(
             level_visuals.expect("Level 1 visuals are required for gameplay scenes"),
             block_grid,
         ),
+        GameMode::LevelTransition => build_transition_scene(trace),
         _ => build_status_scene(trace, debug_overlay_visible),
+    }
+}
+
+fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
+    let mut commands = Vec::new();
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [0, 0, 0],
+    });
+    let level_text = format!(
+        "{}",
+        trace
+            .current_level_name
+            .as_deref()
+            .unwrap_or(&format!("Level {:02X}", trace.current_level.0))
+    );
+    let text_w = level_text.len() as i32 * 8 * 2;
+    let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+    let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
+    commands.push(text(text_x, text_y, &level_text, [255, 255, 255], 2));
+    Scene {
+        background: [0, 0, 0],
+        commands,
     }
 }
 
