@@ -389,6 +389,11 @@ pub struct NativeRuntime {
     number_lives: u16,
     number_hitpoints: u16,
     invulnerable_frames: usize,
+    /// Skycutter flipboard deploy counter (0=inactive, 1..31=animating).
+    /// Increments by 2 each frame; at 17 toggles on_board; at 32 expires.
+    skycutter_flipboard: u8,
+    /// True while the player is riding the Skycutter flipboard.
+    skycutter_on_board: bool,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -719,6 +724,21 @@ const MAX_PROJECTILES: usize = 4;
 /// Projectile hitbox half-width for player collision (pixels).
 const PROJECTILE_HITBOX_HALF: i32 = 6;
 
+/// Skycutter flipboard counter threshold: animation complete at 32.
+const SKYCUTTER_FLIPBOARD_TIMEOUT: u8 = 0x20;
+/// Counter value where the player toggles on/off the board.
+const SKYCUTTER_MOUNT_FRAME: u8 = 0x11;
+/// Counter increment per frame.
+const SKYCUTTER_COUNTER_STEP: u8 = 2;
+/// Gravity while on the board (B held): lighter descent.
+const SKYCUTTER_GRAVITY_B_HELD: i32 = 0x2000;
+/// Gravity while on the board (B not held): normal descent.
+const SKYCUTTER_GRAVITY_NO_B: i32 = 0x4000;
+/// Upward bounce velocity when landing while on the board.
+const SKYCUTTER_LANDING_BOUNCE: i32 = -0x3_0000;
+/// Max upward velocity while on the board ($FFF88000 signed = -0x78000).
+const SKYCUTTER_MAX_UPWARD_VEL: i32 = -0x7_8000;
+
 /// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
 const TANK_FIRE_INTERVAL: u16 = 0x20;
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
@@ -996,6 +1016,8 @@ impl NativeRuntime {
             number_lives: 3,
             number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
             invulnerable_frames: 0,
+            skycutter_flipboard: 0,
+            skycutter_on_board: false,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -1567,6 +1589,9 @@ impl NativeRuntime {
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.prize_block_hit = None;
+        // Step Skycutter flipboard BEFORE physics so on_board affects gravity
+        self.step_skycutter_flipboard(&mut slice, input);
+
         slice.step(
             level_elapsed,
             input,
@@ -1574,6 +1599,7 @@ impl NativeRuntime {
             self.current_form,
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
+            self.skycutter_on_board,
         );
 
         // Step platform movement scripts
@@ -2033,6 +2059,9 @@ impl NativeRuntime {
         };
         self.current_form = form;
         self.number_hitpoints = form.max_hitpoints();
+        // Clear ability state on form change
+        self.skycutter_flipboard = 0;
+        self.skycutter_on_board = false;
     }
 
     fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
@@ -2131,6 +2160,7 @@ impl NativeRuntime {
             self.current_form,
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
+            false,
         );
         if let Some(camera_lock) = self.death_camera_lock {
             slice.camera = camera_lock;
@@ -2259,6 +2289,76 @@ impl NativeRuntime {
             // Wall moves left-to-right: kill if wall passes player's left side
             let wall_right = wall_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
             wall_right >= player_x
+        }
+    }
+
+    /// Step Skycutter flipboard: deploy animation, mount toggle, flight gravity.
+    fn step_skycutter_flipboard(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+    ) {
+        if self.current_form != PlayerForm::Skycutter {
+            self.skycutter_flipboard = 0;
+            self.skycutter_on_board = false;
+            return;
+        }
+
+        // C button rising edge → deploy/retract flipboard
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && self.skycutter_flipboard == 0 {
+            self.skycutter_flipboard = 1;
+        }
+
+        // Step flipboard counter
+        if self.skycutter_flipboard > 0 {
+            let next = self.skycutter_flipboard.saturating_add(SKYCUTTER_COUNTER_STEP);
+            if next >= SKYCUTTER_FLIPBOARD_TIMEOUT {
+                // Animation complete: retract
+                self.skycutter_flipboard = 0;
+            } else {
+                // Mount toggle at midpoint
+                if self.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME
+                    && next >= SKYCUTTER_MOUNT_FRAME
+                {
+                    self.skycutter_on_board = !self.skycutter_on_board;
+                }
+                self.skycutter_flipboard = next;
+            }
+        }
+
+        // While on board: override gravity with Skycutter flight physics
+        if self.skycutter_on_board && !slice.player.on_ground {
+            let gravity = if input.b {
+                SKYCUTTER_GRAVITY_B_HELD
+            } else {
+                SKYCUTTER_GRAVITY_NO_B
+            };
+            // In the original, the gravity is subtracted (y_vel is positive=down,
+            // and the board makes you fall more slowly). But looking at the ASM:
+            // sub.l d6,d7 where d7=y_vel and d6=gravity. Since positive y_vel=down
+            // in the original game and we use negative y_vel=up, this adds gravity
+            // (descent) rather than subtracting.
+            slice.player.y_velocity += gravity;
+            // Clamp max upward speed
+            if slice.player.y_velocity < SKYCUTTER_MAX_UPWARD_VEL {
+                slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL;
+            }
+
+            // B button press while on board: upward kick
+            let b_pressed = input.b && !self.prior_input.b;
+            if b_pressed {
+                let kick =
+                    -(slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000);
+                slice.player.y_velocity = kick;
+            }
+        }
+
+        // Landing while on board: bounce upward
+        if self.skycutter_on_board && slice.player.on_ground {
+            slice.player.y_velocity = SKYCUTTER_LANDING_BOUNCE;
+            slice.player.on_ground = false;
+            self.skycutter_flipboard = 1; // restart deploy animation
         }
     }
 
@@ -3013,6 +3113,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
+        skycutter_on_board: bool,
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -3021,7 +3122,7 @@ impl OpeningSliceState {
         let mut block_grid = block_grid;
         let horizontal_step_applied =
             self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
-        self.update_vertical_motion(input, jump_pressed, form);
+        self.update_vertical_motion(input, jump_pressed, form, skycutter_on_board);
         let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
             self.apply_wall_collision(Some(grid));
             self.apply_ceiling_collision(Some(grid), block_list);
@@ -3174,7 +3275,13 @@ impl OpeningSliceState {
     }
 
     /// Physics-driven vertical movement: jump initiation and gravity.
-    fn update_vertical_motion(&mut self, input: FrameInput, jump_pressed: bool, form: PlayerForm) {
+    fn update_vertical_motion(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        skycutter_on_board: bool,
+    ) {
         if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
@@ -3216,7 +3323,9 @@ impl OpeningSliceState {
             }
             if self.player.just_jumped {
                 self.player.just_jumped = false;
-            } else {
+            } else if !skycutter_on_board {
+                // Normal gravity; Skycutter flight gravity is applied in
+                // step_skycutter_flipboard before physics runs.
                 let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
                 self.player.y_velocity =
                     physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
@@ -6243,6 +6352,7 @@ mod tests {
             PlayerForm::TheKid,
             None,
             None,
+            false,
         );
 
         assert_eq!(
@@ -6285,6 +6395,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert!(!slice.player.on_ground);
@@ -6340,6 +6451,7 @@ mod tests {
             PlayerForm::TheKid,
             None,
             None,
+            false,
         );
 
         assert!(
@@ -6373,6 +6485,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
@@ -6391,6 +6504,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert!(!slice.player.on_ground);
@@ -6426,6 +6540,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert_eq!(slice.player.x_pos, 0x00B1_2300);
@@ -6493,6 +6608,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert_eq!(slice.player.x_pos, 0x032A_666A);
@@ -6558,6 +6674,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert!(slice.player.on_ground);
@@ -6574,6 +6691,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert!(slice.player.on_ground);
@@ -6605,6 +6723,7 @@ mod tests {
             PlayerForm::TheKid,
             Some(&mut grid),
             None,
+            false,
         );
 
         assert!(slice.player.on_ground);
@@ -10782,5 +10901,182 @@ mod tests {
 
         let wall = runtime.murder_wall.expect("murder wall should be active");
         assert_eq!(wall.max_speed, MURDER_WALL_SLOW_MAX_SPEED);
+    }
+
+    // --- Skycutter flipboard tests ---
+
+    fn skycutter_runtime() -> NativeRuntime {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Skycutter;
+        rt
+    }
+
+    fn airborne_slice() -> OpeningSliceState {
+        let bounds = LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x1_0000; // falling
+        slice.player.x_pos = 0x0080_0000;
+        slice.player.y_pos = 0x0100_0000;
+        slice
+    }
+
+    #[test]
+    fn skycutter_c_press_starts_flipboard_deploy() {
+        let mut rt = skycutter_runtime();
+        let mut slice = airborne_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_skycutter_flipboard(&mut slice, input);
+
+        assert!(rt.skycutter_flipboard > 0, "flipboard counter should start");
+    }
+
+    #[test]
+    fn skycutter_flipboard_mount_toggles_at_midpoint() {
+        let mut rt = skycutter_runtime();
+        let mut slice = airborne_slice();
+
+        // First frame: C press starts deploy
+        let c_input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_skycutter_flipboard(&mut slice, c_input);
+        assert!(!rt.skycutter_on_board, "not yet mounted at frame 1");
+
+        // Step until counter crosses SKYCUTTER_MOUNT_FRAME (17)
+        let no_input = FrameInput::default();
+        rt.prior_input = c_input; // so C is no longer rising edge
+        for _ in 0..8 {
+            rt.step_skycutter_flipboard(&mut slice, no_input);
+        }
+        // Counter: 1 + 2*9 = 19, which crosses 17
+        assert!(rt.skycutter_on_board, "should be mounted after crossing mount frame");
+    }
+
+    #[test]
+    fn skycutter_flight_gravity_replaces_normal_gravity() {
+        let mut rt = skycutter_runtime();
+        rt.skycutter_on_board = true;
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0; // hovering
+
+        // With B not held: Skycutter gravity is SKYCUTTER_GRAVITY_NO_B (0x4000)
+        let no_input = FrameInput::default();
+        rt.step_skycutter_flipboard(&mut slice, no_input);
+
+        assert_eq!(slice.player.y_velocity, SKYCUTTER_GRAVITY_NO_B);
+    }
+
+    #[test]
+    fn skycutter_flight_gravity_slower_with_b_held() {
+        let mut rt = skycutter_runtime();
+        rt.skycutter_on_board = true;
+        rt.prior_input = FrameInput { b: true, ..FrameInput::default() }; // B already held
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0;
+
+        let b_input = FrameInput { b: true, ..FrameInput::default() };
+        rt.step_skycutter_flipboard(&mut slice, b_input);
+
+        assert_eq!(slice.player.y_velocity, SKYCUTTER_GRAVITY_B_HELD);
+        assert!(SKYCUTTER_GRAVITY_B_HELD < SKYCUTTER_GRAVITY_NO_B,
+            "B-held gravity should be less than no-B gravity (slower descent)");
+    }
+
+    #[test]
+    fn skycutter_b_press_kicks_upward() {
+        let mut rt = skycutter_runtime();
+        rt.skycutter_on_board = true;
+        rt.prior_input = FrameInput::default(); // B was not held last frame
+        let mut slice = airborne_slice();
+        slice.player.x_velocity = 0x2_0000;
+        slice.player.y_velocity = 0x1_0000; // falling
+
+        let b_input = FrameInput { b: true, ..FrameInput::default() };
+        rt.step_skycutter_flipboard(&mut slice, b_input);
+
+        assert!(slice.player.y_velocity < 0,
+            "B press should kick player upward (negative y_velocity)");
+    }
+
+    #[test]
+    fn skycutter_max_upward_velocity_clamped() {
+        let mut rt = skycutter_runtime();
+        rt.skycutter_on_board = true;
+        rt.prior_input = FrameInput { b: true, ..FrameInput::default() }; // B already held
+        let mut slice = airborne_slice();
+        // Start with very negative y_velocity that exceeds max
+        slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL - 0x1_0000;
+
+        let b_input = FrameInput { b: true, ..FrameInput::default() };
+        rt.step_skycutter_flipboard(&mut slice, b_input);
+
+        // After gravity + clamp, velocity should be clamped to max
+        assert_eq!(slice.player.y_velocity, SKYCUTTER_MAX_UPWARD_VEL,
+            "upward velocity should be clamped to max");
+    }
+
+    #[test]
+    fn skycutter_landing_bounces_off_ground() {
+        let mut rt = skycutter_runtime();
+        rt.skycutter_on_board = true;
+        let mut slice = airborne_slice();
+        slice.player.on_ground = true; // just landed
+        slice.player.y_velocity = 0;
+
+        let no_input = FrameInput::default();
+        rt.step_skycutter_flipboard(&mut slice, no_input);
+
+        assert!(!slice.player.on_ground, "should bounce off ground");
+        assert_eq!(slice.player.y_velocity, SKYCUTTER_LANDING_BOUNCE);
+        assert_eq!(rt.skycutter_flipboard, 1, "deploy animation should restart");
+    }
+
+    #[test]
+    fn skycutter_non_skycutter_form_clears_state() {
+        let mut rt = skycutter_runtime();
+        rt.skycutter_on_board = true;
+        rt.skycutter_flipboard = 10;
+        rt.current_form = PlayerForm::TheKid; // no longer Skycutter
+
+        let mut slice = airborne_slice();
+        let no_input = FrameInput::default();
+        rt.step_skycutter_flipboard(&mut slice, no_input);
+
+        assert!(!rt.skycutter_on_board);
+        assert_eq!(rt.skycutter_flipboard, 0);
+    }
+
+    #[test]
+    fn skycutter_on_board_skips_normal_gravity_in_step() {
+        let bounds = LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x1_0000;
+        slice.player.x_pos = 0x0080_0000;
+        slice.player.y_pos = 0x0100_0000;
+
+        let vel_before = slice.player.y_velocity;
+
+        // Step with skycutter_on_board=true — normal gravity should be skipped
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput::default(),
+            false,
+            PlayerForm::Skycutter,
+            None,
+            None,
+            true,
+        );
+
+        // y_pos changes (from existing velocity) but y_velocity should NOT
+        // have had normal gravity applied
+        assert_eq!(slice.player.y_velocity, vel_before,
+            "normal gravity should be skipped when skycutter_on_board is true");
     }
 }
