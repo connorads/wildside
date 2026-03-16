@@ -780,6 +780,8 @@ struct ActiveEnemy {
     hit_points: u8,
     grounded_frames: u8,
     damage_flash_frames: u8,
+    /// Generic countdown timer for phased enemies (EmoRock hover wait, etc.)
+    wait_timer: u16,
     dragon_phase: DragonMotionPhase,
     dragon_phase_frames: u16,
 }
@@ -790,6 +792,7 @@ enum EnemyArchetype {
     Collectible,
     Flyer,
     Hopper,
+    Hoverer,
     Pacer,
     Inert,
 }
@@ -1594,6 +1597,7 @@ impl NativeRuntime {
                 &mut self.active_enemies,
                 self.block_grid.as_ref(),
                 Some(slice.player.x_pos),
+                Some(slice.player.y_pos),
             );
             self.active_enemy_roster = self
                 .active_enemies
@@ -3490,7 +3494,7 @@ impl EnemyFamily {
             | Self::Robot
             | Self::Lion
             | Self::FireDemon => EnemyArchetype::Pacer,
-            Self::EmoRock => EnemyArchetype::Inert, // TODO: hover/follow behaviour
+            Self::EmoRock => EnemyArchetype::Hoverer,
             Self::Archer => EnemyArchetype::Inert, // TODO: arrow projectiles
             Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Inert, // TODO: unique behaviours
             Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
@@ -3656,6 +3660,7 @@ fn activate_enemies(
             hit_points,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: spawn_wait_timer(family),
             dragon_phase: spawn_dragon_phase(family),
             dragon_phase_frames: 0,
         });
@@ -3667,6 +3672,7 @@ fn step_active_enemies(
     active: &mut [ActiveEnemy],
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
 ) {
     for enemy in active.iter_mut() {
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
@@ -3675,6 +3681,9 @@ fn step_active_enemies(
             EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
             EnemyArchetype::Flyer => step_flyer(enemy, block_grid),
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
+            EnemyArchetype::Hoverer => {
+                step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos)
+            }
             EnemyArchetype::Pacer => step_pacer(enemy, block_grid),
         }
     }
@@ -4037,6 +4046,89 @@ fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) 
     }
 }
 
+/// EmoRock hover height above player, indexed by enemy_level (derived from HP).
+/// Level 0: 80px, Level 1: 60px, Level 2: 40px.
+const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
+
+/// EmoRock gravity acceleration (applied each frame while dropping).
+/// Level 0: $4000, Level 1: $6000, Level 2: $8000.
+const EMO_ROCK_GRAVITY: [i32; 3] = [0x4000, 0x6000, 0x8000];
+
+/// EmoRock terminal velocity while dropping.
+const EMO_ROCK_TERMINAL_VELOCITY: i32 = 0x6_0000;
+
+/// EmoRock walk speed after landing.
+const EMO_ROCK_WALK_SPEED: i32 = 0x8000;
+
+/// Step an EmoRock enemy through its state machine:
+/// - wait_timer > 0: hover above player, count down
+/// - wait_timer == 0 && !on_ground: drop with gravity
+/// - on_ground: walk like a pacer
+fn step_emo_rock(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    if enemy.on_ground {
+        // Walking phase: pacer-like ground movement facing player.
+        if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+            enemy.facing = dir;
+        }
+        let Some(grid) = block_grid else { return };
+        enemy.x_velocity = horizontal_velocity(enemy.facing, EMO_ROCK_WALK_SPEED);
+        enemy.y_velocity = 0;
+        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+
+        let wall = terrain::probe_wall(
+            grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+        );
+        if wall.hit {
+            reverse_enemy_direction(enemy);
+        }
+        return;
+    }
+
+    if enemy.wait_timer > 0 {
+        // Hovering phase: track player position, count down.
+        let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+        let hover_height_fp = (EMO_ROCK_HOVER_HEIGHT[level_index] as u32) << 16;
+        if let Some(px) = player_x_pos {
+            enemy.x_pos = px;
+        }
+        if let Some(py) = player_y_pos {
+            enemy.y_pos = py.saturating_sub(hover_height_fp);
+        }
+        enemy.wait_timer -= 1;
+        return;
+    }
+
+    // Dropping phase: apply gravity, check floor.
+    let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+    let gravity = EMO_ROCK_GRAVITY[level_index];
+    enemy.y_velocity = (enemy.y_velocity + gravity).min(EMO_ROCK_TERMINAL_VELOCITY);
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground {
+            // Land: snap to floor, enter walking state.
+            enemy.y_pos = (floor.floor_y_px as u32) << 16;
+            enemy.y_velocity = 0;
+            enemy.on_ground = true;
+            if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+                enemy.facing = dir;
+            }
+        }
+    }
+}
+
 fn reverse_enemy_direction(enemy: &mut ActiveEnemy) {
     enemy.facing = opposite_direction(enemy.facing);
 }
@@ -4134,6 +4226,15 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         _ => 0,
     };
     (enemy_level + base).max(1)
+}
+
+fn spawn_wait_timer(family: EnemyFamily) -> u16 {
+    match family {
+        // EmoRock: base $3C (60) frames hover wait before first drop attempt.
+        // Original adds a random offset; we use the fixed base.
+        EnemyFamily::EmoRock => 60,
+        _ => 0,
+    }
 }
 
 fn spawn_dragon_phase(family: EnemyFamily) -> DragonMotionPhase {
@@ -7030,12 +7131,13 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
         };
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
 
         assert_eq!(enemy.y_pos, 272u32 << 16);
         assert_eq!(enemy.x_pos, (225u32 << 16) + 0x8000);
@@ -7171,6 +7273,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
         }];
@@ -7207,42 +7310,43 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
         };
 
         for _ in 0..199 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
         }
         assert_eq!(enemy.x_pos, 0x0060_8000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..91 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
         }
         assert_eq!(enemy.x_pos, 0x0033_0000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..39 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
         }
         assert_eq!(enemy.x_pos, DRAGON_PERCH_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..50 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
         }
         assert_eq!(enemy.x_pos, 0x0038_0000);
         assert_eq!(enemy.facing, Direction::Right);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
         }
         assert_eq!(enemy.x_pos, DRAGON_SWOOP_APEX_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
         }
 
         assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
@@ -7292,13 +7396,14 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -7326,13 +7431,14 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -7346,16 +7452,16 @@ mod tests {
         );
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
         }
         assert!(
             enemy.on_ground,
             "hopper should remain grounded through the disassembly-backed wait window"
         );
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
         for _ in 0..12 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
         }
 
         let airborne_skull = enemy;
@@ -7390,6 +7496,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: MINI_SKULL_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -7399,12 +7506,14 @@ mod tests {
                 std::slice::from_mut(&mut enemy),
                 Some(&grid),
                 Some(128u32 << 16),
+                None,
             );
         }
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
             Some(&grid),
             Some(128u32 << 16),
+            None,
         );
 
         assert_eq!(
@@ -7435,6 +7544,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: MINI_SKULL_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -7444,12 +7554,14 @@ mod tests {
                 std::slice::from_mut(&mut enemy),
                 Some(&grid),
                 Some(32u32 << 16),
+                None,
             );
         }
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
             Some(&grid),
             Some(32u32 << 16),
+            None,
         );
 
         assert_eq!(
@@ -8548,6 +8660,7 @@ mod tests {
             hit_points: hp,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         }
@@ -8685,6 +8798,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -8716,6 +8830,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -8743,8 +8858,8 @@ mod tests {
     // --- Tier 2 enemy wiring ---
 
     #[test]
-    fn emo_rock_maps_to_inert() {
-        assert_eq!(EnemyFamily::EmoRock.archetype(), EnemyArchetype::Inert);
+    fn emo_rock_maps_to_hoverer() {
+        assert_eq!(EnemyFamily::EmoRock.archetype(), EnemyArchetype::Hoverer);
         assert_eq!(EnemyFamily::EmoRock.object_type(), 0x1B);
     }
 
@@ -8775,6 +8890,7 @@ mod tests {
             hit_points: hp,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -8839,6 +8955,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -8870,6 +8987,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -8906,6 +9024,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
         };
@@ -8918,6 +9037,94 @@ mod tests {
             }
         }
         assert!(bounced, "sphere should bounce off wall");
+    }
+
+    // --- EmoRock enemy ---
+
+    #[test]
+    fn emo_rock_maps_to_hoverer_archetype() {
+        assert_eq!(EnemyFamily::EmoRock.archetype(), EnemyArchetype::Hoverer);
+    }
+
+    #[test]
+    fn emo_rock_hovers_above_player_then_drops() {
+        let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 14)).collect();
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let player_x: u32 = 100 << 16;
+        let player_y: u32 = 200 << 16;
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::EmoRock,
+            x_pos: 80 << 16,
+            y_pos: 50 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 3, // short wait for test
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+
+        // During hover: tracks player x, hovers above player y
+        step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
+        assert_eq!(enemy.x_pos, player_x, "should track player x while hovering");
+        assert!(enemy.y_pos < player_y, "should hover above player");
+        assert_eq!(enemy.wait_timer, 2);
+
+        // Count down remaining wait
+        step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
+        step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
+        assert_eq!(enemy.wait_timer, 0);
+
+        // Now drops: gravity applied
+        step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
+        assert!(enemy.y_velocity > 0, "should fall with positive y velocity");
+        assert!(!enemy.on_ground, "should not be on ground while falling");
+    }
+
+    #[test]
+    fn emo_rock_lands_and_walks() {
+        // Floor at row 5 (y=80px)
+        let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 5)).collect();
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let player_x: u32 = 200 << 16;
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::EmoRock,
+            x_pos: 100 << 16,
+            y_pos: 60 << 16, // above the floor
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0, // already past hover, will drop
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+
+        // Step until it lands
+        for _ in 0..100 {
+            step_emo_rock(&mut enemy, Some(&grid), Some(player_x), None);
+            if enemy.on_ground {
+                break;
+            }
+        }
+        assert!(enemy.on_ground, "should have landed on the floor");
+
+        // Once on ground, should walk toward player (player is to the right)
+        let x_before = enemy.x_pos;
+        step_emo_rock(&mut enemy, Some(&grid), Some(player_x), None);
+        assert_eq!(enemy.facing, Direction::Right, "should face toward player");
+        assert!(enemy.x_pos > x_before, "should walk toward player");
     }
 
     // --- Terrain type speed table selection ---
