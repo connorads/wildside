@@ -784,6 +784,8 @@ struct EnemyProjectile {
     friendly: bool,
     /// Per-frame gravity added to y_velocity (for arcing projectiles like Juggernaut skull).
     gravity: i32,
+    /// Homing: accelerates toward player each frame (HeadyMetal eye projectiles).
+    homing: bool,
 }
 
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
@@ -791,6 +793,8 @@ struct EnemyProjectile {
 const MAX_PROJECTILES: usize = 4;
 /// Projectile hitbox half-width for player collision (pixels).
 const PROJECTILE_HITBOX_HALF: i32 = 6;
+/// Homing projectile acceleration per frame per axis ($7D0 FP from HeadyMetal ASM).
+const HOMING_ACCEL: i32 = 0x7D0;
 
 /// Skycutter flipboard counter threshold: animation complete at 32.
 const SKYCUTTER_FLIPBOARD_TIMEOUT: u8 = 0x20;
@@ -1995,6 +1999,7 @@ impl NativeRuntime {
                 lifetime: 120,
                 gravity: 0x1000,
                 friendly: false,
+                homing: false,
             });
         }
 
@@ -2299,23 +2304,26 @@ impl NativeRuntime {
                     ) {
                         let boss_x = enemy.x_pos;
                         let boss_y = enemy.y_pos;
+                        let is_heady = matches!(enemy.family, EnemyFamily::HeadyMetal);
                         self.projectiles.push(EnemyProjectile {
                             x_pos: boss_x,
                             y_pos: boss_y,
-                            x_velocity: 0x2_0000, // rightward
-                            y_velocity: -0x1_0000, // slight upward arc
-                            lifetime: 90,
-                            gravity: 0x800,
+                            x_velocity: 0x2_0000,
+                            y_velocity: -0x1_0000,
+                            lifetime: if is_heady { 120 } else { 90 },
+                            gravity: if is_heady { 0x2710 } else { 0x800 },
                             friendly: false,
+                            homing: is_heady,
                         });
                         self.projectiles.push(EnemyProjectile {
                             x_pos: boss_x,
                             y_pos: boss_y,
-                            x_velocity: -0x2_0000, // leftward
+                            x_velocity: -0x2_0000,
                             y_velocity: -0x1_0000,
-                            lifetime: 90,
-                            gravity: 0x800,
+                            lifetime: if is_heady { 120 } else { 90 },
+                            gravity: if is_heady { 0x2710 } else { 0x800 },
                             friendly: false,
+                            homing: is_heady,
                         });
                     }
                     // TarMonster fires 5 tar blobs in a spread pattern when damaged
@@ -3370,6 +3378,7 @@ impl NativeRuntime {
                 lifetime: EYECLOPS_BEAM_LIFETIME,
                 friendly: true,
                 gravity: 0,
+                homing: false,
             });
         }
     }
@@ -3396,6 +3405,7 @@ impl NativeRuntime {
                 lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
                 friendly: true,
                 gravity: 0,
+                homing: false,
             });
         }
 
@@ -3495,6 +3505,7 @@ impl NativeRuntime {
             lifetime: JUGGERNAUT_SKULL_LIFETIME,
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
+            homing: false,
         });
     }
 
@@ -3550,13 +3561,25 @@ impl NativeRuntime {
     }
 
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
+    /// Homing projectiles accelerate toward `player_pos` each frame.
     fn step_projectiles(&mut self) {
+        let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
+        let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);
         self.projectiles.retain_mut(|p| {
             if p.lifetime == 0 {
                 return false;
             }
             p.lifetime -= 1;
             p.y_velocity += p.gravity;
+            // Homing: accelerate toward player ($7D0 per axis per frame from ASM)
+            if p.homing {
+                if let (Some(px), Some(py)) = (player_x, player_y) {
+                    let dx = px as i64 - p.x_pos as i64;
+                    let dy = py as i64 - p.y_pos as i64;
+                    p.x_velocity += if dx > 0 { HOMING_ACCEL } else { -HOMING_ACCEL };
+                    p.y_velocity += if dy > 0 { HOMING_ACCEL } else { -HOMING_ACCEL };
+                }
+            }
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             true
@@ -3632,6 +3655,7 @@ impl NativeRuntime {
             lifetime: 120,
             friendly: false,
             gravity: 0,
+            homing: false,
         });
     }
 
@@ -3810,6 +3834,7 @@ impl NativeRuntime {
                             lifetime: 120,
                             gravity: 0,
                             friendly: false,
+                        homing: false,
                         });
                     }
                 }
@@ -6396,6 +6421,7 @@ fn step_lion(
                     lifetime: 60,
                     gravity: 0,
                     friendly: false,
+                    homing: false,
                 });
             }
         }
@@ -6541,6 +6567,7 @@ fn step_robot(
                         lifetime: 60,
                         gravity: 0,
                         friendly: false,
+                        homing: false,
                     });
                 }
 
@@ -6742,6 +6769,7 @@ fn spawn_tar_monster_retaliation(projectiles: &mut Vec<EnemyProjectile>, x: u32,
             lifetime: 60,
             gravity: 0x1000,
             friendly: false,
+            homing: false,
         });
     }
 }
@@ -6785,6 +6813,7 @@ fn step_dragon_walking(
         lifetime: DRAGON_WALKING_BREATH_LIFETIME,
         gravity: 0,
         friendly: false,
+        homing: false,
     });
     enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
 }
@@ -6811,6 +6840,7 @@ fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
         lifetime: 120,
         gravity: DRIPS_DROP_GRAVITY,
         friendly: false,
+        homing: false,
     });
     enemy.wait_timer = DRIPS_DROP_INTERVAL;
 }
@@ -7069,6 +7099,7 @@ fn step_archer(
         lifetime: ARCHER_FIRE_TIMER[level],
         friendly: false,
         gravity: 0,
+        homing: false,
     });
 }
 
@@ -7093,6 +7124,7 @@ fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile
         lifetime: TANK_BULLET_LIFETIME,
         friendly: false,
         gravity: 0,
+        homing: false,
     });
 }
 
@@ -7215,7 +7247,7 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Hand => 1,
         EnemyFamily::Tornado => 1,
         EnemyFamily::DragonWalking => 2, // HP 2-3
-        EnemyFamily::HeadyMetal => 10,
+        EnemyFamily::HeadyMetal => 37, // ASM: 0x25 = 37 hits to defeat
         EnemyFamily::Shishkaboss => 10,
         EnemyFamily::BoomerangBosses => 10,
         EnemyFamily::BagelBrothers => 10,
@@ -12822,6 +12854,7 @@ mod tests {
             lifetime: 10,
             friendly: false,
             gravity: 0,
+            homing: false,
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
@@ -12847,6 +12880,7 @@ mod tests {
             lifetime: 1,
             friendly: false,
             gravity: 0,
+            homing: false,
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
@@ -13227,7 +13261,6 @@ mod tests {
         assert_eq!(enemy.wait_timer, UFO_PATTERN_FRAMES);
     }
 
-    #[test]
     #[test]
     fn tornado_reverses_acceleration_on_timer() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
@@ -15717,6 +15750,7 @@ mod tests {
             lifetime: 10,
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
+            homing: false,
         });
 
         rt.step_projectiles();
