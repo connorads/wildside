@@ -2306,6 +2306,276 @@ impl AddressBus for MdBus {
     }
 }
 
+// --- Standalone GEMS Audio Engine ---
+
+/// ROM addresses where Kid Chameleon's GEMS sound data lives.
+const GEMS_PATCH_ADDR: u32 = 0x0E_160E;
+const GEMS_ENVELOPE_ADDR: u32 = 0x0E_25EA;
+const GEMS_SEQUENCE_ADDR: u32 = 0x0E_2766;
+const GEMS_SAMPLE_ADDR: u32 = 0x0E_8716;
+/// GEMS command queue: 64-byte circular buffer in Z80 RAM.
+const GEMS_QUEUE_ADDR: u16 = 0x1A40;
+/// Queue write pointer location in Z80 RAM.
+const GEMS_QUEUE_PTR_ADDR: u16 = 0x0036;
+const GEMS_QUEUE_SIZE: u8 = 64;
+
+/// Z80 bus for the standalone GEMS audio engine.
+/// Provides: Z80 RAM (driver code), virtual ROM via bank switching, YM2612 + PSG I/O.
+struct GemsBus {
+    ram: Vec<u8>,
+    /// Virtual ROM built from extracted sound data files.
+    virtual_rom: Vec<u8>,
+    bank_address: u32,
+    ym2612_shadow: Ym2612Shadow,
+    z80_cycles: u64,
+    audio_events: VecDeque<AudioEvent>,
+}
+
+impl GemsBus {
+    fn new(driver: &[u8], virtual_rom: Vec<u8>) -> Self {
+        let mut ram = vec![0u8; Z80_RAM_LEN];
+        // Load GEMS driver into Z80 RAM at address 0
+        let copy_len = driver.len().min(Z80_RAM_LEN);
+        ram[..copy_len].copy_from_slice(&driver[..copy_len]);
+        Self {
+            ram,
+            virtual_rom,
+            bank_address: 0,
+            ym2612_shadow: Ym2612Shadow::new(),
+            z80_cycles: 0,
+            audio_events: VecDeque::new(),
+        }
+    }
+
+    fn record_ym2612_write(&mut self, port: u8, value: u8) {
+        self.ym2612_shadow.write_port(port, value);
+        self.audio_events.push_back(AudioEvent::Ym2612Write {
+            z80_cycles: self.z80_cycles,
+            port,
+            value,
+        });
+    }
+
+    fn record_psg_write(&mut self, value: u8) {
+        self.audio_events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: self.z80_cycles,
+            value,
+        });
+    }
+}
+
+impl Z80_io for GemsBus {
+    fn read_byte(&self, address: u16) -> u8 {
+        match address {
+            0x0000..=0x1FFF => self.ram[usize::from(address) & (Z80_RAM_LEN - 1)],
+            0x4000..=0x5FFF => {
+                // YM2612 status read — use shadow for decay simulation
+                // (const borrow prevents mutable access here, return 0 for status)
+                0
+            }
+            0x8000..=0xFFFF => {
+                let banked = self
+                    .bank_address
+                    .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
+                self.virtual_rom
+                    .get(banked as usize)
+                    .copied()
+                    .unwrap_or(0xFF)
+            }
+            _ => 0xFF,
+        }
+    }
+
+    fn write_byte(&mut self, address: u16, value: u8) {
+        match address {
+            0x0000..=0x1FFF => {
+                self.ram[usize::from(address) & (Z80_RAM_LEN - 1)] = value;
+            }
+            0x4000..=0x5FFF => self.record_ym2612_write((address & 0x03) as u8, value),
+            0x6000..=0x60FF => {
+                // Bank register write
+                let current_bank = self.bank_address >> 15;
+                let next_bank = ((current_bank >> 1) | (u32::from(value & 1) << 8)) & 0x01FF;
+                self.bank_address = next_bank << 15;
+            }
+            0x7F11 => self.record_psg_write(value),
+            _ => {}
+        }
+    }
+
+    fn port_in(&self, _address: u16) -> u8 {
+        0xFF
+    }
+
+    fn port_out(&mut self, _address: u16, _value: u8) {}
+}
+
+/// Standalone GEMS audio engine — runs the real Z80 GEMS sound driver
+/// with YM2612 FM synthesis and PSG, independent of the full M68K emulator.
+///
+/// Usage:
+/// 1. `GemsAudioEngine::new(driver, patches, envelopes, sequences, samples)`
+/// 2. `engine.play_sound(sfx_id)` or `engine.play_music(bgm_id)`
+/// 3. `engine.step_frame()` each game frame (advances Z80 by one VBlank period)
+/// 4. `engine.generate_samples(735)` to pull 735 stereo samples (1 frame @ 44.1kHz)
+pub struct GemsAudioEngine {
+    z80: Z80<GemsBus>,
+    mixer: AudioMixer,
+    vblank_irq_cycles_remaining: u32,
+    initialised: bool,
+}
+
+/// Z80 cycles per VBlank period (NTSC: ~59,659 Z80 cycles per frame).
+/// 3,579,545 Hz / 59.92 Hz ≈ 59,742 cycles.
+const GEMS_Z80_CYCLES_PER_FRAME: u32 = 59_659;
+
+impl GemsAudioEngine {
+    /// Create a new GEMS audio engine from extracted sound data.
+    ///
+    /// - `driver`: GEMS_Sounddriver.bin (loaded into Z80 RAM at address 0)
+    /// - `patches`: instruments.bin (patch/instrument definitions)
+    /// - `envelopes`: envelopes.bin
+    /// - `sequences`: sequences.bin (song/SFX sequence data)
+    /// - `samples`: samples.bin (PCM sample data)
+    pub fn new(
+        driver: &[u8],
+        patches: &[u8],
+        envelopes: &[u8],
+        sequences: &[u8],
+        samples: &[u8],
+    ) -> Self {
+        // Build virtual ROM: place data at original ROM addresses
+        let max_addr = GEMS_SAMPLE_ADDR as usize + samples.len();
+        let mut virtual_rom = vec![0u8; max_addr];
+        Self::place_data(&mut virtual_rom, GEMS_PATCH_ADDR, patches);
+        Self::place_data(&mut virtual_rom, GEMS_ENVELOPE_ADDR, envelopes);
+        Self::place_data(&mut virtual_rom, GEMS_SEQUENCE_ADDR, sequences);
+        Self::place_data(&mut virtual_rom, GEMS_SAMPLE_ADDR, samples);
+
+        let bus = GemsBus::new(driver, virtual_rom);
+        let mut z80 = Z80::new(bus);
+        z80.reset();
+
+        Self {
+            z80,
+            mixer: AudioMixer::default(),
+            vblank_irq_cycles_remaining: 0,
+            initialised: false,
+        }
+    }
+
+    fn place_data(rom: &mut [u8], base_addr: u32, data: &[u8]) {
+        let start = base_addr as usize;
+        let end = start + data.len();
+        if end <= rom.len() {
+            rom[start..end].copy_from_slice(data);
+        }
+    }
+
+    /// Initialise GEMS: send command 0x0B with data pointers.
+    /// Must be called once before playing any sounds.
+    pub fn init(&mut self) {
+        if self.initialised {
+            return;
+        }
+        // Run a few frames to let the driver boot
+        for _ in 0..4 {
+            self.step_z80_frame();
+        }
+        // Queue init command: FF 0B <patch_ptr> <env_ptr> <seq_ptr> <sample_ptr>
+        self.queue_byte(0xFF);
+        self.queue_byte(0x0B);
+        self.queue_24bit_addr(GEMS_PATCH_ADDR);
+        self.queue_24bit_addr(GEMS_ENVELOPE_ADDR);
+        self.queue_24bit_addr(GEMS_SEQUENCE_ADDR);
+        self.queue_24bit_addr(GEMS_SAMPLE_ADDR);
+        // Run a few more frames for GEMS to process the init
+        for _ in 0..4 {
+            self.step_z80_frame();
+        }
+        self.initialised = true;
+    }
+
+    /// Queue a single byte to the GEMS command circular buffer.
+    fn queue_byte(&mut self, value: u8) {
+        let ptr = self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)];
+        self.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + usize::from(ptr)] = value;
+        let next = (ptr.wrapping_add(1)) & (GEMS_QUEUE_SIZE - 1);
+        self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)] = next;
+    }
+
+    /// Queue a 24-bit ROM address (big-endian, 3 bytes).
+    fn queue_24bit_addr(&mut self, addr: u32) {
+        self.queue_byte(((addr >> 16) & 0xFF) as u8);
+        self.queue_byte(((addr >> 8) & 0xFF) as u8);
+        self.queue_byte((addr & 0xFF) as u8);
+    }
+
+    /// Play a sound effect by ID (GEMS command $10).
+    pub fn play_sound(&mut self, sound_id: u8) {
+        if !self.initialised {
+            self.init();
+        }
+        self.queue_byte(0xFF);
+        self.queue_byte(0x10);
+        self.queue_byte(sound_id);
+    }
+
+    /// Play a sound via command $12 (alternate PlaySound).
+    pub fn play_sound2(&mut self, sound_id: u8) {
+        if !self.initialised {
+            self.init();
+        }
+        self.queue_byte(0xFF);
+        self.queue_byte(0x12);
+        self.queue_byte(sound_id);
+    }
+
+    /// Advance Z80 by one frame's worth of cycles.
+    /// Call once per game frame (60 Hz).
+    pub fn step_frame(&mut self) {
+        self.step_z80_frame();
+        // Drain audio events from bus into mixer
+        let events = std::mem::take(&mut self.z80.io.audio_events);
+        self.mixer.push_events(events);
+    }
+
+    fn step_z80_frame(&mut self) {
+        let mut remaining = GEMS_Z80_CYCLES_PER_FRAME;
+        // Fire VBlank IRQ at start of frame
+        self.vblank_irq_cycles_remaining = Z80_VBLANK_IRQ_CYCLES;
+
+        while remaining > 0 {
+            self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(0);
+            if self.vblank_irq_cycles_remaining > 0 {
+                self.z80.assert_irq(0xFF);
+            } else {
+                self.z80.clr_irq();
+            }
+            let elapsed = self.z80.step();
+            let budget = elapsed.min(remaining);
+            self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(u64::from(budget));
+            self.vblank_irq_cycles_remaining =
+                self.vblank_irq_cycles_remaining.saturating_sub(budget);
+            if budget >= remaining {
+                break;
+            }
+            remaining -= budget;
+        }
+    }
+
+    /// Generate audio samples. Returns interleaved stereo f32 (L, R, L, R, ...).
+    /// For 60fps at 44.1kHz, request 735 samples per frame.
+    pub fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
+        self.mixer.generate(44_100, sample_count)
+    }
+
+    /// Set audio volume levels.
+    pub fn set_levels(&mut self, levels: AudioLevels) {
+        self.mixer.set_levels(levels);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -2548,5 +2818,40 @@ mod tests {
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 9, 2, 0x02), 0x058);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 0, 0x03), 0x068);
         assert_eq!(super::hscroll_for_line(&vram, 0x100, 16, 2, 0x03), 0x078);
+    }
+
+    #[test]
+    fn gems_engine_constructs_without_panic() {
+        // Minimal dummy data — just verifies no crash during construction
+        let driver = vec![0u8; 64]; // stub driver (won't produce real audio)
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine = super::GemsAudioEngine::new(
+            &driver, &patches, &envelopes, &sequences, &samples,
+        );
+        engine.step_frame();
+        let samples = engine.generate_samples(735);
+        assert_eq!(samples.len(), 735 * 2, "should produce stereo interleaved samples");
+    }
+
+    #[test]
+    fn gems_engine_play_sound_does_not_panic() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine = super::GemsAudioEngine::new(
+            &driver, &patches, &envelopes, &sequences, &samples,
+        );
+        // play_sound will auto-init, which runs step_z80_frame multiple times
+        engine.play_sound(0x17); // sfx_Jump
+        engine.step_frame();
+        let output = engine.generate_samples(735);
+        assert_eq!(output.len(), 735 * 2);
     }
 }

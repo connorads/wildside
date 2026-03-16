@@ -7,6 +7,7 @@ use kid_core::{
 };
 use kid_data::{AssetManifest, LevelHeader};
 use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
+use kid_md::GemsAudioEngine;
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
@@ -195,13 +196,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
 
+    let mut gems_engine = try_load_gems_engine(manifest);
+    let has_gems = gems_engine.is_some();
+    // Stereo if GEMS is available, mono otherwise
+    let audio_channels: u8 = if has_gems { 2 } else { 1 };
     let audio_queue: Option<AudioQueue<f32>> = sdl
         .audio()
         .ok()
         .and_then(|audio| {
             let desired = sdl2::audio::AudioSpecDesired {
                 freq: Some(44_100),
-                channels: Some(1),
+                channels: Some(audio_channels),
                 samples: Some(1024),
             };
             audio.open_queue::<f32, _>(None, &desired).ok()
@@ -316,7 +321,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
 
             // Detect game events by comparing frames
-            detect_sfx_events(&prev_trace, &trace, &mut sfx_engine);
+            if !has_gems {
+                detect_sfx_events(&prev_trace, &trace, &mut sfx_engine);
+            }
 
             // Screen shake on damage or death
             if trace.number_hitpoints < prev_trace.number_hitpoints
@@ -335,9 +342,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
         // Push audio samples to SDL2 queue
         if let Some(ref aq) = audio_queue {
-            if aq.size() < 4096 {
-                let samples = sfx_engine.generate(735); // ~1 frame at 44100 Hz
-                let _ = aq.queue_audio(&samples);
+            if aq.size() < 8192 {
+                if let Some(ref mut gems) = gems_engine {
+                    detect_gems_events(&prev_trace, &trace, gems);
+                    gems.step_frame();
+                    let samples = gems.generate_samples(735);
+                    let _ = aq.queue_audio(&samples);
+                } else {
+                    let samples = sfx_engine.generate(735);
+                    let _ = aq.queue_audio(&samples);
+                }
             }
         }
 
@@ -345,6 +359,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             let new_level = trace.current_level.0;
             fade_alpha = 255;
             fading_in = true;
+            // Trigger BGM for new level's theme
+            if let Some(ref mut gems) = gems_engine {
+                let level_theme = manifest
+                    .levels
+                    .get(new_level as usize)
+                    .and_then(|l| l.header_metadata.as_ref())
+                    .map(|h| h.level_theme);
+                if let Some(bgm) = level_theme.and_then(theme_to_bgm) {
+                    gems.play_sound(bgm);
+                }
+            }
             match load_native_session_assets(manifest, new_level) {
                 Ok(new_assets) => {
                     session_assets = new_assets;
@@ -2482,6 +2507,91 @@ struct SfxTone {
     remaining_samples: u32,
     phase: f32,
     volume: f32,
+}
+
+/// Try to load a GEMS audio engine from extracted sound data in the disassembly.
+fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
+    let sound_dir = manifest.source_root.join("sound");
+    let driver = std::fs::read(sound_dir.join("GEMS_Sounddriver.bin")).ok()?;
+    let patches = std::fs::read(sound_dir.join("instruments.bin")).ok()?;
+    let envelopes = std::fs::read(sound_dir.join("envelopes.bin")).ok()?;
+    let sequences = std::fs::read(sound_dir.join("sequences.bin")).ok()?;
+    let samples = std::fs::read(sound_dir.join("samples.bin")).ok()?;
+
+    let mut engine = GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+    engine.init();
+    Some(engine)
+}
+
+/// GEMS sound IDs for Kid Chameleon (from constants.asm).
+#[allow(dead_code)]
+mod gems_sfx {
+    pub const JUMP: u8 = 0x17;
+    pub const BLOCK_HIT: u8 = 0x0D;
+    pub const DESTROY_BLOCK: u8 = 0x11;
+    pub const JUMP_ON_ENEMY: u8 = 0x4C;
+    pub const TELEPORT: u8 = 0x76;
+    pub const THUNDERSTORM: u8 = 0x77;
+}
+
+/// GEMS BGM IDs (from constants.asm).
+#[allow(dead_code)]
+mod gems_bgm {
+    pub const MOUNTAIN: u8 = 0;
+    pub const DESERT: u8 = 1;
+    pub const SKY: u8 = 2;
+    pub const ICE: u8 = 3;
+    pub const HILLS: u8 = 4;
+    pub const ENDING: u8 = 5;
+    pub const FOREST: u8 = 6;
+    pub const CAVE: u8 = 7;
+    pub const ISLAND: u8 = 8;
+    pub const MURDERWALL: u8 = 9;
+    pub const SWAMP: u8 = 0x0A;
+    pub const CITY: u8 = 0x65;
+    pub const SCORE_BOARD: u8 = 0x74;
+}
+
+/// Map level theme ID to GEMS BGM ID.
+fn theme_to_bgm(theme: u8) -> Option<u8> {
+    match theme {
+        0 => Some(gems_bgm::FOREST),
+        1 => Some(gems_bgm::ISLAND),
+        2 => Some(gems_bgm::DESERT),
+        3 => Some(gems_bgm::ICE),
+        4 => Some(gems_bgm::CAVE),
+        5 => Some(gems_bgm::SKY),
+        6 => Some(gems_bgm::MOUNTAIN),
+        7 => Some(gems_bgm::HILLS),
+        8 => Some(gems_bgm::CITY),
+        9 => Some(gems_bgm::SWAMP),
+        _ => None,
+    }
+}
+
+/// Detect game events and trigger GEMS sounds.
+fn detect_gems_events(
+    prev: &NativeTraceFrame,
+    curr: &NativeTraceFrame,
+    gems: &mut GemsAudioEngine,
+) {
+    // Jump
+    if prev.kid_on_ground == Some(true)
+        && curr.kid_on_ground == Some(false)
+        && curr.kid_y_velocity.is_some_and(|v| v < 0)
+    {
+        gems.play_sound(gems_sfx::JUMP);
+    }
+
+    // Stomp enemy (score jumped by 1000+)
+    if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
+        gems.play_sound(gems_sfx::JUMP_ON_ENEMY);
+    }
+
+    // Block hit (HP decreased via headbutt area)
+    if curr.number_hitpoints < prev.number_hitpoints {
+        gems.play_sound(gems_sfx::BLOCK_HIT);
+    }
 }
 
 struct SfxEngine {
