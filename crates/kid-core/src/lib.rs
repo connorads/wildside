@@ -16283,4 +16283,47 @@ mod tests {
             "smash block should be broken by Berzerker charge"
         );
     }
+
+    // --- 105-level soak test ---
+
+    #[test]
+    fn soak_all_105_levels_no_panic() {
+        let mut manifest = manifest_with_levels(105);
+        // Vary theme, weather, and murder wall across levels to cover all code paths
+        let themes: [u8; 11] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let weather_flags: [u8; 4] = [0, 1, 2, 3]; // none, lava, storm, storm+hail
+        let murder_flags: [u8; 3] = [0, 0b10, 0b11]; // none, normal, reversed
+
+        for (i, level) in manifest.levels.iter_mut().enumerate() {
+            if let Some(header) = level.header_metadata.as_mut() {
+                header.level_theme = themes[i % themes.len()];
+                header.background_theme = themes[i % themes.len()];
+                header.weather_flags = weather_flags[i % weather_flags.len()];
+                header.murder_wall_flags = murder_flags[i % murder_flags.len()];
+            }
+        }
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+
+        // Boot through sega/title screens
+        for _ in 0..120 {
+            runtime.step_frame(FrameInput::default());
+        }
+        // Press start to begin
+        runtime.step_frame(FrameInput { start: true, ..FrameInput::default() });
+        for _ in 0..120 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Step through each level via debug warp (N key simulated by advance_level)
+        for level_id in 0u8..105 {
+            runtime.begin_level_entry(LevelId(level_id));
+            runtime.set_block_grid(grid_with_floor_at_row(17));
+            // Run 60 frames of gameplay per level
+            for _ in 0..60 {
+                runtime.step_frame(FrameInput::default());
+            }
+        }
+    }
 }
