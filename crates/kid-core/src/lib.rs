@@ -398,6 +398,12 @@ pub struct NativeRuntime {
     cyclone_flying: bool,
     /// Cyclone Y acceleration accumulator (signed 16-bit, applied to y_vel each frame).
     cyclone_y_accel: i16,
+    /// RedStealth sword swing timer: counts down from startup+active to 0.
+    red_stealth_sword_timer: u8,
+    /// Maniaxe axe in flight (reuses projectile system with turnaround).
+    maniaxe_axe_active: bool,
+    /// Maniaxe axe turnaround counter (frames until direction reversal).
+    maniaxe_turnaround: u8,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -743,6 +749,20 @@ const SKYCUTTER_LANDING_BOUNCE: i32 = -0x3_0000;
 /// Max upward velocity while on the board ($FFF88000 signed = -0x78000).
 const SKYCUTTER_MAX_UPWARD_VEL: i32 = -0x7_8000;
 
+/// RedStealth sword: C press spawns a melee hitbox 28px ahead, 10px up
+/// from the player. 8 frames startup, 3 frames active. One swing at a time.
+const RED_STEALTH_STARTUP_FRAMES: u8 = 8;
+const RED_STEALTH_ACTIVE_FRAMES: u8 = 3;
+const RED_STEALTH_REACH_X: i32 = 28;
+const RED_STEALTH_OFFSET_Y: i32 = -10;
+const RED_STEALTH_HIT_HALF: i32 = 8;
+
+/// Maniaxe thrown axe: travels 12 frames outward at ±5 px/frame then
+/// reverses for 12 frames. Damages enemies on contact, breaks on walls.
+const MANIAXE_STARTUP_FRAMES: u8 = 6;
+const MANIAXE_BASE_SPEED: i32 = 5;
+const MANIAXE_TRAVEL_FRAMES: u8 = 12;
+
 /// Cyclone flight: acceleration-based vertical flight.
 /// Per-frame gravity added to acceleration accumulator.
 const CYCLONE_ACCEL_GRAVITY: i16 = 0x400;
@@ -1040,6 +1060,9 @@ impl NativeRuntime {
             skycutter_on_board: false,
             cyclone_flying: false,
             cyclone_y_accel: 0,
+            red_stealth_sword_timer: 0,
+            maniaxe_axe_active: false,
+            maniaxe_turnaround: 0,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -1611,9 +1634,11 @@ impl NativeRuntime {
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.prize_block_hit = None;
-        // Step helmet flight abilities BEFORE physics so they affect gravity
+        // Step helmet abilities BEFORE physics
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
+        self.step_red_stealth_sword(input);
+        self.step_maniaxe_axe(&slice, input);
 
         // Either Skycutter board or Cyclone flight replaces normal gravity
         let custom_gravity = self.skycutter_on_board || self.cyclone_flying;
@@ -1704,6 +1729,9 @@ impl NativeRuntime {
             self.opening_slice = Some(slice);
             return;
         }
+
+        // Combat abilities: sword/axe damage enemies
+        self.process_sword_hits(&slice);
 
         // Diamond collection: touching a Diamond picks it up
         self.collect_diamonds(&slice);
@@ -2089,6 +2117,9 @@ impl NativeRuntime {
         self.skycutter_on_board = false;
         self.cyclone_flying = false;
         self.cyclone_y_accel = 0;
+        self.red_stealth_sword_timer = 0;
+        self.maniaxe_axe_active = false;
+        self.maniaxe_turnaround = 0;
     }
 
     fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
@@ -2448,6 +2479,122 @@ impl NativeRuntime {
         }
         if slice.player.y_velocity < CYCLONE_MAX_RISE_VEL {
             slice.player.y_velocity = CYCLONE_MAX_RISE_VEL;
+        }
+    }
+
+    /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
+    fn step_red_stealth_sword(&mut self, input: FrameInput) {
+        if self.current_form != PlayerForm::RedStealth {
+            self.red_stealth_sword_timer = 0;
+            return;
+        }
+
+        // C rising edge starts a new swing (only if not already swinging)
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && self.red_stealth_sword_timer == 0 {
+            self.red_stealth_sword_timer = RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
+        }
+
+        // Tick down active timer
+        if self.red_stealth_sword_timer > 0 {
+            self.red_stealth_sword_timer -= 1;
+        }
+    }
+
+    /// Returns true if the sword hitbox is active (past startup, within active frames).
+    fn sword_is_active(&self) -> bool {
+        self.red_stealth_sword_timer > 0
+            && self.red_stealth_sword_timer <= RED_STEALTH_ACTIVE_FRAMES
+    }
+
+    /// Check sword hitbox against active enemies during active frames.
+    /// Damages hit enemies and removes dead ones.
+    fn process_sword_hits(&mut self, slice: &OpeningSliceState) {
+        if !self.sword_is_active() {
+            return;
+        }
+
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+        let sword_x = if slice.player.facing == Direction::Right {
+            px + RED_STEALTH_REACH_X
+        } else {
+            px - RED_STEALTH_REACH_X
+        };
+        let sword_y = py + RED_STEALTH_OFFSET_Y;
+
+        let mut kill_indices = Vec::new();
+        for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
+            if matches!(enemy.family, EnemyFamily::Diamond) {
+                continue;
+            }
+            let ex = (enemy.x_pos >> 16) as i32;
+            let ey = (enemy.y_pos >> 16) as i32;
+            let dx = (sword_x - ex).abs();
+            let dy = (sword_y - ey).abs();
+            if dx <= RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
+                && dy <= RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+            {
+                enemy.hit_points = enemy.hit_points.saturating_sub(1);
+                if enemy.hit_points == 0 {
+                    kill_indices.push(i);
+                } else {
+                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                }
+            }
+        }
+
+        for &idx in kill_indices.iter().rev() {
+            self.active_enemies.remove(idx);
+        }
+        if !kill_indices.is_empty() {
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+        }
+    }
+
+    /// Step Maniaxe thrown axe: boomerang projectile that reverses after 12 frames.
+    fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.current_form != PlayerForm::Maniaxe {
+            self.maniaxe_axe_active = false;
+            return;
+        }
+
+        // C rising edge throws axe (only one at a time)
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && !self.maniaxe_axe_active {
+            self.maniaxe_axe_active = true;
+            self.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
+            let dir = if slice.player.facing == Direction::Right { 1 } else { -1 };
+            let speed = (MANIAXE_BASE_SPEED * dir) << 16;
+            self.projectiles.push(EnemyProjectile {
+                x_pos: slice.player.x_pos,
+                y_pos: (slice.player.y_pos as i64 - (16 << 16)) as u32,
+                x_velocity: speed,
+                y_velocity: 0,
+                lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
+            });
+        }
+
+        // Turnaround: reverse axe projectile direction after travel frames
+        if self.maniaxe_axe_active {
+            if self.maniaxe_turnaround > 0 {
+                self.maniaxe_turnaround -= 1;
+            }
+            if self.maniaxe_turnaround == 0 {
+                // Reverse the axe projectile direction
+                if let Some(p) = self.projectiles.last_mut() {
+                    p.x_velocity = -p.x_velocity;
+                    self.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
+                }
+            }
+            // Check if axe expired
+            if !self.projectiles.iter().any(|p| p.lifetime > 0) {
+                self.maniaxe_axe_active = false;
+            }
         }
     }
 
@@ -11305,5 +11452,167 @@ mod tests {
         // have had normal gravity applied
         assert_eq!(slice.player.y_velocity, vel_before,
             "normal gravity should be skipped when skycutter_on_board is true");
+    }
+
+    // --- Combat ability test helpers ---
+
+    fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family,
+            x_pos: x,
+            y_pos: y,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: hp,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        }
+    }
+
+    fn combat_slice() -> OpeningSliceState {
+        let bounds = LevelBounds { width_pixels: 4096, height_pixels: 512 };
+        OpeningSliceState {
+            player: {
+                let mut p = PlayerState::title_pose();
+                p.x_pos = 0x0080_0000;
+                p.y_pos = 0x0100_0000;
+                p.facing = Direction::Right;
+                p
+            },
+            ..OpeningSliceState::new(bounds)
+        }
+    }
+
+    // --- RedStealth sword tests ---
+
+    #[test]
+    fn red_stealth_c_press_starts_sword_swing() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::RedStealth;
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_red_stealth_sword(input);
+
+        assert!(rt.red_stealth_sword_timer > 0);
+    }
+
+    #[test]
+    fn red_stealth_sword_inactive_during_startup() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::RedStealth;
+        // Start swing
+        rt.step_red_stealth_sword(FrameInput { c: true, ..FrameInput::default() });
+        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+
+        // During startup frames the sword should not be active
+        assert!(rt.red_stealth_sword_timer > RED_STEALTH_ACTIVE_FRAMES);
+        assert!(!rt.sword_is_active());
+    }
+
+    #[test]
+    fn red_stealth_sword_active_after_startup() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::RedStealth;
+        // Start swing
+        rt.step_red_stealth_sword(FrameInput { c: true, ..FrameInput::default() });
+        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+
+        // Tick through startup frames
+        for _ in 0..RED_STEALTH_STARTUP_FRAMES {
+            rt.step_red_stealth_sword(FrameInput::default());
+        }
+
+        assert!(rt.sword_is_active(), "sword should be active after startup");
+    }
+
+    #[test]
+    fn red_stealth_sword_damages_nearby_enemy() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::RedStealth;
+        rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+
+        // Enemy at sword reach: player at 128px, sword at 128+28=156px
+        rt.active_enemies.push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 2));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 1, "enemy should take 1 damage");
+    }
+
+    #[test]
+    fn red_stealth_sword_kills_1hp_enemy() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::RedStealth;
+        rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+
+        rt.active_enemies.push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 1));
+
+        rt.process_sword_hits(&slice);
+
+        assert!(rt.active_enemies.is_empty(), "1HP enemy should be killed");
+    }
+
+    #[test]
+    fn red_stealth_sword_no_hit_when_out_of_range() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::RedStealth;
+        rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+
+        rt.active_enemies.push(test_enemy(EnemyFamily::Goat, 0x0140_0000, 0x0100_0000, 3));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(rt.active_enemies[0].hit_points, 3, "out-of-range enemy should not be hit");
+    }
+
+    // --- Maniaxe axe tests ---
+
+    #[test]
+    fn maniaxe_c_press_throws_axe() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Maniaxe;
+        let slice = combat_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_maniaxe_axe(&slice, input);
+
+        assert!(rt.maniaxe_axe_active);
+        assert_eq!(rt.projectiles.len(), 1);
+        assert!(rt.projectiles[0].x_velocity > 0, "axe should move right");
+    }
+
+    #[test]
+    fn maniaxe_no_double_throw() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Maniaxe;
+        rt.maniaxe_axe_active = true;
+        let slice = combat_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_maniaxe_axe(&slice, input);
+
+        assert!(rt.projectiles.is_empty(), "should not throw while axe is active");
+    }
+
+    #[test]
+    fn maniaxe_non_maniaxe_form_clears_state() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::TheKid;
+        rt.maniaxe_axe_active = true;
+        let slice = combat_slice();
+
+        rt.step_maniaxe_axe(&slice, FrameInput::default());
+
+        assert!(!rt.maniaxe_axe_active);
     }
 }
