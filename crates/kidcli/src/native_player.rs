@@ -2103,6 +2103,7 @@ fn game_mode_label(mode: GameMode) -> &'static str {
         GameMode::TitleScreen => "TitleScreen",
         GameMode::LevelTransition => "LevelTransition",
         GameMode::InGame => "InGame",
+        GameMode::OptionsMenu => "OptionsMenu",
     }
 }
 
@@ -2314,6 +2315,7 @@ mod tests {
             level_complete: false,
             game_over: false,
             game_complete: false,
+            options_cursor: None,
             number_continues: 3,
             invulnerable_frames: 0,
             diamond_count: 0,

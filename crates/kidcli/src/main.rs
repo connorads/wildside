@@ -5217,6 +5217,7 @@ mod tests {
             level_timer_seconds: 180,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
+            options_cursor: None,
         };
 
         let state = native_trace_to_oracle_state("enemy_window_open", 810, &frame);

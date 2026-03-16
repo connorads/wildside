@@ -195,6 +195,7 @@ pub enum GameMode {
     IntroSequence2,
     IntroSequence3,
     TitleScreen,
+    OptionsMenu,
     LevelTransition,
     InGame,
 }
@@ -207,6 +208,7 @@ impl GameMode {
             Self::IntroSequence2 => 0x0018,
             Self::IntroSequence3 => 0x001C,
             Self::TitleScreen => 0x002C,
+            Self::OptionsMenu => 0x0028,
             Self::LevelTransition => 0x0008,
             Self::InGame => 0x000C,
         }
@@ -354,6 +356,7 @@ pub struct NativeTraceFrame {
     pub level_complete: bool,
     pub game_over: bool,
     pub game_complete: bool,
+    pub options_cursor: Option<u8>,
     pub invulnerable_frames: usize,
     pub diamond_count: u16,
     pub score: u32,
@@ -485,6 +488,7 @@ enum BootState {
     SegaScreen { elapsed: usize },
     IntroSequence { segment: usize, elapsed: usize },
     TitleScreen,
+    OptionsMenu { cursor: u8 },
     StartingLevel { remaining_frames: usize },
     LevelSkipHold,
     InGame,
@@ -1526,6 +1530,24 @@ impl NativeRuntime {
                 if start_pressed && self.start_press_count >= BOOTSTRAP_LEVEL_START_PRESS_COUNT {
                     self.begin_level_entry(self.current_level);
                 }
+                // B button opens options menu
+                if input.b && !self.prior_input.b {
+                    self.boot_state = BootState::OptionsMenu { cursor: 0 };
+                }
+            }
+            BootState::OptionsMenu { cursor } => {
+                let b_pressed = input.b && !self.prior_input.b;
+                // Up/Down navigate cursor
+                if input.up && !self.prior_input.up && *cursor > 0 {
+                    *cursor -= 1;
+                }
+                if input.down && !self.prior_input.down && *cursor < 1 {
+                    *cursor += 1;
+                }
+                // Start or B exits back to title
+                if start_pressed || b_pressed {
+                    self.boot_state = BootState::TitleScreen;
+                }
             }
             BootState::StartingLevel { remaining_frames } => {
                 if *remaining_frames > 0 {
@@ -1617,6 +1639,10 @@ impl NativeRuntime {
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. }),
             game_complete: self.game_complete,
+            options_cursor: match self.boot_state {
+                BootState::OptionsMenu { cursor } => Some(cursor),
+                _ => None,
+            },
             invulnerable_frames: self.invulnerable_frames,
             diamond_count: self.diamond_count,
             score: self.score,
@@ -1633,6 +1659,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 1, .. } => GameMode::IntroSequence2,
             BootState::IntroSequence { .. } => GameMode::IntroSequence3,
             BootState::TitleScreen => GameMode::TitleScreen,
+            BootState::OptionsMenu { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
         }
@@ -1700,7 +1727,8 @@ impl NativeRuntime {
         match self.boot_state {
             BootState::SegaScreen { .. }
             | BootState::IntroSequence { .. }
-            | BootState::TitleScreen => Some(PlayerState::title_pose()),
+            | BootState::TitleScreen
+            | BootState::OptionsMenu { .. } => Some(PlayerState::title_pose()),
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
