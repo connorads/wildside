@@ -1727,6 +1727,21 @@ impl NativeRuntime {
             return;
         }
 
+        // Teleporter: stepping on a teleporter block warps the player
+        if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(&slice) {
+            self.opening_slice = Some(slice);
+            // Same-level teleport: reposition. Cross-level: trigger level skip.
+            if dest_map == self.current_level.0 {
+                if let Some(ref mut s) = self.opening_slice {
+                    s.player.x_pos = u32::from(dest_x) << 20; // blocks to FP16.16
+                    s.player.y_pos = u32::from(dest_y as u16) << 20;
+                }
+            } else {
+                self.pending_level_skip = Some(LevelId(dest_map));
+            }
+            return;
+        }
+
         // Flag collision: touching the flag completes the level
         if self.player_touches_flag(&slice) {
             self.opening_slice = Some(slice);
@@ -2103,6 +2118,26 @@ impl NativeRuntime {
         let dx = slice.player.x_pos.abs_diff(flag_x_fp);
         let dy = slice.player.y_pos.abs_diff(flag_y_fp);
         dx <= half_fp && dy <= half_fp
+    }
+
+    /// Check if the player is standing on a teleporter block and return the destination.
+    fn check_teleporter_contact(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> Option<(u8, u16, u8)> {
+        let block_list = self.block_list.as_ref()?;
+        if block_list.teleporters.is_empty() {
+            return None;
+        }
+        // Player's feet position in cell coordinates
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+        let col = terrain::pixel_to_cell(px) as u16;
+        let row = terrain::pixel_to_cell(py) as u16;
+
+        block_list
+            .teleporter_at(col, row)
+            .map(|t| (t.dest_map_id, t.dest_x, t.dest_y))
     }
 
     fn should_apply_level_one_late_hazard(&self, slice: &OpeningSliceState) -> bool {
@@ -11555,6 +11590,62 @@ mod tests {
         // have had normal gravity applied
         assert_eq!(slice.player.y_velocity, vel_before,
             "normal gravity should be skipped when skycutter_on_board is true");
+    }
+
+    // --- Teleporter tests ---
+
+    #[test]
+    fn teleporter_parsed_from_block_list() {
+        // Block list sections flow into each other. Prize section ends when
+        // layout_addr=0. Ghost section ends on all-zero entry. Then teleporters.
+        // Build data with: 1 prize, 0 ghosts, 1 teleporter.
+        let mut data = Vec::new();
+        // Prize entry: layout_addr=0x0020, col=1, row=2, disguised=0, content=0
+        data.extend_from_slice(&[0x00, 0x20, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00]);
+        // Prize terminator — layout_addr=0. The ghost parser reads from here.
+        // These 16 bytes serve as both prize terminator AND ghost section.
+        // Ghost section: timer=0, mapping=0, solid_time=0, vanished_time=0,
+        //   layout_addr=0 → all zero → ghost section terminates.
+        data.extend_from_slice(&[0; 16]);
+        // Now at the teleporter section.
+        data.extend_from_slice(&[
+            0x00, 0x10, // layout_addr (non-zero)
+            0x00, 0x05, // col = 5
+            0x00, 0x03, // row = 3
+            0x02,       // dest_map_id = 2
+            0x07,       // dest_y = 7
+            0x00, 0x0A, // dest_x = 10
+        ]);
+        // Teleporter terminator (layout_addr=0)
+        data.extend_from_slice(&[0, 0]);
+
+        let bl = terrain::BlockList::from_raw(&data, 64);
+        assert_eq!(bl.prize_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks.len(), 0);
+        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters[0].col, 5);
+        assert_eq!(bl.teleporters[0].row, 3);
+        assert_eq!(bl.teleporters[0].dest_map_id, 2);
+        assert_eq!(bl.teleporters[0].dest_y, 7);
+        assert_eq!(bl.teleporters[0].dest_x, 10);
+    }
+
+    #[test]
+    fn teleporter_lookup_by_position() {
+        let bl = terrain::BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![terrain::TeleporterEntry {
+                col: 5,
+                row: 3,
+                dest_map_id: 2,
+                dest_y: 7,
+                dest_x: 10,
+            }],
+        };
+
+        assert!(bl.teleporter_at(5, 3).is_some());
+        assert!(bl.teleporter_at(4, 3).is_none());
     }
 
     // --- Combat ability test helpers ---

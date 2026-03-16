@@ -325,6 +325,20 @@ pub struct GhostBlockEntry {
     pub solid: bool,
 }
 
+/// A teleporter block entry from the Block List.
+/// Touching this block transports the player to the destination.
+#[derive(Debug, Clone, Copy)]
+pub struct TeleporterEntry {
+    pub col: u16,
+    pub row: u16,
+    /// Destination level/map ID.
+    pub dest_map_id: u8,
+    /// Destination Y position (in blocks).
+    pub dest_y: u8,
+    /// Destination X position (in blocks).
+    pub dest_x: u16,
+}
+
 /// Parsed Block List from the RAM dump at FF3B24.
 ///
 /// The Block List stores runtime data for interactive blocks: prizes,
@@ -334,6 +348,7 @@ pub struct GhostBlockEntry {
 pub struct BlockList {
     pub prize_blocks: Vec<PrizeBlockEntry>,
     pub ghost_blocks: Vec<GhostBlockEntry>,
+    pub teleporters: Vec<TeleporterEntry>,
 }
 
 impl BlockList {
@@ -388,6 +403,7 @@ impl BlockList {
             let vanished_time = u16::from_be_bytes([data[offset + 6], data[offset + 7]]);
             let layout_addr = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
             if layout_addr == 0 && timer == 0 && solid_time == 0 {
+                offset += 16; // advance past ghost terminator entry
                 break;
             }
             let col = u16::from_be_bytes([data[offset + 10], data[offset + 11]]);
@@ -409,9 +425,34 @@ impl BlockList {
             offset += 16;
         }
 
+        // Teleporter entries follow ghosts (10 bytes each).
+        // End when layout_addr is 0.
+        let mut teleporters = Vec::new();
+        while offset + 10 <= data.len() {
+            let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
+            if layout_addr == 0 {
+                break;
+            }
+            let col = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
+            let row = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
+            let dest_map_id = data[offset + 6];
+            let dest_y = data[offset + 7];
+            let dest_x = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
+
+            teleporters.push(TeleporterEntry {
+                col,
+                row,
+                dest_map_id,
+                dest_y,
+                dest_x,
+            });
+            offset += 10;
+        }
+
         Self {
             prize_blocks,
             ghost_blocks,
+            teleporters,
         }
     }
 
@@ -421,6 +462,13 @@ impl BlockList {
             .iter()
             .find(|entry| entry.col == col && entry.row == row)
             .map(|entry| entry.content)
+    }
+
+    /// Look up a teleporter at a given cell position.
+    pub fn teleporter_at(&self, col: u16, row: u16) -> Option<&TeleporterEntry> {
+        self.teleporters
+            .iter()
+            .find(|entry| entry.col == col && entry.row == row)
     }
 }
 
