@@ -1032,6 +1032,9 @@ struct ActiveEnemy {
     y_pos: u32,
     x_velocity: i32,
     y_velocity: i32,
+    /// Per-frame acceleration (UFO, Tornado)
+    x_acceleration: i32,
+    y_acceleration: i32,
     facing: Direction,
     on_ground: bool,
     hit_points: u8,
@@ -5095,6 +5098,8 @@ fn activate_enemies(
             y_pos: spawn_y_pos(family, object_y),
             x_velocity: spawn_x_velocity(family, enemy_level),
             y_velocity: 0,
+            x_acceleration: spawn_x_acceleration(family),
+            y_acceleration: spawn_y_acceleration(family),
             facing: spawn_facing(family),
             on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
             hit_points,
@@ -5158,6 +5163,18 @@ fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) 
         return;
     }
 
+    // UFO: acceleration-based drifting with periodic direction changes
+    if matches!(enemy.family, EnemyFamily::UFO) {
+        step_ufo(enemy, block_grid);
+        return;
+    }
+
+    // Tornado: acceleration-based bouncing patrol with wall/floor reversal
+    if matches!(enemy.family, EnemyFamily::Tornado) {
+        step_tornado(enemy, block_grid);
+        return;
+    }
+
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 }
@@ -5183,6 +5200,92 @@ fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) 
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
             enemy.facing = opposite_direction(enemy.facing);
+        }
+    }
+}
+
+/// UFO: acceleration-based drifting, reverses direction periodically.
+/// Uses `wait_timer` as a countdown; every 60 frames reverses acceleration.
+/// Acceleration ±$400 per frame, terminal velocity ±$18000.
+const UFO_ACCELERATION: i32 = 0x400;
+const UFO_TERMINAL_VELOCITY: i32 = 0x18000;
+const UFO_PATTERN_FRAMES: u16 = 60;
+
+fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply acceleration to velocity (clamped to terminal)
+    enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
+        .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
+    enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
+        .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    // Periodic direction change
+    if enemy.wait_timer == 0 {
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        enemy.x_acceleration = -enemy.x_acceleration;
+        enemy.y_acceleration = -enemy.y_acceleration;
+    } else {
+        enemy.wait_timer -= 1;
+    }
+
+    // Wall/floor reversal
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right);
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_acceleration = -enemy.x_acceleration;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+    }
+}
+
+/// Tornado: acceleration-based bouncing patrol. Reverses accel on wall/floor contact.
+/// Slower than UFO, with periodic acceleration reversals every ~60 frames.
+const TORNADO_ACCELERATION: i32 = 0x300;
+const TORNADO_TERMINAL_VELOCITY: i32 = 0x10000;
+const TORNADO_PATTERN_FRAMES: u16 = 60;
+
+fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply acceleration
+    enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
+        .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+    enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
+        .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    // Periodic direction change
+    if enemy.wait_timer == 0 {
+        enemy.wait_timer = TORNADO_PATTERN_FRAMES;
+        enemy.x_acceleration = -enemy.x_acceleration;
+        enemy.y_acceleration = -enemy.y_acceleration;
+    } else {
+        enemy.wait_timer -= 1;
+    }
+
+    // Wall and floor reversal
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right);
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_acceleration = -enemy.x_acceleration;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground && enemy.y_velocity > 0 {
+            enemy.y_velocity = -enemy.y_velocity;
+            enemy.y_acceleration = -enemy.y_acceleration;
         }
     }
 }
@@ -5795,6 +5898,22 @@ fn spawn_facing(family: EnemyFamily) -> Direction {
     match family {
         EnemyFamily::Dragon => Direction::Left,
         _ => Direction::Left,
+    }
+}
+
+fn spawn_x_acceleration(family: EnemyFamily) -> i32 {
+    match family {
+        EnemyFamily::UFO => UFO_ACCELERATION,
+        EnemyFamily::Tornado => TORNADO_ACCELERATION,
+        _ => 0,
+    }
+}
+
+fn spawn_y_acceleration(family: EnemyFamily) -> i32 {
+    match family {
+        EnemyFamily::UFO => -UFO_ACCELERATION,
+        EnemyFamily::Tornado => -TORNADO_ACCELERATION,
+        _ => 0,
     }
 }
 
@@ -9142,6 +9261,8 @@ mod tests {
             y_pos: 272u32 << 16,
             x_velocity: -DRAGON_DRIFT_X_SPEED_FP,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -9284,6 +9405,8 @@ mod tests {
             y_pos: 272u32 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -9321,6 +9444,8 @@ mod tests {
             y_pos: 272u32 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -9407,6 +9532,8 @@ mod tests {
             y_pos: 224u32 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -9442,6 +9569,8 @@ mod tests {
             y_pos: 224u32 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -9507,6 +9636,8 @@ mod tests {
             y_pos: floor_y_fp,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
@@ -9557,6 +9688,8 @@ mod tests {
             y_pos: floor_y_fp,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
@@ -10683,6 +10816,8 @@ mod tests {
             y_pos: y_px << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: true,
             hit_points: hp,
@@ -10821,6 +10956,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: -0x3000,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -10853,6 +10990,8 @@ mod tests {
             y_pos: 96 << 16,
             x_velocity: -0x3000,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -10913,6 +11052,8 @@ mod tests {
             y_pos: 0,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: hp,
@@ -10978,6 +11119,8 @@ mod tests {
             y_pos: 64 << 16,
             x_velocity: 0x10000,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Right,
             on_ground: false,
             hit_points: 1,
@@ -11010,6 +11153,8 @@ mod tests {
             y_pos: 155 << 16,
             x_velocity: 0x10000,
             y_velocity: 0x5000, // falling
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Right,
             on_ground: false,
             hit_points: 1,
@@ -11047,6 +11192,8 @@ mod tests {
             y_pos: 112 << 16,
             x_velocity: 0x10000, // moving right
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Right,
             on_ground: false,
             hit_points: 1,
@@ -11088,6 +11235,8 @@ mod tests {
             y_pos: 50 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -11129,6 +11278,8 @@ mod tests {
             y_pos: 60 << 16, // above the floor
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 1,
@@ -11227,6 +11378,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
@@ -11253,6 +11406,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: true,
             hit_points: 1,
@@ -11324,6 +11479,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: 0x8000,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Right,
             on_ground: true,
             hit_points: 2,
@@ -11351,6 +11508,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: 0x8000,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Right,
             on_ground: true,
             hit_points: 2,
@@ -11392,6 +11551,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: 10,
@@ -11418,6 +11579,8 @@ mod tests {
             y_pos: 100 << 16,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Right,
             on_ground: false,
             hit_points: 10,
@@ -11432,6 +11595,47 @@ mod tests {
         step_tracker(&mut enemy, px, py);
         assert!(enemy.x_pos < 200 << 16, "should move leftward toward player");
         assert_eq!(enemy.facing, Direction::Left);
+    }
+
+    // --- UFO and Tornado flyer tests ---
+
+    #[test]
+    fn ufo_accelerates_and_moves() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 200 << 16, 100 << 16, 1);
+        enemy.x_acceleration = UFO_ACCELERATION;
+        enemy.y_acceleration = -UFO_ACCELERATION;
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        let start_x = enemy.x_pos;
+        step_ufo(&mut enemy, None);
+        // After one frame: velocity = 0 + accel, position = start + velocity
+        assert_eq!(enemy.x_velocity, UFO_ACCELERATION);
+        assert!(enemy.x_pos > start_x, "UFO should move right with positive x accel");
+    }
+
+    #[test]
+    fn ufo_reverses_acceleration_on_timer() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 200 << 16, 100 << 16, 1);
+        enemy.x_acceleration = UFO_ACCELERATION;
+        enemy.y_acceleration = -UFO_ACCELERATION;
+        enemy.wait_timer = 0; // timer expired
+        step_ufo(&mut enemy, None);
+        // Acceleration should be reversed
+        assert_eq!(enemy.x_acceleration, -UFO_ACCELERATION);
+        assert_eq!(enemy.y_acceleration, UFO_ACCELERATION);
+        assert_eq!(enemy.wait_timer, UFO_PATTERN_FRAMES);
+    }
+
+    #[test]
+    #[test]
+    fn tornado_reverses_acceleration_on_timer() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
+        enemy.x_acceleration = TORNADO_ACCELERATION;
+        enemy.y_acceleration = -TORNADO_ACCELERATION;
+        enemy.wait_timer = 0;
+        step_tornado(&mut enemy, None);
+        assert_eq!(enemy.x_acceleration, -TORNADO_ACCELERATION);
+        assert_eq!(enemy.y_acceleration, TORNADO_ACCELERATION);
+        assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES);
     }
 
     // --- Ghost blocks ---
@@ -13070,6 +13274,8 @@ mod tests {
             y_pos: y,
             x_velocity: 0,
             y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
             facing: Direction::Left,
             on_ground: false,
             hit_points: hp,
