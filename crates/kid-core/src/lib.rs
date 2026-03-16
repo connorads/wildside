@@ -978,7 +978,8 @@ struct ActivationWindow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EnemyFamily {
     Diamond,
-    Dragon,
+    Dragon,        // Flying dragon ($0C): choreographed flight pattern
+    DragonWalking, // Walking dragon ($0D): stationary with breath attack
     Cloud,
     Sphere,
     BigHoppingSkull,
@@ -5139,6 +5140,7 @@ impl EnemyFamily {
         match self {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
+            Self::DragonWalking => EnemyArchetype::Stationary, // stationary breath attacker
             Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
             Self::UFO | Self::Tornado => EnemyArchetype::Flyer,
             Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
@@ -5175,7 +5177,8 @@ impl EnemyFamily {
             Some(0x05) => Self::TarMonster,
             Some(0x09) => Self::Crab,
             Some(0x0A) => Self::Tank,
-            Some(0x0C | 0x0D) => Self::Dragon,
+            Some(0x0C) => Self::Dragon,
+            Some(0x0D) => Self::DragonWalking,
             Some(0x06) => Self::Sphere,
             Some(0x07) => Self::Archer,
             Some(0x08) => Self::Orca,
@@ -5215,7 +5218,8 @@ impl EnemyFamily {
             Self::Orca => 0x08,
             Self::Crab => 0x09,
             Self::Tank => 0x0A,
-            Self::Dragon => 0x0D,
+            Self::Dragon => 0x0C,
+            Self::DragonWalking => 0x0D,
             Self::Cloud => 0x0E,
             Self::UFO => 0x0F,
             Self::Goat => 0x10,
@@ -5383,6 +5387,10 @@ fn step_active_enemies(
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
                         step_drips(enemy, projs);
+                    }
+                } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                    if let Some(projs) = projectiles.as_deref_mut() {
+                        step_dragon_walking(enemy, projs, player_x_pos);
                     }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
@@ -6515,6 +6523,49 @@ fn spawn_tar_monster_retaliation(projectiles: &mut Vec<EnemyProjectile>, x: u32,
     }
 }
 
+// --- DragonWalking constants ---
+// From ASM: stationary dragon with breath attack. Timer $12C (300 frames) cooldown.
+const DRAGON_WALKING_BREATH_INTERVAL: u16 = 300;
+const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
+const DRAGON_WALKING_BREATH_LIFETIME: u16 = 60;
+
+/// Step a walking dragon: stationary, faces player, fires breath projectile on timer.
+fn step_dragon_walking(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+) {
+    // Face toward player
+    if let Some(px) = player_x_pos {
+        enemy.facing = if px >= enemy.x_pos {
+            Direction::Right
+        } else {
+            Direction::Left
+        };
+    }
+
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+
+    // Fire breath in facing direction
+    let x_vel = match enemy.facing {
+        Direction::Right => DRAGON_WALKING_BREATH_SPEED,
+        Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
+    };
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos,
+        x_velocity: x_vel,
+        y_velocity: 0,
+        lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+        gravity: 0,
+        friendly: false,
+    });
+    enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
+}
+
 // --- Drips constants ---
 // Drips hangs from ceiling and periodically drops a falling projectile.
 // From ASM: y_vel = -$10000 upward on spawn (to reach ceiling), then drops with +$2000 accel.
@@ -6879,6 +6930,7 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Drips => 1,
         EnemyFamily::Hand => 1,
         EnemyFamily::Tornado => 1,
+        EnemyFamily::DragonWalking => 2, // HP 2-3
         EnemyFamily::HeadyMetal => 10,
         EnemyFamily::Shishkaboss => 10,
         EnemyFamily::BoomerangBosses => 10,
@@ -6907,6 +6959,8 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
         // Drips: first drop after one interval.
         EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
+        // DragonWalking: first breath after cooldown.
+        EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
         _ => 0,
     }
 }
@@ -10153,7 +10207,7 @@ mod tests {
             header_byte: 0x80,
             object_count: 1,
             objects: vec![kid_data::EnemyLayoutObject {
-                object_type: 0x0D,
+                object_type: 0x0C, // Flying dragon (direct ID)
                 flags: 0xFF,
                 hit_points_plus_one: 0,
                 x: 200,
@@ -10166,7 +10220,7 @@ mod tests {
                 object_batch_flags: 0x80,
                 object_count: 1,
                 objects: vec![kid_data::EnemyLayoutObject {
-                    object_type: 0x0D,
+                    object_type: 0x0C, // Flying dragon (direct ID)
                     flags: 0xFF,
                     hit_points_plus_one: 0,
                     x: 200,
@@ -10238,7 +10292,7 @@ mod tests {
             header_byte: 0x80,
             object_count: 1,
             objects: vec![kid_data::EnemyLayoutObject {
-                object_type: 0x0D,
+                object_type: 0x0C, // Flying dragon (direct ID)
                 flags: 0xFF,
                 hit_points_plus_one: 0,
                 x: 200,
@@ -10251,7 +10305,7 @@ mod tests {
                 object_batch_flags: 0x80,
                 object_count: 1,
                 objects: vec![kid_data::EnemyLayoutObject {
-                    object_type: 0x0D,
+                    object_type: 0x0C, // Flying dragon (direct ID)
                     flags: 0xFF,
                     hit_points_plus_one: 0,
                     x: 200,
@@ -10452,6 +10506,31 @@ mod tests {
         assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
         assert_eq!(enemy.y_pos, 272u32 << 16);
         assert_eq!(enemy.facing, Direction::Left);
+    }
+
+    #[test]
+    fn dragon_walking_fires_breath_on_timer_expiry() {
+        let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
+        enemy.wait_timer = 0;
+        let mut projectiles = Vec::new();
+        let player_x = Some(200u32 << 16); // player to the right
+        step_dragon_walking(&mut enemy, &mut projectiles, player_x);
+        assert_eq!(projectiles.len(), 1);
+        assert!(projectiles[0].x_velocity > 0, "breath fires toward player (right)");
+        assert_eq!(projectiles[0].y_velocity, 0, "breath is horizontal");
+        assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_INTERVAL);
+        assert_eq!(enemy.facing, Direction::Right);
+    }
+
+    #[test]
+    fn dragon_walking_faces_player_left() {
+        let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
+        enemy.wait_timer = 0;
+        let mut projectiles = Vec::new();
+        let player_x = Some(50u32 << 16); // player to the left
+        step_dragon_walking(&mut enemy, &mut projectiles, player_x);
+        assert_eq!(enemy.facing, Direction::Left);
+        assert!(projectiles[0].x_velocity < 0, "breath fires left toward player");
     }
 
     #[test]
