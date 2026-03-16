@@ -372,69 +372,60 @@ fn build_scene(
 
 fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {
     let mut commands = Vec::new();
-    push_panel(
-        &mut commands,
-        16,
-        16,
-        288,
-        132,
-        [10, 16, 24],
-        [205, 196, 173],
-    );
+
+    // Background
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [8, 12, 20],
+    });
+
+    // Title
+    let title = "KID CHAMELEON";
+    let title_w = title.len() as i32 * 8 * 3;
     commands.push(text(
-        30,
-        28,
-        "Kid Chameleon Native Playtest",
-        [255, 240, 196],
-        2,
+        (FRAME_WIDTH as i32 - title_w) / 2,
+        40,
+        title,
+        [255, 220, 80],
+        3,
     ));
     commands.push(text(
-        30,
-        54,
-        &format!("State {}", game_mode_label(trace.game_mode)),
-        [160, 214, 255],
+        (FRAME_WIDTH as i32 - 15 * 8) / 2,
+        72,
+        "Native Playtest",
+        [140, 180, 255],
         1,
     ));
+
+    // Blinking "PRESS START" (blink every 30 frames)
+    if (trace.frame_index / 30) % 2 == 0 {
+        let start_text = "PRESS START";
+        let start_w = start_text.len() as i32 * 8 * 2;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - start_w) / 2,
+            120,
+            start_text,
+            [255, 255, 255],
+            2,
+        ));
+    }
+
+    // Controls help
     commands.push(text(
-        30,
-        68,
-        &format!(
-            "Frame {}  Start presses {}",
-            trace.frame_index, trace.start_press_count
-        ),
-        [220, 220, 220],
-        1,
-    ));
-    commands.push(text(
-        30,
-        82,
-        &format!(
-            "Level {:02X} {}",
-            trace.current_level.0,
-            trace.current_level_name.as_deref().unwrap_or("")
-        ),
-        [220, 220, 220],
-        1,
-    ));
-    commands.push(text(
-        30,
-        96,
-        "Direct Level 1 native playtest",
-        [255, 188, 140],
-        1,
-    ));
-    commands.push(text(
-        30,
-        118,
+        20,
+        160,
         "Arrows/WASD move  Z/Space jump  X special  C/Shift run",
-        [190, 190, 190],
+        [140, 140, 140],
         1,
     ));
     commands.push(text(
-        30,
-        130,
+        20,
+        174,
         "R restart level  Tab debug overlay  F11 fullscreen  Esc quit",
-        [190, 190, 190],
+        [140, 140, 140],
         1,
     ));
     if debug_overlay_visible {
@@ -3082,7 +3073,7 @@ mod tests {
     #[test]
     fn title_scene_stays_text_only() {
         let scene = build_scene(&sample_trace(GameMode::TitleScreen), true, None, None);
-        assert!(contains_text(&scene, "Kid Chameleon Native Playtest"));
+        assert!(contains_text(&scene, "KID CHAMELEON"));
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLAYER_COLOUR || *colour == ENEMY_COLOUR || *colour == PLATFORM_COLOUR)
         }));
