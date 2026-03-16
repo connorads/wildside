@@ -410,6 +410,10 @@ pub struct NativeRuntime {
     maniaxe_axe_active: bool,
     /// Maniaxe axe turnaround counter (frames until direction reversal).
     maniaxe_turnaround: u8,
+    /// IronKnight wall climb active flag.
+    iron_knight_climbing: bool,
+    /// IronKnight wall climb Y acceleration accumulator.
+    iron_knight_climb_accel: i16,
     /// Berzerker charge accumulator — overflows at $FF to activate charge.
     berzerker_charge_accum: u8,
     /// Berzerker is charging (fast enough to break blocks and damage on contact).
@@ -815,6 +819,21 @@ const CYCLONE_MAX_FALL_VEL: i32 = 0x2_8000;
 /// Max upward velocity during Cyclone flight.
 const CYCLONE_MAX_RISE_VEL: i32 = -0x3_0000;
 
+/// IronKnight wall climb: C press subtracts this from Y acceleration.
+const IRON_KNIGHT_CLIMB_BOOST: i16 = 0x1800;
+/// IronKnight wall climb: natural per-frame drift toward sliding down.
+const IRON_KNIGHT_SLIDE_DRIFT: i16 = 0x80;
+/// IronKnight wall climb: max slide-down acceleration (no C pressed).
+const IRON_KNIGHT_MAX_SLIDE_ACCEL: i16 = 0x1800;
+/// IronKnight wall climb: min acceleration (fast climbing upward).
+const IRON_KNIGHT_MIN_ACCEL: i16 = -0x0800; // $F800 as signed
+/// IronKnight wall climb: initial Y velocity on attach.
+const IRON_KNIGHT_ATTACH_Y_VEL: i32 = -0x4000;
+/// IronKnight wall climb: max upward velocity.
+const IRON_KNIGHT_MAX_CLIMB_VEL: i32 = -0x1_8000;
+/// IronKnight wall climb: max downward velocity (falling off).
+const IRON_KNIGHT_MAX_FALL_VEL: i32 = 0x4_0000;
+
 /// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
 const TANK_FIRE_INTERVAL: u16 = 0x20;
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
@@ -1101,6 +1120,8 @@ impl NativeRuntime {
             eyeclops_beam_active: false,
             maniaxe_axe_active: false,
             maniaxe_turnaround: 0,
+            iron_knight_climbing: false,
+            iron_knight_climb_accel: 0,
             berzerker_charge_accum: 0,
             berzerker_charging: false,
             paused: false,
@@ -1715,6 +1736,7 @@ impl NativeRuntime {
         // Step helmet abilities BEFORE physics
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
+        self.step_iron_knight_climb(&mut slice, input);
         self.step_red_stealth_sword(input);
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
@@ -1722,7 +1744,7 @@ impl NativeRuntime {
         self.step_juggernaut_skull(&slice, input);
 
         // Either Skycutter board or Cyclone flight replaces normal gravity
-        let custom_gravity = self.skycutter_on_board || self.cyclone_flying;
+        let custom_gravity = self.skycutter_on_board || self.cyclone_flying || self.iron_knight_climbing;
         slice.step(
             level_elapsed,
             input,
@@ -2248,6 +2270,8 @@ impl NativeRuntime {
         self.maniaxe_turnaround = 0;
         self.berzerker_charging = false;
         self.berzerker_charge_accum = 0;
+        self.iron_knight_climbing = false;
+        self.iron_knight_climb_accel = 0;
     }
 
     fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
@@ -2608,6 +2632,109 @@ impl NativeRuntime {
         if slice.player.y_velocity < CYCLONE_MAX_RISE_VEL {
             slice.player.y_velocity = CYCLONE_MAX_RISE_VEL;
         }
+    }
+
+    /// IronKnight wall climb: C press while airborne attaches to adjacent wall,
+    /// C presses while climbing boost upward, natural drift slides down.
+    fn step_iron_knight_climb(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+    ) {
+        if self.current_form != PlayerForm::IronKnight {
+            self.iron_knight_climbing = false;
+            self.iron_knight_climb_accel = 0;
+            return;
+        }
+
+        let c_pressed = input.c && !self.prior_input.c;
+
+        // Try to attach to wall on C press while airborne and not already climbing
+        if c_pressed && !slice.player.on_ground && !self.iron_knight_climbing {
+            if let Some(ref grid) = self.block_grid {
+                // Probe wall in player's facing direction
+                let facing_right = slice.player.facing == Direction::Right;
+                let px = (slice.player.x_pos >> 16) as i32;
+                let py = (slice.player.y_pos >> 16) as i32;
+                let probe = terrain::probe_wall(grid, px, py, 5, 31, facing_right);
+                if probe.hit {
+                    self.iron_knight_climbing = true;
+                    self.iron_knight_climb_accel = 0;
+                    slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
+                    slice.player.x_velocity = 0;
+                    return;
+                }
+            }
+        }
+
+        if !self.iron_knight_climbing {
+            return;
+        }
+
+        // Landing stops climb
+        if slice.player.on_ground {
+            self.iron_knight_climbing = false;
+            self.iron_knight_climb_accel = 0;
+            return;
+        }
+
+        // B press = jump off wall
+        let b_pressed = input.b && !self.prior_input.b;
+        if b_pressed {
+            self.iron_knight_climbing = false;
+            self.iron_knight_climb_accel = 0;
+            // Jump away from wall
+            let jump_height = physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
+            let (_, y_vel) = physics::initiate_jump(0, jump_height);
+            slice.player.y_velocity = y_vel;
+            return;
+        }
+
+        // Check wall still exists
+        if let Some(ref grid) = self.block_grid {
+            let facing_right = slice.player.facing == Direction::Right;
+            let px = (slice.player.x_pos >> 16) as i32;
+            let py = (slice.player.y_pos >> 16) as i32;
+            let probe = terrain::probe_wall(grid, px, py, 5, 31, facing_right);
+            if !probe.hit {
+                // Wall gone, fall off
+                self.iron_knight_climbing = false;
+                self.iron_knight_climb_accel = 0;
+                return;
+            }
+        }
+
+        // Accumulate drift (sliding down)
+        self.iron_knight_climb_accel = self.iron_knight_climb_accel
+            .saturating_add(IRON_KNIGHT_SLIDE_DRIFT);
+
+        // C press: boost upward
+        if c_pressed {
+            self.iron_knight_climb_accel = self.iron_knight_climb_accel
+                .saturating_sub(IRON_KNIGHT_CLIMB_BOOST);
+            if self.iron_knight_climb_accel < IRON_KNIGHT_MIN_ACCEL {
+                self.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
+            }
+        } else {
+            // Cap slide-down acceleration
+            if self.iron_knight_climb_accel > IRON_KNIGHT_MAX_SLIDE_ACCEL {
+                self.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL;
+            }
+        }
+
+        // Apply acceleration to velocity
+        slice.player.y_velocity += i32::from(self.iron_knight_climb_accel);
+
+        // Clamp velocity
+        if slice.player.y_velocity < IRON_KNIGHT_MAX_CLIMB_VEL {
+            slice.player.y_velocity = IRON_KNIGHT_MAX_CLIMB_VEL;
+        }
+        if slice.player.y_velocity > IRON_KNIGHT_MAX_FALL_VEL {
+            slice.player.y_velocity = IRON_KNIGHT_MAX_FALL_VEL;
+        }
+
+        // Zero horizontal velocity while climbing
+        slice.player.x_velocity = 0;
     }
 
     /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
@@ -11896,6 +12023,129 @@ mod tests {
 
         assert!(!rt.cyclone_flying);
         assert_eq!(rt.cyclone_y_accel, 0);
+    }
+
+    fn iron_knight_runtime_with_wall() -> NativeRuntime {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::IronKnight;
+        rt.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        // Wall at col 10, floor at row 3, from col 0..20
+        rt.block_grid = Some(grid_with_wall(3, 0, 20, 10));
+        rt
+    }
+
+    #[test]
+    fn iron_knight_c_press_attaches_to_wall_when_airborne() {
+        let mut rt = iron_knight_runtime_with_wall();
+        // Position player next to wall (wall at col 10 = pixel 160), facing right
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 154 << 16; // just left of wall col 10
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+
+        let input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_iron_knight_climb(&mut slice, input);
+
+        assert!(rt.iron_knight_climbing, "should attach to wall");
+        assert_eq!(slice.player.y_velocity, IRON_KNIGHT_ATTACH_Y_VEL);
+        assert_eq!(slice.player.x_velocity, 0);
+    }
+
+    #[test]
+    fn iron_knight_no_attach_without_wall() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::IronKnight;
+        // No block grid — no wall to attach to
+        let mut slice = airborne_slice();
+        slice.player.facing = Direction::Right;
+
+        let input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_iron_knight_climb(&mut slice, input);
+
+        assert!(!rt.iron_knight_climbing);
+    }
+
+    #[test]
+    fn iron_knight_c_press_boosts_climb_upward() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.iron_knight_climbing = true;
+        rt.iron_knight_climb_accel = 0;
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 154 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.y_velocity = 0;
+
+        // C rising edge while climbing
+        let input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_iron_knight_climb(&mut slice, input);
+
+        // Drift (+$80) then boost (-$1800), clamped to min accel (-$800)
+        assert_eq!(rt.iron_knight_climb_accel, IRON_KNIGHT_MIN_ACCEL);
+        assert!(slice.player.y_velocity < 0, "should be climbing upward");
+    }
+
+    #[test]
+    fn iron_knight_slides_down_without_c() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.iron_knight_climbing = true;
+        rt.iron_knight_climb_accel = 0;
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 154 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.y_velocity = 0;
+
+        rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+        assert_eq!(rt.iron_knight_climb_accel, IRON_KNIGHT_SLIDE_DRIFT);
+        assert!(slice.player.y_velocity > 0, "should slide down");
+    }
+
+    #[test]
+    fn iron_knight_b_press_jumps_off_wall() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.iron_knight_climbing = true;
+
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 154 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+
+        let input = FrameInput { b: true, ..FrameInput::default() };
+        rt.step_iron_knight_climb(&mut slice, input);
+
+        assert!(!rt.iron_knight_climbing, "should detach on B press");
+        assert!(slice.player.y_velocity < 0, "should jump upward");
+    }
+
+    #[test]
+    fn iron_knight_landing_stops_climb() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.iron_knight_climbing = true;
+
+        let mut slice = airborne_slice();
+        slice.player.on_ground = true;
+
+        rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+        assert!(!rt.iron_knight_climbing, "landing should end climb");
+    }
+
+    #[test]
+    fn iron_knight_non_iron_knight_clears_state() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.iron_knight_climbing = true;
+        rt.iron_knight_climb_accel = 0x500;
+        rt.current_form = PlayerForm::TheKid;
+
+        let mut slice = airborne_slice();
+        rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+        assert!(!rt.iron_knight_climbing);
+        assert_eq!(rt.iron_knight_climb_accel, 0);
     }
 
     #[test]
