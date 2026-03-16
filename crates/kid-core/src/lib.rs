@@ -408,6 +408,10 @@ pub struct NativeRuntime {
     maniaxe_axe_active: bool,
     /// Maniaxe axe turnaround counter (frames until direction reversal).
     maniaxe_turnaround: u8,
+    /// Berzerker charge accumulator — overflows at $FF to activate charge.
+    berzerker_charge_accum: u8,
+    /// Berzerker is charging (fast enough to break blocks and damage on contact).
+    berzerker_charging: bool,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -780,6 +784,11 @@ const MUSHROOM_MIN_BOUNCE: i32 = -0x2_0000;
 const EYECLOPS_BEAM_SPEED: i32 = 0x8_0000; // 8 px/frame
 const EYECLOPS_BEAM_LIFETIME: u16 = 60;
 
+/// Berzerker charge: accumulator increments by $10 each frame when velocity >= 1.0 FP.
+/// Charging activates when accumulator overflows past $FF.
+const BERZERKER_CHARGE_VEL_THRESHOLD: i32 = 0x1_0000;
+const BERZERKER_CHARGE_ACCUM_STEP: u8 = 0x10;
+
 /// Cyclone flight: acceleration-based vertical flight.
 /// Per-frame gravity added to acceleration accumulator.
 const CYCLONE_ACCEL_GRAVITY: i16 = 0x400;
@@ -1081,6 +1090,8 @@ impl NativeRuntime {
             eyeclops_beam_active: false,
             maniaxe_axe_active: false,
             maniaxe_turnaround: 0,
+            berzerker_charge_accum: 0,
+            berzerker_charging: false,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -1679,6 +1690,7 @@ impl NativeRuntime {
         self.step_red_stealth_sword(input);
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
+        self.step_berzerker_charge(&slice);
 
         // Either Skycutter board or Cyclone flight replaces normal gravity
         let custom_gravity = self.skycutter_on_board || self.cyclone_flying;
@@ -1785,9 +1797,10 @@ impl NativeRuntime {
             return;
         }
 
-        // Combat abilities: sword/axe/beam damage enemies
+        // Combat abilities: sword/axe/beam/charge damage enemies
         self.process_sword_hits(&slice);
         self.process_friendly_projectile_hits();
+        self.process_berzerker_charge_hits(&slice);
 
         // Diamond collection: touching a Diamond picks it up
         self.collect_diamonds(&slice);
@@ -2115,6 +2128,10 @@ impl NativeRuntime {
         {
             return None;
         }
+        // Berzerker charging is immune to contact damage (they damage enemies instead)
+        if self.berzerker_charging {
+            return None;
+        }
 
         self.active_enemies.iter().find_map(|enemy| {
             let can_damage_on_contact = matches!(enemy.family, EnemyFamily::Dragon)
@@ -2197,6 +2214,8 @@ impl NativeRuntime {
         self.eyeclops_beam_active = false;
         self.maniaxe_axe_active = false;
         self.maniaxe_turnaround = 0;
+        self.berzerker_charging = false;
+        self.berzerker_charge_accum = 0;
     }
 
     fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
@@ -2686,6 +2705,48 @@ impl NativeRuntime {
         }
     }
 
+    /// When Berzerker is charging, side contact with enemies damages them.
+    fn process_berzerker_charge_hits(&mut self, slice: &OpeningSliceState) {
+        if !self.berzerker_charging {
+            return;
+        }
+
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+
+        let mut kill_indices = Vec::new();
+        for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
+            if matches!(enemy.family, EnemyFamily::Diamond) {
+                continue;
+            }
+            let ex = (enemy.x_pos >> 16) as i32;
+            let ey = (enemy.y_pos >> 16) as i32;
+            let dx = (px - ex).abs();
+            let dy = (py - ey).abs();
+            if dx <= PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
+                && dy <= ENEMY_CONTACT_HALF_HEIGHT as i32
+            {
+                enemy.hit_points = enemy.hit_points.saturating_sub(1);
+                if enemy.hit_points == 0 {
+                    kill_indices.push(i);
+                } else {
+                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                }
+            }
+        }
+
+        for &idx in kill_indices.iter().rev() {
+            self.active_enemies.remove(idx);
+        }
+        if !kill_indices.is_empty() {
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+        }
+    }
+
     /// Step Eyeclops beam: C press fires a horizontal beam projectile.
     fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.current_form != PlayerForm::Eyeclops {
@@ -2754,6 +2815,34 @@ impl NativeRuntime {
             if !self.projectiles.iter().any(|p| p.lifetime > 0) {
                 self.maniaxe_axe_active = false;
             }
+        }
+    }
+
+    /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
+    fn step_berzerker_charge(&mut self, slice: &OpeningSliceState) {
+        if self.current_form != PlayerForm::Berzerker {
+            self.berzerker_charging = false;
+            self.berzerker_charge_accum = 0;
+            return;
+        }
+
+        let vel_abs = slice.player.x_velocity.unsigned_abs() as i32;
+        if vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
+            || (!slice.player.on_ground
+                && !(self.previous_input.left || self.previous_input.right))
+        {
+            self.berzerker_charging = false;
+            self.berzerker_charge_accum = 0;
+            return;
+        }
+
+        let (new_accum, overflow) =
+            self.berzerker_charge_accum.overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
+        if overflow {
+            self.berzerker_charge_accum = 0xFF;
+            self.berzerker_charging = true;
+        } else {
+            self.berzerker_charge_accum = new_accum;
         }
     }
 
@@ -11928,5 +12017,101 @@ mod tests {
         rt.step_maniaxe_axe(&slice, FrameInput::default());
 
         assert!(!rt.maniaxe_axe_active);
+    }
+
+    // --- Berzerker charge tests ---
+
+    #[test]
+    fn berzerker_charge_builds_when_moving_fast() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Berzerker;
+        rt.previous_input = FrameInput { right: true, ..FrameInput::default() };
+        let mut slice = combat_slice();
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0x2_0000; // above 1.0 FP threshold
+
+        // Accumulator builds by $10 each frame — needs 16 frames to overflow
+        for _ in 0..15 {
+            rt.step_berzerker_charge(&slice);
+            assert!(!rt.berzerker_charging, "should not be charging yet");
+        }
+        rt.step_berzerker_charge(&slice);
+        assert!(rt.berzerker_charging, "should start charging after overflow");
+    }
+
+    #[test]
+    fn berzerker_charge_resets_when_slow() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Berzerker;
+        rt.previous_input = FrameInput { right: true, ..FrameInput::default() };
+        rt.berzerker_charging = true;
+        rt.berzerker_charge_accum = 0xFF;
+        let mut slice = combat_slice();
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0x8000; // below threshold
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(!rt.berzerker_charging, "should stop charging below threshold");
+        assert_eq!(rt.berzerker_charge_accum, 0, "accumulator should reset");
+    }
+
+    #[test]
+    fn berzerker_charge_not_active_for_other_forms() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::TheKid;
+        rt.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0x2_0000;
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(!rt.berzerker_charging);
+    }
+
+    #[test]
+    fn berzerker_charge_kills_enemy_on_contact() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Berzerker;
+        rt.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            0x0040_0000,
+            0x0040_0000,
+            1,
+        ));
+
+        rt.process_berzerker_charge_hits(&slice);
+
+        assert!(rt.active_enemies.is_empty(), "enemy should be killed by charge");
+    }
+
+    #[test]
+    fn berzerker_charging_immune_to_contact_damage() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Berzerker;
+        rt.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+
+        // Add a hopper (normally does contact damage) at same position
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::BigHoppingSkull,
+            0x0040_0000,
+            0x0040_0000,
+            3,
+        ));
+
+        let damage_source = rt.find_contact_damage_source(&slice);
+        assert!(
+            damage_source.is_none(),
+            "charging Berzerker should be immune to contact damage"
+        );
     }
 }
