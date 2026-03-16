@@ -457,6 +457,8 @@ pub struct NativeRuntime {
     /// Hail system: frames until next active/inactive toggle.
     hail_period_timer: u16,
     murder_wall: Option<MurderWallState>,
+    /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
+    shooter_block_timer: u16,
     level_timer: LevelTimer,
 }
 
@@ -1196,6 +1198,7 @@ impl NativeRuntime {
             hail_active: false,
             hail_period_timer: 0,
             murder_wall: None,
+            shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -1842,6 +1845,9 @@ impl NativeRuntime {
 
         // Lift platforms: step movement and collision
         self.step_lift_platforms(&mut slice);
+
+        // Shooter blocks: fire projectiles periodically
+        self.step_shooter_blocks(&slice);
 
         // Weather: hail spawns falling projectiles
         self.step_weather(&slice);
@@ -3402,6 +3408,65 @@ impl NativeRuntime {
 
     /// When the player is standing on a Shifting block and the cell above is empty,
     /// move the block up one cell.
+    /// Shooter blocks (type 0x8): fire projectiles every 22 frames in
+    /// directions encoded in the skin byte (bit 0=up, 1=right, 2=down, 3=left).
+    /// Projectile speed: 4px/frame.
+    const SHOOTER_FIRE_INTERVAL: u16 = 22;
+    const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
+
+    fn step_shooter_blocks(&mut self, slice: &OpeningSliceState) {
+        let Some(grid) = &self.block_grid else {
+            return;
+        };
+
+        // Tick timer
+        if self.shooter_block_timer > 0 {
+            self.shooter_block_timer -= 1;
+            return;
+        }
+        self.shooter_block_timer = Self::SHOOTER_FIRE_INTERVAL;
+
+        // Scan visible area for shooter blocks
+        let cam_x = slice.camera.x_pos >> 16;
+        let cam_y = slice.camera.y_pos >> 16;
+        let start_col = (cam_x / 16).saturating_sub(1) as u16;
+        let end_col = ((cam_x + 320) / 16 + 2).min(u32::from(grid.width_cells)) as u16;
+        let start_row = (cam_y / 16).saturating_sub(1) as u16;
+        let end_row = ((cam_y + 224) / 16 + 2).min(u32::from(grid.height_cells)) as u16;
+
+        for row in start_row..end_row {
+            for col in start_col..end_col {
+                let cell = grid.cell_at(col, row);
+                if !cell.has_block || cell.block_type != terrain::BlockType::Shooter {
+                    continue;
+                }
+                let block_x = u32::from(col) * 16 + 8; // centre of block
+                let block_y = u32::from(row) * 16 + 8;
+                let skin = cell.skin;
+
+                let directions: [(u8, i32, i32); 4] = [
+                    (1, 0, -Self::SHOOTER_PROJECTILE_SPEED), // up
+                    (2, Self::SHOOTER_PROJECTILE_SPEED, 0),  // right
+                    (4, 0, Self::SHOOTER_PROJECTILE_SPEED),  // down
+                    (8, -Self::SHOOTER_PROJECTILE_SPEED, 0), // left
+                ];
+                for (mask, xv, yv) in directions {
+                    if skin & mask != 0 {
+                        self.projectiles.push(EnemyProjectile {
+                            x_pos: block_x << 16,
+                            y_pos: block_y << 16,
+                            x_velocity: xv,
+                            y_velocity: yv,
+                            lifetime: 120,
+                            gravity: 0,
+                            friendly: false,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     fn apply_shifting_blocks(&mut self, slice: &OpeningSliceState) {
         if !slice.player.on_ground {
             return;
@@ -12512,6 +12577,68 @@ mod tests {
             runtime.evanescent_blocks.len(),
             1,
             "same evanescent block should not be triggered twice"
+        );
+    }
+
+    // --- Shooter block tests ---
+
+    #[test]
+    fn shooter_block_fires_projectiles_on_timer() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        // Build a grid with a shooter block at (2, 3) firing right (skin bit 1)
+        let width_cells = 120u16;
+        let height_cells = 56u16;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        // Set (2, 3) as shooter block, skin=2 (right)
+        let offset = (3 * usize::from(width_cells) + 2) * 2;
+        data[offset] = 0xE8; // has_block=1, collision=6(Solid), block_type=8(Shooter)
+        data[offset + 1] = 0x02; // skin=2 (fire right)
+        // Verify the encoding
+        let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+        let cell = grid.cell_at(2, 3);
+        assert!(cell.has_block, "cell should have a block");
+        assert_eq!(cell.block_type, terrain::BlockType::Shooter, "cell should be Shooter");
+        assert_eq!(cell.skin, 2, "skin should be 2");
+        runtime.block_grid = Some(grid);
+        runtime.shooter_block_timer = 0; // fire immediately
+        runtime.projectiles.clear();
+
+        // Set camera to origin so block is visible
+        let mut slice = runtime.opening_slice.clone().unwrap();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(runtime.projectiles.len(), 1, "should fire one projectile");
+        assert!(
+            runtime.projectiles[0].x_velocity > 0,
+            "projectile should move right"
+        );
+        assert_eq!(runtime.projectiles[0].y_velocity, 0);
+    }
+
+    #[test]
+    fn shooter_block_respects_timer() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let width_cells = 120u16;
+        let height_cells = 56u16;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        let offset = (3 * usize::from(width_cells) + 2) * 2;
+        data[offset] = 0xE8;
+        data[offset + 1] = 0x02;
+        let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+        runtime.block_grid = Some(grid);
+        runtime.shooter_block_timer = 10; // not yet
+        runtime.projectiles.clear();
+
+        let slice = runtime.opening_slice.clone().unwrap();
+        runtime.step_shooter_blocks(&slice);
+
+        assert!(
+            runtime.projectiles.is_empty(),
+            "should not fire while timer is active"
         );
     }
 
