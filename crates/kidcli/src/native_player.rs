@@ -374,6 +374,25 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             }
         }
 
+        // Diamond Power golden tint: add warm overlay when active
+        if trace.diamond_power_active {
+            let pulse = ((trace.frame_index % 16) as u8).min(8);
+            let tint_r: u8 = 30 + pulse * 3;
+            let tint_g: u8 = 20 + pulse * 2;
+            for pixel in frame.chunks_exact_mut(3) {
+                pixel[0] = pixel[0].saturating_add(tint_r);
+                pixel[1] = pixel[1].saturating_add(tint_g);
+            }
+        }
+
+        // Invulnerability flicker: dim every other frame
+        if trace.invulnerable_frames > 0 && !trace.diamond_power_active && trace.frame_index % 2 == 0 {
+            // Slight dimming to indicate invulnerability
+            for pixel in frame.iter_mut() {
+                *pixel = (*pixel as u16 * 180 / 255) as u8;
+            }
+        }
+
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
@@ -2541,6 +2560,7 @@ mod tests {
             options_cursor: None,
             number_continues: 3,
             invulnerable_frames: 0,
+            diamond_power_active: false,
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 180,

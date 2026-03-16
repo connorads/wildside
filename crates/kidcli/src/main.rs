@@ -5212,6 +5212,7 @@ mod tests {
             game_complete: false,
             number_continues: 3,
             invulnerable_frames: 0,
+            diamond_power_active: false,
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 180,
