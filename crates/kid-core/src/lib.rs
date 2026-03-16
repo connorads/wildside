@@ -468,6 +468,8 @@ pub struct NativeRuntime {
     /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
     shooter_block_timer: u16,
     level_timer: LevelTimer,
+    /// Set to true when player takes damage during current level (for no-hit bonus).
+    level_damage_taken: bool,
 }
 
 /// A lift block that has been activated and is now a moving platform.
@@ -1316,6 +1318,7 @@ impl NativeRuntime {
             murder_wall: None,
             shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
+            level_damage_taken: false,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -2091,6 +2094,15 @@ impl NativeRuntime {
         if self.player_touches_flag(&slice) {
             // Time bonus: remaining seconds × 100
             self.score += u32::from(self.level_timer.seconds) * 100;
+            // No-hit bonus: 5000 points if no damage taken during level
+            if !self.level_damage_taken {
+                self.score += 5000;
+            }
+            // Speed bonus: 10000 points if completed in under 60 seconds
+            let elapsed = 180u16.saturating_sub(self.level_timer.seconds);
+            if elapsed < 60 {
+                self.score += 10_000;
+            }
             self.opening_slice = Some(slice);
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
@@ -2601,6 +2613,7 @@ impl NativeRuntime {
     }
 
     fn apply_damage(&mut self) {
+        self.level_damage_taken = true;
         if self.current_form != PlayerForm::TheKid {
             self.queue_form_change(PlayerForm::TheKid);
             self.resolve_pending_form_change();
@@ -2824,6 +2837,7 @@ impl NativeRuntime {
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
+        self.level_damage_taken = false;
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
@@ -9838,11 +9852,49 @@ mod tests {
             PlayerLifecycle::LevelComplete { .. }
         ));
 
-        // Score should include time bonus
+        // Score should include time bonus + no-hit bonus + speed bonus
+        let elapsed = 180u16.saturating_sub(seconds_remaining);
+        let expected = u32::from(seconds_remaining) * 100
+            + 5000  // no-hit bonus (no damage taken)
+            + if elapsed < 60 { 10_000 } else { 0 };  // speed bonus
         assert_eq!(
             runtime.score,
-            u32::from(seconds_remaining) * 100,
-            "time bonus should be remaining_seconds × 100"
+            expected,
+            "score should include time, no-hit, and speed bonuses"
+        );
+    }
+
+    #[test]
+    fn no_hit_bonus_absent_when_damage_taken() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Take damage
+        runtime.apply_damage();
+        assert!(runtime.level_damage_taken);
+
+        // Place player on flag
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        let seconds_remaining = runtime.level_timer.seconds;
+        runtime.step_frame(FrameInput::default());
+
+        let elapsed = 180u16.saturating_sub(seconds_remaining);
+        let expected = u32::from(seconds_remaining) * 100
+            + if elapsed < 60 { 10_000 } else { 0 };  // speed bonus only, no no-hit
+        assert_eq!(
+            runtime.score,
+            expected,
+            "no-hit bonus should be absent when damage was taken"
         );
     }
 
