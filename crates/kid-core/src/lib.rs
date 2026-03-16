@@ -394,6 +394,10 @@ pub struct NativeRuntime {
     skycutter_flipboard: u8,
     /// True while the player is riding the Skycutter flipboard.
     skycutter_on_board: bool,
+    /// Cyclone vertical flight active flag.
+    cyclone_flying: bool,
+    /// Cyclone Y acceleration accumulator (signed 16-bit, applied to y_vel each frame).
+    cyclone_y_accel: i16,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -739,6 +743,22 @@ const SKYCUTTER_LANDING_BOUNCE: i32 = -0x3_0000;
 /// Max upward velocity while on the board ($FFF88000 signed = -0x78000).
 const SKYCUTTER_MAX_UPWARD_VEL: i32 = -0x7_8000;
 
+/// Cyclone flight: acceleration-based vertical flight.
+/// Per-frame gravity added to acceleration accumulator.
+const CYCLONE_ACCEL_GRAVITY: i16 = 0x400;
+/// Upward thrust subtracted from accumulator when C is held.
+const CYCLONE_ACCEL_THRUST: i16 = 0x3000;
+/// Minimum acceleration (max upward thrust) — $8001 as signed i16 = -32767.
+const CYCLONE_ACCEL_MIN: i16 = -0x7FFF;
+/// Maximum descent acceleration when C not held.
+const CYCLONE_ACCEL_MAX_DESCENT: i16 = 0x1200;
+/// Initial acceleration on entering flight (set on jump).
+const CYCLONE_ACCEL_INITIAL: i16 = 0x2000;
+/// Max downward velocity during Cyclone flight.
+const CYCLONE_MAX_FALL_VEL: i32 = 0x2_8000;
+/// Max upward velocity during Cyclone flight.
+const CYCLONE_MAX_RISE_VEL: i32 = -0x3_0000;
+
 /// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
 const TANK_FIRE_INTERVAL: u16 = 0x20;
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
@@ -1018,6 +1038,8 @@ impl NativeRuntime {
             invulnerable_frames: 0,
             skycutter_flipboard: 0,
             skycutter_on_board: false,
+            cyclone_flying: false,
+            cyclone_y_accel: 0,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -1589,9 +1611,12 @@ impl NativeRuntime {
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.prize_block_hit = None;
-        // Step Skycutter flipboard BEFORE physics so on_board affects gravity
+        // Step helmet flight abilities BEFORE physics so they affect gravity
         self.step_skycutter_flipboard(&mut slice, input);
+        self.step_cyclone_flight(&mut slice, input);
 
+        // Either Skycutter board or Cyclone flight replaces normal gravity
+        let custom_gravity = self.skycutter_on_board || self.cyclone_flying;
         slice.step(
             level_elapsed,
             input,
@@ -1599,7 +1624,7 @@ impl NativeRuntime {
             self.current_form,
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
-            self.skycutter_on_board,
+            custom_gravity,
         );
 
         // Step platform movement scripts
@@ -2062,6 +2087,8 @@ impl NativeRuntime {
         // Clear ability state on form change
         self.skycutter_flipboard = 0;
         self.skycutter_on_board = false;
+        self.cyclone_flying = false;
+        self.cyclone_y_accel = 0;
     }
 
     fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
@@ -2359,6 +2386,68 @@ impl NativeRuntime {
             slice.player.y_velocity = SKYCUTTER_LANDING_BOUNCE;
             slice.player.on_ground = false;
             self.skycutter_flipboard = 1; // restart deploy animation
+        }
+    }
+
+    /// Step Cyclone vertical flight: acceleration-based with C-button thrust.
+    ///
+    /// When flying, an acceleration accumulator drifts downward by $400/frame
+    /// (gravity). Holding C subtracts $3000 (thrust). The accumulator is added
+    /// to y_velocity each frame, with velocity clamped to [-$30000, $28000].
+    /// Landing clears the flying flag.
+    fn step_cyclone_flight(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+    ) {
+        if self.current_form != PlayerForm::Cyclone {
+            self.cyclone_flying = false;
+            self.cyclone_y_accel = 0;
+            return;
+        }
+
+        // C rising edge activates flight when airborne
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && !slice.player.on_ground {
+            self.cyclone_flying = true;
+            self.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
+        }
+
+        // Landing clears flight
+        if self.cyclone_flying && slice.player.on_ground {
+            self.cyclone_flying = false;
+            return;
+        }
+
+        if !self.cyclone_flying {
+            return;
+        }
+
+        // Accumulate gravity
+        self.cyclone_y_accel = self.cyclone_y_accel.saturating_add(CYCLONE_ACCEL_GRAVITY);
+
+        // C held: apply upward thrust
+        if input.c {
+            self.cyclone_y_accel = self.cyclone_y_accel.saturating_sub(CYCLONE_ACCEL_THRUST);
+            if self.cyclone_y_accel < CYCLONE_ACCEL_MIN {
+                self.cyclone_y_accel = CYCLONE_ACCEL_MIN;
+            }
+        } else {
+            // Not thrusting: cap descent acceleration
+            if self.cyclone_y_accel > CYCLONE_ACCEL_MAX_DESCENT {
+                self.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
+            }
+        }
+
+        // Apply acceleration to velocity
+        slice.player.y_velocity += i32::from(self.cyclone_y_accel);
+
+        // Clamp velocity
+        if slice.player.y_velocity > CYCLONE_MAX_FALL_VEL {
+            slice.player.y_velocity = CYCLONE_MAX_FALL_VEL;
+        }
+        if slice.player.y_velocity < CYCLONE_MAX_RISE_VEL {
+            slice.player.y_velocity = CYCLONE_MAX_RISE_VEL;
         }
     }
 
@@ -3113,7 +3202,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
-        skycutter_on_board: bool,
+        custom_gravity: bool,
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -3122,7 +3211,7 @@ impl OpeningSliceState {
         let mut block_grid = block_grid;
         let horizontal_step_applied =
             self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
-        self.update_vertical_motion(input, jump_pressed, form, skycutter_on_board);
+        self.update_vertical_motion(input, jump_pressed, form, custom_gravity);
         let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
             self.apply_wall_collision(Some(grid));
             self.apply_ceiling_collision(Some(grid), block_list);
@@ -3280,7 +3369,7 @@ impl OpeningSliceState {
         input: FrameInput,
         jump_pressed: bool,
         form: PlayerForm,
-        skycutter_on_board: bool,
+        custom_gravity: bool,
     ) {
         if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
@@ -3323,9 +3412,9 @@ impl OpeningSliceState {
             }
             if self.player.just_jumped {
                 self.player.just_jumped = false;
-            } else if !skycutter_on_board {
-                // Normal gravity; Skycutter flight gravity is applied in
-                // step_skycutter_flipboard before physics runs.
+            } else if !custom_gravity {
+                // Normal gravity; helmet flight abilities (Skycutter/Cyclone)
+                // apply their own gravity before physics runs.
                 let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
                 self.player.y_velocity =
                     physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
@@ -11047,6 +11136,144 @@ mod tests {
 
         assert!(!rt.skycutter_on_board);
         assert_eq!(rt.skycutter_flipboard, 0);
+    }
+
+    // --- Cyclone flight tests ---
+
+    fn cyclone_runtime() -> NativeRuntime {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Cyclone;
+        rt
+    }
+
+    #[test]
+    fn cyclone_c_press_activates_flight_when_airborne() {
+        let mut rt = cyclone_runtime();
+        let mut slice = airborne_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_cyclone_flight(&mut slice, input);
+
+        assert!(rt.cyclone_flying);
+        // Initial accel ($2000) + gravity ($400) - thrust ($3000) = -$C00
+        let expected: i16 = CYCLONE_ACCEL_INITIAL + CYCLONE_ACCEL_GRAVITY - CYCLONE_ACCEL_THRUST;
+        assert_eq!(rt.cyclone_y_accel, expected);
+    }
+
+    #[test]
+    fn cyclone_c_press_does_not_activate_on_ground() {
+        let mut rt = cyclone_runtime();
+        let mut slice = airborne_slice();
+        slice.player.on_ground = true;
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_cyclone_flight(&mut slice, input);
+
+        assert!(!rt.cyclone_flying);
+    }
+
+    #[test]
+    fn cyclone_landing_clears_flight() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = 0x800;
+        let mut slice = airborne_slice();
+        slice.player.on_ground = true;
+
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        assert!(!rt.cyclone_flying);
+    }
+
+    #[test]
+    fn cyclone_gravity_increases_acceleration() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = 0;
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0;
+
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        // Accel should be 0 + GRAVITY = $400, then clamped to MAX_DESCENT ($1200)
+        // since C not held. $400 < $1200 so no clamp.
+        assert_eq!(rt.cyclone_y_accel, CYCLONE_ACCEL_GRAVITY);
+        // Velocity should be 0 + $400 = $400
+        assert_eq!(slice.player.y_velocity, i32::from(CYCLONE_ACCEL_GRAVITY));
+    }
+
+    #[test]
+    fn cyclone_c_held_provides_thrust() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = CYCLONE_ACCEL_INITIAL; // $2000
+        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0;
+
+        let input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_cyclone_flight(&mut slice, input);
+
+        // accel = $2000 + $400 - $3000 = -$C00 (negative = upward thrust)
+        let expected_accel: i16 = 0x2000 + 0x400 - 0x3000; // -0xC00
+        assert_eq!(rt.cyclone_y_accel, expected_accel);
+        assert!(slice.player.y_velocity < 0, "should gain upward velocity with C held");
+    }
+
+    #[test]
+    fn cyclone_descent_accel_capped_without_c() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT; // already at cap
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0;
+
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        // accel = $1200 + $400 = $1600, but capped to $1200
+        assert_eq!(rt.cyclone_y_accel, CYCLONE_ACCEL_MAX_DESCENT);
+    }
+
+    #[test]
+    fn cyclone_velocity_clamped_to_max_fall() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = CYCLONE_MAX_FALL_VEL; // already at max
+
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        assert_eq!(slice.player.y_velocity, CYCLONE_MAX_FALL_VEL);
+    }
+
+    #[test]
+    fn cyclone_velocity_clamped_to_max_rise() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = CYCLONE_ACCEL_MIN; // max upward thrust
+        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = CYCLONE_MAX_RISE_VEL; // already at max rise
+
+        let input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_cyclone_flight(&mut slice, input);
+
+        assert_eq!(slice.player.y_velocity, CYCLONE_MAX_RISE_VEL);
+    }
+
+    #[test]
+    fn cyclone_non_cyclone_form_clears_state() {
+        let mut rt = cyclone_runtime();
+        rt.cyclone_flying = true;
+        rt.cyclone_y_accel = 0x1000;
+        rt.current_form = PlayerForm::TheKid;
+
+        let mut slice = airborne_slice();
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        assert!(!rt.cyclone_flying);
+        assert_eq!(rt.cyclone_y_accel, 0);
     }
 
     #[test]
