@@ -4615,18 +4615,50 @@ fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) ->
 /// player is above a platform surface. Only applies when the player is not
 /// already grounded by terrain (falling or airborne).
 fn apply_platform_collision(slice: &mut OpeningSliceState, platforms: &[ActivePlatform]) {
-    if slice.player.on_ground {
-        return;
-    }
-    if slice.player.y_velocity < 0 {
-        // Moving upward — don't land on platforms from below
-        return;
-    }
-
     let player_x_px = (slice.player.x_pos >> 16) as i32;
     let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
     let player_left = player_x_px - PLAYER_HALF_WIDTH;
     let player_right = player_x_px + PLAYER_HALF_WIDTH;
+
+    // If player is already on ground, check if they're riding a platform and
+    // carry them along with the platform's velocity.
+    if slice.player.on_ground {
+        for platform in platforms {
+            if platform.x_velocity == 0 && platform.y_velocity == 0 {
+                continue;
+            }
+            let plat_x_px = (platform.x_pos >> 16) as i32;
+            let plat_y_px = (platform.y_pos >> 16) as i32;
+            let plat_right = plat_x_px + i32::from(platform.width_px);
+
+            if player_right < plat_x_px || player_left > plat_right {
+                continue;
+            }
+            // Player feet within snap distance of platform top → riding it
+            let within_snap = slice.player.y_pos.abs_diff(platform.y_pos)
+                <= GROUND_SNAP_TOLERANCE_FP;
+            if !within_snap && player_foot_y_px.abs_diff(plat_y_px) > 2 {
+                continue;
+            }
+
+            // Carry player with platform velocity
+            slice.player.x_pos =
+                (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+            slice.player.y_pos =
+                (i64::from(slice.player.y_pos) + i64::from(platform.y_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+            let floor_y_px = (slice.player.y_pos >> 16) as i32;
+            slice.terrain.floor_y_pos = (floor_y_px.max(0) as u32) << 16;
+            return;
+        }
+        return;
+    }
+
+    if slice.player.y_velocity < 0 {
+        // Moving upward — don't land on platforms from below
+        return;
+    }
 
     for platform in platforms {
         let plat_x_px = (platform.x_pos >> 16) as i32;
@@ -9816,6 +9848,45 @@ mod tests {
         apply_platform_collision(&mut slice, &[platform]);
 
         assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn platform_riding_carries_grounded_player() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.x_velocity = 0x1_0000; // 1 px/frame rightward
+        platform.y_velocity = 0;
+
+        // Player is grounded on the platform (feet at y=99, platform at y=100)
+        let mut slice = make_airborne_slice(50, 99);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+
+        let x_before = slice.player.x_pos;
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert!(
+            slice.player.x_pos > x_before,
+            "grounded player should be carried rightward by moving platform"
+        );
+        assert_eq!(
+            slice.player.x_pos - x_before,
+            0x1_0000,
+            "player should move by exactly the platform's x velocity"
+        );
+    }
+
+    #[test]
+    fn platform_riding_ignores_stationary_platform() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        // Stationary platform (zero velocity)
+        let mut slice = make_airborne_slice(50, 99);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+
+        let x_before = slice.player.x_pos;
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert_eq!(slice.player.x_pos, x_before, "stationary platform should not move player");
     }
 
     #[test]
