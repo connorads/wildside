@@ -344,6 +344,7 @@ pub struct NativeRuntime {
     active_enemies: Vec<ActiveEnemy>,
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
+    platform_script_table: Option<kid_data::PlatformScriptTable>,
     block_grid: Option<terrain::BlockGrid>,
     block_grid_source: BlockGridSource,
     diamond_count: u16,
@@ -464,6 +465,17 @@ struct TerrainState {
     floor_terrain_type: TerrainType,
 }
 
+/// Movement script execution state for a platform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PlatformScriptState {
+    /// Relative offset into the shared script table (key into `PlatformScriptTable`).
+    script_offset: u16,
+    /// Current command index within the script.
+    command_index: usize,
+    /// Remaining frames for the current command.
+    remaining_duration: u16,
+}
+
 /// An active platform with collision dimensions and movement state.
 /// Positions use the same FP16.16 format as player/enemy positions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -480,10 +492,30 @@ struct ActivePlatform {
     x_velocity: i32,
     /// FP16.16 Y velocity (from movement script).
     y_velocity: i32,
+    /// Movement script state (None for stationary platforms).
+    script: Option<PlatformScriptState>,
 }
 
 impl ActivePlatform {
-    fn from_placement(placement: &PlatformPlacement) -> Self {
+    fn from_placement(
+        placement: &PlatformPlacement,
+        script_table: Option<&kid_data::PlatformScriptTable>,
+    ) -> Self {
+        let script = placement
+            .script
+            .relative_offset
+            .and_then(|offset| {
+                let table = script_table?;
+                let script_data = table.scripts.get(&offset)?;
+                let first_cmd = script_data.commands.first()?;
+                Some((offset, first_cmd))
+            })
+            .map(|(offset, first_cmd)| PlatformScriptState {
+                script_offset: offset,
+                command_index: 0,
+                remaining_duration: first_cmd.duration,
+            });
+
         Self {
             x_pos: u32::from(placement.x) << 16,
             y_pos: u32::from(placement.y) << 16,
@@ -491,6 +523,7 @@ impl ActivePlatform {
             height_px: u16::from(placement.v_variant) * 16 + 15,
             x_velocity: 0,
             y_velocity: 0,
+            script,
         }
     }
 
@@ -502,6 +535,41 @@ impl ActivePlatform {
     /// Bottom edge Y in pixels.
     fn bottom_px(&self) -> i32 {
         (self.y_pos >> 16) as i32 + i32::from(self.height_px)
+    }
+
+    /// Advance one frame of movement script execution.
+    fn step_script(&mut self, script_table: &kid_data::PlatformScriptTable) {
+        let Some(ref mut state) = self.script else {
+            return;
+        };
+        let Some(script) = script_table.scripts.get(&state.script_offset) else {
+            return;
+        };
+        if script.commands.is_empty() {
+            return;
+        }
+
+        let cmd = &script.commands[state.command_index];
+        self.x_velocity = cmd.x_velocity;
+        self.y_velocity = cmd.y_velocity;
+
+        // Apply velocity
+        self.x_pos =
+            (i64::from(self.x_pos) + i64::from(self.x_velocity)).clamp(0, i64::from(u32::MAX))
+                as u32;
+        self.y_pos =
+            (i64::from(self.y_pos) + i64::from(self.y_velocity)).clamp(0, i64::from(u32::MAX))
+                as u32;
+
+        // Advance timer
+        state.remaining_duration = state.remaining_duration.saturating_sub(1);
+        if state.remaining_duration == 0 {
+            state.command_index += 1;
+            if state.command_index >= script.commands.len() {
+                state.command_index = 0; // loop
+            }
+            state.remaining_duration = script.commands[state.command_index].duration;
+        }
     }
 }
 
@@ -701,12 +769,24 @@ impl NativeRuntime {
             active_enemies: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
+            platform_script_table: None,
             block_grid: None,
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
+        runtime.load_platform_script_table();
         runtime
+    }
+
+    fn load_platform_script_table(&mut self) {
+        let scripts_path = self
+            .assets
+            .source_root
+            .join("level/platform_scripts.asm");
+        if let Ok(contents) = std::fs::read_to_string(&scripts_path) {
+            self.platform_script_table = Some(kid_data::parse_platform_scripts(&contents));
+        }
     }
 
     fn maybe_begin_pending_level_skip(&mut self) {
@@ -1241,6 +1321,13 @@ impl NativeRuntime {
             self.block_grid.as_mut(),
         );
 
+        // Step platform movement scripts
+        if let Some(ref script_table) = self.platform_script_table {
+            for platform in &mut self.active_platforms {
+                platform.step_script(script_table);
+            }
+        }
+
         // Platform collision: player can stand on top of platforms
         apply_platform_collision(&mut slice, &self.active_platforms);
 
@@ -1372,12 +1459,13 @@ impl NativeRuntime {
             self.active_platform_roster = objects
                 .platform_loader
                 .active_platforms(platform_layout, window);
+            let script_table = self.platform_script_table.as_ref();
             self.active_platforms = platform_layout
                 .placements
                 .iter()
                 .take(objects.platform_loader.next_index)
                 .filter(|p| platform_is_active(p, window))
-                .map(|p| ActivePlatform::from_placement(p))
+                .map(|p| ActivePlatform::from_placement(p, script_table))
                 .collect();
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }
@@ -8124,6 +8212,7 @@ mod tests {
             height_px: u16::from(v_variant) * 16 + 15,
             x_velocity: 0,
             y_velocity: 0,
+            script: None,
         }
     }
 
@@ -8227,5 +8316,63 @@ mod tests {
         let p = make_test_platform(0, 0, 2, 1);
         assert_eq!(p.width_px, 47);
         assert_eq!(p.height_px, 31);
+    }
+
+    #[test]
+    fn platform_script_moves_platform() {
+        use std::collections::BTreeMap;
+        let mut scripts = BTreeMap::new();
+        scripts.insert(
+            0x0000,
+            kid_data::PlatformScript {
+                commands: vec![
+                    kid_data::PlatformMoveCommand {
+                        duration: 3,
+                        x_velocity: 0x1_0000,
+                        y_velocity: 0,
+                    },
+                    kid_data::PlatformMoveCommand {
+                        duration: 3,
+                        x_velocity: -0x1_0000,
+                        y_velocity: 0,
+                    },
+                ],
+            },
+        );
+        let table = kid_data::PlatformScriptTable { scripts };
+
+        let mut platform = ActivePlatform {
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            width_px: 47,
+            height_px: 15,
+            x_velocity: 0,
+            y_velocity: 0,
+            script: Some(PlatformScriptState {
+                script_offset: 0,
+                command_index: 0,
+                remaining_duration: 3,
+            }),
+        };
+
+        let start_x = platform.x_pos;
+
+        // Step 3 frames of moving right
+        for _ in 0..3 {
+            platform.step_script(&table);
+        }
+        // Should have moved 3 pixels right
+        assert_eq!(platform.x_pos, start_x + 3 * 0x1_0000);
+        // Should now be on second command (moving left)
+        assert_eq!(platform.script.unwrap().command_index, 1);
+
+        // Step 3 more frames of moving left
+        for _ in 0..3 {
+            platform.step_script(&table);
+        }
+        // Should be back at start
+        assert_eq!(platform.x_pos, start_x);
+        // Should have looped back to first command
+        assert_eq!(platform.script.unwrap().command_index, 0);
     }
 }

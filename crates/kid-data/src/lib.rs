@@ -210,6 +210,29 @@ pub struct PlatformScriptRef {
     pub relative_offset: Option<u16>,
 }
 
+/// A single movement command from a platform script (`ptfm_move`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformMoveCommand {
+    /// Number of frames to apply this velocity.
+    pub duration: u16,
+    /// FP16.16 X velocity (positive = right).
+    pub x_velocity: i32,
+    /// FP16.16 Y velocity (positive = down).
+    pub y_velocity: i32,
+}
+
+/// Parsed platform movement script (a sequence of moves that loops).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformScript {
+    pub commands: Vec<PlatformMoveCommand>,
+}
+
+/// All platform scripts from platform_scripts.asm, indexed by relative offset.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformScriptTable {
+    pub scripts: std::collections::BTreeMap<u16, PlatformScript>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedValue {
     pub name: String,
@@ -761,6 +784,117 @@ pub fn parse_platform_layout(contents: &str) -> Result<PlatformLayout> {
         });
     }
     Ok(PlatformLayout { placements })
+}
+
+/// Parse the shared `platform_scripts.asm` file into a lookup table.
+///
+/// Format: blocks of `PlatformScript_XXXX: ; relative offset: YYYY`
+/// followed by `ptfm_move duration, x_vel, y_vel` lines, terminated
+/// by `dc.w $FFFF` and a loop-back pointer.
+pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
+    let mut scripts = std::collections::BTreeMap::new();
+    let mut current_offset: Option<u16> = None;
+    let mut current_commands: Vec<PlatformMoveCommand> = Vec::new();
+
+    for line in contents.lines() {
+        let trimmed = line.trim();
+
+        // Detect script label: "PlatformScript_XXXX:   ; relative offset: YYYY"
+        if let Some(rest) = trimmed.strip_prefix("PlatformScript_") {
+            if let Some(colon_idx) = rest.find(':') {
+                // Flush previous script
+                if let Some(offset) = current_offset {
+                    if !current_commands.is_empty() {
+                        scripts.insert(
+                            offset,
+                            PlatformScript {
+                                commands: std::mem::take(&mut current_commands),
+                            },
+                        );
+                    }
+                }
+                // Parse relative offset from comment or from label hex
+                if let Some(comment) = rest.get(colon_idx + 1..) {
+                    if let Some(hex_str) = comment
+                        .trim()
+                        .strip_prefix("; relative offset: ")
+                    {
+                        current_offset = u16::from_str_radix(hex_str.trim(), 16).ok();
+                    } else {
+                        // Fallback: parse from label name
+                        current_offset =
+                            u16::from_str_radix(&rest[..colon_idx], 16).ok().map(|addr| {
+                                // Convert absolute address to relative (base = 0x3602)
+                                addr.wrapping_sub(0x3602)
+                            });
+                    }
+                }
+            }
+            continue;
+        }
+
+        // Parse ptfm_move line
+        if let Some(args) = trimmed.strip_prefix("ptfm_move") {
+            let args = args.trim();
+            let parts: Vec<&str> = args.split(',').map(|s| s.trim()).collect();
+            if parts.len() == 3 {
+                if let (Some(duration), Some(x_vel), Some(y_vel)) = (
+                    parse_asm_integer(parts[0]),
+                    parse_asm_signed(parts[1]),
+                    parse_asm_signed(parts[2]),
+                ) {
+                    current_commands.push(PlatformMoveCommand {
+                        duration: duration as u16,
+                        x_velocity: x_vel,
+                        y_velocity: y_vel,
+                    });
+                }
+            }
+        }
+    }
+
+    // Flush last script
+    if let Some(offset) = current_offset {
+        if !current_commands.is_empty() {
+            scripts.insert(
+                offset,
+                PlatformScript {
+                    commands: current_commands,
+                },
+            );
+        }
+    }
+
+    PlatformScriptTable { scripts }
+}
+
+fn parse_asm_integer(s: &str) -> Option<i64> {
+    let s = s.trim().trim_start_matches('#');
+    if let Some(hex) = s.strip_prefix('$') {
+        i64::from_str_radix(hex, 16).ok()
+    } else if let Some(hex) = s.strip_prefix("0x") {
+        i64::from_str_radix(hex, 16).ok()
+    } else {
+        s.parse().ok()
+    }
+}
+
+fn parse_asm_signed(s: &str) -> Option<i32> {
+    let s = s.trim().trim_start_matches('#');
+    let (neg, s) = if let Some(rest) = s.strip_prefix('-') {
+        (true, rest)
+    } else {
+        (false, s)
+    };
+    let val = if let Some(hex) = s.strip_prefix('$') {
+        i64::from_str_radix(hex, 16).ok()?
+    } else if let Some(hex) = s.strip_prefix("0x") {
+        i64::from_str_radix(hex, 16).ok()?
+    } else {
+        s.parse::<i64>().ok()?
+    };
+    let signed = if neg { -(val as i32) } else { val as i32 };
+    Some(signed)
 }
 
 fn parse_platform_script_ref(value: &str) -> PlatformScriptRef {
@@ -2373,5 +2507,39 @@ mod tests {
                 )
                 .is_file()
         );
+    }
+
+    #[test]
+    fn parse_platform_scripts_extracts_commands() {
+        let asm = "\
+PlatformScript_Nothing\t= $10000
+
+PlatformScript_BaseAddress:
+PlatformScript_3602:   ; relative offset: 0000
+\tptfm_move   $24B, $18000, $0
+\tptfm_move   $24B, -$18000, $0
+\tdc.w    $FFFF
+\tdc.l    PlatformScript_3602
+PlatformScript_361C:   ; relative offset: 001A
+\tptfm_move   $E1, $0, -$11000
+\tptfm_move   $E1, $0, $11000
+\tdc.w    $FFFF
+\tdc.l    PlatformScript_361C
+";
+        let table = parse_platform_scripts(asm);
+        assert_eq!(table.scripts.len(), 2);
+
+        let script_0 = &table.scripts[&0x0000];
+        assert_eq!(script_0.commands.len(), 2);
+        assert_eq!(script_0.commands[0].duration, 0x24B);
+        assert_eq!(script_0.commands[0].x_velocity, 0x18000);
+        assert_eq!(script_0.commands[0].y_velocity, 0);
+        assert_eq!(script_0.commands[1].x_velocity, -0x18000);
+
+        let script_1a = &table.scripts[&0x001A];
+        assert_eq!(script_1a.commands.len(), 2);
+        assert_eq!(script_1a.commands[0].duration, 0xE1);
+        assert_eq!(script_1a.commands[0].x_velocity, 0);
+        assert_eq!(script_1a.commands[0].y_velocity, -0x11000);
     }
 }
