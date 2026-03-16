@@ -4821,6 +4821,9 @@ fn render_command(command: &Command, cwd: &Path) -> String {
 /// RAM addresses for level layout extraction (from variables.asm).
 const LEVEL_LAYOUT_ADDR: u32 = 0x00FF_A652;
 const LEVEL_LAYOUT_SIZE: usize = 0x41A0;
+/// Block List RAM: prize/ghost/teleporter/hidden entries (ram_layout.txt).
+const BLOCK_LIST_ADDR: u32 = 0x00FF_3B24;
+const BLOCK_LIST_SIZE: usize = 0x0898; // FF3B24..FF43BC
 
 fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<()> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
@@ -4859,6 +4862,7 @@ fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<(
     let width_blocks = runtime.read_work_ram_word(0x00FF_F89E);
     let height_blocks = runtime.read_work_ram_word(0x00FF_F8A4);
     let layout_data = runtime.read_work_ram_range(LEVEL_LAYOUT_ADDR, LEVEL_LAYOUT_SIZE);
+    let block_list_data = runtime.read_work_ram_range(BLOCK_LIST_ADDR, BLOCK_LIST_SIZE);
 
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
@@ -4867,6 +4871,11 @@ fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<(
     let layout_path = out_dir.join(&filename);
     fs::write(&layout_path, &layout_data)
         .with_context(|| format!("failed to write {}", layout_path.display()))?;
+
+    // Dump the Block List (prize/ghost/teleporter/hidden entries)
+    let block_list_path = out_dir.join(format!("{:02X}.blocklist.bin", level_id));
+    fs::write(&block_list_path, &block_list_data)
+        .with_context(|| format!("failed to write {}", block_list_path.display()))?;
 
     // Write metadata alongside
     let meta = serde_json::json!({

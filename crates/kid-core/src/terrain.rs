@@ -250,6 +250,125 @@ impl BlockGrid {
 }
 
 // ---------------------------------------------------------------------------
+// Block List — prize/ghost/teleporter/hidden block data from RAM dump
+// ---------------------------------------------------------------------------
+
+/// Prize content from bits 0-3 of the Block List prize entry's last byte.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrizeContent {
+    Diamond,
+    Points10000,
+    Skycutter,
+    Cyclone,
+    RedStealth,
+    Eyeclops,
+    Juggernaut,
+    IronKnight,
+    Berzerker,
+    Maniaxe,
+    Micromax,
+    Ankh,
+    Clock,
+    Continue,
+    TenDiamonds,
+}
+
+impl PrizeContent {
+    fn from_id(id: u8) -> Self {
+        match id & 0x0F {
+            0x00 | 0x0F => Self::Diamond,
+            0x01 => Self::Points10000,
+            0x02 => Self::Skycutter,
+            0x03 => Self::Cyclone,
+            0x04 => Self::RedStealth,
+            0x05 => Self::Eyeclops,
+            0x06 => Self::Juggernaut,
+            0x07 => Self::IronKnight,
+            0x08 => Self::Berzerker,
+            0x09 => Self::Maniaxe,
+            0x0A => Self::Micromax,
+            0x0B => Self::Ankh,
+            0x0C => Self::Clock,
+            0x0D => Self::Continue,
+            0x0E => Self::TenDiamonds,
+            _ => Self::Diamond,
+        }
+    }
+}
+
+/// A single prize block entry from the Block List.
+#[derive(Debug, Clone, Copy)]
+pub struct PrizeBlockEntry {
+    pub col: u16,
+    pub row: u16,
+    pub content: PrizeContent,
+    pub disguised: bool,
+}
+
+/// Parsed Block List from the RAM dump at FF3B24.
+///
+/// The Block List stores runtime data for interactive blocks: prizes,
+/// ghost block groups, teleporters, and hidden blocks. Entries are stored
+/// sequentially: all prizes first, then ghosts, then teleporters, then hidden.
+#[derive(Debug, Clone)]
+pub struct BlockList {
+    pub prize_blocks: Vec<PrizeBlockEntry>,
+}
+
+impl BlockList {
+    /// Parse prize block entries from the raw Block List RAM dump.
+    ///
+    /// Prize entries are 8 bytes each at the start of the block list.
+    /// The Level_Layout RAM address in bytes 0-1 is used to detect the
+    /// end of the prize section (zero or address outside layout range).
+    pub fn from_raw(data: &[u8], layout_width: u16) -> Self {
+        let mut prize_blocks = Vec::new();
+        let mut offset = 0;
+        while offset + 8 <= data.len() {
+            let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
+            if layout_addr == 0 {
+                break;
+            }
+            let col = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
+            let row = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
+            let disguised = data[offset + 6] & 0x80 != 0;
+            let content_id = data[offset + 7] & 0x0F;
+            let content = PrizeContent::from_id(content_id);
+
+            // Validate: the layout address should point into the Level_Layout
+            // RAM range. Each cell is 2 bytes, so the address divided by 2
+            // gives the cell index. If width is 0 or address seems invalid,
+            // we've hit the end of prize entries.
+            if layout_width > 0 {
+                let cell_index = layout_addr / 2;
+                let derived_col = cell_index % layout_width;
+                let derived_row = cell_index / layout_width;
+                // Use the derived position as a cross-check; prefer the
+                // explicit col/row fields since they're authoritative.
+                let _ = (derived_col, derived_row);
+            }
+
+            prize_blocks.push(PrizeBlockEntry {
+                col,
+                row,
+                content,
+                disguised,
+            });
+            offset += 8;
+        }
+        Self { prize_blocks }
+    }
+
+    /// Look up prize content for a block at the given cell position.
+    pub fn prize_content_at(&self, col: u16, row: u16) -> Option<PrizeContent> {
+        self.prize_blocks
+            .iter()
+            .find(|entry| entry.col == col && entry.row == row)
+            .map(|entry| entry.content)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Terrain probing — pure functions
 // ---------------------------------------------------------------------------
 

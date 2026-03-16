@@ -402,6 +402,7 @@ pub struct NativeRuntime {
     active_platform_roster: Vec<NativeObjectSnapshot>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,
     block_grid: Option<terrain::BlockGrid>,
+    block_list: Option<terrain::BlockList>,
     block_grid_source: BlockGridSource,
     diamond_count: u16,
     evanescent_blocks: Vec<EvanescentEntry>,
@@ -700,8 +701,8 @@ struct OpeningSliceState {
     terrain: TerrainState,
     level_bounds: LevelBounds,
     objects: ObjectSystemState,
-    /// Prize blocks headbutted this frame (for diamond_count increment).
-    prize_blocks_hit: u16,
+    /// Prize block headbutted this frame — None if no prize block was hit.
+    prize_block_hit: Option<terrain::PrizeContent>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -903,6 +904,7 @@ impl NativeRuntime {
             active_platform_roster: Vec::new(),
             platform_script_table: None,
             block_grid: None,
+            block_list: None,
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
             evanescent_blocks: Vec::new(),
@@ -1451,13 +1453,14 @@ impl NativeRuntime {
         let mut slice = self
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
-        slice.prize_blocks_hit = 0;
+        slice.prize_block_hit = None;
         slice.step(
             level_elapsed,
             input,
             jump_pressed,
             self.current_form,
             self.block_grid.as_mut(),
+            self.block_list.as_ref(),
         );
 
         // Step platform movement scripts
@@ -1474,14 +1477,9 @@ impl NativeRuntime {
         // and clear expired blocks from the grid.
         self.step_evanescent_blocks(&slice);
 
-        // Prize block item spawning: each prize block grants a diamond
-        if slice.prize_blocks_hit > 0 {
-            for _ in 0..slice.prize_blocks_hit {
-                self.diamond_count += 1;
-                if self.diamond_count % 50 == 0 {
-                    self.number_lives += 1;
-                }
-            }
+        // Prize block item spawning: apply the prize content
+        if let Some(content) = slice.prize_block_hit {
+            self.apply_prize_content(content);
         }
 
         // Level timer: tick down and kill the player on expiry
@@ -1799,6 +1797,47 @@ impl NativeRuntime {
         }
     }
 
+    fn apply_prize_content(&mut self, content: terrain::PrizeContent) {
+        match content {
+            terrain::PrizeContent::Diamond => {
+                self.diamond_count += 1;
+                if self.diamond_count % 50 == 0 {
+                    self.number_lives += 1;
+                }
+            }
+            terrain::PrizeContent::TenDiamonds => {
+                for _ in 0..10 {
+                    self.diamond_count += 1;
+                    if self.diamond_count % 50 == 0 {
+                        self.number_lives += 1;
+                    }
+                }
+            }
+            terrain::PrizeContent::Clock => {
+                self.level_timer.add_clock_bonus();
+            }
+            terrain::PrizeContent::Continue => {
+                // Continue token — grants an extra continue (not yet tracked)
+            }
+            terrain::PrizeContent::Ankh => {
+                self.number_lives += 1;
+                // Invulnerability effect not yet implemented
+            }
+            terrain::PrizeContent::Points10000 => {
+                // Score not yet tracked
+            }
+            terrain::PrizeContent::Skycutter => self.queue_form_change(PlayerForm::Skycutter),
+            terrain::PrizeContent::Cyclone => self.queue_form_change(PlayerForm::Cyclone),
+            terrain::PrizeContent::RedStealth => self.queue_form_change(PlayerForm::RedStealth),
+            terrain::PrizeContent::Eyeclops => self.queue_form_change(PlayerForm::Eyeclops),
+            terrain::PrizeContent::Juggernaut => self.queue_form_change(PlayerForm::Juggernaut),
+            terrain::PrizeContent::IronKnight => self.queue_form_change(PlayerForm::IronKnight),
+            terrain::PrizeContent::Berzerker => self.queue_form_change(PlayerForm::Berzerker),
+            terrain::PrizeContent::Maniaxe => self.queue_form_change(PlayerForm::Maniaxe),
+            terrain::PrizeContent::Micromax => self.queue_form_change(PlayerForm::Micromax),
+        }
+    }
+
     /// Returns the x_pos of the damaging enemy if contact damage should apply, or None.
     fn find_contact_damage_source(&self, slice: &OpeningSliceState) -> Option<u32> {
         if self.invulnerable_frames != 0 || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
@@ -1955,6 +1994,7 @@ impl NativeRuntime {
             false,
             self.current_form,
             self.block_grid.as_mut(),
+            self.block_list.as_ref(),
         );
         if let Some(camera_lock) = self.death_camera_lock {
             slice.camera = camera_lock;
@@ -2099,10 +2139,13 @@ impl NativeRuntime {
 
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
+            let width = grid.width_cells;
             self.block_grid = Some(grid);
+            self.block_list = self.load_block_list_for_level(level_id, width);
             self.block_grid_source = BlockGridSource::Generated;
         } else if self.block_grid_source == BlockGridSource::Generated {
             self.block_grid = None;
+            self.block_list = None;
             self.block_grid_source = BlockGridSource::None;
         }
     }
@@ -2124,6 +2167,17 @@ impl NativeRuntime {
             metadata.width_blocks,
             metadata.height_blocks,
         ))
+    }
+
+    fn load_block_list_for_level(
+        &self,
+        level_id: LevelId,
+        layout_width: u16,
+    ) -> Option<terrain::BlockList> {
+        let layout_dir = self.assets.output_root.join("level-layout");
+        let path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
+        let data = fs::read(path).ok()?;
+        Some(terrain::BlockList::from_raw(&data, layout_width))
     }
 
     fn level_respawn_slice(&self, level_id: LevelId) -> OpeningSliceState {
@@ -2598,7 +2652,7 @@ impl OpeningSliceState {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         }
     }
 
@@ -2641,7 +2695,7 @@ impl OpeningSliceState {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         }
     }
 
@@ -2652,6 +2706,7 @@ impl OpeningSliceState {
         jump_pressed: bool,
         form: PlayerForm,
         block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -2663,7 +2718,7 @@ impl OpeningSliceState {
         self.update_vertical_motion(input, jump_pressed, form);
         let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
             self.apply_wall_collision(Some(grid));
-            self.apply_ceiling_collision(Some(grid));
+            self.apply_ceiling_collision(Some(grid), block_list);
             self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
         } else {
             self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed)
@@ -2936,7 +2991,11 @@ impl OpeningSliceState {
         }
     }
 
-    fn apply_ceiling_collision(&mut self, block_grid: Option<&mut terrain::BlockGrid>) {
+    fn apply_ceiling_collision(
+        &mut self,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+    ) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
             return;
@@ -2956,7 +3015,10 @@ impl OpeningSliceState {
                 )
             {
                 if probe.cell.block_type == terrain::BlockType::Prize {
-                    self.prize_blocks_hit += 1;
+                    let content = block_list
+                        .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
+                        .unwrap_or(terrain::PrizeContent::Diamond);
+                    self.prize_block_hit = Some(content);
                 }
                 grid.set_cell_at(
                     probe.cell_x,
@@ -5614,6 +5676,7 @@ mod tests {
             false,
             PlayerForm::TheKid,
             None,
+            None,
         );
 
         assert_eq!(
@@ -5655,6 +5718,7 @@ mod tests {
             true,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert!(!slice.player.on_ground);
@@ -5709,6 +5773,7 @@ mod tests {
             true,
             PlayerForm::TheKid,
             None,
+            None,
         );
 
         assert!(
@@ -5741,6 +5806,7 @@ mod tests {
             true,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
@@ -5758,6 +5824,7 @@ mod tests {
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert!(!slice.player.on_ground);
@@ -5792,6 +5859,7 @@ mod tests {
             true,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert_eq!(slice.player.x_pos, 0x00B1_2300);
@@ -5858,6 +5926,7 @@ mod tests {
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert_eq!(slice.player.x_pos, 0x032A_666A);
@@ -5909,7 +5978,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         slice.step(
@@ -5922,6 +5991,7 @@ mod tests {
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert!(slice.player.on_ground);
@@ -5937,6 +6007,7 @@ mod tests {
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert!(slice.player.on_ground);
@@ -5967,6 +6038,7 @@ mod tests {
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
+            None,
         );
 
         assert!(slice.player.on_ground);
@@ -6736,6 +6808,48 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // Prize content dispatch
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn prize_content_clock_adds_time() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let secs_before = runtime.level_timer.seconds;
+        runtime.apply_prize_content(terrain::PrizeContent::Clock);
+        assert_eq!(
+            runtime.level_timer.seconds,
+            (secs_before + LEVEL_TIMER_CLOCK_BONUS_SECONDS).min(LEVEL_TIMER_MAX_SECONDS),
+        );
+    }
+
+    #[test]
+    fn prize_content_ten_diamonds_adds_ten() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.diamond_count = 0;
+        runtime.apply_prize_content(terrain::PrizeContent::TenDiamonds);
+        assert_eq!(runtime.diamond_count, 10);
+    }
+
+    #[test]
+    fn prize_content_helmet_queues_form_change() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
+        assert_eq!(runtime.pending_form, Some(PlayerForm::IronKnight));
+    }
+
+    #[test]
+    fn prize_content_ankh_grants_extra_life() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let lives_before = runtime.number_lives;
+        runtime.apply_prize_content(terrain::PrizeContent::Ankh);
+        assert_eq!(runtime.number_lives, lives_before + 1);
+    }
+
+    // -----------------------------------------------------------------------
     // MiniHoppingSkull hopper behaviour
     // -----------------------------------------------------------------------
 
@@ -7451,10 +7565,10 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
 
         // Prize block should now be empty
         let cell_after = grid.cell_at(2, 2);
@@ -7495,10 +7609,10 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
 
         // Metal block remains unchanged
         let cell_after = grid.cell_at(3, 2);
@@ -7543,10 +7657,10 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
 
         // Smash block should now be empty
         let cell_after = grid.cell_at(4, 2);
@@ -7587,16 +7701,16 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
         assert!(!grid.cell_at(4, 2).has_block);
 
         // Second jump through the now-empty cell: no ceiling hit
         slice.player.y_pos = 63 << 16;
         slice.player.y_velocity = -0x0002_0000;
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
 
         // Velocity should remain negative (no ceiling hit)
         assert!(slice.player.y_velocity < 0);
@@ -7632,16 +7746,16 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
         assert!(!grid.cell_at(2, 2).has_block);
 
         // Second jump through the now-empty cell: no ceiling hit
         slice.player.y_pos = 63 << 16;
         slice.player.y_velocity = -0x0002_0000;
-        slice.apply_ceiling_collision(Some(&mut grid));
+        slice.apply_ceiling_collision(Some(&mut grid), None);
 
         // Velocity should remain negative (no ceiling hit)
         assert!(slice.player.y_velocity < 0);
@@ -7681,7 +7795,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -7724,7 +7838,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -7778,7 +7892,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), true, false);
@@ -8844,7 +8958,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false);
@@ -8884,7 +8998,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         // No floor under player → should leave ground and reset terrain type
@@ -8933,7 +9047,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         }
     }
 
@@ -9130,7 +9244,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         assert!(runtime.evanescent_blocks.is_empty());
@@ -9174,7 +9288,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         runtime.step_evanescent_blocks(&slice);
@@ -9222,7 +9336,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         // Trigger + first tick
@@ -9284,7 +9398,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         let airborne_slice = OpeningSliceState {
@@ -9462,7 +9576,7 @@ mod tests {
             objects: ObjectSystemState {
                 platform_loader: PlatformLoaderState::default(),
             },
-            prize_blocks_hit: 0,
+            prize_block_hit: None,
         };
 
         // Trigger twice while standing
