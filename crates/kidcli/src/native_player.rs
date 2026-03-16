@@ -1280,6 +1280,16 @@ fn build_game_scene(
 
     push_game_hud(&mut commands, trace, level_visuals);
 
+    // Game Over overlay
+    if trace.game_over {
+        let go_text = "GAME OVER";
+        let text_w = go_text.len() as i32 * 8 * 2;
+        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
+        push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 24, [80, 0, 0], [255, 80, 80]);
+        commands.push(text(text_x, text_y, go_text, [255, 80, 80], 2));
+    }
+
     // Pause overlay
     if trace.paused {
         let pause_text = "PAUSED";
