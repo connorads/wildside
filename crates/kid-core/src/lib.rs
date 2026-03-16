@@ -44,6 +44,7 @@ const ENEMY_CONTACT_HALF_HEIGHT: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
 const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 480;
+const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 300;
 const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
 const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
@@ -346,6 +347,7 @@ pub struct NativeTraceFrame {
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub level_complete: bool,
+    pub game_over: bool,
     pub invulnerable_frames: usize,
     pub diamond_count: u16,
     pub level_timer_seconds: u16,
@@ -492,6 +494,8 @@ enum PlayerLifecycle {
     Dying { remaining_frames: usize },
     Respawning { remaining_frames: usize },
     LevelComplete { remaining_frames: usize },
+    /// All lives lost — hold for a pause then return to title screen.
+    GameOver { remaining_frames: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1389,6 +1393,7 @@ impl NativeRuntime {
             number_objects,
             number_gfx_objects,
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
+            game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. }),
             invulnerable_frames: self.invulnerable_frames,
             diamond_count: self.diamond_count,
             level_timer_seconds: self.level_timer.seconds,
@@ -1598,6 +1603,10 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::Dying {
                         remaining_frames: remaining_frames - 1,
                     };
+                } else if self.number_lives == 0 {
+                    self.player_lifecycle = PlayerLifecycle::GameOver {
+                        remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
+                    };
                 } else {
                     self.reload_block_grid_for_level(self.current_level);
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
@@ -1625,6 +1634,22 @@ impl NativeRuntime {
                     };
                 } else {
                     self.advance_level();
+                }
+                return;
+            }
+            PlayerLifecycle::GameOver { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::GameOver {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    // Return to title screen
+                    self.boot_state = BootState::TitleScreen;
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                    self.number_lives = 3;
+                    self.diamond_count = 0;
+                    self.current_level = LevelId(0);
+                    self.opening_slice = None;
                 }
                 return;
             }
@@ -7316,6 +7341,61 @@ mod tests {
             runtime.number_hitpoints, 0,
             "spike death zeroes HP regardless"
         );
+    }
+
+    #[test]
+    fn game_over_when_last_life_lost() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_spikes_from_col(5));
+
+        start_level(&mut runtime);
+        runtime.number_lives = 1; // last life (set after boot so title doesn't reset it)
+
+        // Walk into spikes
+        for _ in 0..300 {
+            if !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+                break;
+            }
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            "expected DeathWindup, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        // Advance through death windup
+        for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(runtime.number_lives, 0, "last life lost");
+
+        // Advance through dying phase — should enter GameOver, not Respawning
+        for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::GameOver { .. }),
+            "expected GameOver at 0 lives, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        let trace = runtime.trace_frame();
+        assert!(trace.game_over, "trace should report game_over");
+
+        // Advance through game-over hold — should return to title
+        for _ in 0..PLAYER_GAME_OVER_HOLD_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen,
+            "should return to title after game over"
+        );
+        assert_eq!(runtime.number_lives, 3, "lives reset after game over");
     }
 
     /// Helper: build a block grid with solid floor at a given row everywhere.

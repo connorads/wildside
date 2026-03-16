@@ -1824,6 +1824,7 @@ mod tests {
             number_objects: 3,
             number_gfx_objects: 4,
             level_complete: false,
+            game_over: false,
             invulnerable_frames: 0,
             diamond_count: 0,
             level_timer_seconds: 180,
