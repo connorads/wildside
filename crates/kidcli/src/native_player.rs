@@ -1751,22 +1751,24 @@ fn build_game_scene(
         let complete_text = "LEVEL CLEAR!";
         let text_w = complete_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 32;
         push_panel(
             &mut commands,
-            text_x - 12,
+            text_x - 16,
             text_y - 8,
-            text_w + 24,
-            48,
+            text_w + 32,
+            80,
             [0, 20, 40],
             [80, 200, 255],
         );
         commands.push(text(text_x, text_y, complete_text, [80, 255, 120], 2));
-        let score_text = format!("SCORE: {}", trace.score);
+        let time_text = format!("TIME BONUS: {}s x 100 = {}", trace.level_timer_seconds, u32::from(trace.level_timer_seconds) * 100);
+        commands.push(text(text_x - 8, text_y + 22, &time_text, [200, 200, 160], 1));
+        let score_text = format!("TOTAL SCORE: {}", trace.score);
         let score_w = score_text.len() as i32 * 8;
         commands.push(text(
             (FRAME_WIDTH as i32 - score_w) / 2,
-            text_y + 22,
+            text_y + 38,
             &score_text,
             [255, 255, 200],
             1,

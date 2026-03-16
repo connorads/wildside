@@ -2761,6 +2761,7 @@ impl NativeRuntime {
         self.init_murder_wall(next_level, 0);
         self.init_weather(next_level);
         self.level_timer = LevelTimer::new();
+        self.level_damage_taken = false;
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.invulnerable_frames = 0;
