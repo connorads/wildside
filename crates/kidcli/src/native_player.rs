@@ -1280,6 +1280,19 @@ fn build_game_scene(
 
     push_game_hud(&mut commands, trace, level_visuals);
 
+    // Level Complete overlay
+    if trace.level_complete {
+        let lc_text = "LEVEL COMPLETE";
+        let text_w = lc_text.len() as i32 * 8 * 2;
+        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
+        push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 40, [0, 40, 0], [80, 255, 80]);
+        commands.push(text(text_x, text_y, lc_text, [80, 255, 80], 2));
+        let score_line = format!("SCORE: {}", trace.score);
+        let score_x = (FRAME_WIDTH as i32 - score_line.len() as i32 * 8) / 2;
+        commands.push(text(score_x, text_y + 20, &score_line, [255, 255, 255], 1));
+    }
+
     // Game Over overlay
     if trace.game_over {
         let go_text = "GAME OVER";
