@@ -4142,8 +4142,38 @@ impl OpeningSliceState {
         let probe = terrain::probe_ceiling(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT);
 
         if probe.hit {
+            // Hidden block reveal: headbutting a hidden block from below
+            // changes it to solid, making the block visible and functional.
+            if probe.cell.collision == terrain::CollisionKind::HiddenBlock {
+                // Change collision from HiddenBlock(2) to Solid(6),
+                // preserving the block type and skin.
+                let block_flag: u8 = if probe.cell.has_block { 0x80 } else { 0 };
+                let block_type_bits = probe.cell.block_type as u8 & 0x0F;
+                let new_hi = block_flag | 0x60 | block_type_bits; // Solid(6) collision
+                grid.set_cell_at(
+                    probe.cell_x,
+                    probe.cell_y,
+                    terrain::Cell::from_be_bytes(new_hi, probe.cell.skin),
+                );
+
+                // If the hidden block contains a prize, dispatch it
+                if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Prize {
+                    let content = block_list
+                        .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
+                        .unwrap_or(terrain::PrizeContent::Diamond);
+                    self.prize_block_hit = Some(content);
+                    // Clear the now-revealed prize block
+                    grid.set_cell_at(
+                        probe.cell_x,
+                        probe.cell_y,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
+                }
+            }
+
             // Prize/smash block headbutt: hitting from below clears the cell.
-            if probe.cell.has_block
+            if probe.cell.collision == terrain::CollisionKind::Solid
+                && probe.cell.has_block
                 && matches!(
                     probe.cell.block_type,
                     terrain::BlockType::Prize | terrain::BlockType::Smash
@@ -4238,10 +4268,10 @@ impl OpeningSliceState {
             {
                 let floor_y_px = match probe.cell.collision {
                     terrain::CollisionKind::Solid
-                    | terrain::CollisionKind::HiddenBlock
                     | terrain::CollisionKind::Spikes => probe.floor_y_px.saturating_sub(1),
                     terrain::CollisionKind::SlopeDown
                     | terrain::CollisionKind::SlopeUp
+                    | terrain::CollisionKind::HiddenBlock
                     | terrain::CollisionKind::Empty => probe.floor_y_px,
                 };
                 let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
@@ -4261,8 +4291,8 @@ impl OpeningSliceState {
                                 && (self.player.y_pos >= floor_y_fp || within_snap))
                     }
                     terrain::CollisionKind::Solid
-                    | terrain::CollisionKind::HiddenBlock
                     | terrain::CollisionKind::Spikes
+                    | terrain::CollisionKind::HiddenBlock
                     | terrain::CollisionKind::Empty => {
                         self.player.y_velocity >= 0
                             && (self.player.y_pos >= floor_y_fp || within_snap)
@@ -8307,6 +8337,63 @@ mod tests {
         );
     }
 
+    fn grid_with_hidden_block() -> terrain::BlockGrid {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = 0x01;
+        };
+        // Row 2, col 2: hidden block (collision=2, has_block, block_type=5/Metal)
+        // 1_010_0101 = 0xA5
+        set_cell(&mut data, 2, 2, 0xA5);
+        // Row 3: solid floor
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60);
+        }
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    fn hidden_block_reveals_on_headbutt() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_hidden_block());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Verify hidden block at col 2, row 2
+        let grid = runtime.block_grid.as_ref().unwrap();
+        let cell = grid.cell_at(2, 2);
+        assert_eq!(cell.collision, terrain::CollisionKind::HiddenBlock);
+
+        // Position player below the hidden block, moving upward
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16; // col 2 centre
+            slice.player.y_pos = 73 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        // Block should now be Solid instead of HiddenBlock
+        let grid = runtime.block_grid.as_ref().unwrap();
+        let cell = grid.cell_at(2, 2);
+        assert_eq!(
+            cell.collision,
+            terrain::CollisionKind::Solid,
+            "hidden block should be revealed as solid after headbutt"
+        );
+        assert!(cell.has_block);
+        assert_eq!(cell.block_type, terrain::BlockType::Metal);
+    }
+
     #[test]
     fn fifty_diamonds_grants_extra_life() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -12320,6 +12407,7 @@ mod tests {
                 dest_y: 7,
                 dest_x: 10,
             }],
+            hidden_blocks: vec![],
         };
 
         assert!(bl.teleporter_at(5, 3).is_some());

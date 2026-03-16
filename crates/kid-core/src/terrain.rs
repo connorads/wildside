@@ -349,6 +349,19 @@ pub struct BlockList {
     pub prize_blocks: Vec<PrizeBlockEntry>,
     pub ghost_blocks: Vec<GhostBlockEntry>,
     pub teleporters: Vec<TeleporterEntry>,
+    pub hidden_blocks: Vec<HiddenBlockEntry>,
+}
+
+/// A hidden block entry from the Block List.
+/// Hidden blocks are invisible until the player headbutts them from below.
+#[derive(Debug, Clone)]
+pub struct HiddenBlockEntry {
+    pub col: u16,
+    pub row: u16,
+    /// The block type that gets revealed (Prize, Evanescent, Teleporter, etc.).
+    pub block_type: u8,
+    /// Block setting byte (direction for shooters/drills, side for teleporters).
+    pub block_setting: u8,
 }
 
 impl BlockList {
@@ -449,10 +462,35 @@ impl BlockList {
             offset += 10;
         }
 
+        // Hidden block entries follow teleporters (8 bytes each).
+        // Skip past teleporter terminator (2 zero bytes).
+        if offset + 2 <= data.len() {
+            offset += 2; // skip teleporter terminator
+        }
+        let mut hidden_blocks = Vec::new();
+        while offset + 8 <= data.len() {
+            let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
+            if layout_addr == 0 {
+                break;
+            }
+            let col = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
+            let row = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
+            let block_type = data[offset + 6];
+            let block_setting = data[offset + 7];
+            hidden_blocks.push(HiddenBlockEntry {
+                col,
+                row,
+                block_type,
+                block_setting,
+            });
+            offset += 8;
+        }
+
         Self {
             prize_blocks,
             ghost_blocks,
             teleporters,
+            hidden_blocks,
         }
     }
 
@@ -467,6 +505,13 @@ impl BlockList {
     /// Look up a teleporter at a given cell position.
     pub fn teleporter_at(&self, col: u16, row: u16) -> Option<&TeleporterEntry> {
         self.teleporters
+            .iter()
+            .find(|entry| entry.col == col && entry.row == row)
+    }
+
+    /// Look up a hidden block at a given cell position.
+    pub fn hidden_block_at(&self, col: u16, row: u16) -> Option<&HiddenBlockEntry> {
+        self.hidden_blocks
             .iter()
             .find(|entry| entry.col == col && entry.row == row)
     }
@@ -727,7 +772,10 @@ pub fn probe_ceiling(
 
     for &px in &[center_x_px - half_width, center_x_px + half_width] {
         let probe = probe_at(grid, px, top_y);
-        if probe.cell.collision == CollisionKind::Solid {
+        if matches!(
+            probe.cell.collision,
+            CollisionKind::Solid | CollisionKind::HiddenBlock
+        ) {
             return CeilingProbe {
                 hit: true,
                 // Bottom of ceiling cell = next row boundary
