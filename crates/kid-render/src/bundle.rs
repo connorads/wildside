@@ -79,7 +79,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         },
     };
     let block_layout = match level_bundle.block.as_ref() {
-        Some(asset) => decode_level_saxman_asset(asset, "block layout")?,
+        Some(asset) => asset.bytes.clone(),
         None => match decoded {
             Some(d) => read_decoded_file(manifest, &d.block, "block layout")?,
             None => bail!("level 0x{level_id:02X} has no block layout data"),
