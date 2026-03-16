@@ -350,6 +350,7 @@ pub struct NativeTraceFrame {
     pub diamond_count: u16,
     pub level_timer_seconds: u16,
     pub murder_wall_x: Option<i64>,
+    pub active_projectiles: Vec<(u32, u32)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -407,6 +408,7 @@ pub struct NativeRuntime {
     block_grid_source: BlockGridSource,
     diamond_count: u16,
     evanescent_blocks: Vec<EvanescentEntry>,
+    projectiles: Vec<EnemyProjectile>,
     murder_wall: Option<MurderWallState>,
     level_timer: LevelTimer,
 }
@@ -686,6 +688,61 @@ struct EvanescentEntry {
     timer: i16,
 }
 
+/// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EnemyProjectile {
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+    /// Remaining lifetime in frames (destroyed when zero).
+    lifetime: u16,
+}
+
+/// Maximum active projectiles (original limits to 2 arrows, we allow a few more
+/// for Tank bullets sharing the pool).
+const MAX_PROJECTILES: usize = 4;
+/// Projectile hitbox half-width for player collision (pixels).
+const PROJECTILE_HITBOX_HALF: i32 = 6;
+
+/// Archer fire interval indexed by enemy_level (HP 1/2/3).
+/// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
+const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
+
+/// Arrow velocity table from Archer.asm `byte_3437A`.
+/// 28 entries: (x_direction_sign, sprite_id, x_vel_byte, y_vel_byte).
+/// Velocity = signed_byte * 0x1000 (ext.w → swap → asr.l #4).
+const ARROW_ANGLE_TABLE: [(i8, i8); 28] = [
+    (0x20, 0),      // 0: right
+    (0x20, -8),     // 1: right + slight up
+    (0x1C, -16),    // 2
+    (0x18, -24),    // 3
+    (0x10, -28),    // 4
+    (8, -32),       // 5
+    (0, -32),       // 6: straight up
+    (0, -32),       // 7: straight up (mirrored)
+    (-8, -32),      // 8
+    (-16, -28),     // 9
+    (-24, -24),     // 10
+    (-28, -16),     // 11
+    (-32, -8),      // 12
+    (-32, 0),       // 13: left
+    (-32, 0),       // 14: left (dup)
+    (-32, 8),       // 15
+    (-28, 16),      // 16
+    (-24, 24),      // 17
+    (-16, 28),      // 18
+    (-8, 32),       // 19
+    (0, 32),        // 20: straight down
+    (0, 32),        // 21: straight down (mirrored)
+    (8, 32),        // 22
+    (16, 28),       // 23
+    (24, 24),       // 24
+    (28, 16),       // 25
+    (32, 8),        // 26
+    (32, 0),        // 27: right (wrap)
+];
+
 /// Murder wall: an advancing wall that kills the player on contact.
 /// Accelerates from zero to max_speed at $100/frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -819,6 +876,7 @@ enum EnemyArchetype {
     Hopper,
     Hoverer,
     Pacer,
+    Stationary,
     Inert,
 }
 
@@ -936,6 +994,7 @@ impl NativeRuntime {
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
             evanescent_blocks: Vec::new(),
+            projectiles: Vec::new(),
             murder_wall: None,
             level_timer: LevelTimer::new(),
         };
@@ -1230,6 +1289,7 @@ impl NativeRuntime {
             diamond_count: self.diamond_count,
             level_timer_seconds: self.level_timer.seconds,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
+            active_projectiles: self.projectiles.iter().map(|p| (p.x_pos, p.y_pos)).collect(),
         }
     }
 
@@ -1536,6 +1596,14 @@ impl NativeRuntime {
             return;
         }
 
+        // Projectiles: advance and damage player on hit
+        self.step_projectiles();
+        if self.projectile_hits_player(&slice) {
+            self.opening_slice = Some(slice);
+            self.apply_damage();
+            return;
+        }
+
         // Murder wall: advance and kill player on contact
         self.step_murder_wall();
         if self.murder_wall_kills_player(&slice) {
@@ -1634,6 +1702,7 @@ impl NativeRuntime {
                 self.block_grid.as_ref(),
                 Some(slice.player.x_pos),
                 Some(slice.player.y_pos),
+                Some(&mut self.projectiles),
             );
             self.active_enemy_roster = self
                 .active_enemies
@@ -2073,6 +2142,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.evanescent_blocks.clear();
+        self.projectiles.clear();
         self.init_murder_wall(next_level, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
@@ -2159,6 +2229,39 @@ impl NativeRuntime {
             let wall_right = wall_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
             wall_right >= player_x
         }
+    }
+
+    /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
+    fn step_projectiles(&mut self) {
+        self.projectiles.retain_mut(|p| {
+            if p.lifetime == 0 {
+                return false;
+            }
+            p.lifetime -= 1;
+            p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
+            p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            true
+        });
+    }
+
+    /// Check if any projectile overlaps the player hitbox, returning true if hit.
+    fn projectile_hits_player(&mut self, slice: &OpeningSliceState) -> bool {
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+        let half = PROJECTILE_HITBOX_HALF;
+        let mut hit = false;
+        self.projectiles.retain(|p| {
+            let prx = (p.x_pos >> 16) as i32;
+            let pry = (p.y_pos >> 16) as i32;
+            let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
+            if overlaps {
+                hit = true;
+                false // remove projectile on hit
+            } else {
+                true
+            }
+        });
+        hit
     }
 
     /// Initialize murder wall state from level header flags.
@@ -3592,7 +3695,7 @@ impl EnemyFamily {
             | Self::Lion
             | Self::FireDemon => EnemyArchetype::Pacer,
             Self::EmoRock => EnemyArchetype::Hoverer,
-            Self::Archer => EnemyArchetype::Inert, // TODO: arrow projectiles
+            Self::Archer => EnemyArchetype::Stationary,
             Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Inert, // TODO: unique behaviours
             Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
                 EnemyArchetype::Inert // TODO: boss state machines
@@ -3770,6 +3873,7 @@ fn step_active_enemies(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    mut projectiles: Option<&mut Vec<EnemyProjectile>>,
 ) {
     for enemy in active.iter_mut() {
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
@@ -3782,6 +3886,11 @@ fn step_active_enemies(
                 step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos)
             }
             EnemyArchetype::Pacer => step_pacer(enemy, block_grid),
+            EnemyArchetype::Stationary => {
+                if let Some(ref mut projs) = projectiles {
+                    step_archer(enemy, projs, player_x_pos, player_y_pos);
+                }
+            }
         }
     }
 }
@@ -4244,6 +4353,97 @@ fn player_relative_direction(enemy_x_pos: u32, player_x_pos: Option<u32>) -> Opt
     } else {
         Direction::Left
     })
+}
+
+/// Compute arrow angle index (0..27) from archer to player.
+/// Faithfully mirrors Archer.asm `loc_34458`: quadrant dispatch + unk_34404 ratio lookup.
+fn archer_angle_to_player(
+    archer_x: u32,
+    archer_y: u32,
+    player_x: u32,
+    player_y: u32,
+) -> usize {
+    let dx = (player_x >> 16) as i32 - (archer_x >> 16) as i32;
+    // Archer aims 16px above player centre (subi.w #$10,d7 in ASM).
+    let dy = ((player_y >> 16) as i32 - 0x10) - (archer_y >> 16) as i32;
+
+    // Ratio lookup table from unk_34404 (84 entries). Maps (abs_dy*8/abs_dx) to sub-angle 0-5.
+    const RATIO_TABLE: [u8; 84] = [
+        0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
+        4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5,
+    ];
+
+    if dx == 0 {
+        // Directly above or below.
+        return if dy < 0 { 6 } else { 0x15 };
+    }
+
+    let abs_dx = dx.unsigned_abs() as u32;
+    let abs_dy = dy.unsigned_abs() as u32;
+    let ratio = ((abs_dy * 8) / abs_dx).min(0x3E) as usize;
+    let sub = RATIO_TABLE[ratio.min(RATIO_TABLE.len() - 1)] as i32;
+
+    match (dx > 0, dy >= 0) {
+        // Quadrant 0: right+up (d5=0)
+        (true, false) => sub as usize,
+        // Quadrant 1: left+up (d5=1) → 0xD - sub
+        (false, false) => (0x0D - sub) as usize,
+        // Quadrant 2: left+down (d5=2) → 0xE + sub
+        (false, true) => (0x0E + sub) as usize,
+        // Quadrant 3: right+down (d5=3) → 0x1B - sub
+        (true, true) => (0x1B - sub) as usize,
+    }
+}
+
+/// Step Archer: stationary enemy that faces player and fires arrows at intervals.
+fn step_archer(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    // Face towards player.
+    if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+        enemy.facing = dir;
+    }
+
+    // Count down fire timer.
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+
+    // Reset timer.
+    let level = enemy.hit_points.saturating_sub(1).min(2) as usize;
+    enemy.wait_timer = ARCHER_FIRE_TIMER[level];
+
+    // Need player position to compute angle.
+    let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+        return;
+    };
+
+    // Don't exceed projectile limit.
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    // Compute angle and spawn arrow.
+    let angle = archer_angle_to_player(enemy.x_pos, enemy.y_pos, px, py);
+    let (x_byte, y_byte) = ARROW_ANGLE_TABLE[angle.min(ARROW_ANGLE_TABLE.len() - 1)];
+    let x_velocity = (x_byte as i32) * 0x1000;
+    let y_velocity = (y_byte as i32) * 0x1000;
+
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos,
+        x_velocity,
+        y_velocity,
+        lifetime: ARCHER_FIRE_TIMER[level],
+    });
 }
 
 fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
@@ -7233,8 +7433,8 @@ mod tests {
             dragon_phase_frames: 0,
         };
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
 
         assert_eq!(enemy.y_pos, 272u32 << 16);
         assert_eq!(enemy.x_pos, (225u32 << 16) + 0x8000);
@@ -7413,37 +7613,37 @@ mod tests {
         };
 
         for _ in 0..199 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
         }
         assert_eq!(enemy.x_pos, 0x0060_8000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..91 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
         }
         assert_eq!(enemy.x_pos, 0x0033_0000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..39 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
         }
         assert_eq!(enemy.x_pos, DRAGON_PERCH_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..50 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
         }
         assert_eq!(enemy.x_pos, 0x0038_0000);
         assert_eq!(enemy.facing, Direction::Right);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
         }
         assert_eq!(enemy.x_pos, DRAGON_SWOOP_APEX_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, None);
         }
 
         assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
@@ -7500,7 +7700,7 @@ mod tests {
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -7535,7 +7735,7 @@ mod tests {
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -7549,16 +7749,16 @@ mod tests {
         );
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
         }
         assert!(
             enemy.on_ground,
             "hopper should remain grounded through the disassembly-backed wait window"
         );
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
+        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
         for _ in 0..12 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None);
+            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, None);
         }
 
         let airborne_skull = enemy;
@@ -7604,12 +7804,14 @@ mod tests {
                 Some(&grid),
                 Some(128u32 << 16),
                 None,
+                None,
             );
         }
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
             Some(&grid),
             Some(128u32 << 16),
+            None,
             None,
         );
 
@@ -7652,12 +7854,14 @@ mod tests {
                 Some(&grid),
                 Some(32u32 << 16),
                 None,
+                None,
             );
         }
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
             Some(&grid),
             Some(32u32 << 16),
+            None,
             None,
         );
 
@@ -8962,7 +9166,7 @@ mod tests {
 
     #[test]
     fn archer_maps_to_inert() {
-        assert_eq!(EnemyFamily::Archer.archetype(), EnemyArchetype::Inert);
+        assert_eq!(EnemyFamily::Archer.archetype(), EnemyArchetype::Stationary);
         assert_eq!(EnemyFamily::Archer.object_type(), 0x07);
     }
 
@@ -9222,6 +9426,159 @@ mod tests {
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), None);
         assert_eq!(enemy.facing, Direction::Right, "should face toward player");
         assert!(enemy.x_pos > x_before, "should walk toward player");
+    }
+
+    // --- Projectile system ---
+
+    #[test]
+    fn projectile_moves_by_velocity_each_step() {
+        let mut projs = vec![EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0x2_0000,
+            y_velocity: -0x1_0000,
+            lifetime: 10,
+        }];
+        // Simulate step_projectiles inline (since it's on NativeRuntime)
+        projs.retain_mut(|p| {
+            if p.lifetime == 0 { return false; }
+            p.lifetime -= 1;
+            p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
+            p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            true
+        });
+        assert_eq!(projs.len(), 1);
+        assert_eq!(projs[0].x_pos, 102 << 16);
+        assert_eq!(projs[0].y_pos, 99 << 16);
+        assert_eq!(projs[0].lifetime, 9);
+    }
+
+    #[test]
+    fn projectile_removed_when_lifetime_expires() {
+        let mut projs = vec![EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0x1000,
+            y_velocity: 0,
+            lifetime: 1,
+        }];
+        // Step once: lifetime goes 1→0, projectile moves
+        projs.retain_mut(|p| {
+            if p.lifetime == 0 { return false; }
+            p.lifetime -= 1;
+            p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
+            true
+        });
+        assert_eq!(projs.len(), 1, "lifetime was 1, not 0, so still alive this step");
+        // Step again: lifetime is 0, removed
+        projs.retain_mut(|p| {
+            if p.lifetime == 0 { return false; }
+            p.lifetime -= 1;
+            true
+        });
+        assert_eq!(projs.len(), 0, "projectile removed after lifetime expires");
+    }
+
+    // --- Archer enemy ---
+
+    #[test]
+    fn archer_maps_to_stationary_archetype() {
+        assert_eq!(EnemyFamily::Archer.archetype(), EnemyArchetype::Stationary);
+    }
+
+    #[test]
+    fn archer_faces_player_direction() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Archer,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 10, // not ready to fire yet
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let mut projs = Vec::new();
+        let player_x = Some(200u32 << 16);
+        step_archer(&mut enemy, &mut projs, player_x, Some(100u32 << 16));
+        assert_eq!(enemy.facing, Direction::Right, "should face toward player");
+        assert!(projs.is_empty(), "should not fire while timer > 0");
+    }
+
+    #[test]
+    fn archer_fires_arrow_when_timer_expires() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Archer,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0, // ready to fire
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let mut projs = Vec::new();
+        let player_x = Some(200u32 << 16);
+        let player_y = Some(100u32 << 16);
+        step_archer(&mut enemy, &mut projs, player_x, player_y);
+        assert_eq!(projs.len(), 1, "should spawn an arrow");
+        assert!(projs[0].x_velocity > 0, "arrow should move toward player (right)");
+        assert_eq!(enemy.wait_timer, ARCHER_FIRE_TIMER[0], "timer should reset");
+    }
+
+    #[test]
+    fn archer_angle_straight_right() {
+        // Player directly right (dy=0 after 16px offset → quadrant 3 → angle 27, same as 0)
+        let angle = archer_angle_to_player(100 << 16, 100 << 16, 200 << 16, (100 + 16) << 16);
+        assert_eq!(angle, 27);
+        // Velocity is identical to angle 0
+        assert_eq!(ARROW_ANGLE_TABLE[27], ARROW_ANGLE_TABLE[0]);
+    }
+
+    #[test]
+    fn archer_angle_straight_left() {
+        // Player directly left (dy=0 after offset → quadrant 2 → angle 14, same vel as 13)
+        let angle = archer_angle_to_player(200 << 16, 100 << 16, 100 << 16, (100 + 16) << 16);
+        assert_eq!(angle, 14);
+        assert_eq!(ARROW_ANGLE_TABLE[14], ARROW_ANGLE_TABLE[13]);
+    }
+
+    #[test]
+    fn archer_angle_straight_up() {
+        // Player directly above
+        let angle = archer_angle_to_player(100 << 16, 200 << 16, 100 << 16, 100 << 16);
+        assert_eq!(angle, 6, "should be straight up");
+    }
+
+    #[test]
+    fn archer_angle_upper_right() {
+        // Player well above and to the right → quadrant 0, should give angle near 0-6
+        let angle = archer_angle_to_player(100 << 16, 200 << 16, 200 << 16, 100 << 16);
+        assert!(angle <= 6, "angle {angle} should be in upper-right range");
+        let (xv, yv) = ARROW_ANGLE_TABLE[angle];
+        assert!(xv > 0, "x velocity should be positive (rightward)");
+        assert!(yv < 0, "y velocity should be negative (upward)");
+    }
+
+    #[test]
+    fn archer_fire_timer_varies_by_hp() {
+        assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
+        assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
+        assert_eq!(ARCHER_FIRE_TIMER[2], 0x0A, "HP 3: 10 frames");
     }
 
     // --- Terrain type speed table selection ---

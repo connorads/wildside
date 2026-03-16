@@ -1212,6 +1212,19 @@ fn build_game_scene(
         });
     }
 
+    // Projectiles: small yellow dots
+    for &(px, py) in &trace.active_projectiles {
+        let sx = (px >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+        let sy = (py >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+        commands.push(DrawCommand::Rect {
+            x: sx - 2,
+            y: sy - 2,
+            width: 4,
+            height: 4,
+            colour: [255, 200, 0],
+        });
+    }
+
     push_game_hud(&mut commands, trace, level_visuals);
 
     if debug_overlay_visible {
@@ -1815,6 +1828,7 @@ mod tests {
             diamond_count: 0,
             level_timer_seconds: 180,
             murder_wall_x: None,
+            active_projectiles: Vec::new(),
         }
     }
 
