@@ -1828,6 +1828,7 @@ mod tests {
             number_continues: 3,
             invulnerable_frames: 0,
             diamond_count: 0,
+            score: 0,
             level_timer_seconds: 180,
             murder_wall_x: None,
             active_projectiles: Vec::new(),

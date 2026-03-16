@@ -351,6 +351,7 @@ pub struct NativeTraceFrame {
     pub game_over: bool,
     pub invulnerable_frames: usize,
     pub diamond_count: u16,
+    pub score: u32,
     pub level_timer_seconds: u16,
     pub murder_wall_x: Option<i64>,
     pub active_projectiles: Vec<(u32, u32)>,
@@ -436,6 +437,7 @@ pub struct NativeRuntime {
     block_list: Option<terrain::BlockList>,
     block_grid_source: BlockGridSource,
     diamond_count: u16,
+    score: u32,
     evanescent_blocks: Vec<EvanescentEntry>,
     ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
@@ -1173,6 +1175,7 @@ impl NativeRuntime {
             block_list: None,
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
+            score: 0,
             evanescent_blocks: Vec::new(),
             ghost_groups: Vec::new(),
             projectiles: Vec::new(),
@@ -1476,6 +1479,7 @@ impl NativeRuntime {
             game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. }),
             invulnerable_frames: self.invulnerable_frames,
             diamond_count: self.diamond_count,
+            score: self.score,
             level_timer_seconds: self.level_timer.seconds,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
             active_projectiles: self.projectiles.iter().map(|p| (p.x_pos, p.y_pos)).collect(),
@@ -1892,6 +1896,8 @@ impl NativeRuntime {
 
         // Flag collision: touching the flag completes the level
         if self.player_touches_flag(&slice) {
+            // Time bonus: remaining seconds × 100
+            self.score += u32::from(self.level_timer.seconds) * 100;
             self.opening_slice = Some(slice);
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
@@ -2122,9 +2128,10 @@ impl NativeRuntime {
             }
         }
 
-        // Remove dead enemies
+        // Remove dead enemies and award points
         for &idx in kill_indices.iter().rev() {
             self.active_enemies.remove(idx);
+            self.score += 1000;
         }
 
         // Rebuild roster after changes
@@ -2173,6 +2180,7 @@ impl NativeRuntime {
         for &idx in collected_indices.iter().rev() {
             self.active_enemies.remove(idx);
             self.diamond_count += 1;
+            self.score += 500;
             // 50 diamonds → extra life
             if self.diamond_count % 50 == 0 {
                 self.number_lives += 1;
@@ -2216,7 +2224,7 @@ impl NativeRuntime {
                 // Diamond Power invulnerability (at 20 diamonds) is separate
             }
             terrain::PrizeContent::Points10000 => {
-                // Score not yet tracked
+                self.score += 10_000;
             }
             terrain::PrizeContent::Skycutter => self.queue_form_change(PlayerForm::Skycutter),
             terrain::PrizeContent::Cyclone => self.queue_form_change(PlayerForm::Cyclone),
@@ -2858,6 +2866,7 @@ impl NativeRuntime {
 
         for &idx in kill_indices.iter().rev() {
             self.active_enemies.remove(idx);
+            self.score += 1000;
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self
@@ -2908,9 +2917,10 @@ impl NativeRuntime {
             self.projectiles.remove(pi);
         }
 
-        // Remove dead enemies
+        // Remove dead enemies and award points
         for &idx in kill_indices.iter().rev() {
             self.active_enemies.remove(idx);
+            self.score += 1000;
         }
         if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
             self.active_enemy_roster = self
@@ -2953,6 +2963,7 @@ impl NativeRuntime {
 
         for &idx in kill_indices.iter().rev() {
             self.active_enemies.remove(idx);
+            self.score += 1000;
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self
@@ -8117,6 +8128,43 @@ mod tests {
         assert_eq!(
             slice.camera.y_pos,
             start_camera_axis(224 * 4, 224, 0x00E0_u16.saturating_sub(112))
+        );
+    }
+
+    #[test]
+    fn level_complete_awards_time_bonus() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        // Advance past entry animation
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(runtime.score, 0);
+
+        // Place player on flag
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        let seconds_remaining = runtime.level_timer.seconds;
+
+        // Trigger flag touch
+        runtime.step_frame(FrameInput::default());
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ));
+
+        // Score should include time bonus
+        assert_eq!(
+            runtime.score,
+            u32::from(seconds_remaining) * 100,
+            "time bonus should be remaining_seconds × 100"
         );
     }
 
