@@ -2154,6 +2154,28 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(330.0, 120, 0.15);
         sfx.play(262.0, 180, 0.15);
     }
+    // Stomp bounce (landed on enemy — on_ground went false with upward velocity and enemy killed same frame)
+    if curr.kid_on_ground == Some(false)
+        && prev.kid_on_ground == Some(true)
+        && curr.kid_y_velocity.is_some_and(|v| v < 0)
+        && curr.score > prev.score
+        && curr.diamond_count == prev.diamond_count
+    {
+        sfx.play(587.0, 50, 0.1); // D5 bounce tone
+    }
+    // Pause toggle
+    if curr.paused && !prev.paused {
+        sfx.play(440.0, 30, 0.08);
+    }
+    if !curr.paused && prev.paused {
+        sfx.play(440.0, 30, 0.08);
+    }
+    // Level transition (new level loaded)
+    if curr.current_level != prev.current_level && !curr.game_over && !curr.game_complete {
+        sfx.play(330.0, 80, 0.1);
+        sfx.play(440.0, 80, 0.1);
+        sfx.play(550.0, 120, 0.1);
+    }
 }
 
 #[cfg(test)]
