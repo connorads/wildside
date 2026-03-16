@@ -1316,12 +1316,17 @@ fn build_game_scene(
         let lc_text = "LEVEL COMPLETE";
         let text_w = lc_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
-        push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 40, [0, 40, 0], [80, 255, 80]);
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 24;
+        let panel_w = text_w + 16;
+        push_panel(&mut commands, text_x - 8, text_y - 4, panel_w, 56, [0, 40, 0], [80, 255, 80]);
         commands.push(text(text_x, text_y, lc_text, [80, 255, 80], 2));
+        let time_bonus = u32::from(trace.level_timer_seconds) * 100;
+        let bonus_line = format!("TIME BONUS: {}", time_bonus);
+        let bonus_x = (FRAME_WIDTH as i32 - bonus_line.len() as i32 * 8) / 2;
+        commands.push(text(bonus_x, text_y + 22, &bonus_line, [200, 255, 200], 1));
         let score_line = format!("SCORE: {}", trace.score);
         let score_x = (FRAME_WIDTH as i32 - score_line.len() as i32 * 8) / 2;
-        commands.push(text(score_x, text_y + 20, &score_line, [255, 255, 255], 1));
+        commands.push(text(score_x, text_y + 34, &score_line, [255, 255, 255], 1));
     }
 
     // Game Over overlay
