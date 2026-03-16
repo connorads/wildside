@@ -1,0 +1,2459 @@
+use super::*;
+
+// Private items from lib.rs that don't come through the glob import.
+use super::{
+    ACTIVATION_WINDOW_PADDING, ACTIVATION_WINDOW_X_LEAD, ACTIVATION_WINDOW_Y_LEAD,
+    CameraState, EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING,
+    MAX_PROJECTILES,
+};
+
+// MiniHoppingSkull hopper constants recovered from the enemy module.
+pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
+pub(crate) const MINI_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
+pub(crate) const MINI_SKULL_GRAVITY_FP: i32 = 0x0000_1200;
+pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
+
+// Big Hopping Skull: gravity $FA0, x_vel ±$10000, y_vel -$20000
+pub(crate) const BIG_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_0000;
+pub(crate) const BIG_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0002_0000;
+pub(crate) const BIG_SKULL_GRAVITY_FP: i32 = 0x0000_0FA0;
+pub(crate) const BIG_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
+
+pub(crate) struct HopperConstants {
+    pub(crate) jump_x_speed: i32,
+    pub(crate) jump_y_speed: i32,
+    pub(crate) gravity: i32,
+    pub(crate) ground_delay: u8,
+}
+
+pub(crate) fn hopper_constants(family: EnemyFamily) -> HopperConstants {
+    match family {
+        EnemyFamily::BigHoppingSkull => HopperConstants {
+            jump_x_speed: BIG_SKULL_JUMP_X_SPEED_FP,
+            jump_y_speed: BIG_SKULL_JUMP_Y_SPEED_FP,
+            gravity: BIG_SKULL_GRAVITY_FP,
+            ground_delay: BIG_SKULL_GROUND_DELAY_FRAMES,
+        },
+        _ => HopperConstants {
+            jump_x_speed: MINI_SKULL_JUMP_X_SPEED_FP,
+            jump_y_speed: MINI_SKULL_JUMP_Y_SPEED_FP,
+            gravity: MINI_SKULL_GRAVITY_FP,
+            ground_delay: MINI_SKULL_GROUND_DELAY_FRAMES,
+        },
+    }
+}
+// Enemy half-width for terrain probes (8px, matching the 16px sprite).
+pub(crate) const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
+// Enemy height for terrain probes (16px).
+pub(crate) const ENEMY_PROBE_HEIGHT: i32 = 16;
+
+/// Compute pacer walk speed from the enemy family and HP.
+///
+/// The ASM init routines all follow the same pattern: start at $8000 and
+/// add $10000 for each HP tier above the family's minimum.
+pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
+    let (base_hp, base_speed, speed_step) = match family {
+        // Goat: HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
+        EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
+        // Armadillo: HP = enemy_level + 1 (min 1). Base speed $8000, step $10000.
+        EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
+        // Crab: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
+        EnemyFamily::Crab => (2, 0x0000_8000, 0x0001_0000),
+        // Scorpion: HP = enemy_level + 3 (min 3). Fixed speed $18000.
+        EnemyFamily::Scorpion => (3, 0x0001_8000, 0),
+        // Driller: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
+        // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
+        EnemyFamily::Tank => (2, 0x0000_8000, 0x0001_0000),
+        // Fire Demon: HP = enemy_level + 3 (min 3). Base speed $8000, step $8000.
+        EnemyFamily::FireDemon => (3, 0x0000_8000, 0x0000_8000),
+        // Robot: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        EnemyFamily::Robot => (2, 0x0000_8000, 0x0000_8000),
+        // Orca: fixed 4 HP. Fixed speed $8000.
+        EnemyFamily::Orca => (4, 0x0000_8000, 0),
+        // Ninja: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
+        // Lion: HP = enemy_level + 6 (min 6). Speed $18000 base, $28000 at HP 8.
+        EnemyFamily::Lion => (6, 0x0001_8000, 0x0000_8000),
+        // Hand: HP = 1. Speed from table: $3000/$4800/$6000 by HP.
+        EnemyFamily::Hand => (1, 0x0000_3000, 0x0000_1800),
+        // SpinningTwins: walk speed $18000 after landing phase.
+        EnemyFamily::SpinningTwins => (1, 0x0001_8000, 0),
+        // TarMonster: walk speed $18000 after emerging.
+        EnemyFamily::TarMonster => (2, 0x0001_8000, 0),
+        _ => (1, 0x0001_0000, 0),
+    };
+    let tiers = hit_points.saturating_sub(base_hp) as i32;
+    base_speed + tiers * speed_step
+}
+
+/// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
+pub(crate) const TANK_FIRE_INTERVAL: u16 = 0x20;
+/// Tank bullet speed in FP16.16 (3 px/frame → $30000).
+pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
+/// Tank bullet lifetime in frames (enough to cross a screen width).
+pub(crate) const TANK_BULLET_LIFETIME: u16 = 120;
+
+/// Archer fire interval indexed by enemy_level (HP 1/2/3).
+/// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
+pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
+
+/// Arrow velocity table from Archer.asm `byte_3437A`.
+/// 28 entries: (x_direction_sign, sprite_id, x_vel_byte, y_vel_byte).
+/// Velocity = signed_byte * 0x1000 (ext.w → swap → asr.l #4).
+pub(crate) const ARROW_ANGLE_TABLE: [(i8, i8); 28] = [
+    (0x20, 0),      // 0: right
+    (0x20, -8),     // 1: right + slight up
+    (0x1C, -16),    // 2
+    (0x18, -24),    // 3
+    (0x10, -28),    // 4
+    (8, -32),       // 5
+    (0, -32),       // 6: straight up
+    (0, -32),       // 7: straight up (mirrored)
+    (-8, -32),      // 8
+    (-16, -28),     // 9
+    (-24, -24),     // 10
+    (-28, -16),     // 11
+    (-32, -8),      // 12
+    (-32, 0),       // 13: left
+    (-32, 0),       // 14: left (dup)
+    (-32, 8),       // 15
+    (-28, 16),      // 16
+    (-24, 24),      // 17
+    (-16, 28),      // 18
+    (-8, 32),       // 19
+    (0, 32),        // 20: straight down
+    (0, 32),        // 21: straight down (mirrored)
+    (8, 32),        // 22
+    (16, 28),       // 23
+    (24, 24),       // 24
+    (28, 16),       // 25
+    (32, 8),        // 26
+    (32, 0),        // 27: right (wrap)
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ActivationWindow {
+    pub(crate) x_min: u32,
+    pub(crate) x_max: u32,
+    pub(crate) y_min: u32,
+    pub(crate) y_max: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EnemyFamily {
+    Diamond,
+    Dragon,        // Flying dragon ($0C): choreographed flight pattern
+    DragonWalking, // Walking dragon ($0D): stationary with breath attack
+    Cloud,
+    Sphere,
+    BigHoppingSkull,
+    EmoRock,
+    Archer,
+    Fireball,
+    FireDemon,
+    Robot,
+    TarMonster,
+    Goat,
+    Armadillo,
+    Tank,
+    Crab,
+    Orca,
+    UFO,
+    Ninja,
+    Lion,
+    Scorpion,
+    SpinningTwins,
+    Drips,
+    Hand,
+    Tornado,
+    Driller,
+    MiniHoppingSkull,
+    HeadyMetal,
+    Shishkaboss,
+    BoomerangBosses,
+    BagelBrothers,
+    Unknown(u8),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum DragonMotionPhase {
+    #[default]
+    None,
+    GlideLeftToPerch,
+    PerchLeft,
+    TurnRightDelay,
+    SwoopRight,
+    PerchLeftAtApex,
+    GlideLeftToEdge,
+    ParkedLeft,
+}
+
+/// Ninja stealth/attack state machine (Ninja.asm).
+/// Stealth = pacing invisibly. JumpAttack = airborne lunge at player.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum NinjaState {
+    /// Walking invisibly, checking detection cone each frame.
+    #[default]
+    Stealth,
+    /// Airborne jump-attack toward the player.
+    JumpAttack,
+}
+
+/// Orca lunge state machine (Orca.asm).
+/// Paces normally, detects nearby player, launches a ballistic lunge arc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum OrcaState {
+    /// Walking patrol with proximity detection.
+    #[default]
+    Walking,
+    /// Airborne ballistic lunge toward the player.
+    Lunging,
+}
+
+/// Robot phase state machine (Robot.asm).
+/// Paces at HP-dependent speed, periodically shoots, then charges fast.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum RobotState {
+    /// Walking patrol with periodic shooting.
+    #[default]
+    Walking,
+    /// Charging at high speed after jump counter expires.
+    Charging,
+}
+
+/// Lion charge state machine (Lion.asm).
+/// Paces normally, then charges toward player and fires a fast projectile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum LionState {
+    /// Walking patrol, checking for player in range.
+    #[default]
+    Walking,
+    /// Charging toward the player at high speed.
+    Charging,
+}
+
+/// Hand patrol/attack state machine (Hand.asm).
+/// Walks until player enters forward detection range, then jump-attacks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum HandState {
+    /// Walking on ground, checking for player in detection cone.
+    #[default]
+    Walking,
+    /// Airborne jump toward the player.
+    Jumping,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum TarMonsterState {
+    /// Hidden underground, waiting to emerge.
+    #[default]
+    Submerged,
+    /// Rising from the floor (animation frames).
+    Emerging,
+    /// Visible and vulnerable, attacks on a timer.
+    Visible,
+    /// Sinking back into the floor.
+    Submerging,
+}
+
+/// SpinningTwins: orbits first, then drops into walking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum SpinningTwinsPhase {
+    /// Orbiting at spawn position with visual oscillation.
+    #[default]
+    Orbiting,
+    /// Dropped to ground, walking as a pacer.
+    Walking,
+}
+
+/// Persistent per-enemy state that survives across frames.
+/// Enemies are activated when they enter the camera window and
+/// deactivated when they leave.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ActiveEnemy {
+    /// Index into the enemy layout segment list, or 0 for legacy flat layouts.
+    pub(crate) segment_index: usize,
+    /// Index into the level's enemy layout objects list.
+    pub(crate) layout_index: usize,
+    pub(crate) family: EnemyFamily,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    /// Per-frame acceleration (UFO, Tornado)
+    pub(crate) x_acceleration: i32,
+    pub(crate) y_acceleration: i32,
+    pub(crate) facing: Direction,
+    pub(crate) on_ground: bool,
+    pub(crate) hit_points: u8,
+    pub(crate) grounded_frames: u8,
+    pub(crate) damage_flash_frames: u8,
+    /// Generic countdown timer for phased enemies (EmoRock hover wait, etc.)
+    pub(crate) wait_timer: u16,
+    pub(crate) dragon_phase: DragonMotionPhase,
+    pub(crate) dragon_phase_frames: u16,
+    pub(crate) ninja_state: NinjaState,
+    pub(crate) hand_state: HandState,
+    pub(crate) lion_state: LionState,
+    pub(crate) robot_state: RobotState,
+    pub(crate) orca_state: OrcaState,
+    pub(crate) tar_monster_state: TarMonsterState,
+    pub(crate) spinning_twins_phase: SpinningTwinsPhase,
+    pub(crate) spinning_twins_orbit_index: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EnemyArchetype {
+    Bouncer,
+    Collectible,
+    Flyer,
+    Hopper,
+    Hoverer,
+    Pacer,
+    Stationary,
+    Tracker,
+    Inert,
+}
+
+pub(crate) const DRAGON_DRIFT_X_SPEED_FP: i32 = 0x0000_8000;
+pub(crate) const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
+pub(crate) const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
+pub(crate) const DRAGON_LEFT_EDGE_STOP_FP: u32 = 0x001F_8000;
+pub(crate) const DRAGON_PERCH_X_FP: u32 = 0x0032_8000;
+pub(crate) const DRAGON_SWOOP_APEX_X_FP: u32 = 0x003D_8000;
+pub(crate) const DRAGON_PERCH_LEFT_FRAMES: u16 = 39;
+pub(crate) const DRAGON_TURN_RIGHT_DELAY_FRAMES: u16 = 38;
+pub(crate) const DRAGON_PERCH_LEFT_AT_APEX_FRAMES: u16 = 49;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct EnemyLayoutView<'a> {
+    pub(crate) segment_index: usize,
+    pub(crate) enemy_type_slots: &'a [u16],
+    pub(crate) objects: &'a [EnemyLayoutObject],
+}
+
+impl ActivationWindow {
+    pub(crate) fn from_camera(camera: CameraState) -> Self {
+        let camera_x_px = camera.x_pos >> 16;
+        let camera_y_px = camera.y_pos >> 16;
+        Self {
+            x_min: camera_x_px.saturating_sub(ACTIVATION_WINDOW_PADDING),
+            x_max: camera_x_px.saturating_add(ACTIVATION_WINDOW_X_LEAD),
+            y_min: camera_y_px.saturating_sub(ACTIVATION_WINDOW_PADDING),
+            y_max: camera_y_px.saturating_add(ACTIVATION_WINDOW_Y_LEAD),
+        }
+    }
+
+    pub(crate) fn contains(&self, x_pos: u32, y_pos: u32) -> bool {
+        (self.x_min..=self.x_max).contains(&x_pos) && (self.y_min..=self.y_max).contains(&y_pos)
+    }
+
+    pub(crate) fn contains_fixed_signed_with_margin(
+        &self,
+        x_pos: u32,
+        y_pos: u32,
+        x_margin: u32,
+        y_margin: u32,
+    ) -> bool {
+        let x_pos = (x_pos as i32) >> 16;
+        let y_pos = (y_pos as i32) >> 16;
+        let x_min = (self.x_min as i32).saturating_sub(x_margin as i32);
+        let x_max = (self.x_max as i32).saturating_add(x_margin as i32);
+        let y_min = (self.y_min as i32).saturating_sub(y_margin as i32);
+        let y_max = (self.y_max as i32).saturating_add(y_margin as i32);
+        (x_min..=x_max).contains(&x_pos) && (y_min..=y_max).contains(&y_pos)
+    }
+}
+
+impl ActiveEnemy {
+    /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
+    pub(crate) fn is_vulnerable(&self) -> bool {
+        if matches!(self.family, EnemyFamily::TarMonster) {
+            return matches!(self.tar_monster_state, TarMonsterState::Visible);
+        }
+        true
+    }
+
+    pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: self.family.object_type(),
+            },
+            x_pos: self.x_pos,
+            y_pos: self.y_pos,
+            layout_index: Some(self.layout_index),
+            x_velocity: Some(self.x_velocity),
+            y_velocity: Some(self.y_velocity),
+            facing: Some(self.facing),
+            on_ground: Some(self.on_ground),
+            hit_points: Some(self.hit_points),
+            damage_flash: self.damage_flash_frames > 0,
+        }
+    }
+}
+
+impl EnemyFamily {
+    pub(crate) fn archetype(self) -> EnemyArchetype {
+        match self {
+            Self::Diamond => EnemyArchetype::Collectible,
+            Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
+            Self::DragonWalking => EnemyArchetype::Stationary, // stationary breath attacker
+            Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
+            Self::UFO | Self::Tornado => EnemyArchetype::Flyer,
+            Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
+            Self::Drips => EnemyArchetype::Stationary, // ceiling dropper
+            Self::Goat
+            | Self::Armadillo
+            | Self::Tank
+            | Self::Crab
+            | Self::Scorpion
+            | Self::Driller
+            | Self::Orca
+            | Self::Hand
+            | Self::Robot
+            | Self::Lion
+            | Self::FireDemon => EnemyArchetype::Pacer,
+            Self::Ninja => EnemyArchetype::Pacer, // uses Pacer in stealth, but step_active_enemies dispatches to step_ninja
+            Self::EmoRock => EnemyArchetype::Hoverer,
+            Self::Archer => EnemyArchetype::Stationary,
+            Self::SpinningTwins => EnemyArchetype::Pacer, // orbit phase dispatched to step_spinning_twins
+            Self::TarMonster => EnemyArchetype::Stationary, // emerge/submerge cycle
+            Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
+                EnemyArchetype::Tracker
+            }
+            Self::Unknown(_) => EnemyArchetype::Inert,
+        }
+    }
+
+    pub(crate) fn from_layout_object(enemy_type_slots: &[u16], object: &EnemyLayoutObject) -> Self {
+        match resolved_enemy_id(enemy_type_slots, object.object_type) {
+            Some(0x01) => Self::Diamond,
+            Some(0x00) => Self::FireDemon,
+            Some(0x03) => Self::Robot,
+            Some(0x04) => Self::Armadillo,
+            Some(0x05) => Self::TarMonster,
+            Some(0x09) => Self::Crab,
+            Some(0x0A) => Self::Tank,
+            Some(0x0C) => Self::Dragon,
+            Some(0x0D) => Self::DragonWalking,
+            Some(0x06) => Self::Sphere,
+            Some(0x07) => Self::Archer,
+            Some(0x08) => Self::Orca,
+            Some(0x0E) => Self::Cloud,
+            Some(0x0F) => Self::UFO,
+            Some(0x10) => Self::Goat,
+            Some(0x11) => Self::Ninja,
+            Some(0x12) => Self::Lion,
+            Some(0x13) => Self::Scorpion,
+            Some(0x14) => Self::SpinningTwins,
+            Some(0x16) => Self::Drips,
+            Some(0x17) => Self::Hand,
+            Some(0x18) => Self::Tornado,
+            Some(0x1A) => Self::Driller,
+            Some(0x19) => Self::Fireball,
+            Some(0x1B) => Self::EmoRock,
+            Some(0x1C) => Self::MiniHoppingSkull,
+            Some(0x1D) => Self::BigHoppingSkull,
+            Some(0x20) => Self::HeadyMetal,
+            Some(0x22) => Self::Shishkaboss,
+            Some(0x23) => Self::BoomerangBosses,
+            Some(0x24) => Self::BagelBrothers,
+            Some(enemy_id) => Self::Unknown(enemy_id),
+            None => Self::Unknown(object.object_type),
+        }
+    }
+
+    pub(crate) fn object_type(self) -> u8 {
+        match self {
+            Self::FireDemon => 0x00,
+            Self::Diamond => 0x01,
+            Self::Robot => 0x03,
+            Self::Armadillo => 0x04,
+            Self::TarMonster => 0x05,
+            Self::Sphere => 0x06,
+            Self::Archer => 0x07,
+            Self::Orca => 0x08,
+            Self::Crab => 0x09,
+            Self::Tank => 0x0A,
+            Self::Dragon => 0x0C,
+            Self::DragonWalking => 0x0D,
+            Self::Cloud => 0x0E,
+            Self::UFO => 0x0F,
+            Self::Goat => 0x10,
+            Self::Ninja => 0x11,
+            Self::Lion => 0x12,
+            Self::Scorpion => 0x13,
+            Self::SpinningTwins => 0x14,
+            Self::Drips => 0x16,
+            Self::Hand => 0x17,
+            Self::Tornado => 0x18,
+            Self::Fireball => 0x19,
+            Self::Driller => 0x1A,
+            Self::EmoRock => 0x1B,
+            Self::MiniHoppingSkull => 0x1C,
+            Self::BigHoppingSkull => 0x1D,
+            Self::HeadyMetal => 0x20,
+            Self::Shishkaboss => 0x22,
+            Self::BoomerangBosses => 0x23,
+            Self::BagelBrothers => 0x24,
+            Self::Unknown(enemy_id) => enemy_id,
+        }
+    }
+
+    #[cfg(test)]
+    fn snapshot(
+        self,
+        object: &EnemyLayoutObject,
+        window: ActivationWindow,
+    ) -> Option<NativeObjectSnapshot> {
+        let object_x = u32::from(object.x);
+        let object_y = u32::from(object.y);
+        if !window.contains(object_x, object_y) {
+            return None;
+        }
+        Some(NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: self.object_type(),
+            },
+            x_pos: object_x << 16,
+            y_pos: object_y << 16,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+        })
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<NativeObjectSnapshot> {
+    let view = enemy_layout_view(layout, window.x_min, window.y_min);
+    view.objects
+        .iter()
+        .filter_map(|object| {
+            EnemyFamily::from_layout_object(view.enemy_type_slots, object).snapshot(object, window)
+        })
+        .collect()
+}
+
+/// Activate enemies that enter the camera window and deactivate those that leave.
+/// Newly activated enemies start at their layout position.
+pub(crate) fn activate_enemies(
+    active: &mut Vec<ActiveEnemy>,
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) {
+    let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
+    // Most enemies despawn on spawn-point exit. Flyers keep their live object
+    // around longer; the Level 1 Dragon continues drifting after its layout
+    // anchor scrolls behind the camera.
+    active.retain(|enemy| enemy_should_remain_active(enemy, &view, window));
+
+    // Activate new enemies that entered the window.
+    for (index, object) in view.objects.iter().enumerate() {
+        let object_x = u32::from(object.x);
+        let object_y = u32::from(object.y);
+        if !window.contains(object_x, object_y) {
+            continue;
+        }
+        if active
+            .iter()
+            .any(|e| e.segment_index == view.segment_index && e.layout_index == index)
+        {
+            continue;
+        }
+        let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
+        let enemy_level = object.hit_points_plus_one.saturating_sub(1) as u8;
+        let hit_points = spawn_hit_points(family, enemy_level);
+        active.push(ActiveEnemy {
+            segment_index: view.segment_index,
+            layout_index: index,
+            family,
+            x_pos: spawn_x_pos(family, object_x),
+            y_pos: spawn_y_pos(family, object_y),
+            x_velocity: spawn_x_velocity(family, enemy_level),
+            y_velocity: 0,
+            x_acceleration: spawn_x_acceleration(family),
+            y_acceleration: spawn_y_acceleration(family),
+            facing: spawn_facing(family),
+            on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
+            hit_points,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: spawn_wait_timer(family),
+            dragon_phase: spawn_dragon_phase(family),
+            dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+        });
+    }
+}
+
+/// Step all active enemies: apply movement, gravity, and terrain collision.
+pub(crate) fn step_active_enemies(
+    active: &mut [ActiveEnemy],
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    player_form: PlayerForm,
+    mut projectiles: Option<&mut Vec<EnemyProjectile>>,
+) {
+    for enemy in active.iter_mut() {
+        enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
+        match enemy.family.archetype() {
+            EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
+            EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
+            EnemyArchetype::Flyer => step_flyer(enemy, block_grid),
+            EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
+            EnemyArchetype::Hoverer => {
+                step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos)
+            }
+            EnemyArchetype::Pacer => {
+                if matches!(enemy.family, EnemyFamily::Ninja) {
+                    step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
+                } else if matches!(enemy.family, EnemyFamily::Hand) {
+                    step_hand(enemy, block_grid, player_x_pos, player_y_pos);
+                } else if matches!(enemy.family, EnemyFamily::Lion) {
+                    step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
+                } else if matches!(enemy.family, EnemyFamily::Robot) {
+                    step_robot(enemy, block_grid, player_x_pos, &mut projectiles);
+                } else if matches!(enemy.family, EnemyFamily::Orca) {
+                    step_orca(enemy, block_grid, player_x_pos);
+                } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
+                    step_spinning_twins(enemy, block_grid);
+                } else {
+                    step_pacer(enemy, block_grid);
+                    // Tank fires horizontal bullets at intervals
+                    if matches!(enemy.family, EnemyFamily::Tank) {
+                        if let Some(ref mut projs) = projectiles {
+                            step_tank_fire(enemy, projs);
+                        }
+                    }
+                }
+            }
+            EnemyArchetype::Stationary => {
+                if matches!(enemy.family, EnemyFamily::TarMonster) {
+                    step_tar_monster(enemy);
+                } else if matches!(enemy.family, EnemyFamily::Drips) {
+                    if let Some(projs) = projectiles.as_deref_mut() {
+                        step_drips(enemy, projs);
+                    }
+                } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                    if let Some(projs) = projectiles.as_deref_mut() {
+                        step_dragon_walking(enemy, projs, player_x_pos);
+                    }
+                } else if let Some(ref mut projs) = projectiles {
+                    step_archer(enemy, projs, player_x_pos, player_y_pos);
+                }
+            }
+            EnemyArchetype::Tracker => {
+                step_tracker(enemy, player_x_pos, player_y_pos);
+                // Bosses periodically spawn projectiles while tracking
+                if let Some(ref mut projs) = projectiles {
+                    step_boss_fire(enemy, projs, player_x_pos, player_y_pos);
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    if matches!(enemy.family, EnemyFamily::Dragon) {
+        step_dragon(enemy);
+        return;
+    }
+
+    // Cloud: horizontal flight with wall reversal
+    if matches!(enemy.family, EnemyFamily::Cloud) {
+        step_cloud(enemy, block_grid);
+        return;
+    }
+
+    // UFO: acceleration-based drifting with periodic direction changes
+    if matches!(enemy.family, EnemyFamily::UFO) {
+        step_ufo(enemy, block_grid);
+        return;
+    }
+
+    // Tornado: acceleration-based bouncing patrol with wall/floor reversal
+    if matches!(enemy.family, EnemyFamily::Tornado) {
+        step_tornado(enemy, block_grid);
+        return;
+    }
+
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+}
+
+/// Cloud flies horizontally, reversing direction on wall contact.
+pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+    // Wall probe: reverse on wall contact (Cloud.asm loc_35BDE)
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+    }
+}
+
+/// UFO: acceleration-based drifting, reverses direction periodically.
+/// Uses `wait_timer` as a countdown; every 60 frames reverses acceleration.
+/// Acceleration ±$400 per frame, terminal velocity ±$18000.
+pub(crate) const UFO_ACCELERATION: i32 = 0x400;
+pub(crate) const UFO_TERMINAL_VELOCITY: i32 = 0x18000;
+pub(crate) const UFO_PATTERN_FRAMES: u16 = 60;
+
+pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply acceleration to velocity (clamped to terminal)
+    enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
+        .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
+    enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
+        .clamp(-UFO_TERMINAL_VELOCITY, UFO_TERMINAL_VELOCITY);
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    // Periodic direction change
+    if enemy.wait_timer == 0 {
+        enemy.wait_timer = UFO_PATTERN_FRAMES;
+        enemy.x_acceleration = -enemy.x_acceleration;
+        enemy.y_acceleration = -enemy.y_acceleration;
+    } else {
+        enemy.wait_timer -= 1;
+    }
+
+    // Wall/floor reversal
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right);
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_acceleration = -enemy.x_acceleration;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+    }
+}
+
+/// Tornado: acceleration-based bouncing patrol. Reverses accel on wall/floor contact.
+/// Slower than UFO, with periodic acceleration reversals every ~60 frames.
+pub(crate) const TORNADO_ACCELERATION: i32 = 0x300;
+pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x10000;
+pub(crate) const TORNADO_PATTERN_FRAMES: u16 = 60;
+
+pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply acceleration
+    enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
+        .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+    enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
+        .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    // Periodic direction change
+    if enemy.wait_timer == 0 {
+        enemy.wait_timer = TORNADO_PATTERN_FRAMES;
+        enemy.x_acceleration = -enemy.x_acceleration;
+        enemy.y_acceleration = -enemy.y_acceleration;
+    } else {
+        enemy.wait_timer -= 1;
+    }
+
+    // Wall and floor reversal
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right);
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.x_acceleration = -enemy.x_acceleration;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground && enemy.y_velocity > 0 {
+            enemy.y_velocity = -enemy.y_velocity;
+            enemy.y_acceleration = -enemy.y_acceleration;
+        }
+    }
+}
+
+/// Sphere bounces off walls/floors/ceilings with gravity.
+/// Sphere.asm: gravity +$800/frame, wall→negate x_vel, floor→negate y_vel,
+/// ceiling→negate y_vel and halve.
+pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
+
+pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
+    match enemy.family {
+        // Fireball.asm: gravity indexed by enemy_level ($1000/$2000/$3000)
+        EnemyFamily::Fireball => {
+            const FIREBALL_GRAVITY: [i32; 3] = [0x1000, 0x2000, 0x3000];
+            let level = enemy.hit_points.saturating_sub(1) as usize;
+            FIREBALL_GRAVITY[level.min(2)]
+        }
+        _ => SPHERE_GRAVITY,
+    }
+}
+
+pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply gravity
+    enemy.y_velocity = enemy.y_velocity.saturating_add(bouncer_gravity(enemy));
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+
+        // Wall bounce
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+
+        // Floor bounce
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground && enemy.y_velocity > 0 {
+            enemy.y_velocity = -enemy.y_velocity;
+            // Snap out of floor
+            let floor_y_fp = (floor.floor_y_px as u32) << 16;
+            if enemy.y_pos > floor_y_fp {
+                enemy.y_pos = floor_y_fp;
+            }
+        }
+
+        // Ceiling bounce
+        let ceil = terrain::probe_ceiling(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+        );
+        if ceil.hit && enemy.y_velocity < 0 {
+            // Ceiling: negate and halve (Sphere.asm Enemy06_Sphere_BounceCeiling)
+            enemy.y_velocity = -(enemy.y_velocity >> 1);
+        }
+    }
+}
+
+pub(crate) fn step_dragon(enemy: &mut ActiveEnemy) {
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    match enemy.dragon_phase {
+        DragonMotionPhase::None => {
+            enemy.facing = Direction::Left;
+        }
+        DragonMotionPhase::GlideLeftToPerch => {
+            enemy.facing = Direction::Left;
+            let next_x_pos = enemy.x_pos.saturating_sub(DRAGON_DRIFT_X_SPEED_FP as u32);
+            if next_x_pos <= DRAGON_PERCH_X_FP {
+                enemy.x_pos = DRAGON_PERCH_X_FP;
+                enemy.dragon_phase = DragonMotionPhase::PerchLeft;
+                enemy.dragon_phase_frames = 0;
+            } else {
+                enemy.x_pos = next_x_pos;
+            }
+        }
+        DragonMotionPhase::PerchLeft => {
+            enemy.facing = Direction::Left;
+            if dragon_phase_elapsed(enemy, DRAGON_PERCH_LEFT_FRAMES) {
+                enemy.dragon_phase = DragonMotionPhase::TurnRightDelay;
+                enemy.dragon_phase_frames = 0;
+            }
+        }
+        DragonMotionPhase::TurnRightDelay => {
+            enemy.facing = Direction::Right;
+            if dragon_phase_elapsed(enemy, DRAGON_TURN_RIGHT_DELAY_FRAMES) {
+                enemy.dragon_phase = DragonMotionPhase::SwoopRight;
+                enemy.dragon_phase_frames = 0;
+            }
+        }
+        DragonMotionPhase::SwoopRight => {
+            enemy.facing = Direction::Right;
+            let next_x_pos = enemy.x_pos.saturating_add(DRAGON_DRIFT_X_SPEED_FP as u32);
+            if next_x_pos >= DRAGON_SWOOP_APEX_X_FP {
+                enemy.x_pos = DRAGON_SWOOP_APEX_X_FP;
+                enemy.dragon_phase = DragonMotionPhase::PerchLeftAtApex;
+                enemy.dragon_phase_frames = 0;
+            } else {
+                enemy.x_pos = next_x_pos;
+            }
+        }
+        DragonMotionPhase::PerchLeftAtApex => {
+            enemy.facing = Direction::Left;
+            if dragon_phase_elapsed(enemy, DRAGON_PERCH_LEFT_AT_APEX_FRAMES) {
+                enemy.dragon_phase = DragonMotionPhase::GlideLeftToEdge;
+                enemy.dragon_phase_frames = 0;
+            }
+        }
+        DragonMotionPhase::GlideLeftToEdge => {
+            enemy.facing = Direction::Left;
+            let next_x_pos = enemy.x_pos.saturating_sub(DRAGON_DRIFT_X_SPEED_FP as u32);
+            if next_x_pos <= DRAGON_LEFT_EDGE_STOP_FP {
+                enemy.x_pos = DRAGON_LEFT_EDGE_STOP_FP;
+                enemy.dragon_phase = DragonMotionPhase::ParkedLeft;
+                enemy.dragon_phase_frames = 0;
+            } else {
+                enemy.x_pos = next_x_pos;
+            }
+        }
+        DragonMotionPhase::ParkedLeft => {
+            enemy.facing = Direction::Left;
+            enemy.x_pos = DRAGON_LEFT_EDGE_STOP_FP;
+        }
+    }
+}
+
+pub(crate) fn dragon_phase_elapsed(enemy: &mut ActiveEnemy, phase_duration_frames: u16) -> bool {
+    enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_add(1);
+    enemy.dragon_phase_frames >= phase_duration_frames
+}
+
+pub(crate) fn enemy_should_remain_active(
+    enemy: &ActiveEnemy,
+    view: &EnemyLayoutView<'_>,
+    window: ActivationWindow,
+) -> bool {
+    if enemy.segment_index != view.segment_index {
+        return false;
+    }
+    let Some(object) = view.objects.get(enemy.layout_index) else {
+        return false;
+    };
+
+    match enemy.family.archetype() {
+        // Bosses are always retained — they're confined to their arena.
+        EnemyArchetype::Tracker => true,
+        EnemyArchetype::Flyer => window.contains_fixed_signed_with_margin(
+            enemy.x_pos,
+            enemy.y_pos,
+            FLYER_RETENTION_X_PADDING,
+            FLYER_RETENTION_Y_PADDING,
+        ),
+        _ => window.contains(u32::from(object.x), u32::from(object.y)),
+    }
+}
+
+pub(crate) fn step_hopper(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
+    let Some(grid) = block_grid else {
+        return;
+    };
+    let hc = hopper_constants(enemy.family);
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    if enemy.on_ground {
+        let mut facing =
+            player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
+        if hopper_should_reverse(facing, grid, cx, cy) {
+            facing = opposite_direction(facing);
+        }
+        enemy.facing = facing;
+        if enemy.grounded_frames > 0 {
+            enemy.grounded_frames -= 1;
+            enemy.x_velocity = 0;
+            return;
+        }
+        enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
+        enemy.y_velocity = hc.jump_y_speed;
+        enemy.on_ground = false;
+    }
+
+    enemy.y_velocity = (enemy.y_velocity + hc.gravity).min(physics::MAX_FALL_SPEED);
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        reverse_enemy_direction(enemy);
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+        if moving_right {
+            if enemy.x_pos + edge_fp > wall_fp {
+                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+            }
+        } else if enemy.x_pos < wall_fp + edge_fp {
+            enemy.x_pos = wall_fp + edge_fp;
+        }
+        enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
+    }
+
+    let floor = terrain::probe_floor(grid, cx, cy);
+    if floor.on_ground {
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
+            enemy.y_pos = floor_y_fp;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.on_ground = true;
+            enemy.grounded_frames = hc.ground_delay;
+        }
+    } else {
+        enemy.on_ground = false;
+    }
+}
+
+pub(crate) fn hopper_should_reverse(facing: Direction, grid: &terrain::BlockGrid, cx: i32, cy: i32) -> bool {
+    let moving_right = matches!(facing, Direction::Right);
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        return true;
+    }
+    let look_ahead_x = if moving_right {
+        cx + ENEMY_PROBE_HALF_WIDTH
+    } else {
+        cx - ENEMY_PROBE_HALF_WIDTH
+    };
+    !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
+}
+
+/// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
+/// floor edge. Matches the shared walker subroutines in the disassembly
+/// (loc_3E392 / loc_3E546 / loc_3E560 / loc_3E3AC).
+pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    let Some(grid) = block_grid else {
+        return;
+    };
+
+    let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
+    enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+    enemy.y_velocity = 0;
+
+    // Apply horizontal movement.
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+
+    // Wall probe: reverse if we hit a wall.
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        // Push out of wall.
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+        if moving_right {
+            if enemy.x_pos + edge_fp > wall_fp {
+                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+            }
+        } else if enemy.x_pos < wall_fp + edge_fp {
+            enemy.x_pos = wall_fp + edge_fp;
+        }
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+        return;
+    }
+
+    // Edge probe: reverse if there's no floor ahead.
+    let look_ahead_x = if moving_right {
+        cx + ENEMY_PROBE_HALF_WIDTH
+    } else {
+        cx - ENEMY_PROBE_HALF_WIDTH
+    };
+    if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+    }
+}
+
+/// Ninja detection cone: player must be 0x20–0x50 pixels above and ±0x10 pixels
+/// horizontally (Ninja.asm lines 148-161).
+pub(crate) const NINJA_DETECT_Y_MIN: i32 = 0x20;
+pub(crate) const NINJA_DETECT_Y_MAX: i32 = 0x50;
+pub(crate) const NINJA_DETECT_X_RANGE: i32 = 0x10;
+
+/// Ninja jump-attack velocities (Ninja.asm lines 384-392).
+pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
+pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
+pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
+pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
+
+/// Step a Ninja enemy: stealth-paces until player enters detection cone,
+/// then faces player and jump-attacks. Returns to stealth on landing.
+pub(crate) fn step_ninja(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    player_form: PlayerForm,
+) {
+    match enemy.ninja_state {
+        NinjaState::Stealth => {
+            // Pace like normal
+            step_pacer(enemy, block_grid);
+
+            // Check detection cone (skip if player wears Red Stealth)
+            if player_form == PlayerForm::RedStealth {
+                return;
+            }
+            let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            let dy = (enemy.y_pos as i64 - py as i64) >> 16;
+
+            // Player must be 0x20–0x50 px above ninja and within ±0x10 px horizontally
+            if dy >= NINJA_DETECT_Y_MIN as i64
+                && dy <= NINJA_DETECT_Y_MAX as i64
+                && dx.abs() <= NINJA_DETECT_X_RANGE as i64
+            {
+                // Face the player
+                enemy.facing = if dx >= 0 {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                };
+                // Launch jump attack
+                enemy.ninja_state = NinjaState::JumpAttack;
+                enemy.x_velocity = match enemy.facing {
+                    Direction::Left => -NINJA_JUMP_X_SPEED_LEFT,
+                    Direction::Right => NINJA_JUMP_X_SPEED_RIGHT,
+                };
+                enemy.y_velocity = NINJA_JUMP_Y_SPEED;
+                enemy.on_ground = false;
+            }
+        }
+        NinjaState::JumpAttack => {
+            // Apply gravity
+            enemy.y_velocity = (enemy.y_velocity + NINJA_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // Move
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let Some(grid) = block_grid else {
+                return;
+            };
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+
+            // Wall bounce: reverse x on wall hit
+            let moving_right = enemy.x_velocity >= 0;
+            let wall = terrain::probe_wall(
+                grid,
+                cx,
+                cy,
+                ENEMY_PROBE_HALF_WIDTH,
+                ENEMY_PROBE_HEIGHT,
+                moving_right,
+            );
+            if wall.hit {
+                enemy.x_velocity = -enemy.x_velocity;
+                enemy.facing = opposite_direction(enemy.facing);
+            }
+
+            // Floor landing: return to stealth
+            if enemy.y_velocity > 0 {
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground {
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.ninja_state = NinjaState::Stealth;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Hand detection ranges by HP tier (Hand.asm unk_3276A table).
+/// HP 1 = 64px, HP 2 = 80px, HP 3+ = 100px.
+pub(crate) const HAND_DETECT_RANGE: [i32; 3] = [0x40, 0x50, 0x64];
+
+/// Hand walk velocities by HP tier (Hand.asm unk_3276A table).
+pub(crate) const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
+
+/// Hand jump-attack gravity (Hand.asm line 130: $4000 per frame).
+pub(crate) const HAND_GRAVITY: i32 = 0x4000;
+
+/// Hand jump velocity magnitude (HP-biased, approximate from ASM).
+pub(crate) const HAND_JUMP_Y_SPEED: i32 = -0x3_0000;
+pub(crate) const HAND_JUMP_X_SPEED: i32 = 0x1_8000;
+
+/// Step a Hand enemy through its walk/detect/jump state machine.
+/// Walking: paces with edge/wall detection. Detects player in forward cone.
+/// Jumping: arcs toward player with gravity, lands and resumes walking.
+pub(crate) fn step_hand(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    let tier = (enemy.hit_points.saturating_sub(1) as usize).min(2);
+
+    match enemy.hand_state {
+        HandState::Walking => {
+            // Walk like a pacer with Hand-specific speed
+            let walk_speed = HAND_WALK_SPEED[tier];
+            if let Some(grid) = block_grid {
+                enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+                enemy.y_velocity = 0;
+                enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    let wall_fp = (wall.wall_x_px as u32) << 16;
+                    let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                    if moving_right {
+                        if enemy.x_pos + edge_fp > wall_fp {
+                            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+                        }
+                    } else if enemy.x_pos < wall_fp + edge_fp {
+                        enemy.x_pos = wall_fp + edge_fp;
+                    }
+                    reverse_enemy_direction(enemy);
+                    return;
+                }
+
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                }
+            }
+
+            // Player detection: must be within detection range ahead and within 16px above
+            let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            let dy = (enemy.y_pos as i64 - py as i64) >> 16;
+
+            // Player must be 0-16px above Hand
+            if dy < 0 || dy > 16 {
+                return;
+            }
+
+            let detect_range = i64::from(HAND_DETECT_RANGE[tier]);
+            let in_cone = match enemy.facing {
+                Direction::Right => dx > 0 && dx <= detect_range,
+                Direction::Left => dx < 0 && (-dx) <= detect_range,
+            };
+
+            if in_cone {
+                // Jump toward player
+                enemy.hand_state = HandState::Jumping;
+                enemy.on_ground = false;
+                enemy.x_velocity = if dx >= 0 {
+                    HAND_JUMP_X_SPEED
+                } else {
+                    -HAND_JUMP_X_SPEED
+                };
+                enemy.y_velocity = HAND_JUMP_Y_SPEED;
+            }
+        }
+        HandState::Jumping => {
+            // Apply gravity
+            enemy.y_velocity = (enemy.y_velocity + HAND_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // Move
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let Some(grid) = block_grid else {
+                return;
+            };
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+
+            // Wall reversal
+            let moving_right = enemy.x_velocity >= 0;
+            let wall = terrain::probe_wall(
+                grid, cx, cy,
+                ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+            );
+            if wall.hit {
+                enemy.x_velocity = 0;
+            }
+
+            // Floor landing: return to walking
+            if enemy.y_velocity > 0 {
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground {
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.hand_state = HandState::Walking;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Lion charge detection range (Lion.asm ~$40-$A0 px).
+pub(crate) const LION_DETECT_RANGE: i32 = 0xA0;
+
+/// Lion charge speed: $28000 for HP=8, $18000 otherwise (Lion.asm lines 36-48).
+pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
+    if hit_points >= 8 { 0x2_8000 } else { 0x1_8000 }
+}
+
+/// Lion charge timer: starts at $3C (60 frames), counts down while pacing.
+/// When timer expires and player is in range, Lion charges.
+pub(crate) const LION_CHARGE_TIMER_INIT: u16 = 60;
+
+/// Lion charge duration (frames before returning to walk).
+pub(crate) const LION_CHARGE_DURATION: u16 = 40;
+
+/// Lion projectile speed (Lion.asm line 165: $60000).
+pub(crate) const LION_PROJECTILE_SPEED: i32 = 0x6_0000;
+
+/// Step a Lion enemy: paces normally, then charges toward player and fires a projectile.
+pub(crate) fn step_lion(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    match enemy.lion_state {
+        LionState::Walking => {
+            // Pace like normal
+            step_pacer(enemy, block_grid);
+
+            // Count down charge timer
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+
+            // Timer expired — check if player is in range
+            let Some(px) = player_x_pos else {
+                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            if dx.abs() > i64::from(LION_DETECT_RANGE) {
+                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                return;
+            }
+
+            // Face the player and start charging
+            enemy.facing = if dx >= 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+            enemy.lion_state = LionState::Charging;
+            enemy.wait_timer = LION_CHARGE_DURATION;
+
+            // Fire a fast projectile toward the player
+            if let Some(projs) = projectiles {
+                let speed = LION_PROJECTILE_SPEED;
+                let (xv, yv) = match enemy.facing {
+                    Direction::Right => (speed, 0),
+                    Direction::Left => (-speed, 0),
+                };
+                projs.push(EnemyProjectile {
+                    x_pos: enemy.x_pos,
+                    y_pos: enemy.y_pos,
+                    x_velocity: xv,
+                    y_velocity: yv,
+                    lifetime: 60,
+                    gravity: 0,
+                    friendly: false,
+                    homing: false,
+                });
+            }
+        }
+        LionState::Charging => {
+            // Move at charge speed
+            let speed = lion_charge_speed(enemy.hit_points);
+            enemy.x_velocity = horizontal_velocity(enemy.facing, speed);
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+            // Wall check
+            if let Some(grid) = block_grid {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    reverse_enemy_direction(enemy);
+                    enemy.lion_state = LionState::Walking;
+                    enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                    return;
+                }
+
+                // Edge check
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                    enemy.lion_state = LionState::Walking;
+                    enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                    return;
+                }
+            }
+
+            // Timer countdown
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                enemy.lion_state = LionState::Walking;
+                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+            }
+        }
+    }
+}
+
+/// Robot walk speed: HP 2 = $8000, HP 3+ = $10000 (Robot.asm lines 28-36).
+pub(crate) fn robot_walk_speed(hit_points: u8) -> i32 {
+    if hit_points >= 3 { 0x1_0000 } else { 0x8000 }
+}
+
+/// Robot charge speed: always $28000 (Robot.asm line 157).
+pub(crate) const ROBOT_CHARGE_SPEED: i32 = 0x2_8000;
+
+/// Robot shoot interval (frames between shots while walking).
+pub(crate) const ROBOT_SHOOT_INTERVAL: u16 = 32;
+
+/// Robot charge duration after shoot phase.
+pub(crate) const ROBOT_CHARGE_DURATION: u16 = 40;
+
+/// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
+pub(crate) const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
+
+/// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
+/// then enters a fast charge phase.
+pub(crate) fn step_robot(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    match enemy.robot_state {
+        RobotState::Walking => {
+            let walk_speed = robot_walk_speed(enemy.hit_points);
+            // Walk like a pacer with robot-specific speed
+            if let Some(grid) = block_grid {
+                enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+                enemy.y_velocity = 0;
+                enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    let wall_fp = (wall.wall_x_px as u32) << 16;
+                    let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                    if moving_right {
+                        if enemy.x_pos + edge_fp > wall_fp {
+                            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+                        }
+                    } else if enemy.x_pos < wall_fp + edge_fp {
+                        enemy.x_pos = wall_fp + edge_fp;
+                    }
+                    reverse_enemy_direction(enemy);
+                    return;
+                }
+
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                }
+            }
+
+            // Shoot timer
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                // Face player if available
+                if let Some(px) = player_x_pos {
+                    let dx = px as i64 - enemy.x_pos as i64;
+                    enemy.facing = if dx >= 0 {
+                        Direction::Right
+                    } else {
+                        Direction::Left
+                    };
+                }
+
+                // Fire projectile
+                if let Some(projs) = projectiles {
+                    let speed = ROBOT_PROJECTILE_SPEED;
+                    let xv = match enemy.facing {
+                        Direction::Right => speed,
+                        Direction::Left => -speed,
+                    };
+                    projs.push(EnemyProjectile {
+                        x_pos: enemy.x_pos,
+                        y_pos: enemy.y_pos,
+                        x_velocity: xv,
+                        y_velocity: 0,
+                        lifetime: 60,
+                        gravity: 0,
+                        friendly: false,
+                        homing: false,
+                    });
+                }
+
+                // Enter charge mode
+                enemy.robot_state = RobotState::Charging;
+                enemy.wait_timer = ROBOT_CHARGE_DURATION;
+            }
+        }
+        RobotState::Charging => {
+            // Charge at high speed
+            enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+            if let Some(grid) = block_grid {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    reverse_enemy_direction(enemy);
+                    enemy.robot_state = RobotState::Walking;
+                    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+                    return;
+                }
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                    enemy.robot_state = RobotState::Walking;
+                    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+                    return;
+                }
+            }
+
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                enemy.robot_state = RobotState::Walking;
+                enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+            }
+        }
+    }
+}
+
+/// Orca proximity detection range (Orca.asm loc_3D2DE: ~$30 px).
+pub(crate) const ORCA_DETECT_RANGE: i32 = 0x30;
+
+/// Orca lunge velocities (Orca.asm).
+pub(crate) const ORCA_LUNGE_X_SPEED: i32 = 0x3_0000;
+pub(crate) const ORCA_LUNGE_Y_SPEED: i32 = -0x2_8000;
+
+/// Orca lunge gravity (Orca.asm line loc_3D3B4: $1800 per frame).
+pub(crate) const ORCA_LUNGE_GRAVITY: i32 = 0x1800;
+
+/// Orca lunge cooldown (Orca.asm: $12C = 300 frames between lunges).
+pub(crate) const ORCA_LUNGE_COOLDOWN: u16 = 300;
+
+/// Step an Orca enemy: paces at $8000, detects nearby player, lunges in a
+/// ballistic arc, lands and resumes walking with a cooldown.
+pub(crate) fn step_orca(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
+    match enemy.orca_state {
+        OrcaState::Walking => {
+            step_pacer(enemy, block_grid);
+
+            // Cooldown between lunges
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+
+            // Proximity detection
+            let Some(px) = player_x_pos else {
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            if dx.abs() > i64::from(ORCA_DETECT_RANGE) {
+                return;
+            }
+
+            // Launch lunge
+            enemy.orca_state = OrcaState::Lunging;
+            enemy.on_ground = false;
+            enemy.facing = if dx >= 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+            enemy.x_velocity = match enemy.facing {
+                Direction::Right => ORCA_LUNGE_X_SPEED,
+                Direction::Left => -ORCA_LUNGE_X_SPEED,
+            };
+            enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+        }
+        OrcaState::Lunging => {
+            // Gravity
+            enemy.y_velocity =
+                (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // Move
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let Some(grid) = block_grid else {
+                return;
+            };
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+
+            // Wall bounce
+            let moving_right = enemy.x_velocity >= 0;
+            let wall = terrain::probe_wall(
+                grid, cx, cy,
+                ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+            );
+            if wall.hit {
+                enemy.x_velocity = -enemy.x_velocity;
+                enemy.facing = opposite_direction(enemy.facing);
+            }
+
+            // Floor landing
+            if enemy.y_velocity > 0 {
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground {
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.orca_state = OrcaState::Walking;
+                        enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- TarMonster constants ---
+// Emerge/submerge cycle durations (frames). From ASM bytecode: appear for ~120 frames, hide for ~90.
+pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 90;
+pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 16;
+pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 120;
+pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 16;
+
+/// Step a TarMonster through its emerge/submerge cycle.
+/// Submerged → Emerging → Visible → Submerging → Submerged.
+/// While Submerged, the enemy is invulnerable and invisible (handled by collision/render).
+pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    match enemy.tar_monster_state {
+        TarMonsterState::Submerged => {
+            enemy.tar_monster_state = TarMonsterState::Emerging;
+            enemy.wait_timer = TAR_MONSTER_EMERGE_FRAMES;
+        }
+        TarMonsterState::Emerging => {
+            enemy.tar_monster_state = TarMonsterState::Visible;
+            enemy.wait_timer = TAR_MONSTER_VISIBLE_FRAMES;
+        }
+        TarMonsterState::Visible => {
+            enemy.tar_monster_state = TarMonsterState::Submerging;
+            enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
+        }
+        TarMonsterState::Submerging => {
+            enemy.tar_monster_state = TarMonsterState::Submerged;
+            enemy.wait_timer = TAR_MONSTER_SUBMERGED_FRAMES;
+        }
+    }
+}
+
+/// Spawn 5 tar blob projectiles in a spread pattern when a TarMonster is damaged.
+pub(crate) fn spawn_tar_monster_retaliation(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
+    let blobs: [(i32, i32); 5] = [
+        (0x1_0000, -0x1_0000),   // up-right
+        (-0x1_0000, -0x1_0000),  // up-left
+        (0x0_8000, -0x2_0000),   // steep up-right
+        (-0x0_8000, -0x2_0000),  // steep up-left
+        (0x0_2000, -0x1_C000),   // gentle arc
+    ];
+    for (xv, yv) in blobs {
+        projectiles.push(EnemyProjectile {
+            x_pos: x,
+            y_pos: y,
+            x_velocity: xv,
+            y_velocity: yv,
+            lifetime: 60,
+            gravity: 0x1000,
+            friendly: false,
+            homing: false,
+        });
+    }
+}
+
+// --- DragonWalking constants ---
+// From ASM: stationary dragon with breath attack. Timer $12C (300 frames) cooldown.
+pub(crate) const DRAGON_WALKING_BREATH_INTERVAL: u16 = 300;
+pub(crate) const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
+pub(crate) const DRAGON_WALKING_BREATH_LIFETIME: u16 = 60;
+
+/// Step a walking dragon: stationary, faces player, fires breath projectile on timer.
+pub(crate) fn step_dragon_walking(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+) {
+    // Face toward player
+    if let Some(px) = player_x_pos {
+        enemy.facing = if px >= enemy.x_pos {
+            Direction::Right
+        } else {
+            Direction::Left
+        };
+    }
+
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+
+    // Fire breath in facing direction
+    let x_vel = match enemy.facing {
+        Direction::Right => DRAGON_WALKING_BREATH_SPEED,
+        Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
+    };
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos,
+        x_velocity: x_vel,
+        y_velocity: 0,
+        lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+        gravity: 0,
+        friendly: false,
+        homing: false,
+    });
+    enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
+}
+
+// --- Drips constants ---
+// Drips hangs from ceiling and periodically drops a falling projectile.
+// From ASM: y_vel = -$10000 upward on spawn (to reach ceiling), then drops with +$2000 accel.
+pub(crate) const DRIPS_DROP_INTERVAL: u16 = 90;
+pub(crate) const DRIPS_DROP_Y_SPEED: i32 = 0x1_0000; // initial downward speed
+pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;   // acceleration per frame
+
+/// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
+pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    // Drop a projectile straight down
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos,
+        x_velocity: 0,
+        y_velocity: DRIPS_DROP_Y_SPEED,
+        lifetime: 120,
+        gravity: DRIPS_DROP_GRAVITY,
+        friendly: false,
+        homing: false,
+    });
+    enemy.wait_timer = DRIPS_DROP_INTERVAL;
+}
+
+// SpinningTwins: 8-entry orbit X offset table from ASM (word_3B9A0).
+// Applied relative to spawn position during orbit phase.
+pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] = [
+    -0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11,
+];
+// Frames spent in orbit before dropping to walking.
+pub(crate) const SPINNING_TWINS_ORBIT_FRAMES: u16 = 120;
+// Gravity applied each frame once the twins drop. ASM: $2800 FP.
+pub(crate) const SPINNING_TWINS_GRAVITY: i32 = 0x2800;
+// Launch Y velocity when transitioning from orbit. ASM: -$10000.
+pub(crate) const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
+
+/// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
+pub(crate) fn step_spinning_twins(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    match enemy.spinning_twins_phase {
+        SpinningTwinsPhase::Orbiting => {
+            // Advance orbit index each frame
+            enemy.spinning_twins_orbit_index =
+                (enemy.spinning_twins_orbit_index + 1) % SPINNING_TWINS_ORBIT_OFFSETS.len() as u8;
+            let offset = SPINNING_TWINS_ORBIT_OFFSETS
+                [enemy.spinning_twins_orbit_index as usize];
+            // Apply X oscillation as velocity (visual only, resets each frame)
+            enemy.x_velocity = offset << 16;
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.x_velocity = 0;
+
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                // Drop to walking phase
+                enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
+                enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+                enemy.on_ground = false;
+            }
+        }
+        SpinningTwinsPhase::Walking => {
+            // Apply gravity while airborne until grounded, then walk as pacer
+            if !enemy.on_ground {
+                enemy.y_velocity += SPINNING_TWINS_GRAVITY;
+                enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+                // Check floor
+                if let Some(grid) = block_grid {
+                    let x_px = (enemy.x_pos >> 16) as i32;
+                    let y_px = (enemy.y_pos >> 16) as i32;
+                    let probe = terrain::probe_floor(grid, x_px, y_px);
+                    if probe.on_ground {
+                        enemy.y_pos = (probe.floor_y_px as u32) << 16;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                    }
+                }
+            } else {
+                step_pacer(enemy, block_grid);
+            }
+        }
+    }
+}
+
+/// EmoRock hover height above player, indexed by enemy_level (derived from HP).
+/// Level 0: 80px, Level 1: 60px, Level 2: 40px.
+pub(crate) const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
+
+/// EmoRock gravity acceleration (applied each frame while dropping).
+/// Level 0: $4000, Level 1: $6000, Level 2: $8000.
+pub(crate) const EMO_ROCK_GRAVITY: [i32; 3] = [0x4000, 0x6000, 0x8000];
+
+/// EmoRock terminal velocity while dropping.
+pub(crate) const EMO_ROCK_TERMINAL_VELOCITY: i32 = 0x6_0000;
+
+/// EmoRock walk speed after landing.
+pub(crate) const EMO_ROCK_WALK_SPEED: i32 = 0x8000;
+
+/// Step an EmoRock enemy through its state machine:
+/// - wait_timer > 0: hover above player, count down
+/// - wait_timer == 0 && !on_ground: drop with gravity
+/// - on_ground: walk like a pacer
+pub(crate) fn step_emo_rock(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    if enemy.on_ground {
+        // Walking phase: pacer-like ground movement facing player.
+        if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+            enemy.facing = dir;
+        }
+        let Some(grid) = block_grid else { return };
+        enemy.x_velocity = horizontal_velocity(enemy.facing, EMO_ROCK_WALK_SPEED);
+        enemy.y_velocity = 0;
+        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+
+        let wall = terrain::probe_wall(
+            grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+        );
+        if wall.hit {
+            reverse_enemy_direction(enemy);
+        }
+        return;
+    }
+
+    if enemy.wait_timer > 0 {
+        // Hovering phase: track player position, count down.
+        let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+        let hover_height_fp = (EMO_ROCK_HOVER_HEIGHT[level_index] as u32) << 16;
+        if let Some(px) = player_x_pos {
+            enemy.x_pos = px;
+        }
+        if let Some(py) = player_y_pos {
+            enemy.y_pos = py.saturating_sub(hover_height_fp);
+        }
+        enemy.wait_timer -= 1;
+        return;
+    }
+
+    // Dropping phase: apply gravity, check floor.
+    let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+    let gravity = EMO_ROCK_GRAVITY[level_index];
+    enemy.y_velocity = (enemy.y_velocity + gravity).min(EMO_ROCK_TERMINAL_VELOCITY);
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground {
+            // Land: snap to floor, enter walking state.
+            enemy.y_pos = (floor.floor_y_px as u32) << 16;
+            enemy.y_velocity = 0;
+            enemy.on_ground = true;
+            if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+                enemy.facing = dir;
+            }
+        }
+    }
+}
+
+pub(crate) fn reverse_enemy_direction(enemy: &mut ActiveEnemy) {
+    enemy.facing = opposite_direction(enemy.facing);
+}
+
+pub(crate) fn opposite_direction(facing: Direction) -> Direction {
+    match facing {
+        Direction::Left => Direction::Right,
+        Direction::Right => Direction::Left,
+    }
+}
+
+pub(crate) fn player_relative_direction(enemy_x_pos: u32, player_x_pos: Option<u32>) -> Option<Direction> {
+    let player_x_pos = player_x_pos?;
+    Some(if player_x_pos > enemy_x_pos {
+        Direction::Right
+    } else {
+        Direction::Left
+    })
+}
+
+/// Compute arrow angle index (0..27) from archer to player.
+/// Faithfully mirrors Archer.asm `loc_34458`: quadrant dispatch + unk_34404 ratio lookup.
+pub(crate) fn archer_angle_to_player(
+    archer_x: u32,
+    archer_y: u32,
+    player_x: u32,
+    player_y: u32,
+) -> usize {
+    let dx = (player_x >> 16) as i32 - (archer_x >> 16) as i32;
+    // Archer aims 16px above player centre (subi.w #$10,d7 in ASM).
+    let dy = ((player_y >> 16) as i32 - 0x10) - (archer_y >> 16) as i32;
+
+    // Ratio lookup table from unk_34404 (84 entries). Maps (abs_dy*8/abs_dx) to sub-angle 0-5.
+    const RATIO_TABLE: [u8; 84] = [
+        0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
+        4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5,
+    ];
+
+    if dx == 0 {
+        // Directly above or below.
+        return if dy < 0 { 6 } else { 0x15 };
+    }
+
+    let abs_dx = dx.unsigned_abs() as u32;
+    let abs_dy = dy.unsigned_abs() as u32;
+    let ratio = ((abs_dy * 8) / abs_dx).min(0x3E) as usize;
+    let sub = RATIO_TABLE[ratio.min(RATIO_TABLE.len() - 1)] as i32;
+
+    match (dx > 0, dy >= 0) {
+        // Quadrant 0: right+up (d5=0)
+        (true, false) => sub as usize,
+        // Quadrant 1: left+up (d5=1) → 0xD - sub
+        (false, false) => (0x0D - sub) as usize,
+        // Quadrant 2: left+down (d5=2) → 0xE + sub
+        (false, true) => (0x0E + sub) as usize,
+        // Quadrant 3: right+down (d5=3) → 0x1B - sub
+        (true, true) => (0x1B - sub) as usize,
+    }
+}
+
+/// Step Archer: stationary enemy that faces player and fires arrows at intervals.
+pub(crate) fn step_archer(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    // Face towards player.
+    if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+        enemy.facing = dir;
+    }
+
+    // Count down fire timer.
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+
+    // Reset timer.
+    let level = enemy.hit_points.saturating_sub(1).min(2) as usize;
+    enemy.wait_timer = ARCHER_FIRE_TIMER[level];
+
+    // Need player position to compute angle.
+    let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+        return;
+    };
+
+    // Don't exceed projectile limit.
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    // Compute angle and spawn arrow.
+    let angle = archer_angle_to_player(enemy.x_pos, enemy.y_pos, px, py);
+    let (x_byte, y_byte) = ARROW_ANGLE_TABLE[angle.min(ARROW_ANGLE_TABLE.len() - 1)];
+    let x_velocity = (x_byte as i32) * 0x1000;
+    let y_velocity = (y_byte as i32) * 0x1000;
+
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos,
+        x_velocity,
+        y_velocity,
+        lifetime: ARCHER_FIRE_TIMER[level],
+        friendly: false,
+        gravity: 0,
+        homing: false,
+    });
+}
+
+/// Tank fires a horizontal bullet at intervals while pacing.
+pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    enemy.wait_timer = TANK_FIRE_INTERVAL;
+
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    let x_velocity = horizontal_velocity(enemy.facing, TANK_BULLET_SPEED);
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos.wrapping_sub(8 << 16), // spawn above tank body
+        x_velocity,
+        y_velocity: 0,
+        lifetime: TANK_BULLET_LIFETIME,
+        friendly: false,
+        gravity: 0,
+        homing: false,
+    });
+}
+
+/// Boss tracking movement: chase the player with fixed velocity components.
+/// HeadyMetal ASM: x_vel ±$8000 towards player, y_vel $4800 down / -$B000 up,
+/// targeting 40px above player. Other bosses use the same pattern at different speeds.
+pub(crate) fn step_tracker(enemy: &mut ActiveEnemy, player_x_pos: Option<u32>, player_y_pos: Option<u32>) {
+    let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+        return;
+    };
+
+    let ex = enemy.x_pos as i64;
+    let ey = enemy.y_pos as i64;
+    let target_y = (py as i64).saturating_sub(0x28 << 16); // 40px above player
+
+    // Horizontal: chase player at $8000 (0.5 px/frame)
+    let x_chase_speed: i32 = 0x8000;
+    if (px as i64) > ex {
+        enemy.x_velocity = x_chase_speed;
+        enemy.facing = Direction::Right;
+    } else {
+        enemy.x_velocity = -x_chase_speed;
+        enemy.facing = Direction::Left;
+    }
+
+    // Vertical: faster upward (-$B000) than downward ($4800)
+    if target_y < ey {
+        enemy.y_velocity = -0xB000;
+    } else {
+        enemy.y_velocity = 0x4800;
+    }
+
+    // Apply velocities
+    enemy.x_pos = (ex + i64::from(enemy.x_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+    enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+}
+
+/// Boss periodic projectile fire interval (frames).
+pub(crate) const BOSS_FIRE_INTERVAL: u16 = 180; // ~3 seconds
+/// Boss skewer speed (Shishkaboss downward projectiles).
+pub(crate) const BOSS_SKEWER_SPEED: i32 = 0x2_0000;
+
+/// Bosses periodically fire projectiles at the player.
+pub(crate) fn step_boss_fire(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    enemy.wait_timer = BOSS_FIRE_INTERVAL;
+
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    match enemy.family {
+        EnemyFamily::HeadyMetal => {
+            // Spawn homing eye projectile with gravity
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: 0,
+                y_velocity: 0,
+                lifetime: 120,
+                gravity: 0x2710,
+                friendly: false,
+                homing: true,
+            });
+        }
+        EnemyFamily::Shishkaboss => {
+            // Downward skewer from above
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: 0,
+                y_velocity: BOSS_SKEWER_SPEED,
+                lifetime: 90,
+                gravity: 0,
+                friendly: false,
+                homing: false,
+            });
+        }
+        EnemyFamily::BoomerangBosses => {
+            // Boomerang arc: fast horizontal, slight upward
+            let dir = if let Some(px) = player_x_pos {
+                if px >= enemy.x_pos { 1i32 } else { -1 }
+            } else {
+                match enemy.facing {
+                    Direction::Right => 1,
+                    Direction::Left => -1,
+                }
+            };
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: dir * 0x3_0000,
+                y_velocity: -0x1_0000,
+                lifetime: 60,
+                gravity: 0x1000,
+                friendly: false,
+                homing: false,
+            });
+        }
+        EnemyFamily::BagelBrothers => {
+            // Fast horizontal dash projectile
+            let (Some(px), Some(_py)) = (player_x_pos, player_y_pos) else {
+                return;
+            };
+            let dir = if px >= enemy.x_pos { 1i32 } else { -1 };
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                x_velocity: dir * 0x4_0000,
+                y_velocity: 0,
+                lifetime: 45,
+                gravity: 0,
+                friendly: false,
+                homing: false,
+            });
+        }
+        _ => {}
+    }
+}
+
+pub(crate) fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
+    match family {
+        EnemyFamily::Dragon => (object_x << 16).saturating_add(DRAGON_SPAWN_X_OFFSET_FP),
+        _ => object_x << 16,
+    }
+}
+
+pub(crate) fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
+    match family {
+        EnemyFamily::Dragon => object_y.saturating_add(DRAGON_SPAWN_Y_OFFSET_PX) << 16,
+        _ => object_y << 16,
+    }
+}
+
+pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
+    match family {
+        EnemyFamily::Cloud => {
+            // Cloud.asm dword_35B38: speeds indexed by enemy_level
+            const CLOUD_SPEEDS: [i32; 3] = [-0x3000, -0x5000, -0x7000];
+            CLOUD_SPEEDS[usize::from(enemy_level).min(CLOUD_SPEEDS.len() - 1)]
+        }
+        // Sphere.asm: fixed x_vel = $10000
+        EnemyFamily::Sphere => 0x10000,
+        // Fireball.asm: x_vel = max_upwards >> 1, indexed by enemy_level
+        EnemyFamily::Fireball => {
+            const FIREBALL_MAX_UPWARD: [i32; 3] = [-0x30000, -0x40000, -0x50000];
+            FIREBALL_MAX_UPWARD[usize::from(enemy_level).min(2)] >> 1
+        }
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_facing(family: EnemyFamily) -> Direction {
+    match family {
+        EnemyFamily::Dragon => Direction::Left,
+        _ => Direction::Left,
+    }
+}
+
+pub(crate) fn spawn_x_acceleration(family: EnemyFamily) -> i32 {
+    match family {
+        EnemyFamily::UFO => UFO_ACCELERATION,
+        EnemyFamily::Tornado => TORNADO_ACCELERATION,
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_y_acceleration(family: EnemyFamily) -> i32 {
+    match family {
+        EnemyFamily::UFO => -UFO_ACCELERATION,
+        EnemyFamily::Tornado => -TORNADO_ACCELERATION,
+        _ => 0,
+    }
+}
+
+/// Compute initial HP from the enemy family and the raw `enemy_level` field
+/// in the layout. Each family's ASM init adds a base offset to `enemy_level`
+/// to produce the actual HP value.
+pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
+    let base = match family {
+        EnemyFamily::Goat => 3,
+        EnemyFamily::Armadillo => 1,
+        EnemyFamily::Crab => 2,
+        EnemyFamily::Tank => 2,
+        EnemyFamily::Scorpion => 3,
+        EnemyFamily::Driller => 2,
+        EnemyFamily::Cloud => 1,
+        EnemyFamily::Sphere => 1,
+        EnemyFamily::BigHoppingSkull => 2,
+        EnemyFamily::EmoRock => 1,
+        EnemyFamily::Archer => 1,
+        EnemyFamily::Fireball => 1,
+        // Tier 3-4 families: approximate base HP from ASM init routines
+        EnemyFamily::FireDemon => 3,  // HP 3-5
+        EnemyFamily::Robot => 2,      // HP 2-3
+        EnemyFamily::TarMonster => 2, // HP {2,4,6}
+        EnemyFamily::Orca => 4,       // fixed 4 HP
+        EnemyFamily::UFO => 1,
+        EnemyFamily::Ninja => 2,      // HP 2-3
+        EnemyFamily::Lion => 6,       // HP 6-8
+        EnemyFamily::SpinningTwins => 1,
+        EnemyFamily::Drips => 1,
+        EnemyFamily::Hand => 1,
+        EnemyFamily::Tornado => 1,
+        EnemyFamily::DragonWalking => 2, // HP 2-3
+        EnemyFamily::HeadyMetal => 37, // ASM: $25 = 37 hits
+        EnemyFamily::Shishkaboss => 20, // ASM: $14 per head × 3 = 60 total; we use 20
+        EnemyFamily::BoomerangBosses => 30, // ASM: $1E per head × 3 = 90 total; we use 30
+        EnemyFamily::BagelBrothers => 30, // ASM: $1E per head × 3 = 90 total; we use 30
+        // Existing families: Diamond and MiniHoppingSkull use raw level as
+        // HP with a minimum of 1 (legacy behaviour preserved).
+        _ => 0,
+    };
+    (enemy_level + base).max(1)
+}
+
+pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
+    match family {
+        // EmoRock: base $3C (60) frames hover wait before first drop attempt.
+        // Original adds a random offset; we use the fixed base.
+        EnemyFamily::EmoRock => 60,
+        // Tank: fire first bullet after one full interval.
+        EnemyFamily::Tank => TANK_FIRE_INTERVAL,
+        // Archer: fire first arrow after one full interval (HP1 rate).
+        EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
+        // Lion: charge timer counts down from $3C (60 frames) before first charge.
+        EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
+        // Robot: shoot interval timer ($4A = 32 frames).
+        EnemyFamily::Robot => ROBOT_SHOOT_INTERVAL,
+        // TarMonster: starts submerged, waits before first emergence.
+        EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
+        // Drips: first drop after one interval.
+        EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
+        // DragonWalking: first breath after cooldown.
+        EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
+        // SpinningTwins: orbit for N frames before dropping.
+        EnemyFamily::SpinningTwins => SPINNING_TWINS_ORBIT_FRAMES,
+        // Bosses: fire first projectile after initial delay.
+        EnemyFamily::HeadyMetal
+        | EnemyFamily::Shishkaboss
+        | EnemyFamily::BoomerangBosses
+        | EnemyFamily::BagelBrothers => BOSS_FIRE_INTERVAL,
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_dragon_phase(family: EnemyFamily) -> DragonMotionPhase {
+    match family {
+        EnemyFamily::Dragon => DragonMotionPhase::GlideLeftToPerch,
+        _ => DragonMotionPhase::None,
+    }
+}
+
+pub(crate) fn horizontal_velocity(facing: Direction, speed: i32) -> i32 {
+    match facing {
+        Direction::Left => -speed,
+        Direction::Right => speed,
+    }
+}
+
+pub(crate) fn enemy_layout_view(
+    layout: &EnemyLayout,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) -> EnemyLayoutView<'_> {
+    if layout.segments.is_empty() {
+        return EnemyLayoutView {
+            segment_index: 0,
+            enemy_type_slots: &layout.enemy_type_slots,
+            objects: &layout.objects,
+        };
+    }
+
+    let position = if layout.axis_uses_y_position {
+        camera_y_px.min(u32::from(u16::MAX)) as u16
+    } else {
+        camera_x_px.min(u32::from(u16::MAX)) as u16
+    };
+    let mut selected_index = 0usize;
+    for (index, segment) in layout.segments.iter().enumerate() {
+        if position >= segment.lower_bound {
+            selected_index = index;
+        }
+        if position < segment.upper_bound {
+            break;
+        }
+    }
+    let segment = &layout.segments[selected_index];
+    EnemyLayoutView {
+        segment_index: selected_index,
+        enemy_type_slots: &segment.enemy_type_slots,
+        objects: &segment.objects,
+    }
+}
+
+pub(crate) fn resolved_enemy_id(enemy_type_slots: &[u16], object_type: u8) -> Option<u8> {
+    if object_type & 0x80 == 0 {
+        return Some(object_type);
+    }
+    let slot_index = usize::from(object_type & 0x7F);
+    let raw_slot = *enemy_type_slots.get(slot_index)?;
+    if raw_slot == 0xFFFF {
+        return None;
+    }
+    u8::try_from(raw_slot & 0x3FFF).ok()
+}
