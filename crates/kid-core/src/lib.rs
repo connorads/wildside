@@ -1031,6 +1031,17 @@ enum NinjaState {
     JumpAttack,
 }
 
+/// Lion charge state machine (Lion.asm).
+/// Paces normally, then charges toward player and fires a fast projectile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum LionState {
+    /// Walking patrol, checking for player in range.
+    #[default]
+    Walking,
+    /// Charging toward the player at high speed.
+    Charging,
+}
+
 /// Hand patrol/attack state machine (Hand.asm).
 /// Walks until player enters forward detection range, then jump-attacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1070,6 +1081,7 @@ struct ActiveEnemy {
     dragon_phase_frames: u16,
     ninja_state: NinjaState,
     hand_state: HandState,
+    lion_state: LionState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5229,6 +5241,7 @@ fn activate_enemies(
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         });
     }
 }
@@ -5257,6 +5270,8 @@ fn step_active_enemies(
                     step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
                 } else if matches!(enemy.family, EnemyFamily::Hand) {
                     step_hand(enemy, block_grid, player_x_pos, player_y_pos);
+                } else if matches!(enemy.family, EnemyFamily::Lion) {
+                    step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else {
                     step_pacer(enemy, block_grid);
                     // Tank fires horizontal bullets at intervals
@@ -5978,6 +5993,127 @@ fn step_hand(
     }
 }
 
+/// Lion charge detection range (Lion.asm ~$40-$A0 px).
+const LION_DETECT_RANGE: i32 = 0xA0;
+
+/// Lion charge speed: $28000 for HP=8, $18000 otherwise (Lion.asm lines 36-48).
+fn lion_charge_speed(hit_points: u8) -> i32 {
+    if hit_points >= 8 { 0x2_8000 } else { 0x1_8000 }
+}
+
+/// Lion charge timer: starts at $3C (60 frames), counts down while pacing.
+/// When timer expires and player is in range, Lion charges.
+const LION_CHARGE_TIMER_INIT: u16 = 60;
+
+/// Lion charge duration (frames before returning to walk).
+const LION_CHARGE_DURATION: u16 = 40;
+
+/// Lion projectile speed (Lion.asm line 165: $60000).
+const LION_PROJECTILE_SPEED: i32 = 0x6_0000;
+
+/// Step a Lion enemy: paces normally, then charges toward player and fires a projectile.
+fn step_lion(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    match enemy.lion_state {
+        LionState::Walking => {
+            // Pace like normal
+            step_pacer(enemy, block_grid);
+
+            // Count down charge timer
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+
+            // Timer expired — check if player is in range
+            let Some(px) = player_x_pos else {
+                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            if dx.abs() > i64::from(LION_DETECT_RANGE) {
+                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                return;
+            }
+
+            // Face the player and start charging
+            enemy.facing = if dx >= 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+            enemy.lion_state = LionState::Charging;
+            enemy.wait_timer = LION_CHARGE_DURATION;
+
+            // Fire a fast projectile toward the player
+            if let Some(projs) = projectiles {
+                let speed = LION_PROJECTILE_SPEED;
+                let (xv, yv) = match enemy.facing {
+                    Direction::Right => (speed, 0),
+                    Direction::Left => (-speed, 0),
+                };
+                projs.push(EnemyProjectile {
+                    x_pos: enemy.x_pos,
+                    y_pos: enemy.y_pos,
+                    x_velocity: xv,
+                    y_velocity: yv,
+                    lifetime: 60,
+                    gravity: 0,
+                    friendly: false,
+                });
+            }
+        }
+        LionState::Charging => {
+            // Move at charge speed
+            let speed = lion_charge_speed(enemy.hit_points);
+            enemy.x_velocity = horizontal_velocity(enemy.facing, speed);
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+            // Wall check
+            if let Some(grid) = block_grid {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    reverse_enemy_direction(enemy);
+                    enemy.lion_state = LionState::Walking;
+                    enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                    return;
+                }
+
+                // Edge check
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                    enemy.lion_state = LionState::Walking;
+                    enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                    return;
+                }
+            }
+
+            // Timer countdown
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                enemy.lion_state = LionState::Walking;
+                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+            }
+        }
+    }
+}
+
 /// EmoRock hover height above player, indexed by enemy_level (derived from HP).
 /// Level 0: 80px, Level 1: 60px, Level 2: 40px.
 const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
@@ -6336,6 +6472,8 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Tank => TANK_FIRE_INTERVAL,
         // Archer: fire first arrow after one full interval (HP1 rate).
         EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
+        // Lion: charge timer counts down from $3C (60 frames) before first charge.
+        EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
         _ => 0,
     }
 }
@@ -9643,6 +9781,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
@@ -9789,6 +9928,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         }];
 
         activate_enemies(
@@ -9830,6 +9970,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         for _ in 0..199 {
@@ -9920,6 +10061,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -9959,6 +10101,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -10028,6 +10171,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -10084,6 +10228,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -11216,6 +11361,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         }
     }
 
@@ -11358,6 +11504,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -11394,6 +11541,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -11458,6 +11606,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -11527,6 +11676,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -11563,6 +11713,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -11604,6 +11755,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -11649,6 +11801,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -11694,6 +11847,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
 
         // Step until it lands
@@ -11796,6 +11950,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11826,6 +11981,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11901,6 +12057,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -11932,6 +12089,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -11977,6 +12135,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -12007,6 +12166,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -12040,6 +12200,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -12261,6 +12422,72 @@ mod tests {
             "hand should return to walking after landing"
         );
         assert!(enemy.on_ground);
+    }
+
+    // --- Lion ---
+
+    #[test]
+    fn lion_paces_then_charges_when_timer_expires_and_player_in_range() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 1; // about to expire
+        let player_x = Some((60 + 0x50) << 16); // within detection range
+        let mut projs = vec![];
+        step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        // Timer ticked to 0 but hasn't charged yet (timer was 1, decremented to 0)
+        assert_eq!(enemy.lion_state, LionState::Walking);
+        // One more step with timer at 0 should trigger charge
+        step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        assert_eq!(enemy.lion_state, LionState::Charging);
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(projs.len(), 1, "should fire projectile when charging");
+    }
+
+    #[test]
+    fn lion_does_not_charge_when_player_out_of_range() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        let player_x = Some((60 + 0xFF) << 16); // far away, beyond $A0 range
+        let mut projs = vec![];
+        step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        assert_eq!(
+            enemy.lion_state,
+            LionState::Walking,
+            "should not charge when player too far"
+        );
+        assert!(projs.is_empty());
+    }
+
+    #[test]
+    fn lion_charge_returns_to_walking_after_duration() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Charging;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        enemy.wait_timer = 1;
+        step_lion(&mut enemy, Some(&grid), None, &mut None);
+        assert_eq!(enemy.wait_timer, 0);
+        step_lion(&mut enemy, Some(&grid), None, &mut None);
+        assert_eq!(
+            enemy.lion_state,
+            LionState::Walking,
+            "should return to walking after charge duration"
+        );
+        assert_eq!(enemy.wait_timer, LION_CHARGE_TIMER_INIT);
+    }
+
+    #[test]
+    fn lion_hp8_charges_faster() {
+        assert!(lion_charge_speed(8) > lion_charge_speed(7));
     }
 
     // --- Ghost blocks ---
@@ -13973,6 +14200,7 @@ mod tests {
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
         }
     }
 
