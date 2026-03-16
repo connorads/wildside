@@ -2,6 +2,7 @@ mod autonomy;
 mod bootstrap;
 mod cache;
 mod capture;
+mod diff;
 mod cheats;
 mod inspect;
 mod compare;
