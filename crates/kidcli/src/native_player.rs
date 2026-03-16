@@ -3672,15 +3672,15 @@ mod tests {
     }
 
     #[test]
-    fn hud_toggle_removes_control_overlay() {
+    fn hud_toggle_removes_debug_overlay() {
         let trace = sample_trace(GameMode::InGame);
         assert!(contains_text(
             &build_ingame_scene(&trace, true, None),
-            "Controls Arrows"
+            "Frame"
         ));
         assert!(!contains_text(
             &build_ingame_scene(&trace, false, None),
-            "Controls Arrows"
+            "Frame"
         ));
     }
 
