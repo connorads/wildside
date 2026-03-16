@@ -1403,6 +1403,7 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
+                    self.reload_block_grid_for_level(self.current_level);
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
                     self.level_timer = LevelTimer::new();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
