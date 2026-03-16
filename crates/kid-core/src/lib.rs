@@ -114,6 +114,18 @@ fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
         // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
         EnemyFamily::Tank => (2, 0x0000_8000, 0x0001_0000),
+        // Fire Demon: HP = enemy_level + 3 (min 3). Base speed $8000, step $8000.
+        EnemyFamily::FireDemon => (3, 0x0000_8000, 0x0000_8000),
+        // Robot: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        EnemyFamily::Robot => (2, 0x0000_8000, 0x0000_8000),
+        // Orca: fixed 4 HP. Fixed speed $8000.
+        EnemyFamily::Orca => (4, 0x0000_8000, 0),
+        // Ninja: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
+        // Lion: HP = enemy_level + 6 (min 6). Speed $18000 base, $28000 at HP 8.
+        EnemyFamily::Lion => (6, 0x0001_8000, 0x0000_8000),
+        // Hand: HP = 1. Speed from table: $3000/$4800/$6000 by HP.
+        EnemyFamily::Hand => (1, 0x0000_3000, 0x0000_1800),
         _ => (1, 0x0001_0000, 0),
     };
     let tiers = hit_points.saturating_sub(base_hp) as i32;
@@ -555,16 +567,6 @@ impl ActivePlatform {
             y_velocity: 0,
             script,
         }
-    }
-
-    /// Right edge X in pixels.
-    fn right_px(&self) -> i32 {
-        (self.x_pos >> 16) as i32 + i32::from(self.width_px)
-    }
-
-    /// Bottom edge Y in pixels.
-    fn bottom_px(&self) -> i32 {
-        (self.y_pos >> 16) as i32 + i32::from(self.height_px)
     }
 
     /// Advance one frame of movement script execution.
@@ -8111,6 +8113,7 @@ mod tests {
     // Pacer archetype (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
     // -----------------------------------------------------------------------
 
+    #[allow(dead_code)]
     fn manifest_with_pacer(enemy_id: u8, hp: u16) -> AssetManifest {
         let mut m = manifest();
         if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
@@ -8158,6 +8161,27 @@ mod tests {
         assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 2), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 3), 0x0001_0000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 4), 0x0001_8000);
+    }
+
+    #[test]
+    fn pacer_walk_speed_fire_demon_scales_with_hp() {
+        assert_eq!(pacer_walk_speed(EnemyFamily::FireDemon, 3), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::FireDemon, 4), 0x0001_0000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::FireDemon, 5), 0x0001_8000);
+    }
+
+    #[test]
+    fn pacer_walk_speed_lion_scales_with_hp() {
+        // Lion: base HP 6, base speed $18000, step $8000
+        assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 7), 0x0002_0000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 8), 0x0002_8000);
+    }
+
+    #[test]
+    fn pacer_walk_speed_orca_is_fixed() {
+        assert_eq!(pacer_walk_speed(EnemyFamily::Orca, 4), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Orca, 5), 0x0000_8000);
     }
 
     /// Build a small grid (width_cells x height_cells) where specific cells are
