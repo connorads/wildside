@@ -5141,9 +5141,8 @@ impl EnemyFamily {
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
             Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
             Self::UFO | Self::Tornado => EnemyArchetype::Flyer,
-            Self::MiniHoppingSkull | Self::BigHoppingSkull | Self::Drips => {
-                EnemyArchetype::Hopper
-            }
+            Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
+            Self::Drips => EnemyArchetype::Stationary, // ceiling dropper
             Self::Goat
             | Self::Armadillo
             | Self::Tank
@@ -5381,6 +5380,10 @@ fn step_active_enemies(
             EnemyArchetype::Stationary => {
                 if matches!(enemy.family, EnemyFamily::TarMonster) {
                     step_tar_monster(enemy);
+                } else if matches!(enemy.family, EnemyFamily::Drips) {
+                    if let Some(projs) = projectiles.as_deref_mut() {
+                        step_drips(enemy, projs);
+                    }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
                 }
@@ -6512,6 +6515,32 @@ fn spawn_tar_monster_retaliation(projectiles: &mut Vec<EnemyProjectile>, x: u32,
     }
 }
 
+// --- Drips constants ---
+// Drips hangs from ceiling and periodically drops a falling projectile.
+// From ASM: y_vel = -$10000 upward on spawn (to reach ceiling), then drops with +$2000 accel.
+const DRIPS_DROP_INTERVAL: u16 = 90;
+const DRIPS_DROP_Y_SPEED: i32 = 0x1_0000; // initial downward speed
+const DRIPS_DROP_GRAVITY: i32 = 0x2000;   // acceleration per frame
+
+/// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
+fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    // Drop a projectile straight down
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos,
+        x_velocity: 0,
+        y_velocity: DRIPS_DROP_Y_SPEED,
+        lifetime: 120,
+        gravity: DRIPS_DROP_GRAVITY,
+        friendly: false,
+    });
+    enemy.wait_timer = DRIPS_DROP_INTERVAL;
+}
+
 /// EmoRock hover height above player, indexed by enemy_level (derived from HP).
 /// Level 0: 80px, Level 1: 60px, Level 2: 40px.
 const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
@@ -6876,6 +6905,8 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Robot => ROBOT_SHOOT_INTERVAL,
         // TarMonster: starts submerged, waits before first emergence.
         EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
+        // Drips: first drop after one interval.
+        EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
         _ => 0,
     }
 }
@@ -13145,6 +13176,31 @@ mod tests {
         let right_count = projectiles.iter().filter(|p| p.x_velocity > 0).count();
         assert!(left_count >= 2, "at least 2 blobs go left");
         assert!(right_count >= 2, "at least 2 blobs go right");
+    }
+
+    // --- Drips ---
+
+    #[test]
+    fn drips_drops_projectile_on_timer_expiry() {
+        let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
+        enemy.wait_timer = 0;
+        let mut projectiles = Vec::new();
+        step_drips(&mut enemy, &mut projectiles);
+        assert_eq!(projectiles.len(), 1, "should drop one projectile");
+        assert_eq!(projectiles[0].x_velocity, 0, "drops straight down");
+        assert!(projectiles[0].y_velocity > 0, "falls downward");
+        assert!(!projectiles[0].friendly);
+        assert_eq!(enemy.wait_timer, DRIPS_DROP_INTERVAL);
+    }
+
+    #[test]
+    fn drips_waits_between_drops() {
+        let mut enemy = test_enemy(EnemyFamily::Drips, 60 << 16, 20 << 16, 1);
+        enemy.wait_timer = 5;
+        let mut projectiles = Vec::new();
+        step_drips(&mut enemy, &mut projectiles);
+        assert!(projectiles.is_empty(), "should not drop while timer active");
+        assert_eq!(enemy.wait_timer, 4);
     }
 
     // --- Ghost blocks ---
