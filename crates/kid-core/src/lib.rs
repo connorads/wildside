@@ -639,6 +639,9 @@ enum EnemyFamily {
     Cloud,
     Sphere,
     BigHoppingSkull,
+    EmoRock,
+    Archer,
+    Fireball,
     Goat,
     Armadillo,
     Tank,
@@ -3222,7 +3225,7 @@ impl EnemyFamily {
         match self {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
-            Self::Sphere => EnemyArchetype::Bouncer,
+            Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
             Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
             Self::Goat
             | Self::Armadillo
@@ -3230,6 +3233,8 @@ impl EnemyFamily {
             | Self::Crab
             | Self::Scorpion
             | Self::Driller => EnemyArchetype::Pacer,
+            Self::EmoRock => EnemyArchetype::Inert, // TODO: hover/follow behaviour
+            Self::Archer => EnemyArchetype::Inert, // TODO: arrow projectiles
             Self::Unknown(_) => EnemyArchetype::Inert,
         }
     }
@@ -3242,10 +3247,13 @@ impl EnemyFamily {
             Some(0x0A) => Self::Tank,
             Some(0x0C | 0x0D) => Self::Dragon,
             Some(0x06) => Self::Sphere,
+            Some(0x07) => Self::Archer,
             Some(0x0E) => Self::Cloud,
             Some(0x10) => Self::Goat,
             Some(0x13) => Self::Scorpion,
             Some(0x1A) => Self::Driller,
+            Some(0x19) => Self::Fireball,
+            Some(0x1B) => Self::EmoRock,
             Some(0x1C) => Self::MiniHoppingSkull,
             Some(0x1D) => Self::BigHoppingSkull,
             Some(enemy_id) => Self::Unknown(enemy_id),
@@ -3258,6 +3266,7 @@ impl EnemyFamily {
             Self::Diamond => 0x01,
             Self::Armadillo => 0x04,
             Self::Sphere => 0x06,
+            Self::Archer => 0x07,
             Self::Crab => 0x09,
             Self::Tank => 0x0A,
             Self::Dragon => 0x0D,
@@ -3265,6 +3274,8 @@ impl EnemyFamily {
             Self::Goat => 0x10,
             Self::Scorpion => 0x13,
             Self::Driller => 0x1A,
+            Self::Fireball => 0x19,
+            Self::EmoRock => 0x1B,
             Self::MiniHoppingSkull => 0x1C,
             Self::BigHoppingSkull => 0x1D,
             Self::Unknown(enemy_id) => enemy_id,
@@ -3424,9 +3435,21 @@ fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) 
 /// ceiling→negate y_vel and halve.
 const SPHERE_GRAVITY: i32 = 0x800;
 
+fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
+    match enemy.family {
+        // Fireball.asm: gravity indexed by enemy_level ($1000/$2000/$3000)
+        EnemyFamily::Fireball => {
+            const FIREBALL_GRAVITY: [i32; 3] = [0x1000, 0x2000, 0x3000];
+            let level = enemy.hit_points.saturating_sub(1) as usize;
+            FIREBALL_GRAVITY[level.min(2)]
+        }
+        _ => SPHERE_GRAVITY,
+    }
+}
+
 fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Apply gravity
-    enemy.y_velocity = enemy.y_velocity.saturating_add(SPHERE_GRAVITY);
+    enemy.y_velocity = enemy.y_velocity.saturating_add(bouncer_gravity(enemy));
 
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -3766,6 +3789,11 @@ fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
         }
         // Sphere.asm: fixed x_vel = $10000
         EnemyFamily::Sphere => 0x10000,
+        // Fireball.asm: x_vel = max_upwards >> 1, indexed by enemy_level
+        EnemyFamily::Fireball => {
+            const FIREBALL_MAX_UPWARD: [i32; 3] = [-0x30000, -0x40000, -0x50000];
+            FIREBALL_MAX_UPWARD[usize::from(enemy_level).min(2)] >> 1
+        }
         _ => 0,
     }
 }
@@ -3791,6 +3819,9 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Cloud => 1,
         EnemyFamily::Sphere => 1,
         EnemyFamily::BigHoppingSkull => 2,
+        EnemyFamily::EmoRock => 1,
+        EnemyFamily::Archer => 1,
+        EnemyFamily::Fireball => 1,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
@@ -8293,6 +8324,49 @@ mod tests {
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 0), 1);
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 1), 2);
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 2), 3);
+    }
+
+    // --- Tier 2 enemy wiring ---
+
+    #[test]
+    fn emo_rock_maps_to_inert() {
+        assert_eq!(EnemyFamily::EmoRock.archetype(), EnemyArchetype::Inert);
+        assert_eq!(EnemyFamily::EmoRock.object_type(), 0x1B);
+    }
+
+    #[test]
+    fn archer_maps_to_inert() {
+        assert_eq!(EnemyFamily::Archer.archetype(), EnemyArchetype::Inert);
+        assert_eq!(EnemyFamily::Archer.object_type(), 0x07);
+    }
+
+    #[test]
+    fn fireball_maps_to_bouncer() {
+        assert_eq!(EnemyFamily::Fireball.archetype(), EnemyArchetype::Bouncer);
+        assert_eq!(EnemyFamily::Fireball.object_type(), 0x19);
+    }
+
+    #[test]
+    fn fireball_gravity_scales_with_hp() {
+        let make = |hp| ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Fireball,
+            x_pos: 0,
+            y_pos: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: hp,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        assert_eq!(bouncer_gravity(&make(1)), 0x1000);
+        assert_eq!(bouncer_gravity(&make(2)), 0x2000);
+        assert_eq!(bouncer_gravity(&make(3)), 0x3000);
     }
 
     // --- Big Hopping Skull enemy ---
