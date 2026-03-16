@@ -2735,6 +2735,33 @@ mod tests {
             PlayerForm::IronKnight.max_hitpoints() as usize
         );
     }
+
+    #[test]
+    fn resolve_palette_colour_8_colour_palette_index_1_returns_first_colour() {
+        let palette = Palette {
+            colours: vec![
+                colour(0xEE, 0x00, 0x00),
+                colour(0x00, 0xEE, 0x00),
+                colour(0x00, 0x00, 0xEE),
+                colour(0xEE, 0xEE, 0x00),
+                colour(0x00, 0xEE, 0xEE),
+                colour(0xEE, 0x00, 0xEE),
+                colour(0xAA, 0xAA, 0xAA),
+                colour(0xFF, 0xFF, 0xFF),
+            ],
+        };
+        // Index 0 = transparent
+        assert_eq!(resolve_palette_colour(&palette, 0, 0), None);
+        // Index 1 should return colours[0], not colours[1]
+        assert_eq!(
+            resolve_palette_colour(&palette, 0, 1),
+            Some([0xEE, 0x00, 0x00])
+        );
+        assert_eq!(
+            resolve_palette_colour(&palette, 0, 2),
+            Some([0x00, 0xEE, 0x00])
+        );
+    }
 }
 
 fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGrid> {
