@@ -131,8 +131,8 @@ pub(super) fn append_sprite_chunk_tiles(
     let columns = chunk_width_px / 8;
     let rows = chunk_height_px / 8;
 
-    for row in 0..rows {
-        for column in 0..columns {
+    for column in 0..columns {
+        for row in 0..rows {
             let unflipped_x_px = chunk_x_px + column * 8;
             let offset_x = if flip_x {
                 i32::from(aligned_width_px - unflipped_x_px - 8)
