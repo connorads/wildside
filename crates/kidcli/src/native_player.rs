@@ -7,6 +7,7 @@ use kid_core::{
 };
 use kid_data::{AssetManifest, LevelHeader};
 use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
+use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
@@ -160,8 +161,26 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
 
+    let audio_queue: Option<AudioQueue<f32>> = sdl
+        .audio()
+        .ok()
+        .and_then(|audio| {
+            let desired = sdl2::audio::AudioSpecDesired {
+                freq: Some(44_100),
+                channels: Some(1),
+                samples: Some(1024),
+            };
+            audio.open_queue::<f32, _>(None, &desired).ok()
+        });
+    if let Some(ref aq) = audio_queue {
+        aq.resume();
+    }
+    let mut sfx_engine = SfxEngine::new();
+
     let mut runtime = initialise_runtime(manifest, &session_assets);
     let mut trace = runtime.trace_frame();
+    #[allow(unused_assignments)]
+    let mut prev_trace = trace.clone();
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
     let mut current_level_id: u8 = 0x00;
@@ -237,7 +256,19 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             current_level_id = 0x00;
         } else {
             let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+            prev_trace = trace.clone();
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
+
+            // Detect game events by comparing frames
+            detect_sfx_events(&prev_trace, &trace, &mut sfx_engine);
+        }
+
+        // Push audio samples to SDL2 queue
+        if let Some(ref aq) = audio_queue {
+            if aq.size() < 4096 {
+                let samples = sfx_engine.generate(735); // ~1 frame at 44100 Hz
+                let _ = aq.queue_audio(&samples);
+            }
         }
 
         if trace.current_level.0 != current_level_id {
@@ -1850,6 +1881,96 @@ fn form_label(helmet_id: u16) -> &'static str {
 
 fn on_off(value: bool) -> &'static str {
     if value { "On" } else { "Off" }
+}
+
+// ---------------------------------------------------------------------------
+// Simple SFX synthesiser: generates square-wave tones for game events.
+// ---------------------------------------------------------------------------
+
+const SFX_SAMPLE_RATE: f32 = 44_100.0;
+
+#[derive(Debug, Clone, Copy)]
+struct SfxTone {
+    frequency: f32,
+    remaining_samples: u32,
+    phase: f32,
+    volume: f32,
+}
+
+struct SfxEngine {
+    active_tones: Vec<SfxTone>,
+}
+
+impl SfxEngine {
+    fn new() -> Self {
+        Self {
+            active_tones: Vec::new(),
+        }
+    }
+
+    fn play(&mut self, frequency: f32, duration_ms: u32, volume: f32) {
+        self.active_tones.push(SfxTone {
+            frequency,
+            remaining_samples: (SFX_SAMPLE_RATE * duration_ms as f32 / 1000.0) as u32,
+            phase: 0.0,
+            volume,
+        });
+    }
+
+    fn generate(&mut self, sample_count: usize) -> Vec<f32> {
+        let mut samples = vec![0.0f32; sample_count];
+        self.active_tones.retain_mut(|tone| {
+            let phase_inc = tone.frequency / SFX_SAMPLE_RATE;
+            for sample in samples.iter_mut() {
+                if tone.remaining_samples == 0 {
+                    return false;
+                }
+                // Square wave with volume envelope
+                let value = if tone.phase < 0.5 { tone.volume } else { -tone.volume };
+                *sample += value;
+                tone.phase = (tone.phase + phase_inc) % 1.0;
+                tone.remaining_samples -= 1;
+            }
+            tone.remaining_samples > 0
+        });
+        // Clamp
+        for s in &mut samples {
+            *s = s.clamp(-1.0, 1.0);
+        }
+        samples
+    }
+}
+
+fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut SfxEngine) {
+    // Diamond collected
+    if curr.diamond_count > prev.diamond_count {
+        sfx.play(880.0, 60, 0.15); // high A, short
+    }
+    // Enemy killed (score jumped by 1000+)
+    if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
+        sfx.play(523.0, 80, 0.12); // C5
+        sfx.play(659.0, 80, 0.12); // E5
+    }
+    // Took damage (HP decreased)
+    if curr.number_hitpoints < prev.number_hitpoints && prev.number_hitpoints > 0 {
+        sfx.play(220.0, 150, 0.2); // low A, longer
+    }
+    // Level complete
+    if curr.level_complete && !prev.level_complete {
+        sfx.play(523.0, 100, 0.15);
+        sfx.play(659.0, 100, 0.15);
+        sfx.play(784.0, 200, 0.15);
+    }
+    // Game over
+    if curr.game_over && !prev.game_over {
+        sfx.play(220.0, 200, 0.2);
+        sfx.play(165.0, 300, 0.2);
+    }
+    // Life lost (lives decreased but not game over)
+    if curr.number_lives < prev.number_lives && !curr.game_over {
+        sfx.play(330.0, 120, 0.15);
+        sfx.play(262.0, 180, 0.15);
+    }
 }
 
 #[cfg(test)]
