@@ -363,7 +363,8 @@ pub struct NativeTraceFrame {
     pub score: u32,
     pub level_timer_seconds: u16,
     pub murder_wall_x: Option<i64>,
-    pub active_projectiles: Vec<(u32, u32)>,
+    /// Active projectiles: (x_pos, y_pos, friendly).
+    pub active_projectiles: Vec<(u32, u32, bool)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1652,7 +1653,7 @@ impl NativeRuntime {
             score: self.score,
             level_timer_seconds: self.level_timer.seconds,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
-            active_projectiles: self.projectiles.iter().map(|p| (p.x_pos, p.y_pos)).collect(),
+            active_projectiles: self.projectiles.iter().map(|p| (p.x_pos, p.y_pos, p.friendly)).collect(),
         }
     }
 

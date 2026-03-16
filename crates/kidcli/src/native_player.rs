@@ -1663,29 +1663,48 @@ fn build_game_scene(
         }
     }
 
-    // Murder wall: red wall advancing from the side
+    // Murder wall: layered red wall advancing from the side
     if let Some(wall_x_fp) = trace.murder_wall_x {
         let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-        let wall_colour: [u8; 3] = [180, 20, 20];
+        // Gradient: dark core, lighter leading edge
         commands.push(DrawCommand::Rect {
-            x: wall_x_screen - 48,
+            x: wall_x_screen - 64,
             y: 0,
-            width: 48,
+            width: 40,
             height: FRAME_HEIGHT as i32,
-            colour: wall_colour,
+            colour: [120, 0, 0],
+        });
+        commands.push(DrawCommand::Rect {
+            x: wall_x_screen - 24,
+            y: 0,
+            width: 16,
+            height: FRAME_HEIGHT as i32,
+            colour: [200, 30, 10],
+        });
+        commands.push(DrawCommand::Rect {
+            x: wall_x_screen - 8,
+            y: 0,
+            width: 8,
+            height: FRAME_HEIGHT as i32,
+            colour: [255, 80, 20],
         });
     }
 
-    // Projectiles: small yellow dots
-    for &(px, py) in &trace.active_projectiles {
+    // Projectiles: coloured dots (green=friendly, red=enemy)
+    for &(px, py, friendly) in &trace.active_projectiles {
         let sx = (px >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
         let sy = (py >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+        let colour = if friendly {
+            [100, 255, 100]
+        } else {
+            [255, 80, 40]
+        };
         commands.push(DrawCommand::Rect {
             x: sx - 2,
             y: sy - 2,
             width: 4,
             height: 4,
-            colour: [255, 200, 0],
+            colour,
         });
     }
 
