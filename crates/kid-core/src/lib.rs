@@ -662,6 +662,10 @@ enum EnemyFamily {
     Tornado,
     Driller,
     MiniHoppingSkull,
+    HeadyMetal,
+    Shishkaboss,
+    BoomerangBosses,
+    BagelBrothers,
     Unknown(u8),
 }
 
@@ -3258,6 +3262,9 @@ impl EnemyFamily {
             Self::EmoRock => EnemyArchetype::Inert, // TODO: hover/follow behaviour
             Self::Archer => EnemyArchetype::Inert, // TODO: arrow projectiles
             Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Inert, // TODO: unique behaviours
+            Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
+                EnemyArchetype::Inert // TODO: boss state machines
+            }
             Self::Unknown(_) => EnemyArchetype::Inert,
         }
     }
@@ -3290,6 +3297,10 @@ impl EnemyFamily {
             Some(0x1B) => Self::EmoRock,
             Some(0x1C) => Self::MiniHoppingSkull,
             Some(0x1D) => Self::BigHoppingSkull,
+            Some(0x20) => Self::HeadyMetal,
+            Some(0x22) => Self::Shishkaboss,
+            Some(0x23) => Self::BoomerangBosses,
+            Some(0x24) => Self::BagelBrothers,
             Some(enemy_id) => Self::Unknown(enemy_id),
             None => Self::Unknown(object.object_type),
         }
@@ -3323,6 +3334,10 @@ impl EnemyFamily {
             Self::EmoRock => 0x1B,
             Self::MiniHoppingSkull => 0x1C,
             Self::BigHoppingSkull => 0x1D,
+            Self::HeadyMetal => 0x20,
+            Self::Shishkaboss => 0x22,
+            Self::BoomerangBosses => 0x23,
+            Self::BagelBrothers => 0x24,
             Self::Unknown(enemy_id) => enemy_id,
         }
     }
@@ -3879,6 +3894,10 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Drips => 1,
         EnemyFamily::Hand => 1,
         EnemyFamily::Tornado => 1,
+        EnemyFamily::HeadyMetal => 10,
+        EnemyFamily::Shishkaboss => 10,
+        EnemyFamily::BoomerangBosses => 10,
+        EnemyFamily::BagelBrothers => 10,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
