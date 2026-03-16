@@ -342,6 +342,7 @@ pub struct NativeRuntime {
     level_skip_resume_hold: bool,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
+    active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     block_grid: Option<terrain::BlockGrid>,
     block_grid_source: BlockGridSource,
@@ -461,6 +462,47 @@ impl TerrainType {
 struct TerrainState {
     floor_y_pos: u32,
     floor_terrain_type: TerrainType,
+}
+
+/// An active platform with collision dimensions and movement state.
+/// Positions use the same FP16.16 format as player/enemy positions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ActivePlatform {
+    /// FP16.16 X position (left edge of the platform).
+    x_pos: u32,
+    /// FP16.16 Y position (top edge of the platform).
+    y_pos: u32,
+    /// Platform width in pixels (from h_variant: `h * 16 + 15`).
+    width_px: u16,
+    /// Platform height in pixels (from v_variant: `v * 16 + 15`).
+    height_px: u16,
+    /// FP16.16 X velocity (from movement script).
+    x_velocity: i32,
+    /// FP16.16 Y velocity (from movement script).
+    y_velocity: i32,
+}
+
+impl ActivePlatform {
+    fn from_placement(placement: &PlatformPlacement) -> Self {
+        Self {
+            x_pos: u32::from(placement.x) << 16,
+            y_pos: u32::from(placement.y) << 16,
+            width_px: u16::from(placement.h_variant) * 16 + 15,
+            height_px: u16::from(placement.v_variant) * 16 + 15,
+            x_velocity: 0,
+            y_velocity: 0,
+        }
+    }
+
+    /// Right edge X in pixels.
+    fn right_px(&self) -> i32 {
+        (self.x_pos >> 16) as i32 + i32::from(self.width_px)
+    }
+
+    /// Bottom edge Y in pixels.
+    fn bottom_px(&self) -> i32 {
+        (self.y_pos >> 16) as i32 + i32::from(self.height_px)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -657,6 +699,7 @@ impl NativeRuntime {
             level_skip_resume_hold: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
+            active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
             block_grid: None,
             block_grid_source: BlockGridSource::None,
@@ -750,6 +793,7 @@ impl NativeRuntime {
         self.opening_slice = Some(self.level_respawn_slice(self.current_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -1197,6 +1241,9 @@ impl NativeRuntime {
             self.block_grid.as_mut(),
         );
 
+        // Platform collision: player can stand on top of platforms
+        apply_platform_collision(&mut slice, &self.active_platforms);
+
         // Prize block item spawning: each prize block grants a diamond
         if slice.prize_blocks_hit > 0 {
             for _ in 0..slice.prize_blocks_hit {
@@ -1268,6 +1315,7 @@ impl NativeRuntime {
             return;
         }
         self.active_enemy_roster.clear();
+        self.active_platforms.clear();
         self.active_platform_roster.clear();
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
@@ -1324,6 +1372,13 @@ impl NativeRuntime {
             self.active_platform_roster = objects
                 .platform_loader
                 .active_platforms(platform_layout, window);
+            self.active_platforms = platform_layout
+                .placements
+                .iter()
+                .take(objects.platform_loader.next_index)
+                .filter(|p| platform_is_active(p, window))
+                .map(|p| ActivePlatform::from_placement(p))
+                .collect();
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }
     }
@@ -1674,6 +1729,7 @@ impl NativeRuntime {
         self.number_lives = self.number_lives.saturating_sub(1);
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Dying {
@@ -1693,6 +1749,7 @@ impl NativeRuntime {
         self.opening_slice = Some(self.level_respawn_slice(next_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
@@ -1718,6 +1775,7 @@ impl NativeRuntime {
         self.opening_slice = Some(OpeningSliceState::new(bounds));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -1733,6 +1791,7 @@ impl NativeRuntime {
         self.opening_slice = Some(self.level_respawn_slice(level_id));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
@@ -3583,6 +3642,64 @@ fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) ->
         .y_max
         .saturating_add(u32::from(platform.buffer_bottom));
     (x_min..=x_max).contains(&object_x) && (y_min..=y_max).contains(&object_y)
+}
+
+/// Check if the player should land on top of any active platform.
+///
+/// Runs after terrain collision so that platforms override terrain when the
+/// player is above a platform surface. Only applies when the player is not
+/// already grounded by terrain (falling or airborne).
+fn apply_platform_collision(slice: &mut OpeningSliceState, platforms: &[ActivePlatform]) {
+    if slice.player.on_ground {
+        return;
+    }
+    if slice.player.y_velocity < 0 {
+        // Moving upward — don't land on platforms from below
+        return;
+    }
+
+    let player_x_px = (slice.player.x_pos >> 16) as i32;
+    let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
+    let player_left = player_x_px - PLAYER_HALF_WIDTH;
+    let player_right = player_x_px + PLAYER_HALF_WIDTH;
+
+    for platform in platforms {
+        let plat_x_px = (platform.x_pos >> 16) as i32;
+        let plat_y_px = (platform.y_pos >> 16) as i32;
+        let plat_right = plat_x_px + i32::from(platform.width_px);
+
+        // Horizontal overlap check
+        if player_right < plat_x_px || player_left > plat_right {
+            continue;
+        }
+
+        // Vertical check: player feet should be at or just below the platform top.
+        // Use the same snap tolerance as terrain floor collision.
+        let plat_top_fp = platform.y_pos;
+        let within_snap = slice
+            .player
+            .y_pos
+            .abs_diff(plat_top_fp)
+            <= GROUND_SNAP_TOLERANCE_FP;
+        let feet_at_or_below = player_foot_y_px >= plat_y_px;
+
+        if feet_at_or_below || within_snap {
+            // Don't land if player feet are well past the platform (inside it)
+            let plat_bottom = plat_y_px + i32::from(platform.height_px);
+            if player_foot_y_px > plat_bottom {
+                continue;
+            }
+
+            // Land on this platform
+            let floor_y_px = plat_y_px.saturating_sub(1);
+            let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+            slice.player.y_pos = floor_y_fp;
+            slice.player.on_ground = true;
+            slice.player.y_velocity = 0;
+            slice.terrain.floor_y_pos = floor_y_fp;
+            return;
+        }
+    }
 }
 
 fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
@@ -7995,5 +8112,120 @@ mod tests {
         slice.apply_floor_collision(Some(&grid), false, false);
         assert!(!slice.player.on_ground);
         assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Normal);
+    }
+
+    // --- Platform collision ---
+
+    fn make_test_platform(x: u16, y: u16, h_variant: u8, v_variant: u8) -> ActivePlatform {
+        ActivePlatform {
+            x_pos: u32::from(x) << 16,
+            y_pos: u32::from(y) << 16,
+            width_px: u16::from(h_variant) * 16 + 15,
+            height_px: u16::from(v_variant) * 16 + 15,
+            x_velocity: 0,
+            y_velocity: 0,
+        }
+    }
+
+    fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
+        OpeningSliceState {
+            player: PlayerState {
+                x_pos: u32::from(x) << 16,
+                y_pos: u32::from(y) << 16,
+                x_velocity: 0,
+                y_velocity: 0x1_0000, // falling
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 0,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        }
+    }
+
+    #[test]
+    fn platform_collision_lands_falling_player() {
+        // Platform at (40, 100), h=2 v=0 → 47px wide, 15px tall
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(50, 100); // feet at platform top
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.y_velocity, 0);
+        // Lands 1 pixel above platform top (same as solid floor convention)
+        assert_eq!(slice.player.y_pos, 99u32 << 16);
+    }
+
+    #[test]
+    fn platform_collision_ignores_grounded_player() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(50, 100);
+        slice.player.on_ground = true; // already grounded
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        // Should not modify position — already on ground
+        assert_eq!(slice.player.y_pos, 100u32 << 16);
+    }
+
+    #[test]
+    fn platform_collision_ignores_rising_player() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(50, 100);
+        slice.player.y_velocity = -0x2_0000; // moving upward
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn platform_collision_misses_when_player_is_not_above() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        // Player is far left of platform (x=10, platform starts at x=40)
+        let mut slice = make_airborne_slice(10, 100);
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn platform_collision_misses_when_player_is_well_above() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        // Player at y=50, platform at y=100 — too high to land
+        let mut slice = make_airborne_slice(50, 50);
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn platform_dimensions_from_h_v_variants() {
+        // h_variant=4, v_variant=0 → 79×15
+        let p = make_test_platform(0, 0, 4, 0);
+        assert_eq!(p.width_px, 79);
+        assert_eq!(p.height_px, 15);
+
+        // h_variant=2, v_variant=1 → 47×31
+        let p = make_test_platform(0, 0, 2, 1);
+        assert_eq!(p.width_px, 47);
+        assert_eq!(p.height_px, 31);
     }
 }
