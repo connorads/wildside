@@ -338,6 +338,12 @@ enum Commands {
         /// Collection tier: state, frames, or full
         #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
         tier: sweep::SweepTier,
+        /// Only populate oracle cache — skip native runs and comparison.
+        #[arg(long, default_value_t = false)]
+        warm_cache_only: bool,
+        /// Stop after this many failures (0 = run all levels).
+        #[arg(long, default_value_t = 0)]
+        max_failures: usize,
     },
     /// Deep diagnosis of a single failing level.
     DiagnoseLevel {
@@ -792,13 +798,21 @@ fn main() -> Result<()> {
             dir,
             levels,
             tier,
+            warm_cache_only,
+            max_failures,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let level_ids = sweep::parse_level_range(&levels)?;
-            sweep::run_sweep(&repo_root, &rom_path, &manifest, &level_ids, tier)?;
+            let options = sweep::SweepOptions {
+                warm_cache_only,
+                max_failures,
+            };
+            sweep::run_sweep_with_options(
+                &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
+            )?;
         }
         Commands::DiagnoseLevel { rom, dir, level } => {
             let repo_root = current_dir()?;

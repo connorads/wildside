@@ -4,6 +4,7 @@ use diff::{annotate_diff, frame_mae, generate_diff_composite};
 use native_player::render_gameplay_frame_evidence_for_level;
 use oracle::run_jgenesis_capture_dynamic;
 use scenarios::{DynamicCheckpoint, DynamicScenario, idle_level_scenario};
+use sha1::{Digest, Sha1};
 
 /// Result tier controls how much data is collected per level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
@@ -43,10 +44,30 @@ pub(crate) struct StateDiff {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct SweepReport {
     pub(crate) timestamp: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) kid_core_hash: Option<String>,
     pub(crate) levels: Vec<LevelSweepResult>,
     pub(crate) passed: usize,
     pub(crate) failed: usize,
     pub(crate) errors: usize,
+}
+
+/// Options controlling sweep behaviour beyond tier and level selection.
+#[derive(Debug, Clone)]
+pub(crate) struct SweepOptions {
+    /// Only populate the oracle cache — skip native runs and comparison.
+    pub(crate) warm_cache_only: bool,
+    /// Stop the sweep after this many failures (0 = no limit).
+    pub(crate) max_failures: usize,
+}
+
+impl Default for SweepOptions {
+    fn default() -> Self {
+        Self {
+            warm_cache_only: false,
+            max_failures: 0,
+        }
+    }
 }
 
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
@@ -79,10 +100,28 @@ pub(crate) fn run_sweep(
     levels: &[u8],
     tier: SweepTier,
 ) -> Result<SweepReport> {
+    run_sweep_with_options(repo_root, rom_path, manifest, levels, tier, &SweepOptions::default())
+}
+
+/// Run a sweep with additional options (warm-cache-only, fast-fail).
+pub(crate) fn run_sweep_with_options(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    levels: &[u8],
+    tier: SweepTier,
+    options: &SweepOptions,
+) -> Result<SweepReport> {
     let rom_bytes = fs::read(rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
 
     let env = ensure_oracles(repo_root)?;
+
+    // Warm-cache-only: populate oracle cache in parallel, skip native runs.
+    if options.warm_cache_only {
+        return warm_oracle_cache(&rom_bytes, rom_path, repo_root, &env, levels);
+    }
+
     let timestamp = chrono_timestamp();
     let run_dir = repo_root.join(".cache/sweep-runs").join(&timestamp);
     fs::create_dir_all(&run_dir)
@@ -95,6 +134,7 @@ pub(crate) fn run_sweep(
     std::os::unix::fs::symlink(&run_dir, &latest_link).ok();
 
     let mut results = Vec::with_capacity(levels.len());
+    let mut failure_count: usize = 0;
 
     for &level_id in levels {
         println!("sweep level {level_id:#04x}...");
@@ -114,10 +154,14 @@ pub(crate) fn run_sweep(
                     format!(" ({} state diffs)", r.state_diffs.len())
                 };
                 println!("  {status}{mae_str}{diff_count}");
+                if !r.passed {
+                    failure_count += 1;
+                }
                 results.push(r);
             }
             Err(e) => {
                 println!("  ERROR: {e:#}");
+                failure_count += 1;
                 results.push(LevelSweepResult {
                     level_id,
                     slug: format!("idle_level_{level_id:02x}"),
@@ -130,14 +174,25 @@ pub(crate) fn run_sweep(
                 });
             }
         }
+
+        // Fast-fail: stop after max_failures
+        if options.max_failures > 0 && failure_count >= options.max_failures {
+            println!(
+                "\nfast-fail: stopping after {failure_count} failure(s) (--max-failures {})",
+                options.max_failures
+            );
+            break;
+        }
     }
 
     let passed = results.iter().filter(|r| r.passed).count();
     let failed = results.iter().filter(|r| !r.passed && r.error.is_none()).count();
     let errors = results.iter().filter(|r| r.error.is_some()).count();
 
+    let source_hash = kid_core_source_hash(repo_root).ok();
     let report = SweepReport {
         timestamp,
+        kid_core_hash: source_hash,
         levels: results,
         passed,
         failed,
@@ -515,9 +570,11 @@ pub(crate) fn run_parity_loop(
     max_cycles: u32,
 ) -> Result<()> {
     let all_levels: Vec<u8> = (0..=104).collect();
+    let source_hash = kid_core_source_hash(repo_root).unwrap_or_else(|_| "unknown".into());
 
     for cycle in 1..=max_cycles {
-        println!("=== parity loop cycle {cycle}/{max_cycles} ===\n");
+        println!("=== parity loop cycle {cycle}/{max_cycles} ===");
+        println!("kid-core source hash: {source_hash}\n");
 
         // Tier 1: state-only sweep
         let report = run_sweep(
@@ -555,6 +612,139 @@ pub(crate) fn run_parity_loop(
         );
     }
 
+    Ok(())
+}
+
+/// Populate oracle cache for all requested levels in parallel, skip native comparison.
+fn warm_oracle_cache(
+    rom_bytes: &[u8],
+    rom_path: &Path,
+    repo_root: &Path,
+    env: &OracleEnvironment,
+    levels: &[u8],
+) -> Result<SweepReport> {
+    let timestamp = chrono_timestamp();
+    let mut cached = 0usize;
+    let mut ran = 0usize;
+    let mut errored = 0usize;
+
+    // Group levels into batches for parallel oracle runs.
+    // Oracle processes are I/O-heavy (emulator), so parallelism helps.
+    let batch_size = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(8); // cap at 8 to avoid thrashing
+
+    for chunk in levels.chunks(batch_size) {
+        let handles: Vec<_> = chunk
+            .iter()
+            .map(|&level_id| {
+                let scenario = idle_level_scenario(level_id, None);
+                let cache_key = OracleCacheKey::new(rom_bytes, &scenario.script);
+
+                // Already cached?
+                if load_cached_oracle(&cache_key, repo_root).is_some() {
+                    return None;
+                }
+
+                let rom = rom_path.to_owned();
+                let root = repo_root.to_owned();
+                let env = env.clone();
+
+                Some((level_id, scenario, cache_key, rom, root, env))
+            })
+            .collect();
+
+        let mut threads = Vec::new();
+        for item in handles {
+            match item {
+                None => cached += 1,
+                Some((level_id, scenario, cache_key, rom, root, env)) => {
+                    threads.push(thread::spawn(move || {
+                        let tmp = root.join(format!(".cache/warm-cache-tmp/{level_id:02x}"));
+                        fs::create_dir_all(&tmp).ok();
+
+                        let scenario_file = tmp.join("scenario.json");
+                        fs::write(
+                            &scenario_file,
+                            serde_json::to_vec_pretty(&scenario).unwrap_or_default(),
+                        )
+                        .ok();
+
+                        let oracle_dir = tmp.join("oracle");
+                        fs::create_dir_all(&oracle_dir).ok();
+
+                        match run_jgenesis_capture_dynamic(&env, &rom, &scenario_file, &oracle_dir)
+                        {
+                            Ok(oracle) => {
+                                let _ = store_oracle_cache(&cache_key, &root, &oracle, &oracle_dir);
+                                println!("  warm {level_id:#04x}: cached");
+                                Ok(())
+                            }
+                            Err(e) => {
+                                println!("  warm {level_id:#04x}: ERROR {e:#}");
+                                Err(e)
+                            }
+                        }
+                    }));
+                }
+            }
+        }
+
+        for handle in threads {
+            match handle.join() {
+                Ok(Ok(())) => ran += 1,
+                _ => errored += 1,
+            }
+        }
+    }
+
+    println!(
+        "\nwarm-cache complete: {cached} already cached, {ran} newly cached, {errored} errors"
+    );
+
+    Ok(SweepReport {
+        timestamp,
+        kid_core_hash: None,
+        levels: Vec::new(),
+        passed: cached + ran,
+        failed: 0,
+        errors: errored,
+    })
+}
+
+/// Compute a SHA-1 hash of kid-core source files.
+/// Used for incremental native: if the hash hasn't changed since the last sweep,
+/// native re-runs can be skipped (the game logic is deterministic).
+pub(crate) fn kid_core_source_hash(repo_root: &Path) -> Result<String> {
+    let src_dir = repo_root.join("crates/kid-core/src");
+    let mut paths: Vec<PathBuf> = Vec::new();
+    collect_rs_files(&src_dir, &mut paths)?;
+    paths.sort();
+
+    let mut hasher = Sha1::new();
+    for path in &paths {
+        hasher.update(path.strip_prefix(repo_root).unwrap_or(path).to_string_lossy().as_bytes());
+        hasher.update(b"\0");
+        hasher.update(&fs::read(path).with_context(|| format!("reading {}", path.display()))?);
+        hasher.update(b"\0");
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_rs_files(&path, out)?;
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
     Ok(())
 }
 
@@ -655,6 +845,28 @@ mod tests {
 
         let diffs = compare_sweep_states(&native, &oracle);
         assert!(diffs.is_empty());
+    }
+
+    #[test]
+    fn sweep_options_default_is_no_limits() {
+        let opts = SweepOptions::default();
+        assert!(!opts.warm_cache_only);
+        assert_eq!(opts.max_failures, 0);
+    }
+
+    #[test]
+    fn kid_core_source_hash_is_deterministic() {
+        // Both calls with the same source should produce the same hash.
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_owned();
+        let h1 = kid_core_source_hash(&root).unwrap();
+        let h2 = kid_core_source_hash(&root).unwrap();
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 40); // SHA-1 hex
     }
 
     #[test]

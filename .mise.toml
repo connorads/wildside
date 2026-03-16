@@ -83,3 +83,11 @@ run = "cargo run -p kidcli -- reference-build"
 
 [tasks.dump-level-layout]
 run = "cargo run -p kidcli -- dump-level-layout --level ${1:-00}"
+
+[tasks.sweep]
+run = "cargo run --release -p kidcli -- sweep"
+description = "Sweep all 105 levels for native vs oracle parity"
+
+[tasks.warm-cache]
+run = "cargo run --release -p kidcli -- sweep --warm-cache-only"
+description = "Pre-populate oracle cache for all levels (no native comparison)"
