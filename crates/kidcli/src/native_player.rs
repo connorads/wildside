@@ -933,6 +933,16 @@ fn push_game_hud(
     let score_x = timer_x + 40;
     push_hud_score(commands, level_visuals, trace.score, score_x, pip_y);
 
+    // Helmet name if wearing one
+    let form = PlayerForm::from_helmet_id(trace.current_helmet_id);
+    if let Some(f) = form {
+        if f != PlayerForm::TheKid {
+            let name = helmet_display_name(f);
+            let name_x = lives_x + 30;
+            commands.push(text(name_x, pip_y, name, [180, 220, 255], 1));
+        }
+    }
+
     let diamond_icon_x = FRAME_WIDTH as i32 - 12;
     let diamond_counter_x = diamond_icon_x - 2 - hud_counter_width(trace.diamond_count);
     push_hud_counter(
@@ -943,6 +953,21 @@ fn push_game_hud(
         pip_y,
     );
     push_hud_icon(commands, level_visuals, "diamond", diamond_icon_x, pip_y);
+}
+
+fn helmet_display_name(form: PlayerForm) -> &'static str {
+    match form {
+        PlayerForm::TheKid => "KID",
+        PlayerForm::Skycutter => "SKY",
+        PlayerForm::Cyclone => "CYC",
+        PlayerForm::RedStealth => "RED",
+        PlayerForm::Eyeclops => "EYE",
+        PlayerForm::Juggernaut => "JUG",
+        PlayerForm::IronKnight => "IRN",
+        PlayerForm::Berzerker => "BRZ",
+        PlayerForm::Maniaxe => "MNX",
+        PlayerForm::Micromax => "MCR",
+    }
 }
 
 fn build_player_sprite_tiles(
@@ -1347,14 +1372,29 @@ fn build_game_scene(
         commands.push(text(score_x, text_y + 34, &score_line, [255, 255, 255], 1));
     }
 
-    // Game Over overlay
+    // Game Over / Continue overlay
     if trace.game_over {
-        let go_text = "GAME OVER";
-        let text_w = go_text.len() as i32 * 8 * 2;
-        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
-        push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 24, [80, 0, 0], [255, 80, 80]);
-        commands.push(text(text_x, text_y, go_text, [255, 80, 80], 2));
+        if trace.number_continues > 0 {
+            let title = "CONTINUE?";
+            let title_w = title.len() as i32 * 8 * 2;
+            let title_x = (FRAME_WIDTH as i32 - title_w) / 2;
+            let title_y = (FRAME_HEIGHT as i32) / 2 - 16;
+            let count_line = format!("{} REMAINING", trace.number_continues);
+            let count_w = count_line.len() as i32 * 8;
+            let count_x = (FRAME_WIDTH as i32 - count_w) / 2;
+            let panel_w = title_w.max(count_w + 16) + 16;
+            let panel_x = (FRAME_WIDTH as i32 - panel_w) / 2;
+            push_panel(&mut commands, panel_x, title_y - 4, panel_w, 40, [0, 40, 80], [80, 180, 255]);
+            commands.push(text(title_x, title_y, title, [80, 180, 255], 2));
+            commands.push(text(count_x, title_y + 24, &count_line, [200, 220, 255], 1));
+        } else {
+            let go_text = "GAME OVER";
+            let text_w = go_text.len() as i32 * 8 * 2;
+            let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+            let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
+            push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 24, [80, 0, 0], [255, 80, 80]);
+            commands.push(text(text_x, text_y, go_text, [255, 80, 80], 2));
+        }
     }
 
     // Pause overlay
