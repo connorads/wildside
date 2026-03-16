@@ -719,6 +719,13 @@ const MAX_PROJECTILES: usize = 4;
 /// Projectile hitbox half-width for player collision (pixels).
 const PROJECTILE_HITBOX_HALF: i32 = 6;
 
+/// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
+const TANK_FIRE_INTERVAL: u16 = 0x20;
+/// Tank bullet speed in FP16.16 (3 px/frame → $30000).
+const TANK_BULLET_SPEED: i32 = 0x3_0000;
+/// Tank bullet lifetime in frames (enough to cross a screen width).
+const TANK_BULLET_LIFETIME: u16 = 120;
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -1950,7 +1957,7 @@ impl NativeRuntime {
             }
             terrain::PrizeContent::Ankh => {
                 self.number_lives += 1;
-                // Invulnerability effect not yet implemented
+                // Diamond Power invulnerability (at 20 diamonds) is separate
             }
             terrain::PrizeContent::Points10000 => {
                 // Score not yet tracked
@@ -3966,7 +3973,15 @@ fn step_active_enemies(
             EnemyArchetype::Hoverer => {
                 step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos)
             }
-            EnemyArchetype::Pacer => step_pacer(enemy, block_grid),
+            EnemyArchetype::Pacer => {
+                step_pacer(enemy, block_grid);
+                // Tank fires horizontal bullets at intervals
+                if matches!(enemy.family, EnemyFamily::Tank) {
+                    if let Some(ref mut projs) = projectiles {
+                        step_tank_fire(enemy, projs);
+                    }
+                }
+            }
             EnemyArchetype::Stationary => {
                 if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
@@ -4527,6 +4542,28 @@ fn step_archer(
     });
 }
 
+/// Tank fires a horizontal bullet at intervals while pacing.
+fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        return;
+    }
+    enemy.wait_timer = TANK_FIRE_INTERVAL;
+
+    if projectiles.len() >= MAX_PROJECTILES {
+        return;
+    }
+
+    let x_velocity = horizontal_velocity(enemy.facing, TANK_BULLET_SPEED);
+    projectiles.push(EnemyProjectile {
+        x_pos: enemy.x_pos,
+        y_pos: enemy.y_pos.wrapping_sub(8 << 16), // spawn above tank body
+        x_velocity,
+        y_velocity: 0,
+        lifetime: TANK_BULLET_LIFETIME,
+    });
+}
+
 fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
     match family {
         EnemyFamily::Dragon => (object_x << 16).saturating_add(DRAGON_SPAWN_X_OFFSET_FP),
@@ -4611,6 +4648,10 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         // EmoRock: base $3C (60) frames hover wait before first drop attempt.
         // Original adds a random offset; we use the fixed base.
         EnemyFamily::EmoRock => 60,
+        // Tank: fire first bullet after one full interval.
+        EnemyFamily::Tank => TANK_FIRE_INTERVAL,
+        // Archer: fire first arrow after one full interval (HP1 rate).
+        EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
         _ => 0,
     }
 }
@@ -9692,6 +9733,60 @@ mod tests {
         assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
         assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
         assert_eq!(ARCHER_FIRE_TIMER[2], 0x0A, "HP 3: 10 frames");
+    }
+
+    // --- Tank firing ---
+
+    #[test]
+    fn tank_fires_bullet_after_timer_expires() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Tank,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0x8000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            hit_points: 2,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0, // ready to fire
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let mut projs = Vec::new();
+        step_tank_fire(&mut enemy, &mut projs);
+        assert_eq!(projs.len(), 1, "tank should fire a bullet");
+        assert!(projs[0].x_velocity > 0, "bullet should go right (same as facing)");
+        assert_eq!(projs[0].y_velocity, 0, "bullet should be horizontal");
+        assert_eq!(enemy.wait_timer, TANK_FIRE_INTERVAL, "timer should reset");
+    }
+
+    #[test]
+    fn tank_does_not_fire_while_timer_active() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Tank,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0x8000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            hit_points: 2,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 10,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let mut projs = Vec::new();
+        step_tank_fire(&mut enemy, &mut projs);
+        assert!(projs.is_empty(), "should not fire while timer > 0");
+        assert_eq!(enemy.wait_timer, 9, "timer should decrement");
     }
 
     // --- Ghost blocks ---
