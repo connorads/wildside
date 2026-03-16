@@ -439,8 +439,22 @@ pub struct NativeRuntime {
     evanescent_blocks: Vec<EvanescentEntry>,
     ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
+    lift_platforms: Vec<LiftPlatform>,
     murder_wall: Option<MurderWallState>,
     level_timer: LevelTimer,
+}
+
+/// A lift block that has been activated and is now a moving platform.
+/// Rises for ~50 frames then falls until off-screen.
+#[derive(Debug, Clone)]
+struct LiftPlatform {
+    x_pos: u32,
+    y_pos: u32,
+    y_velocity: i32,
+    /// Frames since activation.
+    age: u16,
+    /// Width in pixels (one block = 16px).
+    width_px: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -834,6 +848,13 @@ const IRON_KNIGHT_MAX_CLIMB_VEL: i32 = -0x1_8000;
 /// IronKnight wall climb: max downward velocity (falling off).
 const IRON_KNIGHT_MAX_FALL_VEL: i32 = 0x4_0000;
 
+/// Lift block: upward acceleration (first 50 frames).
+const LIFT_ACCEL_UP: i32 = -0x708;
+/// Lift block: downward acceleration (after 50 frames).
+const LIFT_ACCEL_DOWN: i32 = 0x7D0;
+/// Lift block: frames of upward phase before switching to fall.
+const LIFT_RISE_FRAMES: u16 = 50;
+
 /// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
 const TANK_FIRE_INTERVAL: u16 = 0x20;
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
@@ -921,6 +942,8 @@ struct OpeningSliceState {
     objects: ObjectSystemState,
     /// Prize block headbutted this frame — None if no prize block was hit.
     prize_block_hit: Option<terrain::PrizeContent>,
+    /// Lift block activated this frame — (x_px, y_px) of block top-left in pixels.
+    lift_block_hit: Option<(u16, u16)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1145,6 +1168,7 @@ impl NativeRuntime {
             evanescent_blocks: Vec::new(),
             ghost_groups: Vec::new(),
             projectiles: Vec::new(),
+            lift_platforms: Vec::new(),
             murder_wall: None,
             level_timer: LevelTimer::new(),
         };
@@ -1733,6 +1757,7 @@ impl NativeRuntime {
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.prize_block_hit = None;
+        slice.lift_block_hit = None;
         // Step helmet abilities BEFORE physics
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
@@ -1775,9 +1800,23 @@ impl NativeRuntime {
         // Shifting blocks: move block up one cell when player stands on it
         self.apply_shifting_blocks(&slice);
 
+        // Lift platforms: step movement and collision
+        self.step_lift_platforms(&mut slice);
+
         // Prize block item spawning: apply the prize content
         if let Some(content) = slice.prize_block_hit {
             self.apply_prize_content(content);
+        }
+
+        // Lift block: headbutt spawns a rising platform
+        if let Some((x_px, y_px)) = slice.lift_block_hit {
+            self.lift_platforms.push(LiftPlatform {
+                x_pos: u32::from(x_px) << 16,
+                y_pos: u32::from(y_px) << 16,
+                y_velocity: 0,
+                age: 0,
+                width_px: 16,
+            });
         }
 
         // Level timer: tick down and kill the player on expiry
@@ -2412,6 +2451,7 @@ impl NativeRuntime {
         self.evanescent_blocks.clear();
         self.ghost_groups.clear();
         self.projectiles.clear();
+        self.lift_platforms.clear();
         self.init_murder_wall(next_level, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
@@ -3229,6 +3269,74 @@ impl NativeRuntime {
         grid.set_cell_at(col, foot_row, terrain::Cell::from_be_bytes(0, 0));
     }
 
+    /// Step lift platforms: accelerate, move, remove when off-screen.
+    fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
+        let level_height = self.level_bounds(self.current_level).height_pixels as u32;
+
+        self.lift_platforms.retain_mut(|lift| {
+            lift.age += 1;
+
+            // Acceleration: up for first LIFT_RISE_FRAMES, then down
+            let accel = if lift.age <= LIFT_RISE_FRAMES {
+                LIFT_ACCEL_UP
+            } else {
+                LIFT_ACCEL_DOWN
+            };
+            lift.y_velocity += accel;
+
+            // Apply velocity
+            let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
+            lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+
+            // Remove if below level
+            let y_px = lift.y_pos >> 16;
+            if y_px > u32::from(level_height) + 32 {
+                return false;
+            }
+
+            // Platform collision: player can stand on lift
+            let plat_x_px = (lift.x_pos >> 16) as i32;
+            let plat_y_px = (lift.y_pos >> 16) as i32;
+            let player_x_px = (slice.player.x_pos >> 16) as i32;
+            let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
+            let player_left = player_x_px - PLAYER_HALF_WIDTH;
+            let player_right = player_x_px + PLAYER_HALF_WIDTH;
+            let plat_right = plat_x_px + i32::from(lift.width_px);
+
+            if player_right >= plat_x_px
+                && player_left <= plat_right
+                && slice.player.y_velocity >= 0
+                && !slice.player.on_ground
+            {
+                let foot_dist = player_foot_y_px - plat_y_px;
+                if foot_dist >= -2 && foot_dist <= 4 {
+                    slice.player.y_pos = lift.y_pos;
+                    slice.player.y_velocity = lift.y_velocity;
+                    slice.player.on_ground = true;
+                    slice.terrain.floor_y_pos = lift.y_pos;
+                }
+            }
+
+            // If player is on ground and riding this lift, carry along
+            if slice.player.on_ground {
+                let within_snap =
+                    slice.player.y_pos.abs_diff(lift.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
+                if within_snap
+                    && player_right >= plat_x_px
+                    && player_left <= plat_right
+                {
+                    slice.player.y_pos =
+                        (i64::from(slice.player.y_pos) + i64::from(lift.y_velocity))
+                            .clamp(0, i64::from(u32::MAX)) as u32;
+                    slice.terrain.floor_y_pos =
+                        (((slice.player.y_pos >> 16) as i32).max(0) as u32) << 16;
+                }
+            }
+
+            true
+        });
+    }
+
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
             let width = grid.width_cells;
@@ -3779,6 +3887,7 @@ impl OpeningSliceState {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         }
     }
 
@@ -3822,6 +3931,7 @@ impl OpeningSliceState {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         }
     }
 
@@ -4171,25 +4281,39 @@ impl OpeningSliceState {
                 }
             }
 
-            // Prize/smash block headbutt: hitting from below clears the cell.
-            if probe.cell.collision == terrain::CollisionKind::Solid
-                && probe.cell.has_block
-                && matches!(
-                    probe.cell.block_type,
-                    terrain::BlockType::Prize | terrain::BlockType::Smash
-                )
-            {
-                if probe.cell.block_type == terrain::BlockType::Prize {
-                    let content = block_list
-                        .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
-                        .unwrap_or(terrain::PrizeContent::Diamond);
-                    self.prize_block_hit = Some(content);
+            // Prize/smash/lift block headbutt: hitting from below
+            if probe.cell.collision == terrain::CollisionKind::Solid && probe.cell.has_block {
+                match probe.cell.block_type {
+                    terrain::BlockType::Prize => {
+                        let content = block_list
+                            .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
+                            .unwrap_or(terrain::PrizeContent::Diamond);
+                        self.prize_block_hit = Some(content);
+                        grid.set_cell_at(
+                            probe.cell_x,
+                            probe.cell_y,
+                            terrain::Cell::from_be_bytes(0, 0),
+                        );
+                    }
+                    terrain::BlockType::Smash => {
+                        grid.set_cell_at(
+                            probe.cell_x,
+                            probe.cell_y,
+                            terrain::Cell::from_be_bytes(0, 0),
+                        );
+                    }
+                    terrain::BlockType::Lift => {
+                        let block_x_px = u16::from(probe.cell_x) * 16;
+                        let block_y_px = u16::from(probe.cell_y) * 16;
+                        self.lift_block_hit = Some((block_x_px, block_y_px));
+                        grid.set_cell_at(
+                            probe.cell_x,
+                            probe.cell_y,
+                            terrain::Cell::from_be_bytes(0, 0),
+                        );
+                    }
+                    _ => {}
                 }
-                grid.set_cell_at(
-                    probe.cell_x,
-                    probe.cell_y,
-                    terrain::Cell::from_be_bytes(0, 0),
-                );
             }
 
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
@@ -7422,6 +7546,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.step(
@@ -8337,6 +8462,100 @@ mod tests {
         );
     }
 
+    fn grid_with_lift_block() -> terrain::BlockGrid {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = 0x01;
+        };
+        // Row 2, col 2: lift block (collision=6 Solid, has_block, block_type=0xB)
+        // 1_110_1011 = 0xEB
+        set_cell(&mut data, 2, 2, 0xEB);
+        // Row 3: solid floor
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60);
+        }
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    fn lift_block_headbutt_spawns_platform() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_lift_block());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(runtime.lift_platforms.is_empty());
+
+        // Position player below lift block at col 2, row 2
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16;
+            slice.player.y_pos = 73 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.lift_platforms.len(),
+            1,
+            "headbutting lift block should spawn a lift platform"
+        );
+        // Block should be cleared from grid
+        let grid = runtime.block_grid.as_ref().unwrap();
+        let cell = grid.cell_at(2, 2);
+        assert!(!cell.has_block, "lift block should be cleared after headbutt");
+    }
+
+    #[test]
+    fn lift_platform_rises_then_falls() {
+        let mut lift = LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 100 << 16,
+            y_velocity: 0,
+            age: 0,
+            width_px: 16,
+        };
+
+        // After a few frames, velocity should be negative (rising)
+        for _ in 0..10 {
+            lift.age += 1;
+            let accel = if lift.age <= LIFT_RISE_FRAMES {
+                LIFT_ACCEL_UP
+            } else {
+                LIFT_ACCEL_DOWN
+            };
+            lift.y_velocity += accel;
+            let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
+            lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+        }
+        assert!(lift.y_velocity < 0, "lift should be rising in first 10 frames");
+        let pos_after_rise = lift.y_pos;
+        assert!(pos_after_rise < (100 << 16), "lift should have moved up");
+
+        // After ~120 frames total, enough downward accel to reverse
+        for _ in 0..110 {
+            lift.age += 1;
+            let accel = if lift.age <= LIFT_RISE_FRAMES {
+                LIFT_ACCEL_UP
+            } else {
+                LIFT_ACCEL_DOWN
+            };
+            lift.y_velocity += accel;
+            let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
+            lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+        }
+        assert!(lift.y_velocity > 0, "lift should be falling after enough frames");
+    }
+
     fn grid_with_hidden_block() -> terrain::BlockGrid {
         let w = 6u16;
         let h = 5u16;
@@ -9220,6 +9439,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -9264,6 +9484,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -9312,6 +9533,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -9356,6 +9578,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -9401,6 +9624,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -9450,6 +9674,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -9493,6 +9718,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -9547,6 +9773,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), true, false);
@@ -11033,6 +11260,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false);
@@ -11073,6 +11301,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         // No floor under player → should leave ground and reset terrain type
@@ -11122,6 +11351,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         }
     }
 
@@ -11358,6 +11588,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         assert!(runtime.evanescent_blocks.is_empty());
@@ -11402,6 +11633,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         runtime.step_evanescent_blocks(&slice);
@@ -11450,6 +11682,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         // Trigger + first tick
@@ -11512,6 +11745,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         let airborne_slice = OpeningSliceState {
@@ -11690,6 +11924,7 @@ mod tests {
                 platform_loader: PlatformLoaderState::default(),
             },
             prize_block_hit: None,
+            lift_block_hit: None,
         };
 
         // Trigger twice while standing
