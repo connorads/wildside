@@ -464,6 +464,7 @@ fn build_scene(
             block_grid,
         ),
         GameMode::LevelTransition => build_transition_scene(trace),
+        GameMode::OptionsMenu => build_options_scene(trace),
         _ => build_status_scene(trace, debug_overlay_visible),
     }
 }
@@ -501,6 +502,89 @@ fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> 
         return build_victory_scene(trace);
     }
 
+    // Sega screen — white text on blue
+    if trace.game_mode == GameMode::SegaScreen {
+        commands.push(DrawCommand::Rect {
+            x: 0,
+            y: 0,
+            width: FRAME_WIDTH as i32,
+            height: FRAME_HEIGHT as i32,
+            colour: [0, 0, 128],
+        });
+        let sega = "SEGA";
+        let sega_w = sega.len() as i32 * 8 * 4;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - sega_w) / 2,
+            80,
+            sega,
+            [255, 255, 255],
+            4,
+        ));
+        return Scene {
+            background: [0, 0, 128],
+            commands,
+        };
+    }
+
+    // Intro sequences — distinct visuals per segment
+    if matches!(
+        trace.game_mode,
+        GameMode::IntroSequence1 | GameMode::IntroSequence2 | GameMode::IntroSequence3
+    ) {
+        commands.push(DrawCommand::Rect {
+            x: 0,
+            y: 0,
+            width: FRAME_WIDTH as i32,
+            height: FRAME_HEIGHT as i32,
+            colour: [0, 0, 0],
+        });
+        let (line1, line2, colour) = match trace.game_mode {
+            GameMode::IntroSequence1 => (
+                "The Wild Side",
+                "A strange arcade machine appeared...",
+                [200, 160, 80],
+            ),
+            GameMode::IntroSequence2 => (
+                "Heady Metal's Challenge",
+                "Kids go in... but they don't come out.",
+                [180, 80, 80],
+            ),
+            _ => (
+                "Enter the Game",
+                "One kid decides to play.",
+                [120, 180, 255],
+            ),
+        };
+        let w1 = line1.len() as i32 * 8 * 2;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - w1) / 2,
+            70,
+            line1,
+            colour,
+            2,
+        ));
+        let w2 = line2.len() as i32 * 8;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - w2) / 2,
+            110,
+            line2,
+            [160, 160, 160],
+            1,
+        ));
+        commands.push(text(
+            (FRAME_WIDTH as i32 - 18 * 8) / 2,
+            180,
+            "Press Start to skip",
+            [80, 80, 80],
+            1,
+        ));
+        return Scene {
+            background: [0, 0, 0],
+            commands,
+        };
+    }
+
+    // Title screen
     // Background
     commands.push(DrawCommand::Rect {
         x: 0,
@@ -556,6 +640,13 @@ fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> 
         [140, 140, 140],
         1,
     ));
+    commands.push(text(
+        20,
+        188,
+        "B options menu  N/P warp level",
+        [140, 140, 140],
+        1,
+    ));
     if debug_overlay_visible {
         commands.push(text(
             30,
@@ -571,6 +662,56 @@ fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> 
 
     Scene {
         background: [18, 24, 32],
+        commands,
+    }
+}
+
+fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
+    let mut commands = Vec::new();
+
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [8, 12, 20],
+    });
+
+    let title = "OPTIONS";
+    let title_w = title.len() as i32 * 8 * 2;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - title_w) / 2,
+        40,
+        title,
+        [255, 220, 80],
+        2,
+    ));
+
+    let cursor = trace.options_cursor.unwrap_or(0) as i32;
+    let items = ["SOUND TEST", "EXIT"];
+    for (i, item) in items.iter().enumerate() {
+        let y = 80 + i as i32 * 24;
+        let colour = if i as i32 == cursor {
+            [255, 255, 255]
+        } else {
+            [120, 120, 120]
+        };
+        commands.push(text(100, y, item, colour, 1));
+        if i as i32 == cursor {
+            commands.push(text(80, y, ">", [255, 220, 80], 1));
+        }
+    }
+
+    commands.push(text(
+        60,
+        160,
+        "Up/Down select  Start/B back",
+        [100, 100, 100],
+        1,
+    ));
+
+    Scene {
+        background: [8, 12, 20],
         commands,
     }
 }
