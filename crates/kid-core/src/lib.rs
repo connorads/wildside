@@ -2272,10 +2272,8 @@ impl NativeRuntime {
         }
 
         self.active_enemies.iter().find_map(|enemy| {
-            let can_damage_on_contact = matches!(enemy.family, EnemyFamily::Dragon)
-                || matches!(enemy.family.archetype(), EnemyArchetype::Hopper)
-                || matches!(enemy.family.archetype(), EnemyArchetype::Tracker);
-            if !can_damage_on_contact {
+            // All enemies damage on contact except collectible diamonds
+            if matches!(enemy.family, EnemyFamily::Diamond) {
                 return None;
             }
             let snapshot = enemy.snapshot();
