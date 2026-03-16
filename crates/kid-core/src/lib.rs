@@ -606,6 +606,7 @@ struct ActivationWindow {
 enum EnemyFamily {
     Diamond,
     Dragon,
+    Cloud,
     Goat,
     Armadillo,
     Tank,
@@ -3187,7 +3188,7 @@ impl EnemyFamily {
     fn archetype(self) -> EnemyArchetype {
         match self {
             Self::Diamond => EnemyArchetype::Collectible,
-            Self::Dragon => EnemyArchetype::Flyer,
+            Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
             Self::MiniHoppingSkull => EnemyArchetype::Hopper,
             Self::Goat
             | Self::Armadillo
@@ -3206,6 +3207,7 @@ impl EnemyFamily {
             Some(0x09) => Self::Crab,
             Some(0x0A) => Self::Tank,
             Some(0x0C | 0x0D) => Self::Dragon,
+            Some(0x0E) => Self::Cloud,
             Some(0x10) => Self::Goat,
             Some(0x13) => Self::Scorpion,
             Some(0x1A) => Self::Driller,
@@ -3222,6 +3224,7 @@ impl EnemyFamily {
             Self::Crab => 0x09,
             Self::Tank => 0x0A,
             Self::Dragon => 0x0D,
+            Self::Cloud => 0x0E,
             Self::Goat => 0x10,
             Self::Scorpion => 0x13,
             Self::Driller => 0x1A,
@@ -3306,7 +3309,7 @@ fn activate_enemies(
             family,
             x_pos: spawn_x_pos(family, object_x),
             y_pos: spawn_y_pos(family, object_y),
-            x_velocity: spawn_x_velocity(family),
+            x_velocity: spawn_x_velocity(family, enemy_level),
             y_velocity: 0,
             facing: spawn_facing(family),
             on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
@@ -3329,21 +3332,52 @@ fn step_active_enemies(
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
-            EnemyArchetype::Flyer => step_flyer(enemy),
+            EnemyArchetype::Flyer => step_flyer(enemy, block_grid),
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
             EnemyArchetype::Pacer => step_pacer(enemy, block_grid),
         }
     }
 }
 
-fn step_flyer(enemy: &mut ActiveEnemy) {
+fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     if matches!(enemy.family, EnemyFamily::Dragon) {
         step_dragon(enemy);
         return;
     }
 
+    // Cloud: horizontal flight with wall reversal
+    if matches!(enemy.family, EnemyFamily::Cloud) {
+        step_cloud(enemy, block_grid);
+        return;
+    }
+
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+}
+
+/// Cloud flies horizontally, reversing direction on wall contact.
+fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+    // Wall probe: reverse on wall contact (Cloud.asm loc_35BDE)
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+    }
 }
 
 fn step_dragon(enemy: &mut ActiveEnemy) {
@@ -3625,9 +3659,13 @@ fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
     }
 }
 
-fn spawn_x_velocity(family: EnemyFamily) -> i32 {
+fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
     match family {
-        EnemyFamily::Dragon => 0,
+        EnemyFamily::Cloud => {
+            // Cloud.asm dword_35B38: speeds indexed by enemy_level
+            const CLOUD_SPEEDS: [i32; 3] = [-0x3000, -0x5000, -0x7000];
+            CLOUD_SPEEDS[usize::from(enemy_level).min(CLOUD_SPEEDS.len() - 1)]
+        }
         _ => 0,
     }
 }
@@ -3650,6 +3688,7 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Tank => 2,
         EnemyFamily::Scorpion => 3,
         EnemyFamily::Driller => 2,
+        EnemyFamily::Cloud => 1,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
@@ -8037,7 +8076,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn spawn_hit_points_applies_family_base() {
         // Goat: enemy_level + 3
         assert_eq!(spawn_hit_points(EnemyFamily::Goat, 0), 3);
@@ -8066,6 +8104,93 @@ mod tests {
             EnemyFamily::from_layout_object(&slots, &object),
             EnemyFamily::Goat
         );
+    }
+
+    // --- Cloud enemy ---
+
+    #[test]
+    fn cloud_maps_to_flyer_archetype() {
+        assert_eq!(EnemyFamily::Cloud.archetype(), EnemyArchetype::Flyer);
+    }
+
+    #[test]
+    fn cloud_spawn_velocity_uses_speed_table() {
+        // enemy_level 0 → -$3000, 1 → -$5000, 2 → -$7000
+        assert_eq!(spawn_x_velocity(EnemyFamily::Cloud, 0), -0x3000);
+        assert_eq!(spawn_x_velocity(EnemyFamily::Cloud, 1), -0x5000);
+        assert_eq!(spawn_x_velocity(EnemyFamily::Cloud, 2), -0x7000);
+        // Clamp above table length
+        assert_eq!(spawn_x_velocity(EnemyFamily::Cloud, 5), -0x7000);
+    }
+
+    #[test]
+    fn cloud_flies_horizontally() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Cloud,
+            x_pos: 128 << 16,
+            y_pos: 100 << 16,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let x_before = enemy.x_pos;
+        step_cloud(&mut enemy, None);
+        assert!(enemy.x_pos < x_before, "cloud should move left");
+        assert_eq!(enemy.y_pos, 100 << 16, "cloud y should not change");
+    }
+
+    #[test]
+    fn cloud_reverses_at_wall() {
+        // Wall at col 2 across rows 5-8
+        let mut solid: Vec<(u16, u16)> = Vec::new();
+        for row in 5..=8 {
+            solid.push((2, row));
+        }
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        // Cloud at col 4 (x=64), y at row 6 (y=96), flying left
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Cloud,
+            x_pos: 64 << 16,
+            y_pos: 96 << 16,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        // Run until it hits the wall and reverses
+        let mut reversed = false;
+        for _ in 0..500 {
+            step_cloud(&mut enemy, Some(&grid));
+            if enemy.x_velocity > 0 {
+                reversed = true;
+                break;
+            }
+        }
+        assert!(reversed, "cloud should reverse on hitting wall");
+        assert_eq!(enemy.facing, Direction::Right);
+    }
+
+    #[test]
+    fn cloud_spawn_hit_points() {
+        // Cloud base HP = 1
+        assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 0), 1);
+        assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 1), 2);
+        assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 2), 3);
     }
 
     // --- Terrain type speed table selection ---
