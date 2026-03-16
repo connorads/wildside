@@ -2213,6 +2213,13 @@ impl NativeRuntime {
         }
     }
 
+    /// Add one life, capped at 9 per ASM.
+    fn add_life(&mut self) {
+        if self.number_lives < 9 {
+            self.number_lives += 1;
+        }
+    }
+
     /// Increment diamond count (capped at 99 per ASM). Awards extra life at 50/100.
     fn collect_diamond(&mut self) {
         if self.diamond_count >= 99 {
@@ -2221,7 +2228,7 @@ impl NativeRuntime {
         self.diamond_count += 1;
         self.score += 500;
         if self.diamond_count % 50 == 0 {
-            self.number_lives += 1;
+            self.add_life();
         }
     }
 
@@ -2242,8 +2249,7 @@ impl NativeRuntime {
                 self.number_continues = self.number_continues.saturating_add(1);
             }
             terrain::PrizeContent::Ankh => {
-                self.number_lives += 1;
-                // Diamond Power invulnerability (at 20 diamonds) is separate
+                self.add_life();
             }
             terrain::PrizeContent::Points10000 => {
                 self.score += 10_000;
@@ -8963,6 +8969,15 @@ mod tests {
         let lives_before = runtime.number_lives;
         runtime.apply_prize_content(terrain::PrizeContent::Ankh);
         assert_eq!(runtime.number_lives, lives_before + 1);
+    }
+
+    #[test]
+    fn lives_capped_at_nine() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.number_lives = 9;
+        runtime.apply_prize_content(terrain::PrizeContent::Ankh);
+        assert_eq!(runtime.number_lives, 9, "lives should not exceed 9");
     }
 
     #[test]

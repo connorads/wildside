@@ -777,6 +777,33 @@ fn push_hud_counter(
     }
 }
 
+fn push_hud_score(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    score: u32,
+    x: i32,
+    y: i32,
+) {
+    for (index, digit) in score.to_string().chars().enumerate() {
+        let Some(digit_value) = digit.to_digit(10) else {
+            continue;
+        };
+        let Some(tile) = resolve_ingame_vram_tile(
+            level_visuals,
+            TileRef {
+                tile_index: level_visuals.hud.digit_base_tile_index + digit_value as u16,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        ) else {
+            continue;
+        };
+        push_resolved_tile(commands, x + (index as i32 * 8), y, tile);
+    }
+}
+
 fn push_hud_icon(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -852,6 +879,10 @@ fn push_game_hud(
     // Two-digit seconds: zero-pad by rendering tens then ones
     push_hud_number(commands, level_visuals, seconds / 10, timer_x + 16, pip_y);
     push_hud_number(commands, level_visuals, seconds % 10, timer_x + 24, pip_y);
+
+    // Score display right of timer
+    let score_x = timer_x + 40;
+    push_hud_score(commands, level_visuals, trace.score, score_x, pip_y);
 
     let diamond_icon_x = FRAME_WIDTH as i32 - 12;
     let diamond_counter_x = diamond_icon_x - 2 - hud_counter_width(trace.diamond_count);
