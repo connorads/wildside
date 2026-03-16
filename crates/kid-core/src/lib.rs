@@ -12507,24 +12507,6 @@ mod tests {
     // Pacer archetype (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
     // -----------------------------------------------------------------------
 
-    #[allow(dead_code)]
-    fn manifest_with_pacer(enemy_id: u8, hp: u16) -> AssetManifest {
-        let mut m = manifest();
-        if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
-            // Put the pacer family in slot 1 and place one enemy object.
-            // object_type 0x81 = slot 1 (high bit set for slot reference).
-            enemy.enemy_type_slots = vec![0xFFFF, enemy_id as u16, 0x001C];
-            enemy.objects = vec![kid_data::EnemyLayoutObject {
-                object_type: 0x81, // slot 1 (0x80 | 1)
-                flags: 0,
-                hit_points_plus_one: hp,
-                x: 0x0120,
-                y: 0x00C0,
-            }];
-        }
-        m
-    }
-
     #[test]
     fn pacer_walk_speed_goat_scales_with_hp() {
         // Goat: base_hp=3, base_speed=$8000, step=$10000
