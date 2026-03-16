@@ -1050,6 +1050,7 @@ enum EnemyArchetype {
     Hoverer,
     Pacer,
     Stationary,
+    Tracker,
     Inert,
 }
 
@@ -2255,7 +2256,8 @@ impl NativeRuntime {
 
         self.active_enemies.iter().find_map(|enemy| {
             let can_damage_on_contact = matches!(enemy.family, EnemyFamily::Dragon)
-                || matches!(enemy.family.archetype(), EnemyArchetype::Hopper);
+                || matches!(enemy.family.archetype(), EnemyArchetype::Hopper)
+                || matches!(enemy.family.archetype(), EnemyArchetype::Tracker);
             if !can_damage_on_contact {
                 return None;
             }
@@ -4864,7 +4866,7 @@ impl EnemyFamily {
             Self::Archer => EnemyArchetype::Stationary,
             Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Pacer, // walk after spawn; full orbit/emerge cycles TODO
             Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
-                EnemyArchetype::Inert // TODO: boss state machines
+                EnemyArchetype::Tracker
             }
             Self::Unknown(_) => EnemyArchetype::Inert,
         }
@@ -5064,6 +5066,9 @@ fn step_active_enemies(
                 if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
                 }
+            }
+            EnemyArchetype::Tracker => {
+                step_tracker(enemy, player_x_pos, player_y_pos);
             }
         }
     }
@@ -5266,6 +5271,8 @@ fn enemy_should_remain_active(
     };
 
     match enemy.family.archetype() {
+        // Bosses are always retained — they're confined to their arena.
+        EnemyArchetype::Tracker => true,
         EnemyArchetype::Flyer => window.contains_fixed_signed_with_margin(
             enemy.x_pos,
             enemy.y_pos,
@@ -5644,6 +5651,40 @@ fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile
         friendly: false,
         gravity: 0,
     });
+}
+
+/// Boss tracking movement: chase the player with fixed velocity components.
+/// HeadyMetal ASM: x_vel ±$8000 towards player, y_vel $4800 down / -$B000 up,
+/// targeting 40px above player. Other bosses use the same pattern at different speeds.
+fn step_tracker(enemy: &mut ActiveEnemy, player_x_pos: Option<u32>, player_y_pos: Option<u32>) {
+    let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+        return;
+    };
+
+    let ex = enemy.x_pos as i64;
+    let ey = enemy.y_pos as i64;
+    let target_y = (py as i64).saturating_sub(0x28 << 16); // 40px above player
+
+    // Horizontal: chase player at $8000 (0.5 px/frame)
+    let x_chase_speed: i32 = 0x8000;
+    if (px as i64) > ex {
+        enemy.x_velocity = x_chase_speed;
+        enemy.facing = Direction::Right;
+    } else {
+        enemy.x_velocity = -x_chase_speed;
+        enemy.facing = Direction::Left;
+    }
+
+    // Vertical: faster upward (-$B000) than downward ($4800)
+    if target_y < ey {
+        enemy.y_velocity = -0xB000;
+    } else {
+        enemy.y_velocity = 0x4800;
+    }
+
+    // Apply velocities
+    enemy.x_pos = (ex + i64::from(enemy.x_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
+    enemy.y_pos = (ey + i64::from(enemy.y_velocity)).clamp(0, i64::from(u32::MAX)) as u32;
 }
 
 fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
@@ -11183,6 +11224,74 @@ mod tests {
         step_tank_fire(&mut enemy, &mut projs);
         assert!(projs.is_empty(), "should not fire while timer > 0");
         assert_eq!(enemy.wait_timer, 9, "timer should decrement");
+    }
+
+    // --- Boss tracker ---
+
+    #[test]
+    fn boss_families_map_to_tracker_archetype() {
+        assert_eq!(EnemyFamily::HeadyMetal.archetype(), EnemyArchetype::Tracker);
+        assert_eq!(EnemyFamily::Shishkaboss.archetype(), EnemyArchetype::Tracker);
+        assert_eq!(
+            EnemyFamily::BoomerangBosses.archetype(),
+            EnemyArchetype::Tracker
+        );
+        assert_eq!(
+            EnemyFamily::BagelBrothers.archetype(),
+            EnemyArchetype::Tracker
+        );
+    }
+
+    #[test]
+    fn tracker_chases_player_rightward() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::HeadyMetal,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 10,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let px = Some(200u32 << 16);
+        let py = Some(100u32 << 16);
+        step_tracker(&mut enemy, px, py);
+        assert!(enemy.x_pos > 100 << 16, "should move rightward toward player");
+        assert_eq!(enemy.facing, Direction::Right);
+    }
+
+    #[test]
+    fn tracker_chases_player_leftward() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::HeadyMetal,
+            x_pos: 200 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 10,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            wait_timer: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let px = Some(100u32 << 16);
+        let py = Some(100u32 << 16);
+        step_tracker(&mut enemy, px, py);
+        assert!(enemy.x_pos < 200 << 16, "should move leftward toward player");
+        assert_eq!(enemy.facing, Direction::Left);
     }
 
     // --- Ghost blocks ---
