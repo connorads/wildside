@@ -167,6 +167,12 @@ const KNOCKBACK_Y_VELOCITY: i32 = -0x0001_8000;
 // Frames an enemy flashes white after taking a non-lethal stomp.
 const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
 
+// Evanescent blocks: solid until the player stands on them, then fade and vanish.
+// Timer starts at (skin - 28); incremented each frame; block removed at timer ≥ 22.
+const EVANESCENT_SKIN_OFFSET: i16 = 0x1C; // 28
+const EVANESCENT_REMOVAL_THRESHOLD: i16 = 0x16; // 22
+const EVANESCENT_MAX_ENTRIES: usize = 19; // ASM limit $13
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
@@ -390,6 +396,7 @@ pub struct NativeRuntime {
     block_grid: Option<terrain::BlockGrid>,
     block_grid_source: BlockGridSource,
     diamond_count: u16,
+    evanescent_blocks: Vec<EvanescentEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -603,6 +610,17 @@ impl ActivePlatform {
             state.remaining_duration = script.commands[state.command_index].duration;
         }
     }
+}
+
+/// Tracks a triggered evanescent block that is counting down to removal.
+/// The block stays solid during the countdown; once timer reaches the
+/// removal threshold it is cleared from the block grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EvanescentEntry {
+    col: u16,
+    row: u16,
+    /// Timer value (starts negative from skin offset, incremented each frame).
+    timer: i16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -827,6 +845,7 @@ impl NativeRuntime {
             block_grid: None,
             block_grid_source: BlockGridSource::None,
             diamond_count: 0,
+            evanescent_blocks: Vec::new(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -929,6 +948,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.evanescent_blocks.clear();
         self.paused = false;
         self.pause_toggle_pending = false;
     }
@@ -1385,6 +1405,10 @@ impl NativeRuntime {
         // Platform collision: player can stand on top of platforms
         apply_platform_collision(&mut slice, &self.active_platforms);
 
+        // Evanescent blocks: trigger when player stands on one, tick timers,
+        // and clear expired blocks from the grid.
+        self.step_evanescent_blocks(&slice);
+
         // Prize block item spawning: each prize block grants a diamond
         if slice.prize_blocks_hit > 0 {
             for _ in 0..slice.prize_blocks_hit {
@@ -1460,6 +1484,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
+            self.evanescent_blocks.clear();
             return;
         }
         if !matches!(
@@ -1873,6 +1898,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.evanescent_blocks.clear();
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
@@ -1893,6 +1919,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.evanescent_blocks.clear();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.invulnerable_frames = 0;
@@ -1919,6 +1946,7 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.evanescent_blocks.clear();
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
@@ -1935,11 +1963,62 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.evanescent_blocks.clear();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
+    }
+
+    /// Trigger evanescent blocks the player is standing on, tick timers,
+    /// and clear expired blocks from the grid.
+    fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
+        // Trigger: if the player is on ground, check the floor cell
+        if slice.player.on_ground {
+            if let Some(grid) = &self.block_grid {
+                let x_px = (slice.player.x_pos >> 16) as i32;
+                let y_px = (slice.player.y_pos >> 16) as i32;
+                let probe = terrain::probe_floor(grid, x_px, y_px);
+                if probe.on_ground && probe.cell.block_type == terrain::BlockType::Evanescent {
+                    let col = terrain::pixel_to_cell(x_px).max(0) as u16;
+                    // The floor cell is the one the player is standing ON (below feet)
+                    let row = terrain::pixel_to_cell(probe.floor_y_px).max(0) as u16;
+                    let already_tracked = self
+                        .evanescent_blocks
+                        .iter()
+                        .any(|e| e.col == col && e.row == row);
+                    if !already_tracked
+                        && self.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES
+                    {
+                        let initial_timer =
+                            i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
+                        self.evanescent_blocks.push(EvanescentEntry {
+                            col,
+                            row,
+                            timer: initial_timer,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Tick timers and remove expired blocks
+        if let Some(grid) = &mut self.block_grid {
+            self.evanescent_blocks.retain_mut(|entry| {
+                entry.timer += 1;
+                if entry.timer >= EVANESCENT_REMOVAL_THRESHOLD {
+                    grid.set_cell_at(
+                        entry.col,
+                        entry.row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
+                    false
+                } else {
+                    true
+                }
+            });
+        }
     }
 
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
@@ -8910,5 +8989,303 @@ mod tests {
         assert_eq!(platform.x_pos, start_x);
         // Should have looped back to first command
         assert_eq!(platform.script.unwrap().command_index, 0);
+    }
+
+    // --- Evanescent blocks ---
+
+    /// Build a grid with an evanescent block at (col, row) and solid floor
+    /// one row below. The skin byte controls the initial timer delay.
+    fn grid_with_evanescent(col: u16, row: u16, skin: u8) -> terrain::BlockGrid {
+        let w = 6u16;
+        let h = (row + 3).max(6);
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set = |data: &mut Vec<u8>, c: u16, r: u16, hi: u8, lo: u8| {
+            let off = (usize::from(r) * usize::from(w) + usize::from(c)) * 2;
+            data[off] = hi;
+            data[off + 1] = lo;
+        };
+        // Evanescent block: has_block=1, collision=6(Solid), block_type=0xA
+        // hi byte: 1_110_1010 = 0xEA
+        set(&mut data, col, row, 0xEA, skin);
+        // Solid floor one row below the evanescent block
+        for c in 0..w {
+            set(&mut data, c, row + 1, 0x60, 0);
+        }
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    fn runtime_with_evanescent_grid(
+        grid: terrain::BlockGrid,
+    ) -> NativeRuntime {
+        let manifest = manifest();
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid);
+        runtime
+    }
+
+    #[test]
+    fn evanescent_block_triggers_when_player_stands_on_it() {
+        let grid = grid_with_evanescent(2, 3, 0);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        // Player standing on the evanescent block: feet at row 3 floor (y=47px)
+        let slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: (2 * 16 + 8) << 16, // centre of col 2
+                y_pos: (3 * 16 - 1) << 16, // feet just at top of row 3
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: (3 * 16 - 1) << 16,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 96,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        assert!(runtime.evanescent_blocks.is_empty());
+        runtime.step_evanescent_blocks(&slice);
+        assert_eq!(
+            runtime.evanescent_blocks.len(),
+            1,
+            "standing on evanescent block should trigger it"
+        );
+        assert_eq!(runtime.evanescent_blocks[0].col, 2);
+        assert_eq!(runtime.evanescent_blocks[0].row, 3);
+    }
+
+    #[test]
+    fn evanescent_block_not_triggered_when_airborne() {
+        let grid = grid_with_evanescent(2, 3, 0);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        let slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: (2 * 16 + 8) << 16,
+                y_pos: (3 * 16 - 5) << 16, // above the block
+                x_velocity: 0,
+                y_velocity: -0x1_0000, // moving upward
+                facing: Direction::Right,
+                on_ground: false, // airborne
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: 0,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 96,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        runtime.step_evanescent_blocks(&slice);
+        assert!(
+            runtime.evanescent_blocks.is_empty(),
+            "airborne player should not trigger evanescent block"
+        );
+    }
+
+    #[test]
+    fn evanescent_block_clears_after_timer_expires() {
+        // skin=28 → initial timer = 28 - 28 = 0 → expires after 22 frames
+        let grid = grid_with_evanescent(2, 3, 28);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        // Verify block exists
+        assert_eq!(
+            runtime.block_grid.as_ref().unwrap().cell_at(2, 3).block_type,
+            terrain::BlockType::Evanescent
+        );
+
+        // Trigger it
+        let slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: (2 * 16 + 8) << 16,
+                y_pos: (3 * 16 - 1) << 16,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: (3 * 16 - 1) << 16,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 96,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        // Trigger + first tick
+        runtime.step_evanescent_blocks(&slice);
+        assert_eq!(runtime.evanescent_blocks.len(), 1);
+
+        // Tick 21 more times (total 22 ticks) — airborne so no re-trigger
+        let airborne_slice = OpeningSliceState {
+            player: PlayerState {
+                on_ground: false,
+                ..slice.player
+            },
+            ..slice
+        };
+        for _ in 0..21 {
+            runtime.step_evanescent_blocks(&airborne_slice);
+        }
+
+        // Block should now be cleared
+        assert!(
+            runtime.evanescent_blocks.is_empty(),
+            "evanescent entry should be removed after 22 ticks"
+        );
+        let cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 3);
+        assert!(
+            !cell.has_block,
+            "evanescent block should be cleared from the grid"
+        );
+    }
+
+    #[test]
+    fn evanescent_block_with_skin_delay() {
+        // skin=0 → initial timer = 0 - 28 = -28 → needs 28 + 22 = 50 ticks
+        let grid = grid_with_evanescent(2, 3, 0);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        let on_ground_slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: (2 * 16 + 8) << 16,
+                y_pos: (3 * 16 - 1) << 16,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: (3 * 16 - 1) << 16,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 96,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        let airborne_slice = OpeningSliceState {
+            player: PlayerState {
+                on_ground: false,
+                ..on_ground_slice.player
+            },
+            ..on_ground_slice
+        };
+
+        // Trigger + first tick
+        runtime.step_evanescent_blocks(&on_ground_slice);
+        assert_eq!(runtime.evanescent_blocks.len(), 1);
+        assert_eq!(runtime.evanescent_blocks[0].timer, -27); // -28 + 1
+
+        // After 48 more ticks (49 total), still active (timer = -28 + 49 = 21)
+        for _ in 0..48 {
+            runtime.step_evanescent_blocks(&airborne_slice);
+        }
+        assert_eq!(runtime.evanescent_blocks.len(), 1, "block should still be active at tick 49");
+        assert!(
+            runtime.block_grid.as_ref().unwrap().cell_at(2, 3).has_block,
+            "block should still be solid at tick 49"
+        );
+
+        // One more tick (50 total): timer = -28 + 50 = 22 → removed
+        runtime.step_evanescent_blocks(&airborne_slice);
+        assert!(
+            runtime.evanescent_blocks.is_empty(),
+            "block should be removed at tick 50"
+        );
+        assert!(
+            !runtime.block_grid.as_ref().unwrap().cell_at(2, 3).has_block,
+            "block should be cleared from grid at tick 50"
+        );
+    }
+
+    #[test]
+    fn evanescent_block_not_triggered_twice() {
+        let grid = grid_with_evanescent(2, 3, 28);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        let slice = OpeningSliceState {
+            player: PlayerState {
+                x_pos: (2 * 16 + 8) << 16,
+                y_pos: (3 * 16 - 1) << 16,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+            },
+            camera: CameraState { x_pos: 0, y_pos: 0 },
+            terrain: TerrainState {
+                floor_y_pos: (3 * 16 - 1) << 16,
+                floor_terrain_type: TerrainType::Normal,
+            },
+            level_bounds: LevelBounds {
+                width_pixels: 96,
+                height_pixels: 96,
+            },
+            objects: ObjectSystemState {
+                platform_loader: PlatformLoaderState::default(),
+            },
+            prize_blocks_hit: 0,
+        };
+
+        // Trigger twice while standing
+        runtime.step_evanescent_blocks(&slice);
+        runtime.step_evanescent_blocks(&slice);
+        assert_eq!(
+            runtime.evanescent_blocks.len(),
+            1,
+            "same evanescent block should not be triggered twice"
+        );
     }
 }
