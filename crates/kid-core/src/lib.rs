@@ -127,6 +127,10 @@ fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Lion => (6, 0x0001_8000, 0x0000_8000),
         // Hand: HP = 1. Speed from table: $3000/$4800/$6000 by HP.
         EnemyFamily::Hand => (1, 0x0000_3000, 0x0000_1800),
+        // SpinningTwins: walk speed $18000 after landing phase.
+        EnemyFamily::SpinningTwins => (1, 0x0001_8000, 0),
+        // TarMonster: walk speed $18000 after emerging.
+        EnemyFamily::TarMonster => (2, 0x0001_8000, 0),
         _ => (1, 0x0001_0000, 0),
     };
     let tiers = hit_points.saturating_sub(base_hp) as i32;
@@ -4858,7 +4862,7 @@ impl EnemyFamily {
             | Self::FireDemon => EnemyArchetype::Pacer,
             Self::EmoRock => EnemyArchetype::Hoverer,
             Self::Archer => EnemyArchetype::Stationary,
-            Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Inert, // TODO: unique behaviours
+            Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Pacer, // walk after spawn; full orbit/emerge cycles TODO
             Self::HeadyMetal | Self::Shishkaboss | Self::BoomerangBosses | Self::BagelBrothers => {
                 EnemyArchetype::Inert // TODO: boss state machines
             }
