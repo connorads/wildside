@@ -768,6 +768,9 @@ const MANIAXE_STARTUP_FRAMES: u8 = 6;
 const MANIAXE_BASE_SPEED: i32 = 5;
 const MANIAXE_TRAVEL_FRAMES: u8 = 12;
 
+/// Mushroom block minimum bounce velocity (ensures a visible bounce even at low speed).
+const MUSHROOM_MIN_BOUNCE: i32 = -0x2_0000;
+
 /// Eyeclops beam: C press fires a horizontal beam projectile.
 /// Normal beam (C button) has no diamond cost; hard beam (A+B held) costs 2.
 const EYECLOPS_BEAM_SPEED: i32 = 0x8_0000; // 8 px/frame
@@ -3937,8 +3940,15 @@ impl OpeningSliceState {
                         self.player.x_pos = landing_x.clamp(0, i64::from(u32::MAX)) as u32;
                     }
                     self.player.y_pos = floor_y_fp;
-                    self.player.on_ground = true;
-                    self.player.y_velocity = 0;
+                    // Mushroom blocks bounce the player back up
+                    if probe.cell.block_type == terrain::BlockType::Mushroom {
+                        self.player.y_velocity = -(self.player.y_velocity.abs() * 3 / 4)
+                            .max(MUSHROOM_MIN_BOUNCE);
+                        self.player.on_ground = false;
+                    } else {
+                        self.player.on_ground = true;
+                        self.player.y_velocity = 0;
+                    }
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     self.terrain.floor_terrain_type =
                         TerrainType::from_block_type(probe.cell.block_type);
@@ -11628,6 +11638,36 @@ mod tests {
         assert_eq!(bl.teleporters[0].dest_map_id, 2);
         assert_eq!(bl.teleporters[0].dest_y, 7);
         assert_eq!(bl.teleporters[0].dest_x, 10);
+    }
+
+    // --- Mushroom block tests ---
+
+    #[test]
+    fn mushroom_block_bounces_player_on_landing() {
+        // Build a 16x16 grid with a mushroom block at cell (2, 4).
+        // Cell (2, 4) = pixel (32-47, 64-79).
+        let w: u16 = 16;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Mushroom at cell (2, 4): has_block=1, collision=Solid(6), block_type=Mushroom(9)
+        // = 0b1_110_1001_00000000 = 0xE900
+        let idx = (4 * w + 2) as usize * 2;
+        data[idx] = 0xE9;
+        data[idx + 1] = 0x00;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let bounds = LevelBounds { width_pixels: w * 16, height_pixels: h * 16 };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x3_0000; // falling at 3 px/frame
+        slice.player.x_pos = 0x0024_0000; // 36 px (inside cell col=2)
+        // Place player at y=63 (just above floor at y=64, within snap range)
+        slice.player.y_pos = 0x003F_0000;
+
+        slice.apply_floor_collision(Some(&grid), false, false);
+
+        assert!(!slice.player.on_ground, "should bounce off mushroom, not land");
+        assert!(slice.player.y_velocity < 0, "should bounce upward");
     }
 
     #[test]
