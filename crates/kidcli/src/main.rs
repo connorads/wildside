@@ -1,5 +1,6 @@
 mod autonomy;
 mod bootstrap;
+mod cache;
 mod capture;
 mod cheats;
 mod inspect;
