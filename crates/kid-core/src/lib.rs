@@ -440,6 +440,14 @@ pub struct NativeRuntime {
     ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
     lift_platforms: Vec<LiftPlatform>,
+    /// Weather type for current level (0=none, 1=lava, 2=storm, 3=storm+hail).
+    weather_type: u8,
+    /// Hail system: frames until next hail spawn (0=spawn this frame).
+    hail_spawn_timer: u16,
+    /// Hail system: whether hail is currently active (toggles on $258-frame period).
+    hail_active: bool,
+    /// Hail system: frames until next active/inactive toggle.
+    hail_period_timer: u16,
     murder_wall: Option<MurderWallState>,
     level_timer: LevelTimer,
 }
@@ -1169,6 +1177,10 @@ impl NativeRuntime {
             ghost_groups: Vec::new(),
             projectiles: Vec::new(),
             lift_platforms: Vec::new(),
+            weather_type: 0,
+            hail_spawn_timer: 0,
+            hail_active: false,
+            hail_period_timer: 0,
             murder_wall: None,
             level_timer: LevelTimer::new(),
         };
@@ -1802,6 +1814,9 @@ impl NativeRuntime {
 
         // Lift platforms: step movement and collision
         self.step_lift_platforms(&mut slice);
+
+        // Weather: hail spawns falling projectiles
+        self.step_weather(&slice);
 
         // Prize block item spawning: apply the prize content
         if let Some(content) = slice.prize_block_hit {
@@ -2453,6 +2468,7 @@ impl NativeRuntime {
         self.projectiles.clear();
         self.lift_platforms.clear();
         self.init_murder_wall(next_level, 0);
+        self.init_weather(next_level);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
@@ -2483,6 +2499,7 @@ impl NativeRuntime {
         self.evanescent_blocks.clear();
         self.ghost_groups.clear();
         self.init_murder_wall(level_id, 0);
+        self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -3122,6 +3139,62 @@ impl NativeRuntime {
     }
 
     /// Initialize murder wall state from level header flags.
+    /// Step weather effects: hail spawns falling projectiles that damage player.
+    fn step_weather(&mut self, slice: &OpeningSliceState) {
+        // Hail only for Storm+Hail (weather 3), active after 35s of level time
+        if self.weather_type != 3 {
+            return;
+        }
+        // Level timer counts down from 180s. 35s elapsed = 145s remaining.
+        if self.level_timer.seconds > 145 {
+            return;
+        }
+
+        // Toggle hail active/inactive every 600 frames ($258)
+        if self.hail_period_timer > 0 {
+            self.hail_period_timer -= 1;
+        } else {
+            self.hail_active = !self.hail_active;
+            self.hail_period_timer = 600;
+        }
+
+        if !self.hail_active {
+            return;
+        }
+
+        // Spawn hail every 30 frames during active period
+        if self.hail_spawn_timer > 0 {
+            self.hail_spawn_timer -= 1;
+            return;
+        }
+        self.hail_spawn_timer = 30;
+
+        // Spawn a hail projectile above the camera, at a random-ish X
+        let camera_x = slice.camera.x_pos >> 16;
+        // Simple pseudo-random X offset based on frame index
+        let x_offset = ((self.frame_index * 7 + 13) % 320) as u32;
+        let spawn_x = camera_x.wrapping_add(x_offset);
+        let spawn_y = (slice.camera.y_pos >> 16).saturating_sub(16);
+
+        self.projectiles.push(EnemyProjectile {
+            x_pos: spawn_x << 16,
+            y_pos: spawn_y << 16,
+            x_velocity: 0,
+            y_velocity: 0x4_0000, // 4 px/frame downward
+            lifetime: 120,
+            friendly: false,
+            gravity: 0,
+        });
+    }
+
+    fn init_weather(&mut self, level_id: LevelId) {
+        let header = self.level_header(level_id);
+        self.weather_type = header.map(|h| h.weather_flags).unwrap_or(0);
+        self.hail_active = false;
+        self.hail_spawn_timer = 0;
+        self.hail_period_timer = 0;
+    }
+
     fn init_murder_wall(&mut self, level_id: LevelId, camera_x: u32) {
         let header = self.level_header(level_id);
         let flags = header.map(|h| h.murder_wall_flags).unwrap_or(0);
@@ -12061,6 +12134,42 @@ mod tests {
 
         let wall = runtime.murder_wall.expect("murder wall should be active");
         assert_eq!(wall.max_speed, MURDER_WALL_SLOW_MAX_SPEED);
+    }
+
+    #[test]
+    fn hail_spawns_projectiles_after_35_seconds() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather_type = 3; // Storm + Hail
+        // Simulate 35 seconds elapsed: timer at 145s remaining
+        runtime.level_timer.seconds = 145;
+        runtime.hail_active = true;
+        runtime.hail_spawn_timer = 0;
+        runtime.hail_period_timer = 100; // mid-period, still active
+
+        let slice = airborne_slice();
+        let before = runtime.projectiles.len();
+        runtime.step_weather(&slice);
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            before + 1,
+            "hail should spawn a projectile"
+        );
+        let p = &runtime.projectiles[before];
+        assert!(p.y_velocity > 0, "hail should fall downward");
+        assert!(!p.friendly, "hail should damage the player");
+    }
+
+    #[test]
+    fn no_hail_without_storm_weather() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather_type = 0; // No weather
+        runtime.level_timer.seconds = 100;
+
+        let slice = airborne_slice();
+        runtime.step_weather(&slice);
+
+        assert!(runtime.projectiles.is_empty(), "no hail without storm weather");
     }
 
     // --- Skycutter flipboard tests ---
