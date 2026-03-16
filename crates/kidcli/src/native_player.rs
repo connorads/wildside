@@ -27,6 +27,40 @@ const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
 const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
 const ENEMY_FLASH_COLOUR: [u8; 3] = [255, 255, 255];
+
+/// Per-family enemy rect colour so different types are visually distinguishable.
+fn enemy_family_colour(object_type: u8) -> [u8; 3] {
+    match object_type {
+        0x00 => [255, 80, 40],   // FireDemon: orange-red
+        0x03 => [160, 160, 180], // Robot: steel grey
+        0x04 => [180, 140, 80],  // Armadillo: tan
+        0x05 => [100, 60, 120],  // TarMonster: dark purple
+        0x06 => [60, 180, 220],  // Sphere: cyan
+        0x07 => [120, 160, 60],  // Archer: olive
+        0x08 => [40, 100, 180],  // Orca: deep blue
+        0x09 => [220, 120, 60],  // Crab: orange
+        0x0A => [100, 120, 100], // Tank: military green
+        0x0E => [200, 200, 220], // Cloud: pale grey
+        0x0F => [140, 200, 140], // UFO: light green
+        0x10 => [180, 160, 120], // Goat: brown
+        0x11 => [80, 40, 100],   // Ninja: dark purple
+        0x12 => [200, 160, 60],  // Lion: gold
+        0x13 => [160, 80, 80],   // Scorpion: dark red
+        0x14 => [180, 100, 200], // SpinningTwins: magenta
+        0x16 => [100, 180, 180], // Drips: teal
+        0x17 => [180, 140, 140], // Hand: flesh
+        0x18 => [160, 200, 240], // Tornado: light blue
+        0x19 => [255, 120, 40],  // Fireball: bright orange
+        0x1A => [140, 100, 60],  // Driller: brown
+        0x1B => [120, 120, 140], // EmoRock: grey-blue
+        0x1D => [200, 180, 160], // BigHoppingSkull: bone
+        0x20 => [255, 60, 60],   // HeadyMetal: bright red (boss)
+        0x22 => [255, 100, 60],  // Shishkaboss: boss orange
+        0x23 => [255, 80, 120],  // BoomerangBosses: boss pink
+        0x24 => [255, 120, 80],  // BagelBrothers: boss coral
+        _ => ENEMY_COLOUR,
+    }
+}
 #[cfg(test)]
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
 #[cfg(test)]
@@ -1270,17 +1304,12 @@ fn push_enemy_sprite(
         0x0C | 0x0D => &level_visuals.enemies.dragon,
         0x1C => &level_visuals.enemies.mini_hopping_skull,
         _ => {
-            commands.push(object_rect(
-                object,
-                trace,
-                16,
-                16,
-                if object.damage_flash {
-                    ENEMY_FLASH_COLOUR
-                } else {
-                    ENEMY_COLOUR
-                },
-            ));
+            let colour = if object.damage_flash {
+                ENEMY_FLASH_COLOUR
+            } else {
+                enemy_family_colour(object_type)
+            };
+            commands.push(object_rect(object, trace, 16, 16, colour));
             return;
         }
     };
