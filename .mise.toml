@@ -75,6 +75,9 @@ run = "cargo run -p kidcli -- bootstrap-references"
 [tasks.oracle-setup]
 run = "cargo run -p kidcli -- oracle-setup"
 
+[tasks.extract-assets]
+run = "cargo run -p kidcli -- extract-assets"
+
 [tasks.reference-build]
 run = "cargo run -p kidcli -- reference-build"
 
