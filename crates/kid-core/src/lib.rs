@@ -1031,6 +1031,17 @@ enum NinjaState {
     JumpAttack,
 }
 
+/// Hand patrol/attack state machine (Hand.asm).
+/// Walks until player enters forward detection range, then jump-attacks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum HandState {
+    /// Walking on ground, checking for player in detection cone.
+    #[default]
+    Walking,
+    /// Airborne jump toward the player.
+    Jumping,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -1058,6 +1069,7 @@ struct ActiveEnemy {
     dragon_phase: DragonMotionPhase,
     dragon_phase_frames: u16,
     ninja_state: NinjaState,
+    hand_state: HandState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5216,6 +5228,7 @@ fn activate_enemies(
             dragon_phase: spawn_dragon_phase(family),
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         });
     }
 }
@@ -5242,6 +5255,8 @@ fn step_active_enemies(
             EnemyArchetype::Pacer => {
                 if matches!(enemy.family, EnemyFamily::Ninja) {
                     step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
+                } else if matches!(enemy.family, EnemyFamily::Hand) {
+                    step_hand(enemy, block_grid, player_x_pos, player_y_pos);
                 } else {
                     step_pacer(enemy, block_grid);
                     // Tank fires horizontal bullets at intervals
@@ -5818,6 +5833,144 @@ fn step_ninja(
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
                         enemy.ninja_state = NinjaState::Stealth;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Hand detection ranges by HP tier (Hand.asm unk_3276A table).
+/// HP 1 = 64px, HP 2 = 80px, HP 3+ = 100px.
+const HAND_DETECT_RANGE: [i32; 3] = [0x40, 0x50, 0x64];
+
+/// Hand walk velocities by HP tier (Hand.asm unk_3276A table).
+const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
+
+/// Hand jump-attack gravity (Hand.asm line 130: $4000 per frame).
+const HAND_GRAVITY: i32 = 0x4000;
+
+/// Hand jump velocity magnitude (HP-biased, approximate from ASM).
+const HAND_JUMP_Y_SPEED: i32 = -0x3_0000;
+const HAND_JUMP_X_SPEED: i32 = 0x1_8000;
+
+/// Step a Hand enemy through its walk/detect/jump state machine.
+/// Walking: paces with edge/wall detection. Detects player in forward cone.
+/// Jumping: arcs toward player with gravity, lands and resumes walking.
+fn step_hand(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    let tier = (enemy.hit_points.saturating_sub(1) as usize).min(2);
+
+    match enemy.hand_state {
+        HandState::Walking => {
+            // Walk like a pacer with Hand-specific speed
+            let walk_speed = HAND_WALK_SPEED[tier];
+            if let Some(grid) = block_grid {
+                enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+                enemy.y_velocity = 0;
+                enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    let wall_fp = (wall.wall_x_px as u32) << 16;
+                    let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                    if moving_right {
+                        if enemy.x_pos + edge_fp > wall_fp {
+                            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+                        }
+                    } else if enemy.x_pos < wall_fp + edge_fp {
+                        enemy.x_pos = wall_fp + edge_fp;
+                    }
+                    reverse_enemy_direction(enemy);
+                    return;
+                }
+
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                }
+            }
+
+            // Player detection: must be within detection range ahead and within 16px above
+            let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            let dy = (enemy.y_pos as i64 - py as i64) >> 16;
+
+            // Player must be 0-16px above Hand
+            if dy < 0 || dy > 16 {
+                return;
+            }
+
+            let detect_range = i64::from(HAND_DETECT_RANGE[tier]);
+            let in_cone = match enemy.facing {
+                Direction::Right => dx > 0 && dx <= detect_range,
+                Direction::Left => dx < 0 && (-dx) <= detect_range,
+            };
+
+            if in_cone {
+                // Jump toward player
+                enemy.hand_state = HandState::Jumping;
+                enemy.on_ground = false;
+                enemy.x_velocity = if dx >= 0 {
+                    HAND_JUMP_X_SPEED
+                } else {
+                    -HAND_JUMP_X_SPEED
+                };
+                enemy.y_velocity = HAND_JUMP_Y_SPEED;
+            }
+        }
+        HandState::Jumping => {
+            // Apply gravity
+            enemy.y_velocity = (enemy.y_velocity + HAND_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // Move
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let Some(grid) = block_grid else {
+                return;
+            };
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+
+            // Wall reversal
+            let moving_right = enemy.x_velocity >= 0;
+            let wall = terrain::probe_wall(
+                grid, cx, cy,
+                ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+            );
+            if wall.hit {
+                enemy.x_velocity = 0;
+            }
+
+            // Floor landing: return to walking
+            if enemy.y_velocity > 0 {
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground {
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.hand_state = HandState::Walking;
                     }
                 }
             }
@@ -9489,6 +9642,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
@@ -9634,6 +9788,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         }];
 
         activate_enemies(
@@ -9674,6 +9829,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         for _ in 0..199 {
@@ -9763,6 +9919,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -9801,6 +9958,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -9869,6 +10027,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -9924,6 +10083,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -11055,6 +11215,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         }
     }
 
@@ -11196,6 +11357,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -11231,6 +11393,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -11294,6 +11457,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -11362,6 +11526,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -11397,6 +11562,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -11437,6 +11603,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -11481,6 +11648,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -11525,6 +11693,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
 
         // Step until it lands
@@ -11626,6 +11795,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11655,6 +11825,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11729,6 +11900,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -11759,6 +11931,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -11803,6 +11976,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -11832,6 +12006,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -11864,6 +12039,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -11985,6 +12161,104 @@ mod tests {
             enemy.ninja_state,
             NinjaState::Stealth,
             "ninja should return to stealth after landing"
+        );
+        assert!(enemy.on_ground);
+    }
+
+    // --- Hand ---
+
+    #[test]
+    fn hand_walks_until_player_detected_ahead() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        // Player 0x30 px ahead (within 0x40 range for HP=1), 8px above
+        let player_x = Some((60 + 0x30) << 16);
+        let player_y = Some(((17 * 16) - 8) << 16);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        assert_eq!(enemy.hand_state, HandState::Jumping, "should jump at detected player");
+        assert!(enemy.y_velocity < 0, "should jump upward");
+    }
+
+    #[test]
+    fn hand_ignores_player_behind() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        // Player 0x30 px behind (to the left)
+        let player_x = Some((60 - 0x30) << 16);
+        let player_y = Some(((17 * 16) - 8) << 16);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        assert_eq!(
+            enemy.hand_state,
+            HandState::Walking,
+            "should not detect player behind"
+        );
+    }
+
+    #[test]
+    fn hand_ignores_player_beyond_range() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        // Player 0x50 px ahead (beyond 0x40 range for HP=1)
+        let player_x = Some((60 + 0x50) << 16);
+        let player_y = Some(((17 * 16) - 8) << 16);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        assert_eq!(
+            enemy.hand_state,
+            HandState::Walking,
+            "should not detect player beyond detection range"
+        );
+    }
+
+    #[test]
+    fn hand_higher_hp_has_longer_detection_range() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 3);
+        enemy.hand_state = HandState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        // Player 0x50 px ahead — beyond HP=1 range (0x40) but within HP=3 range (0x64)
+        let player_x = Some((60 + 0x50) << 16);
+        let player_y = Some(((17 * 16) - 8) << 16);
+        step_hand(&mut enemy, Some(&grid), player_x, player_y);
+        assert_eq!(
+            enemy.hand_state,
+            HandState::Jumping,
+            "HP=3 hand should detect player at 0x50 range"
+        );
+    }
+
+    #[test]
+    fn hand_lands_and_returns_to_walking() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y - (30 << 16), 1);
+        enemy.hand_state = HandState::Jumping;
+        enemy.x_velocity = HAND_JUMP_X_SPEED;
+        enemy.y_velocity = HAND_JUMP_Y_SPEED;
+        enemy.on_ground = false;
+        for _ in 0..300 {
+            step_hand(&mut enemy, Some(&grid), None, None);
+            if enemy.hand_state == HandState::Walking {
+                break;
+            }
+        }
+        assert_eq!(
+            enemy.hand_state,
+            HandState::Walking,
+            "hand should return to walking after landing"
         );
         assert!(enemy.on_ground);
     }
@@ -13698,6 +13972,7 @@ mod tests {
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
             ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
         }
     }
 
