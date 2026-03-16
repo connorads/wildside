@@ -365,6 +365,8 @@ pub struct NativeTraceFrame {
     pub murder_wall_x: Option<i64>,
     /// Active projectiles: (x_pos, y_pos, friendly).
     pub active_projectiles: Vec<(u32, u32, bool)>,
+    /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
+    pub active_geysers: Vec<(u16, u16, u16)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -466,6 +468,8 @@ pub struct NativeRuntime {
     hail_active: bool,
     /// Hail system: frames until next active/inactive toggle.
     hail_period_timer: u16,
+    /// Active lava geysers for lava weather levels.
+    lava_geysers: Vec<LavaGeyser>,
     murder_wall: Option<MurderWallState>,
     /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
     shooter_block_timer: u16,
@@ -486,6 +490,27 @@ struct LiftPlatform {
     /// Width in pixels (one block = 16px).
     width_px: u16,
 }
+
+/// A lava geyser that erupts periodically from a fixed position.
+#[derive(Debug, Clone)]
+struct LavaGeyser {
+    /// Fixed X position (pixel coordinates, not FP16.16).
+    x_px: u16,
+    /// Base Y position (bottom of eruption, pixel coordinates).
+    y_px: u16,
+    /// Eruption height in pixels.
+    height_px: u16,
+    /// Phase: 0=waiting, 1=erupting upward, 2=holding, 3=collapsing.
+    phase: u8,
+    /// Frames remaining in current phase.
+    timer: u16,
+    /// Current eruption column height in pixels (for collision/rendering).
+    current_height: u16,
+}
+
+const LAVA_GEYSER_HOLD_FRAMES: u16 = 30;
+const LAVA_GEYSER_DORMANT_FRAMES: u16 = 60;
+const LAVA_GEYSER_ERUPT_SPEED: u16 = 4; // pixels per frame
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum BootState {
@@ -1316,6 +1341,7 @@ impl NativeRuntime {
             hail_spawn_timer: 0,
             hail_active: false,
             hail_period_timer: 0,
+            lava_geysers: Vec::new(),
             murder_wall: None,
             shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
@@ -1654,6 +1680,10 @@ impl NativeRuntime {
             level_timer_seconds: self.level_timer.seconds,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
             active_projectiles: self.projectiles.iter().map(|p| (p.x_pos, p.y_pos, p.friendly)).collect(),
+            active_geysers: self.lava_geysers.iter()
+                .filter(|g| g.current_height > 0)
+                .map(|g| (g.x_px, g.y_px.saturating_sub(g.current_height), g.current_height))
+                .collect(),
         }
     }
 
@@ -2003,8 +2033,9 @@ impl NativeRuntime {
         // Shooter blocks: fire projectiles periodically
         self.step_shooter_blocks(&slice);
 
-        // Weather: hail spawns falling projectiles
+        // Weather: hail spawns falling projectiles, lava geysers erupt
         self.step_weather(&slice);
+        self.step_lava_geysers(&slice);
 
         // Prize block item spawning: apply the prize content
         if let Some(content) = slice.prize_block_hit {
@@ -3710,6 +3741,114 @@ impl NativeRuntime {
         self.hail_active = false;
         self.hail_spawn_timer = 0;
         self.hail_period_timer = 0;
+        self.lava_geysers.clear();
+        if self.weather_type == 1 {
+            self.init_lava_geysers(level_id);
+        }
+    }
+
+    /// Initialise lava geyser positions for lava weather levels.
+    /// Uses hardcoded per-level position tables matching the original ASM data.
+    fn init_lava_geysers(&mut self, level_id: LevelId) {
+        // Per-level geyser positions: (x_px, y_px, height_px)
+        let positions: &[(u16, u16, u16)] = match level_id.0 {
+            // Under Skull Mountain 2 (USM2)
+            0x06 => &[(0x180, 0x312, 0x60), (0x240, 0x312, 0x63), (0x346, 0x312, 0x40)],
+            // Black Pit
+            0x45 => &[
+                (0x290, 0x170, 0x20), (0x3D0, 0x170, 0x20), (0x510, 0x170, 0x40),
+                (0x650, 0x170, 0x60), (0x790, 0x170, 0x80), (0x8D0, 0x170, 0xA0),
+                (0xA10, 0x170, 0xC0), (0xB50, 0x170, 0xE0), (0xC90, 0x170, 0x100),
+                (0xDD0, 0x170, 0x100), (0xF10, 0x170, 0x100), (0x1050, 0x170, 0x100),
+                (0x1190, 0x170, 0x100),
+            ],
+            // Elsewhere 29
+            0x3E => &[(0x090, 0x330, 0x260), (0x010, 0x1D0, 0x090), (0x110, 0x1D0, 0x090)],
+            _ => &[],
+        };
+
+        for &(x, y, h) in positions {
+            let initial_delay = u16::from(h & 0xF) * 10;
+            self.lava_geysers.push(LavaGeyser {
+                x_px: x,
+                y_px: y,
+                height_px: h >> 4,
+                phase: 0,
+                timer: initial_delay,
+                current_height: 0,
+            });
+        }
+    }
+
+    /// Step all active lava geysers through their eruption cycle.
+    fn step_lava_geysers(&mut self, slice: &OpeningSliceState) {
+        if self.weather_type != 1 || self.lava_geysers.is_empty() {
+            return;
+        }
+
+        let player_x = (slice.player.x_pos >> 16) as i32;
+        let player_y = (slice.player.y_pos >> 16) as i32;
+        let mut should_damage = false;
+
+        for geyser in &mut self.lava_geysers {
+            match geyser.phase {
+                0 => {
+                    // Waiting/dormant
+                    if geyser.timer > 0 {
+                        geyser.timer -= 1;
+                    } else {
+                        geyser.phase = 1;
+                        geyser.current_height = 0;
+                    }
+                }
+                1 => {
+                    // Erupting upward
+                    geyser.current_height += LAVA_GEYSER_ERUPT_SPEED;
+                    if geyser.current_height >= geyser.height_px {
+                        geyser.current_height = geyser.height_px;
+                        geyser.phase = 2;
+                        geyser.timer = LAVA_GEYSER_HOLD_FRAMES;
+                    }
+                }
+                2 => {
+                    // Holding at full height
+                    if geyser.timer > 0 {
+                        geyser.timer -= 1;
+                    } else {
+                        geyser.phase = 3;
+                    }
+                }
+                3 => {
+                    // Collapsing
+                    if geyser.current_height > LAVA_GEYSER_ERUPT_SPEED {
+                        geyser.current_height -= LAVA_GEYSER_ERUPT_SPEED;
+                    } else {
+                        geyser.current_height = 0;
+                        geyser.phase = 0;
+                        geyser.timer = LAVA_GEYSER_DORMANT_FRAMES;
+                    }
+                }
+                _ => {}
+            }
+
+            // Collision: player overlaps eruption column (16px wide, current_height tall)
+            if geyser.current_height > 0 {
+                let gx = i32::from(geyser.x_px);
+                let gy_top = i32::from(geyser.y_px) - i32::from(geyser.current_height);
+                let gy_bottom = i32::from(geyser.y_px);
+                if player_x >= gx - 8
+                    && player_x <= gx + 8
+                    && player_y >= gy_top
+                    && player_y <= gy_bottom
+                {
+                    should_damage = true;
+                }
+            }
+        }
+
+        if should_damage && self.invulnerable_frames == 0 {
+            self.apply_damage();
+        }
     }
 
     fn init_murder_wall(&mut self, level_id: LevelId, camera_x: u32) {
@@ -15065,6 +15204,50 @@ mod tests {
         runtime.step_weather(&slice);
 
         assert!(runtime.projectiles.is_empty(), "no hail without storm weather");
+    }
+
+    // --- Lava geyser tests ---
+
+    #[test]
+    fn lava_geyser_erupts_and_collapses() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather_type = 1;
+        runtime.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            phase: 0,
+            timer: 0, // ready to erupt immediately
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+
+        // Phase 0 → phase 1 (erupt)
+        runtime.step_lava_geysers(&slice);
+        assert_eq!(runtime.lava_geysers[0].phase, 1);
+
+        // Erupt until full height (16px / 4px per frame = 4 frames)
+        for _ in 0..3 {
+            runtime.step_lava_geysers(&slice);
+        }
+        assert_eq!(runtime.lava_geysers[0].phase, 1);
+        runtime.step_lava_geysers(&slice);
+        assert_eq!(runtime.lava_geysers[0].phase, 2, "should transition to hold phase");
+        assert_eq!(runtime.lava_geysers[0].current_height, 16);
+
+        // Hold for LAVA_GEYSER_HOLD_FRAMES + 1 frames (countdown then transition)
+        for _ in 0..=LAVA_GEYSER_HOLD_FRAMES {
+            runtime.step_lava_geysers(&slice);
+        }
+        assert_eq!(runtime.lava_geysers[0].phase, 3, "should transition to collapse phase");
+
+        // Collapse (16px / 4px per frame = 4 frames)
+        for _ in 0..4 {
+            runtime.step_lava_geysers(&slice);
+        }
+        assert_eq!(runtime.lava_geysers[0].phase, 0, "should return to dormant");
+        assert_eq!(runtime.lava_geysers[0].current_height, 0);
     }
 
     // --- Skycutter flipboard tests ---

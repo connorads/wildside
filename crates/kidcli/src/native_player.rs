@@ -1713,6 +1713,28 @@ fn build_game_scene(
         });
     }
 
+    // Lava geysers: orange/red eruption columns
+    for &(gx, gy_top, height) in &trace.active_geysers {
+        let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
+        let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
+        // Core column
+        commands.push(DrawCommand::Rect {
+            x: sx - 4,
+            y: sy,
+            width: 8,
+            height: i32::from(height),
+            colour: [255, 120, 20],
+        });
+        // Hot centre
+        commands.push(DrawCommand::Rect {
+            x: sx - 2,
+            y: sy,
+            width: 4,
+            height: i32::from(height),
+            colour: [255, 200, 60],
+        });
+    }
+
     // Projectiles: coloured dots (green=friendly, red=enemy)
     for &(px, py, friendly) in &trace.active_projectiles {
         let sx = (px >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
@@ -2618,6 +2640,7 @@ mod tests {
             level_timer_seconds: 180,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
+            active_geysers: Vec::new(),
         }
     }
 

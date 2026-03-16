@@ -5218,6 +5218,7 @@ mod tests {
             level_timer_seconds: 180,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
+            active_geysers: Vec::new(),
             options_cursor: None,
         };
 
