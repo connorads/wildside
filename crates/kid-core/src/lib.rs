@@ -642,11 +642,22 @@ enum EnemyFamily {
     EmoRock,
     Archer,
     Fireball,
+    FireDemon,
+    Robot,
+    TarMonster,
     Goat,
     Armadillo,
     Tank,
     Crab,
+    Orca,
+    UFO,
+    Ninja,
+    Lion,
     Scorpion,
+    SpinningTwins,
+    Drips,
+    Hand,
+    Tornado,
     Driller,
     MiniHoppingSkull,
     Unknown(u8),
@@ -3226,15 +3237,25 @@ impl EnemyFamily {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
             Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
-            Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
+            Self::UFO | Self::Tornado => EnemyArchetype::Flyer,
+            Self::MiniHoppingSkull | Self::BigHoppingSkull | Self::Drips => {
+                EnemyArchetype::Hopper
+            }
             Self::Goat
             | Self::Armadillo
             | Self::Tank
             | Self::Crab
             | Self::Scorpion
-            | Self::Driller => EnemyArchetype::Pacer,
+            | Self::Driller
+            | Self::Ninja
+            | Self::Orca
+            | Self::Hand
+            | Self::Robot
+            | Self::Lion
+            | Self::FireDemon => EnemyArchetype::Pacer,
             Self::EmoRock => EnemyArchetype::Inert, // TODO: hover/follow behaviour
             Self::Archer => EnemyArchetype::Inert, // TODO: arrow projectiles
+            Self::SpinningTwins | Self::TarMonster => EnemyArchetype::Inert, // TODO: unique behaviours
             Self::Unknown(_) => EnemyArchetype::Inert,
         }
     }
@@ -3242,15 +3263,26 @@ impl EnemyFamily {
     fn from_layout_object(enemy_type_slots: &[u16], object: &EnemyLayoutObject) -> Self {
         match resolved_enemy_id(enemy_type_slots, object.object_type) {
             Some(0x01) => Self::Diamond,
+            Some(0x00) => Self::FireDemon,
+            Some(0x03) => Self::Robot,
             Some(0x04) => Self::Armadillo,
+            Some(0x05) => Self::TarMonster,
             Some(0x09) => Self::Crab,
             Some(0x0A) => Self::Tank,
             Some(0x0C | 0x0D) => Self::Dragon,
             Some(0x06) => Self::Sphere,
             Some(0x07) => Self::Archer,
+            Some(0x08) => Self::Orca,
             Some(0x0E) => Self::Cloud,
+            Some(0x0F) => Self::UFO,
             Some(0x10) => Self::Goat,
+            Some(0x11) => Self::Ninja,
+            Some(0x12) => Self::Lion,
             Some(0x13) => Self::Scorpion,
+            Some(0x14) => Self::SpinningTwins,
+            Some(0x16) => Self::Drips,
+            Some(0x17) => Self::Hand,
+            Some(0x18) => Self::Tornado,
             Some(0x1A) => Self::Driller,
             Some(0x19) => Self::Fireball,
             Some(0x1B) => Self::EmoRock,
@@ -3263,18 +3295,29 @@ impl EnemyFamily {
 
     fn object_type(self) -> u8 {
         match self {
+            Self::FireDemon => 0x00,
             Self::Diamond => 0x01,
+            Self::Robot => 0x03,
             Self::Armadillo => 0x04,
+            Self::TarMonster => 0x05,
             Self::Sphere => 0x06,
             Self::Archer => 0x07,
+            Self::Orca => 0x08,
             Self::Crab => 0x09,
             Self::Tank => 0x0A,
             Self::Dragon => 0x0D,
             Self::Cloud => 0x0E,
+            Self::UFO => 0x0F,
             Self::Goat => 0x10,
+            Self::Ninja => 0x11,
+            Self::Lion => 0x12,
             Self::Scorpion => 0x13,
-            Self::Driller => 0x1A,
+            Self::SpinningTwins => 0x14,
+            Self::Drips => 0x16,
+            Self::Hand => 0x17,
+            Self::Tornado => 0x18,
             Self::Fireball => 0x19,
+            Self::Driller => 0x1A,
             Self::EmoRock => 0x1B,
             Self::MiniHoppingSkull => 0x1C,
             Self::BigHoppingSkull => 0x1D,
@@ -3822,6 +3865,18 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::EmoRock => 1,
         EnemyFamily::Archer => 1,
         EnemyFamily::Fireball => 1,
+        // Tier 3-4 families: approximate base HP from ASM init routines
+        EnemyFamily::FireDemon => 3,  // HP 3-5
+        EnemyFamily::Robot => 2,      // HP 2-3
+        EnemyFamily::TarMonster => 2, // HP {2,4,6}
+        EnemyFamily::Orca => 4,       // fixed 4 HP
+        EnemyFamily::UFO => 1,
+        EnemyFamily::Ninja => 2,      // HP 2-3
+        EnemyFamily::Lion => 6,       // HP 6-8
+        EnemyFamily::SpinningTwins => 1,
+        EnemyFamily::Drips => 1,
+        EnemyFamily::Hand => 1,
+        EnemyFamily::Tornado => 1,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
