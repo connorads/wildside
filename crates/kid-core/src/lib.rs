@@ -965,6 +965,8 @@ struct OpeningSliceState {
     prize_block_hit: Option<terrain::PrizeContent>,
     /// Lift block activated this frame — (x_px, y_px) of block top-left in pixels.
     lift_block_hit: Option<(u16, u16)>,
+    /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
+    drill_projectile_hit: Option<(u32, u32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1881,6 +1883,7 @@ impl NativeRuntime {
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
+        slice.drill_projectile_hit = None;
         // Step helmet abilities BEFORE physics
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
@@ -1945,6 +1948,19 @@ impl NativeRuntime {
                 y_velocity: 0,
                 age: 0,
                 width_px: 16,
+            });
+        }
+
+        // Drill block: headbutt spawns a downward-falling projectile
+        if let Some((x_fp, y_fp)) = slice.drill_projectile_hit {
+            self.projectiles.push(EnemyProjectile {
+                x_pos: x_fp,
+                y_pos: y_fp,
+                x_velocity: 0,
+                y_velocity: 0x1_0000, // falls downward
+                lifetime: 120,
+                gravity: 0x1000,
+                friendly: false,
             });
         }
 
@@ -4265,6 +4281,7 @@ impl OpeningSliceState {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         }
     }
 
@@ -4309,6 +4326,7 @@ impl OpeningSliceState {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         }
     }
 
@@ -4683,6 +4701,20 @@ impl OpeningSliceState {
                         let block_x_px = u16::from(probe.cell_x) * 16;
                         let block_y_px = u16::from(probe.cell_y) * 16;
                         self.lift_block_hit = Some((block_x_px, block_y_px));
+                        grid.set_cell_at(
+                            probe.cell_x,
+                            probe.cell_y,
+                            terrain::Cell::from_be_bytes(0, 0),
+                        );
+                    }
+                    terrain::BlockType::Drill => {
+                        // Drill block fires a downward projectile when headbutted
+                        let drill_x_fp =
+                            (u32::from(probe.cell_x) * 16 + 8) << 16;
+                        let drill_y_fp =
+                            (u32::from(probe.cell_y) * 16 + 16) << 16;
+                        self.drill_projectile_hit =
+                            Some((drill_x_fp, drill_y_fp));
                         grid.set_cell_at(
                             probe.cell_x,
                             probe.cell_y,
@@ -8862,6 +8894,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.step(
@@ -9831,6 +9864,63 @@ mod tests {
             set_cell(&mut data, col, 3, 0x60);
         }
         terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    fn grid_with_drill_block() -> terrain::BlockGrid {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = 0x01;
+        };
+        // Row 2, col 2: drill block (collision=6 Solid, has_block, block_type=0xC)
+        // 1_110_1100 = 0xEC
+        set_cell(&mut data, 2, 2, 0xEC);
+        // Row 3: solid floor
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60);
+        }
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    #[test]
+    fn drill_block_headbutt_spawns_projectile() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_drill_block());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(runtime.projectiles.is_empty());
+
+        // Position player below drill block at col 2, row 2
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16;
+            slice.player.y_pos = 73 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            !runtime.projectiles.is_empty(),
+            "headbutting drill block should spawn a falling projectile"
+        );
+        let proj = &runtime.projectiles[0];
+        assert!(proj.y_velocity > 0, "drill projectile falls downward");
+        assert_eq!(proj.x_velocity, 0, "drill projectile falls straight down");
+        assert!(!proj.friendly);
+
+        // Block should be cleared from grid
+        let grid = runtime.block_grid.as_ref().unwrap();
+        let cell = grid.cell_at(2, 2);
+        assert!(!cell.has_block, "drill block should be cleared after headbutt");
     }
 
     #[test]
@@ -10945,6 +11035,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -10990,6 +11081,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -11039,6 +11131,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -11084,6 +11177,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -11130,6 +11224,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -11180,6 +11275,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -11224,6 +11320,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -11279,6 +11376,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), true, false);
@@ -13483,6 +13581,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false);
@@ -13524,6 +13623,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         // No floor under player → should leave ground and reset terrain type
@@ -13574,6 +13674,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         }
     }
 
@@ -13811,6 +13912,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         assert!(runtime.evanescent_blocks.is_empty());
@@ -13856,6 +13958,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         runtime.step_evanescent_blocks(&slice);
@@ -13905,6 +14008,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         // Trigger + first tick
@@ -13968,6 +14072,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         let airborne_slice = OpeningSliceState {
@@ -14147,6 +14252,7 @@ mod tests {
             },
             prize_block_hit: None,
             lift_block_hit: None,
+            drill_projectile_hit: None,
         };
 
         // Trigger twice while standing
