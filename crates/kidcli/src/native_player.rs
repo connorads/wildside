@@ -218,6 +218,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
     let mut current_level_id: u8 = 0x00;
+    let mut shake_frames: u32 = 0;
+    let mut shake_seed: u32 = 1;
 
     let scene = build_scene(
         &trace,
@@ -312,6 +314,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
             // Detect game events by comparing frames
             detect_sfx_events(&prev_trace, &trace, &mut sfx_engine);
+
+            // Screen shake on damage or death
+            if trace.number_hitpoints < prev_trace.number_hitpoints
+                && prev_trace.number_hitpoints > 0
+            {
+                shake_frames = 8;
+            }
+            if trace.number_lives < prev_trace.number_lives {
+                shake_frames = 12;
+            }
         }
 
         // Push audio samples to SDL2 queue
@@ -348,9 +360,25 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
         canvas.clear();
-        canvas
-            .copy(&texture, None, None)
-            .map_err(|error| anyhow!("failed to copy SDL texture: {error}"))?;
+        if shake_frames > 0 {
+            // Simple xorshift for deterministic pseudo-random offset
+            shake_seed ^= shake_seed << 13;
+            shake_seed ^= shake_seed >> 17;
+            shake_seed ^= shake_seed << 5;
+            let intensity = shake_frames.min(6) as i32;
+            let dx = (shake_seed as i32 % (intensity * 2 + 1)) - intensity;
+            let dy = ((shake_seed >> 8) as i32 % (intensity * 2 + 1)) - intensity;
+            let (cw, ch) = canvas.output_size().unwrap_or((FRAME_WIDTH, FRAME_HEIGHT));
+            let dest = Rect::new(dx, dy, cw, ch);
+            canvas
+                .copy(&texture, None, Some(dest))
+                .map_err(|error| anyhow!("failed to copy SDL texture: {error}"))?;
+            shake_frames -= 1;
+        } else {
+            canvas
+                .copy(&texture, None, None)
+                .map_err(|error| anyhow!("failed to copy SDL texture: {error}"))?;
+        }
         canvas.present();
 
         let elapsed = frame_started.elapsed();
