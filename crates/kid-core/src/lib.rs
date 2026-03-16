@@ -740,7 +740,6 @@ impl LevelTimer {
         }
     }
 
-    #[allow(dead_code)]
     fn add_clock_bonus(&mut self) {
         let new_seconds = self.seconds + LEVEL_TIMER_CLOCK_BONUS_SECONDS;
         if new_seconds >= LEVEL_TIMER_MAX_SECONDS {

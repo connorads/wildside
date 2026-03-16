@@ -2454,6 +2454,22 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(440.0, 80, 0.1);
         sfx.play(550.0, 120, 0.1);
     }
+    // Timer bonus (clock pickup — seconds jumped up)
+    if curr.level_timer_seconds > prev.level_timer_seconds + 1 {
+        sfx.play(698.0, 60, 0.12); // F5
+        sfx.play(880.0, 80, 0.12); // A5
+    }
+    // Murder wall active (low rumble tone while wall is present)
+    if curr.murder_wall_x.is_some() && prev.murder_wall_x.is_none() {
+        sfx.play(80.0, 500, 0.08);
+    }
+    // Game complete / victory
+    if curr.game_complete && !prev.game_complete {
+        sfx.play(523.0, 150, 0.15); // C5
+        sfx.play(659.0, 150, 0.15); // E5
+        sfx.play(784.0, 150, 0.15); // G5
+        sfx.play(1047.0, 300, 0.2);  // C6
+    }
 }
 
 #[cfg(test)]
