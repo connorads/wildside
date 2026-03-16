@@ -1031,6 +1031,17 @@ enum NinjaState {
     JumpAttack,
 }
 
+/// Orca lunge state machine (Orca.asm).
+/// Paces normally, detects nearby player, launches a ballistic lunge arc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum OrcaState {
+    /// Walking patrol with proximity detection.
+    #[default]
+    Walking,
+    /// Airborne ballistic lunge toward the player.
+    Lunging,
+}
+
 /// Robot phase state machine (Robot.asm).
 /// Paces at HP-dependent speed, periodically shoots, then charges fast.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1094,6 +1105,7 @@ struct ActiveEnemy {
     hand_state: HandState,
     lion_state: LionState,
     robot_state: RobotState,
+    orca_state: OrcaState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5255,6 +5267,7 @@ fn activate_enemies(
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         });
     }
 }
@@ -5287,6 +5300,8 @@ fn step_active_enemies(
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
                     step_robot(enemy, block_grid, player_x_pos, &mut projectiles);
+                } else if matches!(enemy.family, EnemyFamily::Orca) {
+                    step_orca(enemy, block_grid, player_x_pos);
                 } else {
                     step_pacer(enemy, block_grid);
                     // Tank fires horizontal bullets at intervals
@@ -6269,6 +6284,104 @@ fn step_robot(
             } else {
                 enemy.robot_state = RobotState::Walking;
                 enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+            }
+        }
+    }
+}
+
+/// Orca proximity detection range (Orca.asm loc_3D2DE: ~$30 px).
+const ORCA_DETECT_RANGE: i32 = 0x30;
+
+/// Orca lunge velocities (Orca.asm).
+const ORCA_LUNGE_X_SPEED: i32 = 0x3_0000;
+const ORCA_LUNGE_Y_SPEED: i32 = -0x2_8000;
+
+/// Orca lunge gravity (Orca.asm line loc_3D3B4: $1800 per frame).
+const ORCA_LUNGE_GRAVITY: i32 = 0x1800;
+
+/// Orca lunge cooldown (Orca.asm: $12C = 300 frames between lunges).
+const ORCA_LUNGE_COOLDOWN: u16 = 300;
+
+/// Step an Orca enemy: paces at $8000, detects nearby player, lunges in a
+/// ballistic arc, lands and resumes walking with a cooldown.
+fn step_orca(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+) {
+    match enemy.orca_state {
+        OrcaState::Walking => {
+            step_pacer(enemy, block_grid);
+
+            // Cooldown between lunges
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+
+            // Proximity detection
+            let Some(px) = player_x_pos else {
+                return;
+            };
+            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+            if dx.abs() > i64::from(ORCA_DETECT_RANGE) {
+                return;
+            }
+
+            // Launch lunge
+            enemy.orca_state = OrcaState::Lunging;
+            enemy.on_ground = false;
+            enemy.facing = if dx >= 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+            enemy.x_velocity = match enemy.facing {
+                Direction::Right => ORCA_LUNGE_X_SPEED,
+                Direction::Left => -ORCA_LUNGE_X_SPEED,
+            };
+            enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+        }
+        OrcaState::Lunging => {
+            // Gravity
+            enemy.y_velocity =
+                (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // Move
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let Some(grid) = block_grid else {
+                return;
+            };
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+
+            // Wall bounce
+            let moving_right = enemy.x_velocity >= 0;
+            let wall = terrain::probe_wall(
+                grid, cx, cy,
+                ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+            );
+            if wall.hit {
+                enemy.x_velocity = -enemy.x_velocity;
+                enemy.facing = opposite_direction(enemy.facing);
+            }
+
+            // Floor landing
+            if enemy.y_velocity > 0 {
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if floor.on_ground {
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.orca_state = OrcaState::Walking;
+                        enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
+                    }
+                }
             }
         }
     }
@@ -9945,6 +10058,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
@@ -10093,6 +10207,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         }];
 
         activate_enemies(
@@ -10136,6 +10251,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         for _ in 0..199 {
@@ -10228,6 +10344,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -10269,6 +10386,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -10340,6 +10458,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -10398,6 +10517,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -11532,6 +11652,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         }
     }
 
@@ -11676,6 +11797,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -11714,6 +11836,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -11780,6 +11903,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -11851,6 +11975,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -11889,6 +12014,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -11932,6 +12058,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -11979,6 +12106,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -12026,6 +12154,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
 
         // Step until it lands
@@ -12130,6 +12259,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12162,6 +12292,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12239,6 +12370,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12272,6 +12404,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12319,6 +12452,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -12351,6 +12485,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -12386,6 +12521,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -12717,6 +12853,77 @@ mod tests {
         step_robot(&mut enemy, Some(&grid), None, &mut None);
         assert_eq!(enemy.robot_state, RobotState::Walking);
         assert_eq!(enemy.wait_timer, ROBOT_SHOOT_INTERVAL);
+    }
+
+    // --- Orca ---
+
+    #[test]
+    fn orca_lunges_when_player_nearby() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, floor_y, 4);
+        enemy.orca_state = OrcaState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0; // no cooldown
+        let player_x = Some((60 + 0x20) << 16); // within $30 range
+        step_orca(&mut enemy, Some(&grid), player_x);
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+        assert!(enemy.y_velocity < 0, "should launch upward");
+        assert_eq!(enemy.facing, Direction::Right);
+    }
+
+    #[test]
+    fn orca_ignores_distant_player() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, floor_y, 4);
+        enemy.orca_state = OrcaState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        let player_x = Some((60 + 0x50) << 16); // beyond $30 range
+        step_orca(&mut enemy, Some(&grid), player_x);
+        assert_eq!(
+            enemy.orca_state,
+            OrcaState::Walking,
+            "should not lunge at distant player"
+        );
+    }
+
+    #[test]
+    fn orca_cooldown_prevents_immediate_relunge() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, floor_y, 4);
+        enemy.orca_state = OrcaState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 100; // still cooling down
+        let player_x = Some((60 + 0x10) << 16);
+        step_orca(&mut enemy, Some(&grid), player_x);
+        assert_eq!(
+            enemy.orca_state,
+            OrcaState::Walking,
+            "should not lunge during cooldown"
+        );
+        assert_eq!(enemy.wait_timer, 99);
+    }
+
+    #[test]
+    fn orca_lands_and_returns_to_walking_with_cooldown() {
+        let grid = grid_with_platform(17, 0, 120);
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, (17 * 16 - 30) << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.x_velocity = ORCA_LUNGE_X_SPEED;
+        enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+        enemy.on_ground = false;
+        for _ in 0..300 {
+            step_orca(&mut enemy, Some(&grid), None);
+            if enemy.orca_state == OrcaState::Walking {
+                break;
+            }
+        }
+        assert_eq!(enemy.orca_state, OrcaState::Walking);
+        assert_eq!(enemy.wait_timer, ORCA_LUNGE_COOLDOWN);
+        assert!(enemy.on_ground);
     }
 
     // --- Ghost blocks ---
@@ -14431,6 +14638,7 @@ mod tests {
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
         }
     }
 
