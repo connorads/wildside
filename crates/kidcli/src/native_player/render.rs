@@ -273,11 +273,15 @@ pub(super) fn resolve_palette_colour(
         return None;
     }
 
-    let palette_offset =
-        usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);
-    let colour = palette
-        .colours
-        .get(palette_offset + usize::from(palette_index - 1))?;
+    let colour = if palette.colours.len() == 8 && selected_palette_line == 0 {
+        palette.colours.get(usize::from(palette_index))
+    } else {
+        let palette_offset =
+            usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);
+        palette
+            .colours
+            .get(palette_offset + usize::from(palette_index - 1))
+    }?;
 
     Some([colour.red, colour.green, colour.blue])
 }
