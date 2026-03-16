@@ -1031,6 +1031,17 @@ enum NinjaState {
     JumpAttack,
 }
 
+/// Robot phase state machine (Robot.asm).
+/// Paces at HP-dependent speed, periodically shoots, then charges fast.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum RobotState {
+    /// Walking patrol with periodic shooting.
+    #[default]
+    Walking,
+    /// Charging at high speed after jump counter expires.
+    Charging,
+}
+
 /// Lion charge state machine (Lion.asm).
 /// Paces normally, then charges toward player and fires a fast projectile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1082,6 +1093,7 @@ struct ActiveEnemy {
     ninja_state: NinjaState,
     hand_state: HandState,
     lion_state: LionState,
+    robot_state: RobotState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5242,6 +5254,7 @@ fn activate_enemies(
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         });
     }
 }
@@ -5272,6 +5285,8 @@ fn step_active_enemies(
                     step_hand(enemy, block_grid, player_x_pos, player_y_pos);
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
+                } else if matches!(enemy.family, EnemyFamily::Robot) {
+                    step_robot(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else {
                     step_pacer(enemy, block_grid);
                     // Tank fires horizontal bullets at intervals
@@ -6114,6 +6129,151 @@ fn step_lion(
     }
 }
 
+/// Robot walk speed: HP 2 = $8000, HP 3+ = $10000 (Robot.asm lines 28-36).
+fn robot_walk_speed(hit_points: u8) -> i32 {
+    if hit_points >= 3 { 0x1_0000 } else { 0x8000 }
+}
+
+/// Robot charge speed: always $28000 (Robot.asm line 157).
+const ROBOT_CHARGE_SPEED: i32 = 0x2_8000;
+
+/// Robot shoot interval (frames between shots while walking).
+const ROBOT_SHOOT_INTERVAL: u16 = 32;
+
+/// Robot charge duration after shoot phase.
+const ROBOT_CHARGE_DURATION: u16 = 40;
+
+/// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
+const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
+
+/// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
+/// then enters a fast charge phase.
+fn step_robot(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    match enemy.robot_state {
+        RobotState::Walking => {
+            let walk_speed = robot_walk_speed(enemy.hit_points);
+            // Walk like a pacer with robot-specific speed
+            if let Some(grid) = block_grid {
+                enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
+                enemy.y_velocity = 0;
+                enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    let wall_fp = (wall.wall_x_px as u32) << 16;
+                    let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                    if moving_right {
+                        if enemy.x_pos + edge_fp > wall_fp {
+                            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+                        }
+                    } else if enemy.x_pos < wall_fp + edge_fp {
+                        enemy.x_pos = wall_fp + edge_fp;
+                    }
+                    reverse_enemy_direction(enemy);
+                    return;
+                }
+
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                }
+            }
+
+            // Shoot timer
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                // Face player if available
+                if let Some(px) = player_x_pos {
+                    let dx = px as i64 - enemy.x_pos as i64;
+                    enemy.facing = if dx >= 0 {
+                        Direction::Right
+                    } else {
+                        Direction::Left
+                    };
+                }
+
+                // Fire projectile
+                if let Some(projs) = projectiles {
+                    let speed = ROBOT_PROJECTILE_SPEED;
+                    let xv = match enemy.facing {
+                        Direction::Right => speed,
+                        Direction::Left => -speed,
+                    };
+                    projs.push(EnemyProjectile {
+                        x_pos: enemy.x_pos,
+                        y_pos: enemy.y_pos,
+                        x_velocity: xv,
+                        y_velocity: 0,
+                        lifetime: 60,
+                        gravity: 0,
+                        friendly: false,
+                    });
+                }
+
+                // Enter charge mode
+                enemy.robot_state = RobotState::Charging;
+                enemy.wait_timer = ROBOT_CHARGE_DURATION;
+            }
+        }
+        RobotState::Charging => {
+            // Charge at high speed
+            enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+            if let Some(grid) = block_grid {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+                let wall = terrain::probe_wall(
+                    grid, cx, cy,
+                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                );
+                if wall.hit {
+                    reverse_enemy_direction(enemy);
+                    enemy.robot_state = RobotState::Walking;
+                    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+                    return;
+                }
+                let look_ahead_x = if moving_right {
+                    cx + ENEMY_PROBE_HALF_WIDTH
+                } else {
+                    cx - ENEMY_PROBE_HALF_WIDTH
+                };
+                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    reverse_enemy_direction(enemy);
+                    enemy.robot_state = RobotState::Walking;
+                    enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+                    return;
+                }
+            }
+
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                enemy.robot_state = RobotState::Walking;
+                enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+            }
+        }
+    }
+}
+
 /// EmoRock hover height above player, indexed by enemy_level (derived from HP).
 /// Level 0: 80px, Level 1: 60px, Level 2: 40px.
 const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
@@ -6474,6 +6634,8 @@ fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
+        // Robot: shoot interval timer ($4A = 32 frames).
+        EnemyFamily::Robot => ROBOT_SHOOT_INTERVAL,
         _ => 0,
     }
 }
@@ -9782,6 +9944,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
@@ -9929,6 +10092,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         }];
 
         activate_enemies(
@@ -9971,6 +10135,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         for _ in 0..199 {
@@ -10062,6 +10227,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -10102,6 +10268,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         let mut grounded_skull = None;
@@ -10172,6 +10339,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -10229,6 +10397,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -11362,6 +11531,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         }
     }
 
@@ -11505,6 +11675,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -11542,6 +11713,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -11607,6 +11779,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -11677,6 +11850,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
@@ -11714,6 +11888,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -11756,6 +11931,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -11802,6 +11978,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -11848,6 +12025,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
 
         // Step until it lands
@@ -11951,6 +12129,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -11982,6 +12161,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -12058,6 +12238,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12090,6 +12271,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -12136,6 +12318,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -12167,6 +12350,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -12201,6 +12385,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -12488,6 +12673,50 @@ mod tests {
     #[test]
     fn lion_hp8_charges_faster() {
         assert!(lion_charge_speed(8) > lion_charge_speed(7));
+    }
+
+    // --- Robot ---
+
+    #[test]
+    fn robot_walks_then_shoots_and_charges_on_timer() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        enemy.robot_state = RobotState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 1;
+        let player_x = Some(80u32 << 16);
+        let mut projs = vec![];
+        // Timer at 1 → decrements to 0
+        step_robot(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        assert_eq!(enemy.robot_state, RobotState::Walking);
+        assert!(projs.is_empty());
+        // Timer at 0 → shoot + charge
+        step_robot(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
+        assert_eq!(enemy.robot_state, RobotState::Charging);
+        assert_eq!(projs.len(), 1, "robot should fire a projectile");
+        assert_eq!(enemy.facing, Direction::Right, "should face toward player");
+    }
+
+    #[test]
+    fn robot_hp3_walks_faster() {
+        assert!(robot_walk_speed(3) > robot_walk_speed(2));
+    }
+
+    #[test]
+    fn robot_charge_returns_to_walking() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        enemy.robot_state = RobotState::Charging;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        enemy.wait_timer = 1;
+        step_robot(&mut enemy, Some(&grid), None, &mut None);
+        assert_eq!(enemy.wait_timer, 0);
+        step_robot(&mut enemy, Some(&grid), None, &mut None);
+        assert_eq!(enemy.robot_state, RobotState::Walking);
+        assert_eq!(enemy.wait_timer, ROBOT_SHOOT_INTERVAL);
     }
 
     // --- Ghost blocks ---
@@ -14201,6 +14430,7 @@ mod tests {
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
         }
     }
 
