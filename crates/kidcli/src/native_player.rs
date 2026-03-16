@@ -400,6 +400,10 @@ fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
 fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {
     let mut commands = Vec::new();
 
+    if trace.game_complete {
+        return build_victory_scene(trace);
+    }
+
     // Background
     commands.push(DrawCommand::Rect {
         x: 0,
@@ -470,6 +474,77 @@ fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> 
 
     Scene {
         background: [18, 24, 32],
+        commands,
+    }
+}
+
+fn build_victory_scene(trace: &NativeTraceFrame) -> Scene {
+    let mut commands = Vec::new();
+
+    // Dark green background
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [4, 20, 8],
+    });
+
+    let title = "CONGRATULATIONS";
+    let title_w = title.len() as i32 * 8 * 2;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - title_w) / 2,
+        40,
+        title,
+        [255, 220, 80],
+        2,
+    ));
+
+    let sub = "YOU HAVE COMPLETED";
+    let sub_w = sub.len() as i32 * 8;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - sub_w) / 2,
+        72,
+        sub,
+        [180, 220, 180],
+        1,
+    ));
+
+    let game = "KID CHAMELEON";
+    let game_w = game.len() as i32 * 8 * 2;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - game_w) / 2,
+        92,
+        game,
+        [120, 255, 120],
+        2,
+    ));
+
+    let score_line = format!("FINAL SCORE: {}", trace.score);
+    let score_w = score_line.len() as i32 * 8;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - score_w) / 2,
+        130,
+        &score_line,
+        [255, 255, 255],
+        1,
+    ));
+
+    // Blinking "PRESS START" to return to title
+    if (trace.frame_index / 30) % 2 == 0 {
+        let start_text = "PRESS START";
+        let start_w = start_text.len() as i32 * 8 * 2;
+        commands.push(text(
+            (FRAME_WIDTH as i32 - start_w) / 2,
+            170,
+            start_text,
+            [255, 255, 255],
+            2,
+        ));
+    }
+
+    Scene {
+        background: [8, 32, 16],
         commands,
     }
 }
@@ -2111,6 +2186,7 @@ mod tests {
             number_gfx_objects: 4,
             level_complete: false,
             game_over: false,
+            game_complete: false,
             number_continues: 3,
             invulnerable_frames: 0,
             diamond_count: 0,

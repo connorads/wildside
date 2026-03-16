@@ -5209,6 +5209,7 @@ mod tests {
             number_gfx_objects: 3,
             level_complete: false,
             game_over: false,
+            game_complete: false,
             number_continues: 3,
             invulnerable_frames: 0,
             diamond_count: 0,

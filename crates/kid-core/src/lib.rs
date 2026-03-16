@@ -353,6 +353,7 @@ pub struct NativeTraceFrame {
     pub number_gfx_objects: u16,
     pub level_complete: bool,
     pub game_over: bool,
+    pub game_complete: bool,
     pub invulnerable_frames: usize,
     pub diamond_count: u16,
     pub score: u32,
@@ -444,6 +445,8 @@ pub struct NativeRuntime {
     score: u32,
     /// Diamond Power active: grants invulnerability and clears nearby enemies.
     diamond_power_frames: u16,
+    /// Player has beaten the final level — show victory/ending.
+    game_complete: bool,
     evanescent_blocks: Vec<EvanescentEntry>,
     ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
@@ -1249,6 +1252,7 @@ impl NativeRuntime {
             diamond_count: 0,
             score: 0,
             diamond_power_frames: 0,
+            game_complete: false,
             evanescent_blocks: Vec::new(),
             ghost_groups: Vec::new(),
             projectiles: Vec::new(),
@@ -1564,6 +1568,7 @@ impl NativeRuntime {
             number_gfx_objects,
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. }),
+            game_complete: self.game_complete,
             invulnerable_frames: self.invulnerable_frames,
             diamond_count: self.diamond_count,
             score: self.score,
@@ -2583,11 +2588,34 @@ impl NativeRuntime {
         };
     }
 
+    fn is_final_level(&self) -> bool {
+        if !self.assets.map_order.is_empty() {
+            let current_pos = self
+                .assets
+                .map_order
+                .iter()
+                .position(|&id| id == self.current_level.0);
+            if let Some(pos) = current_pos {
+                return pos + 1 >= self.assets.map_order.len();
+            }
+        }
+        false
+    }
+
     fn advance_level(&mut self) {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
+
+        if self.is_final_level() {
+            self.game_complete = true;
+            self.boot_state = BootState::TitleScreen;
+            self.player_lifecycle = PlayerLifecycle::Alive;
+            self.opening_slice = None;
+            return;
+        }
+
         let next_level = self.next_level_id();
         self.current_level = next_level;
         self.reload_block_grid_for_level(next_level);
@@ -13893,6 +13921,41 @@ mod tests {
 
         runtime.current_level = LevelId(1);
         assert_eq!(runtime.next_level_id(), LevelId(2));
+    }
+
+    #[test]
+    fn final_level_sets_game_complete_on_advance() {
+        let mut manifest = manifest_with_levels(3);
+        manifest.map_order = vec![0, 1, 2];
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.current_level = LevelId(2); // last in map order
+        assert!(
+            runtime.is_final_level(),
+            "level 2 should be detected as final level"
+        );
+        assert!(!runtime.game_complete);
+        runtime.advance_level();
+        assert!(
+            runtime.game_complete,
+            "game_complete should be set after beating final level"
+        );
+    }
+
+    #[test]
+    fn non_final_level_does_not_set_game_complete() {
+        let mut manifest = manifest_with_levels(3);
+        manifest.map_order = vec![0, 1, 2];
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.current_level = LevelId(0);
+        assert!(!runtime.is_final_level());
+        runtime.advance_level();
+        assert!(
+            !runtime.game_complete,
+            "game_complete should not be set mid-game"
+        );
     }
 
     // --- Murder wall ---
