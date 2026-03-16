@@ -424,6 +424,8 @@ pub struct NativeRuntime {
     berzerker_charge_accum: u8,
     /// Berzerker is charging (fast enough to break blocks and damage on contact).
     berzerker_charging: bool,
+    /// Micromax wall/ceiling stick active flag.
+    micromax_stuck: bool,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -869,6 +871,18 @@ const IRON_KNIGHT_MAX_CLIMB_VEL: i32 = -0x1_8000;
 /// IronKnight wall climb: max downward velocity (falling off).
 const IRON_KNIGHT_MAX_FALL_VEL: i32 = 0x4_0000;
 
+/// Micromax hitbox: half-size character (16-pixel grid alignment per ASM).
+const MICROMAX_HALF_W: i32 = 3;
+const MICROMAX_H: i32 = 15;
+/// Micromax stuck gravity: $600 per frame (much lower than normal $4000).
+const MICROMAX_STUCK_GRAVITY: i32 = 0x600;
+/// Micromax max fall speed before peeling off surface.
+const MICROMAX_STUCK_MAX_FALL: i32 = 0x1_0000;
+/// Micromax detach Y velocity: -4.0 FP (strong upward kick).
+const MICROMAX_DETACH_Y_VEL: i32 = -0x4_0000;
+/// Micromax detach X speed: 2.0 FP (kick away from surface).
+const MICROMAX_DETACH_X_SPEED: i32 = 0x2_0000;
+
 /// Lift block: upward acceleration (first 50 frames).
 const LIFT_ACCEL_UP: i32 = -0x708;
 /// Lift block: downward acceleration (after 50 frames).
@@ -1261,6 +1275,7 @@ impl NativeRuntime {
             iron_knight_climb_accel: 0,
             berzerker_charge_accum: 0,
             berzerker_charging: false,
+            micromax_stuck: false,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -1905,9 +1920,11 @@ impl NativeRuntime {
         self.step_maniaxe_axe(&slice, input);
         self.step_berzerker_charge(&slice);
         self.step_juggernaut_skull(&slice, input);
+        self.step_micromax_stick(&mut slice, input);
 
-        // Either Skycutter board or Cyclone flight replaces normal gravity
-        let custom_gravity = self.skycutter_on_board || self.cyclone_flying || self.iron_knight_climbing;
+        // Helmet abilities that override normal gravity
+        let custom_gravity = self.skycutter_on_board || self.cyclone_flying
+            || self.iron_knight_climbing || self.micromax_stuck;
         slice.step(
             level_elapsed,
             input,
@@ -2527,6 +2544,7 @@ impl NativeRuntime {
         self.berzerker_charge_accum = 0;
         self.iron_knight_climbing = false;
         self.iron_knight_climb_accel = 0;
+        self.micromax_stuck = false;
     }
 
     fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
@@ -3061,6 +3079,98 @@ impl NativeRuntime {
 
         // Zero horizontal velocity while climbing
         slice.player.x_velocity = 0;
+    }
+
+    /// Micromax wall/ceiling stick: auto-attach on contact while airborne,
+    /// reduced gravity while stuck, B press detaches with kick velocity.
+    fn step_micromax_stick(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+    ) {
+        // Only active for Micromax form
+        if self.current_form != PlayerForm::Micromax {
+            self.micromax_stuck = false;
+            return;
+        }
+
+        // Already stuck: handle slide and detach
+        if self.micromax_stuck {
+            let b_pressed = input.b && !self.prior_input.b;
+            if b_pressed {
+                // Detach: kick upward and away
+                self.micromax_stuck = false;
+                slice.player.y_velocity = MICROMAX_DETACH_Y_VEL;
+                // Reverse facing direction
+                slice.player.facing = match slice.player.facing {
+                    Direction::Right => Direction::Left,
+                    Direction::Left => Direction::Right,
+                };
+                let kick_x = match slice.player.facing {
+                    Direction::Right => MICROMAX_DETACH_X_SPEED,
+                    Direction::Left => -MICROMAX_DETACH_X_SPEED,
+                };
+                slice.player.x_velocity = kick_x;
+                slice.player.on_ground = false;
+                return;
+            }
+
+            // While stuck: apply reduced gravity (slowly peels off)
+            slice.player.y_velocity += MICROMAX_STUCK_GRAVITY;
+            if slice.player.y_velocity > MICROMAX_STUCK_MAX_FALL {
+                // Peeled off
+                self.micromax_stuck = false;
+                return;
+            }
+
+            // Zero horizontal velocity while stuck (player can't walk)
+            slice.player.x_velocity = 0;
+
+            // Check surface still exists
+            if let Some(ref grid) = self.block_grid {
+                let px = (slice.player.x_pos >> 16) as i32;
+                let py = (slice.player.y_pos >> 16) as i32;
+                let ceiling = terrain::probe_ceiling(grid, px, py, MICROMAX_HALF_W, MICROMAX_H);
+                let wall_r = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, true);
+                let wall_l = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, false);
+                if !ceiling.hit && !wall_r.hit && !wall_l.hit {
+                    self.micromax_stuck = false;
+                }
+            }
+            return;
+        }
+
+        // Not stuck: try to attach while airborne
+        if slice.player.on_ground {
+            return;
+        }
+        // Only stick when falling or neutral (y_vel >= 0) per ASM
+        if slice.player.y_velocity < 0 {
+            return;
+        }
+
+        if let Some(ref grid) = self.block_grid {
+            let px = (slice.player.x_pos >> 16) as i32;
+            let py = (slice.player.y_pos >> 16) as i32;
+
+            // Check ceiling contact
+            let ceiling = terrain::probe_ceiling(grid, px, py, MICROMAX_HALF_W, MICROMAX_H);
+            if ceiling.hit {
+                self.micromax_stuck = true;
+                slice.player.y_velocity = 0;
+                slice.player.x_velocity = 0;
+                return;
+            }
+
+            // Check wall contact in facing direction
+            let facing_right = slice.player.facing == Direction::Right;
+            let wall = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, facing_right);
+            if wall.hit {
+                self.micromax_stuck = true;
+                slice.player.y_velocity = 0;
+                slice.player.x_velocity = 0;
+            }
+        }
     }
 
     /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
@@ -15146,6 +15256,85 @@ mod tests {
 
         assert!(!rt.iron_knight_climbing);
         assert_eq!(rt.iron_knight_climb_accel, 0);
+    }
+
+    // --- Micromax wall/ceiling stick ---
+
+    fn micromax_runtime_with_ceiling() -> NativeRuntime {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Micromax;
+        rt.number_hitpoints = PlayerForm::Micromax.max_hitpoints();
+        // Build a grid with solid ceiling at row 2 (y=32..48px)
+        let width_cells = 6u16 * 20;
+        let height_cells = 4u16 * 14;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        // Solid block at col 3, row 2
+        let offset = (usize::from(2u16) * usize::from(width_cells) + usize::from(3u16)) * 2;
+        data[offset] = 0x60; // collision = Solid
+        let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+        rt.set_block_grid(grid);
+        rt
+    }
+
+    #[test]
+    fn micromax_sticks_to_ceiling_when_falling() {
+        let mut rt = micromax_runtime_with_ceiling();
+        let mut slice = airborne_slice();
+        // Position player below the ceiling block (cell row 2 = y 32-47px)
+        // With MICROMAX_H=15, top_y = foot_y - 15. Need top_y in row 2 (32..47).
+        // Use foot_y=47+15=62 → top_y=47 → cell row 47>>4=2 ✓
+        slice.player.x_pos = (3 * 16 + 8) << 16; // centre of col 3
+        slice.player.y_pos = 62 << 16;
+        slice.player.y_velocity = 0x1_0000; // falling downward
+        slice.player.on_ground = false;
+
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+        assert!(rt.micromax_stuck, "should stick to ceiling");
+        assert_eq!(slice.player.y_velocity, 0, "velocity zeroed on stick");
+    }
+
+    #[test]
+    fn micromax_does_not_stick_when_moving_upward() {
+        let mut rt = micromax_runtime_with_ceiling();
+        let mut slice = airborne_slice();
+        slice.player.x_pos = (3 * 16 + 8) << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x1_0000; // moving upward
+        slice.player.on_ground = false;
+
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+        assert!(!rt.micromax_stuck, "should not stick while moving upward");
+    }
+
+    #[test]
+    fn micromax_b_press_detaches_with_kick() {
+        let mut rt = micromax_runtime_with_ceiling();
+        rt.micromax_stuck = true;
+        let mut slice = airborne_slice();
+        slice.player.x_pos = (3 * 16 + 8) << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.facing = Direction::Right;
+
+        let input = FrameInput { b: true, ..FrameInput::default() };
+        rt.step_micromax_stick(&mut slice, input);
+
+        assert!(!rt.micromax_stuck, "should detach on B press");
+        assert_eq!(slice.player.y_velocity, MICROMAX_DETACH_Y_VEL, "upward kick");
+        assert_eq!(slice.player.facing, Direction::Left, "facing reversed");
+    }
+
+    #[test]
+    fn micromax_non_micromax_clears_stuck() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::TheKid;
+        rt.micromax_stuck = true;
+
+        let mut slice = airborne_slice();
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+        assert!(!rt.micromax_stuck, "form change should clear stuck");
     }
 
     #[test]
