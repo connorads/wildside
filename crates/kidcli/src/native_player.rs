@@ -1199,6 +1199,19 @@ fn build_game_scene(
         }
     }
 
+    // Murder wall: red wall advancing from the side
+    if let Some(wall_x_fp) = trace.murder_wall_x {
+        let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+        let wall_colour: [u8; 3] = [180, 20, 20];
+        commands.push(DrawCommand::Rect {
+            x: wall_x_screen - 48,
+            y: 0,
+            width: 48,
+            height: FRAME_HEIGHT as i32,
+            colour: wall_colour,
+        });
+    }
+
     push_game_hud(&mut commands, trace, level_visuals);
 
     if debug_overlay_visible {
