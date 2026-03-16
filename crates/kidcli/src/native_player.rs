@@ -6,7 +6,7 @@ use kid_core::{
     NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader};
-use kid_render::{Level1Visuals, Palette, TileRef, TileSheet, load_level1_visuals};
+use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Scancode};
@@ -89,8 +89,8 @@ struct SpriteTile {
 
 #[derive(Debug, Clone)]
 struct NativeSessionAssets {
-    level1_visuals: Level1Visuals,
-    level1_block_grid: BlockGrid,
+    level_visuals: NativeLevelVisuals,
+    block_grid: BlockGrid,
 }
 
 #[derive(Debug, Clone)]
@@ -168,7 +168,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let scene = build_scene(
         &trace,
         debug_overlay_visible,
-        Some(&session_assets.level1_visuals),
+        Some(&session_assets.level_visuals),
         runtime.block_grid(),
     );
     render_scene(&scene, &mut frame);
@@ -240,7 +240,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         let scene = build_scene(
             &trace,
             debug_overlay_visible,
-            Some(&session_assets.level1_visuals),
+            Some(&session_assets.level_visuals),
             runtime.block_grid(),
         );
         render_scene(&scene, &mut frame);
@@ -266,9 +266,9 @@ fn load_native_session_assets(
     manifest: &AssetManifest,
     level_id: u8,
 ) -> Result<NativeSessionAssets> {
-    load_native_session_assets_with(manifest, level_id, load_level1_visuals).map_err(|error| {
+    load_native_session_assets_with(manifest, level_id, load_level_visuals).map_err(|error| {
         anyhow!(
-            "{error:#}. play-native needs extracted Level 1 visuals and block layout; run `mise run extract-assets` if they are missing"
+            "{error:#}. play-native needs extracted level visuals and block layout; run `mise run extract-assets` if they are missing"
         )
     })
 }
@@ -284,13 +284,13 @@ fn load_native_session_assets_with<F>(
     mut visuals_loader: F,
 ) -> Result<NativeSessionAssets>
 where
-    F: FnMut(&AssetManifest) -> Result<Level1Visuals>,
+    F: FnMut(&AssetManifest, u8) -> Result<NativeLevelVisuals>,
 {
-    let level1_visuals = visuals_loader(manifest)?;
-    let level1_block_grid = try_load_block_grid(manifest, level_id)?;
+    let level_visuals = visuals_loader(manifest, level_id)?;
+    let block_grid = try_load_block_grid(manifest, level_id)?;
     Ok(NativeSessionAssets {
-        level1_visuals,
-        level1_block_grid,
+        level_visuals,
+        block_grid,
     })
 }
 
@@ -299,7 +299,7 @@ fn initialise_runtime(
     session_assets: &NativeSessionAssets,
 ) -> NativeRuntime {
     let mut runtime = NativeRuntime::new(manifest.clone());
-    runtime.set_block_grid(session_assets.level1_block_grid.clone());
+    runtime.set_block_grid(session_assets.block_grid.clone());
     runtime.enter_level_playtest(LevelId(0));
     runtime
 }
@@ -307,14 +307,14 @@ fn initialise_runtime(
 fn build_scene(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
-    level1_visuals: Option<&Level1Visuals>,
+    level_visuals: Option<&NativeLevelVisuals>,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
     match trace.game_mode {
         GameMode::InGame => build_game_scene(
             trace,
             debug_overlay_visible,
-            level1_visuals.expect("Level 1 visuals are required for gameplay scenes"),
+            level_visuals.expect("Level 1 visuals are required for gameplay scenes"),
             block_grid,
         ),
         _ => build_status_scene(trace, debug_overlay_visible),
@@ -408,56 +408,56 @@ fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> 
 }
 
 fn resolve_ingame_vram_tile(
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     tile_ref: TileRef,
 ) -> Option<ResolvedSceneTile> {
     let foreground_range_end =
-        FOREGROUND_TILE_VRAM_BASE + level1_visuals.foreground_tiles.tiles.len() as u16;
+        FOREGROUND_TILE_VRAM_BASE + level_visuals.foreground_tiles.tiles.len() as u16;
     if (FOREGROUND_TILE_VRAM_BASE..foreground_range_end).contains(&tile_ref.tile_index) {
         return Some(ResolvedSceneTile {
-            tile_sheet: Arc::new(level1_visuals.foreground_tiles.clone()),
+            tile_sheet: Arc::new(level_visuals.foreground_tiles.clone()),
             tile: TileRef {
                 tile_index: tile_ref.tile_index - FOREGROUND_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+            palette: Arc::new(level_visuals.palettes.foreground.clone()),
         });
     }
 
-    let block_range_end = BLOCK_TILE_VRAM_BASE + level1_visuals.block_tiles.tiles.len() as u16;
+    let block_range_end = BLOCK_TILE_VRAM_BASE + level_visuals.block_tiles.tiles.len() as u16;
     if (BLOCK_TILE_VRAM_BASE..block_range_end).contains(&tile_ref.tile_index) {
         return Some(ResolvedSceneTile {
-            tile_sheet: Arc::new(level1_visuals.block_tiles.clone()),
+            tile_sheet: Arc::new(level_visuals.block_tiles.clone()),
             tile: TileRef {
                 tile_index: tile_ref.tile_index - BLOCK_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+            palette: Arc::new(level_visuals.palettes.foreground.clone()),
         });
     }
 
-    let hud_range_end = HUD_TILE_VRAM_BASE + level1_visuals.hud.digits.tiles.len() as u16;
+    let hud_range_end = HUD_TILE_VRAM_BASE + level_visuals.hud.digits.tiles.len() as u16;
     if (HUD_TILE_VRAM_BASE..hud_range_end).contains(&tile_ref.tile_index) {
         return Some(ResolvedSceneTile {
-            tile_sheet: Arc::new(level1_visuals.hud.digits.clone()),
+            tile_sheet: Arc::new(level_visuals.hud.digits.clone()),
             tile: TileRef {
                 tile_index: tile_ref.tile_index - HUD_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+            palette: Arc::new(level_visuals.palettes.foreground.clone()),
         });
     }
 
     let hud_diamond_range_end =
-        HUD_DIAMOND_TILE_VRAM_BASE + level1_visuals.hud.diamond_tiles.tiles.len() as u16;
+        HUD_DIAMOND_TILE_VRAM_BASE + level_visuals.hud.diamond_tiles.tiles.len() as u16;
     if (HUD_DIAMOND_TILE_VRAM_BASE..hud_diamond_range_end).contains(&tile_ref.tile_index) {
         return Some(ResolvedSceneTile {
-            tile_sheet: Arc::new(level1_visuals.hud.diamond_tiles.clone()),
+            tile_sheet: Arc::new(level_visuals.hud.diamond_tiles.clone()),
             tile: TileRef {
                 tile_index: tile_ref.tile_index - HUD_DIAMOND_TILE_VRAM_BASE,
                 ..tile_ref
             },
-            palette: Arc::new(level1_visuals.palettes.foreground.clone()),
+            palette: Arc::new(level_visuals.palettes.foreground.clone()),
         });
     }
 
@@ -477,14 +477,14 @@ fn push_resolved_tile(commands: &mut Vec<DrawCommand>, x: i32, y: i32, tile: Res
 fn push_background_tiles(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-    let tile_sheet = Arc::new(level1_visuals.background_tiles.clone());
-    let palette = Arc::new(level1_visuals.palettes.background.clone());
+    let tile_sheet = Arc::new(level_visuals.background_tiles.clone());
+    let palette = Arc::new(level_visuals.palettes.background.clone());
 
-    match &level1_visuals.background {
+    match &level_visuals.background {
         kid_render::BackgroundVisuals::Chunked(background) => {
             for placement in &background.placements {
                 let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
@@ -499,7 +499,7 @@ fn push_background_tiles(
                         };
                         let (screen_x, screen_y) = background_tile_screen_position(
                             trace,
-                            level1_visuals,
+                            level_visuals,
                             placement.x_tiles + column,
                             placement.y_tiles + row,
                             camera_x_px,
@@ -534,7 +534,7 @@ fn push_background_tiles(
                 for (column, tile) in row.tiles.iter().enumerate() {
                     let (screen_x, screen_y) = background_tile_screen_position(
                         trace,
-                        level1_visuals,
+                        level_visuals,
                         column as u16,
                         row_index as u16,
                         camera_x_px,
@@ -562,7 +562,7 @@ fn push_background_tiles(
 
 fn background_tile_screen_position(
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     x_tiles: u16,
     y_tiles: u16,
     camera_x_px: i32,
@@ -570,7 +570,7 @@ fn background_tile_screen_position(
 ) -> (i32, i32) {
     let world_x_px = i32::from(x_tiles) * 8;
     let world_y_px = i32::from(y_tiles) * 8;
-    let Some(profile) = level1_visuals.level.background_scroll.as_ref() else {
+    let Some(profile) = level_visuals.level.background_scroll.as_ref() else {
         return (
             world_x_px.saturating_sub(camera_x_px),
             world_y_px.saturating_sub(camera_y_px),
@@ -603,7 +603,7 @@ fn background_scroll_x_px(trace: &NativeTraceFrame, camera_x_px: i32, layer_spee
 
 fn push_tile_quad(
     commands: &mut Vec<DrawCommand>,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     x: i32,
     y: i32,
     quad: &kid_render::TileQuad,
@@ -611,7 +611,7 @@ fn push_tile_quad(
     for (index, tile_ref) in quad.tiles.iter().copied().enumerate() {
         let tile_x = x + if index % 2 == 0 { 0 } else { 8 };
         let tile_y = y + if index < 2 { 0 } else { 8 };
-        if let Some(tile) = resolve_ingame_vram_tile(level1_visuals, tile_ref) {
+        if let Some(tile) = resolve_ingame_vram_tile(level_visuals, tile_ref) {
             push_resolved_tile(commands, tile_x, tile_y, tile);
         }
     }
@@ -620,7 +620,7 @@ fn push_tile_quad(
 fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
@@ -639,12 +639,12 @@ fn push_level_layout_terrain(
     for row in row_start..row_end {
         for col in col_start..col_end {
             let cell = grid.cell_at(col, row);
-            let Some(resolved) = level1_visuals.level.block_mapping.resolve(cell.skin, None) else {
+            let Some(resolved) = level_visuals.level.block_mapping.resolve(cell.skin, None) else {
                 continue;
             };
             push_tile_quad(
                 commands,
-                level1_visuals,
+                level_visuals,
                 i32::from(col) * 16 - camera_x_px,
                 i32::from(row) * 16 - camera_y_px,
                 resolved.quad,
@@ -656,7 +656,7 @@ fn push_level_layout_terrain(
 fn push_block_grid_overrides(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
 ) {
     let Some(grid) = block_grid else { return };
@@ -679,7 +679,7 @@ fn push_block_grid_overrides(
                 continue;
             }
 
-            let Some(resolved) = level1_visuals
+            let Some(resolved) = level_visuals
                 .level
                 .block_mapping
                 .resolve(cell.skin, Some(cell.block_type as u8))
@@ -688,7 +688,7 @@ fn push_block_grid_overrides(
             };
             push_tile_quad(
                 commands,
-                level1_visuals,
+                level_visuals,
                 i32::from(col) * 16 - camera_x_px,
                 i32::from(row) * 16 - camera_y_px,
                 resolved.quad,
@@ -701,7 +701,7 @@ const HUD_BG: [u8; 3] = [20, 20, 30];
 
 fn push_hud_number(
     commands: &mut Vec<DrawCommand>,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     value: u16,
     x: i32,
     y: i32,
@@ -711,9 +711,9 @@ fn push_hud_number(
             continue;
         };
         let Some(tile) = resolve_ingame_vram_tile(
-            level1_visuals,
+            level_visuals,
             TileRef {
-                tile_index: level1_visuals.hud.digit_base_tile_index + digit_value as u16,
+                tile_index: level_visuals.hud.digit_base_tile_index + digit_value as u16,
                 palette_line: 0,
                 priority: false,
                 flip_x: false,
@@ -737,17 +737,17 @@ fn hud_counter_width(value: u16) -> i32 {
 
 fn push_hud_counter(
     commands: &mut Vec<DrawCommand>,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     value: u16,
     x: i32,
     y: i32,
 ) {
-    push_hud_number(commands, level1_visuals, value, x, y);
+    push_hud_number(commands, level_visuals, value, x, y);
     if value < 10
         && let Some(tile) = resolve_ingame_vram_tile(
-            level1_visuals,
+            level_visuals,
             TileRef {
-                tile_index: level1_visuals.hud.digit_base_tile_index + 11,
+                tile_index: level_visuals.hud.digit_base_tile_index + 11,
                 palette_line: 0,
                 priority: false,
                 flip_x: false,
@@ -761,17 +761,17 @@ fn push_hud_counter(
 
 fn push_hud_icon(
     commands: &mut Vec<DrawCommand>,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     icon_name: &str,
     x: i32,
     y: i32,
 ) {
-    if let Some(icon) = level1_visuals
+    if let Some(icon) = level_visuals
         .hud
         .icons
         .iter()
         .find(|icon| icon.name == icon_name)
-        && let Some(tile) = resolve_ingame_vram_tile(level1_visuals, icon.tile)
+        && let Some(tile) = resolve_ingame_vram_tile(level_visuals, icon.tile)
     {
         push_resolved_tile(commands, x, y, tile);
     }
@@ -780,7 +780,7 @@ fn push_hud_icon(
 fn push_game_hud(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
 ) {
     let hud_y = (FRAME_HEIGHT - 18) as i32;
     let hud_h = 18;
@@ -800,29 +800,29 @@ fn push_game_hud(
     let pip_y = hud_y + 5;
     for i in 0..max_hp {
         let pip_tile = if (i as u16) < trace.number_hitpoints {
-            level1_visuals.hud.hitpoint_tiles[0]
+            level_visuals.hud.hitpoint_tiles[0]
         } else {
-            level1_visuals.hud.hitpoint_tiles[2]
+            level_visuals.hud.hitpoint_tiles[2]
         };
-        if let Some(tile) = resolve_ingame_vram_tile(level1_visuals, pip_tile) {
+        if let Some(tile) = resolve_ingame_vram_tile(level_visuals, pip_tile) {
             push_resolved_tile(commands, 4 + i * (8 + pip_gap), pip_y, tile);
         }
     }
 
     let lives_x = 4 + max_hp * (8 + pip_gap) + 8;
-    push_hud_counter(commands, level1_visuals, trace.number_lives, lives_x, pip_y);
-    push_hud_icon(commands, level1_visuals, "ankh", lives_x + 18, pip_y);
+    push_hud_counter(commands, level_visuals, trace.number_lives, lives_x, pip_y);
+    push_hud_icon(commands, level_visuals, "ankh", lives_x + 18, pip_y);
 
     let diamond_icon_x = FRAME_WIDTH as i32 - 12;
     let diamond_counter_x = diamond_icon_x - 2 - hud_counter_width(trace.diamond_count);
     push_hud_counter(
         commands,
-        level1_visuals,
+        level_visuals,
         trace.diamond_count,
         diamond_counter_x,
         pip_y,
     );
-    push_hud_icon(commands, level1_visuals, "diamond", diamond_icon_x, pip_y);
+    push_hud_icon(commands, level_visuals, "diamond", diamond_icon_x, pip_y);
 }
 
 fn build_player_sprite_tiles(
@@ -1013,9 +1013,9 @@ fn push_player_sprite(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
 ) {
-    let frame = select_player_frame(trace, &level1_visuals.player);
+    let frame = select_player_frame(trace, &level_visuals.player);
     let facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
@@ -1024,7 +1024,7 @@ fn push_player_sprite(
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(level1_visuals.player.palette.clone()),
+        palette: Arc::new(level_visuals.player.palette.clone()),
         tiles: build_player_sprite_tiles(frame, facing),
     });
 }
@@ -1042,13 +1042,13 @@ fn push_enemy_sprite(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     object_type: u8,
 ) {
     let enemy_visuals = match object_type {
-        0x01 => &level1_visuals.enemies.diamond,
-        0x0C | 0x0D => &level1_visuals.enemies.dragon,
-        0x1C => &level1_visuals.enemies.mini_hopping_skull,
+        0x01 => &level_visuals.enemies.diamond,
+        0x0C | 0x0D => &level_visuals.enemies.dragon,
+        0x1C => &level_visuals.enemies.mini_hopping_skull,
         _ => {
             commands.push(object_rect(
                 object,
@@ -1082,19 +1082,19 @@ fn push_platform_tiles(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     kind: u8,
 ) {
     let frame = match kind {
-        0x00 => &level1_visuals.platforms.horizontal,
-        _ => &level1_visuals.platforms.vertical,
+        0x00 => &level_visuals.platforms.horizontal,
+        _ => &level_visuals.platforms.vertical,
     };
     let (screen_x, screen_y) = player_screen_position(object, trace);
     commands.push(DrawCommand::Sprite {
         x: screen_x - i32::from(frame.origin_x),
         y: screen_y - i32::from(frame.origin_y),
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(level1_visuals.platforms.palette.clone()),
+        palette: Arc::new(level_visuals.platforms.palette.clone()),
         tiles: build_sprite_tiles(frame, Direction::Right, 0),
     });
 }
@@ -1122,8 +1122,8 @@ pub(crate) fn render_gameplay_frame_evidence(
             let scene = build_scene(
                 frame,
                 false,
-                Some(&session_assets.level1_visuals),
-                Some(&session_assets.level1_block_grid),
+                Some(&session_assets.level_visuals),
+                Some(&session_assets.block_grid),
             );
             let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
             render_scene(&scene, &mut rgb);
@@ -1141,15 +1141,15 @@ pub(crate) fn render_gameplay_frame_evidence(
 fn build_game_scene(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
-    level1_visuals: &Level1Visuals,
+    level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
-    let background = background_colour(level1_visuals);
+    let background = background_colour(level_visuals);
     let mut commands = Vec::new();
 
-    push_background_tiles(&mut commands, trace, level1_visuals);
-    push_level_layout_terrain(&mut commands, trace, level1_visuals, block_grid);
-    push_block_grid_overrides(&mut commands, trace, level1_visuals, block_grid);
+    push_background_tiles(&mut commands, trace, level_visuals);
+    push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
+    push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
 
     for object in trace
         .active_objects
@@ -1157,7 +1157,7 @@ fn build_game_scene(
         .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Platform { .. }))
     {
         if let NativeObjectKind::Platform { kind, .. } = object.kind {
-            push_platform_tiles(&mut commands, object, trace, level1_visuals, kind);
+            push_platform_tiles(&mut commands, object, trace, level_visuals, kind);
         }
     }
     for object in trace
@@ -1166,7 +1166,7 @@ fn build_game_scene(
         .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Enemy { .. }))
     {
         if let NativeObjectKind::Enemy { object_type } = object.kind {
-            push_enemy_sprite(&mut commands, object, trace, level1_visuals, object_type);
+            push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
         }
     }
     // Player: blink every 4 frames during invulnerability
@@ -1177,11 +1177,11 @@ fn build_game_scene(
             .iter()
             .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
         {
-            push_player_sprite(&mut commands, object, trace, level1_visuals);
+            push_player_sprite(&mut commands, object, trace, level_visuals);
         }
     }
 
-    push_game_hud(&mut commands, trace, level1_visuals);
+    push_game_hud(&mut commands, trace, level_visuals);
 
     if debug_overlay_visible {
         push_panel(&mut commands, 8, 8, 304, 44, [12, 18, 24], [160, 214, 255]);
@@ -1232,8 +1232,8 @@ fn build_game_scene(
     }
 }
 
-fn background_colour(level1_visuals: &Level1Visuals) -> [u8; 3] {
-    level1_visuals
+fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
+    level_visuals
         .palettes
         .background
         .colours
@@ -1737,7 +1737,7 @@ mod tests {
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
-        ForegroundLayout, HudIcon, HudVisuals, Level1Visuals, LevelVisuals, MdColour, Palette,
+        ForegroundLayout, HudIcon, HudVisuals, NativeLevelVisuals, LevelVisuals, MdColour, Palette,
         PaletteSet, PlatformVisuals, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef,
         TileSheet,
     };
@@ -2092,7 +2092,7 @@ mod tests {
         })
     }
 
-    fn sample_level1_visuals_with_background(background: [u8; 3]) -> Level1Visuals {
+    fn sample_level_visuals_with_background(background: [u8; 3]) -> NativeLevelVisuals {
         let foreground = (0..16)
             .map(|skin| sample_tile_quad(0x00BC + (skin as u16 * 4)))
             .collect();
@@ -2107,7 +2107,7 @@ mod tests {
         let foreground_layout_bytes = sample_foreground_layout_bytes();
         let foreground_layout =
             ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
-        Level1Visuals {
+        NativeLevelVisuals {
             foreground_tiles: blank_tile_sheet(0x80),
             background_tiles: blank_tile_sheet(0x20),
             block_tiles: blank_tile_sheet(0x200),
@@ -2159,8 +2159,8 @@ mod tests {
         }
     }
 
-    fn sample_level1_visuals() -> Level1Visuals {
-        sample_level1_visuals_with_background([33, 66, 99])
+    fn sample_level_visuals() -> NativeLevelVisuals {
+        sample_level_visuals_with_background([33, 66, 99])
     }
 
     fn sample_foreground_layout_bytes() -> Vec<u8> {
@@ -2176,7 +2176,7 @@ mod tests {
         debug_overlay_visible: bool,
         block_grid: Option<&BlockGrid>,
     ) -> Scene {
-        let visuals = sample_level1_visuals();
+        let visuals = sample_level_visuals();
         build_scene(trace, debug_overlay_visible, Some(&visuals), block_grid)
     }
 
@@ -2525,9 +2525,9 @@ mod tests {
     }
 
     #[test]
-    fn build_scene_uses_loaded_level1_visuals_for_ingame() {
+    fn build_scene_uses_loaded_level_visuals_for_ingame() {
         let trace = sample_trace(GameMode::InGame);
-        let visuals = sample_level1_visuals_with_background([12, 34, 56]);
+        let visuals = sample_level_visuals_with_background([12, 34, 56]);
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -2539,7 +2539,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        let visuals = sample_level1_visuals();
+        let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -2569,7 +2569,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0x0020_0000;
         trace.camera_y_pos = 0x0010_0000;
-        let mut visuals = sample_level1_visuals();
+        let mut visuals = sample_level_visuals();
         visuals.level.background_scroll = Some(kid_data::BgscrollProfile {
             layer_speeds: vec![0x10; 8],
             has_terminator: true,
@@ -2789,7 +2789,7 @@ mod tests {
 
     #[test]
     fn resolve_ingame_vram_tile_maps_hud_symbols_and_diamond_tiles() {
-        let visuals = sample_level1_visuals();
+        let visuals = sample_level_visuals();
 
         let colon = resolve_ingame_vram_tile(&visuals, TileRef::from_attr_word(0x86C4))
             .expect("colon tile");
@@ -2844,13 +2844,13 @@ mod tests {
     }
 
     #[test]
-    fn run_native_player_loads_level1_visuals_once_before_main_loop() {
+    fn run_native_player_loads_level_visuals_once_before_main_loop() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         let load_count = AtomicUsize::new(0);
 
-        let session_assets = load_native_session_assets_with(&fixture.manifest, 0x00, |_| {
+        let session_assets = load_native_session_assets_with(&fixture.manifest, 0x00, |_, _| {
             load_count.fetch_add(1, Ordering::SeqCst);
-            Ok(sample_level1_visuals())
+            Ok(sample_level_visuals())
         })
         .expect("session assets");
         let runtime = initialise_runtime(&fixture.manifest, &session_assets);
@@ -3038,7 +3038,7 @@ mod tests {
 
     #[test]
     fn block_types_have_distinct_tile_mappings() {
-        let visuals = sample_level1_visuals();
+        let visuals = sample_level_visuals();
         let tile_indices: Vec<_> = [Some(0), Some(1), Some(2), Some(6)]
             .iter()
             .map(|block_type| {

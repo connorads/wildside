@@ -13,7 +13,7 @@ pub use background::{
     parse_background_chunk, parse_chunked_background_layout, parse_layered_background_layout,
     parse_layered_background_plane,
 };
-pub use bundle::{Level1Visuals, load_level1_visuals};
+pub use bundle::{NativeLevelVisuals, load_level_visuals};
 pub use hud::{HudIcon, HudVisuals};
 pub use level::{
     BlockVisualKind, BlockVisualMapping, ForegroundLayout, LevelVisuals, ResolvedBlockVisual,
@@ -24,7 +24,7 @@ pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
 mod tests {
-    use super::{BlockVisualKind, load_level1_visuals};
+    use super::{BlockVisualKind, load_level_visuals};
     use kid_data::{
         AssetFile, AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION,
         LEVEL1_DECODED_ASSET_VERSION, LevelHeader, LevelRecord, LevelResources,
@@ -41,7 +41,7 @@ mod tests {
     fn load_level1_tile_sheet_and_palettes() {
         let fixture = TestBundle::new().expect("test bundle");
 
-        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
 
         assert_eq!(visuals.foreground_tiles.tiles.len(), 2);
         assert_eq!(visuals.background_tiles.tiles.len(), 1);
@@ -56,7 +56,7 @@ mod tests {
     fn load_block_visual_mapping_from_skin_and_block_type() {
         let fixture = TestBundle::new().expect("test bundle");
 
-        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
         let terrain = visuals
             .level
             .block_mapping
@@ -118,7 +118,7 @@ mod tests {
     fn load_hud_visuals_returns_digit_and_icon_metadata() {
         let fixture = TestBundle::new().expect("test bundle");
 
-        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
 
         assert_eq!(visuals.hud.digits.tiles.len(), 12);
         assert_eq!(visuals.hud.digit_base_tile_index, 0x06BA);
@@ -140,7 +140,7 @@ mod tests {
     fn load_player_visuals_returns_required_kid_frames() {
         let fixture = TestBundle::new().expect("test bundle");
 
-        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
 
         assert_eq!(visuals.player.palette.colours.len(), 15);
         assert_eq!(visuals.player.idle.origin_x, 0x0B);
@@ -162,7 +162,7 @@ mod tests {
     fn load_enemy_and_platform_visuals_returns_visible_level1_families() {
         let fixture = TestBundle::new().expect("test bundle");
 
-        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
 
         assert_eq!(visuals.enemies.diamond.frames.len(), 3);
         assert_eq!(visuals.enemies.diamond.frames[0].tile_base_index, 0x002F);
@@ -188,7 +188,7 @@ mod tests {
             .join("cave.bin");
         fs::remove_file(&missing_path).expect("remove palette");
 
-        let error = load_level1_visuals(&fixture.manifest).expect_err("missing asset should fail");
+        let error = load_level_visuals(&fixture.manifest, LEVEL_ID).expect_err("missing asset should fail");
         let message = format!("{error:#}");
         assert!(message.contains("theme/palette_fg/cave.bin"));
         assert!(message.contains("missing"));
@@ -198,7 +198,7 @@ mod tests {
     fn kid_render_loads_complete_level1_bundle_from_generated_assets() {
         let fixture = TestBundle::new().expect("test bundle");
 
-        let visuals = load_level1_visuals(&fixture.manifest).expect("visuals should load");
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
 
         assert_eq!(visuals.level.level_id, LEVEL_ID);
         assert_eq!(visuals.level.foreground_theme_id, CAVE_THEME_ID);

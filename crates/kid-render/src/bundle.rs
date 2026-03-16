@@ -19,7 +19,6 @@ use sha1::{Digest, Sha1};
 use std::fs;
 use std::path::Path;
 
-const LEVEL1_ID: u8 = 0x00;
 const HUD_DIGIT_BASE_TILE_INDEX: u16 = 0x06BA;
 const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
@@ -41,7 +40,7 @@ const THEME_NAMES: [&str; 11] = [
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Level1Visuals {
+pub struct NativeLevelVisuals {
     pub foreground_tiles: TileSheet,
     pub background_tiles: TileSheet,
     pub block_tiles: TileSheet,
@@ -54,17 +53,14 @@ pub struct Level1Visuals {
     pub platforms: PlatformVisuals,
 }
 
-pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
+pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<NativeLevelVisuals> {
     ensure_generated_bundle_contract(manifest)?;
-    let level_bundle = load_level_asset_bundle(manifest, LEVEL1_ID)?;
+    let level_bundle = load_level_asset_bundle(manifest, level_id)?;
     let header = level_bundle
         .parsed_header
         .as_ref()
-        .ok_or_else(|| anyhow!("generated bundle is missing Level 1 header metadata"))?;
-    let decoded = manifest
-        .decoded_level1
-        .as_ref()
-        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} is missing header metadata"))?;
+    let decoded = manifest.decoded_level1.as_ref();
 
     let foreground_theme = resolve_theme_name(header.level_theme)
         .ok_or_else(|| anyhow!("unsupported foreground theme id {}", header.level_theme))?;
@@ -77,24 +73,33 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
 
     let foreground_layout = match level_bundle.foreground.as_ref() {
         Some(asset) => decode_level_saxman_asset(asset, "foreground layout")?,
-        None => read_decoded_file(manifest, &decoded.foreground, "foreground layout")?,
+        None => match decoded {
+            Some(d) => read_decoded_file(manifest, &d.foreground, "foreground layout")?,
+            None => bail!("level 0x{level_id:02X} has no foreground layout data"),
+        },
     };
-    let block_layout = read_decoded_file(manifest, &decoded.block, "block layout")?;
-    let background_layout = level_bundle
-        .background
-        .as_ref()
-        .map(|asset| asset.bytes.clone())
-        .unwrap_or(read_decoded_file(
-            manifest,
-            &decoded.background,
-            "background layout",
-        )?);
+    let block_layout = match level_bundle.block.as_ref() {
+        Some(asset) => decode_level_saxman_asset(asset, "block layout")?,
+        None => match decoded {
+            Some(d) => read_decoded_file(manifest, &d.block, "block layout")?,
+            None => bail!("level 0x{level_id:02X} has no block layout data"),
+        },
+    };
+    let background_layout = match level_bundle.background.as_ref() {
+        Some(asset) => asset.bytes.clone(),
+        None => match decoded {
+            Some(d) => read_decoded_file(manifest, &d.background, "background layout")?,
+            None => bail!("level 0x{level_id:02X} has no background layout data"),
+        },
+    };
     let parsed_foreground_layout = ForegroundLayout::parse(
         &foreground_layout,
         header.width_screens,
         header.height_screens,
     )
-    .context("failed to parse Level 1 foreground layout")?;
+    .context(format!(
+        "failed to parse level 0x{level_id:02X} foreground layout"
+    ))?;
 
     let foreground_tiles = load_tile_sheet(
         manifest,
@@ -181,16 +186,16 @@ pub fn load_level1_visuals(manifest: &AssetManifest) -> Result<Level1Visuals> {
         "block mapping",
     )?)?;
     let background = load_background_visuals(manifest, background_theme, &background_layout)
-        .context("failed to load Level 1 background visuals")?;
+        .context(format!("failed to load level 0x{level_id:02X} background visuals"))?;
 
-    Ok(Level1Visuals {
+    Ok(NativeLevelVisuals {
         foreground_tiles,
         background_tiles,
         block_tiles,
         palettes,
         background,
         level: LevelVisuals {
-            level_id: LEVEL1_ID,
+            level_id,
             foreground_theme_id: header.level_theme,
             background_theme_id: header.background_theme,
             background_scroll: level_bundle.parsed_bgscroll.clone(),
