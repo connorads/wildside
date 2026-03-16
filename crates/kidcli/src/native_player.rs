@@ -497,17 +497,40 @@ fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
         height: FRAME_HEIGHT as i32,
         colour: [0, 0, 0],
     });
-    let level_text = format!(
-        "{}",
-        trace
-            .current_level_name
-            .as_deref()
-            .unwrap_or(&format!("Level {:02X}", trace.current_level.0))
-    );
+    let level_name = trace
+        .current_level_name
+        .as_deref()
+        .unwrap_or("Unknown");
+    let level_text = format!("{}", level_name);
     let text_w = level_text.len() as i32 * 8 * 2;
     let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-    let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
+    let text_y = (FRAME_HEIGHT as i32) / 2 - 20;
     commands.push(text(text_x, text_y, &level_text, [255, 255, 255], 2));
+
+    // Level ID subtitle
+    let id_text = format!("Level {:02X}", trace.current_level.0);
+    let id_w = id_text.len() as i32 * 8;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - id_w) / 2,
+        text_y + 22,
+        &id_text,
+        [120, 120, 120],
+        1,
+    ));
+
+    // Lives and score
+    let info_text = format!(
+        "Lives: {}  Score: {}",
+        trace.number_lives, trace.score
+    );
+    let info_w = info_text.len() as i32 * 8;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - info_w) / 2,
+        text_y + 40,
+        &info_text,
+        [100, 140, 180],
+        1,
+    ));
     Scene {
         background: [0, 0, 0],
         commands,
