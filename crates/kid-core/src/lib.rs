@@ -736,9 +736,11 @@ struct EnemyProjectile {
     y_velocity: i32,
     /// Remaining lifetime in frames (destroyed when zero).
     lifetime: u16,
-    /// True for player-fired projectiles (Eyeclops beam, Maniaxe axe) — these
+    /// True for player-fired projectiles (Eyeclops beam, Maniaxe axe, Juggernaut skull) — these
     /// damage enemies, not the player.
     friendly: bool,
+    /// Per-frame gravity added to y_velocity (for arcing projectiles like Juggernaut skull).
+    gravity: i32,
 }
 
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
@@ -783,6 +785,12 @@ const MUSHROOM_MIN_BOUNCE: i32 = -0x2_0000;
 /// Normal beam (C button) has no diamond cost; hard beam (A+B held) costs 2.
 const EYECLOPS_BEAM_SPEED: i32 = 0x8_0000; // 8 px/frame
 const EYECLOPS_BEAM_LIFETIME: u16 = 60;
+
+/// Juggernaut skull shot: C fires a skull projectile with gravity.
+const JUGGERNAUT_SKULL_X_SPEED: i32 = 0x4_0000; // 4 px/frame
+const JUGGERNAUT_SKULL_GRAVITY: i32 = 0x1000; // $1000/frame gravity on y_vel
+const JUGGERNAUT_SKULL_LIFETIME: u16 = 120;
+const JUGGERNAUT_MAX_SKULLS: usize = 8;
 
 /// Berzerker charge: accumulator increments by $10 each frame when velocity >= 1.0 FP.
 /// Charging activates when accumulator overflows past $FF.
@@ -1691,6 +1699,7 @@ impl NativeRuntime {
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
         self.step_berzerker_charge(&slice);
+        self.step_juggernaut_skull(&slice, input);
 
         // Either Skycutter board or Cyclone flight replaces normal gravity
         let custom_gravity = self.skycutter_on_board || self.cyclone_flying;
@@ -2771,6 +2780,7 @@ impl NativeRuntime {
                 y_velocity: 0,
                 lifetime: EYECLOPS_BEAM_LIFETIME,
                 friendly: true,
+                gravity: 0,
             });
         }
     }
@@ -2796,6 +2806,7 @@ impl NativeRuntime {
                 y_velocity: 0,
                 lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
                 friendly: true,
+                gravity: 0,
             });
         }
 
@@ -2846,6 +2857,43 @@ impl NativeRuntime {
         }
     }
 
+    /// Juggernaut skull shot: C fires a skull projectile with gravity arc.
+    fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.current_form != PlayerForm::Juggernaut {
+            return;
+        }
+
+        let c_pressed = input.c && !self.prior_input.c;
+        if !c_pressed {
+            return;
+        }
+
+        // Max 8 skulls active at once (ASM: cmpi.w #8,($FFFFFB70))
+        let active_skulls = self
+            .projectiles
+            .iter()
+            .filter(|p| p.friendly && p.gravity != 0)
+            .count();
+        if active_skulls >= JUGGERNAUT_MAX_SKULLS {
+            return;
+        }
+
+        let dir = if slice.player.facing == Direction::Right {
+            1
+        } else {
+            -1
+        };
+        self.projectiles.push(EnemyProjectile {
+            x_pos: slice.player.x_pos,
+            y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
+            x_velocity: JUGGERNAUT_SKULL_X_SPEED * dir,
+            y_velocity: 0,
+            lifetime: JUGGERNAUT_SKULL_LIFETIME,
+            friendly: true,
+            gravity: JUGGERNAUT_SKULL_GRAVITY,
+        });
+    }
+
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
     fn step_projectiles(&mut self) {
         self.projectiles.retain_mut(|p| {
@@ -2853,6 +2901,7 @@ impl NativeRuntime {
                 return false;
             }
             p.lifetime -= 1;
+            p.y_velocity += p.gravity;
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             true
@@ -5143,6 +5192,7 @@ fn step_archer(
         y_velocity,
         lifetime: ARCHER_FIRE_TIMER[level],
         friendly: false,
+        gravity: 0,
     });
 }
 
@@ -5166,6 +5216,7 @@ fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile
         y_velocity: 0,
         lifetime: TANK_BULLET_LIFETIME,
         friendly: false,
+        gravity: 0,
     });
 }
 
@@ -10263,6 +10314,7 @@ mod tests {
             y_velocity: -0x1_0000,
             lifetime: 10,
             friendly: false,
+            gravity: 0,
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
@@ -10287,6 +10339,7 @@ mod tests {
             y_velocity: 0,
             lifetime: 1,
             friendly: false,
+            gravity: 0,
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
@@ -12017,6 +12070,77 @@ mod tests {
         rt.step_maniaxe_axe(&slice, FrameInput::default());
 
         assert!(!rt.maniaxe_axe_active);
+    }
+
+    // --- Berzerker charge tests ---
+
+    // --- Juggernaut skull shot tests ---
+
+    #[test]
+    fn juggernaut_c_press_fires_skull() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Juggernaut;
+        let slice = combat_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_juggernaut_skull(&slice, input);
+
+        assert_eq!(rt.projectiles.len(), 1, "should spawn a skull projectile");
+        assert!(rt.projectiles[0].friendly);
+        assert_eq!(rt.projectiles[0].gravity, JUGGERNAUT_SKULL_GRAVITY);
+    }
+
+    #[test]
+    fn juggernaut_skull_has_gravity() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: JUGGERNAUT_SKULL_X_SPEED,
+            y_velocity: 0,
+            lifetime: 10,
+            friendly: true,
+            gravity: JUGGERNAUT_SKULL_GRAVITY,
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].y_velocity, JUGGERNAUT_SKULL_GRAVITY,
+            "gravity should increase y_velocity"
+        );
+    }
+
+    #[test]
+    fn juggernaut_max_skull_limit() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::Juggernaut;
+        let slice = combat_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        // Fire 8 skulls
+        for _ in 0..8 {
+            rt.step_juggernaut_skull(&slice, input);
+            rt.prior_input = FrameInput::default(); // reset so next C is rising edge
+        }
+        assert_eq!(rt.projectiles.len(), 8);
+
+        // 9th should be rejected
+        rt.prior_input = FrameInput::default();
+        rt.step_juggernaut_skull(&slice, input);
+        assert_eq!(rt.projectiles.len(), 8, "should cap at 8 skulls");
+    }
+
+    #[test]
+    fn juggernaut_non_juggernaut_form_no_skull() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.current_form = PlayerForm::TheKid;
+        let slice = combat_slice();
+        let input = FrameInput { c: true, ..FrameInput::default() };
+
+        rt.step_juggernaut_skull(&slice, input);
+
+        assert!(rt.projectiles.is_empty());
     }
 
     // --- Berzerker charge tests ---
