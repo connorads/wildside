@@ -332,6 +332,7 @@ pub struct NativeTraceFrame {
     pub active_enemy_object_count: usize,
     pub active_platform_object_count: usize,
     pub number_lives: u16,
+    pub number_continues: u8,
     pub number_hitpoints: u16,
     pub current_helmet_id: u16,
     pub paused: bool,
@@ -389,6 +390,7 @@ pub struct NativeRuntime {
     current_form: PlayerForm,
     pending_form: Option<PlayerForm>,
     number_lives: u16,
+    number_continues: u8,
     number_hitpoints: u16,
     invulnerable_frames: usize,
     /// Skycutter flipboard deploy counter (0=inactive, 1..31=animating).
@@ -1088,6 +1090,7 @@ impl NativeRuntime {
             current_form: PlayerForm::TheKid,
             pending_form: None,
             number_lives: 3,
+            number_continues: 3,
             number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
             invulnerable_frames: 0,
             skycutter_flipboard: 0,
@@ -1397,6 +1400,7 @@ impl NativeRuntime {
             active_enemy_object_count,
             active_platform_object_count,
             number_lives: self.number_lives,
+            number_continues: self.number_continues,
             number_hitpoints: self.number_hitpoints,
             current_helmet_id: self.current_form.helmet_id(),
             paused: self.paused,
@@ -1590,6 +1594,7 @@ impl NativeRuntime {
             self.current_form = PlayerForm::TheKid;
             self.pending_form = None;
             self.number_lives = 3;
+            self.number_continues = 3;
             self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
             self.invulnerable_frames = 0;
             self.paused = false;
@@ -1661,11 +1666,26 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: remaining_frames - 1,
                     };
+                } else if self.number_continues > 0 {
+                    // Use a continue: restore lives and respawn at current level
+                    self.number_continues -= 1;
+                    self.number_lives = 3;
+                    self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+                    self.current_form = PlayerForm::TheKid;
+                    self.pending_form = None;
+                    self.reload_block_grid_for_level(self.current_level);
+                    self.opening_slice =
+                        Some(self.level_respawn_slice(self.current_level));
+                    self.level_timer = LevelTimer::new();
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+                    };
                 } else {
-                    // Return to title screen
+                    // No continues left — return to title screen
                     self.boot_state = BootState::TitleScreen;
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.number_lives = 3;
+                    self.number_continues = 3;
                     self.diamond_count = 0;
                     self.current_level = LevelId(0);
                     self.opening_slice = None;
@@ -7527,6 +7547,7 @@ mod tests {
 
         start_level(&mut runtime);
         runtime.number_lives = 1; // last life (set after boot so title doesn't reset it)
+        runtime.number_continues = 0; // no continues left, so game over → title
 
         // Walk into spikes
         for _ in 0..300 {
@@ -7573,6 +7594,53 @@ mod tests {
             "should return to title after game over"
         );
         assert_eq!(runtime.number_lives, 3, "lives reset after game over");
+    }
+
+    #[test]
+    fn continue_restores_lives_and_respawns() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_spikes_from_col(5));
+
+        start_level(&mut runtime);
+        runtime.number_lives = 1;
+        runtime.number_continues = 2;
+
+        // Walk into spikes
+        for _ in 0..300 {
+            if !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
+                break;
+            }
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+
+        // Advance through death windup + dying
+        for _ in 0..(PLAYER_DEATH_WINDUP_FRAMES + PLAYER_DEATH_HIDE_FRAMES) {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::GameOver { .. }),
+            "expected GameOver, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        // Advance through game-over hold — should use continue
+        for _ in 0..PLAYER_GAME_OVER_HOLD_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert_eq!(
+            runtime.boot_state,
+            BootState::InGame,
+            "should stay in-game after using continue"
+        );
+        assert_eq!(runtime.number_lives, 3, "lives restored by continue");
+        assert_eq!(runtime.number_continues, 1, "one continue consumed");
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "should be respawning after continue"
+        );
     }
 
     /// Helper: build a block grid with solid floor at a given row everywhere.
