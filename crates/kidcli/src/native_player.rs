@@ -2454,6 +2454,12 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(440.0, 80, 0.1);
         sfx.play(550.0, 120, 0.1);
     }
+    // Diamond Power activation (diamonds dropped by 20+)
+    if prev.diamond_count >= 20 && curr.diamond_count + 20 <= prev.diamond_count && curr.invulnerable_frames > 0 {
+        sfx.play(523.0, 60, 0.18); // C5
+        sfx.play(784.0, 60, 0.18); // G5
+        sfx.play(1047.0, 120, 0.2); // C6
+    }
     // Timer bonus (clock pickup — seconds jumped up)
     if curr.level_timer_seconds > prev.level_timer_seconds + 1 {
         sfx.play(698.0, 60, 0.12); // F5
