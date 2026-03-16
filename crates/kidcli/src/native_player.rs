@@ -327,8 +327,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             }
             if trace.number_lives < prev_trace.number_lives {
                 shake_frames = 12;
+                damage_flash = 120; // intense flash on death
                 fade_alpha = 0;
-                fading_in = false; // will fade to black when death sequence plays
+                fading_in = false;
             }
         }
 
