@@ -607,6 +607,7 @@ enum EnemyFamily {
     Diamond,
     Dragon,
     Cloud,
+    Sphere,
     Goat,
     Armadillo,
     Tank,
@@ -655,6 +656,7 @@ struct ActiveEnemy {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EnemyArchetype {
+    Bouncer,
     Collectible,
     Flyer,
     Hopper,
@@ -3189,6 +3191,7 @@ impl EnemyFamily {
         match self {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
+            Self::Sphere => EnemyArchetype::Bouncer,
             Self::MiniHoppingSkull => EnemyArchetype::Hopper,
             Self::Goat
             | Self::Armadillo
@@ -3207,6 +3210,7 @@ impl EnemyFamily {
             Some(0x09) => Self::Crab,
             Some(0x0A) => Self::Tank,
             Some(0x0C | 0x0D) => Self::Dragon,
+            Some(0x06) => Self::Sphere,
             Some(0x0E) => Self::Cloud,
             Some(0x10) => Self::Goat,
             Some(0x13) => Self::Scorpion,
@@ -3221,6 +3225,7 @@ impl EnemyFamily {
         match self {
             Self::Diamond => 0x01,
             Self::Armadillo => 0x04,
+            Self::Sphere => 0x06,
             Self::Crab => 0x09,
             Self::Tank => 0x0A,
             Self::Dragon => 0x0D,
@@ -3332,6 +3337,7 @@ fn step_active_enemies(
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
+            EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
             EnemyArchetype::Flyer => step_flyer(enemy, block_grid),
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
             EnemyArchetype::Pacer => step_pacer(enemy, block_grid),
@@ -3376,6 +3382,64 @@ fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) 
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
             enemy.facing = opposite_direction(enemy.facing);
+        }
+    }
+}
+
+/// Sphere bounces off walls/floors/ceilings with gravity.
+/// Sphere.asm: gravity +$800/frame, wall→negate x_vel, floor→negate y_vel,
+/// ceiling→negate y_vel and halve.
+const SPHERE_GRAVITY: i32 = 0x800;
+
+fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Apply gravity
+    enemy.y_velocity = enemy.y_velocity.saturating_add(SPHERE_GRAVITY);
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+
+        // Wall bounce
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+
+        // Floor bounce
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground && enemy.y_velocity > 0 {
+            enemy.y_velocity = -enemy.y_velocity;
+            // Snap out of floor
+            let floor_y_fp = (floor.floor_y_px as u32) << 16;
+            if enemy.y_pos > floor_y_fp {
+                enemy.y_pos = floor_y_fp;
+            }
+        }
+
+        // Ceiling bounce
+        let ceil = terrain::probe_ceiling(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+        );
+        if ceil.hit && enemy.y_velocity < 0 {
+            // Ceiling: negate and halve (Sphere.asm Enemy06_Sphere_BounceCeiling)
+            enemy.y_velocity = -(enemy.y_velocity >> 1);
         }
     }
 }
@@ -3666,6 +3730,8 @@ fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
             const CLOUD_SPEEDS: [i32; 3] = [-0x3000, -0x5000, -0x7000];
             CLOUD_SPEEDS[usize::from(enemy_level).min(CLOUD_SPEEDS.len() - 1)]
         }
+        // Sphere.asm: fixed x_vel = $10000
+        EnemyFamily::Sphere => 0x10000,
         _ => 0,
     }
 }
@@ -3689,6 +3755,7 @@ fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Scorpion => 3,
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
+        EnemyFamily::Sphere => 1,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
@@ -8191,6 +8258,115 @@ mod tests {
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 0), 1);
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 1), 2);
         assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 2), 3);
+    }
+
+    // --- Sphere enemy ---
+
+    #[test]
+    fn sphere_maps_to_bouncer_archetype() {
+        assert_eq!(EnemyFamily::Sphere.archetype(), EnemyArchetype::Bouncer);
+    }
+
+    #[test]
+    fn sphere_spawn_velocity_is_fixed() {
+        assert_eq!(spawn_x_velocity(EnemyFamily::Sphere, 0), 0x10000);
+        assert_eq!(spawn_x_velocity(EnemyFamily::Sphere, 2), 0x10000);
+    }
+
+    #[test]
+    fn sphere_applies_gravity() {
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Sphere,
+            x_pos: 128 << 16,
+            y_pos: 64 << 16,
+            x_velocity: 0x10000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        step_bouncer(&mut enemy, None);
+        assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
+        step_bouncer(&mut enemy, None);
+        assert_eq!(
+            enemy.y_velocity,
+            SPHERE_GRAVITY * 2,
+            "gravity accumulates"
+        );
+    }
+
+    #[test]
+    fn sphere_bounces_off_floor() {
+        // Floor at row 10 (y=160)
+        let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Sphere,
+            x_pos: 80 << 16,
+            y_pos: 155 << 16,
+            x_velocity: 0x10000,
+            y_velocity: 0x5000, // falling
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        // Run until it bounces (y_velocity becomes negative)
+        let mut bounced = false;
+        for _ in 0..50 {
+            step_bouncer(&mut enemy, Some(&grid));
+            if enemy.y_velocity < 0 {
+                bounced = true;
+                break;
+            }
+        }
+        assert!(bounced, "sphere should bounce off floor");
+    }
+
+    #[test]
+    fn sphere_bounces_off_wall() {
+        // Wall at col 12 across rows 5-10
+        let mut solid: Vec<(u16, u16)> = Vec::new();
+        for row in 5..=10 {
+            solid.push((12, row));
+        }
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::Sphere,
+            x_pos: 180 << 16,
+            y_pos: 112 << 16,
+            x_velocity: 0x10000, // moving right
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+        };
+        let mut bounced = false;
+        for _ in 0..50 {
+            step_bouncer(&mut enemy, Some(&grid));
+            if enemy.x_velocity < 0 {
+                bounced = true;
+                break;
+            }
+        }
+        assert!(bounced, "sphere should bounce off wall");
     }
 
     // --- Terrain type speed table selection ---
