@@ -9,9 +9,11 @@ This map records what the source port still needs to learn, where to source that
 ## Current frontier
 
 1. Tier 1 enemy families (Pacer archetype: Goat, Armadillo, Tank, Crab, Scorpion, Driller) — **done**
-2. Block interactions + prize system + terrain type physics
-3. Platform collision + multi-theme visual generalisation
-4. See `roadmap.md` for the full 10-milestone plan
+2. Block interactions + prize system + terrain type physics — **terrain type done**, block interactions in progress
+3. Platform collision + multi-theme visual generalisation — **static + moving platform collision done**
+4. Tier 2 enemy families (Cloud, Sphere, BigHoppingSkull, EmoRock, Archer, Fireball) — **done**
+5. Tier 3-4 enemy families (all 28 families wired) — **done**
+6. See `roadmap.md` for the full 10-milestone plan
 
 ## Done
 
@@ -65,6 +67,9 @@ This map records what the source port still needs to learn, where to source that
 - `MiniHoppingSkull` uses a hopper loop in the native runtime
 - Done: Pacer archetype for 6 Tier 1 families (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
 - Done: family-specific HP initialisation from ASM init routines
+- Done: Cloud (horizontal flight + wall reversal), Sphere (gravity bounce), BigHoppingSkull (parameterised hopper)
+- Done: Fireball (gravity bounce with level-dependent gravity), EmoRock/Archer (Inert stubs)
+- Done: All 28 enemy families wired — Tier 3-4 mapped to closest archetypes (Pacer/Flyer/Hopper/Bouncer/Inert)
 - Source: `code/enemy/*.asm`, oracle per-object traces
 
 ## Remaining player/gameplay work
