@@ -277,7 +277,16 @@ pub(crate) fn render_gameplay_frame_evidence(
     trace: &[NativeTraceFrame],
     checkpoints: &[GameplayCheckpoint],
 ) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
-    let session_assets = load_native_session_assets(manifest, 0x00)?;
+    render_gameplay_frame_evidence_for_level(manifest, trace, checkpoints, 0x00)
+}
+
+pub(crate) fn render_gameplay_frame_evidence_for_level(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[GameplayCheckpoint],
+    level_id: u8,
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    let session_assets = load_native_session_assets(manifest, level_id)?;
     checkpoints
         .iter()
         .map(|checkpoint| {

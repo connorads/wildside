@@ -1,6 +1,7 @@
 use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite};
+use native_player::render_gameplay_frame_evidence_for_level;
 use oracle::run_jgenesis_capture_dynamic;
 use scenarios::{DynamicCheckpoint, DynamicScenario, idle_level_scenario};
 
@@ -216,7 +217,7 @@ fn sweep_single_level(
     if effective_tier == SweepTier::Frames || effective_tier == SweepTier::Full {
         // Capture native frames at checkpoints and compare with oracle PNGs
         if let Some(best_mae) =
-            compare_checkpoint_frames(manifest, &scenario, &oracle, &level_dir, level_id)?
+            compare_checkpoint_frames(manifest, &native_trace, &scenario, &oracle, &level_dir, level_id)?
         {
             mae_val = Some(best_mae);
         }
@@ -360,6 +361,7 @@ fn compare_sweep_states(
 /// Returns the worst (maximum) MAE across checkpoints.
 fn compare_checkpoint_frames(
     manifest: &AssetManifest,
+    native_trace: &[NativeTraceFrame],
     scenario: &DynamicScenario,
     oracle: &OracleManifest,
     level_dir: &Path,
@@ -367,21 +369,42 @@ fn compare_checkpoint_frames(
 ) -> Result<Option<f32>> {
     let mut worst_mae: Option<f32> = None;
 
-    // Render native frames at checkpoint indices
-    let native_frames = capture_native_checkpoint_frames(manifest, scenario);
+    // Convert DynamicCheckpoints to GameplayCheckpoints for the renderer.
+    let gameplay_checkpoints: Vec<scenarios::GameplayCheckpoint> = scenario
+        .checkpoints
+        .iter()
+        .map(|cp| scenarios::GameplayCheckpoint {
+            label: Box::leak(cp.label.clone().into_boxed_str()),
+            frame_index: cp.frame_index,
+        })
+        .collect();
 
-    for (native_frame, oracle_frame) in native_frames.iter().zip(oracle.frames.iter()) {
+    // Use the existing headless renderer to produce real native frames.
+    // Falls back to black frames if level visuals aren't available.
+    let native_frames =
+        render_gameplay_frame_evidence_for_level(manifest, native_trace, &gameplay_checkpoints, level_id)
+            .unwrap_or_else(|_| {
+                gameplay_checkpoints
+                    .iter()
+                    .map(|cp| {
+                        (cp.label.to_string(), cp.frame_index, 320, 224, vec![0u8; 320 * 224 * 3])
+                    })
+                    .collect()
+            });
+
+    for (native_evidence, oracle_frame) in native_frames.iter().zip(oracle.frames.iter()) {
+        let (_label, _frame_idx, w, h, native_rgb) = native_evidence;
         let oracle_rgb = load_png_rgb(&oracle_frame.png_path)?;
-        let mae = frame_mae(&native_frame.rgb, &oracle_rgb);
+        let mae = frame_mae(native_rgb, &oracle_rgb);
 
         worst_mae = Some(worst_mae.map_or(mae, |w: f32| w.max(mae)));
 
         // Generate diff composite
         let (cw, ch, mut composite) = generate_diff_composite(
-            &native_frame.rgb,
+            native_rgb,
             &oracle_rgb,
-            native_frame.width as u32,
-            native_frame.height as u32,
+            *w as u32,
+            *h as u32,
         );
         annotate_diff(
             &mut composite,
@@ -406,9 +429,9 @@ fn compare_checkpoint_frames(
         let native_path = level_dir.join(format!("native_{}.png", oracle_frame.label));
         image::save_buffer_with_format(
             &native_path,
-            &native_frame.rgb,
-            native_frame.width as u32,
-            native_frame.height as u32,
+            native_rgb,
+            *w as u32,
+            *h as u32,
             image::ColorType::Rgb8,
             image::ImageFormat::Png,
         )
@@ -416,34 +439,6 @@ fn compare_checkpoint_frames(
     }
 
     Ok(worst_mae)
-}
-
-/// Simple native frame at a checkpoint — placeholder for headless rendering.
-/// Full native frame rendering requires the SDL scene pipeline, which isn't
-/// available in headless sweep mode. For sweep, state comparison is the
-/// primary signal; frame MAE uses oracle PNGs against black placeholders
-/// until headless rendering is wired up.
-struct CheckpointFrame {
-    width: usize,
-    height: usize,
-    rgb: Vec<u8>,
-}
-
-fn capture_native_checkpoint_frames(
-    _manifest: &AssetManifest,
-    scenario: &DynamicScenario,
-) -> Vec<CheckpointFrame> {
-    // Return black placeholder frames at each checkpoint.
-    // TODO: wire up headless native rendering for real frame comparison.
-    scenario
-        .checkpoints
-        .iter()
-        .map(|_cp| CheckpointFrame {
-            width: 320,
-            height: 224,
-            rgb: vec![0u8; 320 * 224 * 3],
-        })
-        .collect()
 }
 
 /// Deep diagnosis of a single level: run with Frames tier, print findings.

@@ -159,6 +159,7 @@ use scene::*;
 use sprites::*;
 
 pub(crate) use sprites::render_gameplay_frame_evidence;
+pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
 
 pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
     let mut session_assets = load_native_session_assets(manifest, 0x00)?;
