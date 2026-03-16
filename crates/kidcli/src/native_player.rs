@@ -1692,6 +1692,14 @@ fn build_game_scene(
     {
         if let NativeObjectKind::Enemy { object_type } = object.kind {
             push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
+            // Debug: show enemy HP above each enemy
+            if debug_overlay_visible {
+                if let Some(hp) = object.hit_points {
+                    let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                    let ey = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
+                    commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
+                }
+            }
         }
     }
     // Player: blink every 4 frames during invulnerability
