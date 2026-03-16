@@ -1730,6 +1730,9 @@ impl NativeRuntime {
         // Ghost blocks: cycle between solid and vanished states
         self.step_ghost_blocks();
 
+        // Shifting blocks: move block up one cell when player stands on it
+        self.apply_shifting_blocks(&slice);
+
         // Prize block item spawning: apply the prize content
         if let Some(content) = slice.prize_block_hit {
             self.apply_prize_content(content);
@@ -3043,6 +3046,40 @@ impl NativeRuntime {
                 }
             }
         }
+    }
+
+    /// When the player is standing on a Shifting block and the cell above is empty,
+    /// move the block up one cell.
+    fn apply_shifting_blocks(&mut self, slice: &OpeningSliceState) {
+        if !slice.player.on_ground {
+            return;
+        }
+        let Some(grid) = &mut self.block_grid else {
+            return;
+        };
+
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        // The floor cell is just below the player's feet
+        let col = terrain::pixel_to_cell(x_px).max(0) as u16;
+        let foot_row = terrain::pixel_to_cell(y_px + 1).max(0) as u16;
+
+        let cell = grid.cell_at(col, foot_row);
+        if cell.block_type != terrain::BlockType::Shifting {
+            return;
+        }
+        if foot_row == 0 {
+            return; // no cell above to shift into
+        }
+
+        let above = grid.cell_at(col, foot_row - 1);
+        if above.has_block || above.collision != terrain::CollisionKind::Empty {
+            return; // cell above is occupied
+        }
+
+        // Move block up: copy cell to row above, clear current cell
+        grid.set_cell_at(col, foot_row - 1, cell);
+        grid.set_cell_at(col, foot_row, terrain::Cell::from_be_bytes(0, 0));
     }
 
     fn reload_block_grid_for_level(&mut self, level_id: LevelId) {
@@ -11890,6 +11927,67 @@ mod tests {
 
         assert!(!slice.player.on_ground, "should bounce off mushroom, not land");
         assert!(slice.player.y_velocity < 0, "should bounce upward");
+    }
+
+    #[test]
+    fn shifting_block_moves_up_when_player_stands_on_it() {
+        let mut rt = NativeRuntime::new(manifest());
+        let w: u16 = 16;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Shifting block at cell (3, 5): has_block=1, collision=Solid(6), block_type=Shifting(7)
+        // = 0b1_110_0111_00000000 = 0xE700
+        let idx = (5 * w + 3) as usize * 2;
+        data[idx] = 0xE7;
+        data[idx + 1] = 0x00;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        rt.block_grid = Some(grid);
+
+        let bounds = LevelBounds { width_pixels: w * 16, height_pixels: h * 16 };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = true;
+        // Player standing at x = cell 3 centre (3*16+8=56px), y = cell 5 top (5*16-1=79px)
+        slice.player.x_pos = 56 << 16;
+        slice.player.y_pos = 79 << 16;
+
+        rt.apply_shifting_blocks(&slice);
+
+        let grid = rt.block_grid.as_ref().unwrap();
+        // Cell (3, 5) should now be empty
+        let old_cell = grid.cell_at(3, 5);
+        assert!(!old_cell.has_block, "original cell should be cleared");
+        // Cell (3, 4) should have the shifted block
+        let new_cell = grid.cell_at(3, 4);
+        assert!(new_cell.has_block, "block should have shifted up");
+        assert_eq!(new_cell.block_type, terrain::BlockType::Shifting);
+    }
+
+    #[test]
+    fn shifting_block_stays_if_cell_above_occupied() {
+        let mut rt = NativeRuntime::new(manifest());
+        let w: u16 = 16;
+        let h: u16 = 16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Shifting block at (3, 5)
+        let idx = (5 * w + 3) as usize * 2;
+        data[idx] = 0xE7;
+        // Solid block at (3, 4)
+        let idx2 = (4 * w + 3) as usize * 2;
+        data[idx2] = 0x60; // Solid, no block type
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        rt.block_grid = Some(grid);
+
+        let bounds = LevelBounds { width_pixels: w * 16, height_pixels: h * 16 };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = true;
+        slice.player.x_pos = 56 << 16;
+        slice.player.y_pos = 79 << 16;
+
+        rt.apply_shifting_blocks(&slice);
+
+        // Block should not have moved
+        let grid = rt.block_grid.as_ref().unwrap();
+        assert!(grid.cell_at(3, 5).has_block, "block should remain");
     }
 
     #[test]
