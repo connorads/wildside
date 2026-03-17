@@ -6,6 +6,14 @@ use oracle::run_jgenesis_capture_dynamic;
 use scenarios::{DynamicCheckpoint, DynamicScenario, idle_level_scenario};
 use sha1::{Digest, Sha1};
 
+/// Advisory fields — diverge due to architectural differences, not native bugs:
+/// - number_objects: native doesn't model system objects (palette rotation,
+///   weather, lava geysers, fade-in) as separate object slots
+/// - number_hitpoints: oracle is accidentally paused (Start press carry-over
+///   from title card transition), so the oracle player doesn't take damage
+///   from enemies/murder wall during idle while the native does
+const ADVISORY_FIELDS: &[&str] = &["number_objects", "number_hitpoints"];
+
 /// Result tier controls how much data is collected per level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
@@ -159,7 +167,7 @@ pub(crate) fn run_sweep_with_options(
                     .mae
                     .map(|v| format!(" MAE={v:.1}"))
                     .unwrap_or_default();
-                let blocking_diffs = r.state_diffs.iter().filter(|d| d.field != "number_objects").count();
+                let blocking_diffs = r.state_diffs.iter().filter(|d| !ADVISORY_FIELDS.contains(&d.field.as_str())).count();
                 let advisory_diffs = r.state_diffs.len() - blocking_diffs;
                 let diff_count = match (blocking_diffs, advisory_diffs) {
                     (0, 0) => String::new(),
@@ -272,12 +280,9 @@ fn sweep_single_level(
 
     // Compare states
     let state_diffs = compare_sweep_states(&native_states, &oracle.states);
-    // number_objects is advisory — the native side doesn't model system objects
-    // (palette rotation, weather, lava geysers, fade-in) as separate object
-    // slots, so the count will diverge. Exclude from pass/fail.
     let state_passed = state_diffs
         .iter()
-        .all(|d| d.field == "number_objects");
+        .all(|d| ADVISORY_FIELDS.contains(&d.field.as_str()));
 
     // Tier 1 (state-only): done unless escalating
     let effective_tier = if !state_passed && requested_tier == SweepTier::State {
