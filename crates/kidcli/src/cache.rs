@@ -17,6 +17,21 @@ impl OracleCacheKey {
         }
     }
 
+    /// Build a cache key from a DynamicScenario. Includes `warp_to_level`
+    /// in the hash so that different target levels produce distinct keys,
+    /// even when the post-warp script is identical.
+    pub(crate) fn from_scenario(
+        rom_bytes: &[u8],
+        scenario: &scenarios::DynamicScenario,
+    ) -> Self {
+        let scenario_json =
+            serde_json::to_vec(scenario).unwrap_or_default();
+        Self {
+            rom_sha1: sha1_hex(rom_bytes),
+            script_sha1: sha1_hex(&scenario_json),
+        }
+    }
+
     pub(crate) fn cache_dir(&self, repo_root: &Path) -> PathBuf {
         repo_root
             .join(".cache/oracle-cache")

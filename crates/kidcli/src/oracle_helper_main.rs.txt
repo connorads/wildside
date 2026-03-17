@@ -50,6 +50,8 @@ struct ScenarioFile {
     script: Vec<u8>,
     frame_count: usize,
     checkpoints: Vec<ScenarioFileCheckpoint>,
+    #[serde(default)]
+    warp_to_level: Option<u8>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -66,6 +68,8 @@ struct ResolvedScenario {
     checkpoints: Vec<FrameCheckpoint>,
     /// Owned labels for dynamic checkpoints (static scenarios borrow from 'static str).
     _owned_labels: Vec<String>,
+    /// Target level to warp to before running the script.
+    warp_to_level: Option<u8>,
 }
 
 #[derive(Debug, Serialize)]
@@ -311,6 +315,7 @@ fn resolve_scenario(
                 frame_count: scenario_frame_count(scenario),
                 checkpoints: scenario_checkpoints(scenario).to_vec(),
                 _owned_labels: Vec::new(),
+                warp_to_level: None,
             })
         }
         (None, Some(path)) => {
@@ -333,6 +338,7 @@ fn resolve_scenario(
                 frame_count: sf.frame_count,
                 checkpoints,
                 _owned_labels: owned_labels,
+                warp_to_level: sf.warp_to_level,
             })
         }
     }
@@ -348,6 +354,17 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Resul
     let mut frame_index = 0usize;
     let mut rendered_frames = Vec::new();
     let mut captured_states = Vec::new();
+
+    // Pre-warp: boot to level 0, then advance to target level.
+    if let Some(target_level) = resolved.warp_to_level {
+        boot_and_warp_oracle(
+            &mut emulator,
+            &mut renderer,
+            &mut audio,
+            &mut save_writer,
+            target_level,
+        )?;
+    }
 
     while frame_index < resolved.frame_count {
         let inputs = inputs_from_mask(resolved.script.get(frame_index).copied().unwrap_or(0));
@@ -404,6 +421,16 @@ fn run_enemy_layout_trace(rom: &[u8], resolved: &ResolvedScenario) -> Result<()>
     let mut audio = AudioCollector::default();
     let mut frame_index = 0usize;
     let mut checkpoints_out = Vec::new();
+
+    if let Some(target_level) = resolved.warp_to_level {
+        boot_and_warp_oracle(
+            &mut emulator,
+            &mut renderer,
+            &mut audio,
+            &mut save_writer,
+            target_level,
+        )?;
+    }
 
     while frame_index < resolved.frame_count {
         let inputs = inputs_from_mask(resolved.script.get(frame_index).copied().unwrap_or(0));
@@ -820,6 +847,95 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
     {
         *slot |= buttons;
     }
+}
+
+/// Tick the emulator until one frame is rendered.
+fn tick_one_frame(
+    emulator: &mut GenesisEmulator,
+    renderer: &mut CaptureRenderer,
+    audio: &mut AudioCollector,
+    inputs: &GenesisInputs,
+    save_writer: &mut NullSaveWriter,
+) -> Result<()> {
+    loop {
+        if emulator.tick(renderer, audio, inputs, save_writer)? == TickEffect::FrameRendered {
+            return Ok(());
+        }
+    }
+}
+
+/// Boot through menus to level 0, then advance to `target_level` using
+/// the LevelSkip_Cheat. Writes the cheat flag directly to work RAM to
+/// activate it, then presses Start+A+C to skip one level at a time.
+fn boot_and_warp_oracle(
+    emulator: &mut GenesisEmulator,
+    renderer: &mut CaptureRenderer,
+    audio: &mut AudioCollector,
+    save_writer: &mut NullSaveWriter,
+    target_level: u8,
+) -> Result<()> {
+    let no_input = GenesisInputs::default();
+
+    // Boot: press Start through menus to reach level 0.
+    // Same timing as the native boot_to_level.
+    for frame in 0..720 {
+        let inputs = match frame {
+            120 | 200 | 280 | 360 | 440 | 460 => inputs_from_mask(0x80),
+            _ => no_input.clone(),
+        };
+        tick_one_frame(emulator, renderer, audio, &inputs, save_writer)?;
+    }
+
+    // Only warp if target is not level 0 (we're already there after boot).
+    if target_level != 0 {
+        // Use the game's own level skip cheat to warp properly.
+        // 1. Write Current_LevelID = target - 1 (level skip adds 1)
+        // 2. Enable LevelSkip_Cheat flag
+        // 3. Press Start+A+C to trigger skip → loc_6E2 → Load_TitleCard
+        // 4. Press Start to dismiss title card → loc_6E2 → Load_InGame
+        const LEVEL_SKIP_CHEAT_ADDR: usize = 0xFFFF_FC37;
+        {
+            let mut mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+            let prev_level = target_level.wrapping_sub(1);
+            mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR), 0x00);
+            mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR) + 1, prev_level);
+            mem.write(work_ram_index(LEVEL_SKIP_CHEAT_ADDR), 0xFF);
+        }
+
+        // Press Start+A+C for one frame to trigger level skip.
+        let skip_input = GenesisInputs {
+            p1: GenesisJoypadState {
+                start: true,
+                a: true,
+                c: true,
+                ..GenesisJoypadState::default()
+            },
+            p2: GenesisJoypadState::default(),
+        };
+        tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
+
+        // Wait for title card to load, then press Start to enter gameplay.
+        for _ in 0..60 {
+            tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
+        }
+
+        // Press Start to dismiss title card and trigger Load_InGame.
+        let start_input = GenesisInputs {
+            p1: GenesisJoypadState {
+                start: true,
+                ..GenesisJoypadState::default()
+            },
+            p2: GenesisJoypadState::default(),
+        };
+        tick_one_frame(emulator, renderer, audio, &start_input, save_writer)?;
+
+        // Wait for level to fully initialise.
+        for _ in 0..60 {
+            tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
+        }
+    }
+
+    Ok(())
 }
 
 fn inputs_from_mask(mask: u8) -> GenesisInputs {

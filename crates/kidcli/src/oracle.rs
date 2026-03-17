@@ -125,7 +125,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     let helper_dir = oracle_root.join("jgenesis-helper");
     write_helper_project(&helper_dir, &jgenesis_dir)?;
     run_command(
-        Command::new("cargo").arg("build").arg("-q"),
+        Command::new("cargo").arg("build").arg("--release").arg("-q"),
         Some(&helper_dir),
     )?;
 
@@ -134,7 +134,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     let blastem_binary = maybe_build_blastem(&blastem_dir)?;
 
     Ok(OracleEnvironment {
-        jgenesis_helper_bin: helper_dir.join("target/debug/kid-jgenesis-oracle"),
+        jgenesis_helper_bin: helper_dir.join("target/release/kid-jgenesis-oracle"),
         jgenesis_dir,
         blastem_dir,
         blastem_binary,

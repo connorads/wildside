@@ -227,18 +227,19 @@ fn sweep_single_level(
     fs::create_dir_all(&level_dir)
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
 
-    // Run native
-    let native_trace = kid_core::run_script(
+    // Run native (with warp if specified)
+    let native_trace = kid_core::run_script_with_warp(
         manifest.clone(),
         &scenario.script,
         scenario.frame_count,
+        scenario.warp_to_level,
     );
 
     // Extract native state at checkpoints
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
 
     // Run oracle (with caching)
-    let cache_key = OracleCacheKey::new(rom_bytes, &scenario.script);
+    let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario);
     let oracle = match load_cached_oracle(&cache_key, repo_root) {
         Some(cached) => cached,
         None => {
@@ -640,7 +641,7 @@ fn warm_oracle_cache(
             .iter()
             .map(|&level_id| {
                 let scenario = idle_level_scenario(level_id, None);
-                let cache_key = OracleCacheKey::new(rom_bytes, &scenario.script);
+                let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario);
 
                 // Already cached?
                 if load_cached_oracle(&cache_key, repo_root).is_some() {

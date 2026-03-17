@@ -224,6 +224,12 @@ pub struct DynamicScenario {
     pub script: Vec<u8>,
     pub frame_count: usize,
     pub checkpoints: Vec<DynamicCheckpoint>,
+    /// Target level to warp to before running the script.
+    /// Both native and oracle boot to level 0 first, then advance
+    /// to this level using their own mechanism (native: direct skip,
+    /// oracle: memory write + cheat flag). The script runs after warping.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warp_to_level: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,51 +238,21 @@ pub struct DynamicCheckpoint {
     pub frame_index: usize,
 }
 
-/// Boot → title → start game → idle on level 0x00 for 300 frames.
+/// Idle on a level for `idle_frames` (default 300, ~5 s at 60 fps).
 ///
-/// All idle-level scenarios share the same boot prefix (start presses to reach
-/// gameplay). For level 0x00 (the default starting level) no warp is needed.
-/// For other levels, the native runtime's debug-warp key (N) is pressed
-/// repeatedly to advance. The oracle side must use the same key sequence.
-///
-/// `idle_frames` defaults to 300 (~5 s at 60 fps) when `None`.
+/// Uses `warp_to_level` to reach the target level. Both native and oracle
+/// boot to level 0 in their own pre-run phase, then advance to `level_id`.
+/// The script itself is pure idle — no button presses — so the comparison
+/// phase is identical on both sides.
 pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicScenario {
     let idle = idle_frames.unwrap_or(300);
-
-    // Boot prefix: press Start repeatedly to navigate title → game start.
-    // Level 0x00 loads automatically after the boot sequence settles at frame 720.
-    // For later levels we press the debug-warp key (N = Up, mapped to bit 0)
-    // once per level advance. Each warp takes ~80 frames to settle.
-    let warps_needed = u16::from(level_id);
-    let warp_period: usize = 80;
-    let post_boot_frame: usize = 720;
-    let warp_end = post_boot_frame + (warps_needed as usize) * warp_period;
-    let settle_start = warp_end;
-    // 60 frames for the level to settle after last warp (or boot).
     let settle_frames: usize = 60;
-    let idle_start = settle_start + settle_frames;
-    let total_frames = idle_start + idle;
-
-    let mut script = vec![0u8; total_frames.saturating_add(1)];
-
-    // Boot to level 1: same as apply_boot_to_level_1
-    apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
-    apply_range(&mut script, 460, 460, 0x80);
-
-    // Debug warp presses (Start+A+Up combo on a single frame per warp).
-    // In the native runtime the N key triggers `debug_warp_next_level()`.
-    // For the oracle, Start+A+Up (0x80|0x40|0x01 = 0xC1) is sent as input.
-    for warp in 0..warps_needed {
-        let frame = post_boot_frame + (warp as usize) * warp_period;
-        if let Some(slot) = script.get_mut(frame) {
-            *slot |= 0xC1; // Start + A + Up
-        }
-    }
+    let total_frames = settle_frames + idle;
 
     let checkpoints = vec![
         DynamicCheckpoint {
             label: "level_settle".into(),
-            frame_index: idle_start,
+            frame_index: settle_frames,
         },
         DynamicCheckpoint {
             label: "idle_tail".into(),
@@ -286,9 +262,10 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
 
     DynamicScenario {
         slug: format!("idle_level_{level_id:02x}"),
-        script,
+        script: vec![0u8; total_frames.saturating_add(1)],
         frame_count: total_frames,
         checkpoints,
+        warp_to_level: Some(level_id),
     }
 }
 
@@ -373,6 +350,7 @@ impl Scenario {
                     frame_index: cp.frame_index,
                 })
                 .collect(),
+            warp_to_level: None,
         })
     }
 }
@@ -481,6 +459,7 @@ impl GameplayScenario {
                     frame_index: cp.frame_index,
                 })
                 .collect(),
+            warp_to_level: None,
         })
     }
 }
@@ -652,39 +631,30 @@ mod tests {
     }
 
     #[test]
-    fn idle_level_0_scenario_boots_to_level_1_and_idles() {
+    fn idle_level_0_scenario_uses_warp_to_level() {
         let scenario = idle_level_scenario(0x00, None);
         assert_eq!(scenario.slug, "idle_level_00");
-        // No warps needed — boot lands on level 0x00 directly.
-        // settle at 720+60=780, idle for 300, total=1080
-        assert_eq!(scenario.frame_count, 1_080);
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        // settle=60, idle=300, total=360
+        assert_eq!(scenario.frame_count, 360);
         assert_eq!(scenario.checkpoints.len(), 2);
         assert_eq!(scenario.checkpoints[0].label, "level_settle");
-        assert_eq!(scenario.checkpoints[0].frame_index, 780);
+        assert_eq!(scenario.checkpoints[0].frame_index, 60);
         assert_eq!(scenario.checkpoints[1].label, "idle_tail");
-        assert_eq!(scenario.checkpoints[1].frame_index, 1_079);
-        // Boot presses present
-        assert_eq!(scenario.script[120], 0x80);
-        assert_eq!(scenario.script[460], 0x80);
-        // No warp presses at frame 720
-        assert_eq!(scenario.script[720], 0);
+        assert_eq!(scenario.checkpoints[1].frame_index, 359);
+        // Script is pure idle — no button presses
+        assert!(scenario.script.iter().all(|&b| b == 0));
     }
 
     #[test]
-    fn idle_level_5_scenario_warps_five_times() {
+    fn idle_level_5_scenario_warps_to_level_5() {
         let scenario = idle_level_scenario(0x05, Some(120));
         assert_eq!(scenario.slug, "idle_level_05");
-        // 5 warps * 80 frames = 400, post_boot=720, settle_start=1120
-        // settle_frames=60, idle_start=1180, total=1180+120=1300
-        assert_eq!(scenario.frame_count, 1_300);
-        // Each warp is Start+A+Up (0xC1) at 720, 800, 880, 960, 1040
-        assert_eq!(scenario.script[720], 0xC1);
-        assert_eq!(scenario.script[800], 0xC1);
-        assert_eq!(scenario.script[880], 0xC1);
-        assert_eq!(scenario.script[960], 0xC1);
-        assert_eq!(scenario.script[1_040], 0xC1);
-        // No warp at frame 1120 (only 5 warps needed)
-        assert_eq!(scenario.script[1_120], 0);
+        assert_eq!(scenario.warp_to_level, Some(0x05));
+        // settle=60, idle=120, total=180
+        assert_eq!(scenario.frame_count, 180);
+        // Script is pure idle
+        assert!(scenario.script.iter().all(|&b| b == 0));
     }
 
     #[test]

@@ -1198,6 +1198,40 @@ impl NativeRuntime {
         Self::new(assets)
     }
 
+    /// Boot through menus to level 0, then advance to `target` using the
+    /// level skip mechanism. Used by sweep infrastructure to reach any level
+    /// without encoding warp buttons in the input script.
+    ///
+    /// Boot timing matches the oracle helper exactly: 720 frames with
+    /// Start presses at frames 120, 200, 280, 360, 440, 460.
+    pub fn boot_to_level(&mut self, target: LevelId) {
+        let start = FrameInput {
+            start: true,
+            ..FrameInput::default()
+        };
+        let idle = FrameInput::default();
+        let start_frames: &[usize] = &[120, 200, 280, 360, 440, 460];
+
+        for frame in 0..720 {
+            if start_frames.contains(&frame) {
+                self.step_frame(start);
+            } else {
+                self.step_frame(idle);
+            }
+        }
+
+        // Jump directly to target level using internal skip mechanism.
+        if self.current_level != target {
+            self.pending_level_skip = Some(target);
+            self.step_frame(idle);
+            self.pending_level_skip_resume = true;
+            self.step_frame(idle);
+            for _ in 0..LEVEL_SKIP_RESUME_TOTAL_FRAMES {
+                self.step_frame(idle);
+            }
+        }
+    }
+
     /// Set the block collision grid for the current level.
     /// Call after constructing the runtime, before stepping frames.
     pub fn set_block_grid(&mut self, grid: terrain::BlockGrid) {
@@ -2067,7 +2101,22 @@ pub fn run_script(
     script: &[u8],
     frame_count: usize,
 ) -> Vec<NativeTraceFrame> {
+    run_script_with_warp(assets, script, frame_count, None)
+}
+
+/// Run a scripted scenario, optionally warping to a target level first.
+/// When `warp_to_level` is `Some`, the runtime boots to level 0 and then
+/// advances to the target level before running the script.
+pub fn run_script_with_warp(
+    assets: AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+    warp_to_level: Option<u8>,
+) -> Vec<NativeTraceFrame> {
     let mut runtime = NativeRuntime::with_generated_level_layout(assets);
+    if let Some(level_id) = warp_to_level {
+        runtime.boot_to_level(LevelId(level_id));
+    }
     run_script_with_runtime(&mut runtime, script, frame_count)
 }
 
