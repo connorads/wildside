@@ -1204,25 +1204,11 @@ fn build_game_scene_filtered(
                 }
                 NativeObjectKind::Enemy { .. } => {
                     // Enemy contact box: 8x16 centred on position
-                    push_collision_box(
-                        &mut commands,
-                        ox - 4,
-                        oy - 8,
-                        8,
-                        16,
-                        [255, 60, 60],
-                    );
+                    push_collision_box(&mut commands, ox - 4, oy - 8, 8, 16, [255, 60, 60]);
                 }
                 NativeObjectKind::Platform { .. } => {
                     // Platform: 32x8 centred on position
-                    push_collision_box(
-                        &mut commands,
-                        ox - 16,
-                        oy - 4,
-                        32,
-                        8,
-                        [60, 120, 255],
-                    );
+                    push_collision_box(&mut commands, ox - 16, oy - 4, 32, 8, [60, 120, 255]);
                 }
             }
         }

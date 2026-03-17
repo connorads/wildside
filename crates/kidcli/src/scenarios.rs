@@ -949,7 +949,10 @@ mod tests {
         // Settle phase is idle
         assert_eq!(scenario.script[59], 0);
         // Walk phase holds right + run (C)
-        assert_eq!(scenario.script[60] & ((1 << 3) | (1 << 5)), (1 << 3) | (1 << 5));
+        assert_eq!(
+            scenario.script[60] & ((1 << 3) | (1 << 5)),
+            (1 << 3) | (1 << 5)
+        );
         // First jump at settle + 15 = frame 75
         assert_eq!(scenario.script[75] & (1 << 4), 1 << 4);
         // Checkpoints cover the run

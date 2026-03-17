@@ -630,7 +630,9 @@ fn compare_checkpoint_frames(
         level_id,
     )
     .unwrap_or_else(|e| {
-        eprintln!("  warning: level {level_id:#04x} frame render failed ({e:#}), using black frames");
+        eprintln!(
+            "  warning: level {level_id:#04x} frame render failed ({e:#}), using black frames"
+        );
         gameplay_checkpoints
             .iter()
             .map(|cp| {
@@ -1208,10 +1210,16 @@ pub(crate) fn golden_capture(
                 .with_context(|| format!("failed to write {}", path.display()))?;
             captured += 1;
         }
-        println!("golden capture {level_id:#04x}: {n} scenarios", n = scenarios.len());
+        println!(
+            "golden capture {level_id:#04x}: {n} scenarios",
+            n = scenarios.len()
+        );
     }
 
-    println!("\ngolden capture complete: {captured} snapshots across {} levels", levels.len());
+    println!(
+        "\ngolden capture complete: {captured} snapshots across {} levels",
+        levels.len()
+    );
     Ok(())
 }
 
@@ -1282,7 +1290,10 @@ pub(crate) fn golden_diff(
                 level_diffs.len()
             );
             for d in &level_diffs {
-                println!("  {}/{}: {} -> {}", d.checkpoint, d.field, d.old_value, d.new_value);
+                println!(
+                    "  {}/{}: {} -> {}",
+                    d.checkpoint, d.field, d.old_value, d.new_value
+                );
             }
         } else {
             println!("golden diff {level_id:#04x}: PASS");
@@ -1421,7 +1432,10 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
                 };
                 println!("  {status}{diff_count}");
                 for d in &r.state_diffs {
-                    println!("    {}: {} = {} (expected {})", d.checkpoint, d.field, d.native_value, d.oracle_value);
+                    println!(
+                        "    {}: {} = {} (expected {})",
+                        d.checkpoint, d.field, d.native_value, d.oracle_value
+                    );
                 }
                 results.push(r);
             }
