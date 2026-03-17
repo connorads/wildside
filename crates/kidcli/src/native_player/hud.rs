@@ -211,7 +211,11 @@ pub(super) fn push_game_hud(
 
     // 2P player turn indicator
     if trace.two_player {
-        let label = if trace.current_player == 0 { "P1" } else { "P2" };
+        let label = if trace.current_player == 0 {
+            "P1"
+        } else {
+            "P2"
+        };
         let colour = if trace.current_player == 0 {
             [100, 180, 255]
         } else {

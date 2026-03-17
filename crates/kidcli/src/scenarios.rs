@@ -324,13 +324,28 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
     // Phase 1: walk right towards prize blocks (frames 60-119)
     apply_range(&mut script, settle_frames, settle_frames + 59, 1 << 3);
     // Phase 2: jump under prize block (frames 120-124, hold B for 5 frames)
-    apply_range(&mut script, settle_frames + 60, settle_frames + 64, (1 << 3) | (1 << 4));
+    apply_range(
+        &mut script,
+        settle_frames + 60,
+        settle_frames + 64,
+        (1 << 3) | (1 << 4),
+    );
     // Phase 3: keep walking right (frames 125-179)
     apply_range(&mut script, settle_frames + 65, settle_frames + 179, 1 << 3);
     // Phase 4: second jump under next block (frames 180-184)
-    apply_range(&mut script, settle_frames + 180, settle_frames + 184, (1 << 3) | (1 << 4));
+    apply_range(
+        &mut script,
+        settle_frames + 180,
+        settle_frames + 184,
+        (1 << 3) | (1 << 4),
+    );
     // Phase 5: coast to end (frames 185-359)
-    apply_range(&mut script, settle_frames + 185, total_frames.saturating_sub(1), 1 << 3);
+    apply_range(
+        &mut script,
+        settle_frames + 185,
+        total_frames.saturating_sub(1),
+        1 << 3,
+    );
 
     let checkpoints = vec![
         DynamicCheckpoint {

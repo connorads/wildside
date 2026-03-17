@@ -109,8 +109,16 @@ impl NativeRuntime {
             }
         }
 
-        // Remove dead enemies and award points
+        self.stomped_this_frame = true;
+
+        // Remove dead enemies, spawn death effects, and award points
         for &idx in kill_indices.iter().rev() {
+            let enemy = &self.active_enemies[idx];
+            self.enemy_death_effects.push(EnemyDeathEffect {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                remaining: 10,
+            });
             self.active_enemies.remove(idx);
             self.score += 1000;
         }

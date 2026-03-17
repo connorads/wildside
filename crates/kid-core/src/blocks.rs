@@ -16,11 +16,8 @@ impl NativeRuntime {
                         .evanescent_blocks
                         .iter()
                         .any(|e| e.col == col && e.row == row);
-                    if !already_tracked
-                        && self.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES
-                    {
-                        let initial_timer =
-                            i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
+                    if !already_tracked && self.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES {
+                        let initial_timer = i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
                         self.evanescent_blocks.push(EvanescentEntry {
                             col,
                             row,
@@ -36,11 +33,7 @@ impl NativeRuntime {
             self.evanescent_blocks.retain_mut(|entry| {
                 entry.timer += 1;
                 if entry.timer >= EVANESCENT_REMOVAL_THRESHOLD {
-                    grid.set_cell_at(
-                        entry.col,
-                        entry.row,
-                        terrain::Cell::from_be_bytes(0, 0),
-                    );
+                    grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
                     false
                 } else {
                     true
@@ -140,7 +133,7 @@ impl NativeRuntime {
                             lifetime: 120,
                             gravity: 0,
                             friendly: false,
-                        homing: false,
+                            homing: false,
                         });
                     }
                 }
@@ -232,13 +225,10 @@ impl NativeRuntime {
             if slice.player.on_ground {
                 let within_snap =
                     slice.player.y_pos.abs_diff(lift.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
-                if within_snap
-                    && player_right >= plat_x_px
-                    && player_left <= plat_right
-                {
-                    slice.player.y_pos =
-                        (i64::from(slice.player.y_pos) + i64::from(lift.y_velocity))
-                            .clamp(0, i64::from(u32::MAX)) as u32;
+                if within_snap && player_right >= plat_x_px && player_left <= plat_right {
+                    slice.player.y_pos = (i64::from(slice.player.y_pos)
+                        + i64::from(lift.y_velocity))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
                     slice.terrain.floor_y_pos =
                         (((slice.player.y_pos >> 16) as i32).max(0) as u32) << 16;
                 }
@@ -247,5 +237,4 @@ impl NativeRuntime {
             true
         });
     }
-
 }

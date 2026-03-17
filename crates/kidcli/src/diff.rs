@@ -2,7 +2,6 @@
 ///
 /// Produces a 3-panel composite: [native | oracle | amplified_diff]
 /// with text annotations showing MAE, level ID, and checkpoint label.
-
 use font8x8::UnicodeFonts;
 
 /// Mean absolute error between two RGB byte buffers.
@@ -99,13 +98,7 @@ pub(crate) fn annotate_diff(
     // Labels at top of each panel (y=2)
     draw_text(rgb, w, 2, 2, "NATIVE");
     draw_text(rgb, w, panel_w + 2, 2, "ORACLE");
-    draw_text(
-        rgb,
-        w,
-        panel_w * 2 + 2,
-        2,
-        &format!("DIFF x4 MAE={mae:.1}"),
-    );
+    draw_text(rgb, w, panel_w * 2 + 2, 2, &format!("DIFF x4 MAE={mae:.1}"));
     // Level + checkpoint at bottom-left
     draw_text(
         rgb,

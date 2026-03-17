@@ -190,7 +190,10 @@ pub(crate) fn write_gameplay_artifacts(repo_root: &Path, capture: &GameplayCaptu
     write_gameplay_capture(&out_dir, capture)
 }
 
-pub(crate) fn write_native_gameplay_artifacts(repo_root: &Path, capture: &GameplayCapture) -> Result<()> {
+pub(crate) fn write_native_gameplay_artifacts(
+    repo_root: &Path,
+    capture: &GameplayCapture,
+) -> Result<()> {
     let out_dir = repo_root
         .join(".cache/native-gameplay-runs")
         .join(&capture.scenario);
@@ -218,7 +221,10 @@ pub(crate) fn write_gameplay_capture(out_dir: &Path, capture: &GameplayCapture) 
     Ok(())
 }
 
-pub(crate) fn write_gameplay_frame_evidence(out_dir: &Path, frames: &[GameplayFrameEvidence]) -> Result<()> {
+pub(crate) fn write_gameplay_frame_evidence(
+    out_dir: &Path,
+    frames: &[GameplayFrameEvidence],
+) -> Result<()> {
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
     let mut records = Vec::with_capacity(frames.len());
@@ -392,7 +398,10 @@ pub(crate) fn verify_soak_level_10m(capture: &GameplayCapture) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn gameplay_checkpoint<'a>(capture: &'a GameplayCapture, label: &str) -> Result<&'a GameplayState> {
+pub(crate) fn gameplay_checkpoint<'a>(
+    capture: &'a GameplayCapture,
+    label: &str,
+) -> Result<&'a GameplayState> {
     capture
         .checkpoints
         .iter()

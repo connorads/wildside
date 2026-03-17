@@ -21,12 +21,8 @@ impl OracleCacheKey {
     /// Build a cache key from a DynamicScenario. Includes `warp_to_level`
     /// in the hash so that different target levels produce distinct keys,
     /// even when the post-warp script is identical.
-    pub(crate) fn from_scenario(
-        rom_bytes: &[u8],
-        scenario: &scenarios::DynamicScenario,
-    ) -> Self {
-        let scenario_json =
-            serde_json::to_vec(scenario).unwrap_or_default();
+    pub(crate) fn from_scenario(rom_bytes: &[u8], scenario: &scenarios::DynamicScenario) -> Self {
+        let scenario_json = serde_json::to_vec(scenario).unwrap_or_default();
         Self {
             rom_sha1: sha1_hex(rom_bytes),
             script_sha1: sha1_hex(&scenario_json),
@@ -42,10 +38,7 @@ impl OracleCacheKey {
 }
 
 /// Check if a cached oracle manifest exists for this key.
-pub(crate) fn load_cached_oracle(
-    key: &OracleCacheKey,
-    repo_root: &Path,
-) -> Option<OracleManifest> {
+pub(crate) fn load_cached_oracle(key: &OracleCacheKey, repo_root: &Path) -> Option<OracleManifest> {
     let dir = key.cache_dir(repo_root);
     let manifest_path = dir.join("manifest.json");
     let json = fs::read_to_string(&manifest_path).ok()?;
@@ -141,9 +134,7 @@ mod tests {
     fn cache_dir_uses_sha1_components() {
         let key = OracleCacheKey::new(b"rom", b"script");
         let dir = key.cache_dir(Path::new("/repo"));
-        assert!(dir
-            .to_string_lossy()
-            .contains(".cache/oracle-cache"));
+        assert!(dir.to_string_lossy().contains(".cache/oracle-cache"));
         assert!(dir.to_string_lossy().contains(&key.rom_sha1));
         assert!(dir.to_string_lossy().contains(&key.script_sha1));
     }

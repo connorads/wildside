@@ -227,7 +227,10 @@ impl NativeRuntime {
         }
     }
 
-    pub(crate) fn load_block_grid_for_level(&self, level_id: LevelId) -> Option<terrain::BlockGrid> {
+    pub(crate) fn load_block_grid_for_level(
+        &self,
+        level_id: LevelId,
+    ) -> Option<terrain::BlockGrid> {
         let layout_dir = self.assets.output_root.join("level-layout");
         let layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
         if !layout_path.is_file() {
@@ -307,7 +310,11 @@ impl NativeRuntime {
         slice
     }
 
-    pub(crate) fn level_start_pose(&self, level_id: LevelId, _bounds: LevelBounds) -> LevelStartPose {
+    pub(crate) fn level_start_pose(
+        &self,
+        level_id: LevelId,
+        _bounds: LevelBounds,
+    ) -> LevelStartPose {
         let Some(header) = self.level_header(level_id) else {
             return LevelStartPose {
                 kid_x_pos: OPENING_ENTRY_KID_X_POS,
@@ -624,7 +631,10 @@ impl NativeRuntime {
         )
     }
 
-    pub(crate) fn level_skip_resume_active_objects_at(&self, elapsed: usize) -> Vec<NativeObjectSnapshot> {
+    pub(crate) fn level_skip_resume_active_objects_at(
+        &self,
+        elapsed: usize,
+    ) -> Vec<NativeObjectSnapshot> {
         let Some(player_state) = self.level_skip_resume_player_state_at(elapsed) else {
             return Vec::new();
         };

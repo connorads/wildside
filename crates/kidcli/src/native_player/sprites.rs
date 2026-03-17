@@ -23,7 +23,10 @@ pub(super) fn sprite_draw_position(
             screen_x + i32::from(frame.origin_x) - i32::from(align_sprite_dimension(frame.width_px))
         }
     };
-    (draw_x, screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y))
+    (
+        draw_x,
+        screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y),
+    )
 }
 
 pub(super) fn build_sprite_tiles(

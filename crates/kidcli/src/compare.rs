@@ -469,7 +469,10 @@ pub(crate) fn find_gameplay_live_drifts(
         .collect()
 }
 
-pub(crate) fn gameplay_differing_fields(native: &GameplayState, oracle: &GameplayState) -> Vec<&'static str> {
+pub(crate) fn gameplay_differing_fields(
+    native: &GameplayState,
+    oracle: &GameplayState,
+) -> Vec<&'static str> {
     let mut fields = Vec::new();
     if native.game_mode != oracle.game_mode {
         fields.push("game_mode");
@@ -638,7 +641,9 @@ pub(crate) fn native_trace_to_oracle_state(
     }
 }
 
-pub(crate) fn active_enemy_states_from_native_frame(frame: &NativeTraceFrame) -> Vec<OracleEnemyState> {
+pub(crate) fn active_enemy_states_from_native_frame(
+    frame: &NativeTraceFrame,
+) -> Vec<OracleEnemyState> {
     let mut enemies = frame
         .active_objects
         .iter()

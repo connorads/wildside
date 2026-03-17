@@ -815,18 +815,17 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
                 }
                 // Parse relative offset from comment or from label hex
                 if let Some(comment) = rest.get(colon_idx + 1..) {
-                    if let Some(hex_str) = comment
-                        .trim()
-                        .strip_prefix("; relative offset: ")
-                    {
+                    if let Some(hex_str) = comment.trim().strip_prefix("; relative offset: ") {
                         current_offset = u16::from_str_radix(hex_str.trim(), 16).ok();
                     } else {
                         // Fallback: parse from label name
                         current_offset =
-                            u16::from_str_radix(&rest[..colon_idx], 16).ok().map(|addr| {
-                                // Convert absolute address to relative (base = 0x3602)
-                                addr.wrapping_sub(0x3602)
-                            });
+                            u16::from_str_radix(&rest[..colon_idx], 16)
+                                .ok()
+                                .map(|addr| {
+                                    // Convert absolute address to relative (base = 0x3602)
+                                    addr.wrapping_sub(0x3602)
+                                });
                     }
                 }
             }

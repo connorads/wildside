@@ -2833,12 +2833,15 @@ mod tests {
         let sequences = vec![0u8; 16];
         let samples = vec![0u8; 16];
 
-        let mut engine = super::GemsAudioEngine::new(
-            &driver, &patches, &envelopes, &sequences, &samples,
-        );
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
         engine.step_frame();
         let samples = engine.generate_samples(735);
-        assert_eq!(samples.len(), 735 * 2, "should produce stereo interleaved samples");
+        assert_eq!(
+            samples.len(),
+            735 * 2,
+            "should produce stereo interleaved samples"
+        );
     }
 
     #[test]
@@ -2849,9 +2852,8 @@ mod tests {
         let sequences = vec![0u8; 16];
         let samples = vec![0u8; 16];
 
-        let mut engine = super::GemsAudioEngine::new(
-            &driver, &patches, &envelopes, &sequences, &samples,
-        );
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
         // play_sound will auto-init, which runs step_z80_frame multiple times
         engine.play_sound(0x17); // sfx_Jump
         engine.step_frame();

@@ -89,7 +89,10 @@ mod tests {
             .expect("rubber block mapping");
         // Block types without specific art (Mushroom, Shifting, etc.) keep terrain skin.
         let terrain_skin_block = visuals.level.block_mapping.resolve(0, Some(7));
-        assert!(terrain_skin_block.is_none(), "shifting block should keep terrain skin");
+        assert!(
+            terrain_skin_block.is_none(),
+            "shifting block should keep terrain skin"
+        );
 
         assert_eq!(terrain.kind, BlockVisualKind::Terrain);
         assert_eq!(terrain.quad.tiles[0].tile_index, 10);
@@ -183,7 +186,8 @@ mod tests {
             .join("cave.bin");
         fs::remove_file(&missing_path).expect("remove palette");
 
-        let error = load_level_visuals(&fixture.manifest, LEVEL_ID).expect_err("missing asset should fail");
+        let error =
+            load_level_visuals(&fixture.manifest, LEVEL_ID).expect_err("missing asset should fail");
         let message = format!("{error:#}");
         assert!(message.contains("theme/palette_fg/cave.bin"));
         assert!(message.contains("missing"));

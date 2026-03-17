@@ -17,7 +17,8 @@ use crate::scenarios::GameplayScenario;
 pub(crate) const ASL_REPO_URL: &str = "https://github.com/Macroassembler-AS/asl-releases.git";
 pub(crate) const UPSTREAM_URL: &str = "https://github.com/sonicretro/kid-chameleon-disasm";
 pub(crate) const UPSTREAM_COMMIT: &str = "a134567";
-pub(crate) const M68K_REFERENCE_URL: &str = "https://github.com/prb28/m68k-instructions-documentation";
+pub(crate) const M68K_REFERENCE_URL: &str =
+    "https://github.com/prb28/m68k-instructions-documentation";
 pub(crate) const M68K_REFERENCE_COMMIT: &str = "89744462bde926313aa273dde2109b680ed11c8a";
 pub(crate) const GEMS_REFERENCE_URL: &str = "https://github.com/realmonster/GEMS";
 pub(crate) const GEMS_REFERENCE_COMMIT: &str = "a09a734532231fb8a1170e55f018d8511329562e";
@@ -454,7 +455,10 @@ pub(crate) fn run_command(command: &mut Command, cwd: Option<&Path>) -> Result<(
     Ok(())
 }
 
-pub(crate) fn print_bootstrapped_references(reference_root: &Path, references: &[BootstrappedReference]) {
+pub(crate) fn print_bootstrapped_references(
+    reference_root: &Path,
+    references: &[BootstrappedReference],
+) {
     println!("reference root: {}", reference_root.display());
     for reference in references {
         println!(

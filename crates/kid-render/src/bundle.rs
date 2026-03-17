@@ -186,7 +186,9 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "block mapping",
     )?)?;
     let background = load_background_visuals(manifest, background_theme, &background_layout)
-        .context(format!("failed to load level 0x{level_id:02X} background visuals"))?;
+        .context(format!(
+            "failed to load level 0x{level_id:02X} background visuals"
+        ))?;
 
     Ok(NativeLevelVisuals {
         foreground_tiles,

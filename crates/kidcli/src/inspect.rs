@@ -923,9 +923,7 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
             runtime.run_until_vblank(500_000);
 
             let snapshot = runtime.snapshot();
-            if snapshot.game_mode == 0x000C
-                && snapshot.current_level_id == u16::from(level_id)
-            {
+            if snapshot.game_mode == 0x000C && snapshot.current_level_id == u16::from(level_id) {
                 // Layout is populated by Load_InGame before Mode_Level runs.
                 // Capture immediately — some levels (e.g. 0x61, 0x62) have
                 // the player die within a few frames, reverting game_mode

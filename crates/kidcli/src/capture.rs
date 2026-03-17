@@ -82,9 +82,7 @@ pub(crate) struct GameplayState {
     pub(crate) number_gfx_objects: u16,
 }
 
-
 pub(crate) type GameplayFrameEvidence = (String, usize, usize, usize, Vec<u8>);
-
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct AudioTrace {
@@ -282,7 +280,10 @@ pub(crate) fn capture_gameplay_scenario(
     })
 }
 
-pub(crate) fn gameplay_state_from_probe(frame_index: usize, snapshot: &kid_md::CpuProbe) -> GameplayState {
+pub(crate) fn gameplay_state_from_probe(
+    frame_index: usize,
+    snapshot: &kid_md::CpuProbe,
+) -> GameplayState {
     GameplayState {
         label: format!("frame_{frame_index:05}"),
         frame_index,

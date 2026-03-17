@@ -44,12 +44,7 @@ impl PlatformLoaderState {
     }
 }
 
-
-
-
-
 /// Step all active enemies: apply movement, gravity, and terrain collision.
-
 
 pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) -> bool {
     let object_x = u32::from(platform.x);
@@ -70,7 +65,10 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
 /// Runs after terrain collision so that platforms override terrain when the
 /// player is above a platform surface. Only applies when the player is not
 /// already grounded by terrain (falling or airborne).
-pub(crate) fn apply_platform_collision(slice: &mut OpeningSliceState, platforms: &[ActivePlatform]) {
+pub(crate) fn apply_platform_collision(
+    slice: &mut OpeningSliceState,
+    platforms: &[ActivePlatform],
+) {
     let player_x_px = (slice.player.x_pos >> 16) as i32;
     let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
     let player_left = player_x_px - PLAYER_HALF_WIDTH;
@@ -91,19 +89,17 @@ pub(crate) fn apply_platform_collision(slice: &mut OpeningSliceState, platforms:
                 continue;
             }
             // Player feet within snap distance of platform top → riding it
-            let within_snap = slice.player.y_pos.abs_diff(platform.y_pos)
-                <= GROUND_SNAP_TOLERANCE_FP;
+            let within_snap =
+                slice.player.y_pos.abs_diff(platform.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
             if !within_snap && player_foot_y_px.abs_diff(plat_y_px) > 2 {
                 continue;
             }
 
             // Carry player with platform velocity
-            slice.player.x_pos =
-                (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
-                    .clamp(0, i64::from(u32::MAX)) as u32;
-            slice.player.y_pos =
-                (i64::from(slice.player.y_pos) + i64::from(platform.y_velocity))
-                    .clamp(0, i64::from(u32::MAX)) as u32;
+            slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
+                .clamp(0, i64::from(u32::MAX)) as u32;
+            slice.player.y_pos = (i64::from(slice.player.y_pos) + i64::from(platform.y_velocity))
+                .clamp(0, i64::from(u32::MAX)) as u32;
             let floor_y_px = (slice.player.y_pos >> 16) as i32;
             slice.terrain.floor_y_pos = (floor_y_px.max(0) as u32) << 16;
             return;
@@ -129,11 +125,7 @@ pub(crate) fn apply_platform_collision(slice: &mut OpeningSliceState, platforms:
         // Vertical check: player feet should be at or just below the platform top.
         // Use the same snap tolerance as terrain floor collision.
         let plat_top_fp = platform.y_pos;
-        let within_snap = slice
-            .player
-            .y_pos
-            .abs_diff(plat_top_fp)
-            <= GROUND_SNAP_TOLERANCE_FP;
+        let within_snap = slice.player.y_pos.abs_diff(plat_top_fp) <= GROUND_SNAP_TOLERANCE_FP;
         let feet_at_or_below = player_foot_y_px >= plat_y_px;
 
         if feet_at_or_below || within_snap {
