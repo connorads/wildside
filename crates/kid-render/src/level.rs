@@ -61,20 +61,50 @@ impl ForegroundLayout {
         let width_cells = u16::from(width_screens) * FOREGROUND_CELLS_PER_SCREEN_X;
         let height_cells = u16::from(height_screens) * FOREGROUND_CELLS_PER_SCREEN_Y;
         let expected_len = usize::from(width_cells) * usize::from(height_cells);
-        if bytes.len() != expected_len {
-            bail!(
-                "foreground layout length {} does not match expected {} ({}x{} cells)",
-                bytes.len(),
-                expected_len,
+        if bytes.len() == expected_len {
+            return Ok(Self {
                 width_cells,
-                height_cells
-            );
+                height_cells,
+                cells: bytes.to_vec(),
+            });
         }
-        Ok(Self {
+        // Tolerate slight size differences (±5 bytes) — some levels have
+        // trailing padding or are minimally truncated in the extracted data.
+        if bytes.len().abs_diff(expected_len) <= 5 {
+            let mut cells = vec![0u8; expected_len];
+            let copy_len = bytes.len().min(expected_len);
+            cells[..copy_len].copy_from_slice(&bytes[..copy_len]);
+            return Ok(Self {
+                width_cells,
+                height_cells,
+                cells,
+            });
+        }
+        // For large mismatches, try to infer dimensions from the data length.
+        // The width must be a multiple of FOREGROUND_CELLS_PER_SCREEN_X (20).
+        let cells_per_x = usize::from(FOREGROUND_CELLS_PER_SCREEN_X);
+        let cells_per_y = usize::from(FOREGROUND_CELLS_PER_SCREEN_Y);
+        if bytes.len() % cells_per_x == 0 {
+            let total_rows = bytes.len() / cells_per_x;
+            if total_rows % cells_per_y == 0 || total_rows > 0 {
+                let inferred_width = width_cells;
+                let inferred_height = (bytes.len() / usize::from(inferred_width)).max(1) as u16;
+                if usize::from(inferred_width) * usize::from(inferred_height) == bytes.len() {
+                    return Ok(Self {
+                        width_cells: inferred_width,
+                        height_cells: inferred_height,
+                        cells: bytes.to_vec(),
+                    });
+                }
+            }
+        }
+        bail!(
+            "foreground layout length {} does not match expected {} ({}x{} cells)",
+            bytes.len(),
+            expected_len,
             width_cells,
-            height_cells,
-            cells: bytes.to_vec(),
-        })
+            height_cells
+        );
     }
 
     pub fn skin_at(&self, col: u16, row: u16) -> u8 {
