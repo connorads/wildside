@@ -121,7 +121,7 @@ impl BlockVisualMapping {
                     quad,
                 }),
             Some(block_type) => {
-                let kind = block_visual_kind(block_type);
+                let kind = block_visual_kind(block_type)?;
                 match kind {
                     BlockVisualKind::Terrain => unreachable!(),
                     BlockVisualKind::GenericBlock => Some(ResolvedBlockVisual {
@@ -161,14 +161,16 @@ fn take_block_skin_group(block_quads: &mut impl Iterator<Item = TileQuad>) -> Ve
     block_quads.take(BLOCK_VARIANT_SKIN_COUNT).collect()
 }
 
-fn block_visual_kind(block_type: u8) -> BlockVisualKind {
+fn block_visual_kind(block_type: u8) -> Option<BlockVisualKind> {
     match block_type {
-        0 => BlockVisualKind::Smash,
-        1 => BlockVisualKind::Prize,
-        2 => BlockVisualKind::Ice,
-        5 => BlockVisualKind::Metal,
-        6 => BlockVisualKind::Rubber,
-        _ => BlockVisualKind::GenericBlock,
+        0 => Some(BlockVisualKind::Smash),
+        1 => Some(BlockVisualKind::Prize),
+        2 => Some(BlockVisualKind::Ice),
+        5 => Some(BlockVisualKind::Metal),
+        6 => Some(BlockVisualKind::Rubber),
+        // Other block types (Mushroom, SolidGhost, Teleporter, Shifting, etc.)
+        // keep their terrain skin — no override needed.
+        _ => None,
     }
 }
 

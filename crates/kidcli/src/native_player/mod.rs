@@ -234,6 +234,20 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     }
     let mut sfx_engine = SfxEngine::new();
 
+    // Trigger BGM for the initial level (the level-change check in the main loop
+    // compares current_level_id with trace.current_level, but both start at 0x00
+    // so it never fires for the first level).
+    if let Some(ref mut gems) = gems_engine {
+        let level_theme = manifest
+            .levels
+            .get(0usize)
+            .and_then(|l| l.header_metadata.as_ref())
+            .map(|h| h.level_theme);
+        if let Some(bgm) = level_theme.and_then(theme_to_bgm) {
+            gems.play_sound(bgm);
+        }
+    }
+
     let mut runtime = initialise_runtime(manifest, &session_assets);
     let mut trace = runtime.trace_frame();
     #[allow(unused_assignments)]
@@ -1929,7 +1943,8 @@ mod tests {
             assert_eq!(tile.tile_index, expected_tile_index);
         }
         assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_none());
-        assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 96, 0, 0x200).is_some());
+        // Block type 7 (Shifting) keeps its terrain skin — no block override emitted.
+        assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 96, 0, 0x200).is_none());
     }
 
     #[test]

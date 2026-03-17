@@ -87,11 +87,9 @@ mod tests {
             .block_mapping
             .resolve(0, Some(6))
             .expect("rubber block mapping");
-        let generic = visuals
-            .level
-            .block_mapping
-            .resolve(0, Some(7))
-            .expect("generic block mapping");
+        // Block types without specific art (Mushroom, Shifting, etc.) keep terrain skin.
+        let terrain_skin_block = visuals.level.block_mapping.resolve(0, Some(7));
+        assert!(terrain_skin_block.is_none(), "shifting block should keep terrain skin");
 
         assert_eq!(terrain.kind, BlockVisualKind::Terrain);
         assert_eq!(terrain.quad.tiles[0].tile_index, 10);
@@ -107,9 +105,6 @@ mod tests {
         assert_eq!(metal.quad.tiles[0].tile_index, 0x0500);
         assert_eq!(rubber.kind, BlockVisualKind::Rubber);
         assert_eq!(rubber.quad.tiles[0].tile_index, 0x0600);
-
-        assert_eq!(generic.kind, BlockVisualKind::GenericBlock);
-        assert_eq!(generic.quad.tiles[0].tile_index, 0x00BC);
 
         assert_ne!(smash, metal);
     }
