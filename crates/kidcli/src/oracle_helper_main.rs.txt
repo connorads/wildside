@@ -944,6 +944,41 @@ fn boot_and_warp_oracle(
                 tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
             }
             tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
+
+            // Check again.
+            let still_not_triggered = {
+                let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+                let gm = u16::from_be_bytes([
+                    mem.read(work_ram_index(0xFFFF_FBCA)),
+                    mem.read(work_ram_index(0xFFFF_FBCA) + 1),
+                ]);
+                gm != 8
+            };
+            if still_not_triggered {
+                // Fallback: directly write level ID and force title card.
+                // This bypasses the cheat but works for all levels.
+                {
+                    let mut mem =
+                        emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+                    mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR), 0x00);
+                    mem.write(
+                        work_ram_index(CURRENT_LEVEL_ID_ADDR) + 1,
+                        target_level,
+                    );
+                    // Clear transition state and set Game_Mode = 8.
+                    mem.write(work_ram_index(0xFFFF_FBCC), 0x00);
+                    mem.write(work_ram_index(0xFFFF_FBCC) + 1, 0x00);
+                    mem.write(work_ram_index(0xFFFF_FBCE), 0xFF);
+                    mem.write(work_ram_index(GAME_MODE_ADDR), 0x00);
+                    mem.write(work_ram_index(GAME_MODE_ADDR) + 1, 0x08);
+                }
+                // Let the title card handler process the mode change.
+                for _ in 0..60 {
+                    tick_one_frame(
+                        emulator, renderer, audio, &no_input, save_writer,
+                    )?;
+                }
+            }
         }
 
         // Wait for title card (game_mode=8 → Load_TitleCard → "Press Start").
