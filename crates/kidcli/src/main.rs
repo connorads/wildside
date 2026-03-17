@@ -1542,6 +1542,11 @@ mod tests {
             number_gfx_objects: 3,
             game_paused: false,
             active_enemies,
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
         }
     }
 

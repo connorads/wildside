@@ -458,6 +458,11 @@ fn extract_checkpoint_states(
                 number_gfx_objects: frame.number_gfx_objects,
                 game_paused: false,
                 active_enemies: Vec::new(),
+                score: frame.score,
+                number_lives: frame.number_lives,
+                number_diamonds: frame.diamond_count,
+                diamond_power_active: frame.diamond_power_active,
+                murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
             })
         })
         .collect()
@@ -539,6 +544,54 @@ fn compare_sweep_states(
                 field: "kid_y_pos".into(),
                 native_value: format!("{:#010x}", native.kid_y_pos),
                 oracle_value: format!("{:#010x}", oracle.kid_y_pos),
+            });
+        }
+        if native.score != oracle.score {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "score".into(),
+                native_value: format!("{}", native.score),
+                oracle_value: format!("{}", oracle.score),
+            });
+        }
+        if native.number_lives != oracle.number_lives {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "number_lives".into(),
+                native_value: format!("{}", native.number_lives),
+                oracle_value: format!("{}", oracle.number_lives),
+            });
+        }
+        if native.number_diamonds != oracle.number_diamonds {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "number_diamonds".into(),
+                native_value: format!("{}", native.number_diamonds),
+                oracle_value: format!("{}", oracle.number_diamonds),
+            });
+        }
+        if native.current_helmet_id != oracle.current_helmet_id {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "current_helmet_id".into(),
+                native_value: format!("{}", native.current_helmet_id),
+                oracle_value: format!("{}", oracle.current_helmet_id),
+            });
+        }
+        if native.diamond_power_active != oracle.diamond_power_active {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "diamond_power_active".into(),
+                native_value: format!("{}", native.diamond_power_active),
+                oracle_value: format!("{}", oracle.diamond_power_active),
+            });
+        }
+        if native.murder_wall_x != oracle.murder_wall_x {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "murder_wall_x".into(),
+                native_value: format!("{:?}", native.murder_wall_x),
+                oracle_value: format!("{:?}", oracle.murder_wall_x),
             });
         }
     }
@@ -1618,6 +1671,11 @@ mod tests {
             number_gfx_objects: 0,
             game_paused: false,
             active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
         }];
         let mut oracle = native.clone();
         oracle[0].game_mode = 0x0020;
@@ -1646,6 +1704,11 @@ mod tests {
             number_gfx_objects: 3,
             game_paused: false,
             active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
         }];
         let mut oracle = native.clone();
         // Small drift within tolerance (0x0004_0000)
@@ -1921,6 +1984,11 @@ mod tests {
             number_gfx_objects: 3,
             game_paused: false,
             active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
         }];
         let mut oracle = native.clone();
         oracle[0].camera_x_pos = 0x0110_0000;

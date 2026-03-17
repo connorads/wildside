@@ -114,6 +114,16 @@ pub struct OracleState {
     #[serde(default)]
     pub game_paused: bool,
     pub active_enemies: Vec<OracleEnemyState>,
+    #[serde(default)]
+    pub score: u32,
+    #[serde(default)]
+    pub number_lives: u16,
+    #[serde(default)]
+    pub number_diamonds: u16,
+    #[serde(default)]
+    pub diamond_power_active: bool,
+    #[serde(default)]
+    pub murder_wall_x: Option<i32>,
 }
 
 pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {

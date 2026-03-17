@@ -165,6 +165,16 @@ struct OracleState {
     number_gfx_objects: u16,
     game_paused: bool,
     active_enemies: Vec<OracleEnemyState>,
+    #[serde(default)]
+    score: u32,
+    #[serde(default)]
+    number_lives: u16,
+    #[serde(default)]
+    number_diamonds: u16,
+    #[serde(default)]
+    diamond_power_active: bool,
+    #[serde(default)]
+    murder_wall_x: Option<i32>,
 }
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
@@ -180,6 +190,12 @@ const KID_X_POS_ADDR: usize = 0xFF_24FA;
 const KID_Y_POS_ADDR: usize = 0xFF_24FE;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
+const SCORE_ADDR: usize = 0xFF_FC4C;
+const NUMBER_LIVES_ADDR: usize = 0xFF_FC3E;
+const NUMBER_DIAMONDS_ADDR: usize = 0xFF_FC42;
+const DIAMOND_POWER_ACTIVE_ADDR: usize = 0xFF_F5B8;
+const MURDER_WALL_FLAG_ADDR: usize = 0xFF_FAC1;
+const MURDER_WALL_X_POS_ADDR: usize = 0xFF_FAC4;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
 const ENEMY_LAYOUT_OBJECT_PTR_ADDR: usize = 0xFF_F8F6;
 const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
@@ -668,6 +684,15 @@ fn capture_state(
         number_gfx_objects: read_wram_u16(&work_ram, NUMBER_GFX_OBJECTS_ADDR),
         game_paused: read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0,
         active_enemies: capture_enemy_states(&work_ram, rom.as_ref()),
+        score: read_wram_u32(&work_ram, SCORE_ADDR),
+        number_lives: read_wram_u16(&work_ram, NUMBER_LIVES_ADDR),
+        number_diamonds: read_wram_u16(&work_ram, NUMBER_DIAMONDS_ADDR),
+        diamond_power_active: read_wram_u8(&work_ram, DIAMOND_POWER_ACTIVE_ADDR) != 0,
+        murder_wall_x: if read_wram_u8(&work_ram, MURDER_WALL_FLAG_ADDR) != 0 {
+            Some(read_wram_i32(&work_ram, MURDER_WALL_X_POS_ADDR))
+        } else {
+            None
+        },
     }
 }
 

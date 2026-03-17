@@ -804,6 +804,11 @@ pub(crate) fn native_state_to_oracle_state(state: &CapturedState) -> OracleState
         number_gfx_objects: state.number_gfx_objects,
         active_enemies: state.active_enemies.clone(),
         game_paused: false,
+        score: 0,
+        number_lives: 0,
+        number_diamonds: 0,
+        diamond_power_active: false,
+        murder_wall_x: None,
     }
 }
 

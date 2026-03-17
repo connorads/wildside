@@ -638,6 +638,11 @@ pub(crate) fn native_trace_to_oracle_state(
         number_gfx_objects: frame.number_gfx_objects,
         active_enemies: active_enemy_states_from_native_frame(frame),
         game_paused: false,
+        score: frame.score,
+        number_lives: frame.number_lives,
+        number_diamonds: frame.diamond_count,
+        diamond_power_active: frame.diamond_power_active,
+        murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
     }
 }
 
