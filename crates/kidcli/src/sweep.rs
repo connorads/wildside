@@ -1420,6 +1420,9 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
                     format!(" ({} assertion failures)", r.state_diffs.len())
                 };
                 println!("  {status}{diff_count}");
+                for d in &r.state_diffs {
+                    println!("    {}: {} = {} (expected {})", d.checkpoint, d.field, d.native_value, d.oracle_value);
+                }
                 results.push(r);
             }
             Err(e) => {
@@ -1527,6 +1530,16 @@ fn check_walk_right_assertions(
         .map(|cp| cp.frame_index)
         .unwrap_or(scenario.frame_count.saturating_sub(1));
 
+    // Skip if player died during the walk — death resets position
+    let player_died = (settle_idx..=end_idx).any(|i| {
+        trace
+            .get(i)
+            .is_some_and(|f| f.number_hitpoints == 0 || f.game_over)
+    });
+    if player_died {
+        return diffs;
+    }
+
     // Check X position increases between settle and end
     let settle_x = trace.get(settle_idx).and_then(|f| f.kid_x_pos);
     let end_x = trace.get(end_idx).and_then(|f| f.kid_x_pos);
@@ -1566,6 +1579,15 @@ fn check_jump_assertions(trace: &[NativeTraceFrame], scenario: &DynamicScenario)
         .map(|(i, _)| i);
 
     if let Some(jump_frame) = first_jump_frame {
+        // Skip if player was dead or not on ground at the jump frame —
+        // the scenario is generic and doesn't know level geometry
+        let player_alive_and_grounded = trace
+            .get(jump_frame)
+            .is_some_and(|f| f.number_hitpoints > 0 && f.kid_on_ground.unwrap_or(false));
+        if !player_alive_and_grounded {
+            return diffs;
+        }
+
         // Check that within 10 frames after jump press, Y velocity goes negative
         let found_negative_vy = (jump_frame..=(jump_frame + 10).min(trace.len().saturating_sub(1)))
             .any(|i| {
