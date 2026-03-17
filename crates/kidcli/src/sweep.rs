@@ -278,6 +278,26 @@ fn sweep_single_level(
         }
     };
 
+    // Detect broken oracle warps: if the oracle's game_mode is clearly invalid
+    // (e.g. 0x4e73 instead of 0x0000-0x0014), the warp failed and oracle data
+    // is garbage. Report as error rather than native failure.
+    let oracle_warp_broken = oracle.states.iter().any(|s| s.game_mode > 0x0014);
+    if oracle_warp_broken {
+        return Ok(LevelSweepResult {
+            level_id,
+            slug: format!("idle_level_{level_id:02x}"),
+            tier: requested_tier,
+            passed: false,
+            state_diffs: Vec::new(),
+            mae: None,
+            diff_images: Vec::new(),
+            error: Some(format!(
+                "oracle warp broken: game_mode={:#06x}",
+                oracle.states.first().map(|s| s.game_mode).unwrap_or(0)
+            )),
+        });
+    }
+
     // Compare states
     let state_diffs = compare_sweep_states(&native_states, &oracle.states);
     let state_passed = state_diffs
