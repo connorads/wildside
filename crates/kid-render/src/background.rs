@@ -183,16 +183,8 @@ pub fn compose_layered_background(
             planes[1].rows.len()
         );
     }
-    for (plane_index, plane) in planes.iter().enumerate().skip(2) {
-        if plane.rows.len() != base_plane_row_count {
-            bail!(
-                "layered background plane {} row count {} does not match the base plane row count {}",
-                plane_index,
-                plane.rows.len(),
-                base_plane_row_count
-            );
-        }
-    }
+    // Extra planes (index ≥ 2) may have different row counts — that's fine,
+    // the selector overflow logic uses each plane's own row count.
 
     let mut rows = Vec::with_capacity(layout.row_selectors.len());
     for &selector in &layout.row_selectors {
@@ -202,17 +194,32 @@ pub fn compose_layered_background(
             tiles.extend_from_slice(&planes[1].rows[selector_index]);
             tiles
         } else {
-            let overflow_index = selector_index - base_plane_row_count;
-            let source_plane_index = 2 + overflow_index / base_plane_row_count;
-            let source_row_index = overflow_index % base_plane_row_count;
+            // Overflow selectors index into extra planes sequentially.
+            // Walk through planes 2.. using each plane's own row count.
+            let mut remaining = selector_index - base_plane_row_count;
+            let mut source_plane_index = 2;
+            while source_plane_index < planes.len()
+                && remaining >= planes[source_plane_index].rows.len()
+            {
+                remaining -= planes[source_plane_index].rows.len();
+                source_plane_index += 1;
+            }
             let source_plane = planes.get(source_plane_index).ok_or_else(|| {
                 anyhow!(
-                    "layered background selector 0x{selector:02X} references missing plane {}",
-                    source_plane_index
+                    "layered background selector 0x{selector:02X} overflows all {} planes",
+                    planes.len()
                 )
             })?;
-            let mut tiles = source_plane.rows[source_row_index].clone();
-            tiles.extend_from_slice(&source_plane.rows[source_row_index]);
+            if remaining >= source_plane.rows.len() {
+                bail!(
+                    "layered background selector 0x{selector:02X} overflows plane {} ({} rows)",
+                    source_plane_index,
+                    source_plane.rows.len()
+                );
+            }
+            let mut tiles = source_plane.rows[remaining].clone();
+            // Duplicate for double-width scroll
+            tiles.extend_from_slice(&source_plane.rows[remaining]);
             tiles
         };
         rows.push(LayeredBackgroundRow { selector, tiles });
