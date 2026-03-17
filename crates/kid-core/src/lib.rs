@@ -2083,7 +2083,11 @@ impl NativeRuntime {
         ) {
             return counts;
         }
-        (roster_count, roster_count + 1)
+        // The original game allocates 4 system objects per level: player
+        // control, input handler, background/collision, and palette/state.
+        // The native roster already includes the player (1), so add 3 for
+        // the remaining system objects.
+        (roster_count + 3, roster_count + 3)
     }
 }
 
