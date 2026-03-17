@@ -30,6 +30,7 @@ pub struct PlayerVisuals {
 pub struct EnemyVisuals {
     pub diamond: AnimatedSpriteVisual,
     pub dragon: AnimatedSpriteVisual,
+    pub dragon_walking: AnimatedSpriteVisual,
     pub mini_hopping_skull: AnimatedSpriteVisual,
 }
 

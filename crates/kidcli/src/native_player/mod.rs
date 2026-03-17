@@ -1353,6 +1353,16 @@ mod tests {
                 ],
                 frame_duration: 7,
             },
+            dragon_walking: AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 140, 96)],
+                },
+                frames: vec![
+                    sample_object_frame(29, 31, 38),
+                    sample_object_frame(30, 31, 39),
+                ],
+                frame_duration: 9,
+            },
             mini_hopping_skull: AnimatedSpriteVisual {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 220, 160)],

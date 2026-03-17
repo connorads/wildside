@@ -432,6 +432,7 @@ const MINI_HOPPING_SKULL_FRAMES: [SpriteFrameDescriptor; 2] = [
     },
 ];
 
+// Flying dragon (0x0C) frames — from Dragon_Flying.asm: unk_C75EE..unk_C760E.
 const DRAGON_FLYING_FRAMES: [SpriteFrameDescriptor; 5] = [
     SpriteFrameDescriptor {
         origin_x: 0x0D,
@@ -467,6 +468,52 @@ const DRAGON_FLYING_FRAMES: [SpriteFrameDescriptor; 5] = [
         width_px: 0x2E,
         height_px: 0x1E,
         tile_base_index: 0x017D,
+    },
+];
+
+// Walking dragon (0x0D) frames — from Dragon.asm: unk_C7596..unk_C75BE.
+const DRAGON_WALKING_FRAMES: [SpriteFrameDescriptor; 6] = [
+    SpriteFrameDescriptor {
+        origin_x: 0x10,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x26,
+        tile_base_index: 0x060,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x10,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x27,
+        tile_base_index: 0x074,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x10,
+        origin_y: 0x00,
+        width_px: 0x20,
+        height_px: 0x28,
+        tile_base_index: 0x088,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x10,
+        origin_y: 0x00,
+        width_px: 0x20,
+        height_px: 0x27,
+        tile_base_index: 0x09C,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x10,
+        origin_y: 0x00,
+        width_px: 0x20,
+        height_px: 0x28,
+        tile_base_index: 0x0B0,
+    },
+    SpriteFrameDescriptor {
+        origin_x: 0x10,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x27,
+        tile_base_index: 0x0C4,
     },
 ];
 
@@ -580,10 +627,24 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
             frames: load_compressed_sprite_frames(
                 manifest,
                 DRAGON_ENEMY_ART_PATH,
-                "dragon enemy art",
+                "dragon flying art",
                 &DRAGON_FLYING_FRAMES,
             )?,
             frame_duration: 7,
+        },
+        dragon_walking: AnimatedSpriteVisual {
+            palette: load_ingame_palette_asset(
+                manifest,
+                DRAGON_ENEMY_PALETTE_PATH,
+                "dragon walking palette",
+            )?,
+            frames: load_compressed_sprite_frames(
+                manifest,
+                DRAGON_ENEMY_ART_PATH,
+                "dragon walking art",
+                &DRAGON_WALKING_FRAMES,
+            )?,
+            frame_duration: 9,
         },
         mini_hopping_skull: AnimatedSpriteVisual {
             palette: load_ingame_palette_asset(

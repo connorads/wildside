@@ -225,7 +225,8 @@ pub(super) fn push_enemy_sprite(
 ) {
     let enemy_visuals = match object_type {
         0x01 => &level_visuals.enemies.diamond,
-        0x0C | 0x0D => &level_visuals.enemies.dragon,
+        0x0C => &level_visuals.enemies.dragon,
+        0x0D => &level_visuals.enemies.dragon_walking,
         0x1C => &level_visuals.enemies.mini_hopping_skull,
         _ => {
             let colour = if object.damage_flash {
