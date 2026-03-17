@@ -300,9 +300,23 @@ fn sweep_single_level(
 
     // Compare states
     let state_diffs = compare_sweep_states(&native_states, &oracle.states);
-    let state_passed = state_diffs
+    // Build set of checkpoint labels where the native player died during idle
+    // but the oracle survived (due to being paused). Position diffs at these
+    // checkpoints are a downstream consequence of the HP advisory.
+    let death_gap_checkpoints: std::collections::HashSet<&str> = native_states
         .iter()
-        .all(|d| ADVISORY_FIELDS.contains(&d.field.as_str()));
+        .zip(oracle.states.iter())
+        .filter(|(n, o)| n.number_hitpoints == 0 && o.number_hitpoints > 0)
+        .map(|(n, _)| n.label.as_str())
+        .collect();
+    let state_passed = state_diffs.iter().all(|d| {
+        ADVISORY_FIELDS.contains(&d.field.as_str())
+            || (death_gap_checkpoints.contains(d.checkpoint.as_str())
+                && matches!(
+                    d.field.as_str(),
+                    "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos"
+                ))
+    });
 
     // Tier 1 (state-only): done unless escalating
     let effective_tier = if !state_passed && requested_tier == SweepTier::State {
