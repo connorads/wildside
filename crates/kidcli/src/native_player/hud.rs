@@ -112,7 +112,7 @@ pub(super) fn push_game_hud(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
 ) {
-    let hud_y = (FRAME_HEIGHT - 18) as i32;
+    let hud_y = 0i32;
     let hud_h = 18;
 
     commands.push(DrawCommand::Rect {

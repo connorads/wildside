@@ -1129,7 +1129,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                        if *y < 18
                             && tile_sheet.tiles.len() == 0x200
                             && [13, 15].contains(&tile.tile_index)
                 )
@@ -1962,7 +1962,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                        if *y < 18
                             && tile_sheet.tiles.len() == 12
                             && tile.tile_index <= 11
                 )
@@ -1975,7 +1975,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18) && tile_sheet.tiles.len() == 0x200
+                        if *y < 18 && tile_sheet.tiles.len() == 0x200
                 )
             })
             .count();
@@ -1987,7 +1987,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                        if *y < 18
                             && tile_sheet.tiles.len() == 16
                             && tile.tile_index == 8
                 )
@@ -2075,7 +2075,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                        if *y < 18
                             && tile_sheet.tiles.len() == 16
                             && tile.tile_index == 8
                 )
@@ -2695,7 +2695,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                        if *y < 18
                             && tile_sheet.tiles.len() == 12
                             && tile.tile_index <= 11
                 )
@@ -2708,7 +2708,7 @@ mod tests {
                 matches!(
                     command,
                     DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                        if *y >= (FRAME_HEIGHT as i32 - 18)
+                        if *y < 18
                             && tile_sheet.tiles.len() == 0x200
                             && [13, 15].contains(&tile.tile_index)
                 )
@@ -2731,7 +2731,7 @@ mod tests {
             matches!(
                 command,
                 DrawCommand::IndexedTile { y, tile_sheet, tile, .. }
-                    if *y >= (FRAME_HEIGHT as i32 - 18)
+                    if *y < 18
                         && tile_sheet.tiles.len() == 0x200
                         && tile.tile_index == 15
             )
