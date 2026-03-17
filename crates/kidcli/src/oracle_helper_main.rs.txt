@@ -927,19 +927,20 @@ fn boot_and_warp_oracle(
         // Verify the level skip triggered by checking game_mode.
         // If it changed to 8 (level reload), the skip worked.
         // If not, try again with a longer wait.
-        {
+        let skip_triggered = {
             let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
             let gm = u16::from_be_bytes([
                 mem.read(work_ram_index(0xFFFF_FBCA)),
                 mem.read(work_ram_index(0xFFFF_FBCA) + 1),
             ]);
-            if gm != 8 {
-                // Skip didn't trigger — try pressing again after more idle.
-                for _ in 0..60 {
-                    tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
-                }
-                tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
+            gm == 8
+        };
+        if !skip_triggered {
+            // Skip didn't trigger — try pressing again after more idle.
+            for _ in 0..60 {
+                tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
             }
+            tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
         }
 
         // Wait for title card (game_mode=8 → Load_TitleCard → "Press Start").

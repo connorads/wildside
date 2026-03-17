@@ -376,6 +376,9 @@ pub struct NativeRuntime {
     death_camera_lock: Option<CameraState>,
     level_skip_transition: Option<LevelSkipTransitionState>,
     level_skip_resume_hold: bool,
+    /// When true, skip the entry animation on the current level (used after
+    /// level-skip warp — the original game has no entry animation).
+    skip_entry_animation: bool,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platforms: Vec<ActivePlatform>,
@@ -1048,6 +1051,7 @@ impl NativeRuntime {
             death_camera_lock: None,
             level_skip_transition: None,
             level_skip_resume_hold: false,
+            skip_entry_animation: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platforms: Vec::new(),
@@ -1190,6 +1194,7 @@ impl NativeRuntime {
             return;
         }
         self.level_skip_resume_hold = false;
+        self.skip_entry_animation = true;
         self.level_start_frame = Some(self.frame_index);
         self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
     }
@@ -1751,6 +1756,15 @@ impl NativeRuntime {
         }
 
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
+        // When skip_entry_animation is set (after level-skip warp), pretend
+        // the level has been running long enough to bypass the entry animation.
+        // The original game has no entry animation — the player appears
+        // instantly at the spawn point.
+        let effective_elapsed = if self.skip_entry_animation {
+            level_elapsed + OPENING_SCROLL_START_FRAME
+        } else {
+            level_elapsed
+        };
         let bounds = self.level_bounds(self.current_level);
         let mut slice = self
             .opening_slice
@@ -1773,7 +1787,7 @@ impl NativeRuntime {
         let custom_gravity = self.skycutter_on_board || self.cyclone_flying
             || self.iron_knight_climbing || self.micromax_stuck;
         slice.step(
-            level_elapsed,
+            effective_elapsed,
             input,
             jump_pressed,
             self.current_form,
@@ -2564,14 +2578,9 @@ mod tests {
 
         assert_eq!(slice.player.x_pos, 0x0042_0000);
         assert_eq!(slice.player.y_pos, 0x0088_0000);
-        assert_eq!(
-            slice.camera.x_pos,
-            start_camera_axis(320 * 5, 320, 0x0042_u16.saturating_sub(160))
-        );
-        assert_eq!(
-            slice.camera.y_pos,
-            start_camera_axis(224 * 3, 224, 0x0088_u16.saturating_sub(112))
-        );
+        // Camera snaps to screen boundary: floor(pos / screen) * screen
+        assert_eq!(slice.camera.x_pos, u32::from((0x0042u16 / 320) * 320) << 16);
+        assert_eq!(slice.camera.y_pos, u32::from((0x0088u16 / 224) * 224) << 16);
         assert!(
             platforms
                 .placements
@@ -4241,14 +4250,9 @@ mod tests {
             .expect("advanced level should install a respawn slice");
         assert_eq!(slice.player.x_pos, 0x0751_0000);
         assert_eq!(slice.player.y_pos, 0x00E0_0000);
-        assert_eq!(
-            slice.camera.x_pos,
-            start_camera_axis(320 * 6, 320, 0x0751_u16.saturating_sub(160))
-        );
-        assert_eq!(
-            slice.camera.y_pos,
-            start_camera_axis(224 * 4, 224, 0x00E0_u16.saturating_sub(112))
-        );
+        // Camera snaps to screen boundary: floor(pos / screen) * screen
+        assert_eq!(slice.camera.x_pos, u32::from((0x0751u16 / 320) * 320) << 16);
+        assert_eq!(slice.camera.y_pos, u32::from((0x00E0u16 / 224) * 224) << 16);
     }
 
     #[test]

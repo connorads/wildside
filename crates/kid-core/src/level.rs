@@ -263,7 +263,7 @@ impl NativeRuntime {
         OpeningSliceState::respawn_from_pose(bounds, pose)
     }
 
-    pub(crate) fn level_start_pose(&self, level_id: LevelId, bounds: LevelBounds) -> LevelStartPose {
+    pub(crate) fn level_start_pose(&self, level_id: LevelId, _bounds: LevelBounds) -> LevelStartPose {
         if level_id == LevelId(0) {
             return LevelStartPose {
                 kid_x_pos: OPENING_ENTRY_KID_X_POS,
@@ -283,16 +283,10 @@ impl NativeRuntime {
         };
         let kid_x_pos = u32::from(header.player_start_x) << 16;
         let kid_y_pos = u32::from(header.player_start_y) << 16;
-        let camera_x_pos = start_camera_axis(
-            bounds.width_pixels,
-            320,
-            header.player_start_x.saturating_sub(160),
-        );
-        let camera_y_pos = start_camera_axis(
-            bounds.height_pixels,
-            224,
-            header.player_start_y.saturating_sub(112),
-        );
+        // Camera snaps to screen boundary: floor(pos / screen_size) * screen_size
+        // This matches the ASM at Load_InGame (divu.w #$140 / mulu.w #$140).
+        let camera_x_pos = u32::from((header.player_start_x / 320) * 320) << 16;
+        let camera_y_pos = u32::from((header.player_start_y / 224) * 224) << 16;
         LevelStartPose {
             kid_x_pos,
             kid_y_pos,

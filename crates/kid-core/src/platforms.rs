@@ -168,8 +168,3 @@ pub(crate) fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize
         (start - ((start - end) * clamped) / span as u64) as u32
     }
 }
-
-pub(crate) fn start_camera_axis(level_extent_px: u16, viewport_extent_px: u16, centred_start_px: u16) -> u32 {
-    let max_camera_px = level_extent_px.saturating_sub(viewport_extent_px);
-    u32::from(centred_start_px.min(max_camera_px)) << 16
-}
