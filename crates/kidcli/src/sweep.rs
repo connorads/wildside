@@ -15,7 +15,14 @@ use sha1::{Digest, Sha1};
 /// - number_hitpoints: oracle is accidentally paused (Start press carry-over
 ///   from title card transition), so the oracle player doesn't take damage
 ///   from enemies/murder wall during idle while the native does
-const ADVISORY_FIELDS: &[&str] = &["number_objects", "number_hitpoints"];
+const ADVISORY_FIELDS: &[&str] = &[
+    "number_objects",
+    "number_hitpoints",
+    "number_lives",
+    "number_diamonds",
+    "score",
+    "murder_wall_x",
+];
 
 /// Result tier controls how much data is collected per level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
