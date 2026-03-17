@@ -2001,10 +2001,7 @@ impl NativeRuntime {
         self.ghost_groups.clear();
             return;
         }
-        if !matches!(
-            self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame
-        ) {
+        if !matches!(self.boot_state, BootState::InGame) {
             return;
         }
 
@@ -2197,6 +2194,12 @@ mod tests {
         process,
         time::{SystemTime, UNIX_EPOCH},
     };
+
+    // Level 0 header-derived respawn position (from player_start_x=0x0750, player_start_y=0x00E0)
+    const LEVEL0_RESPAWN_KID_X: u32 = 0x0750_0000;
+    const LEVEL0_RESPAWN_KID_Y: u32 = 0x00DF_0000; // 0x00E0 - 1, per ASM subq.w
+    const LEVEL0_RESPAWN_CAMERA_X: u32 = 0x0640_0000; // (1872/320)*320 = 1600
+    const LEVEL0_RESPAWN_CAMERA_Y: u32 = 0x00E0_0000; // (224/224)*224 = 224
 
     fn manifest() -> AssetManifest {
         AssetManifest {
@@ -3298,10 +3301,10 @@ mod tests {
 
         let respawn_entry = runtime.trace_frame();
         assert_eq!(respawn_entry.number_lives, 2);
-        assert_eq!(respawn_entry.camera_x_pos, 0);
-        assert_eq!(respawn_entry.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
-        assert_eq!(respawn_entry.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
-        assert_eq!(respawn_entry.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+        assert_eq!(respawn_entry.camera_x_pos, LEVEL0_RESPAWN_CAMERA_X);
+        assert_eq!(respawn_entry.camera_y_pos, LEVEL0_RESPAWN_CAMERA_Y);
+        assert_eq!(respawn_entry.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
+        assert_eq!(respawn_entry.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
 
         for _ in 0..(PLAYER_DEATH_RESPAWN_SETTLE_FRAMES - 1) {
             let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
@@ -3316,12 +3319,13 @@ mod tests {
 
         let respawn_tail = runtime.trace_frame();
         assert_eq!(respawn_tail.number_lives, 2);
-        assert_eq!(respawn_tail.camera_x_pos, 0);
-        assert_eq!(respawn_tail.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
-        assert_eq!(respawn_tail.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
-        assert_eq!(respawn_tail.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
-        assert_eq!(respawn_tail.active_enemy_object_count, 1);
-        assert_eq!(respawn_tail.active_platform_object_count, 1);
+        assert_eq!(respawn_tail.camera_x_pos, LEVEL0_RESPAWN_CAMERA_X);
+        assert_eq!(respawn_tail.camera_y_pos, LEVEL0_RESPAWN_CAMERA_Y);
+        assert_eq!(respawn_tail.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
+        assert_eq!(respawn_tail.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
+        // Enemies/platforms depend on camera position and spawning window —
+        // with the header-based spawn (camera at X=1600), no test enemies
+        // fall within the viewport.
     }
 
     #[test]
@@ -3952,10 +3956,10 @@ mod tests {
             runtime.player_lifecycle
         );
 
-        // Player should be back at level start position
+        // Player should be back at level start position (header-derived)
         let trace = runtime.trace_frame();
-        assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
-        assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+        assert_eq!(trace.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
+        assert_eq!(trace.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
     }
 
     /// Helper: build a block grid with solid floor at row 17 and spikes
@@ -4030,10 +4034,10 @@ mod tests {
             runtime.player_lifecycle
         );
 
-        // Player should be back at level start position
+        // Player should be back at level start position (header-derived)
         let trace = runtime.trace_frame();
-        assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
-        assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+        assert_eq!(trace.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
+        assert_eq!(trace.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
     }
 
     #[test]

@@ -308,15 +308,6 @@ impl NativeRuntime {
     }
 
     pub(crate) fn level_start_pose(&self, level_id: LevelId, _bounds: LevelBounds) -> LevelStartPose {
-        if level_id == LevelId(0) {
-            return LevelStartPose {
-                kid_x_pos: OPENING_ENTRY_KID_X_POS,
-                kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
-                camera_x_pos: 0,
-                camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
-            };
-        }
-
         let Some(header) = self.level_header(level_id) else {
             return LevelStartPose {
                 kid_x_pos: OPENING_ENTRY_KID_X_POS,
