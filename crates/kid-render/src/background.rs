@@ -1,5 +1,5 @@
 use crate::tiles::TileRef;
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BackgroundVisuals {
@@ -204,19 +204,19 @@ pub fn compose_layered_background(
                 remaining -= planes[source_plane_index].rows.len();
                 source_plane_index += 1;
             }
-            let source_plane = planes.get(source_plane_index).ok_or_else(|| {
-                anyhow!(
-                    "layered background selector 0x{selector:02X} overflows all {} planes",
-                    planes.len()
-                )
-            })?;
-            if remaining >= source_plane.rows.len() {
-                bail!(
-                    "layered background selector 0x{selector:02X} overflows plane {} ({} rows)",
-                    source_plane_index,
-                    source_plane.rows.len()
-                );
-            }
+            // If all planes are exhausted, clamp to the last row of the last
+            // plane.  The original game reads garbage work-RAM here (desert
+            // bgscroll files have selectors up to 128 that exceed the 3×28-row
+            // plane space); clamping to the last valid row is the closest
+            // faithful approximation.
+            let (source_plane, remaining) = if source_plane_index >= planes.len()
+                || remaining >= planes[source_plane_index].rows.len()
+            {
+                let last = planes.last().expect("at least one plane");
+                (last, last.rows.len() - 1)
+            } else {
+                (&planes[source_plane_index], remaining)
+            };
             let mut tiles = source_plane.rows[remaining].clone();
             // Duplicate for double-width scroll
             tiles.extend_from_slice(&source_plane.rows[remaining]);
