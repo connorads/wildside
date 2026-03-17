@@ -977,25 +977,40 @@ fn build_game_scene_filtered(
         let lc_text = "LEVEL COMPLETE";
         let text_w = lc_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 24;
+        let text_y = (FRAME_HEIGHT as i32) / 2 - 40;
         let panel_w = text_w + 16;
         push_panel(
             &mut commands,
             text_x - 8,
             text_y - 4,
             panel_w,
-            56,
+            88,
             [0, 40, 0],
             [80, 255, 80],
         );
         commands.push(text(text_x, text_y, lc_text, [80, 255, 80], 2));
+        let mut line_y = text_y + 22;
         let time_bonus = u32::from(trace.level_timer_seconds) * 100;
-        let bonus_line = format!("TIME BONUS: {}", time_bonus);
+        let bonus_line = format!("TIME BONUS: {time_bonus}");
         let bonus_x = (FRAME_WIDTH as i32 - bonus_line.len() as i32 * 8) / 2;
-        commands.push(text(bonus_x, text_y + 22, &bonus_line, [200, 255, 200], 1));
+        commands.push(text(bonus_x, line_y, &bonus_line, [200, 255, 200], 1));
+        line_y += 12;
+        if !trace.level_damage_taken {
+            let nohit = "NO-HIT BONUS: 5000";
+            let nohit_x = (FRAME_WIDTH as i32 - nohit.len() as i32 * 8) / 2;
+            commands.push(text(nohit_x, line_y, nohit, [255, 255, 100], 1));
+            line_y += 12;
+        }
+        let elapsed = 180u16.saturating_sub(trace.level_timer_seconds);
+        if elapsed < 60 {
+            let speed = "SPEED BONUS: 10000";
+            let speed_x = (FRAME_WIDTH as i32 - speed.len() as i32 * 8) / 2;
+            commands.push(text(speed_x, line_y, speed, [100, 200, 255], 1));
+            line_y += 12;
+        }
         let score_line = format!("SCORE: {}", trace.score);
         let score_x = (FRAME_WIDTH as i32 - score_line.len() as i32 * 8) / 2;
-        commands.push(text(score_x, text_y + 34, &score_line, [255, 255, 255], 1));
+        commands.push(text(score_x, line_y, &score_line, [255, 255, 255], 1));
     }
 
     // Game Over / Continue overlay

@@ -292,6 +292,7 @@ pub struct NativeTraceFrame {
     pub diamond_count: u16,
     pub score: u32,
     pub level_timer_seconds: u16,
+    pub level_damage_taken: bool,
     pub murder_wall_x: Option<i64>,
     /// Active projectiles: (x_pos, y_pos, friendly).
     pub active_projectiles: Vec<(u32, u32, bool)>,
@@ -1528,6 +1529,7 @@ impl NativeRuntime {
             diamond_count: self.diamond_count,
             score: self.score,
             level_timer_seconds: self.level_timer.seconds,
+            level_damage_taken: self.level_damage_taken,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
             active_projectiles: self
                 .projectiles

@@ -1619,6 +1619,7 @@ mod tests {
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 180,
+            level_damage_taken: false,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_geysers: Vec::new(),
