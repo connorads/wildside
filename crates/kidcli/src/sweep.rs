@@ -5,7 +5,7 @@ use native_player::render_gameplay_frame_evidence_for_level;
 use oracle::run_jgenesis_capture_dynamic;
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, idle_level_scenario, prize_block_scenario,
-    walk_right_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
 };
 use sha1::{Digest, Sha1};
 
@@ -1330,6 +1330,7 @@ fn golden_scenarios_for_level(level_id: u8) -> Vec<DynamicScenario> {
         idle_level_scenario(level_id, None),
         walk_right_scenario(level_id, 300),
         prize_block_scenario(level_id),
+        stomp_enemy_scenario(level_id, 360),
     ]
 }
 
@@ -1480,6 +1481,17 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result
         prize_scenario.warp_to_level,
     );
     all_diffs.extend(check_jump_assertions(&prize_trace, &prize_scenario));
+
+    // Run stomp_enemy scenario (360 frames = 6 seconds, run + aggressive jumps)
+    let stomp_scenario = stomp_enemy_scenario(level_id, 360);
+    let stomp_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &stomp_scenario.script,
+        stomp_scenario.frame_count,
+        stomp_scenario.warp_to_level,
+    );
+    all_diffs.extend(check_walk_right_assertions(&stomp_trace, &stomp_scenario));
+    all_diffs.extend(check_jump_assertions(&stomp_trace, &stomp_scenario));
 
     let passed = all_diffs.is_empty();
 
@@ -2134,11 +2146,12 @@ mod tests {
     }
 
     #[test]
-    fn golden_scenarios_produces_three_scenarios() {
+    fn golden_scenarios_produces_four_scenarios() {
         let scenarios = golden_scenarios_for_level(0x00);
-        assert_eq!(scenarios.len(), 3);
+        assert_eq!(scenarios.len(), 4);
         assert!(scenarios[0].slug.starts_with("idle_level_"));
         assert!(scenarios[1].slug.starts_with("walk_right_"));
         assert!(scenarios[2].slug.starts_with("prize_block_"));
+        assert!(scenarios[3].slug.starts_with("stomp_enemy_"));
     }
 }

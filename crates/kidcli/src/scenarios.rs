@@ -383,6 +383,48 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
     }
 }
 
+/// Walk right with aggressive jump spam — higher frequency jumps than walk_right
+/// to maximise enemy stomp and headbutt chances across arbitrary levels.
+pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+    let settle_frames: usize = 60;
+    let total_frames = settle_frames + walk_frames;
+    let walk_start = settle_frames;
+    let walk_end = total_frames.saturating_sub(1);
+
+    let mut script = vec![0u8; total_frames.saturating_add(1)];
+    // Hold right + run (C button) throughout the walk phase
+    apply_range(&mut script, walk_start, walk_end, (1 << 3) | (1 << 5));
+    // Aggressive jumps every 30 frames (~0.5s), 6-frame hold for higher arc
+    add_periodic_jump(&mut script, walk_start + 15, walk_end, 30, 6);
+
+    let checkpoints = vec![
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: settle_frames,
+        },
+        DynamicCheckpoint {
+            label: "stomp_quarter".into(),
+            frame_index: settle_frames + walk_frames / 4,
+        },
+        DynamicCheckpoint {
+            label: "stomp_half".into(),
+            frame_index: settle_frames + walk_frames / 2,
+        },
+        DynamicCheckpoint {
+            label: "stomp_end".into(),
+            frame_index: walk_end,
+        },
+    ];
+
+    DynamicScenario {
+        slug: format!("stomp_enemy_{level_id:02x}"),
+        script,
+        frame_count: total_frames,
+        checkpoints,
+        warp_to_level: Some(level_id),
+    }
+}
+
 impl Scenario {
     pub fn slug(self) -> &'static str {
         match self {
@@ -615,7 +657,7 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 mod tests {
     use super::{
         DynamicScenario, GameplayScenario, Scenario, idle_level_scenario, prize_block_scenario,
-        walk_right_scenario,
+        stomp_enemy_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -888,6 +930,37 @@ mod tests {
     #[test]
     fn prize_block_scenario_frame_count_covers_checkpoints() {
         let scenario = prize_block_scenario(0x00);
+        let max_cp = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .max()
+            .expect("checkpoints");
+        assert!(scenario.frame_count > max_cp);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn stomp_enemy_scenario_holds_right_run_with_aggressive_jumps() {
+        let scenario = stomp_enemy_scenario(0x00, 300);
+        assert_eq!(scenario.slug, "stomp_enemy_00");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert_eq!(scenario.frame_count, 360);
+        // Settle phase is idle
+        assert_eq!(scenario.script[59], 0);
+        // Walk phase holds right + run (C)
+        assert_eq!(scenario.script[60] & ((1 << 3) | (1 << 5)), (1 << 3) | (1 << 5));
+        // First jump at settle + 15 = frame 75
+        assert_eq!(scenario.script[75] & (1 << 4), 1 << 4);
+        // Checkpoints cover the run
+        assert_eq!(scenario.checkpoints.len(), 4);
+        assert_eq!(scenario.checkpoints[0].label, "level_settle");
+        assert_eq!(scenario.checkpoints[3].label, "stomp_end");
+    }
+
+    #[test]
+    fn stomp_enemy_scenario_frame_count_covers_checkpoints() {
+        let scenario = stomp_enemy_scenario(0x05, 240);
         let max_cp = scenario
             .checkpoints
             .iter()
