@@ -2096,12 +2096,21 @@ impl NativeRuntime {
         ) {
             return counts;
         }
-        // The original game keeps 3 system objects: player control,
-        // game manager, and HUD/state. The native roster already
-        // includes the player (1), so add 2 for the other system
-        // objects. Additionally, the game allocates one slot for the
-        // level's background/camera controller, for a total of +3.
-        (roster_count + 3, roster_count + 3)
+        // The original game keeps 2 fixed system objects (game manager
+        // and HUD/state). An additional palette-rotation object is
+        // allocated for Mountain (fg=7), Cave (fg=8), or Island (bg=4)
+        // themes. The native roster already includes the player.
+        let extra = self
+            .level_header(self.current_level)
+            .map(|h| {
+                if h.level_theme == 7 || h.level_theme == 8 || h.background_theme == 4 {
+                    1u16
+                } else {
+                    0
+                }
+            })
+            .unwrap_or(0);
+        (roster_count + 2 + extra, roster_count + 2 + extra)
     }
 }
 
