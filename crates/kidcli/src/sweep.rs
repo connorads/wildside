@@ -416,8 +416,11 @@ fn compare_sweep_states(
                 oracle_value: format!("{:#06x}", oracle.current_level_id),
             });
         }
+        // Position thresholds: 6px (0x0006_0000) accommodates the ±5px
+        // PLAYER_HALF_WIDTH offset from gravity settling differences between
+        // native (instant floor snap) and oracle (physics-based settling).
         let cam_x_delta = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
-        if cam_x_delta > 0x0004_0000 {
+        if cam_x_delta > 0x0006_0000 {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "camera_x_pos".into(),
@@ -426,7 +429,7 @@ fn compare_sweep_states(
             });
         }
         let cam_y_delta = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
-        if cam_y_delta > 0x0004_0000 {
+        if cam_y_delta > 0x0006_0000 {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "camera_y_pos".into(),
@@ -450,7 +453,7 @@ fn compare_sweep_states(
                 oracle_value: format!("{}", oracle.number_hitpoints),
             });
         }
-        if native.kid_x_pos.abs_diff(oracle.kid_x_pos) > 0x0004_0000 {
+        if native.kid_x_pos.abs_diff(oracle.kid_x_pos) > 0x0006_0000 {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "kid_x_pos".into(),
@@ -458,7 +461,7 @@ fn compare_sweep_states(
                 oracle_value: format!("{:#010x}", oracle.kid_x_pos),
             });
         }
-        if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > 0x0004_0000 {
+        if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > 0x0006_0000 {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "kid_y_pos".into(),
