@@ -3,7 +3,10 @@ use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite};
 use native_player::render_gameplay_frame_evidence_for_level;
 use oracle::run_jgenesis_capture_dynamic;
-use scenarios::{DynamicCheckpoint, DynamicScenario, idle_level_scenario};
+use scenarios::{
+    DynamicCheckpoint, DynamicScenario, idle_level_scenario, prize_block_scenario,
+    walk_right_scenario,
+};
 use sha1::{Digest, Sha1};
 
 /// Advisory fields — diverge due to architectural differences, not native bugs:
@@ -24,6 +27,9 @@ pub(crate) enum SweepTier {
     Frames,
     /// Full diagnosis: multi-frame capture + drift detection.
     Full,
+    /// Scripted gameplay: run walk/jump scenarios, check self-consistency
+    /// assertions on the native trace (no oracle needed).
+    Gameplay,
 }
 
 /// Per-level sweep result.
@@ -131,6 +137,11 @@ pub(crate) fn run_sweep_with_options(
     tier: SweepTier,
     options: &SweepOptions,
 ) -> Result<SweepReport> {
+    // Gameplay tier: self-consistency only, no oracle needed.
+    if tier == SweepTier::Gameplay {
+        return run_gameplay_sweep(manifest, levels);
+    }
+
     let rom_bytes = fs::read(rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
 
@@ -1040,6 +1051,211 @@ pub(crate) fn diagnose_frame(
     Ok(())
 }
 
+/// Run a gameplay sweep across specified levels using scripted scenarios.
+/// No oracle needed — assertions are self-consistency checks on the native trace.
+pub(crate) fn run_gameplay_sweep(
+    manifest: &AssetManifest,
+    levels: &[u8],
+) -> Result<SweepReport> {
+    let timestamp = chrono_timestamp();
+    let mut results = Vec::with_capacity(levels.len());
+
+    for &level_id in levels {
+        println!("gameplay sweep level {level_id:#04x}...");
+        let result = sweep_gameplay_single_level(manifest, level_id);
+        match result {
+            Ok(r) => {
+                let status = if r.passed { "PASS" } else { "FAIL" };
+                let diff_count = if r.state_diffs.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({} assertion failures)", r.state_diffs.len())
+                };
+                println!("  {status}{diff_count}");
+                results.push(r);
+            }
+            Err(e) => {
+                println!("  ERROR: {e:#}");
+                results.push(LevelSweepResult {
+                    level_id,
+                    slug: format!("gameplay_{level_id:02x}"),
+                    tier: SweepTier::Gameplay,
+                    passed: false,
+                    state_diffs: Vec::new(),
+                    mae: None,
+                    diff_images: Vec::new(),
+                    error: Some(format!("{e:#}")),
+                });
+            }
+        }
+    }
+
+    let passed = results.iter().filter(|r| r.passed).count();
+    let failed = results.iter().filter(|r| !r.passed && r.error.is_none()).count();
+    let errors = results.iter().filter(|r| r.error.is_some()).count();
+
+    let report = SweepReport {
+        timestamp,
+        kid_core_hash: None,
+        levels: results,
+        passed,
+        failed,
+        errors,
+    };
+
+    println!(
+        "\ngameplay sweep complete: {passed} passed, {failed} failed, {errors} errors"
+    );
+
+    Ok(report)
+}
+
+fn sweep_gameplay_single_level(
+    manifest: &AssetManifest,
+    level_id: u8,
+) -> Result<LevelSweepResult> {
+    let mut all_diffs = Vec::new();
+
+    // Run walk_right scenario (300 frames = 5 seconds)
+    let walk_scenario = walk_right_scenario(level_id, 300);
+    let walk_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &walk_scenario.script,
+        walk_scenario.frame_count,
+        walk_scenario.warp_to_level,
+    );
+    all_diffs.extend(check_walk_right_assertions(&walk_trace, &walk_scenario));
+
+    // Run prize_block scenario
+    let prize_scenario = prize_block_scenario(level_id);
+    let prize_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &prize_scenario.script,
+        prize_scenario.frame_count,
+        prize_scenario.warp_to_level,
+    );
+    all_diffs.extend(check_jump_assertions(&prize_trace, &prize_scenario));
+
+    let passed = all_diffs.is_empty();
+
+    Ok(LevelSweepResult {
+        level_id,
+        slug: format!("gameplay_{level_id:02x}"),
+        tier: SweepTier::Gameplay,
+        passed,
+        state_diffs: all_diffs,
+        mae: None,
+        diff_images: Vec::new(),
+        error: None,
+    })
+}
+
+/// Self-consistency assertion: player X position increases monotonically
+/// while Right is held (within the walk phase).
+fn check_walk_right_assertions(
+    trace: &[NativeTraceFrame],
+    scenario: &DynamicScenario,
+) -> Vec<StateDiff> {
+    let mut diffs = Vec::new();
+    let settle_idx = scenario
+        .checkpoints
+        .iter()
+        .find(|cp| cp.label == "level_settle")
+        .map(|cp| cp.frame_index)
+        .unwrap_or(60);
+    let end_idx = scenario
+        .checkpoints
+        .iter()
+        .find(|cp| cp.label == "walk_end")
+        .map(|cp| cp.frame_index)
+        .unwrap_or(scenario.frame_count.saturating_sub(1));
+
+    // Check X position increases between settle and end
+    let settle_x = trace
+        .get(settle_idx)
+        .and_then(|f| f.kid_x_pos);
+    let end_x = trace
+        .get(end_idx)
+        .and_then(|f| f.kid_x_pos);
+
+    if let (Some(sx), Some(ex)) = (settle_x, end_x) {
+        if ex <= sx {
+            diffs.push(StateDiff {
+                checkpoint: "walk_end".into(),
+                field: "kid_x_pos_monotonic".into(),
+                native_value: format!("start={sx:#010x} end={ex:#010x}"),
+                oracle_value: "end > start".into(),
+            });
+        }
+    }
+
+    diffs
+}
+
+/// Self-consistency assertion: player Y velocity goes negative after jump input,
+/// and player leaves the ground.
+fn check_jump_assertions(
+    trace: &[NativeTraceFrame],
+    scenario: &DynamicScenario,
+) -> Vec<StateDiff> {
+    let mut diffs = Vec::new();
+    let settle_idx = scenario
+        .checkpoints
+        .iter()
+        .find(|cp| cp.label == "level_settle")
+        .map(|cp| cp.frame_index)
+        .unwrap_or(60);
+
+    // Find first frame after settle where B (jump) is pressed
+    let first_jump_frame = scenario
+        .script
+        .iter()
+        .enumerate()
+        .skip(settle_idx)
+        .find(|&(_, &buttons)| buttons & (1 << 4) != 0)
+        .map(|(i, _)| i);
+
+    if let Some(jump_frame) = first_jump_frame {
+        // Check that within 10 frames after jump press, Y velocity goes negative
+        let found_negative_vy = (jump_frame..=(jump_frame + 10).min(trace.len().saturating_sub(1)))
+            .any(|i| {
+                trace
+                    .get(i)
+                    .and_then(|f| f.kid_y_velocity)
+                    .is_some_and(|vy| vy < 0)
+            });
+
+        if !found_negative_vy {
+            diffs.push(StateDiff {
+                checkpoint: format!("frame_{jump_frame}"),
+                field: "kid_y_velocity_negative_after_jump".into(),
+                native_value: "no negative vy within 10 frames".into(),
+                oracle_value: "vy < 0 after B press".into(),
+            });
+        }
+
+        // Check that player leaves the ground
+        let found_airborne = (jump_frame..=(jump_frame + 15).min(trace.len().saturating_sub(1)))
+            .any(|i| {
+                trace
+                    .get(i)
+                    .and_then(|f| f.kid_on_ground)
+                    .is_some_and(|on| !on)
+            });
+
+        if !found_airborne {
+            diffs.push(StateDiff {
+                checkpoint: format!("frame_{jump_frame}"),
+                field: "kid_on_ground_false_after_jump".into(),
+                native_value: "never left ground".into(),
+                oracle_value: "kid_on_ground=false after B press".into(),
+            });
+        }
+    }
+
+    diffs
+}
+
 /// Count pixels that differ from the background (first pixel's colour).
 fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
     if rgb.len() < 3 {
@@ -1174,6 +1390,205 @@ mod tests {
         let h2 = kid_core_source_hash(&root).unwrap();
         assert_eq!(h1, h2);
         assert_eq!(h1.len(), 40); // SHA-1 hex
+    }
+
+    #[test]
+    fn walk_right_assertions_pass_when_x_increases() {
+        use kid_core::{GameMode, LevelId, NativeTraceFrame};
+        let scenario = walk_right_scenario(0x00, 300);
+        let mut trace: Vec<NativeTraceFrame> = (0..=scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                game_mode: GameMode::InGame,
+                game_mode_value: GameMode::InGame.as_disassembly_value(),
+                start_press_count: 0,
+                current_player: 0,
+                current_level: LevelId(0),
+                player_1_level_id: LevelId(0),
+                current_level_name: None,
+                player_start_x: None,
+                player_start_y: None,
+                flag_x: None,
+                flag_y: None,
+                level_enemy_object_count: None,
+                active_enemy_object_count: 0,
+                active_platform_object_count: 0,
+                number_lives: 3,
+                number_continues: 3,
+                number_hitpoints: 2,
+                current_helmet_id: 0,
+                paused: false,
+                // X increases over time
+                kid_x_pos: Some(0x0020_0000 + (i as u32) * 0x0001_0000),
+                kid_y_pos: Some(0x00E0_0000),
+                kid_x_velocity: Some(0),
+                kid_y_velocity: Some(0),
+                kid_facing: None,
+                kid_on_ground: Some(true),
+                active_objects: Vec::new(),
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+                number_objects: 0,
+                number_gfx_objects: 0,
+                level_complete: false,
+                game_over: false,
+                game_complete: false,
+                options_cursor: None,
+                two_player: false,
+                invulnerable_frames: 0,
+                diamond_power_active: false,
+                diamond_count: 0,
+                score: 0,
+                level_timer_seconds: 180,
+                murder_wall_x: None,
+                active_projectiles: Vec::new(),
+                active_geysers: Vec::new(),
+            })
+            .collect();
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+        assert!(diffs.is_empty(), "expected no diffs but got: {diffs:?}");
+
+        // Now make X decrease at walk_end checkpoint — should fail
+        let walk_end_idx = scenario.frame_count.saturating_sub(1);
+        trace[walk_end_idx].kid_x_pos = Some(0x0010_0000);
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "kid_x_pos_monotonic");
+    }
+
+    #[test]
+    fn jump_assertions_pass_when_vy_goes_negative() {
+        use kid_core::{GameMode, LevelId, NativeTraceFrame};
+        let scenario = prize_block_scenario(0x00);
+        let mut trace: Vec<NativeTraceFrame> = (0..=scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                game_mode: GameMode::InGame,
+                game_mode_value: GameMode::InGame.as_disassembly_value(),
+                start_press_count: 0,
+                current_player: 0,
+                current_level: LevelId(0),
+                player_1_level_id: LevelId(0),
+                current_level_name: None,
+                player_start_x: None,
+                player_start_y: None,
+                flag_x: None,
+                flag_y: None,
+                level_enemy_object_count: None,
+                active_enemy_object_count: 0,
+                active_platform_object_count: 0,
+                number_lives: 3,
+                number_continues: 3,
+                number_hitpoints: 2,
+                current_helmet_id: 0,
+                paused: false,
+                kid_x_pos: Some(0x0020_0000),
+                kid_y_pos: Some(0x00E0_0000),
+                kid_x_velocity: Some(0),
+                kid_y_velocity: Some(0),
+                kid_facing: None,
+                kid_on_ground: Some(true),
+                active_objects: Vec::new(),
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+                number_objects: 0,
+                number_gfx_objects: 0,
+                level_complete: false,
+                game_over: false,
+                game_complete: false,
+                options_cursor: None,
+                two_player: false,
+                invulnerable_frames: 0,
+                diamond_power_active: false,
+                diamond_count: 0,
+                score: 0,
+                level_timer_seconds: 180,
+                murder_wall_x: None,
+                active_projectiles: Vec::new(),
+                active_geysers: Vec::new(),
+            })
+            .collect();
+
+        // Find when the first B press happens
+        let first_b = scenario
+            .script
+            .iter()
+            .enumerate()
+            .skip(60)
+            .find(|&(_, &b)| b & (1 << 4) != 0)
+            .map(|(i, _)| i)
+            .unwrap();
+
+        // Set negative velocity and airborne a few frames after jump
+        for offset in 2..=5 {
+            if let Some(f) = trace.get_mut(first_b + offset) {
+                f.kid_y_velocity = Some(-0x0004_0000);
+                f.kid_on_ground = Some(false);
+            }
+        }
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+        assert!(diffs.is_empty(), "expected no diffs but got: {diffs:?}");
+    }
+
+    #[test]
+    fn jump_assertions_fail_when_player_stays_grounded() {
+        use kid_core::{GameMode, LevelId, NativeTraceFrame};
+        let scenario = prize_block_scenario(0x00);
+        // All frames: grounded, vy=0
+        let trace: Vec<NativeTraceFrame> = (0..=scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                game_mode: GameMode::InGame,
+                game_mode_value: GameMode::InGame.as_disassembly_value(),
+                start_press_count: 0,
+                current_player: 0,
+                current_level: LevelId(0),
+                player_1_level_id: LevelId(0),
+                current_level_name: None,
+                player_start_x: None,
+                player_start_y: None,
+                flag_x: None,
+                flag_y: None,
+                level_enemy_object_count: None,
+                active_enemy_object_count: 0,
+                active_platform_object_count: 0,
+                number_lives: 3,
+                number_continues: 3,
+                number_hitpoints: 2,
+                current_helmet_id: 0,
+                paused: false,
+                kid_x_pos: Some(0x0020_0000),
+                kid_y_pos: Some(0x00E0_0000),
+                kid_x_velocity: Some(0),
+                kid_y_velocity: Some(0),
+                kid_facing: None,
+                kid_on_ground: Some(true),
+                active_objects: Vec::new(),
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+                number_objects: 0,
+                number_gfx_objects: 0,
+                level_complete: false,
+                game_over: false,
+                game_complete: false,
+                options_cursor: None,
+                two_player: false,
+                invulnerable_frames: 0,
+                diamond_power_active: false,
+                diamond_count: 0,
+                score: 0,
+                level_timer_seconds: 180,
+                murder_wall_x: None,
+                active_projectiles: Vec::new(),
+                active_geysers: Vec::new(),
+            })
+            .collect();
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+        assert_eq!(diffs.len(), 2, "expected 2 failures (vy + on_ground)");
+        assert!(diffs.iter().any(|d| d.field == "kid_y_velocity_negative_after_jump"));
+        assert!(diffs.iter().any(|d| d.field == "kid_on_ground_false_after_jump"));
     }
 
     #[test]
