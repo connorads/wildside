@@ -346,12 +346,16 @@ fn sweep_single_level(
     // Compare states
     let state_diffs = compare_sweep_states(&native_states, &oracle.states);
     // Build set of checkpoint labels where the native player died during idle
-    // but the oracle survived (due to being paused). Position diffs at these
-    // checkpoints are a downstream consequence of the HP advisory.
+    // but the oracle survived. Detected by: (a) native HP=0, or (b) native
+    // lives decreased between checkpoints (died and respawned before capture).
+    let first_native_lives = native_states.first().map(|s| s.number_lives);
     let death_gap_checkpoints: std::collections::HashSet<&str> = native_states
         .iter()
         .zip(oracle.states.iter())
-        .filter(|(n, o)| n.number_hitpoints == 0 && o.number_hitpoints > 0)
+        .filter(|(n, o)| {
+            (n.number_hitpoints == 0 && o.number_hitpoints > 0)
+                || first_native_lives.is_some_and(|first| n.number_lives < first)
+        })
         .map(|(n, _)| n.label.as_str())
         .collect();
     // Detect oracle pause: oracle game is paused (in-game pause menu) or
