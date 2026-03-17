@@ -733,8 +733,9 @@ impl NativeRuntime {
             return;
         }
 
-        // Consume 20 diamonds, activate for 120 frames (2 seconds)
+        // Consume 20 diamonds, activate for 480 frames (8 seconds).
+        // ASM: move.w #$1E0,(Diamond_power_timer).w
         self.diamond_count -= 20;
-        self.diamond_power_frames = 120;
+        self.diamond_power_frames = 480;
     }
 }

@@ -1188,4 +1188,59 @@ mod tests {
         );
         assert_eq!(result, 0x1FC00);
     }
+
+    // -----------------------------------------------------------------------
+    // ASM-backed constant verification — values cross-referenced against
+    // kid-chameleon-disasm to catch drift between native and original.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn asm_normal_kid_speed_table_matches_unk_9c0a() {
+        // unk_9C0A: 7 longwords for Kid on normal terrain
+        assert_eq!(NORMAL_KID.max_walk_speed, 0x2_0000);
+        assert_eq!(NORMAL_KID.walk_accel, 0x1000);
+        assert_eq!(NORMAL_KID.walk_run_decel, 0x2800);
+        assert_eq!(NORMAL_KID.turn_brake, 0x2000);
+        assert_eq!(NORMAL_KID.max_run_speed, 0x3_8000);
+        assert_eq!(NORMAL_KID.run_accel, 0x1C00);
+        assert_eq!(NORMAL_KID.strong_brake, 0x3000);
+    }
+
+    #[test]
+    fn asm_air_hard_cap_matches_ground_run_cap() {
+        // Air accumulated speed must not exceed ground run cap
+        assert_eq!(AIR_HARD_CAP, NORMAL_KID.max_run_speed);
+    }
+
+    #[test]
+    fn asm_jump_heights_all_helmets_match_unk_a49e() {
+        // unk_A49E: per-helmet jump factor table (10 entries)
+        let expected: [u16; 10] = [
+            0x42, // Kid
+            0x42, // Skycutter
+            0x42, // Cyclone
+            0x4A, // RedStealth
+            0x42, // Eyeclops
+            0x42, // Juggernaut
+            0x42, // IronKnight
+            0x42, // Berzerker
+            0x42, // Maniaxe
+            0x42, // Micromax
+        ];
+        assert_eq!(JUMP_HEIGHTS, expected);
+    }
+
+    #[test]
+    fn asm_skycutter_jump_air_profile_is_fastest() {
+        // Skycutter (index 1) has highest accel and max_speed in air
+        assert_eq!(JUMP_AIR_PROFILES[1].accel, 0x3400);
+        assert_eq!(JUMP_AIR_PROFILES[1].max_speed, 0x32000);
+        assert!(JUMP_AIR_PROFILES[1].max_speed > JUMP_AIR_PROFILES[0].max_speed);
+    }
+
+    #[test]
+    fn asm_red_stealth_jump_air_profile_has_strongest_accel() {
+        assert_eq!(JUMP_AIR_PROFILES[3].accel, 0x4000);
+        assert_eq!(JUMP_AIR_PROFILES[3].max_speed, 0x2A000);
+    }
 }
