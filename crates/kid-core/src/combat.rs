@@ -338,23 +338,15 @@ impl NativeRuntime {
 
     pub(crate) fn apply_damage_with_knockback(
         &mut self,
-        slice: &mut OpeningSliceState,
-        enemy_x: u32,
+        _slice: &mut OpeningSliceState,
+        _enemy_x: u32,
     ) {
-        let dies = self.current_form == PlayerForm::TheKid && self.number_hitpoints <= 1;
+        // ASM does NOT apply knockback velocity on contact damage —
+        // the player's velocity is unchanged. The perceived "push" in
+        // the original comes from bounding-box separation, not an
+        // impulse. Previous native code applied KNOCKBACK_X/Y_VELOCITY
+        // which was an invented approximation.
         self.apply_damage();
-
-        // No knockback if the hit kills (death windup takes over)
-        if !dies {
-            let push_left = enemy_x > slice.player.x_pos;
-            slice.player.x_velocity = if push_left {
-                -KNOCKBACK_X_VELOCITY
-            } else {
-                KNOCKBACK_X_VELOCITY
-            };
-            slice.player.y_velocity = KNOCKBACK_Y_VELOCITY;
-            slice.player.on_ground = false;
-        }
     }
 
     pub(crate) fn apply_damage(&mut self) {

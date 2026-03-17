@@ -57,7 +57,9 @@ const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
 const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 120;
 const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 300;
 const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
-const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
+// ASM: Just_received_damage flag cleared by flicker object (loc_BC54):
+// outer loop dbf d3 with d3=$A (11 iterations), 6 frames per iteration = 66 frames.
+const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 66;
 const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
 const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
 const LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120; // brief pause before advancing
@@ -95,10 +97,6 @@ const KID_SLOPE_RUN_DOWNHILL_ACCEL_FP: i32 = 0x0000_4000;
 // Stomp bounce: ~60% of a standstill jump (Kid jump_height 0x42, factor 0x100).
 // Full jump y_vel = -(0x42 * 0x100) << 4 = -0x420_000. 60% ≈ -0x270_000.
 const STOMP_BOUNCE_VELOCITY: i32 = -0x0027_0000;
-
-// Knockback on contact damage: ~2px/frame horizontal, small upward arc.
-const KNOCKBACK_X_VELOCITY: i32 = 0x0002_0000;
-const KNOCKBACK_Y_VELOCITY: i32 = -0x0001_8000;
 
 // Frames an enemy flashes white after taking a non-lethal stomp.
 const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
@@ -6883,7 +6881,8 @@ mod tests {
     }
 
     #[test]
-    fn contact_damage_knocks_player_away_from_enemy_on_right() {
+    fn contact_damage_does_not_apply_knockback_velocity() {
+        // ASM does NOT apply knockback velocity on contact damage — only HP loss + invulnerability
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
@@ -6892,14 +6891,12 @@ mod tests {
         }
         runtime.number_hitpoints = 3;
 
-        // Activate skull, position player to the LEFT of skull
         if let Some(ref mut slice) = runtime.opening_slice {
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
         if let Some(ref mut slice) = runtime.opening_slice {
-            // Player slightly left of skull (skull at 0x0120)
             slice.player.x_pos = 0x011C_0000;
             slice.player.y_pos = 0x00E0_0000;
             slice.player.on_ground = true;
@@ -6910,59 +6907,10 @@ mod tests {
         }
         runtime.step_frame(FrameInput::default());
 
-        // Enemy is to the right → knockback should push player left (negative x_velocity)
         let slice = runtime.opening_slice.unwrap();
-        assert!(
-            slice.player.x_velocity < 0,
-            "player should be knocked left (x_vel={}) when enemy is to the right",
-            slice.player.x_velocity
-        );
-        assert!(
-            slice.player.y_velocity < 0,
-            "knockback should include upward arc (y_vel={})",
-            slice.player.y_velocity
-        );
-    }
-
-    #[test]
-    fn contact_damage_knocks_player_away_from_enemy_on_left() {
-        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
-        runtime.set_block_grid(grid_with_floor_at_row(14));
-        start_level(&mut runtime);
-        for _ in 0..260 {
-            runtime.step_frame(FrameInput::default());
-        }
-        runtime.number_hitpoints = 3;
-
-        // Activate skull, position player to the RIGHT of skull
-        if let Some(ref mut slice) = runtime.opening_slice {
-            slice.camera.x_pos = 0;
-            slice.camera.y_pos = 0;
-        }
-        runtime.step_frame(FrameInput::default());
-        if let Some(ref mut slice) = runtime.opening_slice {
-            // Player slightly right of skull (skull at 0x0120)
-            slice.player.x_pos = 0x0124_0000;
-            slice.player.y_pos = 0x00E0_0000;
-            slice.player.on_ground = true;
-            slice.player.x_velocity = 0;
-            slice.player.y_velocity = 0;
-            slice.camera.x_pos = 0;
-            slice.camera.y_pos = 0;
-        }
-        runtime.step_frame(FrameInput::default());
-
-        // Enemy is to the left → knockback should push player right (positive x_velocity)
-        let slice = runtime.opening_slice.unwrap();
-        assert!(
-            slice.player.x_velocity > 0,
-            "player should be knocked right (x_vel={}) when enemy is to the left",
-            slice.player.x_velocity
-        );
-        assert!(
-            slice.player.y_velocity < 0,
-            "knockback should include upward arc (y_vel={})",
-            slice.player.y_velocity
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "no knockback x velocity on contact damage"
         );
     }
 
