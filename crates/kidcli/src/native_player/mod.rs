@@ -1360,8 +1360,11 @@ mod tests {
     }
 
     fn sample_enemy_visuals() -> EnemyVisuals {
-        EnemyVisuals {
-            diamond: AnimatedSpriteVisual {
+        use std::collections::HashMap;
+        let mut families = HashMap::new();
+        families.insert(
+            0x01,
+            AnimatedSpriteVisual {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(120, 220, 255)],
                 },
@@ -1372,30 +1375,10 @@ mod tests {
                 ],
                 frame_duration: 6,
             },
-            dragon: AnimatedSpriteVisual {
-                palette: Palette {
-                    colours: vec![colour(0, 0, 0), colour(255, 140, 96)],
-                },
-                frames: vec![
-                    sample_object_frame(24, 46, 30),
-                    sample_object_frame(25, 48, 25),
-                    sample_object_frame(26, 47, 26),
-                    sample_object_frame(27, 46, 25),
-                    sample_object_frame(28, 46, 30),
-                ],
-                frame_duration: 7,
-            },
-            dragon_walking: AnimatedSpriteVisual {
-                palette: Palette {
-                    colours: vec![colour(0, 0, 0), colour(255, 140, 96)],
-                },
-                frames: vec![
-                    sample_object_frame(29, 31, 38),
-                    sample_object_frame(30, 31, 39),
-                ],
-                frame_duration: 9,
-            },
-            mini_hopping_skull: AnimatedSpriteVisual {
+        );
+        families.insert(
+            0x1C,
+            AnimatedSpriteVisual {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 220, 160)],
                 },
@@ -1405,7 +1388,8 @@ mod tests {
                 ],
                 frame_duration: 9,
             },
-        }
+        );
+        EnemyVisuals { families }
     }
 
     fn sample_platform_visuals() -> PlatformVisuals {

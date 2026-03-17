@@ -162,15 +162,19 @@ mod tests {
 
         let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
 
-        assert_eq!(visuals.enemies.diamond.frames.len(), 3);
-        assert_eq!(visuals.enemies.diamond.frames[0].tile_base_index, 0x002F);
-        assert_eq!(visuals.enemies.dragon.frames.len(), 5);
-        assert_eq!(visuals.enemies.dragon.frames[0].tile_base_index, 0x011D);
-        assert_eq!(visuals.enemies.mini_hopping_skull.frames.len(), 2);
-        assert_eq!(
-            visuals.enemies.mini_hopping_skull.frames[0].tile_base_index,
-            0x002C
-        );
+        let diamond = visuals
+            .enemies
+            .families
+            .get(&0x01)
+            .expect("diamond visuals");
+        assert_eq!(diamond.frames.len(), 5);
+        assert_eq!(diamond.frames[0].tile_base_index, 0x002F);
+        let dragon = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
+        assert_eq!(dragon.frames.len(), 5);
+        assert_eq!(dragon.frames[0].tile_base_index, 0x011D);
+        let skull = visuals.enemies.families.get(&0x1C).expect("skull visuals");
+        assert_eq!(skull.frames.len(), 2);
+        assert_eq!(skull.frames[0].tile_base_index, 0x002C);
         assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
         assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
     }

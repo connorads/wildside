@@ -24,12 +24,7 @@ const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
-const DIAMOND_ENEMY_ART_PATH: &str = "artcomp/Enemy01_Diamond.bin";
-const DIAMOND_ENEMY_PALETTE_PATH: &str = "palette_enemy/Crystal_1.bin";
-const DRAGON_ENEMY_ART_PATH: &str = "artcomp/Enemy0C_Dragon.bin";
-const DRAGON_ENEMY_PALETTE_PATH: &str = "palette_enemy/Dragon_1.bin";
-const MINI_HOPPING_SKULL_ART_PATH: &str = "artcomp/Enemy1C_Mini_hopping_skull.bin";
-const MINI_HOPPING_SKULL_PALETTE_PATH: &str = "palette_enemy/Mini_Hopping_Skull_1.bin";
+// Enemy art/palette paths removed — now defined inline in ENEMY_FAMILIES table.
 const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
 const VERTICAL_PLATFORM_ART_PATH: &str = "artcomp/Vertical_platform.bin";
 const KID_PALETTE_PATH: &str = "palette_kid/Kid.bin";
@@ -393,129 +388,369 @@ struct SpriteFrameDescriptor {
     tile_base_index: u16,
 }
 
-const DIAMOND_FRAMES: [SpriteFrameDescriptor; 3] = [
-    SpriteFrameDescriptor {
-        origin_x: 0x0A,
-        origin_y: 0x00,
-        width_px: 0x14,
-        height_px: 0x14,
-        tile_base_index: 0x002F,
-    },
-    SpriteFrameDescriptor {
-        origin_x: 0x0A,
-        origin_y: 0x00,
-        width_px: 0x14,
-        height_px: 0x14,
-        tile_base_index: 0x003B,
-    },
-    SpriteFrameDescriptor {
-        origin_x: 0x0A,
-        origin_y: 0x00,
-        width_px: 0x14,
-        height_px: 0x14,
-        tile_base_index: 0x0047,
-    },
-];
+/// Enemy family specification: object_type, art path, palette path, frame duration, frames.
+/// Frame data extracted from kid-chameleon-disasm sprite_frame_vram definitions.
+struct EnemyFamilySpec {
+    object_type: u8,
+    art_path: &'static str,
+    palette_path: &'static str,
+    frame_duration: usize,
+    frames: &'static [SpriteFrameDescriptor],
+}
 
-const MINI_HOPPING_SKULL_FRAMES: [SpriteFrameDescriptor; 2] = [
+const fn fd(
+    tile_base_index: u16,
+    origin_x: i16,
+    origin_y: i16,
+    width_px: u16,
+    height_px: u16,
+) -> SpriteFrameDescriptor {
     SpriteFrameDescriptor {
-        origin_x: 0x07,
-        origin_y: 0x00,
-        width_px: 0x0F,
-        height_px: 0x11,
-        tile_base_index: 0x002C,
-    },
-    SpriteFrameDescriptor {
-        origin_x: 0x08,
-        origin_y: 0x00,
-        width_px: 0x0F,
-        height_px: 0x12,
-        tile_base_index: 0x0032,
-    },
-];
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+    }
+}
 
-// Flying dragon (0x0C) frames — from Dragon_Flying.asm: unk_C75EE..unk_C760E.
-const DRAGON_FLYING_FRAMES: [SpriteFrameDescriptor; 5] = [
-    SpriteFrameDescriptor {
-        origin_x: 0x0D,
-        origin_y: 0x10,
-        width_px: 0x2E,
-        height_px: 0x1E,
-        tile_base_index: 0x011D,
+static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
+    EnemyFamilySpec {
+        object_type: 0x00, // Fire Demon
+        art_path: "artcomp/Enemy00_Fire_demon.bin",
+        palette_path: "palette_enemy/Fire_Demon_1_1.bin",
+        frame_duration: 6,
+        frames: &[
+            fd(0x000, 0x0E, 0x00, 0x1A, 0x20),
+            fd(0x010, 0x0D, 0x00, 0x1A, 0x20),
+            fd(0x020, 0x0C, 0x00, 0x1A, 0x20),
+            fd(0x030, 0x0C, 0x00, 0x1E, 0x20),
+            fd(0x020, 0x0C, 0x00, 0x1A, 0x20),
+            fd(0x010, 0x0D, 0x00, 0x1A, 0x20),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x0D,
-        origin_y: 0x10,
-        width_px: 0x30,
-        height_px: 0x19,
-        tile_base_index: 0x0135,
+    EnemyFamilySpec {
+        object_type: 0x01, // Diamond (collectible)
+        art_path: "artcomp/Enemy01_Diamond.bin",
+        palette_path: "palette_enemy/Crystal_1.bin",
+        frame_duration: 6,
+        frames: &[
+            fd(0x02F, 0x0A, 0x00, 0x14, 0x20),
+            fd(0x03B, 0x0A, 0x00, 0x14, 0x20),
+            fd(0x047, 0x0A, 0x00, 0x14, 0x20),
+            fd(0x053, 0x0A, 0x00, 0x14, 0x20),
+            fd(0x05F, 0x0A, 0x00, 0x14, 0x20),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x0E,
-        origin_y: 0x10,
-        width_px: 0x2F,
-        height_px: 0x1A,
-        tile_base_index: 0x014D,
+    EnemyFamilySpec {
+        object_type: 0x03, // Robot
+        art_path: "artcomp/Enemy03_Robot.bin",
+        palette_path: "palette_enemy/Plethora.bin",
+        frame_duration: 9,
+        frames: &[
+            fd(0x039, 0x12, 0x00, 0x1D, 0x14),
+            fd(0x045, 0x0A, 0x00, 0x12, 0x15),
+            fd(0x04E, 0x10, 0x00, 0x1C, 0x15),
+            fd(0x05A, 0x12, 0x00, 0x1D, 0x14),
+            fd(0x066, 0x0A, 0x00, 0x15, 0x15),
+            fd(0x06F, 0x10, 0x00, 0x1C, 0x15),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x0D,
-        origin_y: 0x10,
-        width_px: 0x2E,
-        height_px: 0x19,
-        tile_base_index: 0x0165,
+    EnemyFamilySpec {
+        object_type: 0x04, // Armadillo
+        art_path: "artcomp/Enemy04_Armadillo.bin",
+        palette_path: "palette_enemy/Armadillo_1.bin",
+        frame_duration: 11,
+        frames: &[
+            fd(0x0A5, 0x15, 0x00, 0x27, 0x17),
+            fd(0x0B4, 0x15, 0x00, 0x28, 0x18),
+            fd(0x0C3, 0x15, 0x00, 0x28, 0x18),
+            fd(0x0D2, 0x15, 0x00, 0x28, 0x17),
+            fd(0x0E1, 0x15, 0x00, 0x28, 0x18),
+            fd(0x0F0, 0x15, 0x00, 0x28, 0x18),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x0D,
-        origin_y: 0x10,
-        width_px: 0x2E,
-        height_px: 0x1E,
-        tile_base_index: 0x017D,
+    EnemyFamilySpec {
+        object_type: 0x05, // Tar Monster
+        art_path: "artcomp/Enemy05_Tar_monster.bin",
+        palette_path: "palette_enemy/Tar_Monster_1.bin",
+        frame_duration: 3,
+        frames: &[
+            fd(0x0AC, 0x11, 0x00, 0x1B, 0x20),
+            fd(0x044, 0x10, 0x00, 0x1B, 0x20),
+        ],
     },
-];
-
-// Walking dragon (0x0D) frames — from Dragon.asm: unk_C7596..unk_C75BE.
-const DRAGON_WALKING_FRAMES: [SpriteFrameDescriptor; 6] = [
-    SpriteFrameDescriptor {
-        origin_x: 0x10,
-        origin_y: 0x00,
-        width_px: 0x1F,
-        height_px: 0x26,
-        tile_base_index: 0x060,
+    EnemyFamilySpec {
+        object_type: 0x06, // Sphere
+        art_path: "artcomp/Enemy06_Sphere.bin",
+        palette_path: "palette_enemy/Sphere_1.bin",
+        frame_duration: 9,
+        frames: &[
+            fd(0x012, 0x08, 0x09, 0x10, 0x10),
+            fd(0x016, 0x08, 0x09, 0x10, 0x10),
+            fd(0x01A, 0x08, 0x09, 0x10, 0x10),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x10,
-        origin_y: 0x00,
-        width_px: 0x1F,
-        height_px: 0x27,
-        tile_base_index: 0x074,
+    EnemyFamilySpec {
+        object_type: 0x07, // Archer (skeleton)
+        art_path: "artcomp/Enemy07_Archer.bin",
+        palette_path: "palette_enemy/Archer_1.bin",
+        frame_duration: 8,
+        frames: &[
+            fd(0x030, 0x0F, 0x00, 0x1D, 0x1F),
+            fd(0x040, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x050, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x060, 0x0E, 0x00, 0x1B, 0x1F),
+            fd(0x070, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x080, 0x0E, 0x00, 0x1B, 0x20),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x10,
-        origin_y: 0x00,
-        width_px: 0x20,
-        height_px: 0x28,
-        tile_base_index: 0x088,
+    EnemyFamilySpec {
+        object_type: 0x08, // Orca
+        art_path: "artcomp/Enemy08_Orca.bin",
+        palette_path: "palette_enemy/Orca_1.bin",
+        frame_duration: 9,
+        frames: &[
+            fd(0x05C, 0x10, 0x00, 0x1C, 0x25),
+            fd(0x070, 0x10, 0x00, 0x1C, 0x26),
+            fd(0x084, 0x10, 0x00, 0x1D, 0x26),
+            fd(0x098, 0x10, 0x00, 0x1E, 0x25),
+            fd(0x0AC, 0x10, 0x00, 0x1C, 0x26),
+            fd(0x0C0, 0x10, 0x00, 0x1C, 0x26),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x10,
-        origin_y: 0x00,
-        width_px: 0x20,
-        height_px: 0x27,
-        tile_base_index: 0x09C,
+    EnemyFamilySpec {
+        object_type: 0x09, // Crab
+        art_path: "artcomp/Enemy09_Crab.bin",
+        palette_path: "palette_enemy/Crab_1.bin",
+        frame_duration: 8,
+        frames: &[
+            fd(0x030, 0x0F, 0x00, 0x1D, 0x1F),
+            fd(0x040, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x050, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x060, 0x0E, 0x00, 0x1B, 0x1F),
+            fd(0x070, 0x0E, 0x00, 0x1B, 0x20),
+            fd(0x080, 0x0E, 0x00, 0x1B, 0x20),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x10,
-        origin_y: 0x00,
-        width_px: 0x20,
-        height_px: 0x28,
-        tile_base_index: 0x0B0,
+    EnemyFamilySpec {
+        object_type: 0x0A, // Rock Tank
+        art_path: "artcomp/Enemy0A_Rock_tank.bin",
+        palette_path: "palette_enemy/Rock_tank_1.bin",
+        frame_duration: 6,
+        frames: &[
+            fd(0x02C, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x030, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x034, 0x0F, 0x00, 0x1E, 0x08),
+        ],
     },
-    SpriteFrameDescriptor {
-        origin_x: 0x10,
-        origin_y: 0x00,
-        width_px: 0x1F,
-        height_px: 0x27,
-        tile_base_index: 0x0C4,
+    EnemyFamilySpec {
+        object_type: 0x0C, // Dragon (flying)
+        art_path: "artcomp/Enemy0C_Dragon.bin",
+        palette_path: "palette_enemy/Dragon_1.bin",
+        frame_duration: 7,
+        frames: &[
+            fd(0x11D, 0x0D, 0x10, 0x2E, 0x1E),
+            fd(0x135, 0x0D, 0x10, 0x30, 0x19),
+            fd(0x14D, 0x0E, 0x10, 0x2F, 0x1A),
+            fd(0x165, 0x0D, 0x10, 0x2E, 0x19),
+            fd(0x17D, 0x0D, 0x10, 0x2E, 0x1E),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x0D, // Dragon (walking)
+        art_path: "artcomp/Enemy0C_Dragon.bin",
+        palette_path: "palette_enemy/Dragon_1.bin",
+        frame_duration: 9,
+        frames: &[
+            fd(0x060, 0x10, 0x00, 0x1F, 0x26),
+            fd(0x074, 0x10, 0x00, 0x1F, 0x27),
+            fd(0x088, 0x10, 0x00, 0x20, 0x28),
+            fd(0x09C, 0x10, 0x00, 0x20, 0x27),
+            fd(0x0B0, 0x10, 0x00, 0x20, 0x28),
+            fd(0x0C4, 0x10, 0x00, 0x1F, 0x27),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x0E, // Cloud
+        art_path: "artcomp/Enemy0E_Cloud.bin",
+        palette_path: "palette_enemy/Cloud_1.bin",
+        frame_duration: 11,
+        frames: &[
+            fd(0x095, 0x10, 0x00, 0x1F, 0x1F),
+            fd(0x0A5, 0x10, -1, 0x20, 0x1E),
+            fd(0x0B5, 0x10, -1, 0x20, 0x1E),
+            fd(0x0C5, 0x10, -2, 0x20, 0x1D),
+            fd(0x0B5, 0x10, -1, 0x20, 0x1E),
+            fd(0x0A5, 0x10, -1, 0x20, 0x1E),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x0F, // UFO
+        art_path: "artcomp/Enemy0F_UFO.bin",
+        palette_path: "palette_enemy/UFO_1.bin",
+        frame_duration: 5,
+        frames: &[
+            fd(0x15A, 0x10, 0x00, 0x20, 0x1D),
+            fd(0x16A, 0x10, 0x01, 0x20, 0x1E),
+            fd(0x17A, 0x10, 0x02, 0x20, 0x1F),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x10, // Goat
+        art_path: "artcomp/Enemy10_Goat.bin",
+        palette_path: "palette_enemy/Goat_1.bin",
+        frame_duration: 8,
+        frames: &[
+            fd(0x0A8, 0x0F, 0x00, 0x1E, 0x1F),
+            fd(0x0B8, 0x0F, 0x00, 0x1E, 0x20),
+            fd(0x0C8, 0x10, 0x00, 0x1F, 0x1F),
+            fd(0x0D8, 0x11, 0x00, 0x20, 0x1F),
+            fd(0x0E8, 0x10, 0x00, 0x1F, 0x20),
+            fd(0x0F8, 0x0F, 0x00, 0x1E, 0x1F),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x11, // Ninja
+        art_path: "artcomp/Enemy11_Ninja.bin",
+        palette_path: "palette_enemy/Ninja_1.bin",
+        frame_duration: 8,
+        frames: &[
+            fd(0x078, 0x0C, 0x00, 0x1A, 0x1F),
+            fd(0x088, 0x0D, 0x00, 0x1A, 0x20),
+            fd(0x098, 0x09, 0x00, 0x16, 0x20),
+            fd(0x0A4, 0x0A, 0x00, 0x17, 0x1F),
+            fd(0x0B0, 0x0A, 0x00, 0x18, 0x20),
+            fd(0x0BC, 0x0D, 0x00, 0x1C, 0x20),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x12, // Lion
+        art_path: "artcomp/Enemy12_Lion.bin",
+        palette_path: "palette_enemy/Lion_1.bin",
+        frame_duration: 7,
+        frames: &[
+            fd(0x16C, 0x15, 0x00, 0x2C, 0x2D),
+            fd(0x190, 0x16, 0x00, 0x2C, 0x2E),
+            fd(0x1B4, 0x15, 0x00, 0x2B, 0x2E),
+            fd(0x1D8, 0x14, 0x00, 0x2D, 0x2D),
+            fd(0x1FC, 0x15, 0x00, 0x28, 0x2E),
+            fd(0x21A, 0x15, 0x00, 0x2B, 0x2E),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x13, // Scorpion
+        art_path: "artcomp/Enemy13_Scorpion.bin",
+        palette_path: "palette_enemy/Scorpion_1.bin",
+        frame_duration: 6,
+        frames: &[
+            fd(0x04C, 0x18, 0x00, 0x30, 0x1F),
+            fd(0x064, 0x16, 0x00, 0x2E, 0x20),
+            fd(0x07C, 0x16, 0x00, 0x30, 0x20),
+            fd(0x094, 0x16, 0x00, 0x30, 0x1F),
+            fd(0x0AC, 0x16, 0x00, 0x2F, 0x20),
+            fd(0x0C4, 0x16, 0x00, 0x2F, 0x20),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x14, // Spinning Twins
+        art_path: "artcomp/Enemy14_Spinning_twins.bin",
+        palette_path: "palette_enemy/Spinning_Twins_1.bin",
+        frame_duration: 6,
+        frames: &[
+            fd(0x0A2, 0x20, 0x00, 0x40, 0x1F),
+            fd(0x0C2, 0x19, 0x00, 0x34, 0x1F),
+            fd(0x0DE, 0x0F, 0x00, 0x1E, 0x1F),
+            fd(0x0EE, 0x1E, 0x00, 0x3D, 0x1F),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x16, // Drip
+        art_path: "artcomp/Enemy16_Drip.bin",
+        palette_path: "palette_enemy/Drips_1.bin",
+        frame_duration: 8,
+        frames: &[
+            fd(0x000, 0x0C, 0x00, 0x0F, 0x0E),
+            fd(0x004, 0x0A, 0x00, 0x0E, 0x0F),
+            fd(0x008, 0x08, 0x00, 0x0F, 0x0F),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x17, // Hand
+        art_path: "artcomp/Enemy17_Hand.bin",
+        palette_path: "palette_enemy/Hand_1.bin",
+        frame_duration: 1,
+        frames: &[fd(0x03F, 0x10, 0x01, 0x20, 0x12)],
+    },
+    EnemyFamilySpec {
+        object_type: 0x18, // Tornado
+        art_path: "artcomp/Enemy18_Tornado.bin",
+        palette_path: "palette_enemy/Tornado_1.bin",
+        frame_duration: 5,
+        frames: &[
+            fd(0x028, 0x0E, 0x00, 0x1D, 0x28),
+            fd(0x03C, 0x0D, 0x00, 0x1C, 0x27),
+            fd(0x050, 0x0D, 0x00, 0x1C, 0x28),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x19, // Fireball
+        art_path: "artcomp/Enemy19_Fireball.bin",
+        palette_path: "palette_enemy/Fireball_1.bin",
+        frame_duration: 6,
+        frames: &[
+            fd(0x064, 0x07, 0x00, 0x0E, 0x08),
+            fd(0x066, 0x07, 0x00, 0x0D, 0x07),
+            fd(0x068, 0x06, 0x00, 0x0C, 0x06),
+            fd(0x06A, 0x07, 0x00, 0x0E, 0x08),
+            fd(0x06C, 0x07, 0x00, 0x0D, 0x08),
+            fd(0x06E, 0x06, 0x00, 0x0C, 0x06),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x1A, // Driller
+        art_path: "artcomp/Enemy1A_Driller.bin",
+        palette_path: "palette_enemy/Drill_1.bin",
+        frame_duration: 9,
+        frames: &[
+            fd(0x028, 0x08, 0x00, 0x10, 0x0F),
+            fd(0x02C, 0x08, 0x00, 0x10, 0x0E),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x1B, // Emo Rock
+        art_path: "artcomp/Enemy1B_Emo_rock.bin",
+        palette_path: "palette_enemy/Emo_Rock_1.bin",
+        frame_duration: 20,
+        frames: &[
+            fd(0x010, 0x10, 0x00, 0x1D, 0x20),
+            fd(0x040, 0x10, 0x00, 0x1F, 0x1C),
+            fd(0x050, 0x10, 0x00, 0x1F, 0x20),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x1C, // Mini Hopping Skull
+        art_path: "artcomp/Enemy1C_Mini_hopping_skull.bin",
+        palette_path: "palette_enemy/Mini_Hopping_Skull_1.bin",
+        frame_duration: 9,
+        frames: &[
+            fd(0x02C, 0x07, 0x00, 0x0F, 0x11),
+            fd(0x032, 0x08, 0x00, 0x0F, 0x12),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x1D, // Big Hopping Skull
+        art_path: "artcomp/Enemy1D_Big_hopping_skull.bin",
+        palette_path: "palette_enemy/Big_Hopping_Skull_1.bin",
+        frame_duration: 80,
+        frames: &[fd(0x040, 0x0D, 0x00, 0x19, 0x20)],
+    },
+    EnemyFamilySpec {
+        object_type: 0x20, // Heady Metal (boss)
+        art_path: "artcomp/Enemy20_Heady_Metal.bin",
+        palette_path: "palette_enemy/Boss.bin",
+        frame_duration: 10,
+        frames: &[fd(0x040, 0x0D, 0x00, 0x19, 0x20)],
     },
 ];
 
@@ -605,64 +840,37 @@ const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
 };
 
 fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
-    Ok(EnemyVisuals {
-        diamond: AnimatedSpriteVisual {
-            palette: load_ingame_palette_asset(
-                manifest,
-                DIAMOND_ENEMY_PALETTE_PATH,
-                "diamond enemy palette",
-            )?,
-            frames: load_compressed_sprite_frames(
-                manifest,
-                DIAMOND_ENEMY_ART_PATH,
-                "diamond enemy art",
-                &DIAMOND_FRAMES,
-            )?,
-            frame_duration: 6,
-        },
-        dragon: AnimatedSpriteVisual {
-            palette: load_ingame_palette_asset(
-                manifest,
-                DRAGON_ENEMY_PALETTE_PATH,
-                "dragon enemy palette",
-            )?,
-            frames: load_compressed_sprite_frames(
-                manifest,
-                DRAGON_ENEMY_ART_PATH,
-                "dragon flying art",
-                &DRAGON_FLYING_FRAMES,
-            )?,
-            frame_duration: 7,
-        },
-        dragon_walking: AnimatedSpriteVisual {
-            palette: load_ingame_palette_asset(
-                manifest,
-                DRAGON_ENEMY_PALETTE_PATH,
-                "dragon walking palette",
-            )?,
-            frames: load_compressed_sprite_frames(
-                manifest,
-                DRAGON_ENEMY_ART_PATH,
-                "dragon walking art",
-                &DRAGON_WALKING_FRAMES,
-            )?,
-            frame_duration: 9,
-        },
-        mini_hopping_skull: AnimatedSpriteVisual {
-            palette: load_ingame_palette_asset(
-                manifest,
-                MINI_HOPPING_SKULL_PALETTE_PATH,
-                "mini hopping skull palette",
-            )?,
-            frames: load_compressed_sprite_frames(
-                manifest,
-                MINI_HOPPING_SKULL_ART_PATH,
-                "mini hopping skull art",
-                &MINI_HOPPING_SKULL_FRAMES,
-            )?,
-            frame_duration: 9,
-        },
-    })
+    let mut families = std::collections::HashMap::new();
+    for spec in ENEMY_FAMILIES {
+        let palette = match load_ingame_palette_asset(manifest, spec.palette_path, spec.art_path) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("skipping enemy 0x{:02X} sprite: {e}", spec.object_type);
+                continue;
+            }
+        };
+        let frames = match load_compressed_sprite_frames(
+            manifest,
+            spec.art_path,
+            &format!("enemy 0x{:02X}", spec.object_type),
+            spec.frames,
+        ) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("skipping enemy 0x{:02X} art: {e}", spec.object_type);
+                continue;
+            }
+        };
+        families.insert(
+            spec.object_type,
+            AnimatedSpriteVisual {
+                palette,
+                frames,
+                frame_duration: spec.frame_duration,
+            },
+        );
+    }
+    Ok(EnemyVisuals { families })
 }
 
 fn load_platform_visuals(

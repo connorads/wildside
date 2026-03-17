@@ -26,12 +26,10 @@ pub struct PlayerVisuals {
     pub jump_fall: SpriteFrame,
 }
 
+/// Enemy sprite visuals keyed by object_type (0x00..0x22).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyVisuals {
-    pub diamond: AnimatedSpriteVisual,
-    pub dragon: AnimatedSpriteVisual,
-    pub dragon_walking: AnimatedSpriteVisual,
-    pub mini_hopping_skull: AnimatedSpriteVisual,
+    pub families: std::collections::HashMap<u8, AnimatedSpriteVisual>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
