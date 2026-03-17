@@ -111,6 +111,8 @@ pub struct OracleState {
     pub kid_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
+    #[serde(default)]
+    pub game_paused: bool,
     pub active_enemies: Vec<OracleEnemyState>,
 }
 

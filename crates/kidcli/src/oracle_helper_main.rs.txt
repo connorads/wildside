@@ -163,10 +163,12 @@ struct OracleState {
     kid_y_pos: u32,
     number_objects: u16,
     number_gfx_objects: u16,
+    game_paused: bool,
     active_enemies: Vec<OracleEnemyState>,
 }
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
+const GAME_PAUSED_ADDR: usize = 0xFF_FAD0;
 const CURRENT_PLAYER_ADDR: usize = 0xFF_FC39;
 const NUMBER_HITPOINTS_ADDR: usize = 0xFF_FC40;
 const CURRENT_LEVEL_ID_ADDR: usize = 0xFF_FC44;
@@ -664,6 +666,7 @@ fn capture_state(
         kid_y_pos: read_wram_u32(&work_ram, KID_Y_POS_ADDR),
         number_objects: read_wram_u16(&work_ram, NUMBER_OBJECTS_ADDR),
         number_gfx_objects: read_wram_u16(&work_ram, NUMBER_GFX_OBJECTS_ADDR),
+        game_paused: read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0,
         active_enemies: capture_enemy_states(&work_ram, rom.as_ref()),
     }
 }

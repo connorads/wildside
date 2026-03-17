@@ -1448,6 +1448,7 @@ mod tests {
             kid_y_pos: 0x0010_0000,
             number_objects: 3,
             number_gfx_objects: 3,
+            game_paused: false,
             active_enemies,
         }
     }

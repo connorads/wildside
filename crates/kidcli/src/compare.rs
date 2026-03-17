@@ -634,6 +634,7 @@ pub(crate) fn native_trace_to_oracle_state(
         number_objects: frame.number_objects,
         number_gfx_objects: frame.number_gfx_objects,
         active_enemies: active_enemy_states_from_native_frame(frame),
+        game_paused: false,
     }
 }
 

@@ -309,12 +309,30 @@ fn sweep_single_level(
         .filter(|(n, o)| n.number_hitpoints == 0 && o.number_hitpoints > 0)
         .map(|(n, _)| n.label.as_str())
         .collect();
+    // Detect oracle pause: oracle game is paused (in-game pause menu) or
+    // stuck on title card (game_mode=0x0008). Position/mode diffs are
+    // meaningless because the oracle never ran gameplay.
+    let oracle_paused_checkpoints: std::collections::HashSet<&str> = oracle
+        .states
+        .iter()
+        .filter(|s| s.game_paused || s.game_mode == 0x0008)
+        .map(|s| s.label.as_str())
+        .collect();
     let state_passed = state_diffs.iter().all(|d| {
         ADVISORY_FIELDS.contains(&d.field.as_str())
             || (death_gap_checkpoints.contains(d.checkpoint.as_str())
                 && matches!(
                     d.field.as_str(),
                     "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos"
+                ))
+            || (oracle_paused_checkpoints.contains(d.checkpoint.as_str())
+                && matches!(
+                    d.field.as_str(),
+                    "game_mode"
+                        | "kid_x_pos"
+                        | "kid_y_pos"
+                        | "camera_x_pos"
+                        | "camera_y_pos"
                 ))
     });
 
@@ -385,6 +403,7 @@ fn extract_checkpoint_states(
                 kid_y_pos: frame.kid_y_pos.unwrap_or(0),
                 number_objects: frame.number_objects,
                 number_gfx_objects: frame.number_gfx_objects,
+                game_paused: false,
                 active_enemies: Vec::new(),
             })
         })
@@ -879,6 +898,7 @@ mod tests {
             kid_y_pos: 0,
             number_objects: 0,
             number_gfx_objects: 0,
+            game_paused: false,
             active_enemies: Vec::new(),
         }];
         let mut oracle = native.clone();
@@ -906,6 +926,7 @@ mod tests {
             kid_y_pos: 0,
             number_objects: 5,
             number_gfx_objects: 3,
+            game_paused: false,
             active_enemies: Vec::new(),
         }];
         let mut oracle = native.clone();
@@ -955,6 +976,7 @@ mod tests {
             kid_y_pos: 0,
             number_objects: 5,
             number_gfx_objects: 3,
+            game_paused: false,
             active_enemies: Vec::new(),
         }];
         let mut oracle = native.clone();
