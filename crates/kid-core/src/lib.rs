@@ -2096,11 +2096,12 @@ impl NativeRuntime {
         ) {
             return counts;
         }
-        // The original game allocates system object slots beyond the
-        // enemy/platform roster: player sprite and HUD/state manager.
-        // The native roster already includes the player (1), so add 2
-        // for the remaining system objects.
-        (roster_count + 2, roster_count + 2)
+        // The original game keeps 3 system objects: player control,
+        // game manager, and HUD/state. The native roster already
+        // includes the player (1), so add 2 for the other system
+        // objects. Additionally, the game allocates one slot for the
+        // level's background/camera controller, for a total of +3.
+        (roster_count + 3, roster_count + 3)
     }
 }
 
