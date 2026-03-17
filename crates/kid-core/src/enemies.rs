@@ -75,6 +75,8 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
         // Lion: HP = enemy_level + 6 (min 6). Speed $18000 base, $28000 at HP 8.
         EnemyFamily::Lion => (6, 0x0001_8000, 0x0000_8000),
+        // DragonWalking: HP = enemy_level + 1 (min 2). Speed $8000 at HP≤2, $18000 at HP=3.
+        EnemyFamily::DragonWalking => (2, 0x0000_8000, 0x0001_0000),
         // Hand: HP = 1. Speed from table: $3000/$4800/$6000 by HP.
         EnemyFamily::Hand => (1, 0x0000_3000, 0x0000_1800),
         // SpinningTwins: walk speed $18000 after landing phase.
@@ -398,7 +400,7 @@ impl EnemyFamily {
         match self {
             Self::Diamond => EnemyArchetype::Collectible,
             Self::Dragon | Self::Cloud => EnemyArchetype::Flyer,
-            Self::DragonWalking => EnemyArchetype::Stationary, // stationary breath attacker
+            Self::DragonWalking => EnemyArchetype::Pacer, // paces + breath attack
             Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
             Self::UFO | Self::Tornado => EnemyArchetype::Flyer,
             Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
@@ -641,6 +643,12 @@ pub(crate) fn step_active_enemies(
                             step_tank_fire(enemy, projs);
                         }
                     }
+                    // DragonWalking paces and fires breath on timer
+                    if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                        if let Some(ref mut projs) = projectiles {
+                            step_dragon_walking(enemy, projs, player_x_pos);
+                        }
+                    }
                 }
             }
             EnemyArchetype::Stationary => {
@@ -649,10 +657,6 @@ pub(crate) fn step_active_enemies(
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
                         step_drips(enemy, projs);
-                    }
-                } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
-                    if let Some(projs) = projectiles.as_deref_mut() {
-                        step_dragon_walking(enemy, projs, player_x_pos);
                     }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(enemy, projs, player_x_pos, player_y_pos);
@@ -1798,21 +1802,12 @@ pub(crate) const DRAGON_WALKING_BREATH_INTERVAL: u16 = 300;
 pub(crate) const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
 pub(crate) const DRAGON_WALKING_BREATH_LIFETIME: u16 = 60;
 
-/// Step a walking dragon: stationary, faces player, fires breath projectile on timer.
+/// Fire breath for a walking dragon (called after step_pacer handles movement).
 pub(crate) fn step_dragon_walking(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
-    player_x_pos: Option<u32>,
+    _player_x_pos: Option<u32>,
 ) {
-    // Face toward player
-    if let Some(px) = player_x_pos {
-        enemy.facing = if px >= enemy.x_pos {
-            Direction::Right
-        } else {
-            Direction::Left
-        };
-    }
-
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;

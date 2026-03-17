@@ -5539,28 +5539,26 @@ mod tests {
     }
 
     #[test]
-    fn dragon_walking_fires_breath_on_timer_expiry() {
+    fn dragon_walking_fires_breath_in_facing_direction() {
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
         enemy.wait_timer = 0;
+        enemy.facing = Direction::Right;
         let mut projectiles = Vec::new();
-        let player_x = Some(200u32 << 16); // player to the right
-        step_dragon_walking(&mut enemy, &mut projectiles, player_x);
+        step_dragon_walking(&mut enemy, &mut projectiles, None);
         assert_eq!(projectiles.len(), 1);
-        assert!(projectiles[0].x_velocity > 0, "breath fires toward player (right)");
+        assert!(projectiles[0].x_velocity > 0, "breath fires in facing direction (right)");
         assert_eq!(projectiles[0].y_velocity, 0, "breath is horizontal");
         assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_INTERVAL);
-        assert_eq!(enemy.facing, Direction::Right);
     }
 
     #[test]
-    fn dragon_walking_faces_player_left() {
+    fn dragon_walking_fires_breath_left_when_facing_left() {
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
         enemy.wait_timer = 0;
+        enemy.facing = Direction::Left;
         let mut projectiles = Vec::new();
-        let player_x = Some(50u32 << 16); // player to the left
-        step_dragon_walking(&mut enemy, &mut projectiles, player_x);
-        assert_eq!(enemy.facing, Direction::Left);
-        assert!(projectiles[0].x_velocity < 0, "breath fires left toward player");
+        step_dragon_walking(&mut enemy, &mut projectiles, None);
+        assert!(projectiles[0].x_velocity < 0, "breath fires left when facing left");
     }
 
     #[test]
