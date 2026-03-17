@@ -323,6 +323,9 @@ pub struct NativeObjectSnapshot {
     pub on_ground: Option<bool>,
     pub hit_points: Option<u8>,
     pub damage_flash: bool,
+    /// Palette variant (0, 1, or 2) from the level's enemy type slot.
+    #[serde(default)]
+    pub palette_variant: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1702,6 +1705,7 @@ impl NativeRuntime {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             });
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
@@ -5474,6 +5478,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
@@ -5642,6 +5647,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
@@ -5690,6 +5696,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::GlideLeftToPerch,
             dragon_phase_frames: 0,
@@ -5857,6 +5864,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -5909,6 +5917,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -6012,6 +6021,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: MINI_SKULL_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -6074,6 +6084,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: MINI_SKULL_GROUND_DELAY_FRAMES,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -6770,6 +6781,7 @@ mod tests {
             on_ground: Some(false),
             hit_points: Some(1),
             damage_flash: false,
+            palette_variant: 0,
         };
 
         assert_eq!(
@@ -6803,6 +6815,7 @@ mod tests {
             on_ground: Some(false),
             hit_points: Some(1),
             damage_flash: false,
+            palette_variant: 0,
         };
 
         assert_eq!(
@@ -7176,6 +7189,7 @@ mod tests {
             hit_points: hp,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7324,6 +7338,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7366,6 +7381,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7436,6 +7452,7 @@ mod tests {
             hit_points: hp,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7511,6 +7528,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7552,6 +7570,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7599,6 +7618,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7650,6 +7670,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 3, // short wait for test
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7704,6 +7725,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0, // already past hover, will drop
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7824,6 +7846,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 10, // not ready to fire yet
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7860,6 +7883,7 @@ mod tests {
             hit_points: 1,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0, // ready to fire
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7944,6 +7968,7 @@ mod tests {
             hit_points: 2,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0, // ready to fire
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -7984,6 +8009,7 @@ mod tests {
             hit_points: 2,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 10,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -8038,6 +8064,7 @@ mod tests {
             hit_points: 10,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -8077,6 +8104,7 @@ mod tests {
             hit_points: 10,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -8119,6 +8147,7 @@ mod tests {
             hit_points: 10,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,
@@ -10680,6 +10709,7 @@ mod tests {
             hit_points: hp,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: 0,
             wait_timer: 0,
             dragon_phase: DragonMotionPhase::None,
             dragon_phase_frames: 0,

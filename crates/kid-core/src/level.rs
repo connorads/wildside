@@ -649,6 +649,7 @@ impl NativeRuntime {
             on_ground: None,
             hit_points: None,
             damage_flash: false,
+            palette_variant: 0,
         }]
     }
 

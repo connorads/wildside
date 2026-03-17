@@ -1368,6 +1368,7 @@ mod tests {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(120, 220, 255)],
                 },
+                extra_palettes: vec![],
                 frames: vec![
                     sample_object_frame(21, 20, 20),
                     sample_object_frame(22, 20, 20),
@@ -1382,6 +1383,7 @@ mod tests {
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 220, 160)],
                 },
+                extra_palettes: vec![],
                 frames: vec![
                     sample_object_frame(31, 16, 17),
                     sample_object_frame(32, 16, 18),
@@ -2046,6 +2048,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2058,6 +2061,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -2070,6 +2074,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2082,6 +2087,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
         ];
         let grid = BlockGrid::from_level_layout(&[0x60, 0x00, 0xE1, 0x02], 2, 1);
@@ -2233,6 +2239,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2245,6 +2252,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2257,6 +2265,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
         ];
         let scene = build_ingame_scene(&trace, true, None);
@@ -2292,6 +2301,7 @@ mod tests {
             on_ground: None,
             hit_points: None,
             damage_flash: false,
+            palette_variant: 0,
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
@@ -2419,6 +2429,7 @@ mod tests {
             on_ground: None,
             hit_points: None,
             damage_flash: false,
+            palette_variant: 0,
         }];
         trace
     }
@@ -2497,6 +2508,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -2509,6 +2521,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
         ];
 
@@ -2547,6 +2560,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2559,6 +2573,7 @@ mod tests {
                 on_ground: None,
                 hit_points: None,
                 damage_flash: false,
+                palette_variant: 0,
             },
         ];
 

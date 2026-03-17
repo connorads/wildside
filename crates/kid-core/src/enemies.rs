@@ -290,6 +290,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) hit_points: u8,
     pub(crate) grounded_frames: u8,
     pub(crate) damage_flash_frames: u8,
+    /// Palette variant (0, 1, or 2) from the enemy type slot.
+    pub(crate) palette_variant: u8,
     /// Generic countdown timer for phased enemies (EmoRock hover wait, etc.)
     pub(crate) wait_timer: u16,
     pub(crate) dragon_phase: DragonMotionPhase,
@@ -390,6 +392,7 @@ impl ActiveEnemy {
             on_ground: Some(self.on_ground),
             hit_points: Some(self.hit_points),
             damage_flash: self.damage_flash_frames > 0,
+            palette_variant: self.palette_variant,
         }
     }
 }
@@ -526,6 +529,7 @@ impl EnemyFamily {
             on_ground: None,
             hit_points: None,
             damage_flash: false,
+            palette_variant: 0,
         })
     }
 }
@@ -591,6 +595,7 @@ pub(crate) fn activate_enemies(
             hit_points,
             grounded_frames: 0,
             damage_flash_frames: 0,
+            palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
             wait_timer: spawn_wait_timer(family),
             dragon_phase: spawn_dragon_phase(family),
             dragon_phase_frames: 0,
@@ -2509,4 +2514,16 @@ pub(crate) fn resolved_enemy_id(enemy_type_slots: &[u16], object_type: u8) -> Op
         return None;
     }
     u8::try_from(raw_slot & 0x3FFF).ok()
+}
+
+/// Extract the palette variant (0, 1, or 2) from the enemy type slot.
+pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) -> u8 {
+    if object_type & 0x80 == 0 {
+        return 0;
+    }
+    let slot_index = usize::from(object_type & 0x7F);
+    let Some(&raw_slot) = enemy_type_slots.get(slot_index) else {
+        return 0;
+    };
+    ((raw_slot >> 14) & 3) as u8
 }

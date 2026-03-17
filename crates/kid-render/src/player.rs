@@ -13,6 +13,8 @@ pub struct SpriteFrame {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnimatedSpriteVisual {
     pub palette: Palette,
+    /// Additional palette variants (indexed by palette_variant - 1).
+    pub extra_palettes: Vec<Palette>,
     pub frames: Vec<SpriteFrame>,
     pub frame_duration: usize,
 }

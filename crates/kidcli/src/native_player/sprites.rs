@@ -247,9 +247,21 @@ pub(super) fn push_enemy_sprite(
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(enemy_visuals.palette.clone()),
+        palette: Arc::new(select_enemy_palette(enemy_visuals, object.palette_variant).clone()),
         tiles: build_sprite_tiles(frame, facing, 0),
     });
+}
+
+fn select_enemy_palette(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    variant: u8,
+) -> &kid_render::Palette {
+    if variant > 0 {
+        if let Some(pal) = visuals.extra_palettes.get(usize::from(variant) - 1) {
+            return pal;
+        }
+    }
+    &visuals.palette
 }
 
 pub(super) fn push_platform_tiles(
