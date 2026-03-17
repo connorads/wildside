@@ -49,6 +49,7 @@ impl OpeningSliceState {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         }
     }
 
@@ -96,6 +97,7 @@ impl OpeningSliceState {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         }
     }
 
@@ -632,6 +634,14 @@ impl OpeningSliceState {
                     } else {
                         self.player.on_ground = true;
                         self.player.y_velocity = 0;
+                    }
+                    // Teleporter blocks warp player on contact
+                    if probe.cell.has_block
+                        && probe.cell.block_type == terrain::BlockType::Teleporter
+                    {
+                        let tp_col = (x_px / 16).max(0) as u16;
+                        let tp_row = (probe.floor_y_px / 16).max(0) as u16;
+                        self.teleporter_contact = Some((tp_col, tp_row));
                     }
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     self.terrain.floor_terrain_type =

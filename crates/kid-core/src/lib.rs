@@ -1004,6 +1004,8 @@ struct OpeningSliceState {
     metal_block_hit: Option<(u16, u16)>,
     /// Smash block destroyed this frame — (x_px, y_px).
     smash_block_hit: Option<(u16, u16)>,
+    /// Teleporter block contacted this frame — (cell_x, cell_y).
+    teleporter_contact: Option<(u16, u16)>,
 }
 
 const LEVEL_SKIP_FREEZE_VISIBLE_FRAMES: usize = 21;
@@ -1881,6 +1883,7 @@ impl NativeRuntime {
         slice.drill_projectile_hit = None;
         slice.metal_block_hit = None;
         slice.smash_block_hit = None;
+        slice.teleporter_contact = None;
         self.stomped_this_frame = false;
         self.blocks_hit_this_frame = 0;
         // Tick visual effects
@@ -2000,6 +2003,19 @@ impl NativeRuntime {
                 friendly: false,
                 homing: false,
             });
+        }
+
+        // Teleporter block: warp player to destination
+        if let Some((cell_x, cell_y)) = slice.teleporter_contact {
+            if let Some(block_list) = self.block_list.as_ref() {
+                if let Some(tp) = block_list.teleporter_at(cell_x, cell_y) {
+                    // Warp to destination position
+                    slice.player.x_pos = u32::from(tp.dest_x) * 16 << 16;
+                    slice.player.y_pos = u32::from(tp.dest_y) * 16 << 16;
+                    slice.player.y_velocity = 0;
+                    slice.player.on_ground = true;
+                }
+            }
         }
 
         // Level timer: tick down and kill the player on expiry
@@ -3949,6 +3965,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.step(
@@ -6256,6 +6273,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6304,6 +6322,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6356,6 +6375,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6404,6 +6424,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6453,6 +6474,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6506,6 +6528,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -6553,6 +6576,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -6611,6 +6635,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_floor_collision(Some(&grid), true, false);
@@ -8910,6 +8935,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false);
@@ -8954,6 +8980,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         // No floor under player → should leave ground and reset terrain type
@@ -9007,6 +9034,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         }
     }
 
@@ -9248,6 +9276,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         assert!(runtime.evanescent_blocks.is_empty());
@@ -9296,6 +9325,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         runtime.step_evanescent_blocks(&slice);
@@ -9353,6 +9383,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         // Trigger + first tick
@@ -9419,6 +9450,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         let airborne_slice = OpeningSliceState {
@@ -9605,6 +9637,7 @@ mod tests {
             drill_projectile_hit: None,
             metal_block_hit: None,
             smash_block_hit: None,
+            teleporter_contact: None,
         };
 
         // Trigger twice while standing
