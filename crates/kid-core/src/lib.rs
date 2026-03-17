@@ -1,22 +1,22 @@
-pub mod physics;
-pub mod terrain;
-pub(crate) mod enemies;
 mod blocks;
 mod combat;
+pub(crate) mod enemies;
 mod helmets;
 mod level;
 mod movement;
+pub mod physics;
 mod platforms;
 mod projectiles;
+pub mod terrain;
 mod weather;
 
 use enemies::*;
-use platforms::*;
 use kid_data::{
     AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
     resource_level_record,
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
+use platforms::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
 
@@ -54,7 +54,7 @@ const MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH: i64 = 1;
 const ENEMY_CONTACT_HALF_HEIGHT: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
-const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 480;
+const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 120;
 const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 300;
 const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 300;
@@ -67,8 +67,6 @@ const ACTIVATION_WINDOW_PADDING: u32 = 64;
 const FLYER_RETENTION_X_PADDING: u32 = 512;
 const FLYER_RETENTION_Y_PADDING: u32 = 96;
 const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
-
-
 
 // Player collision hitbox for "The Kid" (form 0).
 // From ASM hitbox data: dc.w -$5, $A, -$1F, $1F
@@ -540,12 +538,22 @@ struct LevelLayoutMetadata {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PlayerLifecycle {
     Alive,
-    DeathWindup { remaining_frames: usize },
-    Dying { remaining_frames: usize },
-    Respawning { remaining_frames: usize },
-    LevelComplete { remaining_frames: usize },
+    DeathWindup {
+        remaining_frames: usize,
+    },
+    Dying {
+        remaining_frames: usize,
+    },
+    Respawning {
+        remaining_frames: usize,
+    },
+    LevelComplete {
+        remaining_frames: usize,
+    },
     /// All lives lost — hold for a pause then return to title screen.
-    GameOver { remaining_frames: usize },
+    GameOver {
+        remaining_frames: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -679,12 +687,10 @@ impl ActivePlatform {
         self.y_velocity = cmd.y_velocity;
 
         // Apply velocity
-        self.x_pos =
-            (i64::from(self.x_pos) + i64::from(self.x_velocity)).clamp(0, i64::from(u32::MAX))
-                as u32;
-        self.y_pos =
-            (i64::from(self.y_pos) + i64::from(self.y_velocity)).clamp(0, i64::from(u32::MAX))
-                as u32;
+        self.x_pos = (i64::from(self.x_pos) + i64::from(self.x_velocity))
+            .clamp(0, i64::from(u32::MAX)) as u32;
+        self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
+            .clamp(0, i64::from(u32::MAX)) as u32;
 
         // Advance timer
         state.remaining_duration = state.remaining_duration.saturating_sub(1);
@@ -896,7 +902,6 @@ const LIFT_ACCEL_DOWN: i32 = 0x7D0;
 /// Lift block: frames of upward phase before switching to fall.
 const LIFT_RISE_FRAMES: u16 = 50;
 
-
 /// Murder wall: an advancing wall that kills the player on contact.
 /// Accelerates from zero to max_speed at $100/frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -944,9 +949,6 @@ struct OpeningSliceState {
     /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
     drill_projectile_hit: Option<(u32, u32)>,
 }
-
-
-
 
 const LEVEL_SKIP_FREEZE_VISIBLE_FRAMES: usize = 21;
 const LEVEL_SKIP_HIDE_PLAYER_FRAMES: usize = 5;
@@ -1010,7 +1012,6 @@ const LEVEL_ONE_SKIP_RESUME_ENTRY_CAMERA_Y_FP: [u32; LEVEL_SKIP_RESUME_ENTRY_FRA
     0x0012_0000,
     0x0014_0000,
 ];
-
 
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
@@ -1087,10 +1088,7 @@ impl NativeRuntime {
     }
 
     fn load_platform_script_table(&mut self) {
-        let scripts_path = self
-            .assets
-            .source_root
-            .join("level/platform_scripts.asm");
+        let scripts_path = self.assets.source_root.join("level/platform_scripts.asm");
         if let Ok(contents) = std::fs::read_to_string(&scripts_path) {
             self.platform_script_table = Some(kid_data::parse_platform_scripts(&contents));
         }
@@ -1466,10 +1464,22 @@ impl NativeRuntime {
             score: self.score,
             level_timer_seconds: self.level_timer.seconds,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
-            active_projectiles: self.projectiles.iter().map(|p| (p.x_pos, p.y_pos, p.friendly)).collect(),
-            active_geysers: self.lava_geysers.iter()
+            active_projectiles: self
+                .projectiles
+                .iter()
+                .map(|p| (p.x_pos, p.y_pos, p.friendly))
+                .collect(),
+            active_geysers: self
+                .lava_geysers
+                .iter()
                 .filter(|g| g.current_height > 0)
-                .map(|g| (g.x_px, g.y_px.saturating_sub(g.current_height), g.current_height))
+                .map(|g| {
+                    (
+                        g.x_px,
+                        g.y_px.saturating_sub(g.current_height),
+                        g.current_height,
+                    )
+                })
                 .collect(),
         }
     }
@@ -1704,6 +1714,7 @@ impl NativeRuntime {
                     };
                 } else {
                     self.player_lifecycle = PlayerLifecycle::Alive;
+                    self.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
                 }
                 return;
             }
@@ -1730,8 +1741,7 @@ impl NativeRuntime {
                     self.current_form = PlayerForm::TheKid;
                     self.pending_form = None;
                     self.reload_block_grid_for_level(self.current_level);
-                    self.opening_slice =
-                        Some(self.level_respawn_slice(self.current_level));
+                    self.opening_slice = Some(self.level_respawn_slice(self.current_level));
                     self.level_timer = LevelTimer::new();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
@@ -1796,9 +1806,16 @@ impl NativeRuntime {
         self.step_juggernaut_skull(&slice, input);
         self.step_micromax_stick(&mut slice, input);
 
+        // Capture pre-physics velocity for stomp detection: after physics,
+        // floor collision zeroes y_velocity so the stomp check would always fail.
+        let pre_physics_y_velocity = slice.player.y_velocity;
+        let pre_physics_y_pos = slice.player.y_pos;
+
         // Helmet abilities that override normal gravity
-        let custom_gravity = self.skycutter_on_board || self.cyclone_flying
-            || self.iron_knight_climbing || self.micromax_stuck;
+        let custom_gravity = self.skycutter_on_board
+            || self.cyclone_flying
+            || self.iron_knight_climbing
+            || self.micromax_stuck;
         slice.step(
             effective_elapsed,
             input,
@@ -1953,7 +1970,7 @@ impl NativeRuntime {
         }
 
         // Stomp check: kill enemies by landing on them from above
-        if self.process_stomps(&mut slice) {
+        if self.process_stomps(&mut slice, pre_physics_y_velocity, pre_physics_y_pos) {
             self.opening_slice = Some(slice);
             return;
         }
@@ -1998,7 +2015,7 @@ impl NativeRuntime {
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
             self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+            self.ghost_groups.clear();
             return;
         }
         if !matches!(self.boot_state, BootState::InGame) {
@@ -2029,6 +2046,7 @@ impl NativeRuntime {
                 window,
                 camera_x_px,
                 camera_y_px,
+                slice.player.x_pos,
             );
             step_active_enemies(
                 &mut self.active_enemies,
@@ -2130,11 +2148,6 @@ fn opening_level_one_object_counts(
     }
     Some((roster_count + 2, roster_count + 3))
 }
-
-
-
-
-
 
 pub fn run_script(
     assets: AssetManifest,
@@ -4094,7 +4107,10 @@ mod tests {
             });
         }
         assert!(
-            matches!(runtime.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
             "expected DeathWindup, got {:?}",
             runtime.player_lifecycle
         );
@@ -4328,10 +4344,9 @@ mod tests {
         let elapsed = 180u16.saturating_sub(seconds_remaining);
         let expected = u32::from(seconds_remaining) * 100
             + 5000  // no-hit bonus (no damage taken)
-            + if elapsed < 60 { 10_000 } else { 0 };  // speed bonus
+            + if elapsed < 60 { 10_000 } else { 0 }; // speed bonus
         assert_eq!(
-            runtime.score,
-            expected,
+            runtime.score, expected,
             "score should include time, no-hit, and speed bonuses"
         );
     }
@@ -4361,11 +4376,9 @@ mod tests {
         runtime.step_frame(FrameInput::default());
 
         let elapsed = 180u16.saturating_sub(seconds_remaining);
-        let expected = u32::from(seconds_remaining) * 100
-            + if elapsed < 60 { 10_000 } else { 0 };  // speed bonus only, no no-hit
+        let expected = u32::from(seconds_remaining) * 100 + if elapsed < 60 { 10_000 } else { 0 }; // speed bonus only, no no-hit
         assert_eq!(
-            runtime.score,
-            expected,
+            runtime.score, expected,
             "no-hit bonus should be absent when damage was taken"
         );
     }
@@ -4858,7 +4871,10 @@ mod tests {
         // Block should be cleared from grid
         let grid = runtime.block_grid.as_ref().unwrap();
         let cell = grid.cell_at(2, 2);
-        assert!(!cell.has_block, "drill block should be cleared after headbutt");
+        assert!(
+            !cell.has_block,
+            "drill block should be cleared after headbutt"
+        );
     }
 
     #[test]
@@ -4892,7 +4908,10 @@ mod tests {
         // Block should be cleared from grid
         let grid = runtime.block_grid.as_ref().unwrap();
         let cell = grid.cell_at(2, 2);
-        assert!(!cell.has_block, "lift block should be cleared after headbutt");
+        assert!(
+            !cell.has_block,
+            "lift block should be cleared after headbutt"
+        );
     }
 
     #[test]
@@ -4917,7 +4936,10 @@ mod tests {
             let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
             lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
         }
-        assert!(lift.y_velocity < 0, "lift should be rising in first 10 frames");
+        assert!(
+            lift.y_velocity < 0,
+            "lift should be rising in first 10 frames"
+        );
         let pos_after_rise = lift.y_pos;
         assert!(pos_after_rise < (100 << 16), "lift should have moved up");
 
@@ -4933,7 +4955,10 @@ mod tests {
             let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
             lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
         }
-        assert!(lift.y_velocity > 0, "lift should be falling after enough frames");
+        assert!(
+            lift.y_velocity > 0,
+            "lift should be falling after enough frames"
+        );
     }
 
     fn grid_with_hidden_block() -> terrain::BlockGrid {
@@ -5050,7 +5075,10 @@ mod tests {
             a: true,
             ..FrameInput::default()
         });
-        assert_eq!(runtime.diamond_power_frames, 0, "should not activate with <20 diamonds");
+        assert_eq!(
+            runtime.diamond_power_frames, 0,
+            "should not activate with <20 diamonds"
+        );
         assert_eq!(runtime.diamond_count, 19, "diamonds should not be consumed");
     }
 
@@ -5068,7 +5096,10 @@ mod tests {
             a: true,
             ..FrameInput::default()
         });
-        assert_eq!(runtime.diamond_power_frames, 0, "Eyeclops cannot use Diamond Power");
+        assert_eq!(
+            runtime.diamond_power_frames, 0,
+            "Eyeclops cannot use Diamond Power"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -5264,7 +5295,7 @@ mod tests {
         };
         let mut active = Vec::new();
 
-        activate_enemies(&mut active, &layout, window, 0, 0);
+        activate_enemies(&mut active, &layout, window, 0, 0, 0);
 
         let dragon = active.first().expect("dragon should activate");
         assert_eq!(dragon.family, EnemyFamily::Dragon);
@@ -5304,8 +5335,22 @@ mod tests {
             spinning_twins_orbit_index: 0,
         };
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
-        step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
 
         assert_eq!(enemy.y_pos, 272u32 << 16);
         assert_eq!(enemy.x_pos, (225u32 << 16) + 0x8000);
@@ -5354,6 +5399,7 @@ mod tests {
             }),
             0,
             OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+            0,
         );
         assert_eq!(
             active.len(),
@@ -5388,6 +5434,7 @@ mod tests {
             move_end_window,
             429,
             OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+            0,
         );
 
         assert_eq!(
@@ -5465,6 +5512,7 @@ mod tests {
             }),
             429,
             OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+            0,
         );
 
         assert!(
@@ -5504,37 +5552,79 @@ mod tests {
         };
 
         for _ in 0..199 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
         assert_eq!(enemy.x_pos, 0x0060_8000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..91 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
         assert_eq!(enemy.x_pos, 0x0033_0000);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..39 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
         assert_eq!(enemy.x_pos, DRAGON_PERCH_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..50 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
         assert_eq!(enemy.x_pos, 0x0038_0000);
         assert_eq!(enemy.facing, Direction::Right);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
         assert_eq!(enemy.x_pos, DRAGON_SWOOP_APEX_X_FP);
         assert_eq!(enemy.facing, Direction::Left);
 
         for _ in 0..60 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), None, None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
 
         assert_eq!(enemy.x_pos, DRAGON_LEFT_EDGE_STOP_FP);
@@ -5550,7 +5640,10 @@ mod tests {
         let mut projectiles = Vec::new();
         step_dragon_walking(&mut enemy, &mut projectiles, None);
         assert_eq!(projectiles.len(), 1);
-        assert!(projectiles[0].x_velocity > 0, "breath fires in facing direction (right)");
+        assert!(
+            projectiles[0].x_velocity > 0,
+            "breath fires in facing direction (right)"
+        );
         assert_eq!(projectiles[0].y_velocity, 0, "breath is horizontal");
         assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_INTERVAL);
     }
@@ -5562,7 +5655,10 @@ mod tests {
         enemy.facing = Direction::Left;
         let mut projectiles = Vec::new();
         step_dragon_walking(&mut enemy, &mut projectiles, None);
-        assert!(projectiles[0].x_velocity < 0, "breath fires left when facing left");
+        assert!(
+            projectiles[0].x_velocity < 0,
+            "breath fires left when facing left"
+        );
     }
 
     #[test]
@@ -5624,7 +5720,14 @@ mod tests {
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -5669,7 +5772,14 @@ mod tests {
 
         let mut grounded_skull = None;
         for _ in 0..80 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
             if enemy.on_ground {
                 grounded_skull = Some(enemy);
                 break;
@@ -5683,16 +5793,37 @@ mod tests {
         );
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
         assert!(
             enemy.on_ground,
             "hopper should remain grounded through the disassembly-backed wait window"
         );
 
-        step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
         for _ in 0..12 {
-            step_active_enemies(std::slice::from_mut(&mut enemy), Some(&grid), None, None, PlayerForm::TheKid, None);
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
         }
 
         let airborne_skull = enemy;
@@ -6466,7 +6597,7 @@ mod tests {
         };
 
         assert_eq!(
-            classify_enemy_contact(player, &enemy),
+            classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
             EnemyContactResult::Damage
         );
     }
@@ -6499,7 +6630,7 @@ mod tests {
         };
 
         assert_eq!(
-            classify_enemy_contact(player, &enemy),
+            classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
             EnemyContactResult::None
         );
     }
@@ -7267,13 +7398,12 @@ mod tests {
             spinning_twins_orbit_index: 0,
         };
         step_bouncer(&mut enemy, None);
-        assert_eq!(enemy.y_velocity, SPHERE_GRAVITY, "gravity should be applied");
-        step_bouncer(&mut enemy, None);
         assert_eq!(
-            enemy.y_velocity,
-            SPHERE_GRAVITY * 2,
-            "gravity accumulates"
+            enemy.y_velocity, SPHERE_GRAVITY,
+            "gravity should be applied"
         );
+        step_bouncer(&mut enemy, None);
+        assert_eq!(enemy.y_velocity, SPHERE_GRAVITY * 2, "gravity accumulates");
     }
 
     #[test]
@@ -7409,7 +7539,10 @@ mod tests {
 
         // During hover: tracks player x, hovers above player y
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
-        assert_eq!(enemy.x_pos, player_x, "should track player x while hovering");
+        assert_eq!(
+            enemy.x_pos, player_x,
+            "should track player x while hovering"
+        );
         assert!(enemy.y_pos < player_y, "should hover above player");
         assert_eq!(enemy.wait_timer, 2);
 
@@ -7490,7 +7623,9 @@ mod tests {
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
-            if p.lifetime == 0 { return false; }
+            if p.lifetime == 0 {
+                return false;
+            }
             p.lifetime -= 1;
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
@@ -7516,15 +7651,23 @@ mod tests {
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
-            if p.lifetime == 0 { return false; }
+            if p.lifetime == 0 {
+                return false;
+            }
             p.lifetime -= 1;
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             true
         });
-        assert_eq!(projs.len(), 1, "lifetime was 1, not 0, so still alive this step");
+        assert_eq!(
+            projs.len(),
+            1,
+            "lifetime was 1, not 0, so still alive this step"
+        );
         // Step again: lifetime is 0, removed
         projs.retain_mut(|p| {
-            if p.lifetime == 0 { return false; }
+            if p.lifetime == 0 {
+                return false;
+            }
             p.lifetime -= 1;
             true
         });
@@ -7608,7 +7751,10 @@ mod tests {
         let player_y = Some(100u32 << 16);
         step_archer(&mut enemy, &mut projs, player_x, player_y);
         assert_eq!(projs.len(), 1, "should spawn an arrow");
-        assert!(projs[0].x_velocity > 0, "arrow should move toward player (right)");
+        assert!(
+            projs[0].x_velocity > 0,
+            "arrow should move toward player (right)"
+        );
         assert_eq!(enemy.wait_timer, ARCHER_FIRE_TIMER[0], "timer should reset");
     }
 
@@ -7687,7 +7833,10 @@ mod tests {
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
         assert_eq!(projs.len(), 1, "tank should fire a bullet");
-        assert!(projs[0].x_velocity > 0, "bullet should go right (same as facing)");
+        assert!(
+            projs[0].x_velocity > 0,
+            "bullet should go right (same as facing)"
+        );
         assert_eq!(projs[0].y_velocity, 0, "bullet should be horizontal");
         assert_eq!(enemy.wait_timer, TANK_FIRE_INTERVAL, "timer should reset");
     }
@@ -7732,7 +7881,10 @@ mod tests {
     #[test]
     fn boss_families_map_to_tracker_archetype() {
         assert_eq!(EnemyFamily::HeadyMetal.archetype(), EnemyArchetype::Tracker);
-        assert_eq!(EnemyFamily::Shishkaboss.archetype(), EnemyArchetype::Tracker);
+        assert_eq!(
+            EnemyFamily::Shishkaboss.archetype(),
+            EnemyArchetype::Tracker
+        );
         assert_eq!(
             EnemyFamily::BoomerangBosses.archetype(),
             EnemyArchetype::Tracker
@@ -7775,7 +7927,10 @@ mod tests {
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
         step_tracker(&mut enemy, px, py);
-        assert!(enemy.x_pos > 100 << 16, "should move rightward toward player");
+        assert!(
+            enemy.x_pos > 100 << 16,
+            "should move rightward toward player"
+        );
         assert_eq!(enemy.facing, Direction::Right);
     }
 
@@ -7811,7 +7966,10 @@ mod tests {
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
         step_tracker(&mut enemy, px, py);
-        assert!(enemy.x_pos < 200 << 16, "should move leftward toward player");
+        assert!(
+            enemy.x_pos < 200 << 16,
+            "should move leftward toward player"
+        );
         assert_eq!(enemy.facing, Direction::Left);
     }
 
@@ -7857,12 +8015,28 @@ mod tests {
         slice.player.y_velocity = 0x1_0000; // falling
         slice.player.on_ground = false;
         // Rebuild roster
-        runtime.active_enemy_roster = runtime.active_enemies.iter().map(ActiveEnemy::snapshot).collect();
-        let stomped = runtime.process_stomps(&mut slice);
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+        let pre_y_vel = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(&mut slice, pre_y_vel, pre_y_pos);
         assert!(stomped, "should register a stomp");
-        assert_eq!(runtime.projectiles.len(), 2, "boss should fire 2 projectiles on damage");
-        assert!(runtime.projectiles[0].x_velocity > 0, "first projectile rightward");
-        assert!(runtime.projectiles[1].x_velocity < 0, "second projectile leftward");
+        assert_eq!(
+            runtime.projectiles.len(),
+            2,
+            "boss should fire 2 projectiles on damage"
+        );
+        assert!(
+            runtime.projectiles[0].x_velocity > 0,
+            "first projectile rightward"
+        );
+        assert!(
+            runtime.projectiles[1].x_velocity < 0,
+            "second projectile leftward"
+        );
     }
 
     // --- UFO and Tornado flyer tests ---
@@ -7877,7 +8051,10 @@ mod tests {
         step_ufo(&mut enemy, None);
         // After one frame: velocity = 0 + accel, position = start + velocity
         assert_eq!(enemy.x_velocity, UFO_ACCELERATION);
-        assert!(enemy.x_pos > start_x, "UFO should move right with positive x accel");
+        assert!(
+            enemy.x_pos > start_x,
+            "UFO should move right with positive x accel"
+        );
     }
 
     #[test]
@@ -7984,7 +8161,11 @@ mod tests {
         let player_x = Some((60 + 0x30) << 16);
         let player_y = Some(((17 * 16) - 8) << 16);
         step_hand(&mut enemy, Some(&grid), player_x, player_y);
-        assert_eq!(enemy.hand_state, HandState::Jumping, "should jump at detected player");
+        assert_eq!(
+            enemy.hand_state,
+            HandState::Jumping,
+            "should jump at detected player"
+        );
         assert!(enemy.y_velocity < 0, "should jump upward");
     }
 
@@ -8464,8 +8645,8 @@ mod tests {
             0x00, 0x10, // layout_addr (non-zero → not a ghost terminator)
             0x00, 0x03, // col = 3
             0x00, 0x05, // row = 5
-            0x02,       // count nibble = 2 → count = 3
-            0x01,       // vertical = true
+            0x02, // count nibble = 2 → count = 3
+            0x01, // vertical = true
         ];
         // Ghost terminator (all zeros)
         let ghost_end: [u8; 16] = [0u8; 16];
@@ -8765,7 +8946,10 @@ mod tests {
         let x_before = slice.player.x_pos;
         apply_platform_collision(&mut slice, &[platform]);
 
-        assert_eq!(slice.player.x_pos, x_before, "stationary platform should not move player");
+        assert_eq!(
+            slice.player.x_pos, x_before,
+            "stationary platform should not move player"
+        );
     }
 
     #[test]
@@ -8862,9 +9046,7 @@ mod tests {
         terrain::BlockGrid::from_level_layout(&data, w, h)
     }
 
-    fn runtime_with_evanescent_grid(
-        grid: terrain::BlockGrid,
-    ) -> NativeRuntime {
+    fn runtime_with_evanescent_grid(grid: terrain::BlockGrid) -> NativeRuntime {
         let manifest = manifest();
         let mut runtime = NativeRuntime::new(manifest);
         runtime.set_block_grid(grid);
@@ -8968,7 +9150,12 @@ mod tests {
 
         // Verify block exists
         assert_eq!(
-            runtime.block_grid.as_ref().unwrap().cell_at(2, 3).block_type,
+            runtime
+                .block_grid
+                .as_ref()
+                .unwrap()
+                .cell_at(2, 3)
+                .block_type,
             terrain::BlockType::Evanescent
         );
 
@@ -9084,7 +9271,11 @@ mod tests {
         for _ in 0..48 {
             runtime.step_evanescent_blocks(&airborne_slice);
         }
-        assert_eq!(runtime.evanescent_blocks.len(), 1, "block should still be active at tick 49");
+        assert_eq!(
+            runtime.evanescent_blocks.len(),
+            1,
+            "block should still be active at tick 49"
+        );
         assert!(
             runtime.block_grid.as_ref().unwrap().cell_at(2, 3).has_block,
             "block should still be solid at tick 49"
@@ -9275,7 +9466,11 @@ mod tests {
         let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
         let cell = grid.cell_at(2, 3);
         assert!(cell.has_block, "cell should have a block");
-        assert_eq!(cell.block_type, terrain::BlockType::Shooter, "cell should be Shooter");
+        assert_eq!(
+            cell.block_type,
+            terrain::BlockType::Shooter,
+            "cell should be Shooter"
+        );
         assert_eq!(cell.skin, 2, "skin should be 2");
         runtime.block_grid = Some(grid);
         runtime.shooter_block_timer = 0; // fire immediately
@@ -9513,7 +9708,10 @@ mod tests {
         let slice = airborne_slice();
         runtime.step_weather(&slice);
 
-        assert!(runtime.projectiles.is_empty(), "no hail without storm weather");
+        assert!(
+            runtime.projectiles.is_empty(),
+            "no hail without storm weather"
+        );
     }
 
     // --- Lava geyser tests ---
@@ -9543,14 +9741,20 @@ mod tests {
         }
         assert_eq!(runtime.lava_geysers[0].phase, 1);
         runtime.step_lava_geysers(&slice);
-        assert_eq!(runtime.lava_geysers[0].phase, 2, "should transition to hold phase");
+        assert_eq!(
+            runtime.lava_geysers[0].phase, 2,
+            "should transition to hold phase"
+        );
         assert_eq!(runtime.lava_geysers[0].current_height, 16);
 
         // Hold for LAVA_GEYSER_HOLD_FRAMES + 1 frames (countdown then transition)
         for _ in 0..=LAVA_GEYSER_HOLD_FRAMES {
             runtime.step_lava_geysers(&slice);
         }
-        assert_eq!(runtime.lava_geysers[0].phase, 3, "should transition to collapse phase");
+        assert_eq!(
+            runtime.lava_geysers[0].phase, 3,
+            "should transition to collapse phase"
+        );
 
         // Collapse (16px / 4px per frame = 4 frames)
         for _ in 0..4 {
@@ -9585,7 +9789,10 @@ mod tests {
     fn skycutter_c_press_starts_flipboard_deploy() {
         let mut rt = skycutter_runtime();
         let mut slice = airborne_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_skycutter_flipboard(&mut slice, input);
 
@@ -9598,7 +9805,10 @@ mod tests {
         let mut slice = airborne_slice();
 
         // First frame: C press starts deploy
-        let c_input = FrameInput { c: true, ..FrameInput::default() };
+        let c_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         rt.step_skycutter_flipboard(&mut slice, c_input);
         assert!(!rt.skycutter_on_board, "not yet mounted at frame 1");
 
@@ -9609,7 +9819,10 @@ mod tests {
             rt.step_skycutter_flipboard(&mut slice, no_input);
         }
         // Counter: 1 + 2*9 = 19, which crosses 17
-        assert!(rt.skycutter_on_board, "should be mounted after crossing mount frame");
+        assert!(
+            rt.skycutter_on_board,
+            "should be mounted after crossing mount frame"
+        );
     }
 
     #[test]
@@ -9630,16 +9843,24 @@ mod tests {
     fn skycutter_flight_gravity_slower_with_b_held() {
         let mut rt = skycutter_runtime();
         rt.skycutter_on_board = true;
-        rt.prior_input = FrameInput { b: true, ..FrameInput::default() }; // B already held
+        rt.prior_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        }; // B already held
         let mut slice = airborne_slice();
         slice.player.y_velocity = 0;
 
-        let b_input = FrameInput { b: true, ..FrameInput::default() };
+        let b_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
         rt.step_skycutter_flipboard(&mut slice, b_input);
 
         assert_eq!(slice.player.y_velocity, SKYCUTTER_GRAVITY_B_HELD);
-        assert!(SKYCUTTER_GRAVITY_B_HELD < SKYCUTTER_GRAVITY_NO_B,
-            "B-held gravity should be less than no-B gravity (slower descent)");
+        assert!(
+            SKYCUTTER_GRAVITY_B_HELD < SKYCUTTER_GRAVITY_NO_B,
+            "B-held gravity should be less than no-B gravity (slower descent)"
+        );
     }
 
     #[test]
@@ -9651,28 +9872,41 @@ mod tests {
         slice.player.x_velocity = 0x2_0000;
         slice.player.y_velocity = 0x1_0000; // falling
 
-        let b_input = FrameInput { b: true, ..FrameInput::default() };
+        let b_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
         rt.step_skycutter_flipboard(&mut slice, b_input);
 
-        assert!(slice.player.y_velocity < 0,
-            "B press should kick player upward (negative y_velocity)");
+        assert!(
+            slice.player.y_velocity < 0,
+            "B press should kick player upward (negative y_velocity)"
+        );
     }
 
     #[test]
     fn skycutter_max_upward_velocity_clamped() {
         let mut rt = skycutter_runtime();
         rt.skycutter_on_board = true;
-        rt.prior_input = FrameInput { b: true, ..FrameInput::default() }; // B already held
+        rt.prior_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        }; // B already held
         let mut slice = airborne_slice();
         // Start with very negative y_velocity that exceeds max
         slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL - 0x1_0000;
 
-        let b_input = FrameInput { b: true, ..FrameInput::default() };
+        let b_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
         rt.step_skycutter_flipboard(&mut slice, b_input);
 
         // After gravity + clamp, velocity should be clamped to max
-        assert_eq!(slice.player.y_velocity, SKYCUTTER_MAX_UPWARD_VEL,
-            "upward velocity should be clamped to max");
+        assert_eq!(
+            slice.player.y_velocity, SKYCUTTER_MAX_UPWARD_VEL,
+            "upward velocity should be clamped to max"
+        );
     }
 
     #[test]
@@ -9718,7 +9952,10 @@ mod tests {
     fn cyclone_c_press_activates_flight_when_airborne() {
         let mut rt = cyclone_runtime();
         let mut slice = airborne_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_cyclone_flight(&mut slice, input);
 
@@ -9733,7 +9970,10 @@ mod tests {
         let mut rt = cyclone_runtime();
         let mut slice = airborne_slice();
         slice.player.on_ground = true;
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_cyclone_flight(&mut slice, input);
 
@@ -9775,17 +10015,26 @@ mod tests {
         let mut rt = cyclone_runtime();
         rt.cyclone_flying = true;
         rt.cyclone_y_accel = CYCLONE_ACCEL_INITIAL; // $2000
-        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+        rt.prior_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         let mut slice = airborne_slice();
         slice.player.y_velocity = 0;
 
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         rt.step_cyclone_flight(&mut slice, input);
 
         // accel = $2000 + $400 - $3000 = -$C00 (negative = upward thrust)
         let expected_accel: i16 = 0x2000 + 0x400 - 0x3000; // -0xC00
         assert_eq!(rt.cyclone_y_accel, expected_accel);
-        assert!(slice.player.y_velocity < 0, "should gain upward velocity with C held");
+        assert!(
+            slice.player.y_velocity < 0,
+            "should gain upward velocity with C held"
+        );
     }
 
     #[test]
@@ -9820,11 +10069,17 @@ mod tests {
         let mut rt = cyclone_runtime();
         rt.cyclone_flying = true;
         rt.cyclone_y_accel = CYCLONE_ACCEL_MIN; // max upward thrust
-        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+        rt.prior_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         let mut slice = airborne_slice();
         slice.player.y_velocity = CYCLONE_MAX_RISE_VEL; // already at max rise
 
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         rt.step_cyclone_flight(&mut slice, input);
 
         assert_eq!(slice.player.y_velocity, CYCLONE_MAX_RISE_VEL);
@@ -9862,7 +10117,10 @@ mod tests {
         slice.player.y_pos = 32 << 16;
         slice.player.facing = Direction::Right;
 
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         rt.step_iron_knight_climb(&mut slice, input);
 
         assert!(rt.iron_knight_climbing, "should attach to wall");
@@ -9878,7 +10136,10 @@ mod tests {
         let mut slice = airborne_slice();
         slice.player.facing = Direction::Right;
 
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         rt.step_iron_knight_climb(&mut slice, input);
 
         assert!(!rt.iron_knight_climbing);
@@ -9897,7 +10158,10 @@ mod tests {
         slice.player.y_velocity = 0;
 
         // C rising edge while climbing
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
         rt.step_iron_knight_climb(&mut slice, input);
 
         // Drift (+$80) then boost (-$1800), clamped to min accel (-$800)
@@ -9933,7 +10197,10 @@ mod tests {
         slice.player.y_pos = 32 << 16;
         slice.player.facing = Direction::Right;
 
-        let input = FrameInput { b: true, ..FrameInput::default() };
+        let input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
         rt.step_iron_knight_climb(&mut slice, input);
 
         assert!(!rt.iron_knight_climbing, "should detach on B press");
@@ -10026,11 +10293,17 @@ mod tests {
         slice.player.y_pos = 63 << 16;
         slice.player.facing = Direction::Right;
 
-        let input = FrameInput { b: true, ..FrameInput::default() };
+        let input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
         rt.step_micromax_stick(&mut slice, input);
 
         assert!(!rt.micromax_stuck, "should detach on B press");
-        assert_eq!(slice.player.y_velocity, MICROMAX_DETACH_Y_VEL, "upward kick");
+        assert_eq!(
+            slice.player.y_velocity, MICROMAX_DETACH_Y_VEL,
+            "upward kick"
+        );
         assert_eq!(slice.player.facing, Direction::Left, "facing reversed");
     }
 
@@ -10073,8 +10346,10 @@ mod tests {
 
         // y_pos changes (from existing velocity) but y_velocity should NOT
         // have had normal gravity applied
-        assert_eq!(slice.player.y_velocity, vel_before,
-            "normal gravity should be skipped when skycutter_on_board is true");
+        assert_eq!(
+            slice.player.y_velocity, vel_before,
+            "normal gravity should be skipped when skycutter_on_board is true"
+        );
     }
 
     // --- Teleporter tests ---
@@ -10097,8 +10372,8 @@ mod tests {
             0x00, 0x10, // layout_addr (non-zero)
             0x00, 0x05, // col = 5
             0x00, 0x03, // row = 3
-            0x02,       // dest_map_id = 2
-            0x07,       // dest_y = 7
+            0x02, // dest_map_id = 2
+            0x07, // dest_y = 7
             0x00, 0x0A, // dest_x = 10
         ]);
         // Teleporter terminator (layout_addr=0)
@@ -10131,7 +10406,10 @@ mod tests {
         data[idx + 1] = 0x00;
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 
-        let bounds = LevelBounds { width_pixels: w * 16, height_pixels: h * 16 };
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
         let mut slice = OpeningSliceState::new(bounds);
         slice.player.on_ground = false;
         slice.player.y_velocity = 0x3_0000; // falling at 3 px/frame
@@ -10141,7 +10419,10 @@ mod tests {
 
         slice.apply_floor_collision(Some(&grid), false, false);
 
-        assert!(!slice.player.on_ground, "should bounce off mushroom, not land");
+        assert!(
+            !slice.player.on_ground,
+            "should bounce off mushroom, not land"
+        );
         assert!(slice.player.y_velocity < 0, "should bounce upward");
     }
 
@@ -10159,7 +10440,10 @@ mod tests {
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
         rt.block_grid = Some(grid);
 
-        let bounds = LevelBounds { width_pixels: w * 16, height_pixels: h * 16 };
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
         let mut slice = OpeningSliceState::new(bounds);
         slice.player.on_ground = true;
         // Player standing at x = cell 3 centre (3*16+8=56px), y = cell 5 top (5*16-1=79px)
@@ -10193,7 +10477,10 @@ mod tests {
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
         rt.block_grid = Some(grid);
 
-        let bounds = LevelBounds { width_pixels: w * 16, height_pixels: h * 16 };
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
         let mut slice = OpeningSliceState::new(bounds);
         slice.player.on_ground = true;
         slice.player.x_pos = 56 << 16;
@@ -10258,7 +10545,10 @@ mod tests {
     }
 
     fn combat_slice() -> OpeningSliceState {
-        let bounds = LevelBounds { width_pixels: 4096, height_pixels: 512 };
+        let bounds = LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        };
         OpeningSliceState {
             player: {
                 let mut p = PlayerState::title_pose();
@@ -10277,7 +10567,10 @@ mod tests {
     fn red_stealth_c_press_starts_sword_swing() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::RedStealth;
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_red_stealth_sword(input);
 
@@ -10289,8 +10582,14 @@ mod tests {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::RedStealth;
         // Start swing
-        rt.step_red_stealth_sword(FrameInput { c: true, ..FrameInput::default() });
-        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_red_stealth_sword(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+        rt.prior_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         // During startup frames the sword should not be active
         assert!(rt.red_stealth_sword_timer > RED_STEALTH_ACTIVE_FRAMES);
@@ -10302,8 +10601,14 @@ mod tests {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::RedStealth;
         // Start swing
-        rt.step_red_stealth_sword(FrameInput { c: true, ..FrameInput::default() });
-        rt.prior_input = FrameInput { c: true, ..FrameInput::default() };
+        rt.step_red_stealth_sword(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+        rt.prior_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         // Tick through startup frames
         for _ in 0..RED_STEALTH_STARTUP_FRAMES {
@@ -10321,11 +10626,15 @@ mod tests {
         let slice = combat_slice();
 
         // Enemy at sword reach: player at 128px, sword at 128+28=156px
-        rt.active_enemies.push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 2));
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 2));
 
         rt.process_sword_hits(&slice);
 
-        assert_eq!(rt.active_enemies[0].hit_points, 1, "enemy should take 1 damage");
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "enemy should take 1 damage"
+        );
     }
 
     #[test]
@@ -10335,7 +10644,8 @@ mod tests {
         rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
 
-        rt.active_enemies.push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 1));
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 1));
 
         rt.process_sword_hits(&slice);
 
@@ -10349,11 +10659,15 @@ mod tests {
         rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
 
-        rt.active_enemies.push(test_enemy(EnemyFamily::Goat, 0x0140_0000, 0x0100_0000, 3));
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x0140_0000, 0x0100_0000, 3));
 
         rt.process_sword_hits(&slice);
 
-        assert_eq!(rt.active_enemies[0].hit_points, 3, "out-of-range enemy should not be hit");
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 3,
+            "out-of-range enemy should not be hit"
+        );
     }
 
     // --- Maniaxe axe tests ---
@@ -10363,7 +10677,10 @@ mod tests {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Maniaxe;
         let slice = combat_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_maniaxe_axe(&slice, input);
 
@@ -10378,11 +10695,17 @@ mod tests {
         rt.current_form = PlayerForm::Maniaxe;
         rt.maniaxe_axe_active = true;
         let slice = combat_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_maniaxe_axe(&slice, input);
 
-        assert!(rt.projectiles.is_empty(), "should not throw while axe is active");
+        assert!(
+            rt.projectiles.is_empty(),
+            "should not throw while axe is active"
+        );
     }
 
     #[test]
@@ -10406,7 +10729,10 @@ mod tests {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Juggernaut;
         let slice = combat_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_juggernaut_skull(&slice, input);
 
@@ -10442,7 +10768,10 @@ mod tests {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Juggernaut;
         let slice = combat_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         // Fire 8 skulls
         for _ in 0..8 {
@@ -10462,7 +10791,10 @@ mod tests {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::TheKid;
         let slice = combat_slice();
-        let input = FrameInput { c: true, ..FrameInput::default() };
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
 
         rt.step_juggernaut_skull(&slice, input);
 
@@ -10475,7 +10807,10 @@ mod tests {
     fn berzerker_charge_builds_when_moving_fast() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Berzerker;
-        rt.previous_input = FrameInput { right: true, ..FrameInput::default() };
+        rt.previous_input = FrameInput {
+            right: true,
+            ..FrameInput::default()
+        };
         let mut slice = combat_slice();
         slice.player.on_ground = true;
         slice.player.x_velocity = 0x2_0000; // above 1.0 FP threshold
@@ -10486,14 +10821,20 @@ mod tests {
             assert!(!rt.berzerker_charging, "should not be charging yet");
         }
         rt.step_berzerker_charge(&slice);
-        assert!(rt.berzerker_charging, "should start charging after overflow");
+        assert!(
+            rt.berzerker_charging,
+            "should start charging after overflow"
+        );
     }
 
     #[test]
     fn berzerker_charge_resets_when_slow() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Berzerker;
-        rt.previous_input = FrameInput { right: true, ..FrameInput::default() };
+        rt.previous_input = FrameInput {
+            right: true,
+            ..FrameInput::default()
+        };
         rt.berzerker_charging = true;
         rt.berzerker_charge_accum = 0xFF;
         let mut slice = combat_slice();
@@ -10502,7 +10843,10 @@ mod tests {
 
         rt.step_berzerker_charge(&slice);
 
-        assert!(!rt.berzerker_charging, "should stop charging below threshold");
+        assert!(
+            !rt.berzerker_charging,
+            "should stop charging below threshold"
+        );
         assert_eq!(rt.berzerker_charge_accum, 0, "accumulator should reset");
     }
 
@@ -10529,16 +10873,15 @@ mod tests {
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
 
-        rt.active_enemies.push(test_enemy(
-            EnemyFamily::Goat,
-            0x0040_0000,
-            0x0040_0000,
-            1,
-        ));
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 1));
 
         rt.process_berzerker_charge_hits(&slice);
 
-        assert!(rt.active_enemies.is_empty(), "enemy should be killed by charge");
+        assert!(
+            rt.active_enemies.is_empty(),
+            "enemy should be killed by charge"
+        );
     }
 
     #[test]
@@ -10639,7 +10982,10 @@ mod tests {
             runtime.step_frame(FrameInput::default());
         }
         // Press start to begin
-        runtime.step_frame(FrameInput { start: true, ..FrameInput::default() });
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
         for _ in 0..120 {
             runtime.step_frame(FrameInput::default());
         }
@@ -10668,12 +11014,18 @@ mod tests {
         runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
 
         // Press A to toggle 2P on
-        runtime.step_frame(FrameInput { a: true, ..FrameInput::default() });
+        runtime.step_frame(FrameInput {
+            a: true,
+            ..FrameInput::default()
+        });
         assert!(runtime.two_player, "A press on cursor 0 should enable 2P");
 
         // Press A again to toggle off
         runtime.prior_input = FrameInput::default(); // reset so A counts as fresh press
-        runtime.step_frame(FrameInput { a: true, ..FrameInput::default() });
+        runtime.step_frame(FrameInput {
+            a: true,
+            ..FrameInput::default()
+        });
         assert!(!runtime.two_player, "second A press should disable 2P");
     }
 
@@ -10693,7 +11045,9 @@ mod tests {
 
         // Simulate death: decrement lives and enter Dying state
         runtime.number_lives = 2;
-        runtime.player_lifecycle = PlayerLifecycle::Dying { remaining_frames: 1 };
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 1,
+        };
         runtime.boot_state = BootState::InGame;
 
         // Step to finish Dying countdown — should switch to P2
@@ -10703,11 +11057,7 @@ mod tests {
             runtime.current_player_index, 1,
             "should switch to P2 after P1 death"
         );
-        assert_eq!(
-            runtime.current_level,
-            LevelId(1),
-            "should load P2's level"
-        );
+        assert_eq!(runtime.current_level, LevelId(1), "should load P2's level");
     }
 
     #[test]
@@ -10723,7 +11073,9 @@ mod tests {
         runtime.player_slots[1].lives = 0;
         runtime.player_slots[1].continues = 0;
 
-        runtime.player_lifecycle = PlayerLifecycle::GameOver { remaining_frames: 1 };
+        runtime.player_lifecycle = PlayerLifecycle::GameOver {
+            remaining_frames: 1,
+        };
         runtime.boot_state = BootState::InGame;
 
         runtime.step_frame(FrameInput::default());
@@ -10749,7 +11101,9 @@ mod tests {
         runtime.player_slots[1].lives = 2;
         runtime.player_slots[1].level_id = LevelId(2);
 
-        runtime.player_lifecycle = PlayerLifecycle::GameOver { remaining_frames: 1 };
+        runtime.player_lifecycle = PlayerLifecycle::GameOver {
+            remaining_frames: 1,
+        };
         runtime.boot_state = BootState::InGame;
 
         runtime.step_frame(FrameInput::default());

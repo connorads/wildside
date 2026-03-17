@@ -22,7 +22,12 @@ impl NativeRuntime {
 
     /// Check for stomp-kills: player landing on enemies from above.
     /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
-    pub(crate) fn process_stomps(&mut self, slice: &mut OpeningSliceState) -> bool {
+    pub(crate) fn process_stomps(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        pre_physics_y_velocity: i32,
+        pre_physics_y_pos: u32,
+    ) -> bool {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
             return false;
         }
@@ -37,7 +42,13 @@ impl NativeRuntime {
             if i < self.active_enemies.len() && !self.active_enemies[i].is_vulnerable() {
                 continue;
             }
-            if classify_enemy_contact(slice.player, enemy) == EnemyContactResult::Stomp {
+            if classify_enemy_contact(
+                slice.player,
+                enemy,
+                pre_physics_y_velocity,
+                pre_physics_y_pos,
+            ) == EnemyContactResult::Stomp
+            {
                 stomped_indices.push(i);
             }
         }
@@ -317,7 +328,11 @@ impl NativeRuntime {
         self.micromax_stuck = false;
     }
 
-    pub(crate) fn apply_damage_with_knockback(&mut self, slice: &mut OpeningSliceState, enemy_x: u32) {
+    pub(crate) fn apply_damage_with_knockback(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        enemy_x: u32,
+    ) {
         let dies = self.current_form == PlayerForm::TheKid && self.number_hitpoints <= 1;
         self.apply_damage();
 
@@ -452,7 +467,12 @@ pub(crate) enum EnemyContactResult {
 /// Stomp: player is falling (y_velocity > 0) and the player's feet are at or
 /// above the enemy's top edge. Contacts lower on the sprite deal damage
 /// instead of granting a bounce.
-pub(crate) fn classify_enemy_contact(player: PlayerState, enemy: &NativeObjectSnapshot) -> EnemyContactResult {
+pub(crate) fn classify_enemy_contact(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    pre_physics_y_velocity: i32,
+    pre_physics_y_pos: u32,
+) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
     let p_left = px - (PLAYER_CONTACT_HALF_WIDTH << 16);
@@ -479,8 +499,8 @@ pub(crate) fn classify_enemy_contact(player: PlayerState, enemy: &NativeObjectSn
     // the enemy's top edge on the previous frame, so this frame crosses or
     // touches the stomp line instead of already interpenetrating from the side.
     let stomp_horizontal_overlap = p_right.min(stomp_e_right) - p_left.max(stomp_e_left);
-    let previous_bottom = p_bottom - i64::from(player.y_velocity);
-    if player.y_velocity > 0
+    let previous_bottom = pre_physics_y_pos as i64;
+    if pre_physics_y_velocity > 0
         && previous_bottom <= stomp_e_top
         && stomp_horizontal_overlap >= ENEMY_CONTACT_MIN_OVERLAP_FP
     {
@@ -510,8 +530,10 @@ pub(crate) fn classify_enemy_contact(player: PlayerState, enemy: &NativeObjectSn
 }
 
 pub(crate) fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bool {
+    // For contact detection (damage source), use current velocity — stomp
+    // direction doesn't matter here, only overlap.
     !matches!(
-        classify_enemy_contact(player, enemy),
+        classify_enemy_contact(player, enemy, player.y_velocity, player.y_pos),
         EnemyContactResult::None
     )
 }

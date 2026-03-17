@@ -2,9 +2,8 @@ use super::*;
 
 // Private items from lib.rs that don't come through the glob import.
 use super::{
-    ACTIVATION_WINDOW_PADDING, ACTIVATION_WINDOW_X_LEAD, ACTIVATION_WINDOW_Y_LEAD,
-    CameraState, EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING,
-    MAX_PROJECTILES,
+    ACTIVATION_WINDOW_PADDING, ACTIVATION_WINDOW_X_LEAD, ACTIVATION_WINDOW_Y_LEAD, CameraState,
+    EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -104,34 +103,34 @@ pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
 /// 28 entries: (x_direction_sign, sprite_id, x_vel_byte, y_vel_byte).
 /// Velocity = signed_byte * 0x1000 (ext.w → swap → asr.l #4).
 pub(crate) const ARROW_ANGLE_TABLE: [(i8, i8); 28] = [
-    (0x20, 0),      // 0: right
-    (0x20, -8),     // 1: right + slight up
-    (0x1C, -16),    // 2
-    (0x18, -24),    // 3
-    (0x10, -28),    // 4
-    (8, -32),       // 5
-    (0, -32),       // 6: straight up
-    (0, -32),       // 7: straight up (mirrored)
-    (-8, -32),      // 8
-    (-16, -28),     // 9
-    (-24, -24),     // 10
-    (-28, -16),     // 11
-    (-32, -8),      // 12
-    (-32, 0),       // 13: left
-    (-32, 0),       // 14: left (dup)
-    (-32, 8),       // 15
-    (-28, 16),      // 16
-    (-24, 24),      // 17
-    (-16, 28),      // 18
-    (-8, 32),       // 19
-    (0, 32),        // 20: straight down
-    (0, 32),        // 21: straight down (mirrored)
-    (8, 32),        // 22
-    (16, 28),       // 23
-    (24, 24),       // 24
-    (28, 16),       // 25
-    (32, 8),        // 26
-    (32, 0),        // 27: right (wrap)
+    (0x20, 0),   // 0: right
+    (0x20, -8),  // 1: right + slight up
+    (0x1C, -16), // 2
+    (0x18, -24), // 3
+    (0x10, -28), // 4
+    (8, -32),    // 5
+    (0, -32),    // 6: straight up
+    (0, -32),    // 7: straight up (mirrored)
+    (-8, -32),   // 8
+    (-16, -28),  // 9
+    (-24, -24),  // 10
+    (-28, -16),  // 11
+    (-32, -8),   // 12
+    (-32, 0),    // 13: left
+    (-32, 0),    // 14: left (dup)
+    (-32, 8),    // 15
+    (-28, 16),   // 16
+    (-24, 24),   // 17
+    (-16, 28),   // 18
+    (-8, 32),    // 19
+    (0, 32),     // 20: straight down
+    (0, 32),     // 21: straight down (mirrored)
+    (8, 32),     // 22
+    (16, 28),    // 23
+    (24, 24),    // 24
+    (28, 16),    // 25
+    (32, 8),     // 26
+    (32, 0),     // 27: right (wrap)
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -532,7 +531,10 @@ impl EnemyFamily {
 }
 
 #[cfg(test)]
-pub(crate) fn build_enemy_roster(layout: &EnemyLayout, window: ActivationWindow) -> Vec<NativeObjectSnapshot> {
+pub(crate) fn build_enemy_roster(
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+) -> Vec<NativeObjectSnapshot> {
     let view = enemy_layout_view(layout, window.x_min, window.y_min);
     view.objects
         .iter()
@@ -550,6 +552,7 @@ pub(crate) fn activate_enemies(
     window: ActivationWindow,
     camera_x_px: u32,
     camera_y_px: u32,
+    player_x: u32,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
@@ -583,7 +586,7 @@ pub(crate) fn activate_enemies(
             y_velocity: 0,
             x_acceleration: spawn_x_acceleration(family),
             y_acceleration: spawn_y_acceleration(family),
-            facing: spawn_facing(family),
+            facing: spawn_facing(family, spawn_x_pos(family, object_x), player_x),
             on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
             hit_points,
             grounded_frames: 0,
@@ -619,9 +622,7 @@ pub(crate) fn step_active_enemies(
             EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
             EnemyArchetype::Flyer => step_flyer(enemy, block_grid),
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
-            EnemyArchetype::Hoverer => {
-                step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos)
-            }
+            EnemyArchetype::Hoverer => step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos),
             EnemyArchetype::Pacer => {
                 if matches!(enemy.family, EnemyFamily::Ninja) {
                     step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
@@ -758,7 +759,14 @@ pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::Blo
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
         let moving_right = enemy.x_velocity >= 0;
-        let wall = terrain::probe_wall(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right);
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
             enemy.x_acceleration = -enemy.x_acceleration;
@@ -798,7 +806,14 @@ pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
         let moving_right = enemy.x_velocity >= 0;
-        let wall = terrain::probe_wall(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right);
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
             enemy.x_acceleration = -enemy.x_acceleration;
@@ -868,13 +883,7 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         }
 
         // Ceiling bounce
-        let ceil = terrain::probe_ceiling(
-            grid,
-            cx,
-            cy,
-            ENEMY_PROBE_HALF_WIDTH,
-            ENEMY_PROBE_HEIGHT,
-        );
+        let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
         if ceil.hit && enemy.y_velocity < 0 {
             // Ceiling: negate and halve (Sphere.asm Enemy06_Sphere_BounceCeiling)
             enemy.y_velocity = -(enemy.y_velocity >> 1);
@@ -1053,7 +1062,12 @@ pub(crate) fn step_hopper(
     }
 }
 
-pub(crate) fn hopper_should_reverse(facing: Direction, grid: &terrain::BlockGrid, cx: i32, cy: i32) -> bool {
+pub(crate) fn hopper_should_reverse(
+    facing: Direction,
+    grid: &terrain::BlockGrid,
+    cx: i32,
+    cy: i32,
+) -> bool {
     let moving_right = matches!(facing, Direction::Right);
     let wall = terrain::probe_wall(
         grid,
@@ -1273,8 +1287,12 @@ pub(crate) fn step_hand(
                 let moving_right = enemy.x_velocity >= 0;
 
                 let wall = terrain::probe_wall(
-                    grid, cx, cy,
-                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                    grid,
+                    cx,
+                    cy,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                    moving_right,
                 );
                 if wall.hit {
                     let wall_fp = (wall.wall_x_px as u32) << 16;
@@ -1347,8 +1365,12 @@ pub(crate) fn step_hand(
             // Wall reversal
             let moving_right = enemy.x_velocity >= 0;
             let wall = terrain::probe_wall(
-                grid, cx, cy,
-                ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                grid,
+                cx,
+                cy,
+                ENEMY_PROBE_HALF_WIDTH,
+                ENEMY_PROBE_HEIGHT,
+                moving_right,
             );
             if wall.hit {
                 enemy.x_velocity = 0;
@@ -1459,8 +1481,12 @@ pub(crate) fn step_lion(
                 let cy = (enemy.y_pos >> 16) as i32;
                 let moving_right = enemy.x_velocity >= 0;
                 let wall = terrain::probe_wall(
-                    grid, cx, cy,
-                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                    grid,
+                    cx,
+                    cy,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                    moving_right,
                 );
                 if wall.hit {
                     reverse_enemy_direction(enemy);
@@ -1533,8 +1559,12 @@ pub(crate) fn step_robot(
                 let moving_right = enemy.x_velocity >= 0;
 
                 let wall = terrain::probe_wall(
-                    grid, cx, cy,
-                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                    grid,
+                    cx,
+                    cy,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                    moving_right,
                 );
                 if wall.hit {
                     let wall_fp = (wall.wall_x_px as u32) << 16;
@@ -1608,8 +1638,12 @@ pub(crate) fn step_robot(
                 let cy = (enemy.y_pos >> 16) as i32;
                 let moving_right = enemy.x_velocity >= 0;
                 let wall = terrain::probe_wall(
-                    grid, cx, cy,
-                    ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                    grid,
+                    cx,
+                    cy,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                    moving_right,
                 );
                 if wall.hit {
                     reverse_enemy_direction(enemy);
@@ -1695,8 +1729,7 @@ pub(crate) fn step_orca(
         }
         OrcaState::Lunging => {
             // Gravity
-            enemy.y_velocity =
-                (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
+            enemy.y_velocity = (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
 
             // Move
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -1711,8 +1744,12 @@ pub(crate) fn step_orca(
             // Wall bounce
             let moving_right = enemy.x_velocity >= 0;
             let wall = terrain::probe_wall(
-                grid, cx, cy,
-                ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+                grid,
+                cx,
+                cy,
+                ENEMY_PROBE_HALF_WIDTH,
+                ENEMY_PROBE_HEIGHT,
+                moving_right,
             );
             if wall.hit {
                 enemy.x_velocity = -enemy.x_velocity;
@@ -1774,13 +1811,17 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy) {
 }
 
 /// Spawn 5 tar blob projectiles in a spread pattern when a TarMonster is damaged.
-pub(crate) fn spawn_tar_monster_retaliation(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
+pub(crate) fn spawn_tar_monster_retaliation(
+    projectiles: &mut Vec<EnemyProjectile>,
+    x: u32,
+    y: u32,
+) {
     let blobs: [(i32, i32); 5] = [
-        (0x1_0000, -0x1_0000),   // up-right
-        (-0x1_0000, -0x1_0000),  // up-left
-        (0x0_8000, -0x2_0000),   // steep up-right
-        (-0x0_8000, -0x2_0000),  // steep up-left
-        (0x0_2000, -0x1_C000),   // gentle arc
+        (0x1_0000, -0x1_0000),  // up-right
+        (-0x1_0000, -0x1_0000), // up-left
+        (0x0_8000, -0x2_0000),  // steep up-right
+        (-0x0_8000, -0x2_0000), // steep up-left
+        (0x0_2000, -0x1_C000),  // gentle arc
     ];
     for (xv, yv) in blobs {
         projectiles.push(EnemyProjectile {
@@ -1836,7 +1877,7 @@ pub(crate) fn step_dragon_walking(
 // From ASM: y_vel = -$10000 upward on spawn (to reach ceiling), then drops with +$2000 accel.
 pub(crate) const DRIPS_DROP_INTERVAL: u16 = 90;
 pub(crate) const DRIPS_DROP_Y_SPEED: i32 = 0x1_0000; // initial downward speed
-pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;   // acceleration per frame
+pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000; // acceleration per frame
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
@@ -1860,9 +1901,8 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
 
 // SpinningTwins: 8-entry orbit X offset table from ASM (word_3B9A0).
 // Applied relative to spawn position during orbit phase.
-pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] = [
-    -0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11,
-];
+pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
+    [-0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11];
 // Frames spent in orbit before dropping to walking.
 pub(crate) const SPINNING_TWINS_ORBIT_FRAMES: u16 = 120;
 // Gravity applied each frame once the twins drop. ASM: $2800 FP.
@@ -1880,8 +1920,7 @@ pub(crate) fn step_spinning_twins(
             // Advance orbit index each frame
             enemy.spinning_twins_orbit_index =
                 (enemy.spinning_twins_orbit_index + 1) % SPINNING_TWINS_ORBIT_OFFSETS.len() as u8;
-            let offset = SPINNING_TWINS_ORBIT_OFFSETS
-                [enemy.spinning_twins_orbit_index as usize];
+            let offset = SPINNING_TWINS_ORBIT_OFFSETS[enemy.spinning_twins_orbit_index as usize];
             // Apply X oscillation as velocity (visual only, resets each frame)
             enemy.x_velocity = offset << 16;
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -1958,7 +1997,12 @@ pub(crate) fn step_emo_rock(
         let moving_right = enemy.x_velocity >= 0;
 
         let wall = terrain::probe_wall(
-            grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT, moving_right,
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
         );
         if wall.hit {
             reverse_enemy_direction(enemy);
@@ -2013,7 +2057,10 @@ pub(crate) fn opposite_direction(facing: Direction) -> Direction {
     }
 }
 
-pub(crate) fn player_relative_direction(enemy_x_pos: u32, player_x_pos: Option<u32>) -> Option<Direction> {
+pub(crate) fn player_relative_direction(
+    enemy_x_pos: u32,
+    player_x_pos: Option<u32>,
+) -> Option<Direction> {
     let player_x_pos = player_x_pos?;
     Some(if player_x_pos > enemy_x_pos {
         Direction::Right
@@ -2036,12 +2083,9 @@ pub(crate) fn archer_angle_to_player(
 
     // Ratio lookup table from unk_34404 (84 entries). Maps (abs_dy*8/abs_dx) to sub-angle 0-5.
     const RATIO_TABLE: [u8; 84] = [
-        0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
-        4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-        5, 5, 5, 5,
+        0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
     ];
 
     if dx == 0 {
@@ -2144,7 +2188,11 @@ pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<Enem
 /// Boss tracking movement: chase the player with fixed velocity components.
 /// HeadyMetal ASM: x_vel ±$8000 towards player, y_vel $4800 down / -$B000 up,
 /// targeting 40px above player. Other bosses use the same pattern at different speeds.
-pub(crate) fn step_tracker(enemy: &mut ActiveEnemy, player_x_pos: Option<u32>, player_y_pos: Option<u32>) {
+pub(crate) fn step_tracker(
+    enemy: &mut ActiveEnemy,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
     let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
         return;
     };
@@ -2298,10 +2346,20 @@ pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
     }
 }
 
-pub(crate) fn spawn_facing(family: EnemyFamily) -> Direction {
+pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> Direction {
     match family {
-        EnemyFamily::Dragon => Direction::Left,
-        _ => Direction::Left,
+        // Hand always starts facing right (Hand.asm init)
+        EnemyFamily::Hand => Direction::Right,
+        // Drips always start facing right (Drip.asm init)
+        EnemyFamily::Drips => Direction::Right,
+        // All other families face toward the player at spawn
+        _ => {
+            if player_x < enemy_x {
+                Direction::Left
+            } else {
+                Direction::Right
+            }
+        }
     }
 }
 
@@ -2344,17 +2402,17 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::TarMonster => 2, // HP {2,4,6}
         EnemyFamily::Orca => 4,       // fixed 4 HP
         EnemyFamily::UFO => 1,
-        EnemyFamily::Ninja => 2,      // HP 2-3
-        EnemyFamily::Lion => 6,       // HP 6-8
+        EnemyFamily::Ninja => 2, // HP 2-3
+        EnemyFamily::Lion => 6,  // HP 6-8
         EnemyFamily::SpinningTwins => 1,
         EnemyFamily::Drips => 1,
         EnemyFamily::Hand => 1,
         EnemyFamily::Tornado => 1,
-        EnemyFamily::DragonWalking => 2, // HP 2-3
-        EnemyFamily::HeadyMetal => 37, // ASM: $25 = 37 hits
-        EnemyFamily::Shishkaboss => 20, // ASM: $14 per head × 3 = 60 total; we use 20
+        EnemyFamily::DragonWalking => 2,    // HP 2-3
+        EnemyFamily::HeadyMetal => 37,      // ASM: $25 = 37 hits
+        EnemyFamily::Shishkaboss => 20,     // ASM: $14 per head × 3 = 60 total; we use 20
         EnemyFamily::BoomerangBosses => 30, // ASM: $1E per head × 3 = 90 total; we use 30
-        EnemyFamily::BagelBrothers => 30, // ASM: $1E per head × 3 = 90 total; we use 30
+        EnemyFamily::BagelBrothers => 30,   // ASM: $1E per head × 3 = 90 total; we use 30
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
