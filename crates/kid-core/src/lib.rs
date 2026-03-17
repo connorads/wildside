@@ -3538,21 +3538,24 @@ mod tests {
         let w = 4u16;
         let h = 4u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // SlopeDown at (col 1, row 1): new formula floor_y = 16 + x_within_cell
         data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x40;
+        // Solid at (col 2, row 1)
         data[(usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2] = 0x60;
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
         let mut slice = OpeningSliceState::respawn(LevelBounds {
             width_pixels: 64,
             height_pixels: 64,
         });
+        // Player at x=27 (within_cell=11): SlopeDown floor_y = 16+11 = 27
         slice.player.x_pos = 27 << 16;
-        slice.player.y_pos = 19 << 16;
+        slice.player.y_pos = 26 << 16;
         slice.player.y_velocity = 0x0001_0000;
         slice.player.on_ground = false;
 
         slice.apply_floor_collision(Some(&grid), false, false);
 
-        assert_eq!(slice.player.y_pos, 20 << 16);
+        assert_eq!(slice.player.y_pos, 27 << 16);
         assert!(slice.player.on_ground);
     }
 
@@ -3738,10 +3741,12 @@ mod tests {
             false,
         );
 
-        assert_eq!(slice.player.x_pos, 0x032A_666A);
-        assert_eq!(slice.player.y_pos, 0x00B5_0000);
-        assert_eq!(slice.player.x_velocity, 0x0002_5C80);
-        assert!(slice.player.on_ground);
+        // With corrected slope formula (ASM-matching), the SlopeDown surface
+        // at this position is higher than before, so the player remains airborne.
+        assert_eq!(slice.player.x_pos, 0x0328_09EA);
+        assert_eq!(slice.player.y_pos, 0x00B4_1100);
+        assert_eq!(slice.player.x_velocity, 0x0002_9C80);
+        assert!(!slice.player.on_ground);
     }
 
     #[test]

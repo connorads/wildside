@@ -554,8 +554,12 @@ pub fn probe_at(grid: &BlockGrid, x_px: i32, y_px: i32) -> TerrainProbe {
 fn slope_floor_y(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
     let x_within_cell = (x_px & 0x0F).clamp(0, 15);
     match collision {
-        CollisionKind::SlopeUp => cell_top_y + x_within_cell,
-        CollisionKind::SlopeDown => cell_top_y + 15 - x_within_cell,
+        // ASM upslope (colid_slopeup $14): high on left, low on right.
+        // y = cell_top + 15 - x_within_cell
+        CollisionKind::SlopeUp => cell_top_y + 15 - x_within_cell,
+        // ASM downslope (colid_slopedown $18): low on left, high on right.
+        // y = cell_top + x_within_cell
+        CollisionKind::SlopeDown => cell_top_y + x_within_cell,
         _ => cell_top_y,
     }
 }
@@ -1135,49 +1139,52 @@ mod tests {
     #[test]
     fn slope_up_floor_y_interpolates_left_to_right() {
         let grid = make_slope_grid();
-        // SlopeUp `\` at col 0, row 1 (cell_top = 16px).
-        // Left edge (x=0): floor should be high (low Y = 16)
-        // Right edge (x=15): floor should be low (high Y = 31)
+        // SlopeUp `/` at col 0, row 1 (cell_top = 16px).
+        // ASM colid_slopeup: y = cell_top + 15 - x_within_cell
+        // Left edge (x=0): floor should be low (high Y = 31)
+        // Right edge (x=15): floor should be high (low Y = 16)
         let left = probe_floor(&grid, 0, 31);
-        assert!(left.on_ground);
-        assert_eq!(left.floor_y_px, 16);
-
-        let right = probe_floor(&grid, 15, 31);
-        assert!(right.on_ground);
-        assert_eq!(right.floor_y_px, 31);
-    }
-
-    #[test]
-    fn slope_down_floor_y_interpolates_left_to_right() {
-        let grid = make_slope_grid();
-        // SlopeDown `/` at col 1, row 1 (cell_top = 16px).
-        // Left edge (x=16): floor should be low (high Y = 31)
-        // Right edge (x=31): floor should be high (low Y = 16)
-        let left = probe_floor(&grid, 16, 31);
         assert!(left.on_ground);
         assert_eq!(left.floor_y_px, 31);
 
-        let right = probe_floor(&grid, 31, 16);
+        let right = probe_floor(&grid, 15, 16);
         assert!(right.on_ground);
         assert_eq!(right.floor_y_px, 16);
     }
 
     #[test]
+    fn slope_down_floor_y_interpolates_left_to_right() {
+        let grid = make_slope_grid();
+        // SlopeDown `\` at col 1, row 1 (cell_top = 16px).
+        // ASM colid_slopedown: y = cell_top + x_within_cell
+        // Left edge (x=16): floor should be high (low Y = 16)
+        // Right edge (x=31): floor should be low (high Y = 31)
+        let left = probe_floor(&grid, 16, 16);
+        assert!(left.on_ground);
+        assert_eq!(left.floor_y_px, 16);
+
+        let right = probe_floor(&grid, 31, 31);
+        assert!(right.on_ground);
+        assert_eq!(right.floor_y_px, 31);
+    }
+
+    #[test]
     fn slope_up_mid_cell_interpolation() {
         let grid = make_slope_grid();
-        let probe = probe_floor(&grid, 8, 24);
+        // SlopeUp at col 0, row 1. x=8: floor_y = 16 + 15 - 8 = 23
+        let probe = probe_floor(&grid, 8, 23);
         assert!(probe.on_ground);
-        assert_eq!(probe.floor_y_px, 24);
+        assert_eq!(probe.floor_y_px, 23);
     }
 
     #[test]
     fn slope_not_on_ground_when_above_surface() {
         let grid = make_slope_grid();
-        // SlopeUp at col 0, row 1. x=8: floor_y=24.
+        // SlopeUp at col 0, row 1. x=8: floor_y = 16 + 15 - 8 = 23.
         // Player at y=20 (above slope surface) should not be on ground.
         let probe = probe_floor(&grid, 8, 20);
         assert!(!probe.on_ground);
-        assert_eq!(probe.floor_y_px, 24);
+        assert_eq!(probe.floor_y_px, 23);
     }
 
     #[test]
@@ -1196,9 +1203,10 @@ mod tests {
     #[test]
     fn probe_floor_hitbox_prefers_center_support_on_slope() {
         let grid = make_slope_grid();
-        let probe = probe_floor_hitbox(&grid, 8, 24, 5);
+        // SlopeUp at col 0, row 1. x=8: floor_y = 16 + 15 - 8 = 23
+        let probe = probe_floor_hitbox(&grid, 8, 23, 5);
         assert!(probe.on_ground);
-        assert_eq!(probe.floor_y_px, 24);
+        assert_eq!(probe.floor_y_px, 23);
     }
 
     #[test]
@@ -1206,13 +1214,17 @@ mod tests {
         let w = 3u16;
         let h = 3u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // SlopeDown at (col 1, row 1): collision=4
         data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x40;
+        // Solid at (col 0, row 2): collision=6
         data[(usize::from(2u16) * usize::from(w) + usize::from(0u16)) * 2] = 0x60;
         let grid = BlockGrid::from_level_layout(&data, w, h);
 
-        let probe = probe_floor_hitbox(&grid, 19, 28, 5);
+        // SlopeDown (new formula): floor_y = cell_top + x_within_cell
+        // Col 1 row 1: cell_top=16. x=19, x_within_cell=3: floor_y=19
+        let probe = probe_floor_hitbox(&grid, 19, 19, 5);
         assert!(probe.on_ground);
         assert_eq!(probe.cell.collision, CollisionKind::SlopeDown);
-        assert_eq!(probe.floor_y_px, 28);
+        assert_eq!(probe.floor_y_px, 19);
     }
 }
