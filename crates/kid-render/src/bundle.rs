@@ -439,7 +439,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x01, // Diamond (collectible)
         art_path: "artcomp/Enemy01_Diamond.bin",
         palette_path: "palette_enemy/Crystal_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Crystal_2.bin", "palette_enemy/Crystal_3.bin"],
         frame_duration: 6,
         frames: &[
             fd(0x02F, 0x0A, 0x00, 0x14, 0x20),
@@ -468,7 +468,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x04, // Armadillo
         art_path: "artcomp/Enemy04_Armadillo.bin",
         palette_path: "palette_enemy/Armadillo_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Armadillo_2.bin",
+            "palette_enemy/Armadillo_3.bin",
+        ],
         frame_duration: 11,
         frames: &[
             fd(0x0A5, 0x15, 0x00, 0x27, 0x17),
@@ -483,7 +486,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x05, // Tar Monster
         art_path: "artcomp/Enemy05_Tar_monster.bin",
         palette_path: "palette_enemy/Tar_Monster_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Tar_Monster_2.bin",
+            "palette_enemy/Tar_Monster_3.bin",
+        ],
         frame_duration: 3,
         frames: &[
             fd(0x0AC, 0x11, 0x00, 0x1B, 0x20),
@@ -494,7 +500,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x06, // Sphere
         art_path: "artcomp/Enemy06_Sphere.bin",
         palette_path: "palette_enemy/Sphere_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Sphere_2.bin", "palette_enemy/Sphere_3.bin"],
         frame_duration: 9,
         frames: &[
             fd(0x012, 0x08, 0x09, 0x10, 0x10),
@@ -506,7 +512,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x07, // Archer (skeleton)
         art_path: "artcomp/Enemy07_Archer.bin",
         palette_path: "palette_enemy/Archer_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Archer_2.bin", "palette_enemy/Archer_3.bin"],
         frame_duration: 8,
         frames: &[
             fd(0x030, 0x0F, 0x00, 0x1D, 0x1F),
@@ -536,7 +542,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x09, // Crab
         art_path: "artcomp/Enemy09_Crab.bin",
         palette_path: "palette_enemy/Crab_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Crab_2.bin", "palette_enemy/Crab_3.bin"],
         frame_duration: 8,
         frames: &[
             fd(0x030, 0x0F, 0x00, 0x1D, 0x1F),
@@ -551,7 +557,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x0A, // Rock Tank
         art_path: "artcomp/Enemy0A_Rock_tank.bin",
         palette_path: "palette_enemy/Rock_tank_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Rock_tank_2.bin",
+            "palette_enemy/Rock_tank_3.bin",
+        ],
         frame_duration: 6,
         frames: &[
             fd(0x02C, 0x0F, 0x00, 0x1E, 0x08),
@@ -563,7 +572,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x0C, // Dragon (flying)
         art_path: "artcomp/Enemy0C_Dragon.bin",
         palette_path: "palette_enemy/Dragon_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Dragon_2.bin", "palette_enemy/Dragon_3.bin"],
         frame_duration: 7,
         frames: &[
             fd(0x11D, 0x0D, 0x10, 0x2E, 0x1E),
@@ -577,7 +586,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x0D, // Dragon (walking)
         art_path: "artcomp/Enemy0C_Dragon.bin",
         palette_path: "palette_enemy/Dragon_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Dragon_2.bin", "palette_enemy/Dragon_3.bin"],
         frame_duration: 9,
         frames: &[
             fd(0x060, 0x10, 0x00, 0x1F, 0x26),
@@ -592,7 +601,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x0E, // Cloud
         art_path: "artcomp/Enemy0E_Cloud.bin",
         palette_path: "palette_enemy/Cloud_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Cloud_2.bin", "palette_enemy/Cloud_3.bin"],
         frame_duration: 11,
         frames: &[
             fd(0x095, 0x10, 0x00, 0x1F, 0x1F),
@@ -607,7 +616,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x0F, // UFO
         art_path: "artcomp/Enemy0F_UFO.bin",
         palette_path: "palette_enemy/UFO_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/UFO_2.bin", "palette_enemy/UFO_3.bin"],
         frame_duration: 5,
         frames: &[
             fd(0x15A, 0x10, 0x00, 0x20, 0x1D),
@@ -619,7 +628,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x10, // Goat
         art_path: "artcomp/Enemy10_Goat.bin",
         palette_path: "palette_enemy/Goat_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Goat_2.bin", "palette_enemy/Goat_3.bin"],
         frame_duration: 8,
         frames: &[
             fd(0x0A8, 0x0F, 0x00, 0x1E, 0x1F),
@@ -634,7 +643,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x11, // Ninja
         art_path: "artcomp/Enemy11_Ninja.bin",
         palette_path: "palette_enemy/Ninja_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Ninja_2.bin", "palette_enemy/Ninja_3.bin"],
         frame_duration: 8,
         frames: &[
             fd(0x078, 0x0C, 0x00, 0x1A, 0x1F),
@@ -649,7 +658,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x12, // Lion
         art_path: "artcomp/Enemy12_Lion.bin",
         palette_path: "palette_enemy/Lion_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Lion_2.bin", "palette_enemy/Lion_3.bin"],
         frame_duration: 7,
         frames: &[
             fd(0x16C, 0x15, 0x00, 0x2C, 0x2D),
@@ -664,7 +673,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x13, // Scorpion
         art_path: "artcomp/Enemy13_Scorpion.bin",
         palette_path: "palette_enemy/Scorpion_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Scorpion_2.bin",
+            "palette_enemy/Scorpion_3.bin",
+        ],
         frame_duration: 6,
         frames: &[
             fd(0x04C, 0x18, 0x00, 0x30, 0x1F),
@@ -679,7 +691,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x14, // Spinning Twins
         art_path: "artcomp/Enemy14_Spinning_twins.bin",
         palette_path: "palette_enemy/Spinning_Twins_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Spinning_Twins_2.bin",
+            "palette_enemy/Spinning_Twins_3.bin",
+        ],
         frame_duration: 6,
         frames: &[
             fd(0x0A2, 0x20, 0x00, 0x40, 0x1F),
@@ -692,7 +707,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x16, // Drip
         art_path: "artcomp/Enemy16_Drip.bin",
         palette_path: "palette_enemy/Drips_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Drips_2.bin", "palette_enemy/Drips_3.bin"],
         frame_duration: 8,
         frames: &[
             fd(0x000, 0x0C, 0x00, 0x0F, 0x0E),
@@ -704,7 +719,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x17, // Hand
         art_path: "artcomp/Enemy17_Hand.bin",
         palette_path: "palette_enemy/Hand_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Hand_2.bin", "palette_enemy/Hand_3.bin"],
         frame_duration: 1,
         frames: &[fd(0x03F, 0x10, 0x01, 0x20, 0x12)],
     },
@@ -712,7 +727,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x18, // Tornado
         art_path: "artcomp/Enemy18_Tornado.bin",
         palette_path: "palette_enemy/Tornado_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Tornado_2.bin", "palette_enemy/Tornado_3.bin"],
         frame_duration: 5,
         frames: &[
             fd(0x028, 0x0E, 0x00, 0x1D, 0x28),
@@ -724,7 +739,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x19, // Fireball
         art_path: "artcomp/Enemy19_Fireball.bin",
         palette_path: "palette_enemy/Fireball_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Fireball_2.bin",
+            "palette_enemy/Fireball_3.bin",
+        ],
         frame_duration: 6,
         frames: &[
             fd(0x064, 0x07, 0x00, 0x0E, 0x08),
@@ -739,7 +757,7 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x1A, // Driller
         art_path: "artcomp/Enemy1A_Driller.bin",
         palette_path: "palette_enemy/Drill_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &["palette_enemy/Drill_2.bin", "palette_enemy/Drill_3.bin"],
         frame_duration: 9,
         frames: &[
             fd(0x028, 0x08, 0x00, 0x10, 0x0F),
@@ -750,7 +768,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x1B, // Emo Rock
         art_path: "artcomp/Enemy1B_Emo_rock.bin",
         palette_path: "palette_enemy/Emo_Rock_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Emo_Rock_2.bin",
+            "palette_enemy/Emo_Rock_3.bin",
+        ],
         frame_duration: 20,
         frames: &[
             fd(0x010, 0x10, 0x00, 0x1D, 0x20),
@@ -762,7 +783,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x1C, // Mini Hopping Skull
         art_path: "artcomp/Enemy1C_Mini_hopping_skull.bin",
         palette_path: "palette_enemy/Mini_Hopping_Skull_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Mini_Hopping_Skull_2.bin",
+            "palette_enemy/Mini_Hopping_Skull_3.bin",
+        ],
         frame_duration: 9,
         frames: &[
             fd(0x02C, 0x07, 0x00, 0x0F, 0x11),
@@ -773,7 +797,10 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         object_type: 0x1D, // Big Hopping Skull
         art_path: "artcomp/Enemy1D_Big_hopping_skull.bin",
         palette_path: "palette_enemy/Big_Hopping_Skull_1.bin",
-        extra_palette_paths: &[],
+        extra_palette_paths: &[
+            "palette_enemy/Big_Hopping_Skull_2.bin",
+            "palette_enemy/Big_Hopping_Skull_3.bin",
+        ],
         frame_duration: 80,
         frames: &[fd(0x040, 0x0D, 0x00, 0x19, 0x20)],
     },
