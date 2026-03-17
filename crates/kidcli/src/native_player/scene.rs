@@ -1190,10 +1190,89 @@ fn build_game_scene_filtered(
             [190, 190, 190],
             1,
         ));
+
+        // Collision boxes: player (green), enemies (red), platforms (blue)
+        let cam_x = (trace.camera_x_pos >> 16) as i32;
+        let cam_y = (trace.camera_y_pos >> 16) as i32;
+        for object in &trace.active_objects {
+            let ox = (object.x_pos >> 16) as i32 - cam_x;
+            let oy = (object.y_pos >> 16) as i32 - cam_y;
+            match object.kind {
+                NativeObjectKind::Player => {
+                    // Player hitbox: PLAYER_HALF_WIDTH=5, PLAYER_HEIGHT=31
+                    push_collision_box(&mut commands, ox - 5, oy - 31, 10, 31, [0, 255, 0]);
+                }
+                NativeObjectKind::Enemy { .. } => {
+                    // Enemy contact box: 8x16 centred on position
+                    push_collision_box(
+                        &mut commands,
+                        ox - 4,
+                        oy - 8,
+                        8,
+                        16,
+                        [255, 60, 60],
+                    );
+                }
+                NativeObjectKind::Platform { .. } => {
+                    // Platform: 32x8 centred on position
+                    push_collision_box(
+                        &mut commands,
+                        ox - 16,
+                        oy - 4,
+                        32,
+                        8,
+                        [60, 120, 255],
+                    );
+                }
+            }
+        }
     }
 
     Scene {
         background,
         commands,
     }
+}
+
+/// Draw a 1px outline rectangle for collision box visualisation.
+fn push_collision_box(
+    commands: &mut Vec<DrawCommand>,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    colour: [u8; 3],
+) {
+    // Top edge
+    commands.push(DrawCommand::Rect {
+        x,
+        y,
+        width: w,
+        height: 1,
+        colour,
+    });
+    // Bottom edge
+    commands.push(DrawCommand::Rect {
+        x,
+        y: y + h - 1,
+        width: w,
+        height: 1,
+        colour,
+    });
+    // Left edge
+    commands.push(DrawCommand::Rect {
+        x,
+        y,
+        width: 1,
+        height: h,
+        colour,
+    });
+    // Right edge
+    commands.push(DrawCommand::Rect {
+        x: x + w - 1,
+        y,
+        width: 1,
+        height: h,
+        colour,
+    });
 }
