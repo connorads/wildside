@@ -23,7 +23,7 @@ pub(super) fn sprite_draw_position(
             screen_x + i32::from(frame.origin_x) - i32::from(align_sprite_dimension(frame.width_px))
         }
     };
-    (draw_x, screen_y - i32::from(frame.origin_y))
+    (draw_x, screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y))
 }
 
 pub(super) fn build_sprite_tiles(
@@ -266,7 +266,7 @@ pub(super) fn push_platform_tiles(
     let (screen_x, screen_y) = player_screen_position(object, trace);
     commands.push(DrawCommand::Sprite {
         x: screen_x - i32::from(frame.origin_x),
-        y: screen_y - i32::from(frame.origin_y),
+        y: screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y),
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(level_visuals.platforms.palette.clone()),
         tiles: build_sprite_tiles(frame, Direction::Right, 0),
