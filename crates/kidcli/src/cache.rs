@@ -10,6 +10,7 @@ pub(crate) struct OracleCacheKey {
 }
 
 impl OracleCacheKey {
+    #[cfg(test)]
     pub(crate) fn new(rom_bytes: &[u8], script: &[u8]) -> Self {
         Self {
             rom_sha1: sha1_hex(rom_bytes),
@@ -64,7 +65,7 @@ pub(crate) fn store_oracle_cache(
     key: &OracleCacheKey,
     repo_root: &Path,
     manifest: &OracleManifest,
-    source_dir: &Path,
+    _source_dir: &Path,
 ) -> Result<()> {
     let dir = key.cache_dir(repo_root);
     let frames_dir = dir.join("frames");

@@ -337,6 +337,7 @@ impl Scenario {
     }
 
     /// Convert a static scenario into the runtime DynamicScenario representation.
+    #[cfg(test)]
     pub fn to_dynamic(self) -> Result<DynamicScenario> {
         Ok(DynamicScenario {
             slug: self.slug().to_string(),
@@ -446,6 +447,7 @@ impl GameplayScenario {
     }
 
     /// Convert a static gameplay scenario into the runtime DynamicScenario representation.
+    #[cfg(test)]
     pub fn to_dynamic(self) -> Result<DynamicScenario> {
         Ok(DynamicScenario {
             slug: self.slug().to_string(),
