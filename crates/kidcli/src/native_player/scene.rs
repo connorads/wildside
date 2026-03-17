@@ -1,17 +1,84 @@
 use super::*;
 
-pub(super) fn build_scene(
+/// Controls which layers are rendered. Used for layer-isolated diagnosis.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct LayerFilter {
+    pub background: bool,
+    pub terrain: bool,
+    pub block_overrides: bool,
+    pub platforms: bool,
+    pub enemies: bool,
+    pub player: bool,
+    pub effects: bool,
+    pub hud: bool,
+}
+
+impl Default for LayerFilter {
+    fn default() -> Self {
+        Self {
+            background: true,
+            terrain: true,
+            block_overrides: true,
+            platforms: true,
+            enemies: true,
+            player: true,
+            effects: true,
+            hud: true,
+        }
+    }
+}
+
+impl LayerFilter {
+    /// A filter with only one layer enabled.
+    pub fn solo(layer_name: &str) -> Self {
+        let mut f = Self {
+            background: false,
+            terrain: false,
+            block_overrides: false,
+            platforms: false,
+            enemies: false,
+            player: false,
+            effects: false,
+            hud: false,
+        };
+        match layer_name {
+            "background" => f.background = true,
+            "terrain" => f.terrain = true,
+            "block_overrides" => f.block_overrides = true,
+            "platforms" => f.platforms = true,
+            "enemies" => f.enemies = true,
+            "player" => f.player = true,
+            "effects" => f.effects = true,
+            "hud" => f.hud = true,
+            _ => {}
+        }
+        f
+    }
+}
+
+pub(crate) fn build_scene(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
     level_visuals: Option<&NativeLevelVisuals>,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
+    build_scene_filtered(trace, debug_overlay_visible, level_visuals, block_grid, &LayerFilter::default())
+}
+
+pub(crate) fn build_scene_filtered(
+    trace: &NativeTraceFrame,
+    debug_overlay_visible: bool,
+    level_visuals: Option<&NativeLevelVisuals>,
+    block_grid: Option<&BlockGrid>,
+    filter: &LayerFilter,
+) -> Scene {
     match trace.game_mode {
-        GameMode::InGame => build_game_scene(
+        GameMode::InGame => build_game_scene_filtered(
             trace,
             debug_overlay_visible,
             level_visuals.expect("Level 1 visuals are required for gameplay scenes"),
             block_grid,
+            filter,
         ),
         GameMode::LevelTransition => build_transition_scene(trace),
         GameMode::OptionsMenu => build_options_scene(trace),
@@ -692,125 +759,142 @@ pub(super) fn screen_coord(world: u32, camera: u32) -> i32 {
     ((world - camera) >> 16) as i32
 }
 
-pub(super) fn build_game_scene(
+fn build_game_scene_filtered(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
+    filter: &LayerFilter,
 ) -> Scene {
     let background = background_colour(level_visuals);
     let mut commands = Vec::new();
 
-    push_background_tiles(&mut commands, trace, level_visuals);
-    push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
-    push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
+    if filter.background {
+        push_background_tiles(&mut commands, trace, level_visuals);
+    }
+    if filter.terrain {
+        push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
+    }
+    if filter.block_overrides {
+        push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
+    }
 
-    for object in trace
-        .active_objects
-        .iter()
-        .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Platform { .. }))
-    {
-        if let NativeObjectKind::Platform { kind, .. } = object.kind {
-            push_platform_tiles(&mut commands, object, trace, level_visuals, kind);
+    if filter.platforms {
+        for object in trace
+            .active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Platform { .. }))
+        {
+            if let NativeObjectKind::Platform { kind, .. } = object.kind {
+                push_platform_tiles(&mut commands, object, trace, level_visuals, kind);
+            }
         }
     }
-    for object in trace
-        .active_objects
-        .iter()
-        .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Enemy { .. }))
-    {
-        if let NativeObjectKind::Enemy { object_type } = object.kind {
-            push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
-            // Debug: show enemy HP above each enemy
-            if debug_overlay_visible {
-                if let Some(hp) = object.hit_points {
-                    let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-                    let ey = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
-                    commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
+    if filter.enemies {
+        for object in trace
+            .active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Enemy { .. }))
+        {
+            if let NativeObjectKind::Enemy { object_type } = object.kind {
+                push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
+                // Debug: show enemy HP above each enemy
+                if debug_overlay_visible {
+                    if let Some(hp) = object.hit_points {
+                        let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                        let ey = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
+                        commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
+                    }
                 }
             }
         }
     }
-    // Player: blink every 4 frames during invulnerability
-    let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
-    if player_visible {
-        for object in trace
-            .active_objects
-            .iter()
-            .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
-        {
-            push_player_sprite(&mut commands, object, trace, level_visuals);
+    if filter.player {
+        // Player: blink every 4 frames during invulnerability
+        let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
+        if player_visible {
+            for object in trace
+                .active_objects
+                .iter()
+                .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
+            {
+                push_player_sprite(&mut commands, object, trace, level_visuals);
+            }
         }
     }
 
-    // Murder wall: layered red wall advancing from the side
-    if let Some(wall_x_fp) = trace.murder_wall_x {
-        let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-        // Gradient: dark core, lighter leading edge
-        commands.push(DrawCommand::Rect {
-            x: wall_x_screen - 64,
-            y: 0,
-            width: 40,
-            height: FRAME_HEIGHT as i32,
-            colour: [120, 0, 0],
-        });
-        commands.push(DrawCommand::Rect {
-            x: wall_x_screen - 24,
-            y: 0,
-            width: 16,
-            height: FRAME_HEIGHT as i32,
-            colour: [200, 30, 10],
-        });
-        commands.push(DrawCommand::Rect {
-            x: wall_x_screen - 8,
-            y: 0,
-            width: 8,
-            height: FRAME_HEIGHT as i32,
-            colour: [255, 80, 20],
-        });
+    if filter.effects {
+        // Murder wall: layered red wall advancing from the side
+        if let Some(wall_x_fp) = trace.murder_wall_x {
+            let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            // Gradient: dark core, lighter leading edge
+            commands.push(DrawCommand::Rect {
+                x: wall_x_screen - 64,
+                y: 0,
+                width: 40,
+                height: FRAME_HEIGHT as i32,
+                colour: [120, 0, 0],
+            });
+            commands.push(DrawCommand::Rect {
+                x: wall_x_screen - 24,
+                y: 0,
+                width: 16,
+                height: FRAME_HEIGHT as i32,
+                colour: [200, 30, 10],
+            });
+            commands.push(DrawCommand::Rect {
+                x: wall_x_screen - 8,
+                y: 0,
+                width: 8,
+                height: FRAME_HEIGHT as i32,
+                colour: [255, 80, 20],
+            });
+        }
+
+        // Lava geysers: orange/red eruption columns
+        for &(gx, gy_top, height) in &trace.active_geysers {
+            let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
+            let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
+            // Core column
+            commands.push(DrawCommand::Rect {
+                x: sx - 4,
+                y: sy,
+                width: 8,
+                height: i32::from(height),
+                colour: [255, 120, 20],
+            });
+            // Hot centre
+            commands.push(DrawCommand::Rect {
+                x: sx - 2,
+                y: sy,
+                width: 4,
+                height: i32::from(height),
+                colour: [255, 200, 60],
+            });
+        }
+
+        // Projectiles: coloured dots (green=friendly, red=enemy)
+        for &(px, py, friendly) in &trace.active_projectiles {
+            let sx = (px >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            let sy = (py >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            let colour = if friendly {
+                [100, 255, 100]
+            } else {
+                [255, 80, 40]
+            };
+            commands.push(DrawCommand::Rect {
+                x: sx - 2,
+                y: sy - 2,
+                width: 4,
+                height: 4,
+                colour,
+            });
+        }
     }
 
-    // Lava geysers: orange/red eruption columns
-    for &(gx, gy_top, height) in &trace.active_geysers {
-        let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
-        let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
-        // Core column
-        commands.push(DrawCommand::Rect {
-            x: sx - 4,
-            y: sy,
-            width: 8,
-            height: i32::from(height),
-            colour: [255, 120, 20],
-        });
-        // Hot centre
-        commands.push(DrawCommand::Rect {
-            x: sx - 2,
-            y: sy,
-            width: 4,
-            height: i32::from(height),
-            colour: [255, 200, 60],
-        });
+    if filter.hud {
+        push_game_hud(&mut commands, trace, level_visuals);
     }
-
-    // Projectiles: coloured dots (green=friendly, red=enemy)
-    for &(px, py, friendly) in &trace.active_projectiles {
-        let sx = (px >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-        let sy = (py >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
-        let colour = if friendly {
-            [100, 255, 100]
-        } else {
-            [255, 80, 40]
-        };
-        commands.push(DrawCommand::Rect {
-            x: sx - 2,
-            y: sy - 2,
-            width: 4,
-            height: 4,
-            colour,
-        });
-    }
-
-    push_game_hud(&mut commands, trace, level_visuals);
 
     // Level Complete overlay
     if trace.level_complete {

@@ -364,6 +364,45 @@ enum Commands {
         #[arg(long, default_value_t = 1)]
         max_cycles: u32,
     },
+    /// Capture native gameplay frames at specified indices as PNGs.
+    CaptureFrames {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Hex level ID (e.g. 00)
+        #[arg(long, default_value = "00")]
+        level: String,
+        /// Comma-separated frame indices to capture
+        #[arg(long, default_value = "30,60,120,240,360")]
+        frames: String,
+        /// Output directory for PNGs
+        #[arg(long, default_value = ".cache/captures")]
+        output: PathBuf,
+        /// Optional layer filter: only render this layer (background, terrain,
+        /// block_overrides, platforms, enemies, player, effects, hud)
+        #[arg(long)]
+        layer: Option<String>,
+    },
+    /// Per-layer frame diagnosis: render each layer solo, report pixel contribution.
+    DiagnoseFrame {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Hex level ID (e.g. 00)
+        #[arg(long, default_value = "00")]
+        level: String,
+        /// Frame index to diagnose (default: settle at frame 60)
+        #[arg(long, default_value_t = 60)]
+        frame: usize,
+        /// Save per-layer PNGs alongside the report
+        #[arg(long, default_value_t = false)]
+        save_layers: bool,
+        /// Output directory
+        #[arg(long, default_value = ".cache/diagnose")]
+        output: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -833,6 +872,48 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             sweep::run_parity_loop(&repo_root, &rom_path, &manifest, max_cycles)?;
+        }
+        Commands::CaptureFrames {
+            rom,
+            dir,
+            level,
+            frames,
+            output,
+            layer,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let level_id =
+                u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 05)")?;
+            let frame_indices: Vec<usize> = frames
+                .split(',')
+                .map(|s| s.trim().parse::<usize>().context("invalid frame index"))
+                .collect::<Result<_>>()?;
+            let filter = layer
+                .as_deref()
+                .map(native_player::LayerFilter::solo)
+                .unwrap_or_default();
+            sweep::capture_frames(
+                &manifest, level_id, &frame_indices, &output, &filter,
+            )?;
+        }
+        Commands::DiagnoseFrame {
+            rom,
+            dir,
+            level,
+            frame,
+            save_layers,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let level_id =
+                u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 05)")?;
+            sweep::diagnose_frame(&manifest, level_id, frame, save_layers, &output)?;
         }
     }
     Ok(())

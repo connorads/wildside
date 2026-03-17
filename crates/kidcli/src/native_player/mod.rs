@@ -77,7 +77,7 @@ pub struct NativePlayOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Scene {
+pub(crate) struct Scene {
     background: [u8; 3],
     commands: Vec<DrawCommand>,
 }
@@ -158,8 +158,21 @@ use render::*;
 use scene::*;
 use sprites::*;
 
+pub(crate) use render::render_scene;
+pub(crate) use scene::{LayerFilter, build_scene, build_scene_filtered};
 pub(crate) use sprites::render_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
+
+pub(crate) const NATIVE_FRAME_WIDTH: u32 = FRAME_WIDTH;
+pub(crate) const NATIVE_FRAME_HEIGHT: u32 = FRAME_HEIGHT;
+
+pub(crate) fn load_session_assets(
+    manifest: &AssetManifest,
+    level_id: u8,
+) -> Result<(NativeLevelVisuals, BlockGrid)> {
+    let assets = load_native_session_assets(manifest, level_id)?;
+    Ok((assets.level_visuals, assets.block_grid))
+}
 
 pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
     let mut session_assets = load_native_session_assets(manifest, 0x00)?;

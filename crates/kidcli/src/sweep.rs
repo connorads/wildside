@@ -318,6 +318,10 @@ fn sweep_single_level(
         .filter(|s| s.game_paused || s.game_mode == 0x0008)
         .map(|s| s.label.as_str())
         .collect();
+    // Oracle-paused position diffs are only advisory when the magnitude is
+    // small (≤32px = 0x0020_0000). Larger diffs indicate a real native bug
+    // that merely coincides with an oracle pause — don't mask them.
+    let oracle_pause_position_threshold: u32 = 0x0020_0000;
     let state_passed = state_diffs.iter().all(|d| {
         ADVISORY_FIELDS.contains(&d.field.as_str())
             || (death_gap_checkpoints.contains(d.checkpoint.as_str())
@@ -326,14 +330,22 @@ fn sweep_single_level(
                     "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos"
                 ))
             || (oracle_paused_checkpoints.contains(d.checkpoint.as_str())
-                && matches!(
-                    d.field.as_str(),
-                    "game_mode"
-                        | "kid_x_pos"
-                        | "kid_y_pos"
-                        | "camera_x_pos"
-                        | "camera_y_pos"
-                ))
+                && match d.field.as_str() {
+                    "game_mode" => true,
+                    "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos" => {
+                        // Only mask small position diffs — large ones are real bugs
+                        let native_val = u32::from_str_radix(
+                            d.native_value.trim_start_matches("0x"),
+                            16,
+                        ).unwrap_or(0);
+                        let oracle_val = u32::from_str_radix(
+                            d.oracle_value.trim_start_matches("0x"),
+                            16,
+                        ).unwrap_or(0);
+                        native_val.abs_diff(oracle_val) <= oracle_pause_position_threshold
+                    }
+                    _ => false,
+                })
     });
 
     // Tier 1 (state-only): done unless escalating
@@ -835,6 +847,211 @@ fn chrono_timestamp() -> String {
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default();
     format!("{}", since_epoch.as_secs())
+}
+
+/// Capture native gameplay frames at specified indices, saving PNGs.
+pub(crate) fn capture_frames(
+    manifest: &AssetManifest,
+    level_id: u8,
+    frame_indices: &[usize],
+    output_dir: &Path,
+    filter: &native_player::LayerFilter,
+) -> Result<()> {
+    use native_player::{
+        NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
+        render_scene,
+    };
+
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("failed to create {}", output_dir.display()))?;
+
+    let max_frame = frame_indices.iter().copied().max().unwrap_or(0);
+    let scenario = idle_level_scenario(level_id, Some(max_frame + 10));
+
+    let native_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &scenario.script,
+        scenario.frame_count,
+        scenario.warp_to_level,
+    );
+
+    let (level_visuals, block_grid) = load_session_assets(manifest, level_id)?;
+    let w = NATIVE_FRAME_WIDTH as usize;
+    let h = NATIVE_FRAME_HEIGHT as usize;
+
+    for &frame_idx in frame_indices {
+        let Some(frame) = native_trace.get(frame_idx) else {
+            println!("  frame {frame_idx}: not in trace (len={})", native_trace.len());
+            continue;
+        };
+        let scene = build_scene_filtered(
+            frame,
+            false,
+            Some(&level_visuals),
+            Some(&block_grid),
+            filter,
+        );
+        let mut rgb = vec![0u8; w * h * 3];
+        render_scene(&scene, &mut rgb);
+
+        let filename = format!("level_{level_id:02x}_frame_{frame_idx:05}.png");
+        let path = output_dir.join(&filename);
+        image::save_buffer_with_format(
+            &path,
+            &rgb,
+            w as u32,
+            h as u32,
+            image::ColorType::Rgb8,
+            image::ImageFormat::Png,
+        )
+        .with_context(|| format!("failed to write {}", path.display()))?;
+        println!("  saved {}", path.display());
+    }
+
+    Ok(())
+}
+
+/// Layer names used for per-layer diagnosis.
+const LAYER_NAMES: &[&str] = &[
+    "background",
+    "terrain",
+    "block_overrides",
+    "platforms",
+    "enemies",
+    "player",
+    "effects",
+    "hud",
+];
+
+/// Per-layer diagnosis: render each layer solo, count non-background pixels.
+pub(crate) fn diagnose_frame(
+    manifest: &AssetManifest,
+    level_id: u8,
+    frame_idx: usize,
+    save_layers: bool,
+    output_dir: &Path,
+) -> Result<()> {
+    use native_player::{
+        NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, LayerFilter, build_scene_filtered,
+        load_session_assets, render_scene,
+    };
+
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("failed to create {}", output_dir.display()))?;
+
+    let scenario = idle_level_scenario(level_id, Some(frame_idx + 10));
+    let native_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &scenario.script,
+        scenario.frame_count,
+        scenario.warp_to_level,
+    );
+
+    let frame = native_trace
+        .get(frame_idx)
+        .ok_or_else(|| anyhow!("frame {frame_idx} not in trace (len={})", native_trace.len()))?;
+
+    let (level_visuals, block_grid) = load_session_assets(manifest, level_id)?;
+    let w = NATIVE_FRAME_WIDTH as usize;
+    let h = NATIVE_FRAME_HEIGHT as usize;
+    let pixel_count = w * h;
+
+    // Render full scene
+    let full_scene = build_scene_filtered(
+        frame,
+        false,
+        Some(&level_visuals),
+        Some(&block_grid),
+        &LayerFilter::default(),
+    );
+    let mut full_rgb = vec![0u8; pixel_count * 3];
+    render_scene(&full_scene, &mut full_rgb);
+    let full_non_bg = count_non_background_pixels(&full_rgb, pixel_count);
+
+    if save_layers {
+        let full_path = output_dir.join(format!("level_{level_id:02x}_frame_{frame_idx:05}_full.png"));
+        image::save_buffer_with_format(
+            &full_path, &full_rgb, w as u32, h as u32, image::ColorType::Rgb8, image::ImageFormat::Png,
+        )?;
+    }
+
+    println!("Level {level_id:#04x}  frame {frame_idx}  diagnosis:");
+    println!("{:<20} {:>8}  {:>10}", "LAYER", "PIXELS", "% OF FRAME");
+    println!("{:-<44}", "");
+
+    for &layer_name in LAYER_NAMES {
+        let filter = LayerFilter::solo(layer_name);
+        let scene = build_scene_filtered(
+            frame,
+            false,
+            Some(&level_visuals),
+            Some(&block_grid),
+            &filter,
+        );
+        let mut layer_rgb = vec![0u8; pixel_count * 3];
+        render_scene(&scene, &mut layer_rgb);
+        let layer_pixels = count_non_background_pixels(&layer_rgb, pixel_count);
+        let pct = if pixel_count > 0 {
+            layer_pixels as f64 / pixel_count as f64 * 100.0
+        } else {
+            0.0
+        };
+        println!("{:<20} {:>8}  {:>9.1}%", layer_name, layer_pixels, pct);
+
+        if save_layers {
+            let path = output_dir.join(format!(
+                "level_{level_id:02x}_frame_{frame_idx:05}_{layer_name}.png"
+            ));
+            image::save_buffer_with_format(
+                &path, &layer_rgb, w as u32, h as u32, image::ColorType::Rgb8, image::ImageFormat::Png,
+            )?;
+        }
+    }
+
+    println!("{:-<44}", "");
+    println!(
+        "{:<20} {:>8}  {:>9.1}%",
+        "FULL",
+        full_non_bg,
+        full_non_bg as f64 / pixel_count as f64 * 100.0
+    );
+
+    // State summary
+    println!("\nState at frame {frame_idx}:");
+    println!(
+        "  game_mode={:?}  level={:#04x}  camera=({:#010x}, {:#010x})",
+        frame.game_mode, frame.current_level.0, frame.camera_x_pos, frame.camera_y_pos
+    );
+    if let (Some(kx), Some(ky)) = (frame.kid_x_pos, frame.kid_y_pos) {
+        println!(
+            "  kid_pos=({}, {})  on_ground={}  hp={}  lives={}",
+            kx >> 16,
+            ky >> 16,
+            frame.kid_on_ground.unwrap_or(false),
+            frame.number_hitpoints,
+            frame.number_lives,
+        );
+    }
+    println!(
+        "  objects={}  gfx_objects={}",
+        frame.number_objects, frame.number_gfx_objects
+    );
+
+    Ok(())
+}
+
+/// Count pixels that differ from the background (first pixel's colour).
+fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
+    if rgb.len() < 3 {
+        return 0;
+    }
+    let bg = [rgb[0], rgb[1], rgb[2]];
+    (0..pixel_count)
+        .filter(|&i| {
+            let offset = i * 3;
+            rgb[offset] != bg[0] || rgb[offset + 1] != bg[1] || rgb[offset + 2] != bg[2]
+        })
+        .count()
 }
 
 #[cfg(test)]
