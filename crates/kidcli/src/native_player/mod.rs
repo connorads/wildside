@@ -889,6 +889,21 @@ fn detect_gems_events(
         gems.play_sound(gems_sfx::SCORE_COUNTER);
     }
 
+    // Block headbutt
+    if curr.blocks_hit_this_frame > 0 {
+        gems.play_sound(gems_sfx::BLOCK_HIT);
+    }
+
+    // Block destroyed (new destroy effects appeared)
+    if curr.block_destroy_effects.len() > prev.block_destroy_effects.len() {
+        gems.play_sound(gems_sfx::DESTROY_BLOCK);
+    }
+
+    // Lava geyser erupted (new geysers appeared)
+    if curr.active_geysers.len() > prev.active_geysers.len() {
+        gems.play_sound(gems_sfx::LAVA_GEYSER);
+    }
+
     // Game complete — ending music
     if curr.game_complete && !prev.game_complete {
         gems.play_sound(gems_bgm::ENDING);
