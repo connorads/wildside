@@ -1235,6 +1235,15 @@ impl NativeRuntime {
                 self.step_frame(idle);
             }
         }
+
+        // The original ASM has no entry animation — the player appears
+        // instantly at the spawn point. Always skip the native entry
+        // animation so parity timing matches the oracle.
+        self.skip_entry_animation = true;
+        // Reset the opening slice to the correct spawn position (the entry
+        // animation may have already modified it during boot).
+        self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+        self.level_start_frame = Some(self.frame_index);
     }
 
     /// Set the block collision grid for the current level.
