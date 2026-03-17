@@ -569,6 +569,21 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         ],
     },
     EnemyFamilySpec {
+        object_type: 0x0B, // Rock Tank (shooting)
+        art_path: "artcomp/Enemy0A_Rock_tank.bin",
+        palette_path: "palette_enemy/Rock_tank_1.bin",
+        extra_palette_paths: &[
+            "palette_enemy/Rock_tank_2.bin",
+            "palette_enemy/Rock_tank_3.bin",
+        ],
+        frame_duration: 6,
+        frames: &[
+            fd(0x02C, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x030, 0x0F, 0x00, 0x1E, 0x08),
+            fd(0x034, 0x0F, 0x00, 0x1E, 0x08),
+        ],
+    },
+    EnemyFamilySpec {
         object_type: 0x0C, // Dragon (flying)
         art_path: "artcomp/Enemy0C_Dragon.bin",
         palette_path: "palette_enemy/Dragon_1.bin",
@@ -811,6 +826,37 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         extra_palette_paths: &[],
         frame_duration: 10,
         frames: &[fd(0x040, 0x0D, 0x00, 0x19, 0x20)],
+    },
+    EnemyFamilySpec {
+        object_type: 0x21, // Boss Eyes / Attacks
+        art_path: "artcomp/Enemy21_Boss_eyes_or_attacks.bin",
+        palette_path: "palette_enemy/Boss_Eyes.bin",
+        extra_palette_paths: &[],
+        frame_duration: 6,
+        frames: &[
+            fd(0x000, 0x08, 0x08, 0x10, 0x10),
+            fd(0x004, 0x08, 0x08, 0x10, 0x10),
+            fd(0x008, 0x08, 0x08, 0x10, 0x10),
+            fd(0x00C, 0x08, 0x08, 0x10, 0x10),
+            fd(0x010, 0x08, 0x08, 0x10, 0x10),
+            fd(0x014, 0x08, 0x08, 0x10, 0x10),
+            fd(0x018, 0x08, 0x08, 0x10, 0x10),
+            fd(0x01C, 0x08, 0x08, 0x10, 0x10),
+        ],
+    },
+    EnemyFamilySpec {
+        object_type: 0x22, // Shiskaboss (head)
+        art_path: "artcomp/Enemy22_Boss_head_stick_boomerangs_arrows.bin",
+        palette_path: "palette_enemy/Boss.bin",
+        extra_palette_paths: &[],
+        frame_duration: 12,
+        frames: &[
+            fd(0x0A4, 0x20, 0x00, 0x40, 0x40),
+            fd(0x0E4, 0x20, 0x00, 0x3B, 0x40),
+            fd(0x124, 0x20, 0x00, 0x3C, 0x40),
+            fd(0x164, 0x23, 0x00, 0x3F, 0x40),
+            fd(0x1A4, 0x20, 0x0F, 0x3C, 0x4F),
+        ],
     },
 ];
 
