@@ -159,10 +159,13 @@ pub(crate) fn run_sweep_with_options(
                     .mae
                     .map(|v| format!(" MAE={v:.1}"))
                     .unwrap_or_default();
-                let diff_count = if r.state_diffs.is_empty() {
-                    String::new()
-                } else {
-                    format!(" ({} state diffs)", r.state_diffs.len())
+                let blocking_diffs = r.state_diffs.iter().filter(|d| d.field != "number_objects").count();
+                let advisory_diffs = r.state_diffs.len() - blocking_diffs;
+                let diff_count = match (blocking_diffs, advisory_diffs) {
+                    (0, 0) => String::new(),
+                    (0, a) => format!(" ({a} advisory diffs)"),
+                    (b, 0) => format!(" ({b} state diffs)"),
+                    (b, a) => format!(" ({b} state diffs, {a} advisory)"),
                 };
                 println!("  {status}{mae_str}{diff_count}");
                 if !r.passed {
@@ -269,7 +272,12 @@ fn sweep_single_level(
 
     // Compare states
     let state_diffs = compare_sweep_states(&native_states, &oracle.states);
-    let state_passed = state_diffs.is_empty();
+    // number_objects is advisory — the native side doesn't model system objects
+    // (palette rotation, weather, lava geysers, fade-in) as separate object
+    // slots, so the count will diverge. Exclude from pass/fail.
+    let state_passed = state_diffs
+        .iter()
+        .all(|d| d.field == "number_objects");
 
     // Tier 1 (state-only): done unless escalating
     let effective_tier = if !state_passed && requested_tier == SweepTier::State {

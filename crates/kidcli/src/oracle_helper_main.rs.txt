@@ -895,24 +895,21 @@ fn boot_and_warp_oracle(
             mem.write(work_ram_index(LEVEL_SKIP_CHEAT_ADDR), 0xFF);
         }
 
-        // Set Current_LevelID = target - 1 so that the cheat's addq.w #1
-        // increments it to the target.
-        {
-            let mut mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
-            let prev_level = target_level.wrapping_sub(1);
-            mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR), 0x00);
-            mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR) + 1, prev_level);
-        }
-
-        // Wait for the player to fully settle after boot before triggering
-        // the level skip cheat. The cheat handler runs inside an object's
-        // Hibernate loop and needs the player to be in normal gameplay.
+        // Wait for the player to fully settle after boot.
         for _ in 0..60 {
             tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
         }
 
-        // Press Start+A+C for one frame to trigger level skip.
-        // Then release and let the game process the level transition.
+        // Two-frame cheat trigger:
+        // Frame 1: Press Start+A+C with the CORRECT level ID still in RAM.
+        //   ReadJoypad (at end of Mode_Level) latches the button state.
+        // Between frames: Write Current_LevelID = target - 1.
+        // Frame 2: Player object reads latched Start+A+C from frame 1,
+        //   checks cheat flag, does addq.w #1 on Current_LevelID (now
+        //   target-1 + 1 = target), then jumps to full reinit (loc_6E2).
+        //   This minimises time with a mismatched level ID — the cheat
+        //   handler runs early in Execute_Objects and jumps out before
+        //   most level-specific code executes.
         let skip_input = GenesisInputs {
             p1: GenesisJoypadState {
                 start: true,
@@ -922,33 +919,24 @@ fn boot_and_warp_oracle(
             },
             p2: GenesisJoypadState::default(),
         };
+
+        // Frame 1: press buttons (level ID still correct)
         tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
 
-        // Verify the level skip triggered by checking game_mode.
-        // If it changed to 8 (level reload), the skip worked.
-        // If not, try again with a longer wait.
-        let skip_triggered = {
-            let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
-            let gm = u16::from_be_bytes([
-                mem.read(work_ram_index(0xFFFF_FBCA)),
-                mem.read(work_ram_index(0xFFFF_FBCA) + 1),
-            ]);
-            gm == 8
-        };
-        if !skip_triggered {
-            // Skip didn't trigger — try pressing again after more idle.
-            for _ in 0..60 {
-                tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
-            }
-            tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
+        // Between frames: write level ID
+        {
+            let mut mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+            let prev_level = target_level.wrapping_sub(1);
+            mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR), 0x00);
+            mem.write(work_ram_index(CURRENT_LEVEL_ID_ADDR) + 1, prev_level);
         }
 
-        // Wait for title card (game_mode=8 → Load_TitleCard → "Press Start").
-        for _ in 0..120 {
-            tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
-        }
+        // Frame 2: cheat triggers (reads latched buttons, increments level ID)
+        tick_one_frame(emulator, renderer, audio, &skip_input, save_writer)?;
 
-        // Press Start to dismiss title card → Load_InGame.
+        // Poll until game_mode reaches 0x0C (in-level gameplay).
+        // The transition goes: game_mode=8 -> title card -> Start press needed
+        // -> game_mode=0x0C. Press Start periodically to dismiss the title card.
         let start_input = GenesisInputs {
             p1: GenesisJoypadState {
                 start: true,
@@ -956,11 +944,34 @@ fn boot_and_warp_oracle(
             },
             p2: GenesisJoypadState::default(),
         };
-        tick_one_frame(emulator, renderer, audio, &start_input, save_writer)?;
-
-        // Wait for level to fully initialise.
-        for _ in 0..120 {
-            tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
+        let mut settled = false;
+        for frame in 0..600 {
+            let input = if frame % 30 == 20 {
+                &start_input
+            } else {
+                &no_input
+            };
+            tick_one_frame(emulator, renderer, audio, input, save_writer)?;
+            let gm = {
+                let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+                u16::from_be_bytes([
+                    mem.read(work_ram_index(GAME_MODE_ADDR)),
+                    mem.read(work_ram_index(GAME_MODE_ADDR) + 1),
+                ])
+            };
+            if gm == 0x000C {
+                for _ in 0..60 {
+                    tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
+                }
+                settled = true;
+                break;
+            }
+        }
+        if !settled {
+            return Err(anyhow!(
+                "oracle warp to level 0x{:02X} did not settle after 600 frames",
+                target_level,
+            ));
         }
     }
 
