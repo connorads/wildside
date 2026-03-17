@@ -1906,12 +1906,14 @@ impl NativeRuntime {
             return;
         }
 
-        // Murder wall: advance and kill player on contact
+        // Murder wall: advance and damage player on contact.
+        // The original game sets a hit flag that feeds into the normal damage
+        // path (checking invulnerability, removing helmet, reducing HP). It
+        // also pushes the player ahead of the wall.
         self.step_murder_wall();
-        if self.murder_wall_kills_player(&slice) {
+        if self.murder_wall_kills_player(&slice) && self.invulnerable_frames == 0 {
+            self.apply_damage();
             self.opening_slice = Some(slice);
-            self.number_hitpoints = 0;
-            self.begin_death_windup();
             return;
         }
 
