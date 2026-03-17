@@ -263,6 +263,39 @@ impl NativeRuntime {
         OpeningSliceState::respawn_from_pose(bounds, pose)
     }
 
+    /// Like `level_respawn_slice` but snaps the player to the actual floor
+    /// in the block grid. Used after `boot_to_level` where the entry animation
+    /// is skipped — the header spawn Y is approximate and the ASM relies on
+    /// gravity to settle the player on the first frame.
+    pub(crate) fn level_respawn_slice_with_floor_snap(
+        &self,
+        level_id: LevelId,
+    ) -> OpeningSliceState {
+        let mut slice = self.level_respawn_slice(level_id);
+        if let Some(grid) = self.block_grid.as_ref() {
+            let x_px = (slice.player.x_pos >> 16) as i32;
+            let y_px = (slice.player.y_pos >> 16) as i32;
+            if let Some(floor_y) = terrain::find_floor_below(grid, x_px, y_px) {
+                let floor_y_px = floor_y.saturating_sub(1);
+                let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+                slice.player.y_pos = floor_y_fp;
+                slice.player.on_ground = true;
+                slice.player.y_velocity = 0;
+                slice.terrain.floor_y_pos = floor_y_fp;
+                // Recompute camera to match snapped player position so the
+                // camera starts at the follow target (player - 160px) rather
+                // than the header-derived screen snap.
+                let bounds = self.level_bounds(level_id);
+                let max_cam_y = i32::from(bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
+                let cam_y = (floor_y_px as i32 - physics::CAMERA_PLAYER_OFFSET)
+                    .max(0)
+                    .min(max_cam_y);
+                slice.camera.y_pos = (cam_y.max(0) as u32) << 16;
+            }
+        }
+        slice
+    }
+
     pub(crate) fn level_start_pose(&self, level_id: LevelId, _bounds: LevelBounds) -> LevelStartPose {
         if level_id == LevelId(0) {
             return LevelStartPose {
@@ -657,7 +690,7 @@ impl NativeRuntime {
                 },
             );
         }
-        self.level_respawn_slice(level_id)
+        self.level_respawn_slice_with_floor_snap(level_id)
     }
 
     pub fn next_level_id(&self) -> LevelId {

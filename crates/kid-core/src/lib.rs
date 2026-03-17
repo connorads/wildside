@@ -1241,8 +1241,10 @@ impl NativeRuntime {
         // animation so parity timing matches the oracle.
         self.skip_entry_animation = true;
         // Reset the opening slice to the correct spawn position (the entry
-        // animation may have already modified it during boot).
-        self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+        // animation may have already modified it during boot). Use the
+        // floor-snap variant because we skip the entry animation — the header
+        // spawn Y is approximate and the ASM relies on gravity to settle.
+        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.level_start_frame = Some(self.frame_index);
     }
 
@@ -2094,11 +2096,11 @@ impl NativeRuntime {
         ) {
             return counts;
         }
-        // The original game allocates 4 system objects per level: player
-        // control, input handler, background/collision, and palette/state.
-        // The native roster already includes the player (1), so add 3 for
-        // the remaining system objects.
-        (roster_count + 3, roster_count + 3)
+        // The original game allocates system object slots beyond the
+        // enemy/platform roster: player sprite and HUD/state manager.
+        // The native roster already includes the player (1), so add 2
+        // for the remaining system objects.
+        (roster_count + 2, roster_count + 2)
     }
 }
 

@@ -926,9 +926,32 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
             if snapshot.game_mode == 0x000C
                 && snapshot.current_level_id == u16::from(level_id)
             {
-                for _ in 0..30 {
+                // The layout is populated AFTER game_mode reaches 0x0C by
+                // object execution in Mode_Level. Wait until a non-empty
+                // layout appears (up to 300 frames) then settle a bit more.
+                let mut layout_ready = false;
+                for settle in 0..300 {
                     runtime.set_controller_1(0);
                     runtime.run_until_vblank(500_000);
+                    if settle % 30 == 0 {
+                        let sample = runtime.read_work_ram_range(LEVEL_LAYOUT_ADDR, 200);
+                        let nz = sample.chunks(2).filter(|w| w[0] != 0 || w[1] != 0).count();
+                        if nz > 10 {
+                            // Layout appears populated, run a few more frames to ensure it's stable
+                            for _ in 0..30 {
+                                runtime.set_controller_1(0);
+                                runtime.run_until_vblank(500_000);
+                            }
+                            layout_ready = true;
+                            break;
+                        }
+                    }
+                }
+                if !layout_ready {
+                    eprintln!(
+                        "warning: layout may not be fully populated for level 0x{:02X}",
+                        level_id
+                    );
                 }
                 settled = true;
                 break;

@@ -70,7 +70,16 @@ impl Default for SweepOptions {
     }
 }
 
+/// Kid Chameleon level IDs are BCD-encoded: 0x00-0x09, 0x10-0x19, …, 0x60-0x68.
+/// Returns true if `id` is a valid BCD level ID.
+fn is_valid_level_id(id: u8) -> bool {
+    let lo = id & 0x0F;
+    let hi = id >> 4;
+    lo <= 9 && hi <= 6 && id <= 0x68
+}
+
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
+/// Invalid BCD level IDs (0x0A-0x0F, 0x1A-0x1F, etc.) are filtered out.
 pub(crate) fn parse_level_range(spec: &str) -> Result<Vec<u8>> {
     let mut levels = Vec::new();
     for part in spec.split(',') {
@@ -81,10 +90,12 @@ pub(crate) fn parse_level_range(spec: &str) -> Result<Vec<u8>> {
             if end < start {
                 bail!("level range end {end} < start {start}");
             }
-            levels.extend(start..=end);
+            levels.extend((start..=end).filter(|&id| is_valid_level_id(id)));
         } else {
             let level: u8 = part.parse().context("invalid level id")?;
-            levels.push(level);
+            if is_valid_level_id(level) {
+                levels.push(level);
+            }
         }
     }
     levels.sort_unstable();
@@ -773,15 +784,22 @@ mod tests {
 
     #[test]
     fn parse_level_range_csv() {
-        assert_eq!(parse_level_range("0,5,10").unwrap(), vec![0, 5, 10]);
+        assert_eq!(parse_level_range("0,5,9").unwrap(), vec![0, 5, 9]);
     }
 
     #[test]
     fn parse_level_range_mixed() {
+        // 0x10-0x12 are valid BCD; 0x0A-0x0F are filtered out from the range
         assert_eq!(
-            parse_level_range("0-2,5,10-12").unwrap(),
-            vec![0, 1, 2, 5, 10, 11, 12]
+            parse_level_range("0-2,5,16-18").unwrap(),
+            vec![0, 1, 2, 5, 16, 17, 18]
         );
+    }
+
+    #[test]
+    fn parse_level_range_filters_invalid_bcd() {
+        // Decimal 10-15 = 0x0A-0x0F, all invalid BCD
+        assert_eq!(parse_level_range("8-18").unwrap(), vec![8, 9, 16, 17, 18]);
     }
 
     #[test]
