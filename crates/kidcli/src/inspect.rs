@@ -881,12 +881,7 @@ pub(crate) const BLOCK_LIST_SIZE: usize = 0x0898; // FF3B24..FF43BC
 pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) -> Result<()> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
 
-    // If level_id != 0, set it before the game starts
-    if level_id != 0 {
-        // We'll set the level after the game has initialised
-    }
-
-    // Run through boot + title presses to reach gameplay
+    // Run through boot + title presses to reach level 0
     let entry_script = gameplay_entry_script()?;
     for (frame_index, buttons) in entry_script.iter().enumerate() {
         runtime.set_controller_1(*buttons);
@@ -895,10 +890,60 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
         }
     }
 
-    // Run additional frames to ensure level is fully loaded
+    // Wait for level 0 to settle
     for _ in 0..60 {
         runtime.set_controller_1(0);
         runtime.run_until_vblank(500_000);
+    }
+
+    // Warp to the target level using the level skip cheat.
+    // Set Current_LevelID = target - 1, enable cheat, press Start+A+C.
+    // The cheat handler increments LevelID and sets Game_Mode = 8.
+    if level_id != 0 {
+        runtime.set_level_skip_cheat_enabled(true);
+        runtime.set_lives(9);
+        runtime.set_hitpoints(9);
+        // Write level ID just before the button press frame to minimise
+        // time running with a mismatched level ID.
+        runtime.set_current_level(u16::from(level_id).wrapping_sub(1));
+        // Start=0x80, A=0x40, C=0x20
+        runtime.set_controller_1(0xE0);
+        runtime.run_until_vblank(500_000);
+        runtime.set_controller_1(0);
+
+        // Poll for the level to finish loading (game_mode == 0x0C).
+        // Press Start periodically to dismiss any title card.
+        let mut settled = false;
+        for frame in 0..600 {
+            if frame % 30 == 20 {
+                runtime.set_controller_1(0x80);
+            } else {
+                runtime.set_controller_1(0);
+            }
+            runtime.run_until_vblank(500_000);
+
+            let snapshot = runtime.snapshot();
+            if snapshot.game_mode == 0x000C
+                && snapshot.current_level_id == u16::from(level_id)
+            {
+                for _ in 0..30 {
+                    runtime.set_controller_1(0);
+                    runtime.run_until_vblank(500_000);
+                }
+                settled = true;
+                break;
+            }
+        }
+
+        if !settled {
+            let snapshot = runtime.snapshot();
+            bail!(
+                "level warp to 0x{:02X} did not settle: game_mode=0x{:04X}, level_id=0x{:04X}",
+                level_id,
+                snapshot.game_mode,
+                snapshot.current_level_id,
+            );
+        }
     }
 
     let snapshot = runtime.snapshot();

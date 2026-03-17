@@ -712,6 +712,10 @@ impl MdRuntime {
             .write_work_ram_word(PLAYER_1_LEVEL_ID_ADDR, level_id);
     }
 
+    pub fn set_game_mode(&mut self, mode: u16) {
+        self.core.mem.write_work_ram_word(GAME_MODE_ADDR, mode);
+    }
+
     pub fn set_current_helmet(&mut self, helmet_id: u16) {
         self.core
             .mem
