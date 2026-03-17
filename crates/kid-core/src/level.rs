@@ -275,7 +275,18 @@ impl NativeRuntime {
         if let Some(grid) = self.block_grid.as_ref() {
             let x_px = (slice.player.x_pos >> 16) as i32;
             let y_px = (slice.player.y_pos >> 16) as i32;
-            if let Some(floor_y) = terrain::find_floor_below(grid, x_px, y_px) {
+            // Probe all three hitbox columns (centre, left edge, right edge)
+            // and take the highest floor, matching the ASM's gravity settling
+            // which uses the full hitbox width.
+            let floor_y = [
+                terrain::find_floor_below(grid, x_px, y_px),
+                terrain::find_floor_below(grid, x_px - PLAYER_HALF_WIDTH, y_px),
+                terrain::find_floor_below(grid, x_px + PLAYER_HALF_WIDTH, y_px),
+            ]
+            .into_iter()
+            .flatten()
+            .min();
+            if let Some(floor_y) = floor_y {
                 let floor_y_px = floor_y.saturating_sub(1);
                 let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
                 slice.player.y_pos = floor_y_fp;
