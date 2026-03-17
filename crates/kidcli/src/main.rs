@@ -344,6 +344,12 @@ enum Commands {
         /// Stop after this many failures (0 = run all levels).
         #[arg(long, default_value_t = 0)]
         max_failures: usize,
+        /// Capture golden state snapshots (no oracle needed).
+        #[arg(long, default_value_t = false)]
+        golden_capture: bool,
+        /// Diff current state against golden snapshots (no oracle needed).
+        #[arg(long, default_value_t = false)]
+        golden_diff: bool,
     },
     /// Deep diagnosis of a single failing level.
     DiagnoseLevel {
@@ -839,19 +845,27 @@ fn main() -> Result<()> {
             tier,
             warm_cache_only,
             max_failures,
+            golden_capture,
+            golden_diff,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let level_ids = sweep::parse_level_range(&levels)?;
-            let options = sweep::SweepOptions {
-                warm_cache_only,
-                max_failures,
-            };
-            sweep::run_sweep_with_options(
-                &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
-            )?;
+            if golden_capture {
+                sweep::golden_capture(&repo_root, &manifest, &level_ids)?;
+            } else if golden_diff {
+                sweep::golden_diff(&repo_root, &manifest, &level_ids)?;
+            } else {
+                let options = sweep::SweepOptions {
+                    warm_cache_only,
+                    max_failures,
+                };
+                sweep::run_sweep_with_options(
+                    &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
+                )?;
+            }
         }
         Commands::DiagnoseLevel { rom, dir, level } => {
             let repo_root = current_dir()?;

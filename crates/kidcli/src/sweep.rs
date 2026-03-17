@@ -66,6 +66,24 @@ pub(crate) struct SweepReport {
     pub(crate) errors: usize,
 }
 
+/// Per-level golden snapshot: full NativeTraceFrame at each checkpoint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct GoldenSnapshot {
+    pub(crate) level_id: u8,
+    pub(crate) scenario_slug: String,
+    pub(crate) kid_core_hash: String,
+    pub(crate) frames: Vec<NativeTraceFrame>,
+}
+
+/// Field-level diff between two golden snapshots.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct GoldenDiff {
+    pub(crate) checkpoint: String,
+    pub(crate) field: String,
+    pub(crate) old_value: String,
+    pub(crate) new_value: String,
+}
+
 /// Options controlling sweep behaviour beyond tier and level selection.
 #[derive(Debug, Clone)]
 pub(crate) struct SweepOptions {
@@ -558,7 +576,8 @@ fn compare_checkpoint_frames(
         &gameplay_checkpoints,
         level_id,
     )
-    .unwrap_or_else(|_| {
+    .unwrap_or_else(|e| {
+        eprintln!("  warning: level {level_id:#04x} frame render failed ({e:#}), using black frames");
         gameplay_checkpoints
             .iter()
             .map(|cp| {
@@ -1088,6 +1107,245 @@ pub(crate) fn diagnose_frame(
     );
 
     Ok(())
+}
+
+/// Capture golden state snapshots for all specified levels.
+/// Runs each level with idle, walk_right, and prize_block scenarios,
+/// storing full NativeTraceFrame at every checkpoint as JSON.
+pub(crate) fn golden_capture(
+    repo_root: &Path,
+    manifest: &AssetManifest,
+    levels: &[u8],
+) -> Result<()> {
+    let golden_dir = repo_root.join(".cache/golden");
+    fs::create_dir_all(&golden_dir)
+        .with_context(|| format!("failed to create {}", golden_dir.display()))?;
+
+    let source_hash = kid_core_source_hash(repo_root).unwrap_or_else(|_| "unknown".into());
+    let mut captured = 0usize;
+
+    for &level_id in levels {
+        let level_dir = golden_dir.join(format!("{level_id:02x}"));
+        fs::create_dir_all(&level_dir)?;
+
+        let scenarios = golden_scenarios_for_level(level_id);
+        for scenario in &scenarios {
+            let trace = kid_core::run_script_with_warp(
+                manifest.clone(),
+                &scenario.script,
+                scenario.frame_count,
+                scenario.warp_to_level,
+            );
+
+            let checkpoint_frames: Vec<NativeTraceFrame> = scenario
+                .checkpoints
+                .iter()
+                .filter_map(|cp| trace.get(cp.frame_index).cloned())
+                .collect();
+
+            let snapshot = GoldenSnapshot {
+                level_id,
+                scenario_slug: scenario.slug.clone(),
+                kid_core_hash: source_hash.clone(),
+                frames: checkpoint_frames,
+            };
+
+            let path = level_dir.join(format!("{}.json", scenario.slug));
+            fs::write(&path, serde_json::to_vec_pretty(&snapshot)?)
+                .with_context(|| format!("failed to write {}", path.display()))?;
+            captured += 1;
+        }
+        println!("golden capture {level_id:#04x}: {n} scenarios", n = scenarios.len());
+    }
+
+    println!("\ngolden capture complete: {captured} snapshots across {} levels", levels.len());
+    Ok(())
+}
+
+/// Diff current native state against golden snapshots for all specified levels.
+/// Returns a report with per-level results.
+pub(crate) fn golden_diff(
+    repo_root: &Path,
+    manifest: &AssetManifest,
+    levels: &[u8],
+) -> Result<SweepReport> {
+    let golden_dir = repo_root.join(".cache/golden");
+    if !golden_dir.exists() {
+        bail!("no golden snapshots found — run --golden-capture first");
+    }
+
+    let timestamp = chrono_timestamp();
+    let mut results = Vec::with_capacity(levels.len());
+    let mut total_diffs = 0usize;
+
+    for &level_id in levels {
+        let level_dir = golden_dir.join(format!("{level_id:02x}"));
+        if !level_dir.exists() {
+            println!("golden diff {level_id:#04x}: no golden data, skipping");
+            continue;
+        }
+
+        let scenarios = golden_scenarios_for_level(level_id);
+        let mut level_diffs = Vec::new();
+
+        for scenario in &scenarios {
+            let golden_path = level_dir.join(format!("{}.json", scenario.slug));
+            if !golden_path.exists() {
+                continue;
+            }
+
+            let golden_data = fs::read(&golden_path)
+                .with_context(|| format!("failed to read {}", golden_path.display()))?;
+            let golden: GoldenSnapshot = serde_json::from_slice(&golden_data)
+                .with_context(|| format!("failed to parse {}", golden_path.display()))?;
+
+            let trace = kid_core::run_script_with_warp(
+                manifest.clone(),
+                &scenario.script,
+                scenario.frame_count,
+                scenario.warp_to_level,
+            );
+
+            let current_frames: Vec<NativeTraceFrame> = scenario
+                .checkpoints
+                .iter()
+                .filter_map(|cp| trace.get(cp.frame_index).cloned())
+                .collect();
+
+            let diffs = diff_golden_frames(
+                &scenario.slug,
+                &golden.frames,
+                &current_frames,
+                &scenario.checkpoints,
+            );
+            level_diffs.extend(diffs);
+        }
+
+        let passed = level_diffs.is_empty();
+        if !passed {
+            total_diffs += level_diffs.len();
+            println!(
+                "golden diff {level_id:#04x}: FAIL ({} field changes)",
+                level_diffs.len()
+            );
+            for d in &level_diffs {
+                println!("  {}/{}: {} -> {}", d.checkpoint, d.field, d.old_value, d.new_value);
+            }
+        } else {
+            println!("golden diff {level_id:#04x}: PASS");
+        }
+
+        results.push(LevelSweepResult {
+            level_id,
+            slug: format!("golden_{level_id:02x}"),
+            tier: SweepTier::State,
+            passed,
+            state_diffs: level_diffs
+                .iter()
+                .map(|d| StateDiff {
+                    checkpoint: d.checkpoint.clone(),
+                    field: d.field.clone(),
+                    native_value: d.new_value.clone(),
+                    oracle_value: d.old_value.clone(),
+                })
+                .collect(),
+            mae: None,
+            diff_images: Vec::new(),
+            error: None,
+        });
+    }
+
+    let passed = results.iter().filter(|r| r.passed).count();
+    let failed = results.iter().filter(|r| !r.passed).count();
+    println!(
+        "\ngolden diff complete: {passed} passed, {failed} failed, {total_diffs} total field changes"
+    );
+
+    Ok(SweepReport {
+        timestamp,
+        kid_core_hash: kid_core_source_hash(repo_root).ok(),
+        levels: results,
+        passed,
+        failed,
+        errors: 0,
+    })
+}
+
+/// Build the standard set of scenarios for golden snapshot capture/diff.
+fn golden_scenarios_for_level(level_id: u8) -> Vec<DynamicScenario> {
+    vec![
+        idle_level_scenario(level_id, None),
+        walk_right_scenario(level_id, 300),
+        prize_block_scenario(level_id),
+    ]
+}
+
+/// Diff two sets of golden frames field-by-field, reporting any changes.
+fn diff_golden_frames(
+    scenario_slug: &str,
+    old_frames: &[NativeTraceFrame],
+    new_frames: &[NativeTraceFrame],
+    checkpoints: &[DynamicCheckpoint],
+) -> Vec<GoldenDiff> {
+    let mut diffs = Vec::new();
+
+    for (i, (old, new)) in old_frames.iter().zip(new_frames.iter()).enumerate() {
+        let cp_label = checkpoints
+            .get(i)
+            .map(|cp| format!("{}/{}", scenario_slug, cp.label))
+            .unwrap_or_else(|| format!("{scenario_slug}/checkpoint_{i}"));
+
+        macro_rules! check_field {
+            ($field:ident) => {
+                if old.$field != new.$field {
+                    diffs.push(GoldenDiff {
+                        checkpoint: cp_label.clone(),
+                        field: stringify!($field).to_string(),
+                        old_value: format!("{:?}", old.$field),
+                        new_value: format!("{:?}", new.$field),
+                    });
+                }
+            };
+        }
+
+        check_field!(game_mode);
+        check_field!(game_mode_value);
+        check_field!(current_level);
+        check_field!(player_1_level_id);
+        check_field!(number_lives);
+        check_field!(number_continues);
+        check_field!(number_hitpoints);
+        check_field!(current_helmet_id);
+        check_field!(paused);
+        check_field!(kid_x_pos);
+        check_field!(kid_y_pos);
+        check_field!(kid_x_velocity);
+        check_field!(kid_y_velocity);
+        check_field!(kid_facing);
+        check_field!(kid_on_ground);
+        check_field!(camera_x_pos);
+        check_field!(camera_y_pos);
+        check_field!(number_objects);
+        check_field!(number_gfx_objects);
+        check_field!(level_complete);
+        check_field!(game_over);
+        check_field!(game_complete);
+        check_field!(invulnerable_frames);
+        check_field!(diamond_power_active);
+        check_field!(diamond_count);
+        check_field!(score);
+        check_field!(level_timer_seconds);
+        check_field!(murder_wall_x);
+        check_field!(active_enemy_object_count);
+        check_field!(active_platform_object_count);
+        check_field!(active_projectiles);
+        check_field!(stomped_this_frame);
+        check_field!(blocks_hit_this_frame);
+        check_field!(two_player);
+        check_field!(options_cursor);
+    }
+
+    diffs
 }
 
 /// Run a gameplay sweep across specified levels using scripted scenarios.
@@ -1670,5 +1928,149 @@ mod tests {
         let diffs = compare_sweep_states(&native, &oracle);
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "camera_x_pos");
+    }
+
+    #[test]
+    fn golden_diff_detects_changed_field() {
+        use kid_core::{GameMode, LevelId, NativeTraceFrame};
+        let checkpoints = vec![DynamicCheckpoint {
+            label: "settle".into(),
+            frame_index: 0,
+        }];
+        let make_frame = |score: u32| NativeTraceFrame {
+            frame_index: 0,
+            game_mode: GameMode::InGame,
+            game_mode_value: GameMode::InGame.as_disassembly_value(),
+            start_press_count: 0,
+            current_player: 0,
+            current_level: LevelId(0),
+            player_1_level_id: LevelId(0),
+            current_level_name: None,
+            player_start_x: None,
+            player_start_y: None,
+            flag_x: None,
+            flag_y: None,
+            level_enemy_object_count: None,
+            active_enemy_object_count: 0,
+            active_platform_object_count: 0,
+            number_lives: 3,
+            number_continues: 3,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            paused: false,
+            kid_x_pos: Some(0x0020_0000),
+            kid_y_pos: Some(0x00E0_0000),
+            kid_x_velocity: Some(0),
+            kid_y_velocity: Some(0),
+            kid_facing: None,
+            kid_on_ground: Some(true),
+            active_objects: Vec::new(),
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            level_complete: false,
+            game_over: false,
+            game_complete: false,
+            options_cursor: None,
+            two_player: false,
+            invulnerable_frames: 0,
+            diamond_power_active: false,
+            diamond_count: 0,
+            score,
+            level_timer_seconds: 180,
+            murder_wall_x: None,
+            active_projectiles: Vec::new(),
+            active_geysers: Vec::new(),
+            block_bounces: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            floating_items: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
+        };
+
+        let old = vec![make_frame(0)];
+        let new = vec![make_frame(100)];
+        let diffs = diff_golden_frames("idle_level_00", &old, &new, &checkpoints);
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "score");
+        assert!(diffs[0].old_value.contains("0"));
+        assert!(diffs[0].new_value.contains("100"));
+    }
+
+    #[test]
+    fn golden_diff_reports_nothing_for_identical_frames() {
+        use kid_core::{GameMode, LevelId, NativeTraceFrame};
+        let checkpoints = vec![DynamicCheckpoint {
+            label: "settle".into(),
+            frame_index: 0,
+        }];
+        let frame = NativeTraceFrame {
+            frame_index: 0,
+            game_mode: GameMode::InGame,
+            game_mode_value: GameMode::InGame.as_disassembly_value(),
+            start_press_count: 0,
+            current_player: 0,
+            current_level: LevelId(0),
+            player_1_level_id: LevelId(0),
+            current_level_name: None,
+            player_start_x: None,
+            player_start_y: None,
+            flag_x: None,
+            flag_y: None,
+            level_enemy_object_count: None,
+            active_enemy_object_count: 0,
+            active_platform_object_count: 0,
+            number_lives: 3,
+            number_continues: 3,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            paused: false,
+            kid_x_pos: Some(0x0020_0000),
+            kid_y_pos: Some(0x00E0_0000),
+            kid_x_velocity: Some(0),
+            kid_y_velocity: Some(0),
+            kid_facing: None,
+            kid_on_ground: Some(true),
+            active_objects: Vec::new(),
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            level_complete: false,
+            game_over: false,
+            game_complete: false,
+            options_cursor: None,
+            two_player: false,
+            invulnerable_frames: 0,
+            diamond_power_active: false,
+            diamond_count: 0,
+            score: 0,
+            level_timer_seconds: 180,
+            murder_wall_x: None,
+            active_projectiles: Vec::new(),
+            active_geysers: Vec::new(),
+            block_bounces: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            floating_items: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
+        };
+
+        let old = vec![frame.clone()];
+        let new = vec![frame];
+        let diffs = diff_golden_frames("idle_level_00", &old, &new, &checkpoints);
+        assert!(diffs.is_empty(), "expected no diffs but got: {diffs:?}");
+    }
+
+    #[test]
+    fn golden_scenarios_produces_three_scenarios() {
+        let scenarios = golden_scenarios_for_level(0x00);
+        assert_eq!(scenarios.len(), 3);
+        assert!(scenarios[0].slug.starts_with("idle_level_"));
+        assert!(scenarios[1].slug.starts_with("walk_right_"));
+        assert!(scenarios[2].slug.starts_with("prize_block_"));
     }
 }
