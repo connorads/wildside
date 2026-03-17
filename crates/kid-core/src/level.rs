@@ -282,7 +282,10 @@ impl NativeRuntime {
             };
         };
         let kid_x_pos = u32::from(header.player_start_x) << 16;
-        let kid_y_pos = u32::from(header.player_start_y) << 16;
+        // The ASM applies `subq.w #1,y_pos` when placing the player sprite,
+        // putting the player 1 pixel above the header value (into the floor
+        // cell above, not the empty cell below).
+        let kid_y_pos = u32::from(header.player_start_y.saturating_sub(1)) << 16;
         // Camera snaps to screen boundary: floor(pos / screen_size) * screen_size
         // This matches the ASM at Load_InGame (divu.w #$140 / mulu.w #$140).
         let camera_x_pos = u32::from((header.player_start_x / 320) * 320) << 16;

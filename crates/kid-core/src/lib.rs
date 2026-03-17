@@ -2581,7 +2581,8 @@ mod tests {
             .expect("aliased level should reuse resource platforms");
 
         assert_eq!(slice.player.x_pos, 0x0042_0000);
-        assert_eq!(slice.player.y_pos, 0x0088_0000);
+        // player_start_y=0x88, minus 1 for ASM subq.w #1,y_pos
+        assert_eq!(slice.player.y_pos, 0x0087_0000);
         // Camera snaps to screen boundary: floor(pos / screen) * screen
         assert_eq!(slice.camera.x_pos, u32::from((0x0042u16 / 320) * 320) << 16);
         assert_eq!(slice.camera.y_pos, u32::from((0x0088u16 / 224) * 224) << 16);
@@ -4253,7 +4254,8 @@ mod tests {
             .opening_slice
             .expect("advanced level should install a respawn slice");
         assert_eq!(slice.player.x_pos, 0x0751_0000);
-        assert_eq!(slice.player.y_pos, 0x00E0_0000);
+        // player_start_y=0xE0, minus 1 for ASM subq.w #1,y_pos
+        assert_eq!(slice.player.y_pos, 0x00DF_0000);
         // Camera snaps to screen boundary: floor(pos / screen) * screen
         assert_eq!(slice.camera.x_pos, u32::from((0x0751u16 / 320) * 320) << 16);
         assert_eq!(slice.camera.y_pos, u32::from((0x00E0u16 / 224) * 224) << 16);
