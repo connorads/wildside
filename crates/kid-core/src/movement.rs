@@ -47,6 +47,8 @@ impl OpeningSliceState {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         }
     }
 
@@ -92,6 +94,8 @@ impl OpeningSliceState {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         }
     }
 
@@ -456,6 +460,9 @@ impl OpeningSliceState {
                         );
                     }
                     terrain::BlockType::Smash => {
+                        let block_x_px = u16::from(probe.cell_x) * 16;
+                        let block_y_px = u16::from(probe.cell_y) * 16;
+                        self.smash_block_hit = Some((block_x_px, block_y_px));
                         grid.set_cell_at(
                             probe.cell_x,
                             probe.cell_y,
@@ -474,17 +481,17 @@ impl OpeningSliceState {
                     }
                     terrain::BlockType::Drill => {
                         // Drill block fires a downward projectile when headbutted
-                        let drill_x_fp =
-                            (u32::from(probe.cell_x) * 16 + 8) << 16;
-                        let drill_y_fp =
-                            (u32::from(probe.cell_y) * 16 + 16) << 16;
-                        self.drill_projectile_hit =
-                            Some((drill_x_fp, drill_y_fp));
+                        let drill_x_fp = (u32::from(probe.cell_x) * 16 + 8) << 16;
+                        let drill_y_fp = (u32::from(probe.cell_y) * 16 + 16) << 16;
+                        self.drill_projectile_hit = Some((drill_x_fp, drill_y_fp));
                         grid.set_cell_at(
                             probe.cell_x,
                             probe.cell_y,
                             terrain::Cell::from_be_bytes(0, 0),
                         );
+                    }
+                    terrain::BlockType::Metal => {
+                        self.metal_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
                     _ => {}
                 }
@@ -493,7 +500,8 @@ impl OpeningSliceState {
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
             let new_y = probe.ceiling_y_px + PLAYER_HEIGHT;
             self.player.y_pos = (new_y.max(0) as u32) << 16;
-            self.player.y_velocity = 0;
+            // Small downward nudge on ceiling hit (original game pushes player down)
+            self.player.y_velocity = 0x0001_0000;
         }
     }
 
@@ -565,8 +573,9 @@ impl OpeningSliceState {
                 || (allow_hitbox_snap && (probe.on_ground || preserving_ground_contact))
             {
                 let floor_y_px = match probe.cell.collision {
-                    terrain::CollisionKind::Solid
-                    | terrain::CollisionKind::Spikes => probe.floor_y_px.saturating_sub(1),
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes => {
+                        probe.floor_y_px.saturating_sub(1)
+                    }
                     terrain::CollisionKind::SlopeDown
                     | terrain::CollisionKind::SlopeUp
                     | terrain::CollisionKind::HiddenBlock
@@ -617,8 +626,8 @@ impl OpeningSliceState {
                     self.player.y_pos = floor_y_fp;
                     // Mushroom blocks bounce the player back up
                     if probe.cell.block_type == terrain::BlockType::Mushroom {
-                        self.player.y_velocity = -(self.player.y_velocity.abs() * 3 / 4)
-                            .max(MUSHROOM_MIN_BOUNCE);
+                        self.player.y_velocity =
+                            -(self.player.y_velocity.abs() * 3 / 4).max(MUSHROOM_MIN_BOUNCE);
                         self.player.on_ground = false;
                     } else {
                         self.player.on_ground = true;

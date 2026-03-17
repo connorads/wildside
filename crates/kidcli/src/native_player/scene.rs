@@ -62,7 +62,13 @@ pub(crate) fn build_scene(
     level_visuals: Option<&NativeLevelVisuals>,
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
-    build_scene_filtered(trace, debug_overlay_visible, level_visuals, block_grid, &LayerFilter::default())
+    build_scene_filtered(
+        trace,
+        debug_overlay_visible,
+        level_visuals,
+        block_grid,
+        &LayerFilter::default(),
+    )
 }
 
 pub(crate) fn build_scene_filtered(
@@ -95,10 +101,7 @@ pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
         height: FRAME_HEIGHT as i32,
         colour: [0, 0, 0],
     });
-    let level_name = trace
-        .current_level_name
-        .as_deref()
-        .unwrap_or("Unknown");
+    let level_name = trace.current_level_name.as_deref().unwrap_or("Unknown");
     let level_text = format!("{}", level_name);
     let text_w = level_text.len() as i32 * 8 * 2;
     let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
@@ -117,10 +120,7 @@ pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
     ));
 
     // Lives and score
-    let info_text = format!(
-        "Lives: {}  Score: {}",
-        trace.number_lives, trace.score
-    );
+    let info_text = format!("Lives: {}  Score: {}", trace.number_lives, trace.score);
     let info_w = info_text.len() as i32 * 8;
     commands.push(text(
         (FRAME_WIDTH as i32 - info_w) / 2,
@@ -196,13 +196,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
             ),
         };
         let w1 = line1.len() as i32 * 8 * 2;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - w1) / 2,
-            70,
-            line1,
-            colour,
-            2,
-        ));
+        commands.push(text((FRAME_WIDTH as i32 - w1) / 2, 70, line1, colour, 2));
         let w2 = line2.len() as i32 * 8;
         commands.push(text(
             (FRAME_WIDTH as i32 - w2) / 2,
@@ -328,7 +322,11 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
     ));
 
     let cursor = trace.options_cursor.unwrap_or(0) as i32;
-    let two_p_label = if trace.two_player { "2 PLAYERS: ON" } else { "2 PLAYERS: OFF" };
+    let two_p_label = if trace.two_player {
+        "2 PLAYERS: ON"
+    } else {
+        "2 PLAYERS: OFF"
+    };
     let items = [two_p_label, "SOUND TEST", "EXIT"];
     for (i, item) in items.iter().enumerate() {
         let y = 80 + i as i32 * 24;
@@ -802,7 +800,8 @@ fn build_game_scene_filtered(
                 if debug_overlay_visible {
                     if let Some(hp) = object.hit_points {
                         let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-                        let ey = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
+                        let ey =
+                            (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
                         commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
                     }
                 }
@@ -890,6 +889,83 @@ fn build_game_scene_filtered(
                 colour,
             });
         }
+
+        // Metal block bounce animation: block shifts up then back
+        for &(cx, cy, remaining) in &trace.block_bounces {
+            let bx = i32::from(cx) * 16 - (trace.camera_x_pos >> 16) as i32;
+            let bounce_offset = if remaining > 4 {
+                -i32::from(8 - remaining) // rise phase
+            } else {
+                -i32::from(remaining) // fall phase
+            };
+            let by = i32::from(cy) * 16 - (trace.camera_y_pos >> 16) as i32 + bounce_offset;
+            commands.push(DrawCommand::Rect {
+                x: bx,
+                y: by,
+                width: 16,
+                height: 16,
+                colour: [160, 160, 180],
+            });
+        }
+
+        // Block destruction fragments: 4 small pieces moving outward
+        for &(x_px, y_px, remaining) in &trace.block_destroy_effects {
+            let cx = i32::from(x_px) + 8 - (trace.camera_x_pos >> 16) as i32;
+            let cy = i32::from(y_px) + 8 - (trace.camera_y_pos >> 16) as i32;
+            let spread = i32::from(8 - remaining) * 2;
+            let alpha_colour = [200u8.saturating_sub(remaining * 15), 160, 120];
+            for &(dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                commands.push(DrawCommand::Rect {
+                    x: cx + dx * spread - 2,
+                    y: cy + dy * spread - 2,
+                    width: 4,
+                    height: 4,
+                    colour: alpha_colour,
+                });
+            }
+        }
+
+        // Floating prize items: small coloured shape rising upward
+        for &(x_px, y_px, remaining) in &trace.floating_items {
+            let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
+            let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
+            let brightness = u8::try_from(u16::from(remaining) * 12).unwrap_or(255);
+            commands.push(DrawCommand::Rect {
+                x: fx - 3,
+                y: fy - 3,
+                width: 6,
+                height: 6,
+                colour: [brightness, brightness, 50],
+            });
+        }
+
+        // Enemy death particle burst: expanding ring of particles
+        for &(ex, ey, remaining) in &trace.enemy_death_effects {
+            let sx = (ex >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            let sy = (ey >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            let spread = i32::from(10 - remaining) * 2;
+            let brightness = u8::try_from(u16::from(remaining) * 25).unwrap_or(255);
+            let colour = [255, brightness, brightness.saturating_sub(50)];
+            for angle in 0..8 {
+                let (dx, dy) = match angle {
+                    0 => (spread, 0),
+                    1 => (spread * 7 / 10, spread * 7 / 10),
+                    2 => (0, spread),
+                    3 => (-spread * 7 / 10, spread * 7 / 10),
+                    4 => (-spread, 0),
+                    5 => (-spread * 7 / 10, -spread * 7 / 10),
+                    6 => (0, -spread),
+                    _ => (spread * 7 / 10, -spread * 7 / 10),
+                };
+                commands.push(DrawCommand::Rect {
+                    x: sx + dx - 1,
+                    y: sy + dy - 1,
+                    width: 3,
+                    height: 3,
+                    colour,
+                });
+            }
+        }
     }
 
     if filter.hud {
@@ -903,7 +979,15 @@ fn build_game_scene_filtered(
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
         let text_y = (FRAME_HEIGHT as i32) / 2 - 24;
         let panel_w = text_w + 16;
-        push_panel(&mut commands, text_x - 8, text_y - 4, panel_w, 56, [0, 40, 0], [80, 255, 80]);
+        push_panel(
+            &mut commands,
+            text_x - 8,
+            text_y - 4,
+            panel_w,
+            56,
+            [0, 40, 0],
+            [80, 255, 80],
+        );
         commands.push(text(text_x, text_y, lc_text, [80, 255, 80], 2));
         let time_bonus = u32::from(trace.level_timer_seconds) * 100;
         let bonus_line = format!("TIME BONUS: {}", time_bonus);
@@ -926,7 +1010,15 @@ fn build_game_scene_filtered(
             let count_x = (FRAME_WIDTH as i32 - count_w) / 2;
             let panel_w = title_w.max(count_w + 16) + 16;
             let panel_x = (FRAME_WIDTH as i32 - panel_w) / 2;
-            push_panel(&mut commands, panel_x, title_y - 4, panel_w, 40, [0, 40, 80], [80, 180, 255]);
+            push_panel(
+                &mut commands,
+                panel_x,
+                title_y - 4,
+                panel_w,
+                40,
+                [0, 40, 80],
+                [80, 180, 255],
+            );
             commands.push(text(title_x, title_y, title, [80, 180, 255], 2));
             commands.push(text(count_x, title_y + 24, &count_line, [200, 220, 255], 1));
         } else {
@@ -934,7 +1026,15 @@ fn build_game_scene_filtered(
             let text_w = go_text.len() as i32 * 8 * 2;
             let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
             let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
-            push_panel(&mut commands, text_x - 8, text_y - 4, text_w + 16, 24, [80, 0, 0], [255, 80, 80]);
+            push_panel(
+                &mut commands,
+                text_x - 8,
+                text_y - 4,
+                text_w + 16,
+                24,
+                [80, 0, 0],
+                [255, 80, 80],
+            );
             commands.push(text(text_x, text_y, go_text, [255, 80, 80], 2));
         }
     }
@@ -945,7 +1045,15 @@ fn build_game_scene_filtered(
         let text_w = pause_text.len() as i32 * 8 * 2;
         let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
         let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
-        push_panel(&mut commands, text_x - 12, text_y - 6, text_w + 24, 44, [0, 0, 0], [255, 255, 255]);
+        push_panel(
+            &mut commands,
+            text_x - 12,
+            text_y - 6,
+            text_w + 24,
+            44,
+            [0, 0, 0],
+            [255, 255, 255],
+        );
         commands.push(text(text_x, text_y, pause_text, [255, 255, 255], 2));
         let hint = "Press Start to resume";
         let hint_w = hint.len() as i32 * 8;
@@ -1005,8 +1113,18 @@ fn build_game_scene_filtered(
             [80, 200, 255],
         );
         commands.push(text(text_x, text_y, complete_text, [80, 255, 120], 2));
-        let time_text = format!("TIME BONUS: {}s x 100 = {}", trace.level_timer_seconds, u32::from(trace.level_timer_seconds) * 100);
-        commands.push(text(text_x - 8, text_y + 22, &time_text, [200, 200, 160], 1));
+        let time_text = format!(
+            "TIME BONUS: {}s x 100 = {}",
+            trace.level_timer_seconds,
+            u32::from(trace.level_timer_seconds) * 100
+        );
+        commands.push(text(
+            text_x - 8,
+            text_y + 22,
+            &time_text,
+            [200, 200, 160],
+            1,
+        ));
         let score_text = format!("TOTAL SCORE: {}", trace.score);
         let score_w = score_text.len() as i32 * 8;
         commands.push(text(

@@ -299,6 +299,18 @@ pub struct NativeTraceFrame {
     pub active_projectiles: Vec<(u32, u32, bool)>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
+    /// Metal block bounce animations: (cell_x, cell_y, remaining_frames).
+    pub block_bounces: Vec<(u16, u16, u8)>,
+    /// Block destruction fragment effects: (x_px, y_px, remaining_frames).
+    pub block_destroy_effects: Vec<(u16, u16, u8)>,
+    /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames).
+    pub floating_items: Vec<(u16, u16, u8)>,
+    /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
+    pub enemy_death_effects: Vec<(u32, u32, u8)>,
+    /// True if a stomp occurred this frame (for SFX).
+    pub stomped_this_frame: bool,
+    /// Number of blocks hit by headbutt this frame (for SFX).
+    pub blocks_hit_this_frame: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -406,6 +418,18 @@ pub struct NativeRuntime {
     /// Active lava geysers for lava weather levels.
     lava_geysers: Vec<LavaGeyser>,
     murder_wall: Option<MurderWallState>,
+    /// Metal block bounce animations in progress.
+    block_bounces: Vec<BlockBounceAnim>,
+    /// Block destruction fragment effects.
+    block_destroy_effects: Vec<BlockDestroyEffect>,
+    /// Floating prize items rising from blocks.
+    floating_items: Vec<FloatingItem>,
+    /// Enemy death particle effects.
+    enemy_death_effects: Vec<EnemyDeathEffect>,
+    /// Set each frame if a stomp occurred.
+    stomped_this_frame: bool,
+    /// Count of blocks hit by headbutt this frame.
+    blocks_hit_this_frame: u8,
     /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
     shooter_block_timer: u16,
     level_timer: LevelTimer,
@@ -417,6 +441,34 @@ pub struct NativeRuntime {
     current_player_index: u8,
     /// Per-player persistent state slots.
     player_slots: [PlayerSlot; 2],
+}
+
+#[derive(Debug, Clone)]
+struct BlockBounceAnim {
+    cell_x: u16,
+    cell_y: u16,
+    remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+struct BlockDestroyEffect {
+    x_px: u16,
+    y_px: u16,
+    remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+struct FloatingItem {
+    x_px: u16,
+    y_px: u16,
+    remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+struct EnemyDeathEffect {
+    x_pos: u32,
+    y_pos: u32,
+    remaining: u8,
 }
 
 /// A lift block that has been activated and is now a moving platform.
@@ -948,6 +1000,10 @@ struct OpeningSliceState {
     lift_block_hit: Option<(u16, u16)>,
     /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
     drill_projectile_hit: Option<(u32, u32)>,
+    /// Metal block bounced this frame — (cell_x, cell_y).
+    metal_block_hit: Option<(u16, u16)>,
+    /// Smash block destroyed this frame — (x_px, y_px).
+    smash_block_hit: Option<(u16, u16)>,
 }
 
 const LEVEL_SKIP_FREEZE_VISIBLE_FRAMES: usize = 21;
@@ -1075,6 +1131,12 @@ impl NativeRuntime {
             hail_period_timer: 0,
             lava_geysers: Vec::new(),
             murder_wall: None,
+            block_bounces: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            floating_items: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
             shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
             level_damage_taken: false,
@@ -1481,6 +1543,28 @@ impl NativeRuntime {
                     )
                 })
                 .collect(),
+            block_bounces: self
+                .block_bounces
+                .iter()
+                .map(|b| (b.cell_x, b.cell_y, b.remaining))
+                .collect(),
+            block_destroy_effects: self
+                .block_destroy_effects
+                .iter()
+                .map(|e| (e.x_px, e.y_px, e.remaining))
+                .collect(),
+            floating_items: self
+                .floating_items
+                .iter()
+                .map(|f| (f.x_px, f.y_px, f.remaining))
+                .collect(),
+            enemy_death_effects: self
+                .enemy_death_effects
+                .iter()
+                .map(|e| (e.x_pos, e.y_pos, e.remaining))
+                .collect(),
+            stomped_this_frame: self.stomped_this_frame,
+            blocks_hit_this_frame: self.blocks_hit_this_frame,
         }
     }
 
@@ -1795,6 +1879,12 @@ impl NativeRuntime {
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;
+        slice.metal_block_hit = None;
+        slice.smash_block_hit = None;
+        self.stomped_this_frame = false;
+        self.blocks_hit_this_frame = 0;
+        // Tick visual effects
+        self.step_visual_effects();
         // Step helmet abilities BEFORE physics
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
@@ -1861,9 +1951,30 @@ impl NativeRuntime {
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
 
-        // Prize block item spawning: apply the prize content
+        // Prize block item spawning: spawn floating visual then apply prize
         if let Some(content) = slice.prize_block_hit {
+            self.blocks_hit_this_frame += 1;
             self.apply_prize_content(content);
+        }
+
+        // Metal block bounce animation
+        if let Some((cx, cy)) = slice.metal_block_hit {
+            self.blocks_hit_this_frame += 1;
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: cx,
+                cell_y: cy,
+                remaining: 8,
+            });
+        }
+
+        // Smash block destruction effect
+        if let Some((x_px, y_px)) = slice.smash_block_hit {
+            self.blocks_hit_this_frame += 1;
+            self.block_destroy_effects.push(BlockDestroyEffect {
+                x_px,
+                y_px,
+                remaining: 8,
+            });
         }
 
         // Lift block: headbutt spawns a rising platform
@@ -2128,6 +2239,30 @@ impl NativeRuntime {
             })
             .unwrap_or(0);
         (roster_count + 2 + extra, roster_count + 2 + extra)
+    }
+
+    fn step_visual_effects(&mut self) {
+        for b in &mut self.block_bounces {
+            b.remaining = b.remaining.saturating_sub(1);
+        }
+        self.block_bounces.retain(|b| b.remaining > 0);
+
+        for e in &mut self.block_destroy_effects {
+            e.remaining = e.remaining.saturating_sub(1);
+        }
+        self.block_destroy_effects.retain(|e| e.remaining > 0);
+
+        for f in &mut self.floating_items {
+            f.remaining = f.remaining.saturating_sub(1);
+            // Rise upward: 1 pixel per frame
+            f.y_px = f.y_px.saturating_sub(1);
+        }
+        self.floating_items.retain(|f| f.remaining > 0);
+
+        for e in &mut self.enemy_death_effects {
+            e.remaining = e.remaining.saturating_sub(1);
+        }
+        self.enemy_death_effects.retain(|e| e.remaining > 0);
     }
 }
 
@@ -3812,6 +3947,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.step(
@@ -6117,6 +6254,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6126,8 +6265,8 @@ mod tests {
         assert!(!cell_after.has_block);
         assert_eq!(cell_after.collision, terrain::CollisionKind::Empty);
 
-        // Player should have been pushed down (velocity zeroed)
-        assert_eq!(slice.player.y_velocity, 0);
+        // Player should have been pushed down with slight downward nudge
+        assert_eq!(slice.player.y_velocity, 0x0001_0000);
     }
 
     #[test]
@@ -6163,6 +6302,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6213,6 +6354,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6222,8 +6365,8 @@ mod tests {
         assert!(!cell_after.has_block);
         assert_eq!(cell_after.collision, terrain::CollisionKind::Empty);
 
-        // Player should have been pushed down (velocity zeroed)
-        assert_eq!(slice.player.y_velocity, 0);
+        // Player should have been pushed down with slight downward nudge
+        assert_eq!(slice.player.y_velocity, 0x0001_0000);
     }
 
     #[test]
@@ -6259,6 +6402,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6306,6 +6451,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -6357,6 +6504,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -6402,6 +6551,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_wall_collision(Some(&grid));
@@ -6458,6 +6609,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), true, false);
@@ -8755,6 +8908,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         slice.apply_floor_collision(Some(&grid), false, false);
@@ -8797,6 +8952,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         // No floor under player → should leave ground and reset terrain type
@@ -8848,6 +9005,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         }
     }
 
@@ -9087,6 +9246,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         assert!(runtime.evanescent_blocks.is_empty());
@@ -9133,6 +9294,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         runtime.step_evanescent_blocks(&slice);
@@ -9188,6 +9351,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         // Trigger + first tick
@@ -9252,6 +9417,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         let airborne_slice = OpeningSliceState {
@@ -9436,6 +9603,8 @@ mod tests {
             prize_block_hit: None,
             lift_block_hit: None,
             drill_projectile_hit: None,
+            metal_block_hit: None,
+            smash_block_hit: None,
         };
 
         // Trigger twice while standing

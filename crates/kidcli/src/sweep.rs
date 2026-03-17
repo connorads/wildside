@@ -125,7 +125,14 @@ pub(crate) fn run_sweep(
     levels: &[u8],
     tier: SweepTier,
 ) -> Result<SweepReport> {
-    run_sweep_with_options(repo_root, rom_path, manifest, levels, tier, &SweepOptions::default())
+    run_sweep_with_options(
+        repo_root,
+        rom_path,
+        manifest,
+        levels,
+        tier,
+        &SweepOptions::default(),
+    )
 }
 
 /// Run a sweep with additional options (warm-cache-only, fast-fail).
@@ -174,11 +181,12 @@ pub(crate) fn run_sweep_with_options(
         match result {
             Ok(r) => {
                 let status = if r.passed { "PASS" } else { "FAIL" };
-                let mae_str = r
-                    .mae
-                    .map(|v| format!(" MAE={v:.1}"))
-                    .unwrap_or_default();
-                let blocking_diffs = r.state_diffs.iter().filter(|d| !ADVISORY_FIELDS.contains(&d.field.as_str())).count();
+                let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
+                let blocking_diffs = r
+                    .state_diffs
+                    .iter()
+                    .filter(|d| !ADVISORY_FIELDS.contains(&d.field.as_str()))
+                    .count();
                 let advisory_diffs = r.state_diffs.len() - blocking_diffs;
                 let diff_count = match (blocking_diffs, advisory_diffs) {
                     (0, 0) => String::new(),
@@ -219,7 +227,10 @@ pub(crate) fn run_sweep_with_options(
     }
 
     let passed = results.iter().filter(|r| r.passed).count();
-    let failed = results.iter().filter(|r| !r.passed && r.error.is_none()).count();
+    let failed = results
+        .iter()
+        .filter(|r| !r.passed && r.error.is_none())
+        .count();
     let errors = results.iter().filter(|r| r.error.is_some()).count();
 
     let source_hash = kid_core_source_hash(repo_root).ok();
@@ -237,9 +248,7 @@ pub(crate) fn run_sweep_with_options(
     fs::write(&report_path, serde_json::to_vec_pretty(&report)?)
         .with_context(|| format!("failed to write {}", report_path.display()))?;
 
-    println!(
-        "\nsweep complete: {passed} passed, {failed} failed, {errors} errors"
-    );
+    println!("\nsweep complete: {passed} passed, {failed} failed, {errors} errors");
     println!("report: {}", report_path.display());
 
     Ok(report)
@@ -345,14 +354,12 @@ fn sweep_single_level(
                     "game_mode" => true,
                     "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos" => {
                         // Only mask small position diffs — large ones are real bugs
-                        let native_val = u32::from_str_radix(
-                            d.native_value.trim_start_matches("0x"),
-                            16,
-                        ).unwrap_or(0);
-                        let oracle_val = u32::from_str_radix(
-                            d.oracle_value.trim_start_matches("0x"),
-                            16,
-                        ).unwrap_or(0);
+                        let native_val =
+                            u32::from_str_radix(d.native_value.trim_start_matches("0x"), 16)
+                                .unwrap_or(0);
+                        let oracle_val =
+                            u32::from_str_radix(d.oracle_value.trim_start_matches("0x"), 16)
+                                .unwrap_or(0);
                         native_val.abs_diff(oracle_val) <= oracle_pause_position_threshold
                     }
                     _ => false,
@@ -371,9 +378,14 @@ fn sweep_single_level(
 
     if effective_tier == SweepTier::Frames || effective_tier == SweepTier::Full {
         // Capture native frames at checkpoints and compare with oracle PNGs
-        if let Some(best_mae) =
-            compare_checkpoint_frames(manifest, &native_trace, &scenario, &oracle, &level_dir, level_id)?
-        {
+        if let Some(best_mae) = compare_checkpoint_frames(
+            manifest,
+            &native_trace,
+            &scenario,
+            &oracle,
+            &level_dir,
+            level_id,
+        )? {
             mae_val = Some(best_mae);
         }
 
@@ -540,16 +552,26 @@ fn compare_checkpoint_frames(
 
     // Use the existing headless renderer to produce real native frames.
     // Falls back to black frames if level visuals aren't available.
-    let native_frames =
-        render_gameplay_frame_evidence_for_level(manifest, native_trace, &gameplay_checkpoints, level_id)
-            .unwrap_or_else(|_| {
-                gameplay_checkpoints
-                    .iter()
-                    .map(|cp| {
-                        (cp.label.to_string(), cp.frame_index, 320, 224, vec![0u8; 320 * 224 * 3])
-                    })
-                    .collect()
-            });
+    let native_frames = render_gameplay_frame_evidence_for_level(
+        manifest,
+        native_trace,
+        &gameplay_checkpoints,
+        level_id,
+    )
+    .unwrap_or_else(|_| {
+        gameplay_checkpoints
+            .iter()
+            .map(|cp| {
+                (
+                    cp.label.to_string(),
+                    cp.frame_index,
+                    320,
+                    224,
+                    vec![0u8; 320 * 224 * 3],
+                )
+            })
+            .collect()
+    });
 
     for (native_evidence, oracle_frame) in native_frames.iter().zip(oracle.frames.iter()) {
         let (_label, _frame_idx, w, h, native_rgb) = native_evidence;
@@ -559,19 +581,9 @@ fn compare_checkpoint_frames(
         worst_mae = Some(worst_mae.map_or(mae, |w: f32| w.max(mae)));
 
         // Generate diff composite
-        let (cw, ch, mut composite) = generate_diff_composite(
-            native_rgb,
-            &oracle_rgb,
-            *w as u32,
-            *h as u32,
-        );
-        annotate_diff(
-            &mut composite,
-            cw,
-            level_id,
-            &oracle_frame.label,
-            mae,
-        );
+        let (cw, ch, mut composite) =
+            generate_diff_composite(native_rgb, &oracle_rgb, *w as u32, *h as u32);
+        annotate_diff(&mut composite, cw, level_id, &oracle_frame.label, mae);
 
         let diff_path = level_dir.join(format!("diff_{}.png", oracle_frame.label));
         image::save_buffer_with_format(
@@ -607,7 +619,13 @@ pub(crate) fn diagnose_level(
     manifest: &AssetManifest,
     level_id: u8,
 ) -> Result<()> {
-    let report = run_sweep(repo_root, rom_path, manifest, &[level_id], SweepTier::Frames)?;
+    let report = run_sweep(
+        repo_root,
+        rom_path,
+        manifest,
+        &[level_id],
+        SweepTier::Frames,
+    )?;
     let result = report
         .levels
         .first()
@@ -641,7 +659,11 @@ pub(crate) fn diagnose_level(
     }
 
     // Suggest investigation areas based on which fields diverged
-    let diverged_fields: Vec<&str> = result.state_diffs.iter().map(|d| d.field.as_str()).collect();
+    let diverged_fields: Vec<&str> = result
+        .state_diffs
+        .iter()
+        .map(|d| d.field.as_str())
+        .collect();
     println!("\n  Suggested investigation:");
     if diverged_fields.contains(&"number_objects") {
         println!("    - Enemy spawning: check enemy layout for level {level_id:#04x}");
@@ -681,13 +703,7 @@ pub(crate) fn run_parity_loop(
         println!("kid-core source hash: {source_hash}\n");
 
         // Tier 1: state-only sweep
-        let report = run_sweep(
-            repo_root,
-            rom_path,
-            manifest,
-            &all_levels,
-            SweepTier::State,
-        )?;
+        let report = run_sweep(repo_root, rom_path, manifest, &all_levels, SweepTier::State)?;
 
         if report.failed == 0 && report.errors == 0 {
             println!("\nAll {0} levels passed!", report.passed);
@@ -828,7 +844,12 @@ pub(crate) fn kid_core_source_hash(repo_root: &Path) -> Result<String> {
 
     let mut hasher = Sha1::new();
     for path in &paths {
-        hasher.update(path.strip_prefix(repo_root).unwrap_or(path).to_string_lossy().as_bytes());
+        hasher.update(
+            path.strip_prefix(repo_root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .as_bytes(),
+        );
         hasher.update(b"\0");
         hasher.update(&fs::read(path).with_context(|| format!("reading {}", path.display()))?);
         hasher.update(b"\0");
@@ -892,7 +913,10 @@ pub(crate) fn capture_frames(
 
     for &frame_idx in frame_indices {
         let Some(frame) = native_trace.get(frame_idx) else {
-            println!("  frame {frame_idx}: not in trace (len={})", native_trace.len());
+            println!(
+                "  frame {frame_idx}: not in trace (len={})",
+                native_trace.len()
+            );
             continue;
         };
         let scene = build_scene_filtered(
@@ -943,7 +967,7 @@ pub(crate) fn diagnose_frame(
     output_dir: &Path,
 ) -> Result<()> {
     use native_player::{
-        NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, LayerFilter, build_scene_filtered,
+        LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered,
         load_session_assets, render_scene,
     };
 
@@ -958,9 +982,12 @@ pub(crate) fn diagnose_frame(
         scenario.warp_to_level,
     );
 
-    let frame = native_trace
-        .get(frame_idx)
-        .ok_or_else(|| anyhow!("frame {frame_idx} not in trace (len={})", native_trace.len()))?;
+    let frame = native_trace.get(frame_idx).ok_or_else(|| {
+        anyhow!(
+            "frame {frame_idx} not in trace (len={})",
+            native_trace.len()
+        )
+    })?;
 
     let (level_visuals, block_grid) = load_session_assets(manifest, level_id)?;
     let w = NATIVE_FRAME_WIDTH as usize;
@@ -980,9 +1007,16 @@ pub(crate) fn diagnose_frame(
     let full_non_bg = count_non_background_pixels(&full_rgb, pixel_count);
 
     if save_layers {
-        let full_path = output_dir.join(format!("level_{level_id:02x}_frame_{frame_idx:05}_full.png"));
+        let full_path = output_dir.join(format!(
+            "level_{level_id:02x}_frame_{frame_idx:05}_full.png"
+        ));
         image::save_buffer_with_format(
-            &full_path, &full_rgb, w as u32, h as u32, image::ColorType::Rgb8, image::ImageFormat::Png,
+            &full_path,
+            &full_rgb,
+            w as u32,
+            h as u32,
+            image::ColorType::Rgb8,
+            image::ImageFormat::Png,
         )?;
     }
 
@@ -1014,7 +1048,12 @@ pub(crate) fn diagnose_frame(
                 "level_{level_id:02x}_frame_{frame_idx:05}_{layer_name}.png"
             ));
             image::save_buffer_with_format(
-                &path, &layer_rgb, w as u32, h as u32, image::ColorType::Rgb8, image::ImageFormat::Png,
+                &path,
+                &layer_rgb,
+                w as u32,
+                h as u32,
+                image::ColorType::Rgb8,
+                image::ImageFormat::Png,
             )?;
         }
     }
@@ -1053,10 +1092,7 @@ pub(crate) fn diagnose_frame(
 
 /// Run a gameplay sweep across specified levels using scripted scenarios.
 /// No oracle needed — assertions are self-consistency checks on the native trace.
-pub(crate) fn run_gameplay_sweep(
-    manifest: &AssetManifest,
-    levels: &[u8],
-) -> Result<SweepReport> {
+pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Result<SweepReport> {
     let timestamp = chrono_timestamp();
     let mut results = Vec::with_capacity(levels.len());
 
@@ -1091,7 +1127,10 @@ pub(crate) fn run_gameplay_sweep(
     }
 
     let passed = results.iter().filter(|r| r.passed).count();
-    let failed = results.iter().filter(|r| !r.passed && r.error.is_none()).count();
+    let failed = results
+        .iter()
+        .filter(|r| !r.passed && r.error.is_none())
+        .count();
     let errors = results.iter().filter(|r| r.error.is_some()).count();
 
     let report = SweepReport {
@@ -1103,17 +1142,12 @@ pub(crate) fn run_gameplay_sweep(
         errors,
     };
 
-    println!(
-        "\ngameplay sweep complete: {passed} passed, {failed} failed, {errors} errors"
-    );
+    println!("\ngameplay sweep complete: {passed} passed, {failed} failed, {errors} errors");
 
     Ok(report)
 }
 
-fn sweep_gameplay_single_level(
-    manifest: &AssetManifest,
-    level_id: u8,
-) -> Result<LevelSweepResult> {
+fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result<LevelSweepResult> {
     let mut all_diffs = Vec::new();
 
     // Run walk_right scenario (300 frames = 5 seconds)
@@ -1171,12 +1205,8 @@ fn check_walk_right_assertions(
         .unwrap_or(scenario.frame_count.saturating_sub(1));
 
     // Check X position increases between settle and end
-    let settle_x = trace
-        .get(settle_idx)
-        .and_then(|f| f.kid_x_pos);
-    let end_x = trace
-        .get(end_idx)
-        .and_then(|f| f.kid_x_pos);
+    let settle_x = trace.get(settle_idx).and_then(|f| f.kid_x_pos);
+    let end_x = trace.get(end_idx).and_then(|f| f.kid_x_pos);
 
     if let (Some(sx), Some(ex)) = (settle_x, end_x) {
         if ex <= sx {
@@ -1194,10 +1224,7 @@ fn check_walk_right_assertions(
 
 /// Self-consistency assertion: player Y velocity goes negative after jump input,
 /// and player leaves the ground.
-fn check_jump_assertions(
-    trace: &[NativeTraceFrame],
-    scenario: &DynamicScenario,
-) -> Vec<StateDiff> {
+fn check_jump_assertions(trace: &[NativeTraceFrame], scenario: &DynamicScenario) -> Vec<StateDiff> {
     let mut diffs = Vec::new();
     let settle_idx = scenario
         .checkpoints
@@ -1443,6 +1470,12 @@ mod tests {
                 murder_wall_x: None,
                 active_projectiles: Vec::new(),
                 active_geysers: Vec::new(),
+                block_bounces: Vec::new(),
+                block_destroy_effects: Vec::new(),
+                floating_items: Vec::new(),
+                enemy_death_effects: Vec::new(),
+                stomped_this_frame: false,
+                blocks_hit_this_frame: 0,
             })
             .collect();
         let diffs = check_walk_right_assertions(&trace, &scenario);
@@ -1506,6 +1539,12 @@ mod tests {
                 murder_wall_x: None,
                 active_projectiles: Vec::new(),
                 active_geysers: Vec::new(),
+                block_bounces: Vec::new(),
+                block_destroy_effects: Vec::new(),
+                floating_items: Vec::new(),
+                enemy_death_effects: Vec::new(),
+                stomped_this_frame: false,
+                blocks_hit_this_frame: 0,
             })
             .collect();
 
@@ -1582,13 +1621,27 @@ mod tests {
                 murder_wall_x: None,
                 active_projectiles: Vec::new(),
                 active_geysers: Vec::new(),
+                block_bounces: Vec::new(),
+                block_destroy_effects: Vec::new(),
+                floating_items: Vec::new(),
+                enemy_death_effects: Vec::new(),
+                stomped_this_frame: false,
+                blocks_hit_this_frame: 0,
             })
             .collect();
 
         let diffs = check_jump_assertions(&trace, &scenario);
         assert_eq!(diffs.len(), 2, "expected 2 failures (vy + on_ground)");
-        assert!(diffs.iter().any(|d| d.field == "kid_y_velocity_negative_after_jump"));
-        assert!(diffs.iter().any(|d| d.field == "kid_on_ground_false_after_jump"));
+        assert!(
+            diffs
+                .iter()
+                .any(|d| d.field == "kid_y_velocity_negative_after_jump")
+        );
+        assert!(
+            diffs
+                .iter()
+                .any(|d| d.field == "kid_on_ground_false_after_jump")
+        );
     }
 
     #[test]

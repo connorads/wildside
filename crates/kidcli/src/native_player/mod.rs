@@ -6,8 +6,8 @@ use kid_core::{
     NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader};
-use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use kid_md::GemsAudioEngine;
+use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
@@ -226,17 +226,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let has_gems = gems_engine.is_some();
     // Stereo if GEMS is available, mono otherwise
     let audio_channels: u8 = if has_gems { 2 } else { 1 };
-    let audio_queue: Option<AudioQueue<f32>> = sdl
-        .audio()
-        .ok()
-        .and_then(|audio| {
-            let desired = sdl2::audio::AudioSpecDesired {
-                freq: Some(44_100),
-                channels: Some(audio_channels),
-                samples: Some(1024),
-            };
-            audio.open_queue::<f32, _>(None, &desired).ok()
-        });
+    let audio_queue: Option<AudioQueue<f32>> = sdl.audio().ok().and_then(|audio| {
+        let desired = sdl2::audio::AudioSpecDesired {
+            freq: Some(44_100),
+            channels: Some(audio_channels),
+            samples: Some(1024),
+        };
+        audio.open_queue::<f32, _>(None, &desired).ok()
+    });
     if let Some(ref aq) = audio_queue {
         aq.resume();
     }
@@ -271,7 +268,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut shake_frames: u32 = 0;
     let mut shake_seed: u32 = 1;
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
-    let mut fading_in = false;  // true: fade from black to clear
+    let mut fading_in = false; // true: fade from black to clear
     let mut damage_flash: u8 = 0; // red tint intensity, decays per frame
 
     let scene = build_scene(
@@ -375,12 +372,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 && prev_trace.number_hitpoints > 0
             {
                 shake_frames = 8;
-                damage_flash = 60;
+                damage_flash = 40;
             }
             if trace.number_lives < prev_trace.number_lives {
                 shake_frames = 12;
-                damage_flash = 120; // intense flash on death
-                fade_alpha = 0;
+                damage_flash = 80;
+                // Trigger fade to black during death sequence
+                fade_alpha = 80;
                 fading_in = false;
             }
         }
@@ -421,9 +419,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     current_level_id = new_level;
                 }
                 Err(error) => {
-                    eprintln!(
-                        "failed to load visuals for level 0x{new_level:02X}: {error:#}"
-                    );
+                    eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
                 }
             }
         }
@@ -444,15 +440,21 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             }
             if fading_in {
                 fade_alpha = fade_alpha.saturating_sub(8);
+            } else if fade_alpha < 220 {
+                // Ramp up to near-black during death sequence
+                fade_alpha = fade_alpha.saturating_add(3);
             }
         }
 
-        // Damage flash: brief red tint
+        // Damage flash: brief red tint with attenuated green/blue
         if damage_flash > 0 {
+            let green_blue_dim = damage_flash / 3;
             for pixel in frame.chunks_exact_mut(3) {
                 pixel[0] = pixel[0].saturating_add(damage_flash);
+                pixel[1] = pixel[1].saturating_sub(green_blue_dim);
+                pixel[2] = pixel[2].saturating_sub(green_blue_dim);
             }
-            damage_flash = damage_flash.saturating_sub(8);
+            damage_flash = damage_flash.saturating_sub(12);
         }
 
         // Diamond Power golden tint: add warm overlay when active
@@ -467,7 +469,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         }
 
         // Invulnerability flicker: dim every other frame
-        if trace.invulnerable_frames > 0 && !trace.diamond_power_active && trace.frame_index % 2 == 0 {
+        if trace.invulnerable_frames > 0
+            && !trace.diamond_power_active
+            && trace.frame_index % 2 == 0
+        {
             // Slight dimming to indicate invulnerability
             for pixel in frame.iter_mut() {
                 *pixel = (*pixel as u16 * 180 / 255) as u8;
@@ -919,7 +924,11 @@ impl SfxEngine {
                     return false;
                 }
                 // Square wave with volume envelope
-                let value = if tone.phase < 0.5 { tone.volume } else { -tone.volume };
+                let value = if tone.phase < 0.5 {
+                    tone.volume
+                } else {
+                    -tone.volume
+                };
                 *sample += value;
                 tone.phase = (tone.phase + phase_inc) % 1.0;
                 tone.remaining_samples -= 1;
@@ -980,15 +989,7 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(330.0, 120, 0.15);
         sfx.play(262.0, 180, 0.15);
     }
-    // Stomp bounce (landed on enemy — on_ground went false with upward velocity and enemy killed same frame)
-    if curr.kid_on_ground == Some(false)
-        && prev.kid_on_ground == Some(true)
-        && curr.kid_y_velocity.is_some_and(|v| v < 0)
-        && curr.score > prev.score
-        && curr.diamond_count == prev.diamond_count
-    {
-        sfx.play(587.0, 50, 0.1); // D5 bounce tone
-    }
+    // (Stomp SFX moved to direct trace flag check above)
     // Pause toggle
     if curr.paused && !prev.paused {
         sfx.play(440.0, 30, 0.08);
@@ -1002,6 +1003,15 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(440.0, 80, 0.1);
         sfx.play(550.0, 120, 0.1);
     }
+    // Stomp bounce (direct trace flag)
+    if curr.stomped_this_frame {
+        sfx.play(587.0, 50, 0.1); // D5 bounce tone
+    }
+    // Block hit SFX (metallic clang for any block headbutt)
+    if curr.blocks_hit_this_frame > 0 {
+        sfx.play(1100.0, 30, 0.08); // metallic ping
+        sfx.play(550.0, 40, 0.06); // lower thud
+    }
     // Timer warning tick (under 30s, tick every second change)
     if curr.level_timer_seconds <= 30
         && curr.level_timer_seconds > 0
@@ -1010,7 +1020,10 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(1200.0, 20, 0.08);
     }
     // Diamond Power activation (diamonds dropped by 20+)
-    if prev.diamond_count >= 20 && curr.diamond_count + 20 <= prev.diamond_count && curr.invulnerable_frames > 0 {
+    if prev.diamond_count >= 20
+        && curr.diamond_count + 20 <= prev.diamond_count
+        && curr.invulnerable_frames > 0
+    {
         sfx.play(523.0, 60, 0.18); // C5
         sfx.play(784.0, 60, 0.18); // G5
         sfx.play(1047.0, 120, 0.2); // C6
@@ -1029,7 +1042,7 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(523.0, 150, 0.15); // C5
         sfx.play(659.0, 150, 0.15); // E5
         sfx.play(784.0, 150, 0.15); // G5
-        sfx.play(1047.0, 300, 0.2);  // C6
+        sfx.play(1047.0, 300, 0.2); // C6
     }
 }
 
@@ -1048,7 +1061,7 @@ mod tests {
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
-        ForegroundLayout, HudIcon, HudVisuals, NativeLevelVisuals, LevelVisuals, MdColour, Palette,
+        ForegroundLayout, HudIcon, HudVisuals, LevelVisuals, MdColour, NativeLevelVisuals, Palette,
         PaletteSet, PlatformVisuals, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef,
         TileSheet,
     };
@@ -1104,6 +1117,12 @@ mod tests {
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_geysers: Vec::new(),
+            block_bounces: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            floating_items: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
         }
     }
 

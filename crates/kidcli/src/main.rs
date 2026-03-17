@@ -2,10 +2,10 @@ mod autonomy;
 mod bootstrap;
 mod cache;
 mod capture;
-mod diff;
 mod cheats;
-mod inspect;
 mod compare;
+mod diff;
+mod inspect;
 mod native_player;
 mod oracle;
 mod player;
@@ -895,9 +895,7 @@ fn main() -> Result<()> {
                 .as_deref()
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
-            sweep::capture_frames(
-                &manifest, level_id, &frame_indices, &output, &filter,
-            )?;
+            sweep::capture_frames(&manifest, level_id, &frame_indices, &output, &filter)?;
         }
         Commands::DiagnoseFrame {
             rom,
@@ -1286,7 +1284,6 @@ fn print_asset_manifest(manifest: &AssetManifest) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{
@@ -1604,6 +1601,12 @@ mod tests {
             murder_wall_x: None,
             active_projectiles: Vec::new(),
             active_geysers: Vec::new(),
+            block_bounces: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            floating_items: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
             options_cursor: None,
             two_player: false,
         };

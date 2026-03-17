@@ -20,14 +20,15 @@ impl NativeRuntime {
 
         // Step flipboard counter
         if self.skycutter_flipboard > 0 {
-            let next = self.skycutter_flipboard.saturating_add(SKYCUTTER_COUNTER_STEP);
+            let next = self
+                .skycutter_flipboard
+                .saturating_add(SKYCUTTER_COUNTER_STEP);
             if next >= SKYCUTTER_FLIPBOARD_TIMEOUT {
                 // Animation complete: retract
                 self.skycutter_flipboard = 0;
             } else {
                 // Mount toggle at midpoint
-                if self.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME
-                    && next >= SKYCUTTER_MOUNT_FRAME
+                if self.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME && next >= SKYCUTTER_MOUNT_FRAME
                 {
                     self.skycutter_on_board = !self.skycutter_on_board;
                 }
@@ -56,8 +57,7 @@ impl NativeRuntime {
             // B button press while on board: upward kick
             let b_pressed = input.b && !self.prior_input.b;
             if b_pressed {
-                let kick =
-                    -(slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000);
+                let kick = -(slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000);
                 slice.player.y_velocity = kick;
             }
         }
@@ -76,11 +76,7 @@ impl NativeRuntime {
     /// (gravity). Holding C subtracts $3000 (thrust). The accumulator is added
     /// to y_velocity each frame, with velocity clamped to [-$30000, $28000].
     /// Landing clears the flying flag.
-    pub(crate) fn step_cyclone_flight(
-        &mut self,
-        slice: &mut OpeningSliceState,
-        input: FrameInput,
-    ) {
+    pub(crate) fn step_cyclone_flight(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         if self.current_form != PlayerForm::Cyclone {
             self.cyclone_flying = false;
             self.cyclone_y_accel = 0;
@@ -182,7 +178,8 @@ impl NativeRuntime {
             self.iron_knight_climbing = false;
             self.iron_knight_climb_accel = 0;
             // Jump away from wall
-            let jump_height = physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
+            let jump_height =
+                physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
             let (_, y_vel) = physics::initiate_jump(0, jump_height);
             slice.player.y_velocity = y_vel;
             return;
@@ -203,12 +200,14 @@ impl NativeRuntime {
         }
 
         // Accumulate drift (sliding down)
-        self.iron_knight_climb_accel = self.iron_knight_climb_accel
+        self.iron_knight_climb_accel = self
+            .iron_knight_climb_accel
             .saturating_add(IRON_KNIGHT_SLIDE_DRIFT);
 
         // C press: boost upward
         if c_pressed {
-            self.iron_knight_climb_accel = self.iron_knight_climb_accel
+            self.iron_knight_climb_accel = self
+                .iron_knight_climb_accel
                 .saturating_sub(IRON_KNIGHT_CLIMB_BOOST);
             if self.iron_knight_climb_accel < IRON_KNIGHT_MIN_ACCEL {
                 self.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
@@ -237,11 +236,7 @@ impl NativeRuntime {
 
     /// Micromax wall/ceiling stick: auto-attach on contact while airborne,
     /// reduced gravity while stuck, B press detaches with kick velocity.
-    pub(crate) fn step_micromax_stick(
-        &mut self,
-        slice: &mut OpeningSliceState,
-        input: FrameInput,
-    ) {
+    pub(crate) fn step_micromax_stick(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         // Only active for Micromax form
         if self.current_form != PlayerForm::Micromax {
             self.micromax_stuck = false;
@@ -390,6 +385,12 @@ impl NativeRuntime {
         }
 
         for &idx in kill_indices.iter().rev() {
+            let enemy = &self.active_enemies[idx];
+            self.enemy_death_effects.push(EnemyDeathEffect {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                remaining: 10,
+            });
             self.active_enemies.remove(idx);
             self.score += 1000;
         }
@@ -442,8 +443,14 @@ impl NativeRuntime {
             self.projectiles.remove(pi);
         }
 
-        // Remove dead enemies and award points
+        // Remove dead enemies, spawn death effects, and award points
         for &idx in kill_indices.iter().rev() {
+            let enemy = &self.active_enemies[idx];
+            self.enemy_death_effects.push(EnemyDeathEffect {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                remaining: 10,
+            });
             self.active_enemies.remove(idx);
             self.score += 1000;
         }
@@ -487,6 +494,12 @@ impl NativeRuntime {
         }
 
         for &idx in kill_indices.iter().rev() {
+            let enemy = &self.active_enemies[idx];
+            self.enemy_death_effects.push(EnemyDeathEffect {
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
+                remaining: 10,
+            });
             self.active_enemies.remove(idx);
             self.score += 1000;
         }
@@ -515,7 +528,11 @@ impl NativeRuntime {
         let c_pressed = input.c && !self.prior_input.c;
         if c_pressed && !self.eyeclops_beam_active {
             self.eyeclops_beam_active = true;
-            let dir = if slice.player.facing == Direction::Right { 1 } else { -1 };
+            let dir = if slice.player.facing == Direction::Right {
+                1
+            } else {
+                -1
+            };
             self.projectiles.push(EnemyProjectile {
                 x_pos: slice.player.x_pos,
                 y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
@@ -541,7 +558,11 @@ impl NativeRuntime {
         if c_pressed && !self.maniaxe_axe_active {
             self.maniaxe_axe_active = true;
             self.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
-            let dir = if slice.player.facing == Direction::Right { 1 } else { -1 };
+            let dir = if slice.player.facing == Direction::Right {
+                1
+            } else {
+                -1
+            };
             let speed = (MANIAXE_BASE_SPEED * dir) << 16;
             self.projectiles.push(EnemyProjectile {
                 x_pos: slice.player.x_pos,
@@ -584,16 +605,16 @@ impl NativeRuntime {
 
         let vel_abs = slice.player.x_velocity.unsigned_abs() as i32;
         if vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
-            || (!slice.player.on_ground
-                && !(self.previous_input.left || self.previous_input.right))
+            || (!slice.player.on_ground && !(self.previous_input.left || self.previous_input.right))
         {
             self.berzerker_charging = false;
             self.berzerker_charge_accum = 0;
             return;
         }
 
-        let (new_accum, overflow) =
-            self.berzerker_charge_accum.overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
+        let (new_accum, overflow) = self
+            .berzerker_charge_accum
+            .overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
         if overflow {
             self.berzerker_charge_accum = 0xFF;
             self.berzerker_charging = true;
@@ -611,9 +632,20 @@ impl NativeRuntime {
         let y_px = (slice.player.y_pos >> 16) as i32;
         let moving_right = slice.player.x_velocity > 0
             || (slice.player.x_velocity == 0 && slice.player.facing == Direction::Right);
-        let probe = terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, moving_right);
+        let probe = terrain::probe_wall(
+            grid,
+            x_px,
+            y_px,
+            PLAYER_HALF_WIDTH,
+            PLAYER_HEIGHT,
+            moving_right,
+        );
         if probe.hit && probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Smash {
-            grid.set_cell_at(probe.cell_x, probe.cell_y, terrain::Cell::from_be_bytes(0, 0));
+            grid.set_cell_at(
+                probe.cell_x,
+                probe.cell_y,
+                terrain::Cell::from_be_bytes(0, 0),
+            );
         }
     }
 
