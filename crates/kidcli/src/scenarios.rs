@@ -269,6 +269,105 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
     }
 }
 
+/// Walk right for `walk_frames` with periodic jumps. Useful for verifying
+/// movement, enemy encounters, and basic traversal on any level.
+pub fn walk_right_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
+    let settle_frames: usize = 60;
+    let total_frames = settle_frames + walk_frames;
+    let walk_start = settle_frames;
+    let walk_end = total_frames.saturating_sub(1);
+
+    let mut script = vec![0u8; total_frames.saturating_add(1)];
+    // Hold right throughout the walk phase
+    apply_range(&mut script, walk_start, walk_end, 1 << 3);
+    // Periodic jumps every 60 frames (1 second), 4-frame press
+    add_periodic_jump(&mut script, walk_start + 30, walk_end, 60, 4);
+
+    let checkpoints = vec![
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: settle_frames,
+        },
+        DynamicCheckpoint {
+            label: "walk_quarter".into(),
+            frame_index: settle_frames + walk_frames / 4,
+        },
+        DynamicCheckpoint {
+            label: "walk_half".into(),
+            frame_index: settle_frames + walk_frames / 2,
+        },
+        DynamicCheckpoint {
+            label: "walk_end".into(),
+            frame_index: walk_end,
+        },
+    ];
+
+    DynamicScenario {
+        slug: format!("walk_right_{level_id:02x}"),
+        script,
+        frame_count: total_frames,
+        checkpoints,
+        warp_to_level: Some(level_id),
+    }
+}
+
+/// Walk right and jump to headbutt prize blocks on level 0x00.
+/// The prize blocks in Blue Lake Woods 1 are above the starting position;
+/// the script walks right briefly then jumps under them.
+pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
+    let settle_frames: usize = 60;
+    // Walk right 60 frames → jump → land → walk right 60 frames → jump again
+    let total_frames: usize = settle_frames + 300;
+
+    let mut script = vec![0u8; total_frames.saturating_add(1)];
+
+    // Phase 1: walk right towards prize blocks (frames 60-119)
+    apply_range(&mut script, settle_frames, settle_frames + 59, 1 << 3);
+    // Phase 2: jump under prize block (frames 120-124, hold B for 5 frames)
+    apply_range(&mut script, settle_frames + 60, settle_frames + 64, (1 << 3) | (1 << 4));
+    // Phase 3: keep walking right (frames 125-179)
+    apply_range(&mut script, settle_frames + 65, settle_frames + 179, 1 << 3);
+    // Phase 4: second jump under next block (frames 180-184)
+    apply_range(&mut script, settle_frames + 180, settle_frames + 184, (1 << 3) | (1 << 4));
+    // Phase 5: coast to end (frames 185-359)
+    apply_range(&mut script, settle_frames + 185, total_frames.saturating_sub(1), 1 << 3);
+
+    let checkpoints = vec![
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: settle_frames,
+        },
+        DynamicCheckpoint {
+            label: "pre_first_jump".into(),
+            frame_index: settle_frames + 59,
+        },
+        DynamicCheckpoint {
+            label: "post_first_jump".into(),
+            frame_index: settle_frames + 90,
+        },
+        DynamicCheckpoint {
+            label: "pre_second_jump".into(),
+            frame_index: settle_frames + 179,
+        },
+        DynamicCheckpoint {
+            label: "post_second_jump".into(),
+            frame_index: settle_frames + 210,
+        },
+        DynamicCheckpoint {
+            label: "scenario_end".into(),
+            frame_index: total_frames.saturating_sub(1),
+        },
+    ];
+
+    DynamicScenario {
+        slug: format!("prize_block_{level_id:02x}"),
+        script,
+        frame_count: total_frames,
+        checkpoints,
+        warp_to_level: Some(level_id),
+    }
+}
+
 impl Scenario {
     pub fn slug(self) -> &'static str {
         match self {
@@ -499,7 +598,10 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 
 #[cfg(test)]
 mod tests {
-    use super::{DynamicScenario, GameplayScenario, Scenario, idle_level_scenario};
+    use super::{
+        DynamicScenario, GameplayScenario, Scenario, idle_level_scenario, prize_block_scenario,
+        walk_right_scenario,
+    };
 
     #[test]
     fn move_right_scenario_holds_right_for_five_seconds() {
@@ -711,5 +813,73 @@ mod tests {
         let json = serde_json::to_string(&original).expect("serialize");
         let restored: DynamicScenario = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn walk_right_scenario_holds_right_with_periodic_jumps() {
+        let scenario = walk_right_scenario(0x00, 300);
+        assert_eq!(scenario.slug, "walk_right_00");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert_eq!(scenario.frame_count, 360);
+        // Settle phase is idle
+        assert_eq!(scenario.script[59], 0);
+        // Walk phase holds right
+        assert_eq!(scenario.script[60] & (1 << 3), 1 << 3);
+        assert_eq!(scenario.script[359] & (1 << 3), 1 << 3);
+        // First jump at settle + 30 = frame 90
+        assert_eq!(scenario.script[90] & (1 << 4), 1 << 4);
+        // No jump at frame 89
+        assert_eq!(scenario.script[89] & (1 << 4), 0);
+        // Checkpoints cover the walk
+        assert_eq!(scenario.checkpoints.len(), 4);
+        assert_eq!(scenario.checkpoints[0].label, "level_settle");
+        assert_eq!(scenario.checkpoints[3].label, "walk_end");
+    }
+
+    #[test]
+    fn walk_right_scenario_frame_count_covers_checkpoints() {
+        let scenario = walk_right_scenario(0x05, 180);
+        let max_cp = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .max()
+            .expect("checkpoints");
+        assert!(scenario.frame_count > max_cp);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn prize_block_scenario_scripts_walk_and_jumps() {
+        let scenario = prize_block_scenario(0x00);
+        assert_eq!(scenario.slug, "prize_block_00");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert_eq!(scenario.frame_count, 360);
+        // Settle phase is idle
+        assert_eq!(scenario.script[59], 0);
+        // Walking right in phase 1
+        assert_eq!(scenario.script[60] & (1 << 3), 1 << 3);
+        // First jump: right + B at frame 120
+        assert_eq!(scenario.script[120], (1 << 3) | (1 << 4));
+        // Second jump: right + B at frame 240
+        assert_eq!(scenario.script[240], (1 << 3) | (1 << 4));
+        // 6 checkpoints
+        assert_eq!(scenario.checkpoints.len(), 6);
+        assert_eq!(scenario.checkpoints[0].label, "level_settle");
+        assert_eq!(scenario.checkpoints[2].label, "post_first_jump");
+        assert_eq!(scenario.checkpoints[5].label, "scenario_end");
+    }
+
+    #[test]
+    fn prize_block_scenario_frame_count_covers_checkpoints() {
+        let scenario = prize_block_scenario(0x00);
+        let max_cp = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .max()
+            .expect("checkpoints");
+        assert!(scenario.frame_count > max_cp);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
     }
 }
