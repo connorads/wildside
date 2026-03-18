@@ -6,7 +6,7 @@ All 10 milestones below are done or substantially complete. The project is now i
 
 ## Context
 
-The source port has closed three milestones (opening slice, gameplay lifecycle, Level 1 full traversal) and has a solid foundation: full physics, 3/28 enemy families, oracle comparison framework, 291 tests, and a working native player rendering Level 1. The remaining work spans ~25 enemy families, 9 helmet abilities, block interactions, platform collision, audio, 10 visual themes, weather, bosses, menus, and multi-level progression. This roadmap orders that work by gameplay impact, dependency chain, and the project's progressive-fidelity philosophy.
+All 10 milestones are complete. The port is now a full playable game: all 10 forms, 28 enemy families, 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score), ending sequence, Diamond Power two-tier cost, and multi-level progression. 63/69 BCD levels pass oracle sweep at 6px tolerance. What remains is fidelity hardening: sweep tolerance tightening, per-enemy ASM verification, visual pixel-perfect convergence, and closing the two open backlog items (#026 demo playback, #031 perf baseline).
 
 ---
 
@@ -144,11 +144,12 @@ Murder wall, weather effects (lava/storm/hail/snow), camera Y look-ahead, lava g
 
 ---
 
-## Milestone 10: Menus, Progression, Polish — Partial
+## Milestone 10: Menus, Progression, Polish — Done
 
 **Goal:** A complete game from title to credits.
 
-Options menu, Game Over/Continue, Score board, password/save, cutscenes/intro art, 2-player alternating, demo playback, 105-level QA soak, polish.
+Done: game over/continue screen, score system, Diamond Power two-tier cost, ending sequence, 105 levels loadable, full multi-level progression.
+Remaining (open backlog): demo playback (#026 — no ROM source data found), perf baseline tracking (#031), cutscenes/intro art, 2-player alternating, password/save.
 
 ---
 

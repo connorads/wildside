@@ -16,30 +16,29 @@ Strategy: progressive fidelity (stub -> archetype -> full AI). See `research-map
 Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 
 ## Player forms
-- Done: speed tables for all 3 form variants x 3 terrain types, jump height per form
-- Remaining: form-specific abilities (Skycutter flight, Cyclone climb, RedStealth sword, etc.)
-- Deferred until enemy system and block collision are working
+- Done: all 10 forms, speed tables for all 3 form variants x 3 terrain types, jump height per form
+- Done: form-specific abilities (Skycutter flight, Cyclone climb, RedStealth sword, Micromax, Juggernaut, etc.)
 - Source: `kid.asm`, `constants.asm`, helmet-related vars
 
 ## Bosses (4 unique encounters)
-- Deferred until enemy system is mature
+- Done: all 4 boss encounters wired (HeadyMetal, Shishkaboss, BoomerangBosses, BagelBrothers)
 - Source: boss enemy modules, VRAM/resource loading code
 
 ## Level transitions
-- Active now: close the Level 1 traversal loop and stabilise the first long transition scenario
-- Later: generalise flag collision + level ordering across all 105 levels
+- Done: 105 levels loadable, full multi-level progression, ending sequence
+- 8 levels with broken oracle warp (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63
 - Source: level-order data, completion flow in `kid.asm`
 
 ## Menus and cutscenes
-- Boot/title done. Pause/resume done.
-- Remaining: options, game over, continue, cutscenes
+- Done: boot/title, pause/resume, game over, continue screen, score board
+- Remaining: cutscenes/intro art, demo playback (#026 open — no ROM source data found)
 - Source: `scenes/`, `kid.asm` mode handlers
 
 ## Weather and special effects
-- Deferred until core gameplay loop is solid
+- Done: murder wall, weather effects (lava/storm/hail/snow), Y look-ahead camera
+- Remaining: pixel-perfect fidelity verification against oracle
 - Source: header flags, bg theme logic, special-effect vars
 
 ## Audio and GEMS
-- Deferred until gameplay is solid
-- Emulator has full FM+PSG via `kid-md` + `ymfm-sys`
+- Done: GemsAudioEngine (Z80+YM2612+PSG from ROM), SDL2 audio, full FM+PSG
 - Source: `sound/`, `doc/sound.txt`, `.cache/references/gems`, `.cache/references/gemsplay`

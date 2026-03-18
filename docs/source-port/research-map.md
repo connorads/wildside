@@ -69,9 +69,9 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining player/gameplay work
 
-- Y look-ahead camera offset (`$FFFFFB58`)
-- Block interactions beyond the current traversal slice
-- Broader multi-level progression beyond the current transition scenario
+- Fidelity hardening: sweep tolerance tightening, per-enemy ASM verification, visual pixel-perfect convergence
+- Demo playback: no ROM source data found in disassembly (#026, open)
+- Perf baseline tracking (#031, open)
 
 ## Previously deferred (now done)
 
@@ -79,6 +79,11 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - Player forms — done (speed tables, form-specific abilities wired)
 - Audio and GEMS — done (GemsAudioEngine: Z80+YM2612+PSG from ROM)
 - Tier 3-4 enemies + bosses — done (all 28 families, 26 with real sprite art)
+- Y look-ahead camera offset — done (`$FFFFFB58`, +1/frame down+grounded, -8/frame decay, applied at >=30px)
+- Block interactions — done at engine level (prize blocks, evanescent, ghost, smash, terrain types)
+- Multi-level progression — done (105 levels loadable, full progression, ending sequence, continue, score system)
+- Menus — done (boot/title, pause/resume, game over, continue, score board)
+- Diamond Power two-tier cost — done
 
 ## Validation methodology
 

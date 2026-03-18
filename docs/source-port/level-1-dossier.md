@@ -80,6 +80,6 @@ Block format: 2 bytes per cell at `$FFA652`, documented in `doc/ram_layout.txt`.
 ### Remaining physics work
 
 - Left movement, bidirectional turning (currently works but untested against oracle)
-- Terrain type switching (ice, rubber) -- requires block collision
-- Form-specific speed table selection (Micromax, Juggernaut)
-- Y look-ahead camera offset (`$FFFFFB58`)
+- Terrain type switching (ice, rubber) -- done at engine level, fidelity verification pending
+- Form-specific speed table selection (Micromax, Juggernaut) -- done
+- Y look-ahead camera offset (`$FFFFFB58`) -- done (+1/frame down+grounded, -8/frame decay, applied at >=30px)
