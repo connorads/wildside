@@ -43,8 +43,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 034 | [x] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native had 3) | Boot captures match oracle |
 | 035 | [-] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | ORACLE LIMITATION — jgenesis warp bug, native works; determinism + soak tested |
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
-| 037 | [x] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
-| 038 | [x] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
+| 037 | [~] | P3 | fidelity | Floor-snap misses terrain on 0x52 (+14px Y) and 0x29 (+5px X) | Needs full physics settling during init |
+| 038 | [~] | P3 | fidelity | Camera Y settling 1px diffs on 0x02, 0x24, 0x51 (dead-zone rounding) | Needs full physics settling during init |
 | 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
 | 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
 | 041 | [x] | P2 | enemy | Hand jump velocity fixed, should be randomised per-tier | Hand matches ASM jump tables |
@@ -55,7 +55,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 046 | [x] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
 | 047 | [x] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM drop timing |
 | 048 | [x] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
-| 049 | [x] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |
+| 049 | [~] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Merged with #037 — needs full physics settling |
 | 050 | [-] | P3 | fidelity | 4 levels show idle_tail position diffs from enemy/timing divergence | EXPECTED — advisory: oracle warp timing + enemy interaction accumulation |
 | 051 | [x] | P2 | enemy | Dragon HP base 2 should be 1 (ASM Dragon.asm:65 addq.w #1) | Dragon HP matches ASM |
 | 052 | [x] | P2 | enemy | EmoRock velocity cap logic wrong ($60000 threshold → $40000 reset) | EmoRock drop matches ASM |
@@ -157,13 +157,17 @@ HP=4→$18000. This gives step=$8000. Was incorrectly $10000 in `pacer_walk_spee
 All other pacer families verified correct: Goat/Armadillo/Crab ($10000), Driller ($8000),
 Scorpion (fixed $18000), FireDemon/Robot/Ninja ($8000).
 
-### 037 — Floor-snap shortcut misses terrain (INVESTIGATING)
-Level 0x52 "Elsewhere 9": player starts at (16, 335). Native floor-snap finds floor at
-row 22 (Y=352→351), oracle gravity settles to Y=337.25 (row 21). The real floor is at
-column 2 row 21, but the player's hitbox (half_width=5, right edge at x=21 → column 1)
-doesn't reach it. The oracle's frame-by-frame gravity settling catches it because the
-collision detection during movement sees the terrain. Fix: either widen the floor probe
-or implement real gravity settling during level init.
+### 037 — Floor-snap misses terrain (PARTIALLY FIXED)
+Gravity simulation in `level_respawn_slice_with_floor_snap` fixed most levels but 2 remain:
+- **Level 0x52**: native=351px oracle=337.25px (+14px). Floor at col 2 row 21 is outside
+  player hitbox (X=11-21 → cols 0-1). ASM level init runs full game frame via
+  `Hibernate_Object_1Frame` (kid.asm:7710) with real collision detection. Native uses
+  3-point probe that doesn't reach col 2.
+- **Level 0x29**: native X=672 oracle X=677 (+5px). Slope-slide during gravity settling
+  accumulates X drift the simplified simulation doesn't reproduce.
+- **Levels 0x02, 0x24, 0x51**: 1px camera_y dead-zone rounding differences.
+Fix: replace simplified gravity simulation with actual `step()` calls during init, or
+widen floor probe to cover adjacent columns. Both masked by oracle-pause tolerance (32px).
 
 ### 038 — Camera Y settling dead-zone (FIXED)
 8 levels showed +1 to +7px camera_y diffs at level_settle. The asymmetric dead-zone
@@ -183,12 +187,10 @@ The 4th entry at offset +$54 is only reachable if BOTH checks matched simultaneo
 which can't happen (one helmet at a time). Dead data — likely a cut form or dev remnant.
 Values: $20000/$4000/$2800/$4000/$30000/$3800/$6000 (similar to Juggernaut but higher accel).
 
-### 049 — Level 0x29 X position diff (INVESTIGATING)
-5px consistent X diff: native=672, oracle=677. Camera_x also 5px off. Header has
-player_start_x=0x02A0 (672). Both parse the same header. The diff likely comes from
-slope-sliding during gravity settling: the oracle runs real physics where the player
-slides along a slope while falling, accumulating +5px X. Native floor-snap only
-adjusts Y. Fix: extend floor-snap camera simulation to include X settling too.
+### 049 — Level 0x29 X position diff (MERGED WITH #037)
+5px consistent X diff caused by slope-sliding during gravity settling. Same root cause
+as #037 — native simplified gravity simulation doesn't include full physics step.
+Fix tracked in #037.
 
 ### 050 — Idle-tail position diffs on 4 levels (INVESTIGATING)
 Levels 0x00, 0x45, 0x48, 0x61 show wildly different positions at idle_tail (frame ~359).
