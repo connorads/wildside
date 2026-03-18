@@ -352,6 +352,11 @@ impl NativeRuntime {
 
     pub(crate) fn apply_damage(&mut self) {
         self.level_damage_taken = true;
+        // Clear wall-grab so the player isn't stuck to the wall during invulnerability
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.player.right_wall_sticky = false;
+            slice.player.left_wall_sticky = false;
+        }
         if self.current_form != PlayerForm::TheKid {
             self.queue_form_change(PlayerForm::TheKid);
             self.resolve_pending_form_change();

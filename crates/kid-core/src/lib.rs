@@ -4557,6 +4557,29 @@ mod tests {
     }
 
     #[test]
+    fn damage_clears_wall_sticky() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        // Set wall-sticky as if player is grabbing a wall
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.right_wall_sticky = true;
+            slice.player.left_wall_sticky = true;
+        }
+
+        runtime.apply_damage();
+
+        let slice = runtime.opening_slice.as_ref().unwrap();
+        assert!(!slice.player.right_wall_sticky, "right wall sticky should be cleared on damage");
+        assert!(!slice.player.left_wall_sticky, "left wall sticky should be cleared on damage");
+    }
+
+    #[test]
     fn flag_miss_does_not_trigger_completion() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(48));
