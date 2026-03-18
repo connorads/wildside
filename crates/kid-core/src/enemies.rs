@@ -1696,8 +1696,15 @@ pub(crate) fn step_hopper(
             enemy.x_velocity = 0;
             return;
         }
-        enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
-        enemy.y_velocity = hc.jump_y_speed;
+        let mut jx = hc.jump_x_speed;
+        let mut jy = hc.jump_y_speed;
+        // Mini_Hopping_Skull.asm lines 191-194: enemy_level ≥ 1 (HP > 1) boosts hop.
+        if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points > 1 {
+            jx += 0x4000;
+            jy -= 0x1_0000;
+        }
+        enemy.x_velocity = horizontal_velocity(enemy.facing, jx);
+        enemy.y_velocity = jy;
         enemy.on_ground = false;
     }
 
