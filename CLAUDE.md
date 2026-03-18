@@ -127,7 +127,8 @@ Canonical bug/feature backlog: `docs/source-port/backlog.md`
 5. Verify visually: capture frames, Read PNGs, compare before/after
 6. Verify mechanically: `mise run verify-slice-fast` must pass
 7. Mark `[x]` in backlog (same commit as the fix)
-8. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
+8. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
+9. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
 
 ## Visual debugging
 
@@ -181,6 +182,9 @@ diff composites, and per-layer diagnostics.
 | Complex state | Snapshot test (insta) | NativeTraceFrame at checkpoint — detect unexpected state changes between commits |
 | Visual correctness | Frame capture + pixel comparison | Any pixel mismatch against oracle = regression |
 | Determinism | Replay same scenario twice, diff output | Deterministic engine is prerequisite for all other testing |
+| Engine-wide invariant | Metamorphic test | Determinism, bounds, symmetry — no per-case oracle needed |
+| Stateful system | Stateful property test (proptest-state-machine) | Model lifecycle as states, auto-shrink failing transition sequences |
+| Test suite confidence | Mutation testing (`cargo-mutants`) | Surviving mutants = test gaps; target ≥80% kill rate |
 
 ## Code conventions for fidelity
 
@@ -189,4 +193,4 @@ diff composites, and per-layer diagnostics.
 - `// TODO(fidelity): <desc>` — approximate implementation needing refinement
 - `// UNVERIFIED: <desc>` — behaviour not yet compared to oracle/disassembly
 
-See `docs/source-port/methodology.md` for full investigation playbook, testing taxonomy, and cross-referencing protocol.
+See `docs/source-port/methodology.md` for full investigation playbook, testing taxonomy (metamorphic, mutation, fuzzing, Design by Contract), divergence classification, framewise checksumming, fidelity metrics, and cross-referencing protocol.

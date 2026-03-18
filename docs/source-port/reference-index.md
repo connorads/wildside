@@ -51,6 +51,12 @@
 - https://segaretro.org/Sega_Mega_Drive/Palettes_and_CRAM
 - https://segaretro.org/Enigma_compression
 
+## Methodology
+
+- `docs/source-port/methodology.md`
+  - investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol
+  - metamorphic relations, mutation testing, divergence classification, fidelity metrics
+
 ## Source-port exemplars
 
 - https://github.com/n64decomp/sm64

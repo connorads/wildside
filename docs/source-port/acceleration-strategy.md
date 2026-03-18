@@ -22,6 +22,7 @@ With infrastructure across all systems, development shifts from milestone-driven
 
 - Canonical tracker: `docs/source-port/backlog.md`
 - Iteration protocol: `CLAUDE.md` (session protocol section)
+- Validation methodology: `docs/source-port/methodology.md`
 - Principle: fix at engine level, never level-specific overrides
 - Gate: every fix must pass full sweep
 

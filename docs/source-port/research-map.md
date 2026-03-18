@@ -82,18 +82,7 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Validation methodology
 
-### Oracle comparison (correctness)
-- jgenesis as ground truth, `DynamicScenario` per-frame button masks
-- Sweep: 105 levels x idle scenario, state-level checkpoint comparison
-- Position tolerance: 6px. Advisory fields masked.
-
-### Pixel-perfect frame comparison (visual)
-- 320x224 fixed-palette — exact pixel matching, `image` crate RGBA comparison
-- `dify` CLI for ad-hoc diff
-
-### Input replay + snapshot testing (regression)
-- `DynamicScenario` for replay, `insta` for snapshot regression
-- See `CLAUDE.md` for full details
+See `docs/source-port/methodology.md` for the full validation methodology: investigation playbook, testing taxonomy (property-based, metamorphic, mutation, fuzzing), divergence classification, framewise checksumming, fidelity metrics, and regression discipline. `CLAUDE.md` has the operational summary.
 
 ## Open questions
 

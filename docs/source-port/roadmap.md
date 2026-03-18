@@ -2,7 +2,7 @@
 
 ## Current approach
 
-All 10 milestones below are done or substantially complete. The project is now in **playtest-driven iteration** — bugs and missing features are tracked in `docs/source-port/backlog.md`. See `CLAUDE.md` for the iteration protocol and validation methodology.
+All 10 milestones below are done or substantially complete. The project is now in **playtest-driven iteration** — bugs and missing features are tracked in `docs/source-port/backlog.md`. See `CLAUDE.md` for the iteration protocol and `docs/source-port/methodology.md` for the deep validation methodology.
 
 ## Context
 

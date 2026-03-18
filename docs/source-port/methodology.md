@@ -55,11 +55,25 @@ This mirrors byuu's investigation loop (identify → capture → hypothesise →
 4. **Read disassembly**: follow source precedence — `kid.asm` → `variables.asm` → `doc/formats.txt`
 5. **Cross-reference**: native logic vs ASM vs oracle data. All three must agree:
    - ASM + oracle agree, native differs → **native bug**
-   - ASM + native agree, oracle differs → **oracle limitation** (rare but possible; 6 warp-broken levels are examples)
+   - ASM + native agree, oracle differs → **oracle limitation** (rare but possible; 8 warp-broken levels are examples)
    - All three disagree → **deeper investigation needed** (hardware docs, web research)
 6. **Write probe scenario**: targeted `DynamicScenario` exercising exactly this behaviour (like bsnes test ROMs — test ROMs must exercise specific undocumented behaviours with observable outcomes)
 7. **Fix**: implement smallest correct change
 8. **Verify**: probe scenario passes + full sweep passes + visual before/after comparison
+
+### Trace comparison techniques
+
+When investigating divergences between native and oracle:
+
+| Technique | When to use | How |
+|-----------|------------|-----|
+| Field-level state diff | Any divergence | Instead of flat "MISMATCH", report per-field delta with tolerance. E.g. "player.x: +4px (within tolerance), player.vx: +2 (ERROR)" |
+| Framewise CRC | Narrowing divergence origin | CRC32 entire game state each frame; first mismatch = exact divergence frame |
+| Subframe checksumming | Divergence isolated to one frame | Checksum after each update phase (player → enemies → collision) to narrow to subsystem |
+| Frame-level bisection | Large frame range to search | Binary search: checkpoint at midpoint, recurse on divergent half. O(log N) vs O(N) |
+| DTW trace alignment | Oracle and native differ in frame count | Dynamic Time Warping aligns traces despite timing drift (Sakoe-Chiba band ±2 frames) |
+
+Sources: bsnes cycle-addressable trace logs, AoE deterministic lockstep desync detection, DTW (Sakoe & Chiba 1978).
 
 ### Formula reverse-engineering
 
@@ -94,16 +108,244 @@ When reimplementing a game formula (physics, damage, spawn rates), use the OpenM
 | New engine behaviour | Probe scenario + oracle comparison | Like bsnes test ROMs: exercise specific behaviour, compare to ground truth |
 | Fixed bug | Timing/gameplay regression test (`verify-slice-fast` gate) | Like Chocolate Doom statcheck: every fix becomes a permanent regression test |
 | Pure function, large input space | Property-based test (proptest) | Speed tables, slope formulas, gravity curves — verify properties hold across range |
+| Stateful system, complex transitions | Stateful property test (proptest-state-machine) | Model lifecycle as states, generate random input sequences, auto-shrink failures |
 | Complex state hard to assert field-by-field | Snapshot test (insta) | NativeTraceFrame at checkpoint — detect unexpected state changes between commits |
 | Visual correctness | Frame capture + pixel comparison | Like MAME acid tests: any pixel mismatch against oracle = regression |
 | Determinism | Replay same scenario twice, diff output | Like Chocolate Doom: deterministic engine is prerequisite for all other testing |
+| Engine-wide invariant | Metamorphic test (see below) | Catches classes of bugs without per-case expected outputs |
+| Test suite confidence | Mutation testing (`cargo-mutants`) | Measures what % of injected faults tests catch; surviving mutants = gaps |
+| Parser / boundary code | Fuzz testing (`cargo fuzz`) | Coverage-guided input generation finds crashes humans miss |
 
-### Future additions
+### Property-based testing guidance
 
-- `insta` snapshot testing for NativeTraceFrame regression detection (native-vs-prior-native)
-- `proptest` for speed table lookups, gravity curves, slope formulas
-- CI/CD running `verify-slice-fast` on every push
-- Input recording from live play sessions as new regression scenarios
+Use `proptest` for pure functions where the input space is large or combinatorial.
+
+| Module | Function/area | Property | Generator |
+|--------|--------------|----------|-----------|
+| `physics.rs` | `apply_horizontal_physics` | Velocity never exceeds `max_run_speed` for any input sequence | Random `(SpeedTable, Direction, i32)` |
+| `physics.rs` | `apply_gravity` | Y velocity bounded by terminal velocity | Random `(i32 initial_vel, u8 frames)` |
+| `physics.rs` | Speed table lookup | All 9 tables: `max_walk_speed <= max_run_speed` | Enumerate all tables |
+| `physics.rs` | Jump profile | Peak height deterministic for given profile and hold duration | Random `(JumpProfile, u8 hold_frames)` |
+| `terrain.rs` | `probe_terrain` | Solid cell always blocks, empty cell never blocks | Random `(BlockGrid, x, y)` |
+| `terrain.rs` | Cell encoding | `encode(decode(cell)) == cell` for all valid values | `u16` in `0..=0xFFFF` |
+| FP16.16 | Arithmetic | Addition commutative; multiplication by 1.0 is identity | Random `(i32, i32)` pairs |
+
+For **stateful** property testing (`proptest-state-machine` crate): model `PlayerLifecycle` as states with input-driven transitions. Generate random input sequences with precondition guards. Automatic shrinking finds the minimal failing transition sequence.
+
+### Fuzzing guidance
+
+Coverage-guided fuzzing finds crashes in parser and boundary code that hand-written tests miss. The mGBA and VBA-M fuzzing campaigns (AFL++) found 3,662 crashes across emulator subsystems.
+
+| Target | Why | Tool |
+|--------|-----|------|
+| Level block grid parser | Untrusted binary format from extracted assets | `cargo fuzz` |
+| Enemy spawn logic | Layout data can have unexpected object IDs | `cargo fuzz` |
+| Collision edge cases | Grid boundaries, zero-size objects | `cargo fuzz` + proptest |
+| Audio bank loading | Complex binary format | `cargo fuzz` |
+
+Scope: high-risk subsystems at system boundaries. Pure game logic is better served by property tests and oracle comparison.
+
+### Design by Contract
+
+The `contracts` crate provides `#[requires]`, `#[ensures]`, and `#[invariant]` macros for executable pre/post conditions. Use on critical physics functions as living documentation of invariants:
+
+```rust
+#[requires(velocity.abs() <= MAX_SPEED)]
+#[ensures(ret.abs() <= MAX_SPEED)]
+fn apply_friction(velocity: i32, decel: i32) -> i32 { ... }
+```
+
+Feature-flagged: enabled in debug/test builds, disabled in release. Violations panic immediately, making the root cause obvious.
+
+### Planned improvements
+
+Testing infrastructure improvements are tracked in `backlog.md`: #028 (insta snapshots — done), #029 (proptest — done), #030 (CI gate — done), #031 (perf baselines — open).
+
+---
+
+## Metamorphic Relations
+
+Metamorphic testing (Chen et al. 1998; 750+ subsequent papers) defines relations between test inputs/outputs rather than specifying expected outputs per case. This sidesteps the oracle problem for properties where jgenesis comparison is impractical or unavailable.
+
+### Core relations
+
+| ID | Relation | Property | Test strategy |
+|----|----------|----------|---------------|
+| MR1 | Replay determinism | Same `DynamicScenario` replayed twice produces identical `NativeTraceFrame` sequences | Run scenario, hash all frames, run again, assert identical hash |
+| MR2 | Idle convergence | Player standing still on flat ground: velocity converges to zero within N frames | Parameterise across all 9 speed tables; assert velocity reaches 0 |
+| MR3 | Speed table bounds | For any `SpeedTable`, `apply_horizontal_physics` never produces velocity exceeding `max_run_speed` | proptest: random input sequences, assert `abs(vel) <= max_run_speed` |
+| MR4 | Collision symmetry | Horizontal collision probe left-then-right produces same blocked result as right-then-left for symmetric geometry | Construct symmetric block grid, assert probe results mirror |
+| MR5 | Damage monotonicity | Taking damage never increases HP (unless ankh/pickup in same frame) | Inject damage events across random frames, assert HP non-increasing |
+
+### When to use metamorphic tests
+
+- Behaviour has no oracle comparison (demo playback, RNG sequences)
+- Property spans many input combinations (physics across all forms/terrains)
+- Regression coverage needed without hand-crafted expected values
+- Engine invariant that should hold universally (determinism, bounds, symmetry)
+
+---
+
+## Mutation Testing
+
+Mutation testing injects small faults (operator swaps, constant changes, deleted statements) into source code and checks whether existing tests detect them. A surviving mutant = a test gap.
+
+### Workflow
+
+1. Install: `cargo install cargo-mutants`
+2. Run on pure core: `cargo mutants -p kid-core -- --lib`
+3. Review survivors: each surviving mutant is a candidate for a new test
+4. Target: ≥80% kill rate on `physics.rs` and `terrain.rs` (pure functions)
+
+### Cadence
+
+| When | Scope | Action |
+|------|-------|--------|
+| After major fix batch (3-5 fixes) | `kid-core` pure modules | Run, triage survivors, file test gaps as backlog items |
+| Quarterly | Full `kid-core` | Run, record kill rate in `.cache/metrics/mutation-score.txt` |
+
+### Scope constraints
+
+- Only run on pure-core crates (`kid-core`). Adapter crates (`kidcli`, `kid-render`) have too much I/O coupling for mutation testing to be productive.
+- Exclude `// ORIGINAL_QUIRK` lines from mutation — these are intentional "bugs".
+
+Sources: Trail of Bits ("Use mutation testing to find the bugs your tests don't catch", 2025), `cargo-mutants` (sourcefrog).
+
+---
+
+## Divergence Classification
+
+Beyond binary pass/fail, classify each sweep divergence to track fidelity trends and avoid chasing the wrong signals. Inspired by AccuOracle's four-layer filtering (NDSS '25).
+
+### Categories
+
+| Category | Definition | Example | Action |
+|----------|-----------|---------|--------|
+| Authoritative | Position, velocity, lifecycle, collision state differ | Player x off by 12px at frame 400 | Must fix — real bug |
+| Advisory | Score, lives, diamonds, object count, murder wall x | Score 1200 vs 1400 | Masked in sweep; tracked separately |
+| Accumulation | Small per-frame error compounds over time | 1px/frame camera drift | Fix root cause (rounding, FP truncation) |
+| RNG | Divergence from non-deterministic or seed-dependent path | Enemy spawn timer differs | Verify seed handling; may need RNG synchronisation |
+| Oracle limitation | Oracle crashes or behaves incorrectly | 8 warp-broken levels (game_mode=0x4E73) | Document; do not chase |
+
+### Tracking
+
+Sweep output should log per-level divergence counts by category:
+
+```json
+{
+  "date": "2026-03-18",
+  "levels_passed": 63,
+  "levels_failed": 0,
+  "levels_errored": 6,
+  "by_category": {
+    "authoritative": 0,
+    "advisory": 42,
+    "accumulation": 3,
+    "rng": 0,
+    "oracle_limitation": 6
+  }
+}
+```
+
+Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis.
+
+---
+
+## Framewise Checksumming & Desync Detection
+
+Borrowed from deterministic lockstep networking (Age of Empires, StarCraft): CRC32 entire game state each frame, compare checksum stream native vs oracle. First mismatch = exact frame where divergence occurs.
+
+### Technique
+
+1. After each frame step, compute CRC32 of serialised game state (player + enemies + camera + blocks)
+2. Oracle emits matching checksums at same frames
+3. Compare streams: first mismatch narrows divergence to a single frame
+4. **Subframe checksumming**: if frame-level is too coarse, checksum after each major update phase:
+   - After player physics
+   - After all enemies update
+   - After collision passes
+   - This narrows divergence to a specific subsystem
+
+### Desync root-cause taxonomy
+
+From RTS netcode experience, common causes of state divergence:
+
+| Cause | Risk in this project | Mitigation |
+|-------|---------------------|------------|
+| Float precision | None — FP16.16 fixed-point is bitwise deterministic | Already handled |
+| Iteration order | Medium — enemy list processing order | Use stable index-based iteration; never hash-order |
+| RNG seed | Low — deterministic seeding per scenario | Verify seed identical in native and oracle |
+| Platform differences | Low — Rust integer semantics are well-defined | Monitor with CI across platforms |
+
+---
+
+## Frame-Level Bisection
+
+Binary search within a level to find the exact frame where divergence begins. O(log N) vs O(N) sequential scan.
+
+### Workflow
+
+1. Identify a level + scenario with known divergence at frame F_bad
+2. Confirm frames before some F_good match oracle
+3. Checkpoint at midpoint M = (F_good + F_bad) / 2
+4. Compare state at M against oracle
+5. If M matches → divergence is in [M, F_bad]; recurse
+6. If M diverges → divergence is in [F_good, M]; recurse
+7. Continue until single frame identified
+
+### Output
+
+"Divergence begins at frame 47: `player.y` differs by 3px from oracle. Prior frame (46) matches."
+
+### Combining with git bisect
+
+For regression hunting: `git bisect run` narrows the commit, frame bisection narrows the frame within that commit. Together they pinpoint both *when* and *where* the bug was introduced.
+
+---
+
+## Fidelity Metrics & Tracking
+
+Track continuous fidelity indicators to detect regressions, measure progress, and maintain confidence.
+
+### Metrics
+
+| Metric | Source | Target | Location |
+|--------|--------|--------|----------|
+| Sweep pass rate | `sweep --tier state` | 63/69 → 69/69 | `.cache/metrics/sweep-history.jsonl` |
+| Test count | `cargo test -- --list 2>&1 \| wc -l` | Monotonically increasing | `.cache/metrics/test-count.txt` |
+| Mutation kill rate | `cargo mutants -p kid-core` | ≥80% on physics.rs, terrain.rs | `.cache/metrics/mutation-score.txt` |
+| Scenario count | `DynamicScenario` definitions | ≥10 per edge-case level | `.cache/metrics/scenario-count.txt` |
+| Divergence by category | Sweep JSON output | Authoritative = 0 | `.cache/metrics/sweep-divergences.json` |
+
+### Per-level fidelity tiers
+
+Inspired by ProtonDB and Dolphin compatibility databases:
+
+| Tier | Definition |
+|------|-----------|
+| Flawless | Oracle-identical position, state, and frames |
+| Accurate | Oracle-identical state, within 6px position tolerance |
+| Playable | Completes level, visible divergences within acceptable bounds |
+| Issues | Major visual or gameplay divergences |
+| Broken | Crashes or unplayable (includes oracle-limitation levels) |
+
+### Per-enemy validation tracking
+
+| Archetype | Families | Oracle-verified scenarios | Status |
+|-----------|----------|--------------------------|--------|
+| Pacer | Goat, Armadillo, Tank, Crab, Scorpion, Driller | (count per family) | Partial |
+| Hopper | MiniHoppingSkull, BigHoppingSkull | (count) | Partial |
+| Flyer | Cloud, DragonFlying | (count) | Partial |
+| Bouncer | Sphere, Fireball | (count) | Partial |
+| Stationary | Diamond, Archer, EmoRock | (count) | Partial |
+| Complex | Dragon, Ninja, Orca, Hand, Robot, etc. | (count) | Partial |
+| Inert | (stubs) | N/A | N/A |
+
+Update as scenarios are added. Target: ≥2 scenarios per family (idle + one interaction).
+
+### Collection
+
+Run `mise run collect-metrics` after each sweep to update `.cache/metrics/`. CI automation tracked in backlog.
 
 ---
 
@@ -126,6 +368,7 @@ Every fix MUST become a permanent regression test. Chocolate Doom's entire Compe
 - **Pre-commit**: `mise run verify-slice-fast` (timing + gameplay regression tests)
 - **Pre-merge**: full sweep (`sweep --tier state` on all BCD levels)
 - **Post-playtest**: triage new bugs into backlog, write regression tests for each
+- **Post-fix-batch**: run `cargo mutants -p kid-core -- --lib` to check for test gaps
 
 ---
 
@@ -136,7 +379,7 @@ Every fix MUST become a permanent regression test. Chocolate Doom's entire Compe
 | Situation | Primary source | Secondary source | If they disagree |
 |-----------|---------------|-----------------|-----------------|
 | Unknown behaviour | Oracle (jgenesis) | Disassembly (`kid.asm`) | Investigate both; oracle is runtime truth, ASM is specification |
-| Oracle crash/error | Disassembly | RAM layout docs | Oracle is fallible; trust ASM if oracle fails (6 warp-broken levels) |
+| Oracle crash/error | Disassembly | RAM layout docs | Oracle is fallible; trust ASM if oracle fails (8 warp-broken levels) |
 | Complex formula | ASM + `variables.asm` | Oracle checkpoint comparison | Derive formula from ASM, validate against oracle output |
 | Hardware effect | Kid ASM first | Sega Retro Mega Drive docs | Kid ASM shows what the game actually does; hardware docs show what's possible |
 | Undocumented register | M68k instruction docs | Test with oracle | Reference docs are specification; oracle is empirical validation |
@@ -147,6 +390,19 @@ When sources conflict:
 1. **Oracle vs ASM**: oracle is runtime truth (what actually happens), ASM is specification (what should happen). If oracle shows behaviour X but ASM seems to say Y, re-read the ASM more carefully — subtle addressing modes, condition flags, or interrupt timing may explain the difference.
 2. **Native vs both**: native is wrong. Fix native.
 3. **All three disagree**: escalate to deeper investigation — Mega Drive hardware docs, M68k reference manual, or web research. Document the ambiguity.
+
+### Document cross-reference map
+
+| Document | Cites methodology.md | Role |
+|----------|---------------------|------|
+| `CLAUDE.md` | Yes (line 192) | Operational summary; points here for depth |
+| `reference-index.md` | Yes (Methodology section) | Quick source lookup |
+| `research-map.md` | Yes (Validation section) | Frontier tracking |
+| `backlog.md` | Yes (header) | Bug tracker; follows Investigation Playbook |
+| `roadmap.md` | Yes (line 5) | Milestone tracker |
+| `acceleration-strategy.md` | Yes (Track 6 section) | Development strategy |
+
+Rule: any doc that describes validation, investigation, or testing should cite this document as the canonical reference rather than restating the methodology.
 
 ---
 
@@ -166,19 +422,31 @@ Lessons learned from bsnes, Chocolate Doom, Julius, OpenMW, devilutionX, and pro
 | **Code churn breaking replays** | Refactors silently change execution order | Snapshot tests detect state drift; replay scenarios catch desync (Chocolate Doom) |
 | **Whack-a-mole emulation** | Each fix creates new regressions in a cycle | Understand the root cause at hardware/engine level before fixing symptoms (bsnes) |
 | **Conflating compatibility with accuracy** | "It works" masks underlying incorrectness | Accuracy naturally enables compatibility; the reverse is not true (bsnes) |
+| **Untested test suite** | Tests pass but miss real bugs (false confidence) | Mutation testing quarterly; surviving mutants = test gaps (Trail of Bits) |
+| **Unclassified divergences** | Chasing advisory divergences, ignoring accumulation drift | Classify every divergence by category; trend by category over time |
+| **Coarse divergence detection** | "Something's wrong in level 23" but no precision | Framewise checksums + frame-level bisection to pinpoint exact frame and field |
 
 ---
 
 ## References
 
-Projects studied for methodology:
+Projects and papers studied for methodology:
 
-| Project | Game | Key technique | URL |
-|---------|------|--------------|-----|
+| Project | Domain | Key technique | Source |
+|---------|--------|--------------|--------|
 | bsnes/higan | SNES (all) | Cycle-accurate emulation, test ROMs, code as documentation | bsnes.org |
-| Chocolate Doom | Doom | Statcheck demo regression, deterministic replay, tiered compatibility | chocolate-doom.org |
+| Chocolate Doom | Doom | Statcheck demo regression (4000+ demos), deterministic replay | chocolate-doom.org |
 | Julius | Caesar III | 100% savegame compatibility, bidirectional validation | github.com/bvschaik/julius |
 | OpenMW | Morrowind | Bug compatibility tiers, empirical formula reverse-engineering | openmw.org |
 | devilutionX | Diablo | Function-by-function binary matching, debug symbol recovery | github.com/diasurgical/devilution |
 | SM64 decomp | Super Mario 64 | Matching decompilation (byte-for-byte binary identity) | github.com/n64decomp/sm64 |
+| Zelda OoT decomp | Ocarina of Time | Incremental matching with progress tracking, non-matching directory | github.com/zeldaret/oot |
 | MAME | Arcade (all) | Test ROM acid tests, pixel-perfect frame regression | mamedev.org |
+| AoE lockstep | RTS netcode | Framewise checksumming, desync detection taxonomy | Bettner & Terrano (GDC 2001) |
+| Chen et al. 1998 | Testing theory | Metamorphic relations for oracle-free testing | DOI:10.1093/comjnl/41.6.386 |
+| AccuOracle | Oracle comparison | Divergence classification, four-layer filtering | NDSS '25 |
+| cargo-mutants | Rust testing | Mutation testing for Rust crates | github.com/sourcefrog/cargo-mutants |
+| proptest-state-machine | Rust testing | Stateful property testing with auto-shrinking | crates.io/crates/proptest-state-machine |
+| rr | Debugging | Deterministic record-replay with reverse execution | rr-project.org |
+| ProtonDB | Game compat | Per-game fidelity tier ratings (Platinum→Borked) | protondb.com |
+| Blargg test ROMs | NES emulation | Isolated component tests with deterministic checksums | nesdev.org |

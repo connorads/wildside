@@ -1,6 +1,6 @@
 # Playtest Backlog
 
-Canonical tracker for bugs and missing features. See `CLAUDE.md` for iteration protocol.
+Canonical tracker for bugs and missing features. See `CLAUDE.md` for iteration protocol and `docs/source-port/methodology.md` for the investigation playbook.
 
 Status: `[ ]` open, `[~]` in progress, `[x]` done, `[-]` won't fix / not a bug
 Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
