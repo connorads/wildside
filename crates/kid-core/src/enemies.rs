@@ -181,26 +181,31 @@ pub(crate) enum EnemyFamily {
     Unknown(u8),
 }
 
+/// Dragon Flying state machine (Dragon_Flying.asm).
+/// ASM uses a script interpreter with 3 variant flight tables selected by skin byte.
+/// Commands: Hover, Drift, DriftWithFire, FacePlayer, Descent, ReturnToAnchor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum DragonMotionPhase {
+pub(crate) enum DragonFlyingState {
+    /// Not a Dragon Flying enemy (default for all other families).
     #[default]
     None,
-    GlideLeftToPerch,
-    PerchLeft,
-    TurnRightDelay,
-    SwoopRight,
-    PerchLeftAtApex,
-    GlideLeftToEdge,
-    ParkedLeft,
+    /// Hovering in place with zero x velocity (ASM cmd 0, loc_34804).
+    Hovering,
+    /// Accelerating drift (ASM cmd 1, loc_34776). $800 start, $200/frame, $18000 cap.
+    Drifting,
+    /// Same as Drift but checks fire-breath cone each frame (ASM cmd 5, loc_34774).
+    DriftingWithFire,
+    /// Descent attack sub-script: fixed velocity segments from unk_34554.
+    Descending,
+    /// Rising back to anchor Y with deceleration (ASM cmd 6, loc_34B44).
+    ReturningToAnchor,
 }
 
-impl DragonMotionPhase {
-    /// Stationary phases where the dragon is perched — suppress walk animation.
+impl DragonFlyingState {
+    /// Stationary phases where the dragon is hovering — suppress walk animation.
+    /// `None` is excluded: non-Dragon enemies use their own stationary logic.
     pub(crate) fn is_stationary(self) -> bool {
-        matches!(
-            self,
-            Self::PerchLeft | Self::TurnRightDelay | Self::PerchLeftAtApex | Self::ParkedLeft
-        )
+        matches!(self, Self::Hovering)
     }
 }
 
@@ -308,8 +313,18 @@ pub(crate) struct ActiveEnemy {
     pub(crate) palette_variant: u8,
     /// Generic countdown timer for phased enemies (EmoRock hover wait, etc.)
     pub(crate) wait_timer: u16,
-    pub(crate) dragon_phase: DragonMotionPhase,
+    pub(crate) dragon_phase: DragonFlyingState,
     pub(crate) dragon_phase_frames: u16,
+    /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
+    pub(crate) dragon_script_variant: u8,
+    /// Dragon Flying: current command index within the script.
+    pub(crate) dragon_script_cmd: u8,
+    /// Dragon Flying: anchor Y position (FP16.16) — initial spawn Y to return to.
+    pub(crate) dragon_anchor_y: u32,
+    /// Dragon Flying: descent sub-script entry index.
+    pub(crate) dragon_descent_index: u8,
+    /// Dragon Flying: frames remaining in current descent entry.
+    pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,
     pub(crate) lion_state: LionState,
@@ -337,15 +352,114 @@ pub(crate) enum EnemyArchetype {
     Inert,
 }
 
-pub(crate) const DRAGON_DRIFT_X_SPEED_FP: i32 = 0x0000_8000;
 pub(crate) const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
 pub(crate) const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
-pub(crate) const DRAGON_LEFT_EDGE_STOP_FP: u32 = 0x001F_8000;
-pub(crate) const DRAGON_PERCH_X_FP: u32 = 0x0032_8000;
-pub(crate) const DRAGON_SWOOP_APEX_X_FP: u32 = 0x003D_8000;
-pub(crate) const DRAGON_PERCH_LEFT_FRAMES: u16 = 39;
-pub(crate) const DRAGON_TURN_RIGHT_DELAY_FRAMES: u16 = 38;
-pub(crate) const DRAGON_PERCH_LEFT_AT_APEX_FRAMES: u16 = 49;
+
+// --- Dragon Flying script interpreter (Dragon_Flying.asm) ---
+
+/// Drift initial speed: $800 (subpixel FP16.16). ASM loc_34776.
+const DRAGON_DRIFT_INITIAL_SPEED: i32 = 0x800;
+/// Drift acceleration per frame: $200. ASM loc_3478C.
+const DRAGON_DRIFT_ACCEL: i32 = 0x200;
+/// Drift speed cap: $18000. ASM loc_3478C.
+const DRAGON_DRIFT_SPEED_CAP: i32 = 0x1_8000;
+/// Return-to-anchor deceleration per frame: $400. ASM loc_34B4C.
+const DRAGON_RETURN_DECEL: i32 = 0x400;
+/// Return-to-anchor intermediate Y velocity cap: $FFFF1000. ASM loc_34B4C.
+const DRAGON_RETURN_VEL_CAP_SOFT: i32 = -0xF000_i32; // $FFFF1000 as signed
+/// Return-to-anchor hard Y velocity cap: $FFFF8000. ASM loc_34B70.
+const DRAGON_RETURN_VEL_CAP_HARD: i32 = -0x8000_i32; // $FFFF8000 as signed
+/// Face-player initial x velocity: $8000. ASM loc_3473A.
+const DRAGON_FACE_PLAYER_SPEED: i32 = 0x8000;
+
+/// Script command for Dragon Flying flight scripts.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum DragonFlyingCmd {
+    /// Hover in place for N frames (ASM cmd 0).
+    Hover(u16),
+    /// Accelerating drift for N frames (ASM cmd 1).
+    Drift(u16),
+    /// Drift + fire-breath cone check for N frames (ASM cmd 5).
+    DriftWithFire(u16),
+    /// Face player and set initial drift speed (ASM cmd 3). Immediate.
+    FacePlayer,
+    /// Descent attack sub-script (ASM cmd 4).
+    Descent,
+    /// Return to anchor Y position (ASM cmd 6).
+    ReturnToAnchor,
+}
+
+/// Variant 0 script (unk_34710): hover → descent → drift → hover → drift → return.
+const DRAGON_SCRIPT_0: &[DragonFlyingCmd] = &[
+    DragonFlyingCmd::Hover(0x70),       // 112 frames
+    DragonFlyingCmd::Descent,
+    DragonFlyingCmd::Drift(0x50),       // 80 frames
+    DragonFlyingCmd::Hover(0x32),       // 50 frames
+    DragonFlyingCmd::Drift(0x78),       // 120 frames
+    DragonFlyingCmd::ReturnToAnchor,
+];
+
+/// Variant 1 script (unk_34706): aggressive fire-heavy patrol.
+const DRAGON_SCRIPT_1: &[DragonFlyingCmd] = &[
+    DragonFlyingCmd::DriftWithFire(0x28), // 40 frames
+    DragonFlyingCmd::DriftWithFire(0x1E), // 30 frames
+    DragonFlyingCmd::DriftWithFire(0x32), // 50 frames
+    DragonFlyingCmd::ReturnToAnchor,
+];
+
+/// Variant 2 script (unk_346FA): long fire patrols with retargeting.
+const DRAGON_SCRIPT_2: &[DragonFlyingCmd] = &[
+    DragonFlyingCmd::DriftWithFire(0x70), // 112 frames
+    DragonFlyingCmd::DriftWithFire(0x70), // 112 frames
+    DragonFlyingCmd::FacePlayer,
+    DragonFlyingCmd::DriftWithFire(0x50), // 80 frames
+    DragonFlyingCmd::ReturnToAnchor,
+];
+
+pub(crate) fn dragon_script(variant: u8) -> &'static [DragonFlyingCmd] {
+    match variant {
+        0 => DRAGON_SCRIPT_0,
+        1 => DRAGON_SCRIPT_1,
+        _ => DRAGON_SCRIPT_2,
+    }
+}
+
+/// Descent sub-script entry: fixed velocity for N frames (unk_34554).
+#[derive(Debug, Clone, Copy)]
+enum DragonDiveAction {
+    /// Move at (x_vel, y_vel) pixels/frame for N frames. x_vel is for facing-left;
+    /// negated when facing right (ASM loc_348CE).
+    Move { x_vel: i8, y_vel: i8, frames: u8 },
+    /// Spawn fire-breath projectile (ASM $E19F sentinel).
+    SpawnFire,
+    /// Flip facing direction (ASM $DD48 sentinel).
+    FlipDirection,
+    /// Restart main flight script (ASM $D8F1 sentinel).
+    RestartScript,
+}
+
+/// Descent attack animation script (unk_34554, kid.asm:37771).
+/// U-shaped dive: descend → level out → ascend → flip → continue ascending → restart.
+const DRAGON_DIVE_SCRIPT: &[DragonDiveAction] = &[
+    DragonDiveAction::Move { x_vel: -1, y_vel:  1, frames: 12 },
+    DragonDiveAction::Move { x_vel: -1, y_vel:  2, frames:  9 },
+    DragonDiveAction::Move { x_vel: -1, y_vel:  3, frames:  6 },
+    DragonDiveAction::SpawnFire,
+    DragonDiveAction::Move { x_vel: -1, y_vel:  4, frames:  6 },
+    DragonDiveAction::Move { x_vel: -2, y_vel:  3, frames:  3 },
+    DragonDiveAction::Move { x_vel: -2, y_vel:  2, frames:  3 },
+    DragonDiveAction::Move { x_vel: -2, y_vel:  1, frames:  3 },
+    DragonDiveAction::Move { x_vel: -2, y_vel:  0, frames:  3 },
+    DragonDiveAction::Move { x_vel: -2, y_vel: -1, frames:  3 },
+    DragonDiveAction::Move { x_vel: -2, y_vel: -2, frames:  3 },
+    DragonDiveAction::Move { x_vel: -2, y_vel: -3, frames:  3 },
+    DragonDiveAction::Move { x_vel: -1, y_vel: -4, frames:  6 },
+    DragonDiveAction::FlipDirection,
+    DragonDiveAction::Move { x_vel: -1, y_vel: -3, frames:  6 },
+    DragonDiveAction::Move { x_vel: -1, y_vel: -2, frames:  9 },
+    DragonDiveAction::Move { x_vel: -1, y_vel: -1, frames: 12 },
+    DragonDiveAction::RestartScript,
+];
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct EnemyLayoutView<'a> {
@@ -598,14 +712,23 @@ pub(crate) fn activate_enemies(
             continue;
         }
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
+        // Dragon Flying uses hit_points_plus_one as script variant selector (ASM $46(a5)),
+        // not as HP. All other families treat it as enemy_level for HP scaling.
         let enemy_level = object.hit_points_plus_one.saturating_sub(1) as u8;
         let hit_points = spawn_hit_points(family, enemy_level);
+        let spawn_y = spawn_y_pos(family, object_y);
+        // Dragon Flying: variant from layout, anchor Y from spawn position (ASM $44(a5)).
+        let dragon_variant = if matches!(family, EnemyFamily::Dragon) {
+            object.hit_points_plus_one as u8
+        } else {
+            0
+        };
         active.push(ActiveEnemy {
             segment_index: view.segment_index,
             layout_index: index,
             family,
             x_pos: spawn_x_pos(family, object_x),
-            y_pos: spawn_y_pos(family, object_y),
+            y_pos: spawn_y,
             x_velocity: spawn_x_velocity(family, enemy_level),
             y_velocity: 0,
             x_acceleration: spawn_x_acceleration(family),
@@ -619,6 +742,11 @@ pub(crate) fn activate_enemies(
             wait_timer: spawn_wait_timer(family),
             dragon_phase: spawn_dragon_phase(family),
             dragon_phase_frames: 0,
+            dragon_script_variant: dragon_variant,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: spawn_y,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
             ninja_state: NinjaState::Stealth,
             hand_state: HandState::Walking,
             lion_state: LionState::Walking,
@@ -648,10 +776,14 @@ pub(crate) fn step_active_enemies(
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
             EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
             EnemyArchetype::Flyer => {
-                step_flyer(enemy, block_grid);
-                if matches!(enemy.family, EnemyFamily::UFO) {
-                    if let Some(ref mut projs) = projectiles {
-                        step_ufo_beam(enemy, projs, player_x_pos, player_y_pos);
+                if matches!(enemy.family, EnemyFamily::Dragon) {
+                    step_dragon(enemy, player_x_pos, player_y_pos, &mut projectiles);
+                } else {
+                    step_flyer(enemy, block_grid);
+                    if matches!(enemy.family, EnemyFamily::UFO) {
+                        if let Some(ref mut projs) = projectiles {
+                            step_ufo_beam(enemy, projs, player_x_pos, player_y_pos);
+                        }
                     }
                 }
             }
@@ -709,11 +841,6 @@ pub(crate) fn step_active_enemies(
 }
 
 pub(crate) fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
-    if matches!(enemy.family, EnemyFamily::Dragon) {
-        step_dragon(enemy);
-        return;
-    }
-
     // Cloud: horizontal flight with wall reversal
     if matches!(enemy.family, EnemyFamily::Cloud) {
         step_cloud(enemy, block_grid);
@@ -996,83 +1123,294 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
     }
 }
 
-// TODO(fidelity): Dragon Flying is a structural placeholder. ASM uses a
-// script-interpreter with 3 variant flight tables (unk_34710/34706/346FA),
-// acceleration-based drift ($800 start, $200/frame, cap $18000), per-frame
-// fire-breath cone check, descent-to-anchor, and collision response.
-// Native hardcodes a single 7-phase loop with none of these features.
-// See backlog #043 for full discrepancy list.
-pub(crate) fn step_dragon(enemy: &mut ActiveEnemy) {
-    enemy.x_velocity = 0;
-    enemy.y_velocity = 0;
+/// Dragon Flying script interpreter (Dragon_Flying.asm).
+/// Reads commands from one of 3 variant scripts, executing each per-frame.
+/// Commands: Hover (idle), Drift (accelerate), DriftWithFire (drift + cone check),
+/// FacePlayer (retarget), Descent (dive sub-script), ReturnToAnchor (rise to spawn Y).
+pub(crate) fn step_dragon(
+    enemy: &mut ActiveEnemy,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
     match enemy.dragon_phase {
-        DragonMotionPhase::None => {
-            enemy.facing = Direction::Left;
+        DragonFlyingState::None => {}
+        DragonFlyingState::Hovering => {
+            // Hover: zero velocity, count down frames. ASM loc_34804.
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
+            if enemy.dragon_phase_frames == 0 {
+                dragon_advance_script(enemy, player_x_pos, projectiles);
+            }
+            dragon_apply_velocity(enemy);
         }
-        DragonMotionPhase::GlideLeftToPerch => {
-            enemy.facing = Direction::Left;
-            let next_x_pos = enemy.x_pos.saturating_sub(DRAGON_DRIFT_X_SPEED_FP as u32);
-            if next_x_pos <= DRAGON_PERCH_X_FP {
-                enemy.x_pos = DRAGON_PERCH_X_FP;
-                enemy.dragon_phase = DragonMotionPhase::PerchLeft;
-                enemy.dragon_phase_frames = 0;
+        DragonFlyingState::Drifting | DragonFlyingState::DriftingWithFire => {
+            // Drift: accelerate x_velocity toward cap, count down frames.
+            // ASM loc_3478C: add/sub $200 per frame, cap at ±$18000.
+            if enemy.x_velocity > 0 {
+                enemy.x_velocity = (enemy.x_velocity + DRAGON_DRIFT_ACCEL)
+                    .min(DRAGON_DRIFT_SPEED_CAP);
+            } else if enemy.x_velocity < 0 {
+                enemy.x_velocity = (enemy.x_velocity - DRAGON_DRIFT_ACCEL)
+                    .max(-DRAGON_DRIFT_SPEED_CAP);
+            }
+            // Fire-breath cone check during DriftWithFire (ASM loc_34836).
+            if enemy.dragon_phase == DragonFlyingState::DriftingWithFire {
+                if dragon_fire_breath_cone(enemy, player_x_pos, player_y_pos) {
+                    // Cone hit: enter descent attack.
+                    dragon_enter_descent(enemy);
+                    dragon_apply_velocity(enemy);
+                    return;
+                }
+            }
+            enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
+            if enemy.dragon_phase_frames == 0 {
+                dragon_advance_script(enemy, player_x_pos, projectiles);
+            }
+            dragon_apply_velocity(enemy);
+        }
+        DragonFlyingState::Descending => {
+            step_dragon_descent(enemy, projectiles);
+            dragon_apply_velocity(enemy);
+        }
+        DragonFlyingState::ReturningToAnchor => {
+            // Return to anchor: decelerate upward. ASM loc_34B4C.
+            enemy.x_velocity = 0;
+            let anchor_y = enemy.dragon_anchor_y as i64;
+            let current_y = enemy.y_pos as i64;
+            if current_y <= anchor_y {
+                // Reached anchor: restart script. ASM bra loc_346C4.
+                dragon_restart_script(enemy);
             } else {
-                enemy.x_pos = next_x_pos;
+                // Decelerate upward: subtract $400 per frame from y_vel.
+                enemy.y_velocity -= DRAGON_RETURN_DECEL;
+                if enemy.y_velocity < DRAGON_RETURN_VEL_CAP_SOFT {
+                    // Soft cap exceeded: use hard cap. ASM loc_34B70.
+                    enemy.y_velocity = DRAGON_RETURN_VEL_CAP_HARD;
+                }
             }
-        }
-        DragonMotionPhase::PerchLeft => {
-            enemy.facing = Direction::Left;
-            if dragon_phase_elapsed(enemy, DRAGON_PERCH_LEFT_FRAMES) {
-                enemy.dragon_phase = DragonMotionPhase::TurnRightDelay;
-                enemy.dragon_phase_frames = 0;
-            }
-        }
-        DragonMotionPhase::TurnRightDelay => {
-            enemy.facing = Direction::Right;
-            if dragon_phase_elapsed(enemy, DRAGON_TURN_RIGHT_DELAY_FRAMES) {
-                enemy.dragon_phase = DragonMotionPhase::SwoopRight;
-                enemy.dragon_phase_frames = 0;
-            }
-        }
-        DragonMotionPhase::SwoopRight => {
-            enemy.facing = Direction::Right;
-            let next_x_pos = enemy.x_pos.saturating_add(DRAGON_DRIFT_X_SPEED_FP as u32);
-            if next_x_pos >= DRAGON_SWOOP_APEX_X_FP {
-                enemy.x_pos = DRAGON_SWOOP_APEX_X_FP;
-                enemy.dragon_phase = DragonMotionPhase::PerchLeftAtApex;
-                enemy.dragon_phase_frames = 0;
-            } else {
-                enemy.x_pos = next_x_pos;
-            }
-        }
-        DragonMotionPhase::PerchLeftAtApex => {
-            enemy.facing = Direction::Left;
-            if dragon_phase_elapsed(enemy, DRAGON_PERCH_LEFT_AT_APEX_FRAMES) {
-                enemy.dragon_phase = DragonMotionPhase::GlideLeftToEdge;
-                enemy.dragon_phase_frames = 0;
-            }
-        }
-        DragonMotionPhase::GlideLeftToEdge => {
-            enemy.facing = Direction::Left;
-            let next_x_pos = enemy.x_pos.saturating_sub(DRAGON_DRIFT_X_SPEED_FP as u32);
-            if next_x_pos <= DRAGON_LEFT_EDGE_STOP_FP {
-                enemy.x_pos = DRAGON_LEFT_EDGE_STOP_FP;
-                enemy.dragon_phase = DragonMotionPhase::ParkedLeft;
-                enemy.dragon_phase_frames = 0;
-            } else {
-                enemy.x_pos = next_x_pos;
-            }
-        }
-        DragonMotionPhase::ParkedLeft => {
-            enemy.facing = Direction::Left;
-            enemy.x_pos = DRAGON_LEFT_EDGE_STOP_FP;
+            dragon_apply_velocity(enemy);
         }
     }
 }
 
-pub(crate) fn dragon_phase_elapsed(enemy: &mut ActiveEnemy, phase_duration_frames: u16) -> bool {
-    enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_add(1);
-    enemy.dragon_phase_frames >= phase_duration_frames
+/// Apply velocity to position (FP16.16 arithmetic).
+fn dragon_apply_velocity(enemy: &mut ActiveEnemy) {
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+}
+
+/// Advance to the next command in the dragon's flight script.
+/// Immediate commands (FacePlayer, Reverse) execute inline and continue advancing.
+fn dragon_advance_script(
+    enemy: &mut ActiveEnemy,
+    player_x_pos: Option<u32>,
+    _projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    let script = dragon_script(enemy.dragon_script_variant);
+    loop {
+        enemy.dragon_script_cmd += 1;
+        if enemy.dragon_script_cmd as usize >= script.len() {
+            // Script end: restart. ASM $FFFF sentinel → loc_346C0.
+            dragon_restart_script(enemy);
+            return;
+        }
+        match script[enemy.dragon_script_cmd as usize] {
+            DragonFlyingCmd::Hover(frames) => {
+                enemy.dragon_phase = DragonFlyingState::Hovering;
+                enemy.dragon_phase_frames = frames;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                return;
+            }
+            DragonFlyingCmd::Drift(frames) => {
+                dragon_begin_drift(enemy, frames, false);
+                return;
+            }
+            DragonFlyingCmd::DriftWithFire(frames) => {
+                dragon_begin_drift(enemy, frames, true);
+                return;
+            }
+            DragonFlyingCmd::FacePlayer => {
+                // Immediate: face player and set initial drift speed. ASM loc_3473A.
+                if let Some(px) = player_x_pos {
+                    if enemy.x_pos > px {
+                        enemy.facing = Direction::Left;
+                        enemy.x_velocity = -DRAGON_FACE_PLAYER_SPEED;
+                    } else {
+                        enemy.facing = Direction::Right;
+                        enemy.x_velocity = DRAGON_FACE_PLAYER_SPEED;
+                    }
+                }
+                // Continue to next command immediately (no frame consumed).
+            }
+            DragonFlyingCmd::Descent => {
+                dragon_enter_descent(enemy);
+                return;
+            }
+            DragonFlyingCmd::ReturnToAnchor => {
+                enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                return;
+            }
+        }
+    }
+}
+
+/// Begin a drift command: set initial speed and direction. ASM loc_34776.
+fn dragon_begin_drift(enemy: &mut ActiveEnemy, frames: u16, with_fire: bool) {
+    enemy.dragon_phase = if with_fire {
+        DragonFlyingState::DriftingWithFire
+    } else {
+        DragonFlyingState::Drifting
+    };
+    enemy.dragon_phase_frames = frames;
+    // Initial drift speed: $800, direction-dependent. ASM loc_34776.
+    enemy.x_velocity = match enemy.facing {
+        Direction::Right => DRAGON_DRIFT_INITIAL_SPEED,
+        Direction::Left => -DRAGON_DRIFT_INITIAL_SPEED,
+    };
+}
+
+/// Restart the flight script from the beginning. ASM loc_346C0 → loc_346C4.
+fn dragon_restart_script(enemy: &mut ActiveEnemy) {
+    enemy.dragon_script_cmd = 0;
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    let script = dragon_script(enemy.dragon_script_variant);
+    match script[0] {
+        DragonFlyingCmd::Hover(frames) => {
+            enemy.dragon_phase = DragonFlyingState::Hovering;
+            enemy.dragon_phase_frames = frames;
+        }
+        DragonFlyingCmd::Drift(frames) => dragon_begin_drift(enemy, frames, false),
+        DragonFlyingCmd::DriftWithFire(frames) => dragon_begin_drift(enemy, frames, true),
+        _ => {
+            enemy.dragon_phase = DragonFlyingState::Hovering;
+            enemy.dragon_phase_frames = 1;
+        }
+    }
+}
+
+/// Enter the descent attack sub-script. ASM loc_3487E.
+fn dragon_enter_descent(enemy: &mut ActiveEnemy) {
+    enemy.dragon_phase = DragonFlyingState::Descending;
+    enemy.dragon_descent_index = 0;
+    enemy.dragon_descent_frames = 0;
+    // First entry will be processed immediately in step_dragon_descent.
+}
+
+/// Step through the descent attack sub-script (unk_34554).
+/// Each entry sets fixed x/y velocities for N frames. Special entries
+/// spawn fire, flip direction, or restart the main script.
+fn step_dragon_descent(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    loop {
+        if enemy.dragon_descent_index as usize >= DRAGON_DIVE_SCRIPT.len() {
+            // Shouldn't happen — script ends with RestartScript.
+            dragon_restart_script(enemy);
+            return;
+        }
+        match DRAGON_DIVE_SCRIPT[enemy.dragon_descent_index as usize] {
+            DragonDiveAction::Move { x_vel, y_vel, frames } => {
+                if enemy.dragon_descent_frames == 0 {
+                    // Start this entry: set velocities (pixel/frame → FP16.16).
+                    let xv = i32::from(x_vel) << 16;
+                    let yv = i32::from(y_vel) << 16;
+                    // x_vel is for facing-left; negate when facing right. ASM loc_348CE.
+                    enemy.x_velocity = if enemy.facing == Direction::Right { -xv } else { xv };
+                    enemy.y_velocity = yv;
+                    enemy.dragon_descent_frames = frames;
+                }
+                enemy.dragon_descent_frames -= 1;
+                if enemy.dragon_descent_frames == 0 {
+                    enemy.dragon_descent_index += 1;
+                }
+                return; // Consume one frame.
+            }
+            DragonDiveAction::SpawnFire => {
+                // Spawn fire-breath projectile during descent. ASM $E19F.
+                if let Some(projs) = projectiles {
+                    let breath_speed = match enemy.facing {
+                        Direction::Right => DRAGON_WALKING_BREATH_SPEED,
+                        Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
+                    };
+                    projs.push(EnemyProjectile {
+                        x_pos: enemy.x_pos,
+                        y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
+                        x_velocity: breath_speed,
+                        y_velocity: 0,
+                        lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+                        gravity: 0,
+                        friendly: false,
+                        homing: false,
+                    });
+                }
+                enemy.dragon_descent_index += 1;
+                // Immediate — continue to next entry without consuming a frame.
+            }
+            DragonDiveAction::FlipDirection => {
+                // Flip facing direction. ASM $DD48.
+                enemy.facing = match enemy.facing {
+                    Direction::Left => Direction::Right,
+                    Direction::Right => Direction::Left,
+                };
+                enemy.dragon_descent_index += 1;
+                // Immediate — continue.
+            }
+            DragonDiveAction::RestartScript => {
+                // Descent complete: restart main flight script. ASM $D8F1.
+                dragon_restart_script(enemy);
+                return;
+            }
+        }
+    }
+}
+
+/// Fire-breath cone check (ASM loc_34836).
+/// Returns true if the player is within the dragon's breath cone.
+/// Cone geometry: player must be below dragon (Y >= dragon Y), and within
+/// a triangular region defined by the relative position and facing direction.
+/// The cone is 3:1 aspect (3× lateral distance = vertical threshold).
+fn dragon_fire_breath_cone(
+    enemy: &ActiveEnemy,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) -> bool {
+    let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+        return false;
+    };
+    let dragon_x = (enemy.x_pos >> 16) as i32;
+    let dragon_y = (enemy.y_pos >> 16) as i32;
+    let player_x = (px >> 16) as i32;
+    let player_y = (py >> 16) as i32;
+
+    // Player must be at or below dragon. ASM: cmp.w y_pos(a4),y_pos(a3) / blt return.
+    if player_y < dragon_y {
+        return false;
+    }
+
+    // Compute lateral distance and cone threshold.
+    // ASM: d7 = dragon_x - player_x, then d7 = d7*3 (or d7*2+abs for facing).
+    // The exact ASM: d7=dx, d6=dx, d7=d7+d7+d6=3*dx.
+    // If facing right: d7 = d7 - d6 then neg → d7 = -(3*dx - dx) = -2*dx.
+    // Wait, re-reading: d7=dx, d6=dx, d7+=d7 (d7=2*dx), d7+=d6 (d7=3*dx).
+    // If facing right (x_direction set): sub d6 from d7 → d7=2*dx, then neg → -2*dx.
+    let dx = dragon_x - player_x;
+    let d7 = if enemy.facing == Direction::Right {
+        -(dx * 2)
+    } else {
+        dx * 3
+    };
+
+    // Cone Y range: [d7 + dragon_y - 8, d7 + dragon_y].
+    // Player Y must be within this range. ASM loc_34860-34878.
+    let cone_y = d7 + dragon_y;
+    player_y >= (cone_y - 8) && player_y <= cone_y
 }
 
 pub(crate) fn enemy_should_remain_active(
@@ -2651,10 +2989,10 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
     }
 }
 
-pub(crate) fn spawn_dragon_phase(family: EnemyFamily) -> DragonMotionPhase {
+pub(crate) fn spawn_dragon_phase(family: EnemyFamily) -> DragonFlyingState {
     match family {
-        EnemyFamily::Dragon => DragonMotionPhase::GlideLeftToPerch,
-        _ => DragonMotionPhase::None,
+        EnemyFamily::Dragon => DragonFlyingState::Hovering,
+        _ => DragonFlyingState::None,
     }
 }
 

@@ -49,12 +49,14 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
 | 041 | [x] | P2 | enemy | Hand jump velocity fixed, should be randomised per-tier | Hand matches ASM jump tables |
 | 042 | [x] | P2 | enemy | Tornado acceleration $300 should be $C00, level-dependent timer | Tornado matches ASM init table |
-| 043 | [ ] | P2 | enemy | Dragon Flying is structural placeholder (3 variant scripts) | Dragon Flying matches ASM flight scripts |
+| 043 | [x] | P2 | enemy | Dragon Flying is structural placeholder (3 variant scripts) | Dragon Flying matches ASM flight scripts |
 | 044 | [ ] | P3 | enemy | Lion projectile wall-bounce and per-enemy homing accel | Projectile bounces off terrain |
 | 045 | [ ] | P3 | enemy | Hand player-grab mechanic missing entirely | Hand grabs and drags player |
 | 046 | [ ] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
 | 047 | [ ] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM full behaviour |
 | 048 | [ ] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
+| 049 | [ ] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |
+| 050 | [ ] | P3 | fidelity | 4 levels show idle_tail position diffs from enemy/timing divergence | Idle parity on 0x00,0x45,0x48,0x61 |
 
 ## Investigation notes
 
@@ -162,3 +164,20 @@ ASM selection at loc_9AFC checks Micromax (+$1C) and Juggernaut (+$38) independe
 The 4th entry at offset +$54 is only reachable if BOTH checks matched simultaneously,
 which can't happen (one helmet at a time). Dead data — likely a cut form or dev remnant.
 Values: $20000/$4000/$2800/$4000/$30000/$3800/$6000 (similar to Juggernaut but higher accel).
+
+### 049 — Level 0x29 X position diff (INVESTIGATING)
+5px consistent X diff: native=672, oracle=677. Camera_x also 5px off. Header has
+player_start_x=0x02A0 (672). Both parse the same header. The diff likely comes from
+slope-sliding during gravity settling: the oracle runs real physics where the player
+slides along a slope while falling, accumulating +5px X. Native floor-snap only
+adjusts Y. Fix: extend floor-snap camera simulation to include X settling too.
+
+### 050 — Idle-tail position diffs on 4 levels (INVESTIGATING)
+Levels 0x00, 0x45, 0x48, 0x61 show wildly different positions at idle_tail (frame ~359).
+- 0x00: game_mode native=InGame(0x0C) oracle=LevelTransition(0x08) — oracle's warp
+  to level 0 is slower, still in level-name-card at frame 359
+- 0x45, 0x61: native positions zeroed out (player fell off map or died)
+- 0x48: large position divergence (different death timing)
+Root cause: combination of oracle warp timing differences and enemy interaction timing.
+These are not simple constant fixes — they require either matching oracle warp timing
+exactly or increasing settle frames in scenarios.
