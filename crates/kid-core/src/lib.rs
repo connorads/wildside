@@ -547,7 +547,7 @@ struct EnemyDeathEffect {
 }
 
 /// A lift block that has been activated and is now a moving platform.
-/// Rises for ~50 frames then falls until off-screen.
+/// ASM coroutine (sub_113C0): rise 2px/frame × 8, erase block, fall 1px/frame × 16, delete.
 #[derive(Debug, Clone)]
 struct LiftPlatform {
     x_pos: u32,
@@ -557,6 +557,12 @@ struct LiftPlatform {
     age: u16,
     /// Width in pixels (one block = 16px).
     width_px: u16,
+    /// Grid column of the source block (for erasing after rise phase).
+    source_col: u16,
+    /// Grid row of the source block.
+    source_row: u16,
+    /// Whether the source block has been erased from the grid.
+    block_erased: bool,
 }
 
 /// A lava geyser that erupts periodically from a fixed position.
@@ -1059,14 +1065,12 @@ const MICROMAX_DETACH_Y_VEL: i32 = -0x4_0000;
 /// Micromax detach X speed: 2.0 FP (kick away from surface).
 const MICROMAX_DETACH_X_SPEED: i32 = 0x2_0000;
 
-/// Lift block: upward acceleration (first 50 frames).
-// TODO(fidelity): ASM lift (sub_113C0) is a coroutine animation: 2px/frame up × 8
-// frames, erase block, then 1px/frame down × 16 frames. Native uses accel-based physics.
-const LIFT_ACCEL_UP: i32 = -0x708;
-/// Lift block: downward acceleration (after 50 frames).
-const LIFT_ACCEL_DOWN: i32 = 0x7D0;
-/// Lift block: frames of upward phase before switching to fall.
-const LIFT_RISE_FRAMES: u16 = 50;
+/// Lift block rise: 2px/frame × 8 frames (ASM sub_113C0 loc_113F4: dbf d0=#7, subq.w #2).
+const LIFT_RISE_SPEED_PX: i32 = 2;
+const LIFT_RISE_FRAMES: u16 = 8;
+/// Lift block fall: 1px/frame × 16 frames (ASM sub_113C0 loc_1141E: dbf d0=#$F, subq.w #1).
+const LIFT_FALL_SPEED_PX: i32 = 1;
+const LIFT_FALL_FRAMES: u16 = 16;
 
 /// Murder wall: an advancing wall that kills the player on contact.
 /// Accelerates from zero to max_speed at $100/frame.
@@ -2299,14 +2303,19 @@ impl NativeRuntime {
             });
         }
 
-        // Lift block: headbutt spawns a rising platform
+        // Lift block: headbutt spawns a rising platform (ASM sub_113C0)
         if let Some((x_px, y_px)) = slice.lift_block_hit {
+            let col = x_px / 16;
+            let row = y_px / 16;
             self.lift_platforms.push(LiftPlatform {
                 x_pos: u32::from(x_px) << 16,
                 y_pos: u32::from(y_px) << 16,
                 y_velocity: 0,
                 age: 0,
                 width_px: 16,
+                source_col: col,
+                source_row: row,
+                block_erased: false,
             });
         }
 
@@ -5442,49 +5451,45 @@ mod tests {
     }
 
     #[test]
-    fn lift_platform_rises_then_falls() {
-        let mut lift = LiftPlatform {
+    fn lift_platform_rises_then_falls_asm_timing() {
+        // ASM sub_113C0: 2px/frame × 8 frames up, then 1px/frame × 16 frames down
+        let start_y: u32 = 100 << 16;
+        let lift = LiftPlatform {
             x_pos: 32 << 16,
-            y_pos: 100 << 16,
+            y_pos: start_y,
             y_velocity: 0,
             age: 0,
             width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: false,
         };
 
-        // After a few frames, velocity should be negative (rising)
-        for _ in 0..10 {
-            lift.age += 1;
-            let accel = if lift.age <= LIFT_RISE_FRAMES {
-                LIFT_ACCEL_UP
-            } else {
-                LIFT_ACCEL_DOWN
-            };
-            lift.y_velocity += accel;
-            let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
-            lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+        // Simulate rise: 8 frames × 2px/frame = 16px up
+        let mut rt = NativeRuntime::new(manifest());
+        rt.lift_platforms.push(lift);
+        let bounds = LevelBounds {
+            width_pixels: 320,
+            height_pixels: 256,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 0; // away from platform
+        for _ in 0..8 {
+            rt.step_lift_platforms(&mut slice);
         }
-        assert!(
-            lift.y_velocity < 0,
-            "lift should be rising in first 10 frames"
-        );
-        let pos_after_rise = lift.y_pos;
-        assert!(pos_after_rise < (100 << 16), "lift should have moved up");
+        assert_eq!(rt.lift_platforms.len(), 1);
+        let y_after_rise = rt.lift_platforms[0].y_pos >> 16;
+        assert_eq!(y_after_rise, 100 - 16, "should rise 16px in 8 frames");
 
-        // After ~120 frames total, enough downward accel to reverse
-        for _ in 0..110 {
-            lift.age += 1;
-            let accel = if lift.age <= LIFT_RISE_FRAMES {
-                LIFT_ACCEL_UP
-            } else {
-                LIFT_ACCEL_DOWN
-            };
-            lift.y_velocity += accel;
-            let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
-            lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+        // Simulate fall: 16 frames × 1px/frame = 16px down
+        for _ in 0..16 {
+            rt.step_lift_platforms(&mut slice);
         }
+        // After 24 total frames the last fall frame runs; frame 25 deletes
+        rt.step_lift_platforms(&mut slice);
         assert!(
-            lift.y_velocity > 0,
-            "lift should be falling after enough frames"
+            rt.lift_platforms.is_empty(),
+            "lift should be deleted after rise+fall phases"
         );
     }
 

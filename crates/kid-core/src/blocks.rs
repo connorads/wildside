@@ -176,28 +176,40 @@ impl NativeRuntime {
         grid.set_cell_at(col, foot_row, terrain::Cell::from_be_bytes(0, 0));
     }
 
-    /// Step lift platforms: accelerate, move, remove when off-screen.
+    /// Step lift platforms using ASM coroutine timing (sub_113C0).
+    /// Phase 1 (rise): 2px/frame up × 8 frames.
+    /// Phase 2 (erase): block erased from grid at frame 8.
+    /// Phase 3 (fall): 1px/frame down × 16 frames, then delete.
     pub(crate) fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
-        let level_height = self.level_bounds(self.current_level).height_pixels as u32;
-
         self.lift_platforms.retain_mut(|lift| {
             lift.age += 1;
 
-            // Acceleration: up for first LIFT_RISE_FRAMES, then down
-            let accel = if lift.age <= LIFT_RISE_FRAMES {
-                LIFT_ACCEL_UP
+            if lift.age <= LIFT_RISE_FRAMES {
+                // Phase 1: rise at 2px/frame
+                let delta = -(i32::from(LIFT_RISE_SPEED_PX) << 16);
+                lift.y_velocity = delta;
+                lift.y_pos = (i64::from(lift.y_pos) + i64::from(delta))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
+            } else if lift.age <= LIFT_RISE_FRAMES + LIFT_FALL_FRAMES {
+                // Phase 2: erase block from grid (once, at start of fall phase)
+                if !lift.block_erased {
+                    if let Some(grid) = &mut self.block_grid {
+                        grid.set_cell_at(
+                            lift.source_col,
+                            lift.source_row,
+                            terrain::Cell::from_be_bytes(0, 0),
+                        );
+                    }
+                    lift.block_erased = true;
+                }
+
+                // Phase 3: fall at 1px/frame
+                let delta = i32::from(LIFT_FALL_SPEED_PX) << 16;
+                lift.y_velocity = delta;
+                lift.y_pos = (i64::from(lift.y_pos) + i64::from(delta))
+                    .clamp(0, i64::from(u32::MAX)) as u32;
             } else {
-                LIFT_ACCEL_DOWN
-            };
-            lift.y_velocity += accel;
-
-            // Apply velocity
-            let next_y = i64::from(lift.y_pos) + i64::from(lift.y_velocity);
-            lift.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-
-            // Remove if below level
-            let y_px = lift.y_pos >> 16;
-            if y_px > u32::from(level_height) + 32 {
+                // Phase 4: delete
                 return false;
             }
 
