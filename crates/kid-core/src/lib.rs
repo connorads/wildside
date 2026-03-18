@@ -178,7 +178,7 @@ impl GameMode {
             Self::IntroSequence4 => 0x0020,
             Self::IntroSequence5 => 0x0024,
             Self::TitleScreen => 0x002C,
-            Self::OptionsMenu => 0x0028,
+            Self::OptionsMenu => 0x0014,
             Self::LevelTransition => 0x0008,
             Self::InGame => 0x000C,
             Self::DemoPlay => 0x0010,
@@ -1478,6 +1478,7 @@ impl NativeRuntime {
             // Start button aborts demo → return to title
             if input.start && !self.previous_input.start {
                 self.boot_state = BootState::TitleScreen;
+                self.title_idle_frames = 0;
                 self.opening_slice = None;
                 self.active_enemies.clear();
                 self.active_enemy_roster.clear();
@@ -1492,6 +1493,7 @@ impl NativeRuntime {
             // Auto-end after DEMO_MAX_FRAMES
             if *frame_counter >= demo::DEMO_MAX_FRAMES {
                 self.boot_state = BootState::TitleScreen;
+                self.title_idle_frames = 0;
                 self.opening_slice = None;
                 self.active_enemies.clear();
                 self.active_enemy_roster.clear();
@@ -1572,6 +1574,7 @@ impl NativeRuntime {
                 *elapsed += 1;
                 if start_pressed || *elapsed >= INTRO_SEGMENT_FRAMES {
                     if *segment >= 4 {
+                        self.title_idle_frames = 0;
                         self.boot_state = BootState::TitleScreen;
                     } else {
                         *segment += 1;
@@ -1633,6 +1636,7 @@ impl NativeRuntime {
                 }
                 // A/C on "EXIT" or Start/B exits back to title
                 else if (cur == 2 && (a_pressed || c_pressed)) || start_pressed || b_pressed {
+                    self.title_idle_frames = 0;
                     self.boot_state = BootState::TitleScreen;
                 }
             }
@@ -1683,6 +1687,7 @@ impl NativeRuntime {
                 if *elapsed >= total_ending_frames {
                     // Return to title screen after credits
                     self.boot_state = BootState::TitleScreen;
+                    self.title_idle_frames = 0;
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.number_lives = 3;
                     self.number_continues = 3;
@@ -3001,6 +3006,11 @@ mod tests {
         assert!(trace[f].active_objects.is_empty());
         assert_eq!(trace[f].number_objects, 4);
         assert_eq!(trace[f].number_gfx_objects, 4);
+    }
+
+    #[test]
+    fn options_menu_uses_disassembly_mode_value() {
+        assert_eq!(GameMode::OptionsMenu.as_disassembly_value(), 0x0014);
     }
 
     #[test]
