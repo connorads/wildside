@@ -456,6 +456,8 @@ pub struct NativeRuntime {
     score: u32,
     /// Diamond Power active: grants invulnerability and clears nearby enemies.
     diamond_power_frames: u16,
+    /// Which Diamond Power type is currently active (determines behaviour).
+    diamond_power_type: helmets::DiamondPowerType,
     /// Player has beaten the final level — show victory/ending.
     game_complete: bool,
     evanescent_blocks: Vec<EvanescentEntry>,
@@ -1216,6 +1218,7 @@ impl NativeRuntime {
             diamond_count: 0,
             score: 0,
             diamond_power_frames: 0,
+            diamond_power_type: helmets::DiamondPowerType::None,
             game_complete: false,
             evanescent_blocks: Vec::new(),
             ghost_groups: Vec::new(),
@@ -5562,6 +5565,97 @@ mod tests {
         assert_eq!(
             runtime.diamond_power_frames, 0,
             "Eyeclops cannot use Diamond Power"
+        );
+    }
+
+    #[test]
+    fn diamond_power_juggernaut_costs_5_diamonds() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.current_form = PlayerForm::Juggernaut;
+        runtime.diamond_count = 10;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert!(runtime.diamond_power_frames > 0, "Juggernaut 5-Way Shot should activate");
+        assert_eq!(runtime.diamond_count, 5, "Juggernaut costs 5 diamonds");
+        assert_eq!(
+            runtime.diamond_power_type,
+            helmets::DiamondPowerType::FiveWayShot
+        );
+    }
+
+    #[test]
+    fn diamond_power_iron_knight_tier2_grants_hp() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.current_form = PlayerForm::IronKnight;
+        runtime.diamond_count = 55;
+        let hp_before = runtime.number_hitpoints;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.number_hitpoints,
+            hp_before + 1,
+            "IronKnight tier2 grants +1 HP"
+        );
+    }
+
+    #[test]
+    fn diamond_power_maniaxe_tier2_grants_life() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.current_form = PlayerForm::Maniaxe;
+        runtime.diamond_count = 55;
+        let lives_before = runtime.number_lives;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            runtime.number_lives,
+            lives_before + 1,
+            "Maniaxe tier2 grants +1 life"
+        );
+    }
+
+    #[test]
+    fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.current_form = PlayerForm::Cyclone;
+        runtime.diamond_count = 25;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(runtime.diamond_power_frames, 720, "SlashingRain = 720f");
+        // Step a few frames — rain should spawn projectiles
+        for _ in 0..20 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            !runtime.projectiles.is_empty(),
+            "SlashingRain should spawn projectiles"
         );
     }
 

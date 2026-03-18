@@ -1,5 +1,77 @@
 use super::*;
 
+/// Diamond Power type active for the current activation.
+/// ASM: DiamondPower_Init_Index (kid.asm:44375) maps form+tier to power type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum DiamondPowerType {
+    #[default]
+    None,
+    /// Kid/IronKnight(T1)/Maniaxe(T1): orbiting diamonds damage enemies on contact.
+    CircleOfDoom,
+    /// Skycutter(T1)/Berzerker(T1): pure invulnerability, 480f.
+    Invulnerability,
+    /// RedStealth(T1): invulnerability variant, 480f.
+    SamuraiHaze,
+    /// Cyclone(T1): projectiles rain from top of screen, 720f.
+    SlashingRain,
+    /// Cyclone(T2): longer rain with tracking, 1800f.
+    TrackingRain,
+    /// Juggernaut: 5 projectiles in spread, costs 5 diamonds, 80f.
+    FiveWayShot,
+    /// Micromax(T1): 6 forward-firing diamond chain, 480f.
+    MiniSnake,
+    /// Micromax(T2)/Kid(T2)/Skycutter(T2)/RedStealth(T2): faster snake, 1200f.
+    DeathSnake,
+    /// IronKnight(T2): instant +1 HP.
+    ExtraHitPoint,
+    /// Maniaxe(T2): instant +1 life.
+    ExtraLife,
+    /// Berzerker(T2): vertical diamond wall slides across screen, 1200f.
+    WallOfDeath,
+}
+
+/// Map form + tier to Diamond Power type. ASM: DiamondPower_Init_Index.
+pub(crate) fn diamond_power_for_form(form: PlayerForm, tier2: bool) -> DiamondPowerType {
+    match (form, tier2) {
+        (PlayerForm::TheKid, false) => DiamondPowerType::CircleOfDoom,
+        (PlayerForm::TheKid, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Skycutter, false) => DiamondPowerType::Invulnerability,
+        (PlayerForm::Skycutter, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Cyclone, false) => DiamondPowerType::SlashingRain,
+        (PlayerForm::Cyclone, true) => DiamondPowerType::TrackingRain,
+        (PlayerForm::RedStealth, false) => DiamondPowerType::SamuraiHaze,
+        (PlayerForm::RedStealth, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Eyeclops, _) => DiamondPowerType::None, // blocked
+        (PlayerForm::Juggernaut, _) => DiamondPowerType::FiveWayShot,
+        (PlayerForm::IronKnight, false) => DiamondPowerType::CircleOfDoom,
+        (PlayerForm::IronKnight, true) => DiamondPowerType::ExtraHitPoint,
+        (PlayerForm::Berzerker, false) => DiamondPowerType::Invulnerability,
+        (PlayerForm::Berzerker, true) => DiamondPowerType::WallOfDeath,
+        (PlayerForm::Maniaxe, false) => DiamondPowerType::CircleOfDoom,
+        (PlayerForm::Maniaxe, true) => DiamondPowerType::ExtraLife,
+        (PlayerForm::Micromax, false) => DiamondPowerType::MiniSnake,
+        (PlayerForm::Micromax, true) => DiamondPowerType::DeathSnake,
+    }
+}
+
+/// Duration in frames for each Diamond Power type.
+pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
+    match power {
+        DiamondPowerType::None => 0,
+        DiamondPowerType::CircleOfDoom => 480,     // indefinite in ASM, use 480 as practical limit
+        DiamondPowerType::Invulnerability => 480,   // $1E0
+        DiamondPowerType::SamuraiHaze => 480,       // $1E0
+        DiamondPowerType::SlashingRain => 720,      // $2D0
+        DiamondPowerType::TrackingRain => 1800,     // $708
+        DiamondPowerType::FiveWayShot => 80,        // $50
+        DiamondPowerType::MiniSnake => 480,         // $1E0
+        DiamondPowerType::DeathSnake => 1200,       // $4B0
+        DiamondPowerType::ExtraHitPoint => 0,       // instant
+        DiamondPowerType::ExtraLife => 0,            // instant
+        DiamondPowerType::WallOfDeath => 1200,      // $4B0
+    }
+}
+
 impl NativeRuntime {
     pub(crate) fn step_skycutter_flipboard(
         &mut self,
@@ -698,43 +770,114 @@ impl NativeRuntime {
     ///
     /// Two tiers: 20 diamonds = basic power, 50 diamonds (20+30) = enhanced power.
     /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
-    ///
-    /// TODO(fidelity): per-form Diamond Power effects — currently approximated as
-    /// invulnerability + AoE damage for all forms. ASM has 20 unique effects:
-    /// Kid/IronKnight/Maniaxe=CircleOfDoom, Skycutter/Berzerker=Invulnerability,
-    /// Cyclone=SlashingRain/TrackingRain, RedStealth=SamuraiHaze/DeathSnake,
-    /// Juggernaut=FiveWayShot(5 diamonds), Micromax=MiniSnake/SwiftMiniSnake.
-    /// Tier 2: Kid/RedStealth=DeathSnake, IronKnight=ExtraHitPoint,
-    /// Berzerker=WallOfDeath, Maniaxe=ExtraLife. Timer varies per power type.
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
         // Count down active Diamond Power
         if self.diamond_power_frames > 0 {
             self.diamond_power_frames -= 1;
-            self.invulnerable_frames = self.invulnerable_frames.max(1);
 
-            // Damage all active non-diamond enemies each frame of Diamond Power
-            let mut kill_indices = Vec::new();
-            for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
-                if matches!(enemy.family, EnemyFamily::Diamond) {
-                    continue;
+            match self.diamond_power_type {
+                DiamondPowerType::CircleOfDoom
+                | DiamondPowerType::WallOfDeath => {
+                    // AoE damage: kill enemies each frame (orbiting diamonds / wall)
+                    self.invulnerable_frames = self.invulnerable_frames.max(1);
+                    self.diamond_power_kill_enemies();
                 }
-                enemy.hit_points = enemy.hit_points.saturating_sub(1);
-                if enemy.hit_points == 0 {
-                    kill_indices.push(i);
-                } else {
-                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                DiamondPowerType::Invulnerability
+                | DiamondPowerType::SamuraiHaze => {
+                    // Pure invulnerability, no AoE damage
+                    self.invulnerable_frames = self.invulnerable_frames.max(1);
                 }
+                DiamondPowerType::SlashingRain
+                | DiamondPowerType::TrackingRain => {
+                    // Rain projectiles from top of screen every 4 frames
+                    if self.diamond_power_frames % 4 == 0 && self.projectiles.len() < MAX_PROJECTILES {
+                        let slice = self.opening_slice.as_ref();
+                        let cam_x = slice.map(|s| s.camera.x_pos).unwrap_or(0);
+                        // Random-ish X across screen width (320px)
+                        let offset = ((self.diamond_power_frames as u32).wrapping_mul(137)) % 320;
+                        let rain_x = (cam_x as i64 + ((offset as i64) << 16)) as u32;
+                        let rain_y = slice.map(|s| s.camera.y_pos).unwrap_or(0);
+                        self.projectiles.push(EnemyProjectile {
+                            x_pos: rain_x,
+                            y_pos: rain_y,
+                            x_velocity: 0,
+                            y_velocity: 0x3_0000, // fast downward
+                            lifetime: 60,
+                            gravity: 0,
+                            friendly: true, // damages enemies, not player
+                            homing_accel: 0,
+                            speed_cap: 0,
+                            wall_bounce: false,
+                        });
+                    }
+                }
+                DiamondPowerType::FiveWayShot => {
+                    // 5-way spread on first frame only
+                    if self.diamond_power_frames == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1 {
+                        let slice = self.opening_slice.as_ref();
+                        let (px, py) = slice
+                            .map(|s| (s.player.x_pos, s.player.y_pos))
+                            .unwrap_or((0, 0));
+                        let spreads: [(i32, i32); 5] = [
+                            (0x4_0000, -0x2_0000),  // far right, up
+                            (0x2_0000, -0x3_0000),  // right, steep up
+                            (0, -0x4_0000),         // straight up
+                            (-0x2_0000, -0x3_0000), // left, steep up
+                            (-0x4_0000, -0x2_0000), // far left, up
+                        ];
+                        for (xv, yv) in spreads {
+                            if self.projectiles.len() < MAX_PROJECTILES {
+                                self.projectiles.push(EnemyProjectile {
+                                    x_pos: px,
+                                    y_pos: py,
+                                    x_velocity: xv,
+                                    y_velocity: yv,
+                                    lifetime: 60,
+                                    gravity: 0x2000,
+                                    friendly: true,
+                                    homing_accel: 0,
+                                    speed_cap: 0,
+                                    wall_bounce: false,
+                                });
+                            }
+                        }
+                    }
+                }
+                DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake => {
+                    // Forward-firing diamond chain: spawn projectile every 8 frames
+                    self.invulnerable_frames = self.invulnerable_frames.max(1);
+                    if self.diamond_power_frames % 8 == 0 && self.projectiles.len() < MAX_PROJECTILES {
+                        let slice = self.opening_slice.as_ref();
+                        let (px, py, facing) = slice
+                            .map(|s| {
+                                (s.player.x_pos, s.player.y_pos, s.player.facing)
+                            })
+                            .unwrap_or((0, 0, Direction::Right));
+                        let speed = if self.diamond_power_type == DiamondPowerType::MiniSnake {
+                            0x3_0000 // 0x300 scaled
+                        } else {
+                            0x4_0000 // 0x400 scaled
+                        };
+                        let xv = if facing == Direction::Right { speed } else { -speed };
+                        self.projectiles.push(EnemyProjectile {
+                            x_pos: px,
+                            y_pos: py,
+                            x_velocity: xv,
+                            y_velocity: 0,
+                            lifetime: 90,
+                            gravity: 0,
+                            friendly: true,
+                            homing_accel: 0,
+                            speed_cap: 0,
+                            wall_bounce: false,
+                        });
+                    }
+                }
+                DiamondPowerType::None | DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife => {}
             }
-            for &idx in kill_indices.iter().rev() {
-                self.active_enemies.remove(idx);
-                self.add_score(1000);
-            }
-            if !kill_indices.is_empty() {
-                self.active_enemy_roster = self
-                    .active_enemies
-                    .iter()
-                    .map(ActiveEnemy::snapshot)
-                    .collect();
+
+            if self.diamond_power_frames == 0 {
+                self.diamond_power_type = DiamondPowerType::None;
             }
             return;
         }
@@ -747,24 +890,69 @@ impl NativeRuntime {
         if self.current_form == PlayerForm::Eyeclops {
             return;
         }
-        if self.diamond_count < 20 {
+
+        // Juggernaut 5-Way Shot only costs 5 diamonds (ASM: special case)
+        let cost = if self.current_form == PlayerForm::Juggernaut { 5 } else { 20 };
+        if self.diamond_count < cost {
             return;
         }
 
         // Two-tier diamond cost (ASM: DiamondPower_Check):
-        // Always costs 20. If remaining >= 30 after first deduction, costs 30 more
-        // (50 total) for enhanced tier-2 power.
-        self.diamond_count -= 20;
-        let _tier2 = if self.diamond_count >= 30 {
+        // Always costs base amount. If remaining >= 30 after first deduction, costs 30 more
+        // (50 total for non-Juggernaut) for enhanced tier-2 power.
+        self.diamond_count -= cost;
+        let tier2 = if self.current_form != PlayerForm::Juggernaut && self.diamond_count >= 30 {
             self.diamond_count -= 30;
             true
         } else {
             false
         };
 
-        // Timer: 480 frames (0x1E0) for most powers. Varies per form in full ASM:
-        // MiniSnake=480, SwiftMiniSnake/DeathSnake=1200(0x4B0),
-        // SlashingRain=720(0x2D0), TrackingRain=1800(0x708).
-        self.diamond_power_frames = 480;
+        let power = diamond_power_for_form(self.current_form, tier2);
+        self.diamond_power_type = power;
+
+        // Instant effects (no timer)
+        match power {
+            DiamondPowerType::ExtraHitPoint => {
+                self.number_hitpoints = self.number_hitpoints.saturating_add(1);
+                self.diamond_power_frames = 1; // single frame for visual feedback
+                return;
+            }
+            DiamondPowerType::ExtraLife => {
+                self.number_lives = self.number_lives.saturating_add(1);
+                self.diamond_power_frames = 1;
+                return;
+            }
+            _ => {}
+        }
+
+        self.diamond_power_frames = diamond_power_duration(power);
+    }
+
+    /// AoE damage helper: kill all non-diamond enemies (used by CircleOfDoom, WallOfDeath).
+    fn diamond_power_kill_enemies(&mut self) {
+        let mut kill_indices = Vec::new();
+        for (i, enemy) in self.active_enemies.iter_mut().enumerate() {
+            if matches!(enemy.family, EnemyFamily::Diamond) {
+                continue;
+            }
+            enemy.hit_points = enemy.hit_points.saturating_sub(1);
+            if enemy.hit_points == 0 {
+                kill_indices.push(i);
+            } else {
+                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            }
+        }
+        for &idx in kill_indices.iter().rev() {
+            self.active_enemies.remove(idx);
+            self.add_score(1000);
+        }
+        if !kill_indices.is_empty() {
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+        }
     }
 }
