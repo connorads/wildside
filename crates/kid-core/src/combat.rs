@@ -161,6 +161,7 @@ impl NativeRuntime {
                 hit_points: Some(enemy.hit_points),
                 damage_flash: false,
                 palette_variant: enemy.palette_variant,
+                stationary: false,
             };
             if player_touches_enemy(slice.player, &snapshot) {
                 collected_indices.push(i);

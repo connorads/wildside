@@ -213,7 +213,11 @@ pub(super) fn push_player_sprite(
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    stationary: bool,
 ) -> &'a kid_render::SpriteFrame {
+    if stationary {
+        return &enemy_visuals.frames[0];
+    }
     let frame_index =
         (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len();
     &enemy_visuals.frames[frame_index]
@@ -239,7 +243,7 @@ pub(super) fn push_enemy_sprite(
         }
     };
 
-    let frame = select_enemy_frame(trace, enemy_visuals);
+    let frame = select_enemy_frame(trace, enemy_visuals, object.stationary);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let facing = object.facing.unwrap_or(Direction::Right);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);

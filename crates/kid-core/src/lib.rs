@@ -328,6 +328,9 @@ pub struct NativeObjectSnapshot {
     /// Palette variant (0, 1, or 2) from the level's enemy type slot.
     #[serde(default)]
     pub palette_variant: u8,
+    /// True when the enemy is in a stationary phase (e.g. dragon perching).
+    #[serde(default)]
+    pub stationary: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1711,6 +1714,7 @@ impl NativeRuntime {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
+                stationary: false,
             });
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
@@ -6834,6 +6838,7 @@ mod tests {
             hit_points: Some(1),
             damage_flash: false,
             palette_variant: 0,
+        stationary: false,
         };
 
         assert_eq!(
@@ -6869,6 +6874,7 @@ mod tests {
             hit_points: Some(1),
             damage_flash: false,
             palette_variant: 0,
+        stationary: false,
         };
 
         assert_eq!(

@@ -190,6 +190,16 @@ pub(crate) enum DragonMotionPhase {
     ParkedLeft,
 }
 
+impl DragonMotionPhase {
+    /// Stationary phases where the dragon is perched — suppress walk animation.
+    pub(crate) fn is_stationary(self) -> bool {
+        matches!(
+            self,
+            Self::PerchLeft | Self::TurnRightDelay | Self::PerchLeftAtApex | Self::ParkedLeft
+        )
+    }
+}
+
 /// Ninja stealth/attack state machine (Ninja.asm).
 /// Stealth = pacing invisibly. JumpAttack = airborne lunge at player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -393,6 +403,7 @@ impl ActiveEnemy {
             hit_points: Some(self.hit_points),
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
+            stationary: self.dragon_phase.is_stationary(),
         }
     }
 }
@@ -530,6 +541,7 @@ impl EnemyFamily {
             hit_points: None,
             damage_flash: false,
             palette_variant: 0,
+            stationary: false,
         })
     }
 }

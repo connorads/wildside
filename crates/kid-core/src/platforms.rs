@@ -40,6 +40,7 @@ impl PlatformLoaderState {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
+                stationary: false,
             })
             .collect()
     }

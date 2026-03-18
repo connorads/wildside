@@ -1591,6 +1591,7 @@ mod tests {
                     hit_points: Some(1),
                     damage_flash: false,
                     palette_variant: 0,
+                stationary: false,
                 },
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -1604,6 +1605,7 @@ mod tests {
                     hit_points: Some(1),
                     damage_flash: false,
                     palette_variant: 0,
+                stationary: false,
                 },
             ],
             camera_x_pos: 0x0010_0000,
