@@ -96,13 +96,15 @@ and verified. Forms change player hitbox, speed table, and abilities. FloatingIt
 on prize hit with content-type-specific colours. Unit tests confirm IronKnight and
 Juggernaut transforms trigger correctly with proper hitpoint assignment.
 
-### 018 — Form-change animation (PLACEHOLDER)
-White flash overlay on player sprite for 8 frames after form transform.
-Real spinning sprite animation needs reverse-engineering from ASM.
+### 018 — Form-change animation (PLACEHOLDER + RESEARCH)
+Alternating white/yellow flash overlay for 8 frames after form transform.
+ASM traced: `Kid_Transform` (kid.asm:8369-8607) uses per-helmet sprite+palette
+cycling tables (stru_7EFA..stru_8064). Full implementation needs ROM sprite tile
+extraction for the spinning animation frames.
 
 ### 020 — Water shimmer (DONE)
-Rows at or past `effect_start_row_selector` get horizontal sine offset
-(2px amplitude, ~16-row period). Period and amplitude need ASM verification.
+Real ASM ripple table from `BackgroundScroll_ForestWaterRippleData` (kid.asm:34310).
+64-byte signed lookup, max 8px amplitude, phase = `Time_Frames >> 2 & 0x3F`.
 
 ### 021 — Sound Test (FIXED)
 Options menu cursor==1 now enters Sound Test screen. Left/Right ±1, Up/Down ±16,
