@@ -32,12 +32,16 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 023 | [x] | P2 | render | Floating item sprites use placeholder rectangles | Replace with recognisable pixel-art icons |
 | 024 | [x] | P1 | enemy | UFO beam child object system not implemented | UFO fires beam segments downward |
 | 025 | [x] | P2 | enemy | Fire Demon death trail not implemented | Kill Fire Demon, confirm fire trail |
-| 026 | [ ] | P3 | menu | Demo playback missing (no source data in ROM) | Title screen auto-plays demo |
+| 026 | [ ] | P3 | menu | Demo playback — ROM has Demo_InputData1/2 at kid.asm:33373 | Title screen auto-plays demo |
 | 027 | [x] | P2 | level | Multi-screen block list cross-level references | Graceful fallback (ba36f63) |
 | 028 | [x] | P3 | testing | Adopt `insta` snapshot testing for NativeTraceFrame | Snapshots detect state drift between commits |
 | 029 | [x] | P3 | testing | Adopt `proptest` for physics pure functions | Speed tables, slopes, gravity hold across input range |
 | 030 | [x] | P3 | infra | Add GitHub Actions CI running `verify-slice-fast` | Tests run automatically on every push |
 | 031 | [ ] | P3 | infra | Add performance baseline tracking | Frame time and sweep duration tracked over time |
+| 032 | [ ] | P2 | fidelity | Per-form Diamond Power effects (20 unique abilities) | Each form has correct visual and damage pattern |
+| 033 | [ ] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | Real spinning sprite + palette cycling per-helmet |
+| 034 | [ ] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native has 3) | Boot captures match oracle |
+| 035 | [ ] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | All 69 BCD levels verifiable |
 
 ## Investigation notes
 
