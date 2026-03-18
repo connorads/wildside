@@ -1,5 +1,6 @@
 mod blocks;
 mod combat;
+mod demo;
 pub(crate) mod enemies;
 mod helmets;
 mod level;
@@ -161,6 +162,8 @@ pub enum GameMode {
     OptionsMenu,
     LevelTransition,
     InGame,
+    /// ASM game mode 0x10 — title screen demo playback.
+    DemoPlay,
     /// ASM game mode 0x30 — end credits sequence after beating the final level.
     EndingSequence,
 }
@@ -178,6 +181,7 @@ impl GameMode {
             Self::OptionsMenu => 0x0028,
             Self::LevelTransition => 0x0008,
             Self::InGame => 0x000C,
+            Self::DemoPlay => 0x0010,
             Self::EndingSequence => 0x0030,
         }
     }
@@ -501,6 +505,10 @@ pub struct NativeRuntime {
     level_prize_collected: bool,
     /// Number of clock pickups collected during current level (for completion time calc).
     clocks_collected: u16,
+    /// Title screen idle frame counter: triggers demo after 640 frames.
+    title_idle_frames: u16,
+    /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
+    demo_toggle: bool,
     /// Two-player alternating mode enabled.
     two_player: bool,
     /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
@@ -622,6 +630,15 @@ enum BootState {
     StartingLevel { remaining_frames: usize },
     LevelSkipHold,
     InGame,
+    /// Demo playback: auto-plays a recorded input sequence on a demo level.
+    /// `frame_counter` counts VBlanks (0..1010), `data_index` indexes into the
+    /// demo byte array, advancing every 2 frames.
+    DemoPlay {
+        frame_counter: u16,
+        data_index: usize,
+        /// false = Demo_InputData1 (Knights Isle), true = Demo_InputData2 (Skydragon Castle)
+        use_demo_2: bool,
+    },
     /// Post-final-level ending sequence: fade out, credits screens, return to title.
     EndingSequence { elapsed: usize },
 }
@@ -1243,6 +1260,8 @@ impl NativeRuntime {
             level_damage_taken: false,
             level_prize_collected: false,
             clocks_collected: 0,
+            title_idle_frames: 0,
+            demo_toggle: false,
             two_player: false,
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
@@ -1440,7 +1459,56 @@ impl NativeRuntime {
         self.trace_frame()
     }
 
-    pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+    pub fn step_frame(&mut self, mut input: FrameInput) -> NativeTraceFrame {
+        // Demo playback: override input with demo data, handle exit
+        if let BootState::DemoPlay {
+            frame_counter,
+            data_index,
+            use_demo_2,
+        } = &mut self.boot_state
+        {
+            // Start button aborts demo → return to title
+            if input.start && !self.previous_input.start {
+                self.boot_state = BootState::TitleScreen;
+                self.opening_slice = None;
+                self.active_enemies.clear();
+                self.active_enemy_roster.clear();
+                self.active_platforms.clear();
+                self.active_platform_roster.clear();
+                self.player_lifecycle = PlayerLifecycle::Alive;
+                self.prior_input = input;
+                self.previous_input = input;
+                self.frame_index += 1;
+                return self.trace_frame();
+            }
+            // Auto-end after DEMO_MAX_FRAMES
+            if *frame_counter >= demo::DEMO_MAX_FRAMES {
+                self.boot_state = BootState::TitleScreen;
+                self.opening_slice = None;
+                self.active_enemies.clear();
+                self.active_enemy_roster.clear();
+                self.active_platforms.clear();
+                self.active_platform_roster.clear();
+                self.player_lifecycle = PlayerLifecycle::Alive;
+                self.prior_input = FrameInput::default();
+                self.previous_input = FrameInput::default();
+                self.frame_index += 1;
+                return self.trace_frame();
+            }
+            // Read demo byte and decode into input
+            let data = if *use_demo_2 {
+                &demo::DEMO_INPUT_DATA_2[..]
+            } else {
+                &demo::DEMO_INPUT_DATA_1[..]
+            };
+            let byte = data.get(*data_index).copied().unwrap_or(0);
+            input = demo::decode_demo_byte(byte);
+            // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
+            *frame_counter += 1;
+            if *frame_counter % 2 == 0 {
+                *data_index += 1;
+            }
+        }
         self.maybe_begin_pending_level_skip();
         self.maybe_begin_pending_level_skip_resume();
         self.maybe_finish_level_skip_resume();
@@ -1505,11 +1573,34 @@ impl NativeRuntime {
             }
             BootState::TitleScreen => {
                 if start_pressed && self.start_press_count >= BOOTSTRAP_LEVEL_START_PRESS_COUNT {
+                    self.title_idle_frames = 0;
                     self.begin_level_entry(self.current_level);
                 }
                 // B button opens options menu
-                if input.b && !self.prior_input.b {
+                else if input.b && !self.prior_input.b {
+                    self.title_idle_frames = 0;
                     self.boot_state = BootState::OptionsMenu { cursor: 0 };
+                } else if input == FrameInput::default() {
+                    // No buttons pressed — count idle frames for demo trigger
+                    self.title_idle_frames += 1;
+                    if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
+                        self.title_idle_frames = 0;
+                        self.demo_toggle = !self.demo_toggle;
+                        let use_demo_2 = self.demo_toggle;
+                        let level = if use_demo_2 {
+                            demo::DEMO_2_LEVEL
+                        } else {
+                            demo::DEMO_1_LEVEL
+                        };
+                        self.begin_level_entry(LevelId(level));
+                        self.boot_state = BootState::DemoPlay {
+                            frame_counter: 0,
+                            data_index: 0,
+                            use_demo_2,
+                        };
+                    }
+                } else {
+                    self.title_idle_frames = 0;
                 }
             }
             BootState::OptionsMenu { cursor } => {
@@ -1572,6 +1663,9 @@ impl NativeRuntime {
             }
             BootState::LevelSkipHold => {}
             BootState::InGame => {}
+            BootState::DemoPlay { .. } => {
+                // Demo input feeding and frame counting handled in step_demo_play()
+            }
             BootState::EndingSequence { elapsed } => {
                 *elapsed += 1;
                 let total_ending_frames = ENDING_PAUSE_FRAMES
@@ -1597,7 +1691,7 @@ impl NativeRuntime {
         self.refresh_active_roster();
         // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
         if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
-            && matches!(self.boot_state, BootState::InGame)
+            && matches!(self.boot_state, BootState::InGame | BootState::DemoPlay { .. })
             && !self.paused
         {
             self.step_diamond_power(input);
@@ -1752,6 +1846,7 @@ impl NativeRuntime {
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
+            BootState::DemoPlay { .. } => GameMode::DemoPlay,
             BootState::EndingSequence { .. } => GameMode::EndingSequence,
         }
     }
@@ -1825,7 +1920,7 @@ impl NativeRuntime {
             | BootState::SoundTest { .. }
             | BootState::EndingSequence { .. } => Some(PlayerState::title_pose()),
             BootState::LevelSkipHold => self.level_skip_player_state(),
-            BootState::StartingLevel { .. } | BootState::InGame => {
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
                     None
                 } else {
@@ -1860,7 +1955,7 @@ impl NativeRuntime {
         }
         if !matches!(
             self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
         ) || matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
         {
             return Vec::new();
@@ -1918,7 +2013,10 @@ impl NativeRuntime {
         }
         if !matches!(
             self.boot_state,
-            BootState::StartingLevel { .. } | BootState::LevelSkipHold | BootState::InGame
+            BootState::StartingLevel { .. }
+                | BootState::LevelSkipHold
+                | BootState::InGame
+                | BootState::DemoPlay { .. }
         ) {
             self.opening_slice = None;
             self.current_form = PlayerForm::TheKid;
@@ -2356,7 +2454,7 @@ impl NativeRuntime {
             self.ghost_groups.clear();
             return;
         }
-        if !matches!(self.boot_state, BootState::InGame) {
+        if !matches!(self.boot_state, BootState::InGame | BootState::DemoPlay { .. }) {
             return;
         }
 
@@ -2434,7 +2532,7 @@ impl NativeRuntime {
         }
         if !matches!(
             self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
         ) {
             return (4, 4);
         }
@@ -12277,5 +12375,95 @@ mod tests {
                 "divergence at frame {i}"
             );
         }
+    }
+
+    // --- Demo playback tests ---
+
+    #[test]
+    fn title_idle_triggers_demo_after_640_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::TitleScreen;
+        // Run 640 frames of idle input
+        for _ in 0..640 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.boot_state, BootState::DemoPlay { .. }),
+            "should be in DemoPlay after 640 idle frames, got {:?}",
+            runtime.boot_state
+        );
+    }
+
+    #[test]
+    fn demo_plays_correct_level_and_alternates() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::TitleScreen;
+        // First demo: toggle starts false, NOT flips to true → demo 2 (Skydragon Castle)
+        for _ in 0..640 {
+            runtime.step_frame(FrameInput::default());
+        }
+        match runtime.boot_state {
+            BootState::DemoPlay { use_demo_2, .. } => assert!(use_demo_2),
+            _ => panic!("expected DemoPlay"),
+        }
+        assert_eq!(runtime.current_level.0, demo::DEMO_2_LEVEL);
+    }
+
+    #[test]
+    fn demo_aborts_on_start_press() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::TitleScreen;
+        for _ in 0..640 {
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(matches!(runtime.boot_state, BootState::DemoPlay { .. }));
+        // Press Start to abort
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            matches!(runtime.boot_state, BootState::TitleScreen),
+            "Start should return to TitleScreen"
+        );
+    }
+
+    #[test]
+    fn demo_auto_ends_after_max_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: demo::DEMO_MAX_FRAMES,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        runtime.opening_slice = Some(OpeningSliceState::new(LevelBounds {
+            width_pixels: 640,
+            height_pixels: 448,
+        }));
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(runtime.boot_state, BootState::TitleScreen),
+            "should return to TitleScreen after max demo frames"
+        );
+    }
+
+    #[test]
+    fn demo_input_decoded_correctly() {
+        // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
+        let input = demo::decode_demo_byte(0x48);
+        assert!(input.right, "bit 3 = Right");
+        assert!(input.a, "bit 6 = A");
+        assert!(!input.start, "bit 7 stripped");
+        assert!(!input.left);
+        assert!(!input.up);
+        assert!(!input.down);
+    }
+
+    #[test]
+    fn demo_byte_bit7_stripped() {
+        // 0x88 = bits 7,3 → bit 7 stripped, only bit 3 (Right) remains
+        let input = demo::decode_demo_byte(0x88);
+        assert!(input.right, "bit 3 = Right");
+        assert!(!input.start, "bit 7 should be stripped");
     }
 }

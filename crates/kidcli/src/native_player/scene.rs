@@ -79,7 +79,7 @@ pub(crate) fn build_scene_filtered(
     filter: &LayerFilter,
 ) -> Scene {
     match trace.game_mode {
-        GameMode::InGame => build_game_scene_filtered(
+        GameMode::InGame | GameMode::DemoPlay => build_game_scene_filtered(
             trace,
             debug_overlay_visible,
             level_visuals.expect("Level 1 visuals are required for gameplay scenes"),

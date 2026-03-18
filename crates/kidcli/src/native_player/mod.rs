@@ -392,7 +392,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
         // Trigger BGM when entering InGame for the first time or on level change
         let level_changed = trace.current_level.0 != current_level_id;
-        let entered_in_game = trace.game_mode == GameMode::InGame && !in_game_bgm_playing;
+        let entered_in_game = matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) && !in_game_bgm_playing;
         if level_changed || entered_in_game {
             let new_level = trace.current_level.0;
             if level_changed {
@@ -420,11 +420,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     }
                 }
             }
-            if trace.game_mode == GameMode::InGame {
+            if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) {
                 in_game_bgm_playing = true;
             }
         }
-        if trace.game_mode != GameMode::InGame {
+        if !matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) {
             in_game_bgm_playing = false;
         }
 
@@ -662,6 +662,7 @@ fn game_mode_label(mode: GameMode) -> &'static str {
         GameMode::TitleScreen => "TitleScreen",
         GameMode::LevelTransition => "LevelTransition",
         GameMode::InGame => "InGame",
+        GameMode::DemoPlay => "DemoPlay",
         GameMode::OptionsMenu => "OptionsMenu",
         GameMode::EndingSequence => "EndingSequence",
     }
