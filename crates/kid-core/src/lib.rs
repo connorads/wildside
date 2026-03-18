@@ -1060,6 +1060,8 @@ const MICROMAX_DETACH_Y_VEL: i32 = -0x4_0000;
 const MICROMAX_DETACH_X_SPEED: i32 = 0x2_0000;
 
 /// Lift block: upward acceleration (first 50 frames).
+// TODO(fidelity): ASM lift (sub_113C0) is a coroutine animation: 2px/frame up × 8
+// frames, erase block, then 1px/frame down × 16 frames. Native uses accel-based physics.
 const LIFT_ACCEL_UP: i32 = -0x708;
 /// Lift block: downward acceleration (after 50 frames).
 const LIFT_ACCEL_DOWN: i32 = 0x7D0;
@@ -2308,15 +2310,17 @@ impl NativeRuntime {
             });
         }
 
-        // Drill block: headbutt spawns a downward-falling projectile
+        // Drill block: headbutt spawns a horizontal projectile (ASM sub_1129C: ±4px/frame)
         if let Some((x_fp, y_fp)) = slice.drill_projectile_hit {
+            // Direction based on player position relative to drill block
+            let dir = if slice.player.x_pos >= x_fp { 1i32 } else { -1 };
             self.projectiles.push(EnemyProjectile {
                 x_pos: x_fp,
                 y_pos: y_fp,
-                x_velocity: 0,
-                y_velocity: 0x1_0000, // falls downward
+                x_velocity: dir * 0x4_0000, // 4 px/frame horizontal
+                y_velocity: 0,
                 lifetime: 120,
-                gravity: 0x1000,
+                gravity: 0,
                 friendly: false,
                 homing_accel: 0,
                 speed_cap: 0,
@@ -5386,8 +5390,9 @@ mod tests {
             "headbutting drill block should spawn a falling projectile"
         );
         let proj = &runtime.projectiles[0];
-        assert!(proj.y_velocity > 0, "drill projectile falls downward");
-        assert_eq!(proj.x_velocity, 0, "drill projectile falls straight down");
+        // ASM sub_1129C: drill projectile moves horizontally at ±4px/frame
+        assert!(proj.x_velocity != 0, "drill projectile moves horizontally");
+        assert_eq!(proj.y_velocity, 0, "drill projectile has no vertical velocity");
         assert!(!proj.friendly);
 
         // Block should be cleared from grid
