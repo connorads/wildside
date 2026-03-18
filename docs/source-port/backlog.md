@@ -57,6 +57,18 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 048 | [x] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
 | 049 | [x] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |
 | 050 | [-] | P3 | fidelity | 4 levels show idle_tail position diffs from enemy/timing divergence | EXPECTED — advisory: oracle warp timing + enemy interaction accumulation |
+| 051 | [x] | P2 | enemy | Dragon HP base 2 should be 1 (ASM Dragon.asm:65 addq.w #1) | Dragon HP matches ASM |
+| 052 | [x] | P2 | enemy | EmoRock velocity cap logic wrong ($60000 threshold → $40000 reset) | EmoRock drop matches ASM |
+| 053 | [x] | P2 | enemy | Robot charge permanent until wall, not timed exit to walking | Robot charge matches ASM |
+| 054 | [x] | P3 | enemy | MiniHoppingSkull ground delay 21 not 32 (dbf #$14) | Skull delay matches ASM |
+| 055 | [x] | P3 | enemy | BagelBrothers projectile speed 3 not 4, lifetime 50 not 45 | Projectile matches ASM |
+| 056 | [ ] | P3 | enemy | BigHoppingSkull is continuous bouncer, not discrete hopper | Needs structural rework |
+| 057 | [ ] | P3 | enemy | Goat player-tracking callback missing (turns toward player >32px) | Goat tracks player |
+| 058 | [ ] | P3 | enemy | Cloud 60-frame post-bounce idle period missing | Cloud idles after bounce |
+| 059 | [ ] | P3 | enemy | Fireball ceiling bounce uses Sphere formula, should be random+cap | Fireball bounce matches ASM |
+| 060 | [ ] | P2 | enemy | Boss multi-head system (Shishkaboss/BoomerangBosses/BagelBrothers) | 3 objects per boss |
+| 061 | [ ] | P3 | enemy | Orca missing ceiling bounce, slope handling, X accel during lunge | Orca lunge matches ASM |
+| 062 | [ ] | P3 | enemy | HeadyMetal fire rate animation-driven, missing death phase + eye spray | Boss phases match ASM |
 
 ## Investigation notes
 
