@@ -443,6 +443,7 @@ impl NativeRuntime {
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
             false,
+            0,
         );
         if let Some(camera_lock) = self.death_camera_lock {
             slice.camera = camera_lock;

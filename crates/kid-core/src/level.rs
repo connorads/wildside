@@ -123,6 +123,7 @@ impl NativeRuntime {
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
         self.level_damage_taken = false;
+        self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);

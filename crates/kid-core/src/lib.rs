@@ -448,6 +448,9 @@ pub struct NativeRuntime {
     /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
     shooter_block_timer: u16,
     level_timer: LevelTimer,
+    /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
+    /// and grounded, -8 per frame on release, clamped to [0, 30].
+    y_look_offset: i16,
     /// Set to true when player takes damage during current level (for no-hit bonus).
     level_damage_taken: bool,
     /// Two-player alternating mode enabled.
@@ -1161,6 +1164,7 @@ impl NativeRuntime {
             sound_test_play_pending: false,
             shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
+            y_look_offset: 0,
             level_damage_taken: false,
             two_player: false,
             current_player_index: 0,
@@ -1981,7 +1985,16 @@ impl NativeRuntime {
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
             custom_gravity,
+            self.y_look_offset,
         );
+
+        // Y look-ahead accumulator ($FFFFFB58): +1/frame while grounded+down,
+        // -8/frame on release, clamped to [0, 30].
+        if input.down && slice.player.on_ground {
+            self.y_look_offset = (self.y_look_offset + 1).min(30);
+        } else if self.y_look_offset > 0 {
+            self.y_look_offset = (self.y_look_offset - 8).max(0);
+        }
 
         // Berzerker charge: break Smash blocks on wall contact
         if self.berzerker_charging {
@@ -3723,6 +3736,7 @@ mod tests {
             None,
             None,
             false,
+            0,
         );
 
         assert_eq!(
@@ -3766,6 +3780,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert!(!slice.player.on_ground);
@@ -3825,6 +3840,7 @@ mod tests {
             None,
             None,
             false,
+            0,
         );
 
         assert!(
@@ -3859,6 +3875,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
@@ -3878,6 +3895,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert!(!slice.player.on_ground);
@@ -3914,6 +3932,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert_eq!(slice.player.x_pos, 0x00B1_2300);
@@ -3982,6 +4001,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         // With corrected slope formula (ASM-matching), the SlopeDown surface
@@ -4056,6 +4076,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert!(slice.player.on_ground);
@@ -4073,6 +4094,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert!(slice.player.on_ground);
@@ -4105,6 +4127,7 @@ mod tests {
             Some(&mut grid),
             None,
             false,
+            0,
         );
 
         assert!(slice.player.on_ground);
@@ -10798,6 +10821,7 @@ mod tests {
             None,
             None,
             true,
+            0,
         );
 
         // y_pos changes (from existing velocity) but y_velocity should NOT

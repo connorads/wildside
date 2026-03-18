@@ -113,6 +113,7 @@ impl OpeningSliceState {
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
         custom_gravity: bool,
+        y_look_offset: i16,
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -132,7 +133,7 @@ impl OpeningSliceState {
         if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
             self.apply_immediate_slope_recontact(input, form, collision, grid);
         }
-        self.update_camera_follow();
+        self.update_camera_follow(y_look_offset);
     }
 
     /// Pre-physics entry animation: player descends and settles to ground.
@@ -754,9 +755,16 @@ impl OpeningSliceState {
     }
 
     /// Camera follows player using the real sub_71E4 follow algorithm.
-    pub(crate) fn update_camera_follow(&mut self) {
+    /// `y_look_offset` is the down-look accumulator ($FFFFFB58): when >= 30,
+    /// shifts the camera target downward by that many pixels.
+    pub(crate) fn update_camera_follow(&mut self, y_look_offset: i16) {
         let player_x_px = (self.player.x_pos >> 16) as i32;
-        let player_y_px = (self.player.y_pos >> 16) as i32;
+        let mut player_y_px = (self.player.y_pos >> 16) as i32;
+        // ASM sub_71E4 loc_728C: when offset >= $1E, add it to camera Y target
+        // and subtract the reference $1E. This effectively shifts the view down.
+        if y_look_offset >= 0x1E {
+            player_y_px += i32::from(y_look_offset);
+        }
         let camera_x_px = (self.camera.x_pos >> 16) as i32;
         let camera_y_px = (self.camera.y_pos >> 16) as i32;
 
