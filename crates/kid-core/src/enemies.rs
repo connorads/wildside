@@ -962,6 +962,8 @@ pub(crate) fn step_ufo_beam(
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
             });
             enemy.ufo_beam_segments -= 1;
             enemy.ufo_beam_interval = UFO_BEAM_INTERVAL_FRAMES;
@@ -1348,6 +1350,8 @@ fn step_dragon_descent(
                         gravity: 0,
                         friendly: false,
                         homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
                     });
                 }
                 enemy.dragon_descent_index += 1;
@@ -1884,8 +1888,8 @@ pub(crate) const LION_CHARGE_OVERSHOOT: i32 = 0x70;
 pub(crate) const LION_PROJECTILE_SPEED: i32 = 0x6_0000;
 
 // Lion homing accel is $2000/frame (Lion.asm loc_3E1C2) — set on projectile.
-// TODO(fidelity): lion projectile wall-bounce (Lion.asm loc_3E260) and
-// speed cap at $60000 on both axes.
+// Wall-bounce: Lion.asm loc_3E260 — reverses velocity on terrain collision.
+// Speed cap: ±$60000 on both axes (Lion.asm loc_3E1C2).
 
 /// Lion projectile spawn X offset: 10px ahead in facing direction.
 pub(crate) const LION_PROJECTILE_X_OFFSET: i32 = 10;
@@ -1953,6 +1957,8 @@ pub(crate) fn step_lion(
                     gravity: 0,
                     friendly: false,
                     homing_accel: 0x2000, // Lion.asm loc_3E1C2
+                    speed_cap: LION_PROJECTILE_SPEED, // ±$60000 cap (Lion.asm)
+                    wall_bounce: true, // Lion.asm loc_3E260
                 });
             }
 
@@ -2119,6 +2125,8 @@ pub(crate) fn step_robot(
                         gravity: 0,
                         friendly: false,
                         homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
                     });
                 }
 
@@ -2335,6 +2343,8 @@ pub(crate) fn spawn_tar_monster_retaliation(
             gravity: 0x1000,
             friendly: false,
             homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
         });
     }
 }
@@ -2357,6 +2367,8 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
             gravity: 0x1800,
             friendly: false,
             homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
         });
     }
 }
@@ -2392,6 +2404,8 @@ pub(crate) fn step_dragon_walking(
         gravity: 0,
         friendly: false,
         homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
     });
     enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
 }
@@ -2422,6 +2436,8 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
         gravity: DRIPS_DROP_GRAVITY,
         friendly: false,
         homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
     });
     enemy.wait_timer = DRIPS_DROP_INTERVAL;
 }
@@ -2709,6 +2725,8 @@ pub(crate) fn step_archer(
         friendly: false,
         gravity: 0,
         homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
     });
 }
 
@@ -2734,6 +2752,8 @@ pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<Enem
         friendly: false,
         gravity: 0,
         homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
     });
 }
 
@@ -2809,6 +2829,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0x2710,
                 friendly: false,
                 homing_accel: 0x7D0, // HeadyMetal ASM
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
         EnemyFamily::Shishkaboss => {
@@ -2822,6 +2844,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
             });
         }
         EnemyFamily::BoomerangBosses => {
@@ -2843,6 +2867,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0x1000,
                 friendly: false,
                 homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
             });
         }
         EnemyFamily::BagelBrothers => {
@@ -2860,6 +2886,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
             });
         }
         _ => {}

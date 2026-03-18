@@ -134,6 +134,8 @@ impl NativeRuntime {
                             gravity: 0,
                             friendly: false,
                             homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
                         });
                     }
                 }

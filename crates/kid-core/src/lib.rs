@@ -934,6 +934,11 @@ struct EnemyProjectile {
     /// Homing acceleration per axis per frame. 0 = not homing.
     /// HeadyMetal: $7D0, Lion: $2000 (Lion.asm loc_3E1C2).
     homing_accel: i32,
+    /// Speed cap for homing projectiles (per-axis). 0 = no cap.
+    /// Lion: $60000 (Lion.asm loc_3E1C2).
+    speed_cap: i32,
+    /// Bounces off terrain walls/floors/ceilings (Lion.asm loc_3E260).
+    wall_bounce: bool,
 }
 
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
@@ -2213,6 +2218,8 @@ impl NativeRuntime {
                 gravity: 0x1000,
                 friendly: false,
                 homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
             });
         }
 
@@ -8232,6 +8239,8 @@ mod tests {
             friendly: false,
             gravity: 0,
             homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
@@ -8260,6 +8269,8 @@ mod tests {
             friendly: false,
             gravity: 0,
             homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
@@ -11586,6 +11597,8 @@ mod tests {
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
             homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
         });
 
         rt.step_projectiles();
