@@ -8,3 +8,7 @@ version.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 kid-data = { path = "../kid-data" }
+
+[dev-dependencies]
+proptest = "1.6"
+insta = { version = "1.42", features = ["yaml"] }

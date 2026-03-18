@@ -1244,3 +1244,323 @@ mod tests {
         assert_eq!(JUMP_AIR_PROFILES[3].max_speed, 0x2A000);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Property-based tests (proptest)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    // All 9 ground speed tables for parameterised properties.
+    const ALL_SPEED_TABLES: [(&str, SpeedTable); 9] = [
+        ("normal_kid", NORMAL_KID),
+        ("normal_micromax", NORMAL_MICROMAX),
+        ("normal_juggernaut", NORMAL_JUGGERNAUT),
+        ("ice_kid", ICE_KID),
+        ("ice_micromax", ICE_MICROMAX),
+        ("ice_juggernaut", ICE_JUGGERNAUT),
+        ("rubber_kid", RUBBER_KID),
+        ("rubber_micromax", RUBBER_MICROMAX),
+        ("rubber_juggernaut", RUBBER_JUGGERNAUT),
+    ];
+
+    const ALL_AIR_TABLES: [(&str, AirSpeedTable); 3] = [
+        ("air_normal", AIR_NORMAL),
+        ("air_ice", AIR_ICE),
+        ("air_rubber", AIR_RUBBER),
+    ];
+
+    // -- Speed table structural invariants --
+
+    #[test]
+    fn all_speed_tables_well_formed() {
+        for (name, t) in &ALL_SPEED_TABLES {
+            assert!(
+                t.max_walk_speed <= t.max_run_speed,
+                "{name}: max_walk ({:#x}) > max_run ({:#x})",
+                t.max_walk_speed,
+                t.max_run_speed
+            );
+            assert!(
+                t.max_walk_speed > 0,
+                "{name}: max_walk_speed must be positive"
+            );
+            assert!(
+                t.max_run_speed > 0,
+                "{name}: max_run_speed must be positive"
+            );
+            assert!(t.walk_accel > 0, "{name}: walk_accel must be positive");
+            assert!(t.run_accel > 0, "{name}: run_accel must be positive");
+            assert!(
+                t.walk_run_decel > 0,
+                "{name}: walk_run_decel must be positive"
+            );
+            assert!(t.turn_brake > 0, "{name}: turn_brake must be positive");
+            assert!(t.strong_brake > 0, "{name}: strong_brake must be positive");
+        }
+    }
+
+    #[test]
+    fn all_air_tables_well_formed() {
+        for (name, t) in &ALL_AIR_TABLES {
+            assert!(
+                t.max_air_speed > 0,
+                "{name}: max_air_speed must be positive"
+            );
+            assert!(t.air_accel > 0, "{name}: air_accel must be positive");
+            assert!(
+                t.air_above_max_decel > 0,
+                "{name}: air_above_max_decel must be positive"
+            );
+            assert!(
+                t.air_no_input_decel > 0,
+                "{name}: air_no_input_decel must be positive"
+            );
+            assert!(
+                t.air_turn_accel > 0,
+                "{name}: air_turn_accel must be positive"
+            );
+        }
+    }
+
+    // -- update_horizontal_velocity properties --
+
+    fn table_index() -> impl Strategy<Value = usize> {
+        0..ALL_SPEED_TABLES.len()
+    }
+
+    fn horizontal_input_strategy() -> impl Strategy<Value = HorizontalInput> {
+        (any::<bool>(), any::<bool>(), any::<bool>())
+            .prop_map(|(left, right, run)| HorizontalInput { left, right, run })
+    }
+
+    fn facing_strategy() -> impl Strategy<Value = Direction> {
+        prop_oneof![Just(Direction::Left), Just(Direction::Right)]
+    }
+
+    proptest! {
+        /// Ground velocity moves towards the target range: when starting within
+        /// max_run_speed, output never exceeds max_run_speed + one frame of force.
+        /// When starting outside, output moves closer to zero than input.
+        #[test]
+        fn ground_velocity_within_range_stays_bounded(
+            table_idx in table_index(),
+            start_vel in -0x8_0000i32..=0x8_0000,
+            input in horizontal_input_strategy(),
+            facing in facing_strategy(),
+        ) {
+            let (_, table) = ALL_SPEED_TABLES[table_idx];
+            // Clamp start_vel to max_run_speed (the game never produces higher)
+            let clamped = start_vel.clamp(-table.max_run_speed, table.max_run_speed);
+            let (result, _) = update_horizontal_velocity(clamped, facing, input, &table);
+            // Within game range, output is bounded by max_run_speed + one frame of
+            // strongest applied force (brake can overshoot zero).
+            let max_force = table.strong_brake
+                .max(table.run_accel)
+                .max(table.turn_brake)
+                .max(table.walk_run_decel);
+            let bound = table.max_run_speed + max_force;
+            prop_assert!(
+                result.abs() <= bound,
+                "result {result:#x} exceeds bound {bound:#x} for table {}",
+                ALL_SPEED_TABLES[table_idx].0
+            );
+        }
+
+        /// Walking converges: iterating walk-right from any sub-walk velocity
+        /// reaches max_walk_speed within a bounded number of frames.
+        #[test]
+        fn walk_converges_to_max_walk_speed(
+            table_idx in table_index(),
+            start_vel in 0i32..=0x1_0000,
+        ) {
+            let (_, table) = ALL_SPEED_TABLES[table_idx];
+            let input = HorizontalInput { left: false, right: true, run: false };
+            let mut vel = start_vel.min(table.max_walk_speed);
+            for _ in 0..5000 {
+                let (v, _) = update_horizontal_velocity(vel, Direction::Right, input, &table);
+                vel = v;
+                if vel == table.max_walk_speed {
+                    break;
+                }
+            }
+            prop_assert_eq!(vel, table.max_walk_speed);
+        }
+
+        /// Deceleration from any positive velocity reaches zero.
+        #[test]
+        fn decel_reaches_zero(
+            table_idx in table_index(),
+            start_vel in 1i32..=0x8_0000,
+        ) {
+            let (_, table) = ALL_SPEED_TABLES[table_idx];
+            let input = HorizontalInput { left: false, right: false, run: false };
+            let mut vel = start_vel;
+            for _ in 0..10000 {
+                let (v, _) = update_horizontal_velocity(vel, Direction::Right, input, &table);
+                vel = v;
+                if vel == 0 { break; }
+            }
+            prop_assert_eq!(vel, 0);
+        }
+    }
+
+    // -- apply_gravity properties --
+
+    proptest! {
+        /// Gravity result is always clamped to [MAX_RISE_SPEED, MAX_FALL_SPEED].
+        #[test]
+        fn gravity_result_clamped(
+            y_vel in prop::num::i32::ANY,
+            b_held in any::<bool>(),
+        ) {
+            let result = apply_gravity(y_vel, b_held);
+            prop_assert!(result >= MAX_RISE_SPEED, "result {result} < MAX_RISE_SPEED");
+            prop_assert!(result <= MAX_FALL_SPEED, "result {result} > MAX_FALL_SPEED");
+        }
+
+        /// Holding B while ascending always produces weaker gravity than not.
+        #[test]
+        fn jump_held_weaker_gravity(y_vel in MAX_RISE_SPEED..0i32) {
+            let held = apply_gravity(y_vel, true);
+            let released = apply_gravity(y_vel, false);
+            prop_assert!(held <= released, "held={held} > released={released}");
+        }
+    }
+
+    // -- initiate_jump properties --
+
+    proptest! {
+        /// Jump always reduces x velocity magnitude (3/4 factor).
+        #[test]
+        fn jump_reduces_x_velocity(
+            x_vel in -0x8_0000i32..=0x8_0000,
+            height_idx in 0usize..10,
+        ) {
+            let (new_x, _) = initiate_jump(x_vel, JUMP_HEIGHTS[height_idx]);
+            prop_assert!(
+                new_x.abs() <= x_vel.abs(),
+                "|new_x| ({}) > |x_vel| ({})",
+                new_x.abs(),
+                x_vel.abs()
+            );
+        }
+
+        /// Jump always produces upward (negative) y velocity.
+        #[test]
+        fn jump_produces_upward_velocity(
+            x_vel in -0x8_0000i32..=0x8_0000,
+            height_idx in 0usize..10,
+        ) {
+            let (_, y_vel) = initiate_jump(x_vel, JUMP_HEIGHTS[height_idx]);
+            prop_assert!(y_vel < 0, "y_vel {y_vel} should be negative (upward)");
+        }
+
+        /// Higher x speed produces higher jump (more negative y_vel).
+        #[test]
+        fn faster_horizontal_means_higher_jump(
+            slow in 0i32..0x2_0000,
+            fast in 0x2_0000i32..0x8_0000,
+            height_idx in 0usize..10,
+        ) {
+            let (_, y_slow) = initiate_jump(slow, JUMP_HEIGHTS[height_idx]);
+            let (_, y_fast) = initiate_jump(fast, JUMP_HEIGHTS[height_idx]);
+            prop_assert!(
+                y_fast <= y_slow,
+                "faster ({fast:#x}) should jump at least as high: y_fast={y_fast}, y_slow={y_slow}"
+            );
+        }
+    }
+
+    // -- update_camera_axis properties --
+
+    proptest! {
+        /// Camera position always stays within [0, max_pos].
+        #[test]
+        fn camera_stays_in_bounds(
+            camera_x in 0i32..2000,
+            camera_y in 0i32..1000,
+            player_x in 0i32..3000,
+            player_y in 0i32..2000,
+            width in 320i32..4000,
+            height in 224i32..2000,
+        ) {
+            let bounds = LevelBounds {
+                width_pixels: width as u16,
+                height_pixels: height as u16,
+            };
+            let max_x = width - VIEWPORT_WIDTH;
+            let max_y = height - VIEWPORT_HEIGHT;
+            let cx = camera_x.min(max_x).max(0);
+            let cy = camera_y.min(max_y).max(0);
+            let (new_cx, new_cy) = update_camera(cx, cy, player_x, player_y, &bounds);
+            prop_assert!(new_cx >= 0 && new_cx <= max_x, "cx={new_cx} out of [0, {max_x}]");
+            prop_assert!(new_cy >= 0 && new_cy <= max_y, "cy={new_cy} out of [0, {max_y}]");
+        }
+
+        /// Camera movement per frame is bounded by CAMERA_MAX_STEP.
+        #[test]
+        fn camera_step_bounded(
+            camera in 0i32..1500,
+            player in 0i32..2500,
+        ) {
+            let bounds = LevelBounds {
+                width_pixels: 1920,
+                height_pixels: 896,
+            };
+            let max_pos = 1920 - VIEWPORT_WIDTH;
+            let cam = camera.min(max_pos);
+            let (new_cam, _) = update_camera(cam, 0, player, 0, &bounds);
+            let delta = (new_cam - cam).abs();
+            prop_assert!(
+                delta <= CAMERA_MAX_STEP,
+                "delta {delta} > CAMERA_MAX_STEP {CAMERA_MAX_STEP}"
+            );
+        }
+    }
+
+    // -- Air horizontal velocity properties --
+
+    proptest! {
+        /// Air velocity from within-range input is bounded by AIR_HARD_CAP + turn accel.
+        #[test]
+        fn air_velocity_bounded(
+            air_idx in 0..ALL_AIR_TABLES.len(),
+            vel in -0x4_0000i32..=0x4_0000,
+            input in horizontal_input_strategy(),
+            facing in facing_strategy(),
+        ) {
+            let (_, table) = ALL_AIR_TABLES[air_idx];
+            // Clamp to hard cap (game never exceeds this in practice)
+            let clamped = vel.clamp(-AIR_HARD_CAP, AIR_HARD_CAP);
+            let (result, _) = update_air_horizontal_velocity(clamped, facing, input, &table);
+            // Turn accel can overshoot when crossing zero
+            let bound = AIR_HARD_CAP + table.air_turn_accel;
+            prop_assert!(
+                result.abs() <= bound,
+                "|result| ({}) > bound ({bound})",
+                result.abs()
+            );
+        }
+
+        /// Air deceleration (no input) moves velocity towards zero.
+        #[test]
+        fn air_decel_moves_toward_zero(
+            air_idx in 0..ALL_AIR_TABLES.len(),
+            vel in -0x8_0000i32..=0x8_0000,
+        ) {
+            let (_, table) = ALL_AIR_TABLES[air_idx];
+            let input = HorizontalInput { left: false, right: false, run: false };
+            let (result, _) = update_air_horizontal_velocity(vel, Direction::Right, input, &table);
+            prop_assert!(
+                result.abs() <= vel.abs(),
+                "|result| ({}) > |vel| ({})",
+                result.abs(),
+                vel.abs()
+            );
+        }
+    }
+}
