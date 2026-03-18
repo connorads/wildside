@@ -472,7 +472,7 @@ pub(crate) fn classify_enemy_contact(
     player: PlayerState,
     enemy: &NativeObjectSnapshot,
     pre_physics_y_velocity: i32,
-    pre_physics_y_pos: u32,
+    _pre_physics_y_pos: u32,
 ) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
@@ -483,48 +483,51 @@ pub(crate) fn classify_enemy_contact(
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
-    let stomp_enemy_half_width = ENEMY_CONTACT_HALF_WIDTH;
-    let damage_enemy_half_width = match enemy.kind {
+    let enemy_half_width = match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x1C } => MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
         _ => ENEMY_CONTACT_HALF_WIDTH,
     };
-    let stomp_e_left = ex - (stomp_enemy_half_width << 16);
-    let stomp_e_right = ex + (stomp_enemy_half_width << 16);
-    let damage_e_left = ex - (damage_enemy_half_width << 16);
-    let damage_e_right = ex + (damage_enemy_half_width << 16);
-    let stomp_e_top = ey - (ENEMY_CONTACT_HALF_HEIGHT << 16);
-    let damage_e_top = ey - (ENEMY_CONTACT_HALF_HEIGHT << 16);
-    let damage_e_bottom = ey + (ENEMY_CONTACT_HALF_HEIGHT << 16);
+    let e_left = ex - (enemy_half_width << 16);
+    let e_right = ex + (enemy_half_width << 16);
+    let e_top = ey - (ENEMY_CONTACT_HALF_HEIGHT << 16);
+    let e_bottom = ey + (ENEMY_CONTACT_HALF_HEIGHT << 16);
 
-    // Stomp: player must be falling and their feet must still be at or above
-    // the enemy's top edge on the previous frame, so this frame crosses or
-    // touches the stomp line instead of already interpenetrating from the side.
-    let stomp_horizontal_overlap = p_right.min(stomp_e_right) - p_left.max(stomp_e_left);
-    let previous_bottom = pre_physics_y_pos as i64;
-    if pre_physics_y_velocity > 0
-        && previous_bottom <= stomp_e_top
-        && stomp_horizontal_overlap >= ENEMY_CONTACT_MIN_OVERLAP_FP
-    {
-        return EnemyContactResult::Stomp;
+    // Check AABB overlap first
+    if !(p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top) {
+        return EnemyContactResult::None;
+    }
+    let x_overlap = p_right.min(e_right) - p_left.max(e_left);
+    if x_overlap < ENEMY_CONTACT_MIN_OVERLAP_FP {
+        return EnemyContactResult::None;
     }
 
+    // MiniHoppingSkull immunity while airborne and rising
     if matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x1C })
         && enemy.on_ground == Some(false)
-        && enemy.y_velocity.is_some_and(|y_velocity| y_velocity < 0)
+        && enemy.y_velocity.is_some_and(|vy| vy < 0)
     {
         return EnemyContactResult::None;
     }
 
-    if !(p_left < damage_e_right
-        && p_right > damage_e_left
-        && p_top < damage_e_bottom
-        && p_bottom > damage_e_top)
-    {
-        return EnemyContactResult::None;
-    }
-    let damage_horizontal_overlap = p_right.min(damage_e_right) - p_left.max(damage_e_left);
-    if damage_horizontal_overlap < ENEMY_CONTACT_MIN_OVERLAP_FP {
-        return EnemyContactResult::None;
+    // ASM-style direction classification: compare relative velocity with overlap
+    // to determine if the player is hitting from above (stomp) or from the side.
+    // The ASM uses: y_overlap × |relative_x_vel| vs x_overlap × |relative_y_vel|
+    // If vertical approach dominates, and player is falling → stomp.
+    if pre_physics_y_velocity > 0 && !player.on_ground {
+        let y_overlap = p_bottom.min(e_bottom) - p_top.max(e_top);
+        let enemy_x_vel = enemy.x_velocity.unwrap_or(0) as i64;
+        let enemy_y_vel = enemy.y_velocity.unwrap_or(0) as i64;
+        let rel_x_vel = (enemy_x_vel - i64::from(player.x_velocity)).unsigned_abs();
+        let rel_y_vel = (enemy_y_vel - i64::from(pre_physics_y_velocity)).unsigned_abs();
+
+        // "Kid above" = small y_overlap relative to vertical approach speed.
+        // When rel_y_vel is 0 (no vertical approach), can't be a stomp.
+        if rel_y_vel > 0 {
+            let from_above = (y_overlap as u64) * rel_x_vel < (x_overlap as u64) * rel_y_vel;
+            if from_above {
+                return EnemyContactResult::Stomp;
+            }
+        }
     }
 
     EnemyContactResult::Damage

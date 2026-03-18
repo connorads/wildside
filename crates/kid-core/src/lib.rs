@@ -6782,7 +6782,10 @@ mod tests {
     }
 
     #[test]
-    fn stomp_requires_feet_above_enemy_top_edge() {
+    fn falling_straight_onto_enemy_is_stomp() {
+        // Player falling directly onto enemy — ASM velocity-direction classification
+        // treats this as "kid above" even with slight interpenetration, because the
+        // dominant approach direction is vertical.
         let player = PlayerState {
             x_pos: 100 << 16,
             y_pos: 219 << 16,
@@ -6812,7 +6815,7 @@ mod tests {
 
         assert_eq!(
             classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
-            EnemyContactResult::Damage
+            EnemyContactResult::Stomp
         );
     }
 
@@ -8190,11 +8193,12 @@ mod tests {
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
 
-        // Simulate a stomp: player above boss, falling
+        // Simulate a stomp: player overlapping boss from above, falling.
+        // Boss top = 120-8 = 112, so place player feet just inside at y=113.
         let mut slice = runtime.opening_slice.clone().unwrap();
         slice.player.x_pos = 100 << 16;
-        slice.player.y_pos = (120 - 20) << 16; // above boss
-        slice.player.y_velocity = 0x1_0000; // falling
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x2_0000; // falling
         slice.player.on_ground = false;
         // Rebuild roster
         runtime.active_enemy_roster = runtime

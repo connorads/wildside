@@ -8,7 +8,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 001 | [~] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
-| 002 | [~] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
+| 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
 | 003 | [~] | P1 | audio | No music or sound effects playing | Load level, confirm BGM and SFX |
 | 004 | [x] | P1 | render | Colour palette wrong (floor/tree colours reversed) | Capture frame, compare to oracle |
 | 005 | [x] | P1 | render | No parallax background | Scroll right, confirm background layers move |
@@ -35,10 +35,12 @@ Code review: `apply_damage()` sets `invulnerable_frames=66` and stays in `Player
 Movement continues normally during invulnerability. No mechanism found that blocks movement.
 Needs live reproduction to identify root cause — may be a corner/wall physics edge case.
 
-### 002 — Enemies don't die when stomped
-Code review: `process_stomps()` correctly decrements HP and removes at 0. The stomp window
-requires `pre_physics_y_velocity > 0` and `previous_bottom <= stomp_e_top`. This is strict
-but correct per ASM. May feel harder than original due to FP16.16 position precision.
+### 002 — Enemies don't die when stomped (FIXED)
+Root cause: stomp detection used strict `previous_bottom <= stomp_e_top` position check,
+requiring the player's feet to be precisely above the enemy's top edge on the prior frame.
+The ASM uses a velocity-direction cross-product: `y_overlap × |rel_x_vel| < x_overlap × |rel_y_vel|`
+to determine approach direction. Reimplemented to match ASM — stomps are now detected based
+on vertical approach direction, not prior-frame position history.
 
 ### 003 — Audio
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
