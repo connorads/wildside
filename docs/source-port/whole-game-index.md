@@ -49,6 +49,7 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 
 ## Fidelity status
 - Oracle sweep: **63/69 levels pass at 0px tolerance**, 6 errors (oracle warp bug)
+- Gameplay sweep: **69/69 levels pass** (walk-right + jump + stomp scenarios)
 - Advisory fields: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` (oracle-pause artefacts)
 - Authoritative fields (0 diffs): score, diamonds, position, camera, game_mode, level_id
 - Determinism: verified — identical traces from repeated scenarios
