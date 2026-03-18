@@ -1110,6 +1110,7 @@ mod tests {
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
+            form_change_flash_frames: 0,
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,

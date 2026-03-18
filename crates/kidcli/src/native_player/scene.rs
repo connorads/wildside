@@ -867,6 +867,17 @@ fn build_game_scene_filtered(
                 .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
             {
                 push_player_sprite(&mut commands, object, trace, level_visuals);
+                // TODO(fidelity): real form-change spinning sprite animation from ASM
+                if trace.form_change_flash_frames > 0 {
+                    let (sx, sy) = player_screen_position(object, trace);
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 12,
+                        y: sy - 24,
+                        width: 24,
+                        height: 32,
+                        colour: [255, 255, 255],
+                    });
+                }
             }
         }
     }

@@ -308,6 +308,8 @@ pub struct NativeTraceFrame {
     pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
     pub enemy_death_effects: Vec<(u32, u32, u8)>,
+    /// Form-change visual flash countdown (0=no flash).
+    pub form_change_flash_frames: u8,
     /// True if a stomp occurred this frame (for SFX).
     pub stomped_this_frame: bool,
     /// Number of blocks hit by headbutt this frame (for SFX).
@@ -386,6 +388,8 @@ pub struct NativeRuntime {
     berzerker_charging: bool,
     /// Micromax wall/ceiling stick active flag.
     micromax_stuck: bool,
+    /// Visual flash countdown after form change (0=inactive).
+    form_change_flash_frames: u8,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -1115,6 +1119,7 @@ impl NativeRuntime {
             berzerker_charge_accum: 0,
             berzerker_charging: false,
             micromax_stuck: false,
+            form_change_flash_frames: 0,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -1615,6 +1620,7 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_pos, e.y_pos, e.remaining))
                 .collect(),
+            form_change_flash_frames: self.form_change_flash_frames,
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,
             sound_test_play_pending: self.sound_test_play_pending,
@@ -1811,6 +1817,9 @@ impl NativeRuntime {
             PlayerLifecycle::Alive => {
                 if self.invulnerable_frames > 0 {
                     self.invulnerable_frames -= 1;
+                }
+                if self.form_change_flash_frames > 0 {
+                    self.form_change_flash_frames -= 1;
                 }
                 self.resolve_pending_form_change();
             }
@@ -5428,6 +5437,24 @@ mod tests {
             runtime.number_hitpoints,
             PlayerForm::Juggernaut.max_hitpoints()
         );
+    }
+
+    #[test]
+    fn form_change_sets_flash_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        assert_eq!(runtime.form_change_flash_frames, 0);
+
+        runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
+        runtime.step_frame(FrameInput::default());
+
+        // Flash should be set after resolve_pending_form_change
+        assert!(runtime.form_change_flash_frames > 0, "flash should be active after form change");
+
+        // Flash should count down
+        let initial = runtime.form_change_flash_frames;
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(runtime.form_change_flash_frames, initial - 1);
     }
 
     #[test]

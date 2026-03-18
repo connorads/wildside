@@ -322,6 +322,8 @@ impl NativeRuntime {
         };
         self.current_form = form;
         self.number_hitpoints = form.max_hitpoints();
+        // TODO(fidelity): real form-change spinning sprite animation from ASM
+        self.form_change_flash_frames = 8;
         // Clear ability state on form change
         self.skycutter_flipboard = 0;
         self.skycutter_on_board = false;
