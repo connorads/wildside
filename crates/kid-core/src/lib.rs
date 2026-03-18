@@ -9421,6 +9421,42 @@ mod tests {
         assert!(enemy.on_ground);
     }
 
+    #[test]
+    fn orca_lunge_accelerates_x_per_frame() {
+        let grid = grid_with_platform(17, 0, 120);
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, (17 * 16 - 30) << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.facing = Direction::Right;
+        enemy.x_velocity = ORCA_LUNGE_X_SPEED;
+        enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+        enemy.on_ground = false;
+        enemy.wall_pinned = false;
+
+        let x_before = enemy.x_velocity;
+        step_orca(&mut enemy, Some(&grid), None);
+        // X velocity should increase by ORCA_LUNGE_X_ACCEL (facing Right)
+        assert_eq!(
+            enemy.x_velocity,
+            x_before + ORCA_LUNGE_X_ACCEL,
+            "X should accelerate during lunge"
+        );
+    }
+
+    #[test]
+    fn orca_wall_pinned_suppresses_x_accel() {
+        let grid = grid_with_platform(17, 0, 120);
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, (17 * 16 - 20) << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x1_8000; // falling after wall bounce
+        enemy.on_ground = false;
+        enemy.wall_pinned = true;
+
+        step_orca(&mut enemy, Some(&grid), None);
+        // X velocity should stay 0 when wall-pinned
+        assert_eq!(enemy.x_velocity, 0, "X accel should be suppressed when wall-pinned");
+    }
+
     // --- TarMonster ---
 
     #[test]
