@@ -1087,36 +1087,6 @@ fn build_game_scene_filtered(
         ));
     }
 
-    // Game over overlay
-    if trace.game_over {
-        let overlay_text = if trace.number_continues > 0 {
-            "CONTINUE?"
-        } else {
-            "GAME OVER"
-        };
-        let text_w = overlay_text.len() as i32 * 8 * 2;
-        let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
-        let text_y = (FRAME_HEIGHT as i32) / 2 - 16;
-        push_panel(
-            &mut commands,
-            text_x - 12,
-            text_y - 8,
-            text_w + 24,
-            48,
-            [40, 0, 0],
-            [255, 80, 80],
-        );
-        commands.push(text(text_x, text_y, overlay_text, [255, 80, 80], 2));
-        let score_text = format!("SCORE: {}", trace.score);
-        let score_w = score_text.len() as i32 * 8;
-        commands.push(text(
-            (FRAME_WIDTH as i32 - score_w) / 2,
-            text_y + 22,
-            &score_text,
-            [200, 200, 200],
-            1,
-        ));
-    }
 
     // Level complete overlay
     if trace.level_complete {
