@@ -52,5 +52,5 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 - Advisory fields: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` (oracle-pause artefacts)
 - Authoritative fields (0 diffs): score, diamonds, position, camera, game_mode, level_id
 - Determinism: verified — identical traces from repeated scenarios
-- Code annotations: 7 TODO(fidelity), 6 DEVIATION, 0 UNVERIFIED
+- Code annotations: 5 TODO(fidelity), 6 DEVIATION, 1 ORIGINAL_QUIRK, 0 UNVERIFIED
 - Perf: criterion benchmarks ~92ns/frame idle, ~3µs level load

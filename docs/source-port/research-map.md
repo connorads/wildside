@@ -69,12 +69,19 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining work
 
-- Structural enemy reworks: BigHoppingSkull (#056), Boss multi-head (#060), HeadyMetal (#062)
-- Orca slope/X-accel (#061 partial)
-- Block timing: Shooter mechanism (#065), Mushroom bounce (#066), Lift animation (#067), Shifting animation (#068)
+- Structural enemy reworks: Boss multi-head (#060), HeadyMetal death phase (#062)
 - Transform animation visual sprites (needs ROM tile extraction, #033)
 - Fire Demon death trail visual sprites (rendered as generic projectile)
 - RNG-dependent behaviours: Tornado patterns, Fireball perturbation, Robot charge flip timer (documented as DEVIATION)
+
+## Recently completed
+
+- BigHoppingSkull continuous bouncer rework (#056) — ASM $FA0 gravity, wall/floor/ceiling/slope deflection
+- Orca X-accel, slope re-lunge, wall-pin (#061) — all 3 from ASM
+- Lift block ASM coroutine timing (#067) — 2px/frame×8 up, erase, 1px/frame×16 down
+- Shooter mechanism (#065) — documented as DEVIATION (ASM per-block registration vs native global timer)
+- Mushroom bounce (#066) — documented as DEVIATION (ASM SoftPlatform objects vs native inline bounce)
+- Shifting block (#068) — documented as DEVIATION (visual sprite animation only, grid swap correct)
 
 ## Previously deferred (now done)
 
