@@ -76,16 +76,7 @@ pub struct NativeRuntime {
     ghost_groups: Vec<GhostGroup>,
     projectiles: Vec<EnemyProjectile>,
     lift_platforms: Vec<LiftPlatform>,
-    /// Weather type for current level (0=none, 1=lava, 2=storm, 3=storm+hail).
-    weather_type: u8,
-    /// Hail system: frames until next hail spawn (0=spawn this frame).
-    hail_spawn_timer: u16,
-    /// Hail system: whether hail is currently active (toggles on $258-frame period).
-    hail_active: bool,
-    /// Hail system: frames until next active/inactive toggle.
-    hail_period_timer: u16,
-    /// Active lava geysers for lava weather levels.
-    lava_geysers: Vec<LavaGeyser>,
+    weather: WeatherState,
     murder_wall: Option<MurderWallState>,
     /// Metal block bounce animations in progress.
     block_bounces: Vec<BlockBounceAnim>,
@@ -171,11 +162,7 @@ impl NativeRuntime {
             ghost_groups: Vec::new(),
             projectiles: Vec::new(),
             lift_platforms: Vec::new(),
-            weather_type: 0,
-            hail_spawn_timer: 0,
-            hail_active: false,
-            hail_period_timer: 0,
-            lava_geysers: Vec::new(),
+            weather: WeatherState::default(),
             murder_wall: None,
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
@@ -405,7 +392,7 @@ impl NativeRuntime {
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
                 .collect(),
             active_geysers: self
-                .lava_geysers
+                .weather.lava_geysers
                 .iter()
                 .filter(|g| g.current_height > 0)
                 .map(|g| {
@@ -9678,12 +9665,12 @@ mod tests {
     #[test]
     fn hail_spawns_projectiles_after_35_seconds() {
         let mut runtime = NativeRuntime::new(manifest());
-        runtime.weather_type = 3; // Storm + Hail
+        runtime.weather.weather_type = 3; // Storm + Hail
         // Simulate 35 seconds elapsed: timer at 145s remaining
         runtime.level_timer.seconds = 145;
-        runtime.hail_active = true;
-        runtime.hail_spawn_timer = 0;
-        runtime.hail_period_timer = 100; // mid-period, still active
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_spawn_timer = 0;
+        runtime.weather.hail_period_timer = 100; // mid-period, still active
 
         let slice = airborne_slice();
         let before = runtime.projectiles.len();
@@ -9702,7 +9689,7 @@ mod tests {
     #[test]
     fn no_hail_without_storm_weather() {
         let mut runtime = NativeRuntime::new(manifest());
-        runtime.weather_type = 0; // No weather
+        runtime.weather.weather_type = 0; // No weather
         runtime.level_timer.seconds = 100;
 
         let slice = airborne_slice();
@@ -9719,8 +9706,8 @@ mod tests {
     #[test]
     fn lava_geyser_erupts_and_collapses() {
         let mut runtime = NativeRuntime::new(manifest());
-        runtime.weather_type = 1;
-        runtime.lava_geysers.push(LavaGeyser {
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
             x_px: 100,
             y_px: 200,
             height_px: 16,
@@ -9733,26 +9720,26 @@ mod tests {
 
         // Phase 0 → phase 1 (erupt)
         runtime.step_lava_geysers(&slice);
-        assert_eq!(runtime.lava_geysers[0].phase, 1);
+        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
 
         // Erupt until full height (16px / 4px per frame = 4 frames)
         for _ in 0..3 {
             runtime.step_lava_geysers(&slice);
         }
-        assert_eq!(runtime.lava_geysers[0].phase, 1);
+        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
         runtime.step_lava_geysers(&slice);
         assert_eq!(
-            runtime.lava_geysers[0].phase, 2,
+            runtime.weather.lava_geysers[0].phase, 2,
             "should transition to hold phase"
         );
-        assert_eq!(runtime.lava_geysers[0].current_height, 16);
+        assert_eq!(runtime.weather.lava_geysers[0].current_height, 16);
 
         // Hold for LAVA_GEYSER_HOLD_FRAMES + 1 frames (countdown then transition)
         for _ in 0..=LAVA_GEYSER_HOLD_FRAMES {
             runtime.step_lava_geysers(&slice);
         }
         assert_eq!(
-            runtime.lava_geysers[0].phase, 3,
+            runtime.weather.lava_geysers[0].phase, 3,
             "should transition to collapse phase"
         );
 
@@ -9760,8 +9747,8 @@ mod tests {
         for _ in 0..4 {
             runtime.step_lava_geysers(&slice);
         }
-        assert_eq!(runtime.lava_geysers[0].phase, 0, "should return to dormant");
-        assert_eq!(runtime.lava_geysers[0].current_height, 0);
+        assert_eq!(runtime.weather.lava_geysers[0].phase, 0, "should return to dormant");
+        assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
     }
 
     // --- Skycutter flipboard tests ---

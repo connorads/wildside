@@ -33,7 +33,7 @@ impl NativeRuntime {
 
     pub(crate) fn step_weather(&mut self, slice: &OpeningSliceState) {
         // Hail only for Storm+Hail (weather 3), active after 35s of level time
-        if self.weather_type != 3 {
+        if self.weather.weather_type != 3 {
             return;
         }
         // Level timer counts down from 180s. 35s elapsed = 145s remaining.
@@ -42,23 +42,23 @@ impl NativeRuntime {
         }
 
         // Toggle hail active/inactive every 600 frames ($258)
-        if self.hail_period_timer > 0 {
-            self.hail_period_timer -= 1;
+        if self.weather.hail_period_timer > 0 {
+            self.weather.hail_period_timer -= 1;
         } else {
-            self.hail_active = !self.hail_active;
-            self.hail_period_timer = 600;
+            self.weather.hail_active = !self.weather.hail_active;
+            self.weather.hail_period_timer = 600;
         }
 
-        if !self.hail_active {
+        if !self.weather.hail_active {
             return;
         }
 
         // Spawn hail every 30 frames during active period
-        if self.hail_spawn_timer > 0 {
-            self.hail_spawn_timer -= 1;
+        if self.weather.hail_spawn_timer > 0 {
+            self.weather.hail_spawn_timer -= 1;
             return;
         }
-        self.hail_spawn_timer = 30;
+        self.weather.hail_spawn_timer = 30;
 
         // Spawn a hail projectile above the camera, at a random-ish X
         let camera_x = slice.camera.x_pos >> 16;
@@ -83,12 +83,12 @@ impl NativeRuntime {
 
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {
         let header = self.level_header(level_id);
-        self.weather_type = header.map(|h| h.weather_flags).unwrap_or(0);
-        self.hail_active = false;
-        self.hail_spawn_timer = 0;
-        self.hail_period_timer = 0;
-        self.lava_geysers.clear();
-        if self.weather_type == 1 {
+        self.weather.weather_type = header.map(|h| h.weather_flags).unwrap_or(0);
+        self.weather.hail_active = false;
+        self.weather.hail_spawn_timer = 0;
+        self.weather.hail_period_timer = 0;
+        self.weather.lava_geysers.clear();
+        if self.weather.weather_type == 1 {
             self.init_lava_geysers(level_id);
         }
     }
@@ -131,7 +131,7 @@ impl NativeRuntime {
 
         for &(x, y, h) in positions {
             let initial_delay = (h & 0xF) * 10;
-            self.lava_geysers.push(LavaGeyser {
+            self.weather.lava_geysers.push(LavaGeyser {
                 x_px: x,
                 y_px: y,
                 height_px: h >> 4,
@@ -144,7 +144,7 @@ impl NativeRuntime {
 
     /// Step all active lava geysers through their eruption cycle.
     pub(crate) fn step_lava_geysers(&mut self, slice: &OpeningSliceState) {
-        if self.weather_type != 1 || self.lava_geysers.is_empty() {
+        if self.weather.weather_type != 1 || self.weather.lava_geysers.is_empty() {
             return;
         }
 
@@ -152,7 +152,7 @@ impl NativeRuntime {
         let player_y = (slice.player.y_pos >> 16) as i32;
         let mut should_damage = false;
 
-        for geyser in &mut self.lava_geysers {
+        for geyser in &mut self.weather.lava_geysers {
             match geyser.phase {
                 0 => {
                     // Waiting/dormant

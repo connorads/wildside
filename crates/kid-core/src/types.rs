@@ -2,6 +2,21 @@ use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
 use serde::{Deserialize, Serialize};
 
+/// Weather system state for the current level.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct WeatherState {
+    /// Weather type (0=none, 1=lava, 2=storm, 3=storm+hail).
+    pub(crate) weather_type: u8,
+    /// Hail system: frames until next hail spawn (0=spawn this frame).
+    pub(crate) hail_spawn_timer: u16,
+    /// Hail system: whether hail is currently active (toggles on $258-frame period).
+    pub(crate) hail_active: bool,
+    /// Hail system: frames until next active/inactive toggle.
+    pub(crate) hail_period_timer: u16,
+    /// Active lava geysers for lava weather levels.
+    pub(crate) lava_geysers: Vec<LavaGeyser>,
+}
+
 /// Per-helmet ability state, reset on form change or death.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct HelmetState {
