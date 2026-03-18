@@ -6274,6 +6274,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         }];
 
         activate_enemies(
@@ -6456,6 +6458,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
 
         let mut grounded_skull = None;
@@ -6518,6 +6522,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
 
         let mut grounded_skull = None;
@@ -6632,6 +6638,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
@@ -6704,6 +6712,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -6776,6 +6786,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -7825,6 +7837,39 @@ mod tests {
     }
 
     #[test]
+    fn scorpion_tracking_boosts_speed_at_high_hp() {
+        // Scorpion.asm loc_3DD7E: within 170px and enemy_level > 1 (HP >= 5),
+        // walk_speed_override set to $38000.
+        use enemies::step_scorpion_tracking;
+        let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        let player_x = Some(150u32 << 16); // 50px away (within 170px range)
+        step_scorpion_tracking(&mut enemy, player_x, None);
+        assert_eq!(enemy.walk_speed_override, 0x3_8000, "HP>=5 within range should boost");
+        assert_eq!(enemy.facing, Direction::Right, "should face toward player");
+    }
+
+    #[test]
+    fn scorpion_tracking_no_boost_at_low_hp() {
+        // HP 3-4 (enemy_level 0-1): no speed boost even within range.
+        use enemies::step_scorpion_tracking;
+        let mut enemy = make_pacer(EnemyFamily::Scorpion, 4, 100, 224);
+        let player_x = Some(150u32 << 16);
+        step_scorpion_tracking(&mut enemy, player_x, None);
+        assert_eq!(enemy.walk_speed_override, 0, "HP<5 should not boost");
+    }
+
+    #[test]
+    fn scorpion_tracking_resets_speed_outside_range() {
+        // Scorpion.asm loc_3DE7E: outside 170px, reset to $18000.
+        use enemies::step_scorpion_tracking;
+        let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        enemy.walk_speed_override = 0x3_8000; // previously boosted
+        let player_x = Some(500u32 << 16); // 400px away (outside 170px)
+        step_scorpion_tracking(&mut enemy, player_x, None);
+        assert_eq!(enemy.walk_speed_override, 0x1_8000, "outside range should reset");
+    }
+
+    #[test]
     fn pacer_walk_speed_driller_scales_with_hp() {
         // Driller: base_hp=2, base_speed=$8000, step=$8000
         assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 2), 0x0000_8000);
@@ -7905,6 +7950,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         }
     }
 
@@ -8063,6 +8110,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -8115,6 +8164,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -8195,6 +8246,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -8283,6 +8336,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(
@@ -8334,6 +8389,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -8391,6 +8448,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -8452,6 +8511,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -8516,6 +8577,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
 
         // Step until it lands
@@ -8650,6 +8713,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8696,6 +8761,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8790,6 +8857,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -8840,6 +8909,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -8904,6 +8975,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -8953,6 +9026,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -9005,6 +9080,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -9156,6 +9233,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         };
         let mut projectiles = Vec::new();
 
@@ -11828,6 +11907,8 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            walk_speed_override: 0,
         }
     }
 

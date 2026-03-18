@@ -149,6 +149,15 @@ pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
 pub(crate) const TANK_BULLET_LIFETIME: u16 = 120;
 
+/// Scorpion tracking range in pixels (Scorpion.asm line 158: $AA = 170).
+/// Outside this range, speed resets to base $18000.
+const SCORPION_TRACK_RANGE: i64 = 0xAA;
+/// Scorpion boosted speed when within tracking range and enemy_level > 1 (HP > 3).
+/// From Scorpion.asm line 164: $38000.
+const SCORPION_BOOST_SPEED: i32 = 0x3_8000;
+/// Scorpion base speed (always $18000, from Scorpion.asm init line 30).
+const SCORPION_BASE_SPEED: i32 = 0x1_8000;
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -396,6 +405,11 @@ pub(crate) struct ActiveEnemy {
     pub(crate) ufo_beam_interval: u8,
     /// Boss head index (0, 1, 2) for multi-head bosses. BOSS_HEAD_NONE if not a boss head.
     pub(crate) boss_head_index: u8,
+    /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
+    pub(crate) scorpion_tracking_lock: bool,
+    /// Walk speed override from tracking callback ($50(a5)). When non-zero, step_pacer
+    /// uses this instead of pacer_walk_speed(). Set by Scorpion tracking (Scorpion.asm loc_3DD7E).
+    pub(crate) walk_speed_override: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -851,6 +865,8 @@ pub(crate) fn activate_enemies(
                 ufo_beam_segments: 0,
                 ufo_beam_interval: 0,
                 boss_head_index: if is_multi_head_boss(family) { head_idx } else { BOSS_HEAD_NONE },
+                scorpion_tracking_lock: false,
+                walk_speed_override: 0,
             });
         }
     }
@@ -918,6 +934,14 @@ pub(crate) fn step_active_enemies(
                                 };
                             }
                         }
+                    }
+                    // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
+                    // Within 170px: face toward player (unless tracking-locked),
+                    // boost speed to $38000 if enemy_level > 1 (HP > 3).
+                    // Outside 170px: reset speed to base $18000, clear tracking lock
+                    // if player is airborne.
+                    if matches!(enemy.family, EnemyFamily::Scorpion) {
+                        step_scorpion_tracking(enemy, player_x_pos, player_y_pos);
                     }
                     // Tank fires horizontal bullets at intervals
                     if matches!(enemy.family, EnemyFamily::Tank) {
@@ -1786,7 +1810,11 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     };
 
-    let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
+    let walk_speed = if enemy.walk_speed_override != 0 {
+        enemy.walk_speed_override
+    } else {
+        pacer_walk_speed(enemy.family, enemy.hit_points)
+    };
     enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     enemy.y_velocity = 0;
 
@@ -3130,6 +3158,45 @@ pub(crate) fn step_archer(
         speed_cap: 0,
         wall_bounce: false,
     });
+}
+
+/// Scorpion tracking callback (Scorpion.asm loc_3DD7E).
+///
+/// Within 170px ($AA): face toward player (unless tracking-locked $4E),
+/// boost speed to $38000 if enemy_level > 1 (HP > 3).
+/// Outside 170px: reset speed to $18000, clear tracking lock if player airborne.
+pub(crate) fn step_scorpion_tracking(
+    enemy: &mut ActiveEnemy,
+    player_x_pos: Option<u32>,
+    _player_y_pos: Option<u32>,
+) {
+    let Some(px) = player_x_pos else { return };
+    let dx = (enemy.x_pos as i64 - px as i64) >> 16; // scorpion_x - player_x
+
+    // Outside tracking range: reset speed, optionally clear tracking lock.
+    // ASM loc_3DE7E: $50(a5) = $18000; if player airborne, clear $4E.
+    if dx.abs() > SCORPION_TRACK_RANGE {
+        enemy.walk_speed_override = SCORPION_BASE_SPEED;
+        // ASM checks player y_vel ($26(a4)) to clear tracking lock.
+        // We approximate: clear lock when out of range (conservative).
+        enemy.scorpion_tracking_lock = false;
+        return;
+    }
+
+    // Within tracking range: face toward player unless tracking-locked.
+    // ASM loc_3DD7E lines 146-155: if $4E clear, set x_direction toward player.
+    if !enemy.scorpion_tracking_lock {
+        if dx > 0 {
+            enemy.facing = Direction::Left; // player is to the left
+        } else if dx < 0 {
+            enemy.facing = Direction::Right; // player is to the right
+        }
+    }
+
+    // ASM line 162-164: if enemy_level > 1 (HP >= 5 since HP = level + 3), boost speed.
+    if enemy.hit_points >= 5 {
+        enemy.walk_speed_override = SCORPION_BOOST_SPEED;
+    }
 }
 
 /// Tank fires a horizontal bullet at intervals while pacing.
