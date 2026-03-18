@@ -9278,25 +9278,37 @@ mod tests {
     // --- SpinningTwins ---
 
     #[test]
-    fn spinning_twins_orbits_then_drops_to_walking() {
+    fn spinning_twins_orbits_indefinitely_without_player_contact() {
         let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
-        enemy.wait_timer = SPINNING_TWINS_ORBIT_FRAMES;
         assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
 
         // Step through orbit phase — X position should oscillate
         let initial_x = enemy.x_pos;
-        step_spinning_twins(&mut enemy, None);
+        step_spinning_twins(&mut enemy, None, None, None);
         assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
         assert_ne!(enemy.x_pos, initial_x, "orbit should move X position");
 
-        // Fast-forward to end of orbit
-        enemy.wait_timer = 1;
-        step_spinning_twins(&mut enemy, None);
-        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
-        assert_eq!(enemy.wait_timer, 0);
+        // Step many more frames — should still orbit without player contact
+        for _ in 0..200 {
+            step_spinning_twins(&mut enemy, None, None, None);
+        }
+        assert_eq!(
+            enemy.spinning_twins_phase,
+            SpinningTwinsPhase::Orbiting,
+            "should orbit indefinitely without player contact (ASM: no timer fallback)"
+        );
+    }
 
-        // Next step should transition to Walking
-        step_spinning_twins(&mut enemy, None);
+    #[test]
+    fn spinning_twins_drops_on_player_collision() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Orbiting);
+
+        // Place player overlapping the orbiting twins
+        let player_x = Some(100u32 << 16);
+        let player_y = Some(50u32 << 16);
+        step_spinning_twins(&mut enemy, None, player_x, player_y);
+
         assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Walking);
         assert!(!enemy.on_ground, "should be airborne after drop");
         assert!(enemy.y_velocity < 0, "should have upward launch velocity");

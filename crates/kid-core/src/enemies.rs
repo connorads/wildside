@@ -801,7 +801,7 @@ pub(crate) fn step_active_enemies(
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     step_orca(enemy, block_grid, player_x_pos);
                 } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
-                    step_spinning_twins(enemy, block_grid);
+                    step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
                 } else {
                     step_pacer(enemy, block_grid);
                     // Tank fires horizontal bullets at intervals
@@ -2430,10 +2430,11 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
 // Applied relative to spawn position during orbit phase.
 pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
     [-0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11];
-// TODO(fidelity): orbit-to-walk transition should be collision-triggered (player
-// touching the orbiting form), not timer-based. ASM: collision_type check at
-// loc_3B904. The 120-frame timer is a native approximation.
-pub(crate) const SPINNING_TWINS_ORBIT_FRAMES: u16 = 120;
+/// Orbit-to-walk transition: collision-triggered. ASM loc_3B904 checks
+/// collision_type each frame — negative, $2C, or $1C all trigger the drop.
+/// In native, we check player hitbox overlap with the orbiting enemy.
+/// Hitbox half-width for orbit collision check (approximate from sprite size).
+const SPINNING_TWINS_ORBIT_HITBOX_HALF: i32 = 16;
 // Gravity applied each frame once the twins drop. ASM: $2800 FP.
 pub(crate) const SPINNING_TWINS_GRAVITY: i32 = 0x2800;
 // Launch Y velocity when transitioning from orbit. ASM: -$10000.
@@ -2443,9 +2444,13 @@ pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 
 /// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
+/// Orbit-to-walk transition is collision-triggered (player touching the orbiting form).
+/// ASM: loc_3B904 checks collision_type each frame.
 pub(crate) fn step_spinning_twins(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
 ) {
     match enemy.spinning_twins_phase {
         SpinningTwinsPhase::Orbiting => {
@@ -2458,9 +2463,20 @@ pub(crate) fn step_spinning_twins(
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
             enemy.x_velocity = 0;
 
-            if enemy.wait_timer > 0 {
-                enemy.wait_timer -= 1;
+            // Check player collision — triggers orbit-to-walk transition.
+            // ASM loc_3B904: collision_type negative/$2C/$1C all trigger drop.
+            let player_contact = if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+                let ex = (enemy.x_pos >> 16) as i32;
+                let ey = (enemy.y_pos >> 16) as i32;
+                let px_i = (px >> 16) as i32;
+                let py_i = (py >> 16) as i32;
+                (ex - px_i).abs() < SPINNING_TWINS_ORBIT_HITBOX_HALF
+                    && (ey - py_i).abs() < SPINNING_TWINS_ORBIT_HITBOX_HALF + 8
             } else {
+                false
+            };
+
+            if player_contact {
                 // Drop to walking phase with initial X impulse (ASM loc_3BA74)
                 enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
                 enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
@@ -2977,8 +2993,8 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
         // Tornado: first cycle timer (level 0 = 60 frames).
         EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[0],
-        // SpinningTwins: orbit for N frames before dropping.
-        EnemyFamily::SpinningTwins => SPINNING_TWINS_ORBIT_FRAMES,
+        // SpinningTwins: orbit-to-walk is collision-triggered, no timer needed.
+        EnemyFamily::SpinningTwins => 0,
         // Bosses: fire first projectile after initial delay.
         EnemyFamily::HeadyMetal
         | EnemyFamily::Shishkaboss
