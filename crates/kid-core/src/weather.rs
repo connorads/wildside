@@ -130,7 +130,7 @@ impl NativeRuntime {
         };
 
         for &(x, y, h) in positions {
-            let initial_delay = u16::from(h & 0xF) * 10;
+            let initial_delay = (h & 0xF) * 10;
             self.lava_geysers.push(LavaGeyser {
                 x_px: x,
                 y_px: y,

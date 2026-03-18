@@ -376,8 +376,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         }
 
         // Push audio samples to SDL2 queue
-        if let Some(ref aq) = audio_queue {
-            if aq.size() < 8192 {
+        if let Some(ref aq) = audio_queue
+            && aq.size() < 8192 {
                 if let Some(ref mut gems) = gems_engine {
                     detect_gems_events(&prev_trace, &trace, gems);
                     gems.step_frame();
@@ -388,7 +388,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     let _ = aq.queue_audio(&samples);
                 }
             }
-        }
 
         // Trigger BGM when entering InGame for the first time or on level change
         let level_changed = trace.current_level.0 != current_level_id;
@@ -464,7 +463,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         // Invulnerability flicker: dim every other frame
         if trace.invulnerable_frames > 0
             && !trace.diamond_power_active
-            && trace.frame_index % 2 == 0
+            && trace.frame_index.is_multiple_of(2)
         {
             // Slight dimming to indicate invulnerability
             for pixel in frame.iter_mut() {
@@ -813,11 +812,10 @@ fn detect_gems_events(
     gems: &mut GemsAudioEngine,
 ) {
     // Sound test: play the selected track when A/C pressed
-    if curr.sound_test_play_pending {
-        if let Some(track) = curr.sound_test_track {
+    if curr.sound_test_play_pending
+        && let Some(track) = curr.sound_test_track {
             gems.play_sound(track);
         }
-    }
 
     // Jump
     if prev.kid_on_ground == Some(true)
@@ -1051,6 +1049,92 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(784.0, 150, 0.15); // G5
         sfx.play(1047.0, 300, 0.2); // C6
     }
+}
+
+fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGrid> {
+    if let Some(grid) = try_load_generated_level_layout(manifest, level_id)? {
+        return Ok(grid);
+    }
+
+    let level = manifest
+        .levels
+        .iter()
+        .find(|level| level.level_id == level_id)
+        .ok_or_else(|| anyhow!("generated bundle does not contain level 0x{level_id:02X}"))?;
+    let header = level.header_metadata.as_ref().ok_or_else(|| {
+        anyhow!("generated bundle is missing header metadata for level 0x{level_id:02X}")
+    })?;
+    let decoded = manifest
+        .decoded_level1
+        .as_ref()
+        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
+    if decoded.level_id != level_id {
+        // Layout not yet extracted for this level — return an empty grid so the
+        // level still loads (no block collision). The user can extract it with:
+        //   mise run dump-level-layout 2E
+        eprintln!(
+            "warning: no block layout for level 0x{level_id:02X} (run `mise run dump-level-layout {level_id:02X}` to extract)"
+        );
+        let (width, height) = level_layout_dimensions(header);
+        return Ok(BlockGrid::from_level_layout(&[], width, height));
+    }
+
+    let layout_path = manifest.output_root.join(&decoded.block.relative_path);
+    let data = std::fs::read(&layout_path).map_err(|error| {
+        anyhow!(
+            "failed to read Level 1 block layout from {}: {error}",
+            layout_path.display()
+        )
+    })?;
+    let (width, height) = level_layout_dimensions(header);
+    Ok(BlockGrid::from_level_layout(&data, width, height))
+}
+
+fn try_load_generated_level_layout(
+    manifest: &AssetManifest,
+    level_id: u8,
+) -> Result<Option<BlockGrid>> {
+    let layout_dir = manifest.output_root.join("level-layout");
+    let layout_path = layout_dir.join(format!("{level_id:02X}.bin"));
+    let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+    if !layout_path.is_file() || !metadata_path.is_file() {
+        return Ok(None);
+    }
+
+    let mut data = std::fs::read(&layout_path).map_err(|error| {
+        anyhow!(
+            "failed to read generated Level_Layout from {}: {error}",
+            layout_path.display()
+        )
+    })?;
+    let metadata = serde_json::from_slice::<GeneratedLevelLayoutMetadata>(
+        &std::fs::read(&metadata_path).map_err(|error| {
+            anyhow!(
+                "failed to read Level_Layout metadata from {}: {error}",
+                metadata_path.display()
+            )
+        })?,
+    )
+    .map_err(|error| {
+        anyhow!(
+            "failed to parse Level_Layout metadata from {}: {error}",
+            metadata_path.display()
+        )
+    })?;
+    data.truncate(metadata.data_bytes.min(data.len()));
+    Ok(Some(BlockGrid::from_level_layout(
+        &data,
+        metadata.width_blocks,
+        metadata.height_blocks,
+    )))
+}
+
+fn level_layout_dimensions(header: &LevelHeader) -> (u16, u16) {
+    // Kid's 16x16 collision grid spans 20x14 cells per 320x224 screen.
+    (
+        u16::from(header.width_screens) * 20,
+        u16::from(header.height_screens) * 14,
+    )
 }
 
 #[cfg(test)]
@@ -2353,7 +2437,7 @@ mod tests {
         let h = 2u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
         for col in 0..40 {
-            let offset = (1 * 40 + col) * 2;
+            let offset = (40 + col) * 2;
             data[offset] = 0xE1;
         }
         let grid = BlockGrid::from_level_layout(&data, w, h);
@@ -2822,90 +2906,4 @@ mod tests {
             PlayerForm::IronKnight.max_hitpoints() as usize
         );
     }
-}
-
-fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGrid> {
-    if let Some(grid) = try_load_generated_level_layout(manifest, level_id)? {
-        return Ok(grid);
-    }
-
-    let level = manifest
-        .levels
-        .iter()
-        .find(|level| level.level_id == level_id)
-        .ok_or_else(|| anyhow!("generated bundle does not contain level 0x{level_id:02X}"))?;
-    let header = level.header_metadata.as_ref().ok_or_else(|| {
-        anyhow!("generated bundle is missing header metadata for level 0x{level_id:02X}")
-    })?;
-    let decoded = manifest
-        .decoded_level1
-        .as_ref()
-        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
-    if decoded.level_id != level_id {
-        // Layout not yet extracted for this level — return an empty grid so the
-        // level still loads (no block collision). The user can extract it with:
-        //   mise run dump-level-layout 2E
-        eprintln!(
-            "warning: no block layout for level 0x{level_id:02X} (run `mise run dump-level-layout {level_id:02X}` to extract)"
-        );
-        let (width, height) = level_layout_dimensions(header);
-        return Ok(BlockGrid::from_level_layout(&[], width, height));
-    }
-
-    let layout_path = manifest.output_root.join(&decoded.block.relative_path);
-    let data = std::fs::read(&layout_path).map_err(|error| {
-        anyhow!(
-            "failed to read Level 1 block layout from {}: {error}",
-            layout_path.display()
-        )
-    })?;
-    let (width, height) = level_layout_dimensions(header);
-    Ok(BlockGrid::from_level_layout(&data, width, height))
-}
-
-fn try_load_generated_level_layout(
-    manifest: &AssetManifest,
-    level_id: u8,
-) -> Result<Option<BlockGrid>> {
-    let layout_dir = manifest.output_root.join("level-layout");
-    let layout_path = layout_dir.join(format!("{level_id:02X}.bin"));
-    let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
-    if !layout_path.is_file() || !metadata_path.is_file() {
-        return Ok(None);
-    }
-
-    let mut data = std::fs::read(&layout_path).map_err(|error| {
-        anyhow!(
-            "failed to read generated Level_Layout from {}: {error}",
-            layout_path.display()
-        )
-    })?;
-    let metadata = serde_json::from_slice::<GeneratedLevelLayoutMetadata>(
-        &std::fs::read(&metadata_path).map_err(|error| {
-            anyhow!(
-                "failed to read Level_Layout metadata from {}: {error}",
-                metadata_path.display()
-            )
-        })?,
-    )
-    .map_err(|error| {
-        anyhow!(
-            "failed to parse Level_Layout metadata from {}: {error}",
-            metadata_path.display()
-        )
-    })?;
-    data.truncate(metadata.data_bytes.min(data.len()));
-    Ok(Some(BlockGrid::from_level_layout(
-        &data,
-        metadata.width_blocks,
-        metadata.height_blocks,
-    )))
-}
-
-fn level_layout_dimensions(header: &LevelHeader) -> (u16, u16) {
-    // Kid's 16x16 collision grid spans 20x14 cells per 320x224 screen.
-    (
-        u16::from(header.width_screens) * 20,
-        u16::from(header.height_screens) * 14,
-    )
 }

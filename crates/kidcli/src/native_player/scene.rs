@@ -103,7 +103,7 @@ pub(super) fn build_transition_scene(trace: &NativeTraceFrame) -> Scene {
         colour: [0, 0, 0],
     });
     let level_name = trace.current_level_name.as_deref().unwrap_or("Unknown");
-    let level_text = format!("{}", level_name);
+    let level_text = level_name.to_string();
     let text_w = level_text.len() as i32 * 8 * 2;
     let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
     let text_y = (FRAME_HEIGHT as i32) / 2 - 20;
@@ -249,7 +249,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
     ));
 
     // Blinking "PRESS START" (blink every 30 frames)
-    if (trace.frame_index / 30) % 2 == 0 {
+    if (trace.frame_index / 30).is_multiple_of(2) {
         let start_text = "PRESS START";
         let start_w = start_text.len() as i32 * 8 * 2;
         commands.push(text(
@@ -459,7 +459,7 @@ pub(super) fn build_victory_scene(trace: &NativeTraceFrame) -> Scene {
     ));
 
     // Blinking "PRESS START" to return to title
-    if (trace.frame_index / 30) % 2 == 0 {
+    if (trace.frame_index / 30).is_multiple_of(2) {
         let start_text = "PRESS START";
         let start_w = start_text.len() as i32 * 8 * 2;
         commands.push(text(
@@ -828,7 +828,7 @@ pub(super) fn background_scroll_x_px(
         0x00 => (trace.frame_index as i32 / 2).rem_euclid(512),
         0x08 => (trace.frame_index as i32 / 4).rem_euclid(512),
         0x10 => 0,
-        0x18..=0x88 if (layer_speed - 0x10) % 8 == 0 => {
+        0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
             let step = i32::from((layer_speed - 0x10) / 8);
             camera_x_px.saturating_mul(step) / 15
         }
@@ -1004,20 +1004,19 @@ fn build_game_scene_filtered(
             if let NativeObjectKind::Enemy { object_type } = object.kind {
                 push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
                 // Debug: show enemy HP above each enemy
-                if debug_overlay_visible {
-                    if let Some(hp) = object.hit_points {
+                if debug_overlay_visible
+                    && let Some(hp) = object.hit_points {
                         let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
                         let ey =
                             (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
                         commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
                     }
-                }
             }
         }
     }
     if filter.player {
         // Player: blink every 4 frames during invulnerability
-        let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4) % 2 == 0;
+        let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4).is_multiple_of(2);
         if player_visible {
             for object in trace
                 .active_objects

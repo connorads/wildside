@@ -3,8 +3,8 @@ use super::*;
 impl NativeRuntime {
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
-        if slice.player.on_ground {
-            if let Some(grid) = &self.block_grid {
+        if slice.player.on_ground
+            && let Some(grid) = &self.block_grid {
                 let x_px = (slice.player.x_pos >> 16) as i32;
                 let y_px = (slice.player.y_pos >> 16) as i32;
                 let probe = terrain::probe_floor(grid, x_px, y_px);
@@ -26,7 +26,6 @@ impl NativeRuntime {
                     }
                 }
             }
-        }
 
         // Tick timers and remove expired blocks
         if let Some(grid) = &mut self.block_grid {
@@ -188,7 +187,7 @@ impl NativeRuntime {
 
             if lift.age <= LIFT_RISE_FRAMES {
                 // Phase 1: rise at 2px/frame
-                let delta = -(i32::from(LIFT_RISE_SPEED_PX) << 16);
+                let delta = -(LIFT_RISE_SPEED_PX << 16);
                 lift.y_velocity = delta;
                 lift.y_pos = (i64::from(lift.y_pos) + i64::from(delta))
                     .clamp(0, i64::from(u32::MAX)) as u32;
@@ -206,7 +205,7 @@ impl NativeRuntime {
                 }
 
                 // Phase 3: fall at 1px/frame
-                let delta = i32::from(LIFT_FALL_SPEED_PX) << 16;
+                let delta = LIFT_FALL_SPEED_PX << 16;
                 lift.y_velocity = delta;
                 lift.y_pos = (i64::from(lift.y_pos) + i64::from(delta))
                     .clamp(0, i64::from(u32::MAX)) as u32;
@@ -230,7 +229,7 @@ impl NativeRuntime {
                 && !slice.player.on_ground
             {
                 let foot_dist = player_foot_y_px - plat_y_px;
-                if foot_dist >= -2 && foot_dist <= 4 {
+                if (-2..=4).contains(&foot_dist) {
                     slice.player.y_pos = lift.y_pos;
                     slice.player.y_velocity = lift.y_velocity;
                     slice.player.on_ground = true;

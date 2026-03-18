@@ -191,13 +191,11 @@ impl NativeRuntime {
         // Apply acceleration to velocity
         slice.player.y_velocity += i32::from(self.cyclone_y_accel);
 
-        // Clamp velocity
-        if slice.player.y_velocity > CYCLONE_MAX_FALL_VEL {
-            slice.player.y_velocity = CYCLONE_MAX_FALL_VEL;
-        }
-        if slice.player.y_velocity < CYCLONE_MAX_RISE_VEL {
-            slice.player.y_velocity = CYCLONE_MAX_RISE_VEL;
-        }
+        // Clamp velocity to rise/fall limits.
+        slice.player.y_velocity = slice
+            .player
+            .y_velocity
+            .clamp(CYCLONE_MAX_RISE_VEL, CYCLONE_MAX_FALL_VEL);
     }
 
     /// IronKnight wall climb: C press while airborne attaches to adjacent wall,
@@ -216,8 +214,8 @@ impl NativeRuntime {
         let c_pressed = input.c && !self.prior_input.c;
 
         // Try to attach to wall on C press while airborne and not already climbing
-        if c_pressed && !slice.player.on_ground && !self.iron_knight_climbing {
-            if let Some(ref grid) = self.block_grid {
+        if c_pressed && !slice.player.on_ground && !self.iron_knight_climbing
+            && let Some(ref grid) = self.block_grid {
                 // Probe wall in player's facing direction
                 let facing_right = slice.player.facing == Direction::Right;
                 let px = (slice.player.x_pos >> 16) as i32;
@@ -231,7 +229,6 @@ impl NativeRuntime {
                     return;
                 }
             }
-        }
 
         if !self.iron_knight_climbing {
             return;
@@ -294,13 +291,11 @@ impl NativeRuntime {
         // Apply acceleration to velocity
         slice.player.y_velocity += i32::from(self.iron_knight_climb_accel);
 
-        // Clamp velocity
-        if slice.player.y_velocity < IRON_KNIGHT_MAX_CLIMB_VEL {
-            slice.player.y_velocity = IRON_KNIGHT_MAX_CLIMB_VEL;
-        }
-        if slice.player.y_velocity > IRON_KNIGHT_MAX_FALL_VEL {
-            slice.player.y_velocity = IRON_KNIGHT_MAX_FALL_VEL;
-        }
+        // Clamp velocity to climb/fall limits.
+        slice.player.y_velocity = slice
+            .player
+            .y_velocity
+            .clamp(IRON_KNIGHT_MAX_CLIMB_VEL, IRON_KNIGHT_MAX_FALL_VEL);
 
         // Zero horizontal velocity while climbing
         slice.player.x_velocity = 0;
@@ -681,7 +676,7 @@ impl NativeRuntime {
 
         let vel_abs = slice.player.x_velocity.unsigned_abs() as i32;
         if vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
-            || (!slice.player.on_ground && !(self.previous_input.left || self.previous_input.right))
+            || !(slice.player.on_ground || self.previous_input.left || self.previous_input.right)
         {
             self.berzerker_charging = false;
             self.berzerker_charge_accum = 0;
@@ -790,7 +785,7 @@ impl NativeRuntime {
                 DiamondPowerType::SlashingRain
                 | DiamondPowerType::TrackingRain => {
                     // Rain projectiles from top of screen every 4 frames
-                    if self.diamond_power_frames % 4 == 0 && self.projectiles.len() < MAX_PROJECTILES {
+                    if self.diamond_power_frames.is_multiple_of(4) && self.projectiles.len() < MAX_PROJECTILES {
                         let slice = self.opening_slice.as_ref();
                         let cam_x = slice.map(|s| s.camera.x_pos).unwrap_or(0);
                         // Random-ish X across screen width (320px)
@@ -846,7 +841,7 @@ impl NativeRuntime {
                 DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake => {
                     // Forward-firing diamond chain: spawn projectile every 8 frames
                     self.invulnerable_frames = self.invulnerable_frames.max(1);
-                    if self.diamond_power_frames % 8 == 0 && self.projectiles.len() < MAX_PROJECTILES {
+                    if self.diamond_power_frames.is_multiple_of(8) && self.projectiles.len() < MAX_PROJECTILES {
                         let slice = self.opening_slice.as_ref();
                         let (px, py, facing) = slice
                             .map(|s| {

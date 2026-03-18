@@ -184,6 +184,6 @@ mod tests {
         let mut rgb = vec![0u8; w * h * 3];
         draw_text(&mut rgb, w, 0, 0, "A");
         // At least one pixel should be lit (white)
-        assert!(rgb.iter().any(|&b| b == 255));
+        assert!(rgb.contains(&255));
     }
 }

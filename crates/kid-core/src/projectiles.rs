@@ -35,8 +35,8 @@ impl NativeRuntime {
             // Wall-bounce: reverse velocity on terrain contact (Lion.asm loc_3E260).
             // ASM checks collision_type and bounces up to 15 times per frame.
             // Native: check if projectile centre is inside a solid cell after moving.
-            if p.wall_bounce {
-                if let Some(g) = grid {
+            if p.wall_bounce
+                && let Some(g) = grid {
                     let px_i = (p.x_pos >> 16) as i32;
                     let py_i = (p.y_pos >> 16) as i32;
                     let col = terrain::pixel_to_cell(px_i).max(0) as u16;
@@ -85,7 +85,6 @@ impl NativeRuntime {
                         p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
                     }
                 }
-            }
             true
         });
     }

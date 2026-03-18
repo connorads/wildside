@@ -295,9 +295,7 @@ pub fn update_jump_horizontal_velocity(
         }
     } else if input.right {
         let next = x_vel + accel;
-        if next < 0 {
-            next
-        } else if profile.max_speed >= next {
+        if next <= profile.max_speed {
             next
         } else {
             x_vel - 0x100
@@ -652,6 +650,7 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants, clippy::identity_op)]
 mod tests {
     use super::*;
 
@@ -1253,6 +1252,7 @@ mod tests {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants)]
 mod proptests {
     use super::*;
     use proptest::prelude::*;

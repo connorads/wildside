@@ -234,7 +234,7 @@ impl NativeRuntime {
         }
         self.diamond_count += 1;
         self.add_score(500);
-        if self.diamond_count % 50 == 0 {
+        if self.diamond_count.is_multiple_of(50) {
             self.add_life();
         }
     }

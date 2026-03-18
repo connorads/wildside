@@ -65,11 +65,10 @@ impl NativeRuntime {
                 .map_order
                 .iter()
                 .position(|&id| id == self.current_level.0);
-            if let Some(pos) = current_pos {
-                if pos > 0 {
+            if let Some(pos) = current_pos
+                && pos > 0 {
                     return LevelId(self.assets.map_order[pos - 1]);
                 }
-            }
         }
         self.current_level
     }
@@ -444,7 +443,8 @@ impl NativeRuntime {
                 number_gfx_objects: 14,
             },
             _ => {
-                let fallback = self
+
+                self
                     .level_header(level_id)
                     .map(|header| LevelSkipHoldPose {
                         kid_x_pos: u32::from(header.player_start_x) << 16,
@@ -461,8 +461,7 @@ impl NativeRuntime {
                         camera_y_pos: 0,
                         number_objects: 4,
                         number_gfx_objects: 4,
-                    });
-                fallback
+                    })
             }
         }
     }

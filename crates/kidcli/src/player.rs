@@ -909,8 +909,8 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                     *pending_value = None;
                 }
                 let cheat = &CHEATS[*selected];
-                if let CheatEffect::Adjustable { min, max } = cheat.effect {
-                    if menu_left || menu_right {
+                if let CheatEffect::Adjustable { min, max } = cheat.effect
+                    && (menu_left || menu_right) {
                         let current = pending_value.unwrap_or_else(|| {
                             runtime
                                 .as_ref()
@@ -924,7 +924,6 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                         };
                         *pending_value = Some(next);
                     }
-                }
                 if confirm {
                     if let Some(rt) = runtime.as_mut() {
                         let value = pending_value.unwrap_or_else(|| (cheat.read)(&rt.game_state()));

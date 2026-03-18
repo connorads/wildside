@@ -26,14 +26,12 @@ pub(crate) struct HopperConstants {
     pub(crate) ground_delay: u8,
 }
 
-pub(crate) fn hopper_constants(family: EnemyFamily) -> HopperConstants {
-    match family {
-        _ => HopperConstants {
-            jump_x_speed: MINI_SKULL_JUMP_X_SPEED_FP,
-            jump_y_speed: MINI_SKULL_JUMP_Y_SPEED_FP,
-            gravity: MINI_SKULL_GRAVITY_FP,
-            ground_delay: MINI_SKULL_GROUND_DELAY_FRAMES,
-        },
+pub(crate) fn hopper_constants(_family: EnemyFamily) -> HopperConstants {
+    HopperConstants {
+        jump_x_speed: MINI_SKULL_JUMP_X_SPEED_FP,
+        jump_y_speed: MINI_SKULL_JUMP_Y_SPEED_FP,
+        gravity: MINI_SKULL_GRAVITY_FP,
+        ground_delay: MINI_SKULL_GROUND_DELAY_FRAMES,
     }
 }
 // ── Boss multi-head constants (ASM kid.asm:40177–40700) ──
@@ -223,6 +221,7 @@ pub(crate) enum EnemyFamily {
     Tank,
     Crab,
     Orca,
+    #[allow(clippy::upper_case_acronyms)]
     UFO,
     Ninja,
     Lion,
@@ -897,11 +896,10 @@ pub(crate) fn step_active_enemies(
                     step_dragon(enemy, player_x_pos, player_y_pos, &mut projectiles);
                 } else {
                     step_flyer(enemy, block_grid);
-                    if matches!(enemy.family, EnemyFamily::UFO) {
-                        if let Some(ref mut projs) = projectiles {
+                    if matches!(enemy.family, EnemyFamily::UFO)
+                        && let Some(ref mut projs) = projectiles {
                             step_ufo_beam(enemy, projs, player_x_pos, player_y_pos);
                         }
-                    }
                 }
             }
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
@@ -923,8 +921,8 @@ pub(crate) fn step_active_enemies(
                     step_pacer(enemy, block_grid);
                     // Goat: player-tracking callback (Goat.asm loc_3CC18).
                     // If player is >32px away, turn to face them.
-                    if matches!(enemy.family, EnemyFamily::Goat) {
-                        if let Some(px) = player_x_pos {
+                    if matches!(enemy.family, EnemyFamily::Goat)
+                        && let Some(px) = player_x_pos {
                             let dx = (px as i64 - enemy.x_pos as i64) >> 16;
                             if dx.abs() > 0x20 {
                                 enemy.facing = if dx > 0 {
@@ -934,7 +932,6 @@ pub(crate) fn step_active_enemies(
                                 };
                             }
                         }
-                    }
                     // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
                     // Within 170px: face toward player (unless tracking-locked),
                     // boost speed to $38000 if enemy_level > 1 (HP > 3).
@@ -944,17 +941,15 @@ pub(crate) fn step_active_enemies(
                         step_scorpion_tracking(enemy, player_x_pos, player_y_pos);
                     }
                     // Tank fires horizontal bullets at intervals
-                    if matches!(enemy.family, EnemyFamily::Tank) {
-                        if let Some(ref mut projs) = projectiles {
+                    if matches!(enemy.family, EnemyFamily::Tank)
+                        && let Some(ref mut projs) = projectiles {
                             step_tank_fire(enemy, projs);
                         }
-                    }
                     // DragonWalking paces and fires breath on timer
-                    if matches!(enemy.family, EnemyFamily::DragonWalking) {
-                        if let Some(ref mut projs) = projectiles {
+                    if matches!(enemy.family, EnemyFamily::DragonWalking)
+                        && let Some(ref mut projs) = projectiles {
                             step_dragon_walking(enemy, projs, player_x_pos);
                         }
-                    }
                 }
             }
             EnemyArchetype::Stationary => {
@@ -1412,14 +1407,13 @@ pub(crate) fn step_dragon(
                     .max(-DRAGON_DRIFT_SPEED_CAP);
             }
             // Fire-breath cone check during DriftWithFire (ASM loc_34836).
-            if enemy.dragon_phase == DragonFlyingState::DriftingWithFire {
-                if dragon_fire_breath_cone(enemy, player_x_pos, player_y_pos) {
+            if enemy.dragon_phase == DragonFlyingState::DriftingWithFire
+                && dragon_fire_breath_cone(enemy, player_x_pos, player_y_pos) {
                     // Cone hit: enter descent attack.
                     dragon_enter_descent(enemy);
                     dragon_apply_velocity(enemy);
                     return;
                 }
-            }
             enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
             if enemy.dragon_phase_frames == 0 {
                 dragon_advance_script(enemy, player_x_pos, projectiles);
@@ -2061,7 +2055,7 @@ pub(crate) fn step_hand(
             let dy = (enemy.y_pos as i64 - py as i64) >> 16;
 
             // Player must be 0-16px above Hand
-            if dy < 0 || dy > 16 {
+            if !(0..=16).contains(&dy) {
                 return;
             }
 
@@ -3091,8 +3085,8 @@ pub(crate) fn archer_angle_to_player(
         return if dy < 0 { 6 } else { 0x15 };
     }
 
-    let abs_dx = dx.unsigned_abs() as u32;
-    let abs_dy = dy.unsigned_abs() as u32;
+    let abs_dx = dx.unsigned_abs();
+    let abs_dy = dy.unsigned_abs();
     let ratio = ((abs_dy * 8) / abs_dx).min(0x3E) as usize;
     let sub = RATIO_TABLE[ratio.min(RATIO_TABLE.len() - 1)] as i32;
 

@@ -1766,32 +1766,32 @@ mod tests {
             SAXMAN_FIXTURE,
         )
         .expect("hud numbers");
-        fs::write(source_root.join("ingame/artunc/diamond_1.bin"), &[0; 32]).expect("diamond");
+        fs::write(source_root.join("ingame/artunc/diamond_1.bin"), [0; 32]).expect("diamond");
         fs::write(
             source_root.join("ingame/palette_enemy/Crystal_1.bin"),
-            &[0; 30],
+            [0; 30],
         )
         .expect("diamond palette");
         fs::write(
             source_root.join("ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
-            &[0; 30],
+            [0; 30],
         )
         .expect("skull palette");
-        fs::write(source_root.join("ingame/palette_kid/Kid.bin"), &[0; 30]).expect("kid palette");
-        fs::write(source_root.join("ingame/artunc_kid/kid.bin"), &[0; 32 * 12]).expect("kid idle");
+        fs::write(source_root.join("ingame/palette_kid/Kid.bin"), [0; 30]).expect("kid palette");
+        fs::write(source_root.join("ingame/artunc_kid/kid.bin"), [0; 32 * 12]).expect("kid idle");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_walk_1.bin"),
-            &[1; 32 * 12],
+            [1; 32 * 12],
         )
         .expect("kid walk");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_jumping_1.bin"),
-            &[2; 32 * 12],
+            [2; 32 * 12],
         )
         .expect("kid jump rise");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_jumping_2.bin"),
-            &[3; 32 * 12],
+            [3; 32 * 12],
         )
         .expect("kid jump fall");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");

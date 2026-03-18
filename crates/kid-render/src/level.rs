@@ -84,9 +84,9 @@ impl ForegroundLayout {
         // The width must be a multiple of FOREGROUND_CELLS_PER_SCREEN_X (20).
         let cells_per_x = usize::from(FOREGROUND_CELLS_PER_SCREEN_X);
         let cells_per_y = usize::from(FOREGROUND_CELLS_PER_SCREEN_Y);
-        if bytes.len() % cells_per_x == 0 {
+        if bytes.len().is_multiple_of(cells_per_x) {
             let total_rows = bytes.len() / cells_per_x;
-            if total_rows % cells_per_y == 0 || total_rows > 0 {
+            if total_rows.is_multiple_of(cells_per_y) || total_rows > 0 {
                 let inferred_width = width_cells;
                 let inferred_height = (bytes.len() / usize::from(inferred_width)).max(1) as u16;
                 if usize::from(inferred_width) * usize::from(inferred_height) == bytes.len() {
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn parse_foreground_layout_rejects_truncated_bytes() {
-        let error = ForegroundLayout::parse(&vec![0x00; 10], 1, 1).expect_err("truncated layout");
+        let error = ForegroundLayout::parse(&[0x00; 10], 1, 1).expect_err("truncated layout");
 
         assert!(
             error

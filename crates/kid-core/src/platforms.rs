@@ -46,8 +46,7 @@ impl PlatformLoaderState {
     }
 }
 
-/// Step all active enemies: apply movement, gravity, and terrain collision.
-
+/// Check if a platform is within the activation window.
 pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) -> bool {
     let object_x = u32::from(platform.x);
     let object_y = u32::from(platform.y);

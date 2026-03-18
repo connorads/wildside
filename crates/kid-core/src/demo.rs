@@ -3,7 +3,7 @@
 /// Each byte encodes one Genesis controller state for 2 VBlanks.
 /// Bit layout: 7=Start(ignored), 6=A, 5=C, 4=B, 3=Right, 2=Left, 1=Down, 0=Up.
 /// Bit 7 is cleared during playback (real Start button overrides it).
-
+///
 /// Level: Knights Isle ($15). 498 bytes = 996 frames.
 #[rustfmt::skip]
 pub(crate) const DEMO_INPUT_DATA_1: [u8; 498] = [

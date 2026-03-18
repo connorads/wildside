@@ -147,7 +147,7 @@ pub(super) fn push_game_hud(
     let minutes = trace.level_timer_seconds / 60;
     let seconds = trace.level_timer_seconds % 60;
     let timer_x = (FRAME_WIDTH as i32) / 2 - 16;
-    if trace.level_timer_seconds <= 30 && (trace.frame_index / 15) % 2 == 0 {
+    if trace.level_timer_seconds <= 30 && (trace.frame_index / 15).is_multiple_of(2) {
         commands.push(DrawCommand::Rect {
             x: timer_x - 2,
             y: pip_y - 1,
@@ -180,13 +180,12 @@ pub(super) fn push_game_hud(
 
     // Helmet name if wearing one
     let form = PlayerForm::from_helmet_id(trace.current_helmet_id);
-    if let Some(f) = form {
-        if f != PlayerForm::TheKid {
+    if let Some(f) = form
+        && f != PlayerForm::TheKid {
             let name = helmet_display_name(f);
             let name_x = lives_x + 30;
             commands.push(text(name_x, pip_y, name, [180, 220, 255], 1));
         }
-    }
 
     let diamond_icon_x = FRAME_WIDTH as i32 - 12;
     let diamond_counter_x = diamond_icon_x - 2 - hud_counter_width(trace.diamond_count);
@@ -201,7 +200,7 @@ pub(super) fn push_game_hud(
 
     // Diamond Power indicator
     if trace.diamond_power_active {
-        let dp_colour = if (trace.frame_index / 4) % 2 == 0 {
+        let dp_colour = if (trace.frame_index / 4).is_multiple_of(2) {
             [255, 220, 50]
         } else {
             [255, 180, 0]

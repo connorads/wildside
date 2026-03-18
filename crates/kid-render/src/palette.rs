@@ -21,7 +21,7 @@ pub struct MdColour {
 
 impl Palette {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() % 2 != 0 {
+        if !bytes.len().is_multiple_of(2) {
             bail!("palette data length {} is not even", bytes.len());
         }
         let colours = bytes
@@ -38,8 +38,8 @@ impl Palette {
         // The table says: art pixel index i → palette slot table[i].
         // We want: new_palette[i] = original_palette[table[i]].
         let original = self.colours.clone();
-        for i in 0..16.min(self.colours.len()) {
-            let src = table[i] as usize;
+        for (i, &entry) in table.iter().enumerate().take(16.min(self.colours.len())) {
+            let src = entry as usize;
             if src < original.len() {
                 self.colours[i] = original[src];
             }

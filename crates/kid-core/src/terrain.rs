@@ -839,6 +839,7 @@ pub fn probe_ceiling(
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[allow(clippy::identity_op)]
 mod tests {
     use super::*;
 

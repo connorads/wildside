@@ -201,7 +201,7 @@ pub(crate) fn write_native_gameplay_artifacts(
 }
 
 pub(crate) fn write_gameplay_capture(out_dir: &Path, capture: &GameplayCapture) -> Result<()> {
-    fs::create_dir_all(&out_dir)
+    fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
     fs::write(
         out_dir.join("summary.json"),

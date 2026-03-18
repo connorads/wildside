@@ -104,6 +104,7 @@ impl OpeningSliceState {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
         &mut self,
         level_elapsed: usize,
@@ -471,8 +472,8 @@ impl OpeningSliceState {
                     let content = block_list
                         .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
                         .unwrap_or(terrain::PrizeContent::Diamond);
-                    let block_x_px = u16::from(probe.cell_x) * 16;
-                    let block_y_px = u16::from(probe.cell_y) * 16;
+                    let block_x_px = probe.cell_x * 16;
+                    let block_y_px = probe.cell_y * 16;
                     self.prize_block_hit = Some((content, block_x_px, block_y_px));
                     // Clear the now-revealed prize block
                     grid.set_cell_at(
@@ -490,8 +491,8 @@ impl OpeningSliceState {
                         let content = block_list
                             .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
                             .unwrap_or(terrain::PrizeContent::Diamond);
-                        let block_x_px = u16::from(probe.cell_x) * 16;
-                        let block_y_px = u16::from(probe.cell_y) * 16;
+                        let block_x_px = probe.cell_x * 16;
+                        let block_y_px = probe.cell_y * 16;
                         self.prize_block_hit = Some((content, block_x_px, block_y_px));
                         grid.set_cell_at(
                             probe.cell_x,
@@ -500,8 +501,8 @@ impl OpeningSliceState {
                         );
                     }
                     terrain::BlockType::Smash => {
-                        let block_x_px = u16::from(probe.cell_x) * 16;
-                        let block_y_px = u16::from(probe.cell_y) * 16;
+                        let block_x_px = probe.cell_x * 16;
+                        let block_y_px = probe.cell_y * 16;
                         self.smash_block_hit = Some((block_x_px, block_y_px));
                         grid.set_cell_at(
                             probe.cell_x,
@@ -510,8 +511,8 @@ impl OpeningSliceState {
                         );
                     }
                     terrain::BlockType::Lift => {
-                        let block_x_px = u16::from(probe.cell_x) * 16;
-                        let block_y_px = u16::from(probe.cell_y) * 16;
+                        let block_x_px = probe.cell_x * 16;
+                        let block_y_px = probe.cell_y * 16;
                         self.lift_block_hit = Some((block_x_px, block_y_px));
                         grid.set_cell_at(
                             probe.cell_x,
@@ -576,11 +577,10 @@ impl OpeningSliceState {
                     (false, true) => Some(right_edge_probe),
                     (false, false) => None,
                 };
-                if let Some(edge_probe) = edge_probe {
-                    if edge_probe.floor_y_px > probe.floor_y_px {
+                if let Some(edge_probe) = edge_probe
+                    && edge_probe.floor_y_px > probe.floor_y_px {
                         probe = edge_probe;
                     }
-                }
             }
             let mut allow_hitbox_snap = true;
             let mut center_slope_snap_candidate = false;

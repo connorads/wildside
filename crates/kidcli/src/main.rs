@@ -1,3 +1,8 @@
+#![allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::doc_lazy_continuation
+)]
 mod autonomy;
 mod bootstrap;
 mod cache;
@@ -833,7 +838,7 @@ fn main() -> Result<()> {
             let out_dir = out.unwrap_or_else(|| {
                 repo_root
                     .join(".cache/generated")
-                    .join(&sha1_hex(&rom_bytes))
+                    .join(sha1_hex(&rom_bytes))
                     .join("level-layout")
             });
             dump_level_layout(&rom_bytes, level_id, &out_dir)?;
@@ -1378,34 +1383,34 @@ mod tests {
             SAXMAN_FIXTURE,
         )
         .expect("vertical platform art");
-        fs::write(source_root.join("ingame/artunc/diamond_1.bin"), &[0; 32]).expect("diamond");
-        fs::write(source_root.join("ingame/artunc_kid/kid.bin"), &[0; 32 * 12]).expect("kid idle");
+        fs::write(source_root.join("ingame/artunc/diamond_1.bin"), [0; 32]).expect("diamond");
+        fs::write(source_root.join("ingame/artunc_kid/kid.bin"), [0; 32 * 12]).expect("kid idle");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_walk_1.bin"),
-            &[0; 32 * 12],
+            [0; 32 * 12],
         )
         .expect("kid walk");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_jumping_1.bin"),
-            &[0; 32 * 12],
+            [0; 32 * 12],
         )
         .expect("kid jump rise");
         fs::write(
             source_root.join("ingame/artunc_kid/kid_jumping_2.bin"),
-            &[0; 32 * 12],
+            [0; 32 * 12],
         )
         .expect("kid jump fall");
         fs::write(
             source_root.join("ingame/palette_enemy/Crystal_1.bin"),
-            &[0; 30],
+            [0; 30],
         )
         .expect("diamond palette");
         fs::write(
             source_root.join("ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
-            &[0; 30],
+            [0; 30],
         )
         .expect("skull palette");
-        fs::write(source_root.join("ingame/palette_kid/Kid.bin"), &[0; 30]).expect("kid palette");
+        fs::write(source_root.join("ingame/palette_kid/Kid.bin"), [0; 30]).expect("kid palette");
         fs::write(source_root.join("sound/music.bin"), b"sound").expect("sound");
         fs::write(
             source_root.join("level/platform/00.asm"),

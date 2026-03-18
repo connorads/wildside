@@ -560,7 +560,7 @@ mod tests {
             }
         }
         let remaining = bytes.len() + 7;
-        if remaining % 8 != 0 {
+        if !remaining.is_multiple_of(8) {
             current <<= 8 - (remaining % 8);
             process.push(current);
         }

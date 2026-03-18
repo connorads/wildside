@@ -2340,17 +2340,15 @@ impl NativeRuntime {
         }
 
         // Teleporter block: warp player to destination
-        if let Some((cell_x, cell_y)) = slice.teleporter_contact {
-            if let Some(block_list) = self.block_list.as_ref() {
-                if let Some(tp) = block_list.teleporter_at(cell_x, cell_y) {
+        if let Some((cell_x, cell_y)) = slice.teleporter_contact
+            && let Some(block_list) = self.block_list.as_ref()
+                && let Some(tp) = block_list.teleporter_at(cell_x, cell_y) {
                     // Warp to destination position
-                    slice.player.x_pos = u32::from(tp.dest_x) * 16 << 16;
-                    slice.player.y_pos = u32::from(tp.dest_y) * 16 << 16;
+                    slice.player.x_pos = (u32::from(tp.dest_x) * 16) << 16;
+                    slice.player.y_pos = (u32::from(tp.dest_y) * 16) << 16;
                     slice.player.y_velocity = 0;
                     slice.player.on_ground = true;
                 }
-            }
-        }
 
         // Level timer: tick down and kill the player on expiry
         if self.level_timer.tick() {
@@ -2666,6 +2664,7 @@ fn run_script_with_runtime(
 }
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
     use crate::combat::*;
@@ -3102,8 +3101,9 @@ mod tests {
         // player_start_y=0x88, minus 1 for ASM subq.w #1,y_pos
         assert_eq!(slice.player.y_pos, 0x0087_0000);
         // Camera snaps to screen boundary: floor(pos / screen) * screen
-        assert_eq!(slice.camera.x_pos, u32::from((0x0042u16 / 320) * 320) << 16);
-        assert_eq!(slice.camera.y_pos, u32::from((0x0088u16 / 224) * 224) << 16);
+        // Camera snaps to screen boundary: floor(0x42 / 320) * 320 = 0, floor(0x88 / 224) * 224 = 0
+        assert_eq!(slice.camera.x_pos, 0);
+        assert_eq!(slice.camera.y_pos, 0);
         assert!(
             platforms
                 .placements
@@ -4809,8 +4809,10 @@ mod tests {
         // player_start_y=0xE0, minus 1 for ASM subq.w #1,y_pos
         assert_eq!(slice.player.y_pos, 0x00DF_0000);
         // Camera snaps to screen boundary: floor(pos / screen) * screen
-        assert_eq!(slice.camera.x_pos, u32::from((0x0751u16 / 320) * 320) << 16);
-        assert_eq!(slice.camera.y_pos, u32::from((0x00E0u16 / 224) * 224) << 16);
+        // floor(0x751 / 320) * 320 = 1600 = 0x640
+        assert_eq!(slice.camera.x_pos, 0x0640_0000);
+        // floor(0xE0 / 224) * 224 = 224 = 0xE0
+        assert_eq!(slice.camera.y_pos, 0x00E0_0000);
     }
 
     #[test]
@@ -5561,7 +5563,7 @@ mod tests {
         // Manually collect one more
         runtime.diamond_count = 50;
         // Test via the modulo check directly
-        if runtime.diamond_count % 50 == 0 {
+        if runtime.diamond_count.is_multiple_of(50) {
             runtime.number_lives += 1;
         }
         assert_eq!(
@@ -6837,11 +6839,10 @@ mod tests {
                 .active_enemies
                 .iter()
                 .find(|e| e.family == EnemyFamily::MiniHoppingSkull)
+                && skull.x_velocity > 0
             {
-                if skull.x_velocity > 0 {
-                    ever_walked_right = true;
-                    break;
-                }
+                ever_walked_right = true;
+                break;
             }
         }
         assert!(
@@ -9088,7 +9089,7 @@ mod tests {
 
         // Simulate a stomp: player overlapping boss from above, falling.
         // Boss top = 120-8 = 112, so place player feet just inside at y=113.
-        let mut slice = runtime.opening_slice.clone().unwrap();
+        let mut slice = runtime.opening_slice.unwrap();
         slice.player.x_pos = 100 << 16;
         slice.player.y_pos = 113 << 16;
         slice.player.y_velocity = 0x2_0000; // falling
@@ -10832,7 +10833,7 @@ mod tests {
         runtime.projectiles.clear();
 
         // Set camera to origin so block is visible
-        let mut slice = runtime.opening_slice.clone().unwrap();
+        let mut slice = runtime.opening_slice.unwrap();
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
         runtime.step_shooter_blocks(&slice);
@@ -10860,7 +10861,7 @@ mod tests {
         runtime.shooter_block_timer = 10; // not yet
         runtime.projectiles.clear();
 
-        let slice = runtime.opening_slice.clone().unwrap();
+        let slice = runtime.opening_slice.unwrap();
         runtime.step_shooter_blocks(&slice);
 
         assert!(

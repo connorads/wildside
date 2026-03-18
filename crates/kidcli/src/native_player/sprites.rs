@@ -260,11 +260,10 @@ fn select_enemy_palette(
     visuals: &kid_render::AnimatedSpriteVisual,
     variant: u8,
 ) -> &kid_render::Palette {
-    if variant > 0 {
-        if let Some(pal) = visuals.extra_palettes.get(usize::from(variant) - 1) {
+    if variant > 0
+        && let Some(pal) = visuals.extra_palettes.get(usize::from(variant) - 1) {
             return pal;
         }
-    }
     &visuals.palette
 }
 

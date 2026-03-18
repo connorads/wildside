@@ -556,7 +556,7 @@ pub(crate) fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario
     if let (Some(kid_x_pos), Some(kid_y_pos)) = (final_frame.kid_x_pos, final_frame.kid_y_pos) {
         println!("kid pos: {kid_x_pos:08X},{kid_y_pos:08X}");
     }
-    println!("active roster: {}", describe_active_objects(&final_frame));
+    println!("active roster: {}", describe_active_objects(final_frame));
 
     for checkpoint in scenario.checkpoints() {
         if let Some(frame) =

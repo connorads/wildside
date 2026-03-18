@@ -146,7 +146,7 @@ pub fn parse_layered_background_plane(words: &[u16]) -> Result<LayeredBackground
     if words.is_empty() {
         bail!("layered background plane is empty");
     }
-    if words.len() % LAYERED_BACKGROUND_PLANE_WIDTH_TILES != 0 {
+    if !words.len().is_multiple_of(LAYERED_BACKGROUND_PLANE_WIDTH_TILES) {
         bail!(
             "layered background plane width mismatch: expected a multiple of {LAYERED_BACKGROUND_PLANE_WIDTH_TILES} tiles, got {}",
             words.len()

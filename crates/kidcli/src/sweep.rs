@@ -98,6 +98,7 @@ pub(crate) struct GoldenDiff {
 
 /// Options controlling sweep behaviour beyond tier and level selection.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub(crate) struct SweepOptions {
     /// Only populate the oracle cache — skip native runs and comparison.
     pub(crate) warm_cache_only: bool,
@@ -105,14 +106,6 @@ pub(crate) struct SweepOptions {
     pub(crate) max_failures: usize,
 }
 
-impl Default for SweepOptions {
-    fn default() -> Self {
-        Self {
-            warm_cache_only: false,
-            max_failures: 0,
-        }
-    }
-}
 
 /// Kid Chameleon level IDs are BCD-encoded: 0x00-0x09, 0x10-0x19, …, 0x60-0x68.
 /// Returns true if `id` is a valid BCD level ID.
@@ -433,7 +426,7 @@ fn sweep_single_level(
         }
     }
 
-    let passed = state_passed && mae_val.map_or(true, |v| v < 32.0);
+    let passed = state_passed && mae_val.is_none_or(|v| v < 32.0);
 
     Ok(LevelSweepResult {
         level_id,
@@ -1571,8 +1564,8 @@ fn check_walk_right_assertions(
     let settle_x = trace.get(settle_idx).and_then(|f| f.kid_x_pos);
     let end_x = trace.get(end_idx).and_then(|f| f.kid_x_pos);
 
-    if let (Some(sx), Some(ex)) = (settle_x, end_x) {
-        if ex <= sx {
+    if let (Some(sx), Some(ex)) = (settle_x, end_x)
+        && ex <= sx {
             diffs.push(StateDiff {
                 checkpoint: "walk_end".into(),
                 field: "kid_x_pos_monotonic".into(),
@@ -1580,7 +1573,6 @@ fn check_walk_right_assertions(
                 oracle_value: "end > start".into(),
             });
         }
-    }
 
     diffs
 }

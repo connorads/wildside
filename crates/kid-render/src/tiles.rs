@@ -26,7 +26,7 @@ pub struct TileQuad {
 
 impl TileSheet {
     pub fn from_4bpp_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() % 32 != 0 {
+        if !bytes.len().is_multiple_of(32) {
             bail!(
                 "4bpp tile sheet length {} is not a multiple of 32 bytes",
                 bytes.len()
@@ -74,7 +74,7 @@ impl TileRef {
 }
 
 pub fn parse_tile_quads(bytes: &[u8]) -> Result<Vec<TileQuad>> {
-    if bytes.len() % 8 != 0 {
+    if !bytes.len().is_multiple_of(8) {
         bail!(
             "tile quad mapping length {} is not a multiple of 8 bytes",
             bytes.len()
