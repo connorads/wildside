@@ -1002,8 +1002,10 @@ const MANIAXE_BASE_SPEED: i32 = 5;
 const MANIAXE_TRAVEL_FRAMES: u8 = 12;
 
 /// Mushroom block minimum bounce velocity (ensures a visible bounce even at low speed).
-// UNVERIFIED: ASM uses pixel-nudge coroutine for mushroom bounce, not velocity.
-// The 3/4 attenuation and -$20000 minimum are native approximations.
+// DEVIATION: ASM SoftPlatform bounces the platform object (player riding velocity / form
+// divisor, decelerated by $7000/frame, cap -$18000). Native bounces the player directly
+// with 3/4 attenuation. Structural difference: ASM uses platform objects, native applies
+// bounce inline. Visual result is similar; exact platform-object system would be #066.
 const MUSHROOM_MIN_BOUNCE: i32 = -0x2_0000;
 
 /// Eyeclops beam: C press fires a horizontal beam projectile.

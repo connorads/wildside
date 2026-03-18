@@ -71,10 +71,10 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 062 | [ ] | P3 | enemy | HeadyMetal fire rate animation-driven, missing death phase + eye spray | Boss phases match ASM |
 | 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
 | 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
-| 065 | [ ] | P3 | block | Shooter fire interval is approximation — ASM has no global timer | Shooter matches ASM mechanism |
-| 066 | [ ] | P3 | block | Mushroom bounce uses velocity; ASM uses coroutine pixel nudge | Mushroom matches ASM |
-| 067 | [ ] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM timing |
-| 068 | [ ] | P3 | block | Shifting block instant; ASM animates over ~23 frames | Shifting animation timing |
+| 065 | [-] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | DEVIATION — structural: ASM EvanescentBlock_Trigger per-block, native global timer |
+| 066 | [-] | P3 | block | Mushroom bounce uses direct player velocity; ASM bounces platform object | DEVIATION — structural: ASM uses SoftPlatform objects, native bounces player inline |
+| 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
+| 068 | [-] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | DEVIATION — visual only: ASM animates sprite with shared lift coroutine |
 
 ## Investigation notes
 

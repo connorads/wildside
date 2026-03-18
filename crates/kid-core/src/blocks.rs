@@ -81,9 +81,11 @@ impl NativeRuntime {
 
     /// When the player is standing on a Shifting block and the cell above is empty,
     /// move the block up one cell.
-    /// Shooter blocks (type 0x8): fire projectiles every 22 frames in
-    /// directions encoded in the skin byte (bit 0=up, 1=right, 2=down, 3=left).
-    /// Projectile speed: 4px/frame.
+    /// Shooter blocks (type 0x8): fire projectiles in directions encoded in the
+    /// skin byte (bit 0=up, 1=right, 2=down, 3=left). Speed: 4px/frame.
+    // DEVIATION: ASM uses per-block registration via EvanescentBlock_Trigger — each
+    // block fires once when it enters the visible area, slot freed after $16 (22) frames.
+    // Native uses a global repeating timer for simplicity. Visual result is similar.
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
 
