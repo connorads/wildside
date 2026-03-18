@@ -340,6 +340,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) lion_state: LionState,
     pub(crate) robot_state: RobotState,
     pub(crate) orca_state: OrcaState,
+    /// Orca: wall-pinned flag ($5C(a5)), suppresses X accel during lunge.
+    pub(crate) wall_pinned: bool,
     pub(crate) tar_monster_state: TarMonsterState,
     pub(crate) spinning_twins_phase: SpinningTwinsPhase,
     pub(crate) spinning_twins_orbit_index: u8,
@@ -765,6 +767,7 @@ pub(crate) fn activate_enemies(
             lion_state: LionState::Walking,
             robot_state: RobotState::Walking,
             orca_state: OrcaState::Walking,
+            wall_pinned: false,
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
@@ -2306,6 +2309,9 @@ pub(crate) const ORCA_LUNGE_Y_SPEED: i32 = -0x2_8000;
 /// Orca lunge gravity (Orca.asm line loc_3D3B4: $1800 per frame).
 pub(crate) const ORCA_LUNGE_GRAVITY: i32 = 0x1800;
 
+/// Orca lunge X acceleration (Orca.asm loc_3D3A2: $200 per frame in facing dir).
+pub(crate) const ORCA_LUNGE_X_ACCEL: i32 = 0x200;
+
 /// Orca lunge cooldown (Orca.asm: $12C = 300 frames between lunges).
 pub(crate) const ORCA_LUNGE_COOLDOWN: u16 = 300;
 
@@ -2350,8 +2356,18 @@ pub(crate) fn step_orca(
             enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
         }
         OrcaState::Lunging => {
-            // Gravity
+            // Gravity (Orca.asm loc_3D3B4: $1800 per frame)
             enemy.y_velocity = (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
+
+            // X acceleration during lunge (Orca.asm loc_3D3A2: $200 per frame in
+            // facing direction, unless wall-pinned via $5C flag).
+            if !enemy.wall_pinned {
+                let accel = match enemy.facing {
+                    Direction::Right => ORCA_LUNGE_X_ACCEL,
+                    Direction::Left => -ORCA_LUNGE_X_ACCEL,
+                };
+                enemy.x_velocity += accel;
+            }
 
             // Move
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -2363,9 +2379,26 @@ pub(crate) fn step_orca(
             let cx = (enemy.x_pos >> 16) as i32;
             let cy = (enemy.y_pos >> 16) as i32;
 
+            // Slope collision → flip direction and re-lunge (Orca.asm loc_3D3DE)
+            let floor = terrain::probe_floor(grid, cx, cy);
+            if floor.on_ground
+                && (floor.cell.collision == terrain::CollisionKind::SlopeUp
+                    || floor.cell.collision == terrain::CollisionKind::SlopeDown)
+            {
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.facing = opposite_direction(enemy.facing);
+                enemy.wall_pinned = false;
+                // Re-lunge in opposite direction
+                enemy.x_velocity = match enemy.facing {
+                    Direction::Right => ORCA_LUNGE_X_SPEED,
+                    Direction::Left => -ORCA_LUNGE_X_SPEED,
+                };
+                enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+                return;
+            }
+
             // Wall bounce — ASM Orca.asm loc_3D40C: zero x_vel, set wall-pinned flag.
-            // DEVIATION: ASM zeroes x_vel + sets pinned flag for re-acceleration.
-            // Native inverts x_vel — equivalent when lunge ends at wall.
             let moving_right = enemy.x_velocity >= 0;
             let wall = terrain::probe_wall(
                 grid,
@@ -2376,7 +2409,8 @@ pub(crate) fn step_orca(
                 moving_right,
             );
             if wall.hit {
-                enemy.x_velocity = -enemy.x_velocity;
+                enemy.x_velocity = 0;
+                enemy.wall_pinned = true;
                 enemy.facing = opposite_direction(enemy.facing);
             }
 
@@ -2388,16 +2422,20 @@ pub(crate) fn step_orca(
                 }
             }
 
-            // Floor landing
+            // Floor landing (Orca.asm loc_3D420)
             if enemy.y_velocity > 0 {
                 let floor = terrain::probe_floor(grid, cx, cy);
-                if floor.on_ground {
+                if floor.on_ground
+                    && floor.cell.collision != terrain::CollisionKind::SlopeUp
+                    && floor.cell.collision != terrain::CollisionKind::SlopeDown
+                {
                     let floor_y_fp = (floor.floor_y_px as u32) << 16;
                     if enemy.y_pos >= floor_y_fp {
                         enemy.y_pos = floor_y_fp;
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
+                        enemy.wall_pinned = false;
                         enemy.orca_state = OrcaState::Walking;
                         enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
                     }
