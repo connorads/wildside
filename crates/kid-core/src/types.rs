@@ -1,0 +1,724 @@
+use crate::physics::{Direction, LevelBounds};
+use crate::terrain;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LevelId(pub u8);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GameMode {
+    SegaScreen,
+    IntroSequence1,
+    IntroSequence2,
+    IntroSequence3,
+    IntroSequence4,
+    IntroSequence5,
+    TitleScreen,
+    OptionsMenu,
+    LevelTransition,
+    InGame,
+    /// ASM game mode 0x10 — title screen demo playback.
+    DemoPlay,
+    /// ASM game mode 0x30 — end credits sequence after beating the final level.
+    EndingSequence,
+}
+
+impl GameMode {
+    pub fn as_disassembly_value(self) -> u16 {
+        match self {
+            Self::SegaScreen => 0x0000,
+            Self::IntroSequence1 => 0x0004,
+            Self::IntroSequence2 => 0x0018,
+            Self::IntroSequence3 => 0x001C,
+            Self::IntroSequence4 => 0x0020,
+            Self::IntroSequence5 => 0x0024,
+            Self::TitleScreen => 0x002C,
+            Self::OptionsMenu => 0x0014,
+            Self::LevelTransition => 0x0008,
+            Self::InGame => 0x000C,
+            Self::DemoPlay => 0x0010,
+            Self::EndingSequence => 0x0030,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlayerForm {
+    TheKid,
+    Skycutter,
+    Cyclone,
+    RedStealth,
+    Eyeclops,
+    Juggernaut,
+    IronKnight,
+    Berzerker,
+    Maniaxe,
+    Micromax,
+}
+
+impl PlayerForm {
+    pub fn helmet_id(self) -> u16 {
+        match self {
+            Self::TheKid => 0,
+            Self::Skycutter => 1,
+            Self::Cyclone => 2,
+            Self::RedStealth => 3,
+            Self::Eyeclops => 4,
+            Self::Juggernaut => 5,
+            Self::IronKnight => 6,
+            Self::Berzerker => 7,
+            Self::Maniaxe => 8,
+            Self::Micromax => 9,
+        }
+    }
+
+    pub fn max_hitpoints(self) -> u16 {
+        match self {
+            Self::TheKid => 2,
+            Self::IronKnight => 5,
+            Self::Skycutter
+            | Self::Cyclone
+            | Self::RedStealth
+            | Self::Eyeclops
+            | Self::Juggernaut
+            | Self::Berzerker
+            | Self::Maniaxe
+            | Self::Micromax => 3,
+        }
+    }
+
+    /// Select the ground speed table for this form and terrain type.
+    /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
+    pub(crate) fn ground_speed_table(self, terrain_type: TerrainType) -> &'static crate::physics::SpeedTable {
+        match (self, terrain_type) {
+            (Self::Micromax, TerrainType::Normal) => &crate::physics::NORMAL_MICROMAX,
+            (Self::Micromax, TerrainType::Ice) => &crate::physics::ICE_MICROMAX,
+            (Self::Micromax, TerrainType::Rubber) => &crate::physics::RUBBER_MICROMAX,
+            (Self::Juggernaut, TerrainType::Normal) => &crate::physics::NORMAL_JUGGERNAUT,
+            (Self::Juggernaut, TerrainType::Ice) => &crate::physics::ICE_JUGGERNAUT,
+            (Self::Juggernaut, TerrainType::Rubber) => &crate::physics::RUBBER_JUGGERNAUT,
+            (_, TerrainType::Normal) => &crate::physics::NORMAL_KID,
+            (_, TerrainType::Ice) => &crate::physics::ICE_KID,
+            (_, TerrainType::Rubber) => &crate::physics::RUBBER_KID,
+        }
+    }
+
+    pub fn from_helmet_id(helmet_id: u16) -> Option<Self> {
+        match helmet_id {
+            0 => Some(Self::TheKid),
+            1 => Some(Self::Skycutter),
+            2 => Some(Self::Cyclone),
+            3 => Some(Self::RedStealth),
+            4 => Some(Self::Eyeclops),
+            5 => Some(Self::Juggernaut),
+            6 => Some(Self::IronKnight),
+            7 => Some(Self::Berzerker),
+            8 => Some(Self::Maniaxe),
+            9 => Some(Self::Micromax),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct FrameInput {
+    pub up: bool,
+    pub down: bool,
+    pub left: bool,
+    pub right: bool,
+    pub a: bool,
+    pub b: bool,
+    pub c: bool,
+    pub start: bool,
+}
+
+impl FrameInput {
+    pub fn from_mask(mask: u8) -> Self {
+        Self {
+            up: mask & (1 << 0) != 0,
+            down: mask & (1 << 1) != 0,
+            left: mask & (1 << 2) != 0,
+            right: mask & (1 << 3) != 0,
+            b: mask & (1 << 4) != 0,
+            c: mask & (1 << 5) != 0,
+            a: mask & (1 << 6) != 0,
+            start: mask & (1 << 7) != 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeTraceFrame {
+    pub frame_index: usize,
+    pub game_mode: GameMode,
+    pub game_mode_value: u16,
+    pub start_press_count: usize,
+    pub current_player: u8,
+    pub current_level: LevelId,
+    pub player_1_level_id: LevelId,
+    pub current_level_name: Option<String>,
+    pub player_start_x: Option<u16>,
+    pub player_start_y: Option<u16>,
+    pub flag_x: Option<u16>,
+    pub flag_y: Option<u16>,
+    pub level_enemy_object_count: Option<u8>,
+    pub active_enemy_object_count: usize,
+    pub active_platform_object_count: usize,
+    pub number_lives: u16,
+    pub number_continues: u8,
+    pub number_hitpoints: u16,
+    pub current_helmet_id: u16,
+    pub paused: bool,
+    pub kid_x_pos: Option<u32>,
+    pub kid_y_pos: Option<u32>,
+    pub kid_x_velocity: Option<i32>,
+    pub kid_y_velocity: Option<i32>,
+    pub kid_facing: Option<Direction>,
+    pub kid_on_ground: Option<bool>,
+    pub active_objects: Vec<NativeObjectSnapshot>,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+    pub number_objects: u16,
+    pub number_gfx_objects: u16,
+    pub level_complete: bool,
+    pub game_over: bool,
+    /// Continue countdown remaining frames (None if not in continue screen).
+    pub continue_countdown: Option<usize>,
+    pub game_complete: bool,
+    /// Ending credits sequence elapsed frames (None if not in ending).
+    pub ending_elapsed: Option<usize>,
+    pub options_cursor: Option<u8>,
+    pub sound_test_track: Option<u8>,
+    pub two_player: bool,
+    pub invulnerable_frames: usize,
+    pub diamond_power_active: bool,
+    pub diamond_count: u16,
+    pub score: u32,
+    pub level_timer_seconds: u16,
+    pub level_damage_taken: bool,
+    pub murder_wall_x: Option<i64>,
+    /// Active projectiles: (x_pos, y_pos, friendly).
+    pub active_projectiles: Vec<(u32, u32, bool)>,
+    /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
+    pub active_geysers: Vec<(u16, u16, u16)>,
+    /// Metal block bounce animations: (cell_x, cell_y, remaining_frames).
+    pub block_bounces: Vec<(u16, u16, u8)>,
+    /// Block destruction fragment effects: (x_px, y_px, remaining_frames).
+    pub block_destroy_effects: Vec<(u16, u16, u8)>,
+    /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
+    pub floating_items: Vec<(u16, u16, u8, u8)>,
+    /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
+    pub enemy_death_effects: Vec<(u32, u32, u8)>,
+    /// Form-change visual flash countdown (0=no flash).
+    pub form_change_flash_frames: u8,
+    /// True if a stomp occurred this frame (for SFX).
+    pub stomped_this_frame: bool,
+    /// Number of blocks hit by headbutt this frame (for SFX).
+    pub blocks_hit_this_frame: u8,
+    /// Sound test: play was requested this frame (A/C pressed).
+    pub sound_test_play_pending: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeObjectSnapshot {
+    pub kind: NativeObjectKind,
+    pub x_pos: u32,
+    pub y_pos: u32,
+    pub layout_index: Option<usize>,
+    pub x_velocity: Option<i32>,
+    pub y_velocity: Option<i32>,
+    pub facing: Option<Direction>,
+    pub on_ground: Option<bool>,
+    pub hit_points: Option<u8>,
+    pub damage_flash: bool,
+    /// Palette variant (0, 1, or 2) from the level's enemy type slot.
+    #[serde(default)]
+    pub palette_variant: u8,
+    /// True when the enemy is in a stationary phase (e.g. dragon perching).
+    #[serde(default)]
+    pub stationary: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NativeObjectKind {
+    Player,
+    Enemy { object_type: u8 },
+    Platform { kind: u8, subtype: u8 },
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BlockBounceAnim {
+    pub(crate) cell_x: u16,
+    pub(crate) cell_y: u16,
+    pub(crate) remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BlockDestroyEffect {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct FloatingItem {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) remaining: u8,
+    pub(crate) content: terrain::PrizeContent,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct EnemyDeathEffect {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) remaining: u8,
+}
+
+/// A lift block that has been activated and is now a moving platform.
+/// ASM coroutine (sub_113C0): rise 2px/frame × 8, erase block, fall 1px/frame × 16, delete.
+#[derive(Debug, Clone)]
+pub(crate) struct LiftPlatform {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) y_velocity: i32,
+    /// Frames since activation.
+    pub(crate) age: u16,
+    /// Width in pixels (one block = 16px).
+    pub(crate) width_px: u16,
+    /// Grid column of the source block (for erasing after rise phase).
+    pub(crate) source_col: u16,
+    /// Grid row of the source block.
+    pub(crate) source_row: u16,
+    /// Whether the source block has been erased from the grid.
+    pub(crate) block_erased: bool,
+}
+
+/// A lava geyser that erupts periodically from a fixed position.
+#[derive(Debug, Clone)]
+pub(crate) struct LavaGeyser {
+    /// Fixed X position (pixel coordinates, not FP16.16).
+    pub(crate) x_px: u16,
+    /// Base Y position (bottom of eruption, pixel coordinates).
+    pub(crate) y_px: u16,
+    /// Eruption height in pixels.
+    pub(crate) height_px: u16,
+    /// Phase: 0=waiting, 1=erupting upward, 2=holding, 3=collapsing.
+    pub(crate) phase: u8,
+    /// Frames remaining in current phase.
+    pub(crate) timer: u16,
+    /// Current eruption column height in pixels (for collision/rendering).
+    pub(crate) current_height: u16,
+}
+
+/// Per-player persistent state for 2P alternating mode.
+/// Mirrors the ASM Player_1_*/Player_2_* RAM slots ($FFFFFC54-$FFFFFC80).
+#[derive(Debug, Clone)]
+pub(crate) struct PlayerSlot {
+    pub(crate) lives: u16,
+    pub(crate) hitpoints: u16,
+    pub(crate) diamonds: u16,
+    pub(crate) level_id: LevelId,
+    pub(crate) form: PlayerForm,
+    pub(crate) continues: u8,
+    pub(crate) score: u32,
+}
+
+impl Default for PlayerSlot {
+    fn default() -> Self {
+        Self {
+            lives: 3,
+            hitpoints: PlayerForm::TheKid.max_hitpoints(),
+            diamonds: 0,
+            level_id: LevelId(0),
+            form: PlayerForm::TheKid,
+            continues: 3,
+            score: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum BootState {
+    SegaScreen { elapsed: usize },
+    IntroSequence { segment: usize, elapsed: usize },
+    TitleScreen,
+    OptionsMenu { cursor: u8 },
+    SoundTest { track: u8 },
+    StartingLevel { remaining_frames: usize },
+    LevelSkipHold,
+    InGame,
+    /// Demo playback: auto-plays a recorded input sequence on a demo level.
+    /// `frame_counter` counts VBlanks (0..1010), `data_index` indexes into the
+    /// demo byte array, advancing every 2 frames.
+    DemoPlay {
+        frame_counter: u16,
+        data_index: usize,
+        /// false = Demo_InputData1 (Knights Isle), true = Demo_InputData2 (Skydragon Castle)
+        use_demo_2: bool,
+    },
+    /// Post-final-level ending sequence: fade out, credits screens, return to title.
+    EndingSequence { elapsed: usize },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlockGridSource {
+    None,
+    Manual,
+    Generated,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSkipHoldPose {
+    pub(crate) kid_x_pos: u32,
+    pub(crate) kid_y_pos: u32,
+    pub(crate) camera_x_pos: u32,
+    pub(crate) camera_y_pos: u32,
+    pub(crate) number_objects: u16,
+    pub(crate) number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct LevelSkipTransitionState {
+    pub(crate) elapsed_frames: usize,
+    pub(crate) frozen_player: PlayerState,
+    pub(crate) frozen_camera: CameraState,
+    pub(crate) frozen_active_objects: Vec<NativeObjectSnapshot>,
+    pub(crate) frozen_number_objects: u16,
+    pub(crate) frozen_number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSkipAnimationPath {
+    pub(crate) initial_x_pos: i32,
+    pub(crate) initial_y_pos: i32,
+    pub(crate) x_step_fp: i32,
+    pub(crate) y_step_fp: i32,
+    pub(crate) first_animation_number_objects: u16,
+    pub(crate) first_animation_number_gfx_objects: u16,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub(crate) struct LevelLayoutMetadata {
+    pub(crate) width_blocks: u16,
+    pub(crate) height_blocks: u16,
+    pub(crate) data_bytes: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlayerLifecycle {
+    Alive,
+    DeathWindup {
+        remaining_frames: usize,
+    },
+    Dying {
+        remaining_frames: usize,
+    },
+    Respawning {
+        remaining_frames: usize,
+    },
+    LevelComplete {
+        remaining_frames: usize,
+    },
+    /// All lives lost — "GAME OVER" display, then continue countdown if available.
+    GameOver {
+        remaining_frames: usize,
+    },
+    /// "CONTINUE?" countdown (only enters if continues > 0). Button press uses continue.
+    /// ASM: 28 frames initial pause + 291 frames countdown = 319 total.
+    ContinueCountdown {
+        remaining_frames: usize,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlayerState {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) facing: Direction,
+    pub(crate) on_ground: bool,
+    pub(crate) on_spikes: bool,
+    pub(crate) just_jumped: bool,
+    pub(crate) jump_buffer_frames: u8,
+    pub(crate) right_wall_sticky: bool,
+    pub(crate) left_wall_sticky: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct CameraState {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelStartPose {
+    pub(crate) kid_x_pos: u32,
+    pub(crate) kid_y_pos: u32,
+    pub(crate) camera_x_pos: u32,
+    pub(crate) camera_y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum TerrainType {
+    #[default]
+    Normal,
+    Ice,
+    Rubber,
+}
+
+impl TerrainType {
+    pub(crate) fn from_block_type(bt: terrain::BlockType) -> Self {
+        match bt {
+            terrain::BlockType::Ice => Self::Ice,
+            terrain::BlockType::Rubber => Self::Rubber,
+            _ => Self::Normal,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TerrainState {
+    pub(crate) floor_y_pos: u32,
+    pub(crate) floor_terrain_type: TerrainType,
+}
+
+/// Movement script execution state for a platform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformScriptState {
+    /// Relative offset into the shared script table (key into `PlatformScriptTable`).
+    pub(crate) script_offset: u16,
+    /// Current command index within the script.
+    pub(crate) command_index: usize,
+    /// Remaining frames for the current command.
+    pub(crate) remaining_duration: u16,
+}
+
+/// An active platform with collision dimensions and movement state.
+/// Positions use the same FP16.16 format as player/enemy positions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ActivePlatform {
+    /// FP16.16 X position (left edge of the platform).
+    pub(crate) x_pos: u32,
+    /// FP16.16 Y position (top edge of the platform).
+    pub(crate) y_pos: u32,
+    /// Platform width in pixels (from h_variant: `h * 16 + 15`).
+    pub(crate) width_px: u16,
+    /// Platform height in pixels (from v_variant: `v * 16 + 15`).
+    pub(crate) height_px: u16,
+    /// FP16.16 X velocity (from movement script).
+    pub(crate) x_velocity: i32,
+    /// FP16.16 Y velocity (from movement script).
+    pub(crate) y_velocity: i32,
+    /// Movement script state (None for stationary platforms).
+    pub(crate) script: Option<PlatformScriptState>,
+}
+
+impl ActivePlatform {
+    pub(crate) fn from_placement(
+        placement: &kid_data::PlatformPlacement,
+        script_table: Option<&kid_data::PlatformScriptTable>,
+    ) -> Self {
+        let script = placement
+            .script
+            .relative_offset
+            .and_then(|offset| {
+                let table = script_table?;
+                let script_data = table.scripts.get(&offset)?;
+                let first_cmd = script_data.commands.first()?;
+                Some((offset, first_cmd))
+            })
+            .map(|(offset, first_cmd)| PlatformScriptState {
+                script_offset: offset,
+                command_index: 0,
+                remaining_duration: first_cmd.duration,
+            });
+
+        Self {
+            x_pos: u32::from(placement.x) << 16,
+            y_pos: u32::from(placement.y) << 16,
+            width_px: u16::from(placement.h_variant) * 16 + 15,
+            height_px: u16::from(placement.v_variant) * 16 + 15,
+            x_velocity: 0,
+            y_velocity: 0,
+            script,
+        }
+    }
+
+    /// Advance one frame of movement script execution.
+    pub(crate) fn step_script(&mut self, script_table: &kid_data::PlatformScriptTable) {
+        let Some(ref mut state) = self.script else {
+            return;
+        };
+        let Some(script) = script_table.scripts.get(&state.script_offset) else {
+            return;
+        };
+        if script.commands.is_empty() {
+            return;
+        }
+
+        let cmd = &script.commands[state.command_index];
+        self.x_velocity = cmd.x_velocity;
+        self.y_velocity = cmd.y_velocity;
+
+        // Apply velocity
+        self.x_pos = (i64::from(self.x_pos) + i64::from(self.x_velocity))
+            .clamp(0, i64::from(u32::MAX)) as u32;
+        self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
+            .clamp(0, i64::from(u32::MAX)) as u32;
+
+        // Advance timer
+        state.remaining_duration = state.remaining_duration.saturating_sub(1);
+        if state.remaining_duration == 0 {
+            state.command_index += 1;
+            if state.command_index >= script.commands.len() {
+                state.command_index = 0; // loop
+            }
+            state.remaining_duration = script.commands[state.command_index].duration;
+        }
+    }
+}
+
+/// Countdown timer for the level. Ticks down once per 60 frames.
+/// When it reaches zero the player dies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelTimer {
+    /// Remaining whole seconds (3:00 = 180).
+    pub(crate) seconds: u16,
+    /// Frames remaining until the next second tick (counts down from 60).
+    pub(crate) sub_frames: u16,
+}
+
+impl LevelTimer {
+    pub(crate) fn new() -> Self {
+        Self {
+            seconds: super::LEVEL_TIMER_START_SECONDS,
+            // ASM sets Time_SubSeconds to 1 — first frame immediately
+            // decrements a second and reloads to 60.
+            sub_frames: 1,
+        }
+    }
+
+    /// Tick one frame. Returns true when the timer has just expired (0:00).
+    pub(crate) fn tick(&mut self) -> bool {
+        if self.seconds == 0 && self.sub_frames == 0 {
+            return true; // already expired
+        }
+        self.sub_frames = self.sub_frames.saturating_sub(1);
+        if self.sub_frames == 0 {
+            if self.seconds > 0 {
+                self.seconds -= 1;
+                self.sub_frames = super::LEVEL_TIMER_FRAMES_PER_SECOND;
+                false
+            } else {
+                true // just hit 0:00
+            }
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn add_clock_bonus(&mut self) {
+        let new_seconds = self.seconds + super::LEVEL_TIMER_CLOCK_BONUS_SECONDS;
+        if new_seconds >= super::LEVEL_TIMER_MAX_SECONDS {
+            self.seconds = super::LEVEL_TIMER_MAX_SECONDS;
+            self.sub_frames = super::LEVEL_TIMER_FRAMES_PER_SECOND;
+        } else {
+            self.seconds = new_seconds;
+        }
+    }
+}
+
+/// Tracks a triggered evanescent block that is counting down to removal.
+/// The block stays solid during the countdown; once timer reaches the
+/// removal threshold it is cleared from the block grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentEntry {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    /// Timer value (starts negative from skin offset, incremented each frame).
+    pub(crate) timer: i16,
+}
+
+/// Runtime state for a ghost block group that cycles solid/vanished.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GhostGroup {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) count: u8,
+    pub(crate) vertical: bool,
+    pub(crate) solid_time: u16,
+    pub(crate) vanished_time: u16,
+    pub(crate) timer: u16,
+    pub(crate) solid: bool,
+}
+
+/// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyProjectile {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    /// Remaining lifetime in frames (destroyed when zero).
+    pub(crate) lifetime: u16,
+    /// True for player-fired projectiles (Eyeclops beam, Maniaxe axe, Juggernaut skull) — these
+    /// damage enemies, not the player.
+    pub(crate) friendly: bool,
+    /// Per-frame gravity added to y_velocity (for arcing projectiles like Juggernaut skull).
+    pub(crate) gravity: i32,
+    /// Homing acceleration per axis per frame. 0 = not homing.
+    /// HeadyMetal: $7D0, Lion: $2000 (Lion.asm loc_3E1C2).
+    pub(crate) homing_accel: i32,
+    /// Speed cap for homing projectiles (per-axis). 0 = no cap.
+    /// Lion: $60000 (Lion.asm loc_3E1C2).
+    pub(crate) speed_cap: i32,
+    /// Bounces off terrain walls/floors/ceilings (Lion.asm loc_3E260).
+    pub(crate) wall_bounce: bool,
+}
+
+/// Murder wall: an advancing wall that kills the player on contact.
+/// Accelerates from zero to max_speed at $100/frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MurderWallState {
+    /// Current X position in fixed-point 16.16.
+    pub(crate) x_pos: i64,
+    /// Current speed in fixed-point 16.16.
+    pub(crate) speed: i32,
+    /// Terminal speed in fixed-point 16.16.
+    pub(crate) max_speed: i32,
+    /// True if wall moves right-to-left (reversed).
+    pub(crate) reversed: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct PlatformLoaderState {
+    pub(crate) next_index: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ObjectSystemState {
+    pub(crate) platform_loader: PlatformLoaderState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OpeningSliceState {
+    pub(crate) player: PlayerState,
+    pub(crate) camera: CameraState,
+    pub(crate) terrain: TerrainState,
+    pub(crate) level_bounds: LevelBounds,
+    pub(crate) objects: ObjectSystemState,
+    /// Prize block headbutted this frame — (content, x_px, y_px) or None.
+    pub(crate) prize_block_hit: Option<(terrain::PrizeContent, u16, u16)>,
+    /// Lift block activated this frame — (x_px, y_px) of block top-left in pixels.
+    pub(crate) lift_block_hit: Option<(u16, u16)>,
+    /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
+    pub(crate) drill_projectile_hit: Option<(u32, u32)>,
+    /// Metal block bounced this frame — (cell_x, cell_y).
+    pub(crate) metal_block_hit: Option<(u16, u16)>,
+    /// Smash block destroyed this frame — (x_px, y_px).
+    pub(crate) smash_block_hit: Option<(u16, u16)>,
+    /// Teleporter block contacted this frame — (cell_x, cell_y).
+    pub(crate) teleporter_contact: Option<(u16, u16)>,
+}
