@@ -11568,9 +11568,9 @@ mod tests {
         // Shifting block at (3, 5)
         let idx = (5 * w + 3) as usize * 2;
         data[idx] = 0xE7;
-        // Solid block at (3, 4)
+        // Solid block at (3, 4): has_block=1, collision=Solid(6), block_type=0
         let idx2 = (4 * w + 3) as usize * 2;
-        data[idx2] = 0x60; // Solid, no block type
+        data[idx2] = 0xE0; // has_block + Solid collision
         let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
         rt.block_grid = Some(grid);
 

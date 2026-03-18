@@ -166,9 +166,8 @@ impl NativeRuntime {
         }
 
         let above = grid.cell_at(col, foot_row - 1);
-        // DEVIATION: ASM only checks `btst #6` (has_block). Native also checks
-        // collision != Empty, which may spuriously block shifting on slope tiles.
-        if above.has_block || above.collision != terrain::CollisionKind::Empty {
+        // ASM only checks `btst #6` (has_block bit) — no collision check.
+        if above.has_block {
             return; // cell above is occupied
         }
 
