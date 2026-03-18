@@ -43,6 +43,9 @@ pub struct SpeedTable {
 }
 
 // --- Normal terrain (unk_9C0A) ---
+// ORIGINAL_QUIRK: ROM has a 4th entry at offset +$54 ($20000/$4000/$2800/$4000/$30000/$3800/$6000)
+// reachable only if both Micromax AND Juggernaut checks match simultaneously — impossible since
+// only one helmet is worn at a time. Dead data; likely a cut form or dev remnant. (backlog #039)
 
 pub const NORMAL_KID: SpeedTable = SpeedTable {
     max_walk_speed: 0x2_0000,
