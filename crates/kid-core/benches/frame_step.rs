@@ -74,7 +74,7 @@ fn test_manifest() -> AssetManifest {
         animation_assets: Vec::new(),
         sound_assets: Vec::new(),
         ingame_assets: Vec::new(),
-        decoded_level1: None,
+        decoded_levels: vec![],
     }
 }
 

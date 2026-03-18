@@ -1830,7 +1830,7 @@ mod tests {
             generated_manifest_path(&repo_root.path().join(".cache/generated/abc123"));
         let mut stale_manifest: AssetManifest =
             load_manifest(&stale_manifest_path).expect("stale manifest should load");
-        stale_manifest.decoded_level1 = None;
+        stale_manifest.decoded_levels = vec![];
         fs::write(
             &stale_manifest_path,
             serde_json::to_vec_pretty(&stale_manifest).expect("json"),
@@ -1854,16 +1854,16 @@ mod tests {
         .expect("prepare should rebuild");
 
         assert_eq!(export_calls.get(), 1);
-        assert!(refreshed.decoded_level1.is_some());
+        assert!(!refreshed.decoded_levels.is_empty());
         let refreshed_manifest =
             load_manifest(&stale_manifest_path).expect("refreshed manifest should load");
-        assert!(refreshed_manifest.decoded_level1.is_some());
-        let decoded = refreshed_manifest.decoded_level1.expect("decoded metadata");
+        assert!(!refreshed_manifest.decoded_levels.is_empty());
+        let decoded = refreshed_manifest.decoded_levels.iter().find(|d| d.level_id == 0x00).expect("decoded metadata");
         assert!(
             repo_root
                 .path()
                 .join(".cache/generated/abc123")
-                .join(decoded.foreground.relative_path)
+                .join(&decoded.foreground.relative_path)
                 .is_file()
         );
     }
@@ -1937,7 +1937,7 @@ mod tests {
         .expect("existing layout metadata");
 
         let manifest = AssetManifest {
-            generated_bundle_version: 7,
+            generated_bundle_version: 8,
             rom_sha1: String::from("test"),
             upstream_commit: String::from("deadbeef"),
             source_root: bundle_root.path().to_path_buf(),
@@ -1952,7 +1952,7 @@ mod tests {
             animation_assets: vec![],
             sound_assets: vec![],
             ingame_assets: vec![],
-            decoded_level1: None,
+            decoded_levels: vec![],
         };
 
         let dumped_levels = RefCell::new(Vec::new());

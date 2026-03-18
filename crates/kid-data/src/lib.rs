@@ -23,11 +23,13 @@ const COPIED_DIRECTORIES: &[&str] = &[
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
 const PRESERVED_BUNDLE_DIRECTORIES: &[&str] = &["level-layout"];
-pub const GENERATED_BUNDLE_VERSION: u32 = 7;
-pub const LEVEL1_DECODED_ASSET_VERSION: u32 = 2;
-const LEVEL1_ID: u8 = 0x00;
-const LEVEL1_DECODED_OUTPUT_DIR: &str = "decoded/level/00";
+pub const GENERATED_BUNDLE_VERSION: u32 = 8;
+pub const DECODED_LEVEL_ASSET_VERSION: u32 = 3;
 const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
+
+fn decoded_level_output_dir(level_id: u8) -> String {
+    format!("decoded/level/{level_id:02x}")
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetManifest {
@@ -50,7 +52,7 @@ pub struct AssetManifest {
     #[serde(default)]
     pub ingame_assets: Vec<AssetFile>,
     #[serde(default)]
-    pub decoded_level1: Option<DecodedLevelAssets>,
+    pub decoded_levels: Vec<DecodedLevelAssets>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -372,11 +374,11 @@ fn export_split_bundle_into(
         animation_assets: collect_asset_files(&output_root.join("ingame/anim"))?,
         sound_assets: collect_asset_files(&output_root.join("sound"))?,
         ingame_assets: collect_asset_files(&output_root.join("ingame"))?,
-        decoded_level1: None,
+        decoded_levels: vec![],
     };
     let mut manifest = manifest;
     normalise_manifest(&mut manifest)?;
-    manifest.decoded_level1 = Some(export_decoded_level1_assets(&manifest)?);
+    manifest.decoded_levels = export_decoded_all_levels(&manifest)?;
     ensure_generated_bundle_contract(&manifest)?;
 
     fs::write(
@@ -490,28 +492,22 @@ pub fn ensure_generated_bundle_contract(manifest: &AssetManifest) -> Result<()> 
         );
     }
 
-    let decoded = manifest
-        .decoded_level1
-        .as_ref()
-        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
-    if decoded.contract_version != LEVEL1_DECODED_ASSET_VERSION {
-        bail!(
-            "decoded Level 1 asset version mismatch: expected {}, got {}",
-            LEVEL1_DECODED_ASSET_VERSION,
-            decoded.contract_version
-        );
+    if manifest.decoded_levels.is_empty() {
+        bail!("generated bundle has no decoded level assets");
     }
-    if decoded.level_id != LEVEL1_ID {
-        bail!(
-            "decoded Level 1 contract points at level 0x{:02X}, expected 0x{:02X}",
-            decoded.level_id,
-            LEVEL1_ID
-        );
+    for decoded in &manifest.decoded_levels {
+        if decoded.contract_version != DECODED_LEVEL_ASSET_VERSION {
+            bail!(
+                "decoded level 0x{:02X} asset version mismatch: expected {}, got {}",
+                decoded.level_id,
+                DECODED_LEVEL_ASSET_VERSION,
+                decoded.contract_version
+            );
+        }
+        validate_decoded_asset_file(manifest, &decoded.foreground, "foreground")?;
+        validate_decoded_asset_file(manifest, &decoded.block, "block")?;
+        validate_decoded_asset_file(manifest, &decoded.background, "background")?;
     }
-
-    validate_decoded_asset_file(manifest, &decoded.foreground, "foreground")?;
-    validate_decoded_asset_file(manifest, &decoded.block, "block")?;
-    validate_decoded_asset_file(manifest, &decoded.background, "background")?;
     Ok(())
 }
 
@@ -1039,47 +1035,60 @@ fn load_asset(
     }))
 }
 
-fn export_decoded_level1_assets(manifest: &AssetManifest) -> Result<DecodedLevelAssets> {
-    let level = manifest
-        .levels
-        .iter()
-        .find(|level| level.level_id == LEVEL1_ID)
-        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} not found in asset manifest"))?;
-    let header = level
-        .header_metadata
-        .as_ref()
-        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} is missing header metadata"))?;
-    let preview_width = usize::from(header.width_screens) * 40;
-    let output_dir = manifest.output_root.join(LEVEL1_DECODED_OUTPUT_DIR);
-    fs::create_dir_all(&output_dir)
-        .with_context(|| format!("failed to create {}", output_dir.display()))?;
+fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLevelAssets>> {
+    let mut results = Vec::new();
+    for level in &manifest.levels {
+        let has_data = level.resources.foreground.is_some()
+            || level.resources.block.is_some()
+            || level.resources.background.is_some();
+        if !has_data {
+            continue;
+        }
+        let level_id = level.level_id;
+        let preview_width = level
+            .header_metadata
+            .as_ref()
+            .map(|h| usize::from(h.width_screens) * 40)
+            .unwrap_or(256);
+        let output_dir_rel = decoded_level_output_dir(level_id);
+        let output_dir = manifest.output_root.join(&output_dir_rel);
+        fs::create_dir_all(&output_dir)
+            .with_context(|| format!("failed to create {}", output_dir.display()))?;
 
-    let foreground = export_saxman_decoded_asset(
-        manifest,
-        level.resources.foreground.as_deref(),
-        "foreground",
-        preview_width,
-    )?;
-    let block = export_raw_level_asset(
-        manifest,
-        level.resources.block.as_deref(),
-        "block",
-        preview_width,
-    )?;
-    let background = export_raw_level_asset(
-        manifest,
-        level.resources.background.as_deref(),
-        "background",
-        BACKGROUND_PREVIEW_WIDTH_TILES,
-    )?;
+        let foreground = export_saxman_decoded_asset(
+            manifest,
+            level.resources.foreground.as_deref(),
+            "foreground",
+            preview_width,
+            level_id,
+            &output_dir_rel,
+        )?;
+        let block = export_raw_level_asset(
+            manifest,
+            level.resources.block.as_deref(),
+            "block",
+            preview_width,
+            level_id,
+            &output_dir_rel,
+        )?;
+        let background = export_raw_level_asset(
+            manifest,
+            level.resources.background.as_deref(),
+            "background",
+            BACKGROUND_PREVIEW_WIDTH_TILES,
+            level_id,
+            &output_dir_rel,
+        )?;
 
-    Ok(DecodedLevelAssets {
-        contract_version: LEVEL1_DECODED_ASSET_VERSION,
-        level_id: LEVEL1_ID,
-        foreground,
-        block,
-        background,
-    })
+        results.push(DecodedLevelAssets {
+            contract_version: DECODED_LEVEL_ASSET_VERSION,
+            level_id,
+            foreground,
+            block,
+            background,
+        });
+    }
+    Ok(results)
 }
 
 fn export_saxman_decoded_asset(
@@ -1087,15 +1096,17 @@ fn export_saxman_decoded_asset(
     relative_path: Option<&str>,
     stem: &str,
     preview_width: usize,
+    level_id: u8,
+    output_dir: &str,
 ) -> Result<DecodedAssetFile> {
     let relative_path = relative_path
-        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} is missing {stem} asset path"))?;
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} is missing {stem} asset path"))?;
     let encoded_path = manifest.output_root.join("level").join(relative_path);
     let decoded_bytes = decode_saxman(
         &fs::read(&encoded_path)
             .with_context(|| format!("failed to read {}", encoded_path.display()))?,
     )?;
-    export_decoded_asset_file(manifest, stem, &decoded_bytes, preview_width, false)
+    export_decoded_asset_file(manifest, stem, &decoded_bytes, preview_width, false, output_dir)
 }
 
 fn export_raw_level_asset(
@@ -1103,13 +1114,15 @@ fn export_raw_level_asset(
     relative_path: Option<&str>,
     stem: &str,
     preview_width: usize,
+    level_id: u8,
+    output_dir: &str,
 ) -> Result<DecodedAssetFile> {
     let relative_path = relative_path
-        .ok_or_else(|| anyhow!("level 0x{LEVEL1_ID:02X} is missing {stem} asset path"))?;
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} is missing {stem} asset path"))?;
     let encoded_path = manifest.output_root.join("level").join(relative_path);
     let raw_bytes = fs::read(&encoded_path)
         .with_context(|| format!("failed to read {}", encoded_path.display()))?;
-    export_decoded_asset_file(manifest, stem, &raw_bytes, preview_width, false)
+    export_decoded_asset_file(manifest, stem, &raw_bytes, preview_width, false, output_dir)
 }
 
 fn export_decoded_asset_file(
@@ -1118,14 +1131,15 @@ fn export_decoded_asset_file(
     decoded_bytes: &[u8],
     preview_width: usize,
     word_preview: bool,
+    output_dir: &str,
 ) -> Result<DecodedAssetFile> {
     let raw_path = manifest
         .output_root
-        .join(LEVEL1_DECODED_OUTPUT_DIR)
+        .join(output_dir)
         .join(format!("{stem}.bin"));
     let preview_path = manifest
         .output_root
-        .join(LEVEL1_DECODED_OUTPUT_DIR)
+        .join(output_dir)
         .join(format!("{stem}.png"));
     fs::write(&raw_path, decoded_bytes)
         .with_context(|| format!("failed to write {}", raw_path.display()))?;
@@ -1160,13 +1174,13 @@ fn validate_decoded_asset_file(
     let preview_path = manifest.output_root.join(&asset.preview_png_path);
     if !asset_path.is_file() {
         bail!(
-            "decoded Level 1 {label} asset is missing: {}",
+            "decoded {label} asset is missing: {}",
             asset_path.display()
         );
     }
     if !preview_path.is_file() {
         bail!(
-            "decoded Level 1 {label} preview is missing: {}",
+            "decoded {label} preview is missing: {}",
             preview_path.display()
         );
     }
@@ -1959,7 +1973,7 @@ mod tests {
             animation_assets: Vec::new(),
             sound_assets: Vec::new(),
             ingame_assets: Vec::new(),
-            decoded_level1: None,
+            decoded_levels: vec![],
         };
 
         let definitions = enemy_definitions(&manifest);
@@ -2092,7 +2106,7 @@ mod tests {
     }
 
     #[test]
-    fn export_split_bundle_writes_decoded_level1_entries() {
+    fn export_split_bundle_writes_decoded_level_entries() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
         let source_root = source.path();
@@ -2102,46 +2116,48 @@ mod tests {
             .expect("bundle export should succeed");
 
         assert_eq!(manifest.generated_bundle_version, GENERATED_BUNDLE_VERSION);
-        let decoded_level1 = manifest
-            .decoded_level1
-            .as_ref()
-            .expect("decoded Level 1 contract should be present");
+        assert!(!manifest.decoded_levels.is_empty());
+        let decoded_level0 = manifest
+            .decoded_levels
+            .iter()
+            .find(|d| d.level_id == 0x00)
+            .expect("decoded level 0x00 should be present");
         assert_eq!(
-            decoded_level1.contract_version,
-            LEVEL1_DECODED_ASSET_VERSION
+            decoded_level0.contract_version,
+            DECODED_LEVEL_ASSET_VERSION
         );
-        assert_eq!(decoded_level1.level_id, 0x00);
+        assert_eq!(decoded_level0.level_id, 0x00);
         assert_eq!(
-            fs::read(output.path().join(&decoded_level1.foreground.relative_path))
+            fs::read(output.path().join(&decoded_level0.foreground.relative_path))
                 .expect("decoded foreground"),
             b"ABCD"
         );
         assert_eq!(
-            fs::read(output.path().join(&decoded_level1.block.relative_path))
+            fs::read(output.path().join(&decoded_level0.block.relative_path))
                 .expect("decoded block"),
             REAL_STYLE_BLOCK_FIXTURE
         );
         assert_eq!(
-            fs::read(output.path().join(&decoded_level1.background.relative_path))
+            fs::read(output.path().join(&decoded_level0.background.relative_path))
                 .expect("decoded background"),
             REAL_STYLE_BACKGROUND_FIXTURE
         );
         assert!(
             output
                 .path()
-                .join(&decoded_level1.foreground.preview_png_path)
+                .join(&decoded_level0.foreground.preview_png_path)
                 .is_file()
         );
         assert!(
             output
                 .path()
-                .join(&decoded_level1.block.preview_png_path)
+                .join(&decoded_level0.block.preview_png_path)
                 .is_file()
         );
         assert!(
             output
                 .path()
-                .join(&decoded_level1.background.preview_png_path)
+                .join(&decoded_level0.background.preview_png_path)
                 .is_file()
         );
         assert_eq!(manifest.rom_sha1, "abc123");
@@ -2382,12 +2398,13 @@ mod tests {
             Some(0x08)
         );
 
-        let decoded_level1 = manifest
-            .decoded_level1
-            .as_ref()
-            .expect("decoded Level 1 contract");
+        let decoded_level0 = manifest
+            .decoded_levels
+            .iter()
+            .find(|d| d.level_id == 0x00)
+            .expect("decoded level 0x00");
         assert_eq!(
-            fs::read(output.path().join(&decoded_level1.foreground.relative_path))
+            fs::read(output.path().join(&decoded_level0.foreground.relative_path))
                 .expect("decoded foreground"),
             b"ABCD"
         );
@@ -2497,8 +2514,9 @@ mod tests {
             output_path
                 .join(
                     retained_manifest
-                        .decoded_level1
-                        .as_ref()
+                        .decoded_levels
+                        .iter()
+                        .find(|d| d.level_id == 0x00)
                         .expect("decoded metadata")
                         .foreground
                         .relative_path

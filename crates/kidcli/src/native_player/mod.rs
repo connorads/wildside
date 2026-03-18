@@ -1065,10 +1065,10 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
         anyhow!("generated bundle is missing header metadata for level 0x{level_id:02X}")
     })?;
     let decoded = manifest
-        .decoded_level1
-        .as_ref()
-        .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
-    if decoded.level_id != level_id {
+        .decoded_levels
+        .iter()
+        .find(|d| d.level_id == level_id);
+    let Some(decoded) = decoded else {
         // Layout not yet extracted for this level — return an empty grid so the
         // level still loads (no block collision). The user can extract it with:
         //   mise run dump-level-layout 2E
@@ -1077,12 +1077,12 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
         );
         let (width, height) = level_layout_dimensions(header);
         return Ok(BlockGrid::from_level_layout(&[], width, height));
-    }
+    };
 
     let layout_path = manifest.output_root.join(&decoded.block.relative_path);
     let data = std::fs::read(&layout_path).map_err(|error| {
         anyhow!(
-            "failed to read Level 1 block layout from {}: {error}",
+            "failed to read block layout from {}: {error}",
             layout_path.display()
         )
     })?;
@@ -1681,13 +1681,13 @@ mod tests {
                     animation_assets: Vec::new(),
                     sound_assets: Vec::new(),
                     ingame_assets: Vec::new(),
-                    decoded_level1: Some(DecodedLevelAssets {
-                        contract_version: 2,
+                    decoded_levels: vec![DecodedLevelAssets {
+                        contract_version: 3,
                         level_id: 0x00,
                         foreground: decoded_asset("decoded/level/00/foreground.bin"),
                         block: decoded_asset(decoded_path),
                         background: decoded_asset("decoded/level/00/background.bin"),
-                    }),
+                    }],
                 },
                 _root: root,
             })

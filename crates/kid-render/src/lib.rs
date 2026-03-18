@@ -27,7 +27,7 @@ mod tests {
     use super::{BlockVisualKind, load_level_visuals};
     use kid_data::{
         AssetFile, AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION,
-        LEVEL1_DECODED_ASSET_VERSION, LevelHeader, LevelRecord, LevelResources,
+        DECODED_LEVEL_ASSET_VERSION, LevelHeader, LevelRecord, LevelResources,
     };
     use sha1::{Digest, Sha1};
     use std::fs;
@@ -502,13 +502,13 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
                 ],
-                decoded_level1: Some(DecodedLevelAssets {
-                    contract_version: LEVEL1_DECODED_ASSET_VERSION,
+                decoded_levels: vec![DecodedLevelAssets {
+                    contract_version: DECODED_LEVEL_ASSET_VERSION,
                     level_id: LEVEL_ID,
                     foreground: decoded_asset(root.path(), "decoded/level/00/foreground.bin"),
                     block: decoded_asset(root.path(), "decoded/level/00/block.bin"),
                     background: decoded_asset(root.path(), "decoded/level/00/background.bin"),
-                }),
+                }],
             };
 
             Ok(Self { root, manifest })
