@@ -5622,6 +5622,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         step_active_enemies(
@@ -5791,6 +5793,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         }];
 
         activate_enemies(
@@ -5840,6 +5844,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         for _ in 0..199 {
@@ -6008,6 +6014,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         let mut grounded_skull = None;
@@ -6061,6 +6069,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         let mut grounded_skull = None;
@@ -6165,6 +6175,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -6228,6 +6240,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -7348,6 +7362,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         }
     }
 
@@ -7497,6 +7513,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -7540,6 +7558,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -7611,6 +7631,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -7687,6 +7709,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(
@@ -7729,6 +7753,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -7777,6 +7803,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -7829,6 +7857,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -7884,6 +7914,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
 
         // Step until it lands
@@ -8005,6 +8037,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8042,6 +8076,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8127,6 +8163,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -8168,6 +8206,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -8223,6 +8263,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -8263,6 +8305,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -8306,6 +8350,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -8340,6 +8386,57 @@ mod tests {
             runtime.projectiles[1].x_velocity < 0,
             "second projectile leftward"
         );
+    }
+
+    #[test]
+    fn ufo_beam_fires_when_player_below() {
+        use enemies::{ActiveEnemy, EnemyFamily, step_ufo_beam};
+
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::UFO,
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            layout_index: 0,
+            segment_index: 0,
+            dragon_phase: DragonMotionPhase::None,
+            dragon_phase_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+        };
+        let mut projectiles = Vec::new();
+
+        // Player directly below UFO (within 2px)
+        let player_x = Some(100 << 16);
+        let player_y = Some(120 << 16);
+
+        step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
+        assert_eq!(enemy.ufo_beam_segments, 4, "should start beam sequence");
+
+        // Step through interval frames to spawn segments
+        for _ in 0..20 {
+            step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
+        }
+        assert!(projectiles.len() >= 4, "should have spawned beam segments");
+        assert!(projectiles.iter().all(|p| p.y_velocity > 0), "beams go downward");
     }
 
     // --- UFO and Tornado flyer tests ---
@@ -10877,6 +10974,8 @@ mod tests {
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         }
     }
 

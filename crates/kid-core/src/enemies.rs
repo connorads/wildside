@@ -314,6 +314,10 @@ pub(crate) struct ActiveEnemy {
     pub(crate) tar_monster_state: TarMonsterState,
     pub(crate) spinning_twins_phase: SpinningTwinsPhase,
     pub(crate) spinning_twins_orbit_index: u8,
+    /// UFO beam: segments remaining to spawn (0=not firing). ASM $48(a5).
+    pub(crate) ufo_beam_segments: u8,
+    /// UFO beam: frames until next segment. ASM $4A(a5).
+    pub(crate) ufo_beam_interval: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -619,6 +623,8 @@ pub(crate) fn activate_enemies(
             tar_monster_state: TarMonsterState::default(),
             spinning_twins_phase: SpinningTwinsPhase::default(),
             spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
         });
     }
 }
@@ -637,7 +643,14 @@ pub(crate) fn step_active_enemies(
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
             EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
-            EnemyArchetype::Flyer => step_flyer(enemy, block_grid),
+            EnemyArchetype::Flyer => {
+                step_flyer(enemy, block_grid);
+                if matches!(enemy.family, EnemyFamily::UFO) {
+                    if let Some(ref mut projs) = projectiles {
+                        step_ufo_beam(enemy, projs, player_x_pos, player_y_pos);
+                    }
+                }
+            }
             EnemyArchetype::Hopper => step_hopper(enemy, block_grid, player_x_pos),
             EnemyArchetype::Hoverer => step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos),
             EnemyArchetype::Pacer => {
@@ -789,6 +802,67 @@ pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::Blo
             enemy.x_acceleration = -enemy.x_acceleration;
             enemy.facing = opposite_direction(enemy.facing);
         }
+    }
+}
+
+/// UFO beam: spawns downward beam segments at the UFO's position.
+/// ASM: `ChkShoot` fires when player is directly below (±2px), `ChkLoadBeam` fires
+/// randomly (~4/256 per frame). Spawns 4 segments at 5-frame intervals.
+const UFO_BEAM_SEGMENT_COUNT: u8 = 4;
+const UFO_BEAM_INTERVAL_FRAMES: u8 = 5;
+/// Beam segment y_velocity: $30000 from ASM.
+const UFO_BEAM_Y_VELOCITY: i32 = 0x3_0000;
+
+pub(crate) fn step_ufo_beam(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x: Option<u32>,
+    player_y: Option<u32>,
+) {
+    // Active beam sequence: spawn segments at intervals
+    if enemy.ufo_beam_segments > 0 {
+        if enemy.ufo_beam_interval == 0 {
+            projectiles.push(EnemyProjectile {
+                x_pos: enemy.x_pos,
+                y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
+                x_velocity: 0,
+                y_velocity: UFO_BEAM_Y_VELOCITY,
+                lifetime: 60,
+                gravity: 0,
+                friendly: false,
+                homing: false,
+            });
+            enemy.ufo_beam_segments -= 1;
+            enemy.ufo_beam_interval = UFO_BEAM_INTERVAL_FRAMES;
+        } else {
+            enemy.ufo_beam_interval -= 1;
+        }
+        return;
+    }
+
+    // Check if player is directly below — targeted shoot (ASM ChkShoot)
+    if let (Some(px), Some(py)) = (player_x, player_y) {
+        let ex = enemy.x_pos >> 16;
+        let ey = enemy.y_pos >> 16;
+        let kx = px >> 16;
+        let ky = py >> 16;
+        // Player must be below UFO and within ±2px horizontally
+        if ky > ey && kx.abs_diff(ex) <= 2 {
+            enemy.ufo_beam_segments = UFO_BEAM_SEGMENT_COUNT;
+            enemy.ufo_beam_interval = 0;
+            // Freeze UFO during beam sequence (ASM clears velocities)
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            return;
+        }
+    }
+
+    // Random beam: ~4/256 chance per frame (ASM ChkLoadBeam)
+    // Use a deterministic pseudo-random from enemy position + wait_timer
+    let pseudo_rand = (enemy.x_pos.wrapping_add(enemy.wait_timer as u32).wrapping_mul(2654435761)) >> 24;
+    if pseudo_rand < 4 {
+        enemy.ufo_beam_segments = UFO_BEAM_SEGMENT_COUNT;
+        enemy.ufo_beam_interval = 0;
     }
 }
 
