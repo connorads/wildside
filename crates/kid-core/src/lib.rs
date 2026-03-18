@@ -5430,6 +5430,23 @@ mod tests {
         );
     }
 
+    #[test]
+    fn form_transform_iron_knight_changes_form_and_hitpoints() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        assert_eq!(runtime.current_form, PlayerForm::TheKid);
+
+        runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(runtime.current_form, PlayerForm::IronKnight);
+        assert_eq!(
+            runtime.number_hitpoints,
+            PlayerForm::IronKnight.max_hitpoints(),
+            "hitpoints should match IronKnight max"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // MiniHoppingSkull hopper behaviour
     // -----------------------------------------------------------------------
