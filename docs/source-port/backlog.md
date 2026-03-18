@@ -42,6 +42,10 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 033 | [ ] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | Real spinning sprite + palette cycling per-helmet |
 | 034 | [ ] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native has 3) | Boot captures match oracle |
 | 035 | [ ] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | All 69 BCD levels verifiable |
+| 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
+| 037 | [ ] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
+| 038 | [ ] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
+| 039 | [ ] | P3 | fidelity | 4th speed table entry (Berzerker?) not modelled | All 4 form slots per terrain |
 
 ## Investigation notes
 
@@ -117,3 +121,24 @@ A/C plays track via GEMS engine, B returns to options.
 ### 022 — Duplicate Game Over overlay (FIXED)
 Scene rendering had two `if trace.game_over` blocks (lines 1023 and 1091).
 Removed the duplicate.
+
+### 036 — Tank walk speed step (FIXED)
+Tank.asm lines 52-64 use a 3-tier fall-through chain: HP=2→$8000, HP=3→$10000,
+HP=4→$18000. This gives step=$8000. Was incorrectly $10000 in `pacer_walk_speed()`.
+All other pacer families verified correct: Goat/Armadillo/Crab ($10000), Driller ($8000),
+Scorpion (fixed $18000), FireDemon/Robot/Ninja ($8000).
+
+### 037 — Floor-snap shortcut misses terrain (INVESTIGATING)
+Level 0x52 "Elsewhere 9": player starts at (16, 335). Native floor-snap finds floor at
+row 22 (Y=352→351), oracle gravity settles to Y=337.25 (row 21). The real floor is at
+column 2 row 21, but the player's hitbox (half_width=5, right edge at x=21 → column 1)
+doesn't reach it. The oracle's frame-by-frame gravity settling catches it because the
+collision detection during movement sees the terrain. Fix: either widen the floor probe
+or implement real gravity settling during level init.
+
+### 038 — Camera Y settling dead-zone (INVESTIGATING)
+8 levels show +1 to +7px camera_y diffs at level_settle. Player Y matches; only
+camera differs. Caused by `update_camera_axis` convergence dead-zone: `(target-camera+4)>>3`
+rounds to 0 when |target-camera| < 4, causing the camera to stop a few pixels above/below
+the target depending on the initial offset. Masked by oracle-pause threshold (≤32px).
+Full fix requires matching the exact initial camera + settling frame count.
