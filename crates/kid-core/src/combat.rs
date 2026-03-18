@@ -119,6 +119,10 @@ impl NativeRuntime {
                 y_pos: enemy.y_pos,
                 remaining: 10,
             });
+            // Fire Demon: spawn fire trail on death
+            if matches!(enemy.family, EnemyFamily::FireDemon) {
+                spawn_fire_demon_death_trail(&mut self.projectiles, enemy.x_pos, enemy.y_pos);
+            }
             self.active_enemies.remove(idx);
             self.score += 1000;
         }

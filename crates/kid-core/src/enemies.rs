@@ -1928,6 +1928,32 @@ pub(crate) fn spawn_tar_monster_retaliation(
     }
 }
 
+/// Fire Demon death trail: spawn 3 fire fragments arcing outward from death position.
+pub(crate) fn spawn_fire_demon_death_trail(
+    projectiles: &mut Vec<EnemyProjectile>,
+    x: u32,
+    y: u32,
+) {
+    // TODO(fidelity): real fire trail sprite art from ASM
+    let fragments: [(i32, i32); 3] = [
+        (0x1_8000, -0x2_0000),  // right arc
+        (-0x1_8000, -0x2_0000), // left arc
+        (0, -0x2_8000),         // straight up
+    ];
+    for (xv, yv) in fragments {
+        projectiles.push(EnemyProjectile {
+            x_pos: x,
+            y_pos: y,
+            x_velocity: xv,
+            y_velocity: yv,
+            lifetime: 45,
+            gravity: 0x1800,
+            friendly: false,
+            homing: false,
+        });
+    }
+}
+
 // --- DragonWalking constants ---
 // From ASM: stationary dragon with breath attack. Timer $12C (300 frames) cooldown.
 pub(crate) const DRAGON_WALKING_BREATH_INTERVAL: u16 = 300;

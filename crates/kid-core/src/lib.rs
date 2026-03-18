@@ -8901,6 +8901,18 @@ mod tests {
         assert!(right_count >= 2, "at least 2 blobs go right");
     }
 
+    #[test]
+    fn fire_demon_death_spawns_trail() {
+        let mut projectiles = Vec::new();
+        spawn_fire_demon_death_trail(&mut projectiles, 100 << 16, 200 << 16);
+        assert_eq!(projectiles.len(), 3, "should spawn 3 fire fragments");
+        for p in &projectiles {
+            assert!(p.y_velocity < 0, "fragments launch upward");
+            assert!(!p.friendly);
+            assert!(p.gravity > 0, "fragments have gravity");
+        }
+    }
+
     // --- Drips ---
 
     #[test]
