@@ -969,6 +969,8 @@ const MANIAXE_BASE_SPEED: i32 = 5;
 const MANIAXE_TRAVEL_FRAMES: u8 = 12;
 
 /// Mushroom block minimum bounce velocity (ensures a visible bounce even at low speed).
+// UNVERIFIED: ASM uses pixel-nudge coroutine for mushroom bounce, not velocity.
+// The 3/4 attenuation and -$20000 minimum are native approximations.
 const MUSHROOM_MIN_BOUNCE: i32 = -0x2_0000;
 
 /// Eyeclops beam: C press fires a horizontal beam projectile.
