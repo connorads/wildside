@@ -13,12 +13,12 @@ impl NativeRuntime {
                     // The floor cell is the one the player is standing ON (below feet)
                     let row = terrain::pixel_to_cell(probe.floor_y_px).max(0) as u16;
                     let already_tracked = self
-                        .evanescent_blocks
+                        .block_state.evanescent_blocks
                         .iter()
                         .any(|e| e.col == col && e.row == row);
-                    if !already_tracked && self.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES {
+                    if !already_tracked && self.block_state.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES {
                         let initial_timer = i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
-                        self.evanescent_blocks.push(EvanescentEntry {
+                        self.block_state.evanescent_blocks.push(EvanescentEntry {
                             col,
                             row,
                             timer: initial_timer,
@@ -29,7 +29,7 @@ impl NativeRuntime {
 
         // Tick timers and remove expired blocks
         if let Some(grid) = &mut self.block_grid {
-            self.evanescent_blocks.retain_mut(|entry| {
+            self.block_state.evanescent_blocks.retain_mut(|entry| {
                 entry.timer += 1;
                 if entry.timer >= EVANESCENT_REMOVAL_THRESHOLD {
                     grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
@@ -46,7 +46,7 @@ impl NativeRuntime {
         let Some(grid) = &mut self.block_grid else {
             return;
         };
-        for group in &mut self.ghost_groups {
+        for group in &mut self.block_state.ghost_groups {
             if group.timer > 0 {
                 group.timer -= 1;
                 continue;
@@ -94,11 +94,11 @@ impl NativeRuntime {
         };
 
         // Tick timer
-        if self.shooter_block_timer > 0 {
-            self.shooter_block_timer -= 1;
+        if self.block_state.shooter_block_timer > 0 {
+            self.block_state.shooter_block_timer -= 1;
             return;
         }
-        self.shooter_block_timer = Self::SHOOTER_FIRE_INTERVAL;
+        self.block_state.shooter_block_timer = Self::SHOOTER_FIRE_INTERVAL;
 
         // Scan visible area for shooter blocks
         let cam_x = slice.camera.x_pos >> 16;
@@ -182,7 +182,7 @@ impl NativeRuntime {
     /// Phase 2 (erase): block erased from grid at frame 8.
     /// Phase 3 (fall): 1px/frame down × 16 frames, then delete.
     pub(crate) fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
-        self.lift_platforms.retain_mut(|lift| {
+        self.block_state.lift_platforms.retain_mut(|lift| {
             lift.age += 1;
 
             if lift.age <= LIFT_RISE_FRAMES {

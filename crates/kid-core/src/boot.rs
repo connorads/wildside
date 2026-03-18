@@ -333,8 +333,8 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
-        self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
         self.level_timer = LevelTimer::new();
         self.level_prize_collected = false;
         self.clocks_collected = 0;

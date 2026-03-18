@@ -38,10 +38,10 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
-        self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
         self.projectiles.clear();
-        self.lift_platforms.clear();
+        self.block_state.lift_platforms.clear();
         self.init_murder_wall(next_level, 0);
         self.init_weather(next_level);
         self.level_timer = LevelTimer::new();
@@ -83,10 +83,10 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
-        self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
         self.projectiles.clear();
-        self.lift_platforms.clear();
+        self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
@@ -118,8 +118,8 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
-        self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
@@ -186,8 +186,8 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
-        self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
         self.init_murder_wall(level_id, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
@@ -203,7 +203,7 @@ impl NativeRuntime {
             let width = grid.width_cells;
             self.block_grid = Some(grid);
             self.block_list = self.load_block_list_for_level(level_id, width);
-            self.ghost_groups = self
+            self.block_state.ghost_groups = self
                 .block_list
                 .as_ref()
                 .map(|bl| {
@@ -226,7 +226,7 @@ impl NativeRuntime {
         } else if self.block_grid_source == BlockGridSource::Generated {
             self.block_grid = None;
             self.block_list = None;
-            self.ghost_groups.clear();
+            self.block_state.ghost_groups.clear();
             self.block_grid_source = BlockGridSource::None;
         }
     }

@@ -543,8 +543,8 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
-        self.evanescent_blocks.clear();
-        self.ghost_groups.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,

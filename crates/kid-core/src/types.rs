@@ -2,6 +2,16 @@ use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
 use serde::{Deserialize, Serialize};
 
+/// Block interaction state: evanescent, ghost, shooter, and lift blocks.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct BlockInteractionState {
+    pub(crate) evanescent_blocks: Vec<EvanescentEntry>,
+    pub(crate) ghost_groups: Vec<GhostGroup>,
+    pub(crate) lift_platforms: Vec<LiftPlatform>,
+    /// Global shooter block fire timer: fires every 22 frames.
+    pub(crate) shooter_block_timer: u16,
+}
+
 /// Weather system state for the current level.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct WeatherState {

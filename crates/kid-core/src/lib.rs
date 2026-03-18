@@ -72,10 +72,8 @@ pub struct NativeRuntime {
     diamond_power_type: helmets::DiamondPowerType,
     /// Player has beaten the final level — show victory/ending.
     game_complete: bool,
-    evanescent_blocks: Vec<EvanescentEntry>,
-    ghost_groups: Vec<GhostGroup>,
+    block_state: BlockInteractionState,
     projectiles: Vec<EnemyProjectile>,
-    lift_platforms: Vec<LiftPlatform>,
     weather: WeatherState,
     murder_wall: Option<MurderWallState>,
     /// Metal block bounce animations in progress.
@@ -92,8 +90,6 @@ pub struct NativeRuntime {
     blocks_hit_this_frame: u8,
     /// Sound test play pending (consumed each frame).
     sound_test_play_pending: bool,
-    /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
-    shooter_block_timer: u16,
     level_timer: LevelTimer,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
@@ -158,10 +154,8 @@ impl NativeRuntime {
             diamond_power_frames: 0,
             diamond_power_type: helmets::DiamondPowerType::None,
             game_complete: false,
-            evanescent_blocks: Vec::new(),
-            ghost_groups: Vec::new(),
+            block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
-            lift_platforms: Vec::new(),
             weather: WeatherState::default(),
             murder_wall: None,
             block_bounces: Vec::new(),
@@ -171,7 +165,6 @@ impl NativeRuntime {
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
-            shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
             y_look_offset: 0,
             level_damage_taken: false,
@@ -903,7 +896,7 @@ impl NativeRuntime {
         if let Some((x_px, y_px)) = slice.lift_block_hit {
             let col = x_px / 16;
             let row = y_px / 16;
-            self.lift_platforms.push(LiftPlatform {
+            self.block_state.lift_platforms.push(LiftPlatform {
                 x_pos: u32::from(x_px) << 16,
                 y_pos: u32::from(y_px) << 16,
                 y_velocity: 0,
@@ -1057,8 +1050,8 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
-            self.evanescent_blocks.clear();
-            self.ghost_groups.clear();
+            self.block_state.evanescent_blocks.clear();
+            self.block_state.ghost_groups.clear();
             return;
         }
         if !matches!(self.boot_state, BootState::InGame | BootState::DemoPlay { .. }) {
@@ -4057,7 +4050,7 @@ mod tests {
             runtime.step_frame(FrameInput::default());
         }
 
-        assert!(runtime.lift_platforms.is_empty());
+        assert!(runtime.block_state.lift_platforms.is_empty());
 
         // Position player below lift block at col 2, row 2
         if let Some(ref mut slice) = runtime.opening_slice {
@@ -4072,7 +4065,7 @@ mod tests {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(
-            runtime.lift_platforms.len(),
+            runtime.block_state.lift_platforms.len(),
             1,
             "headbutting lift block should spawn a lift platform"
         );
@@ -4102,7 +4095,7 @@ mod tests {
 
         // Simulate rise: 8 frames × 2px/frame = 16px up
         let mut rt = NativeRuntime::new(manifest());
-        rt.lift_platforms.push(lift);
+        rt.block_state.lift_platforms.push(lift);
         let bounds = LevelBounds {
             width_pixels: 320,
             height_pixels: 256,
@@ -4112,8 +4105,8 @@ mod tests {
         for _ in 0..8 {
             rt.step_lift_platforms(&mut slice);
         }
-        assert_eq!(rt.lift_platforms.len(), 1);
-        let y_after_rise = rt.lift_platforms[0].y_pos >> 16;
+        assert_eq!(rt.block_state.lift_platforms.len(), 1);
+        let y_after_rise = rt.block_state.lift_platforms[0].y_pos >> 16;
         assert_eq!(y_after_rise, 100 - 16, "should rise 16px in 8 frames");
 
         // Simulate fall: 16 frames × 1px/frame = 16px down
@@ -4123,7 +4116,7 @@ mod tests {
         // After 24 total frames the last fall frame runs; frame 25 deletes
         rt.step_lift_platforms(&mut slice);
         assert!(
-            rt.lift_platforms.is_empty(),
+            rt.block_state.lift_platforms.is_empty(),
             "lift should be deleted after rise+fall phases"
         );
     }
@@ -9060,15 +9053,15 @@ mod tests {
             teleporter_contact: None,
         };
 
-        assert!(runtime.evanescent_blocks.is_empty());
+        assert!(runtime.block_state.evanescent_blocks.is_empty());
         runtime.step_evanescent_blocks(&slice);
         assert_eq!(
-            runtime.evanescent_blocks.len(),
+            runtime.block_state.evanescent_blocks.len(),
             1,
             "standing on evanescent block should trigger it"
         );
-        assert_eq!(runtime.evanescent_blocks[0].col, 2);
-        assert_eq!(runtime.evanescent_blocks[0].row, 3);
+        assert_eq!(runtime.block_state.evanescent_blocks[0].col, 2);
+        assert_eq!(runtime.block_state.evanescent_blocks[0].row, 3);
     }
 
     #[test]
@@ -9112,7 +9105,7 @@ mod tests {
 
         runtime.step_evanescent_blocks(&slice);
         assert!(
-            runtime.evanescent_blocks.is_empty(),
+            runtime.block_state.evanescent_blocks.is_empty(),
             "airborne player should not trigger evanescent block"
         );
     }
@@ -9171,7 +9164,7 @@ mod tests {
 
         // Trigger + first tick
         runtime.step_evanescent_blocks(&slice);
-        assert_eq!(runtime.evanescent_blocks.len(), 1);
+        assert_eq!(runtime.block_state.evanescent_blocks.len(), 1);
 
         // Tick 21 more times (total 22 ticks) — airborne so no re-trigger
         let airborne_slice = OpeningSliceState {
@@ -9187,7 +9180,7 @@ mod tests {
 
         // Block should now be cleared
         assert!(
-            runtime.evanescent_blocks.is_empty(),
+            runtime.block_state.evanescent_blocks.is_empty(),
             "evanescent entry should be removed after 22 ticks"
         );
         let cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 3);
@@ -9247,15 +9240,15 @@ mod tests {
 
         // Trigger + first tick
         runtime.step_evanescent_blocks(&on_ground_slice);
-        assert_eq!(runtime.evanescent_blocks.len(), 1);
-        assert_eq!(runtime.evanescent_blocks[0].timer, -27); // -28 + 1
+        assert_eq!(runtime.block_state.evanescent_blocks.len(), 1);
+        assert_eq!(runtime.block_state.evanescent_blocks[0].timer, -27); // -28 + 1
 
         // After 48 more ticks (49 total), still active (timer = -28 + 49 = 21)
         for _ in 0..48 {
             runtime.step_evanescent_blocks(&airborne_slice);
         }
         assert_eq!(
-            runtime.evanescent_blocks.len(),
+            runtime.block_state.evanescent_blocks.len(),
             1,
             "block should still be active at tick 49"
         );
@@ -9267,7 +9260,7 @@ mod tests {
         // One more tick (50 total): timer = -28 + 50 = 22 → removed
         runtime.step_evanescent_blocks(&airborne_slice);
         assert!(
-            runtime.evanescent_blocks.is_empty(),
+            runtime.block_state.evanescent_blocks.is_empty(),
             "block should be removed at tick 50"
         );
         assert!(
@@ -9429,7 +9422,7 @@ mod tests {
         runtime.step_evanescent_blocks(&slice);
         runtime.step_evanescent_blocks(&slice);
         assert_eq!(
-            runtime.evanescent_blocks.len(),
+            runtime.block_state.evanescent_blocks.len(),
             1,
             "same evanescent block should not be triggered twice"
         );
@@ -9460,7 +9453,7 @@ mod tests {
         );
         assert_eq!(cell.skin, 2, "skin should be 2");
         runtime.block_grid = Some(grid);
-        runtime.shooter_block_timer = 0; // fire immediately
+        runtime.block_state.shooter_block_timer = 0; // fire immediately
         runtime.projectiles.clear();
 
         // Set camera to origin so block is visible
@@ -9489,7 +9482,7 @@ mod tests {
         data[offset + 1] = 0x02;
         let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
         runtime.block_grid = Some(grid);
-        runtime.shooter_block_timer = 10; // not yet
+        runtime.block_state.shooter_block_timer = 10; // not yet
         runtime.projectiles.clear();
 
         let slice = runtime.opening_slice.unwrap();
