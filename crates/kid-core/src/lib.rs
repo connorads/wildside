@@ -11654,4 +11654,80 @@ mod tests {
         let trace = runtime.trace_frame();
         assert_eq!(trace.current_player, 1);
     }
+
+    // -------------------------------------------------------------------
+    // insta snapshot tests — detect NativeTraceFrame state drift (#028)
+    // -------------------------------------------------------------------
+
+    /// Redact advisory fields that are expected to diverge between runs.
+    fn redact_advisory(snap: &mut insta::Settings) {
+        snap.add_redaction(".number_objects", "[advisory]");
+        snap.add_redaction(".score", "[advisory]");
+        snap.add_redaction(".murder_wall_x", "[advisory]");
+        snap.add_redaction(".number_gfx_objects", "[advisory]");
+    }
+
+    #[test]
+    fn snapshot_idle_on_level0_frame60() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        // Advance 60 frames of idle standing
+        for _ in 0..60 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let trace = runtime.trace_frame();
+        let mut settings = insta::Settings::clone_current();
+        redact_advisory(&mut settings);
+        settings.bind(|| {
+            insta::assert_yaml_snapshot!("idle_level0_frame60", trace);
+        });
+    }
+
+    #[test]
+    fn snapshot_walk_right_10_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..10 {
+            runtime.step_frame(FrameInput {
+                right: true,
+                ..FrameInput::default()
+            });
+        }
+        let trace = runtime.trace_frame();
+        let mut settings = insta::Settings::clone_current();
+        redact_advisory(&mut settings);
+        settings.bind(|| {
+            insta::assert_yaml_snapshot!("walk_right_10_frames", trace);
+        });
+    }
+
+    #[test]
+    fn snapshot_jump_sequence() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        // Wait for grounded
+        loop {
+            runtime.step_frame(FrameInput::default());
+            if runtime.trace_frame().kid_on_ground == Some(true) {
+                break;
+            }
+        }
+        // Jump: press B for one frame, then hold for 5 frames
+        runtime.step_frame(FrameInput {
+            b: true,
+            ..FrameInput::default()
+        });
+        for _ in 0..5 {
+            runtime.step_frame(FrameInput {
+                b: true,
+                ..FrameInput::default()
+            });
+        }
+        let trace = runtime.trace_frame();
+        let mut settings = insta::Settings::clone_current();
+        redact_advisory(&mut settings);
+        settings.bind(|| {
+            insta::assert_yaml_snapshot!("jump_sequence_6frames", trace);
+        });
+    }
 }

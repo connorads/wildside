@@ -1,0 +1,100 @@
+---
+source: crates/kid-core/src/lib.rs
+assertion_line: 11682
+expression: trace
+---
+frame_index: 491
+game_mode: InGame
+game_mode_value: 12
+start_press_count: 6
+current_player: 0
+current_level: 0
+player_1_level_id: 0
+current_level_name: Blue Lake Woods 1
+player_start_x: 1872
+player_start_y: 224
+flag_x: 1872
+flag_y: 768
+level_enemy_object_count: 22
+active_enemy_object_count: 1
+active_platform_object_count: 1
+number_lives: 3
+number_continues: 3
+number_hitpoints: 2
+current_helmet_id: 0
+paused: false
+kid_x_pos: 2097152
+kid_y_pos: 17483621
+kid_x_velocity: 0
+kid_y_velocity: 1976
+kid_facing: Right
+kid_on_ground: false
+active_objects:
+  - kind: Player
+    x_pos: 2097152
+    y_pos: 17483621
+    layout_index: ~
+    x_velocity: ~
+    y_velocity: ~
+    facing: ~
+    on_ground: ~
+    hit_points: ~
+    damage_flash: false
+    palette_variant: 0
+    stationary: false
+  - kind:
+      Enemy:
+        object_type: 1
+    x_pos: 18874368
+    y_pos: 14680064
+    layout_index: 0
+    x_velocity: 0
+    y_velocity: 0
+    facing: Left
+    on_ground: false
+    hit_points: 1
+    damage_flash: false
+    palette_variant: 0
+    stationary: false
+  - kind:
+      Platform:
+        kind: 0
+        subtype: 0
+    x_pos: 16777216
+    y_pos: 14680064
+    layout_index: ~
+    x_velocity: ~
+    y_velocity: ~
+    facing: ~
+    on_ground: ~
+    hit_points: ~
+    damage_flash: false
+    palette_variant: 0
+    stationary: false
+camera_x_pos: 0
+camera_y_pos: 9012024
+number_objects: "[advisory]"
+number_gfx_objects: "[advisory]"
+level_complete: false
+game_over: false
+game_complete: false
+options_cursor: ~
+sound_test_track: ~
+two_player: false
+invulnerable_frames: 0
+diamond_power_active: false
+diamond_count: 0
+score: "[advisory]"
+level_timer_seconds: 177
+level_damage_taken: false
+murder_wall_x: "[advisory]"
+active_projectiles: []
+active_geysers: []
+block_bounces: []
+block_destroy_effects: []
+floating_items: []
+enemy_death_effects: []
+form_change_flash_frames: 0
+stomped_this_frame: false
+blocks_hit_this_frame: 0
+sound_test_play_pending: false
