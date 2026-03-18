@@ -6592,6 +6592,79 @@ mod tests {
     }
 
     #[test]
+    fn hopper_hp2_launches_with_boosted_velocity() {
+        let grid = grid_with_floor_at_row(17);
+        let floor_y_fp = 272u32 << 16;
+        // HP 2 = enemy_level 1 → should get boosted X and Y velocity
+        let mut enemy = ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            family: EnemyFamily::MiniHoppingSkull,
+            x_pos: 96u32 << 16,
+            y_pos: floor_y_fp,
+            x_velocity: 0,
+            y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            hit_points: 2,
+            grounded_frames: 0, // ready to launch immediately
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
+        };
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+        // Mini_Hopping_Skull.asm: HP>1 boosts X by $4000 and Y by -$10000
+        let base_x = MINI_SKULL_JUMP_X_SPEED_FP;
+        let boosted_x = base_x + 0x4000;
+        let base_y = MINI_SKULL_JUMP_Y_SPEED_FP;
+        let boosted_y = base_y - 0x1_0000;
+        assert_eq!(
+            enemy.x_velocity, boosted_x,
+            "HP2 skull should hop with boosted X velocity"
+        );
+        assert_eq!(
+            enemy.y_velocity.signum(),
+            -1,
+            "HP2 skull should have upward Y velocity"
+        );
+        // The exact y_velocity after one frame includes gravity
+        // but the initial value was boosted_y + gravity
+        let expected_y_after_gravity = boosted_y + MINI_SKULL_GRAVITY_FP;
+        assert_eq!(
+            enemy.y_velocity, expected_y_after_gravity,
+            "HP2 skull Y velocity = boosted initial + 1 frame gravity"
+        );
+    }
+
+    #[test]
     fn hopper_targets_player_direction_before_launch() {
         let grid = grid_with_floor_at_row(17);
         let floor_y_fp = 272u32 << 16;
