@@ -1,16 +1,29 @@
 use super::*;
 
 impl NativeRuntime {
-    pub(crate) fn is_final_level(&self) -> bool {
-        if !self.assets.map_order.is_empty() {
-            let current_pos = self
-                .assets
+    fn logical_level_ids(&self) -> Option<Vec<LevelId>> {
+        if self.assets.map_order.is_empty() {
+            return None;
+        }
+
+        Some(
+            self.assets
                 .map_order
                 .iter()
-                .position(|&id| id == self.current_level.0);
-            if let Some(pos) = current_pos {
-                return pos + 1 >= self.assets.map_order.len();
-            }
+                .enumerate()
+                .filter_map(|(logical_level_id, &resource_level_id)| {
+                    if resource_level_id == u8::MAX {
+                        return None;
+                    }
+                    u8::try_from(logical_level_id).ok().map(LevelId)
+                })
+                .collect(),
+        )
+    }
+
+    pub(crate) fn is_final_level(&self) -> bool {
+        if let Some(logical_levels) = self.logical_level_ids() {
+            return logical_levels.last().copied() == Some(self.current_level);
         }
         false
     }
@@ -57,18 +70,14 @@ impl NativeRuntime {
         };
     }
 
-    /// Previous level in map order (for debug warping).
+    /// Previous logical level ID (for debug warping).
     pub fn prev_level_id(&self) -> LevelId {
-        if !self.assets.map_order.is_empty() {
-            let current_pos = self
-                .assets
-                .map_order
-                .iter()
-                .position(|&id| id == self.current_level.0);
+        if let Some(logical_levels) = self.logical_level_ids() {
+            let current_pos = logical_levels.iter().position(|&id| id == self.current_level);
             if let Some(pos) = current_pos
                 && pos > 0 {
-                    return LevelId(self.assets.map_order[pos - 1]);
-                }
+                return logical_levels[pos - 1];
+            }
         }
         self.current_level
     }
@@ -776,16 +785,12 @@ impl NativeRuntime {
     }
 
     pub fn next_level_id(&self) -> LevelId {
-        if !self.assets.map_order.is_empty() {
-            let current_pos = self
-                .assets
-                .map_order
-                .iter()
-                .position(|&id| id == self.current_level.0);
+        if let Some(logical_levels) = self.logical_level_ids() {
+            let current_pos = logical_levels.iter().position(|&id| id == self.current_level);
             if let Some(pos) = current_pos {
                 let next_pos = pos + 1;
-                if next_pos < self.assets.map_order.len() {
-                    return LevelId(self.assets.map_order[next_pos]);
+                if next_pos < logical_levels.len() {
+                    return logical_levels[next_pos];
                 }
             }
         }

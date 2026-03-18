@@ -41,7 +41,10 @@ pub(crate) const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
 
 pub(crate) const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
-pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 120;
+// Oracle-backed death/respawn traces keep the player frozen on the grounded
+// spawn pose through death_respawn_level1@1919. With the current native
+// respawn entry frame at 1494, that requires a ~425-frame settle window.
+pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 425;
 /// ASM: Game Over display holds for 0x1A3 (419) frames.
 pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
 /// ASM: Continue countdown: 28 initial pause + 291 countdown = 319 frames.

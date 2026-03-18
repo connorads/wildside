@@ -2,12 +2,12 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
-The current delivery frontier is post-traversal Level 1 fidelity on the default native runtime path, with `play-native` as the direct playtest surface and gameplay/oracle compares kept green while enemy and presentation accuracy deepen.
+The current delivery frontier is 1P whole-game fidelity hardening on the native runtime path, with `play-native` as the primary manual playtest surface and `release-gate` as the canonical completion signal.
 
 ## Current status
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
-- `kidcli play-native` starts the native Level 1 playtest path in a release build. It launches directly into a settled native Level 1 state with background, decoded foreground terrain, live block overrides, sprites, and optional debug overlay support.
+- `kidcli play-native` starts the native runtime in a release build. By default it runs the native boot/title/game flow; use `--warp-level <hex> --settled` for a direct settled level playtest.
 - `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
 - `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
@@ -23,6 +23,7 @@ The current delivery frontier is post-traversal Level 1 fidelity on the default 
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
 - `kidcli compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `kid-md`.
 - `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
+- `kidcli release-gate --target 1p-accurate` is the canonical sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
@@ -30,6 +31,7 @@ The current delivery frontier is post-traversal Level 1 fidelity on the default 
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
+- `kidcli sweep` now appends structured run history to `.cache/metrics/sweep-history.jsonl`, including divergence categories, instead of leaving sweep truth only in one-off run directories.
 - `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
 - `kidcli dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
 - `kidcli run-sdl` starts the lower-level SDL host used for bring-up and debugging.
@@ -63,6 +65,7 @@ mise run verify-level
 mise run verify-gameplay
 mise run verify-slice-fast
 mise run verify-slice-full
+mise run release-gate
 mise run verify-audio-driver
 mise run oracle-setup
 mise run extract-assets
@@ -93,12 +96,12 @@ For the source-port research map and local reference layout, start with `CLAUDE.
 If you want to play or test the project, pick the runtime first:
 
 - `cargo run --release -p kidcli -- play` for the emulator-backed shell with menus and audio.
-- `cargo run --release -p kidcli -- play-native --rom ./kc.md` for the native source-port Level 1 playtest path.
+- `cargo run --release -p kidcli -- play-native --rom ./kc.md` for the native source-port runtime.
 
 For the fastest Level 1 feedback loop, use:
 
 ```bash
-cargo run --release -p kidcli -- play-native
+cargo run --release -p kidcli -- play-native --warp-level 0 --settled
 cargo run -p kidcli -- verify-native-bootstrap
 cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
 cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1
@@ -110,11 +113,12 @@ For a player-facing launch with the default ROM search path, use:
 cargo run -p kidcli -- play
 ```
 
-For the native Level 1 playtest path, use:
+For the native runtime, use:
 
 ```bash
 cargo run --release -p kidcli -- play-native
 cargo run --release -p kidcli -- play-native --rom ./kc.md
+cargo run --release -p kidcli -- play-native --warp-level 0 --settled
 ```
 
 Useful launch overrides:
@@ -196,7 +200,7 @@ The new generated source-port bundle is written under `.cache/generated/<rom-sha
 
 The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
-`play-native` is the native Level 1 playtest path. It does not run the emulator shell and it does not currently include native menus or title flow. It launches straight into a settled Level 1 native runtime state so movement, jumping, terrain, HUD, and the first visible enemy window are testable immediately. Use `--debug-overlay` or `Tab` if you want the trace overlay while testing.
+`play-native` is the native source-port runtime. By default it uses the native boot/title/game flow. For direct manual bug work on a specific level, use `--warp-level <hex> --settled`. Use `--debug-overlay` or `Tab` if you want the trace overlay while testing.
 
 The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
@@ -216,6 +220,12 @@ Use the full slice gate before calling a traversal/runtime slice green:
 
 ```bash
 mise run verify-slice-full
+```
+
+Use the canonical release sign-off before declaring the native 1P path green:
+
+```bash
+mise run release-gate
 ```
 
 If a gameplay compare reopens, use:

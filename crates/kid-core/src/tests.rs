@@ -14,11 +14,15 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-// Level 0 header-derived respawn position (from player_start_x=0x0750, player_start_y=0x00E0)
-const LEVEL0_RESPAWN_KID_X: u32 = 0x0750_0000;
-const LEVEL0_RESPAWN_KID_Y: u32 = 0x00DF_0000; // 0x00E0 - 1, per ASM subq.w
-const LEVEL0_RESPAWN_CAMERA_X: u32 = 0x0640_0000; // (1872/320)*320 = 1600
-const LEVEL0_RESPAWN_CAMERA_Y: u32 = 0x00E0_0000; // (224/224)*224 = 224
+fn expected_level0_respawn_pose(runtime: &NativeRuntime) -> (u32, u32, u32, u32) {
+    let slice = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
+    (
+        slice.camera.x_pos,
+        slice.camera.y_pos,
+        slice.player.x_pos,
+        slice.player.y_pos,
+    )
+}
 
 fn manifest() -> AssetManifest {
     AssetManifest {
@@ -1159,11 +1163,17 @@ fn loses_life_and_respawns_after_opening_hazard() {
     }
 
     let respawn_entry = runtime.trace_frame();
+    let (
+        expected_camera_x,
+        expected_camera_y,
+        expected_kid_x,
+        expected_kid_y,
+    ) = expected_level0_respawn_pose(&runtime);
     assert_eq!(respawn_entry.number_lives, 2);
-    assert_eq!(respawn_entry.camera_x_pos, LEVEL0_RESPAWN_CAMERA_X);
-    assert_eq!(respawn_entry.camera_y_pos, LEVEL0_RESPAWN_CAMERA_Y);
-    assert_eq!(respawn_entry.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
-    assert_eq!(respawn_entry.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
+    assert_eq!(respawn_entry.camera_x_pos, expected_camera_x);
+    assert_eq!(respawn_entry.camera_y_pos, expected_camera_y);
+    assert_eq!(respawn_entry.kid_x_pos, Some(expected_kid_x));
+    assert_eq!(respawn_entry.kid_y_pos, Some(expected_kid_y));
 
     for _ in 0..(PLAYER_DEATH_RESPAWN_SETTLE_FRAMES - 1) {
         let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
@@ -1178,10 +1188,10 @@ fn loses_life_and_respawns_after_opening_hazard() {
 
     let respawn_tail = runtime.trace_frame();
     assert_eq!(respawn_tail.number_lives, 2);
-    assert_eq!(respawn_tail.camera_x_pos, LEVEL0_RESPAWN_CAMERA_X);
-    assert_eq!(respawn_tail.camera_y_pos, LEVEL0_RESPAWN_CAMERA_Y);
-    assert_eq!(respawn_tail.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
-    assert_eq!(respawn_tail.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
+    assert_eq!(respawn_tail.camera_x_pos, expected_camera_x);
+    assert_eq!(respawn_tail.camera_y_pos, expected_camera_y);
+    assert_eq!(respawn_tail.kid_x_pos, Some(expected_kid_x));
+    assert_eq!(respawn_tail.kid_y_pos, Some(expected_kid_y));
     // Enemies/platforms depend on camera position and spawning window —
     // with the header-based spawn (camera at X=1600), no test enemies
     // fall within the viewport.
@@ -1831,8 +1841,9 @@ fn pit_death_triggers_death_and_respawn() {
 
     // Player should be back at level start position (header-derived)
     let trace = runtime.trace_frame();
-    assert_eq!(trace.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
-    assert_eq!(trace.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
+    let (_, _, expected_kid_x, expected_kid_y) = expected_level0_respawn_pose(&runtime);
+    assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
+    assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
 }
 
 /// Helper: build a block grid with solid floor at row 17 and spikes
@@ -1909,8 +1920,9 @@ fn spike_death_triggers_death_and_respawn() {
 
     // Player should be back at level start position (header-derived)
     let trace = runtime.trace_frame();
-    assert_eq!(trace.kid_x_pos, Some(LEVEL0_RESPAWN_KID_X));
-    assert_eq!(trace.kid_y_pos, Some(LEVEL0_RESPAWN_KID_Y));
+    let (_, _, expected_kid_x, expected_kid_y) = expected_level0_respawn_pose(&runtime);
+    assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
+    assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
 }
 
 #[test]
@@ -8240,20 +8252,33 @@ fn shooter_block_respects_timer() {
 }
 
 #[test]
-fn next_level_id_follows_map_order() {
+fn next_level_id_advances_logical_level_ids_not_resource_map_order() {
     let mut manifest = manifest_with_levels(4);
-    // map_order: [0, 1, 2, 3] by default; rearrange to [0, 3, 1, 2]
-    manifest.map_order = vec![0, 3, 1, 2];
+    manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
 
     let mut runtime = NativeRuntime::new(manifest);
     runtime.current_level = LevelId(0);
-    assert_eq!(runtime.next_level_id(), LevelId(3));
-
-    runtime.current_level = LevelId(3);
     assert_eq!(runtime.next_level_id(), LevelId(1));
 
     runtime.current_level = LevelId(1);
     assert_eq!(runtime.next_level_id(), LevelId(2));
+
+    runtime.current_level = LevelId(2);
+    assert_eq!(runtime.next_level_id(), LevelId(3));
+}
+
+#[test]
+fn next_level_id_skips_invalid_logical_entries() {
+    let mut manifest = manifest_with_levels(5);
+    manifest.map_order = vec![0x4A, 0x4B, u8::MAX, 0x2E, 0x2F];
+
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.current_level = LevelId(1);
+    assert_eq!(runtime.next_level_id(), LevelId(3));
+    assert_eq!(runtime.prev_level_id(), LevelId(0));
+
+    runtime.current_level = LevelId(3);
+    assert_eq!(runtime.prev_level_id(), LevelId(1));
 }
 
 #[test]

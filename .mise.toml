@@ -45,6 +45,10 @@ run = "cargo test -q -p kid-core timing_regression_ && cargo test -q -p kidcli g
 [tasks.verify-slice-full]
 run = "cargo test -q -p kid-core && cargo test -q -p kidcli && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 && cargo run -q -p kidcli -- compare-native-gameplay --scenario progress-two-transitions && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
 
+[tasks.release-gate]
+run = "cargo run --release -p kidcli -- release-gate --target 1p-accurate"
+description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares, frame/audio oracle, full state sweep"
+
 [tasks.verify-audio-driver]
 run = "cargo run -p kidcli -- verify-audio-driver"
 

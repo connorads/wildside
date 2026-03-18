@@ -14,6 +14,7 @@ mod inspect;
 mod native_player;
 mod oracle;
 mod player;
+mod release_gate;
 mod scenarios;
 mod sweep;
 mod verify;
@@ -41,6 +42,7 @@ use oracle::{
     run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
+use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{GameplayScenario, Scenario};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -359,6 +361,18 @@ enum Commands {
         /// Diff current state against golden snapshots (no oracle needed).
         #[arg(long, default_value_t = false)]
         golden_diff: bool,
+    },
+    /// Run the canonical release gate for a completion target.
+    ReleaseGate {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = ReleaseGateTarget::OnePlayerAccurate)]
+        target: ReleaseGateTarget,
+        /// Stop the sweep phase after this many failures (0 = run all levels).
+        #[arg(long, default_value_t = 0)]
+        max_failures: usize,
     },
     /// Deep diagnosis of a single failing level.
     DiagnoseLevel {
@@ -879,6 +893,18 @@ fn main() -> Result<()> {
                     &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
                 )?;
             }
+        }
+        Commands::ReleaseGate {
+            rom,
+            dir,
+            target,
+            max_failures,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            run_release_gate(&repo_root, &rom_path, &manifest, target, max_failures)?;
         }
         Commands::DiagnoseLevel { rom, dir, level } => {
             let repo_root = current_dir()?;
@@ -1866,7 +1892,11 @@ mod tests {
         let refreshed_manifest =
             load_manifest(&stale_manifest_path).expect("refreshed manifest should load");
         assert!(!refreshed_manifest.decoded_levels.is_empty());
-        let decoded = refreshed_manifest.decoded_levels.iter().find(|d| d.level_id == 0x00).expect("decoded metadata");
+        let decoded = refreshed_manifest
+            .decoded_levels
+            .iter()
+            .find(|d| d.level_id == 0x00)
+            .expect("decoded metadata");
         assert!(
             repo_root
                 .path()

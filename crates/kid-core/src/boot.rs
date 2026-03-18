@@ -415,7 +415,8 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
                     self.reload_block_grid_for_level(self.current_level);
-                    self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+                    self.opening_slice =
+                        Some(self.level_respawn_slice_with_floor_snap(self.current_level));
                     self.level_timer = LevelTimer::new();
                     self.level_prize_collected = false;
                     self.clocks_collected = 0;
@@ -477,7 +478,8 @@ impl NativeRuntime {
                     self.progression.pending_form = None;
                     self.progression.diamond_count = 0;
                     self.reload_block_grid_for_level(self.current_level);
-                    self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+                    self.opening_slice =
+                        Some(self.level_respawn_slice_with_floor_snap(self.current_level));
                     self.level_timer = LevelTimer::new();
                     self.level_prize_collected = false;
                     self.clocks_collected = 0;

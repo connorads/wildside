@@ -44,6 +44,53 @@ pub(crate) enum SweepTier {
     Gameplay,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum DivergenceCategory {
+    Authoritative,
+    Advisory,
+    Accumulation,
+    Rng,
+    OracleLimitation,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct DivergenceSummary {
+    pub(crate) authoritative: usize,
+    pub(crate) advisory: usize,
+    pub(crate) accumulation: usize,
+    pub(crate) rng: usize,
+    pub(crate) oracle_limitation: usize,
+}
+
+impl DivergenceSummary {
+    pub(crate) fn increment(&mut self, category: DivergenceCategory) {
+        match category {
+            DivergenceCategory::Authoritative => self.authoritative += 1,
+            DivergenceCategory::Advisory => self.advisory += 1,
+            DivergenceCategory::Accumulation => self.accumulation += 1,
+            DivergenceCategory::Rng => self.rng += 1,
+            DivergenceCategory::OracleLimitation => self.oracle_limitation += 1,
+        }
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.authoritative += other.authoritative;
+        self.advisory += other.advisory;
+        self.accumulation += other.accumulation;
+        self.rng += other.rng;
+        self.oracle_limitation += other.oracle_limitation;
+    }
+
+    fn is_empty(&self) -> bool {
+        self.authoritative == 0
+            && self.advisory == 0
+            && self.accumulation == 0
+            && self.rng == 0
+            && self.oracle_limitation == 0
+    }
+}
+
 /// Per-level sweep result.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct LevelSweepResult {
@@ -55,6 +102,8 @@ pub(crate) struct LevelSweepResult {
     pub(crate) mae: Option<f32>,
     pub(crate) diff_images: Vec<String>,
     pub(crate) error: Option<String>,
+    #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
+    pub(crate) divergence_summary: DivergenceSummary,
 }
 
 /// Field-level state divergence.
@@ -76,6 +125,8 @@ pub(crate) struct SweepReport {
     pub(crate) passed: usize,
     pub(crate) failed: usize,
     pub(crate) errors: usize,
+    #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
+    pub(crate) divergence_summary: DivergenceSummary,
 }
 
 /// Per-level golden snapshot: full NativeTraceFrame at each checkpoint.
@@ -97,8 +148,7 @@ pub(crate) struct GoldenDiff {
 }
 
 /// Options controlling sweep behaviour beyond tier and level selection.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct SweepOptions {
     /// Only populate the oracle cache — skip native runs and comparison.
     pub(crate) warm_cache_only: bool,
@@ -106,6 +156,19 @@ pub(crate) struct SweepOptions {
     pub(crate) max_failures: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct SweepHistoryEntry {
+    timestamp: String,
+    tier: SweepTier,
+    levels_requested: usize,
+    passed: usize,
+    failed: usize,
+    errors: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kid_core_hash: Option<String>,
+    divergence_summary: DivergenceSummary,
+    report_path: String,
+}
 
 /// Kid Chameleon level IDs are BCD-encoded: 0x00-0x09, 0x10-0x19, …, 0x60-0x68.
 /// Returns true if `id` is a valid BCD level ID.
@@ -205,17 +268,16 @@ pub(crate) fn run_sweep_with_options(
             Ok(r) => {
                 let status = if r.passed { "PASS" } else { "FAIL" };
                 let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
-                let blocking_diffs = r
-                    .state_diffs
-                    .iter()
-                    .filter(|d| !ADVISORY_FIELDS.contains(&d.field.as_str()))
-                    .count();
-                let advisory_diffs = r.state_diffs.len() - blocking_diffs;
+                let blocking_diffs = r.divergence_summary.authoritative
+                    + r.divergence_summary.accumulation
+                    + r.divergence_summary.rng
+                    + r.divergence_summary.oracle_limitation;
+                let advisory_diffs = r.divergence_summary.advisory;
                 let diff_count = match (blocking_diffs, advisory_diffs) {
                     (0, 0) => String::new(),
                     (0, a) => format!(" ({a} advisory diffs)"),
-                    (b, 0) => format!(" ({b} state diffs)"),
-                    (b, a) => format!(" ({b} state diffs, {a} advisory)"),
+                    (b, 0) => format!(" ({b} blocking diffs)"),
+                    (b, a) => format!(" ({b} blocking diffs, {a} advisory)"),
                 };
                 println!("  {status}{mae_str}{diff_count}");
                 if !r.passed {
@@ -235,6 +297,7 @@ pub(crate) fn run_sweep_with_options(
                     mae: None,
                     diff_images: Vec::new(),
                     error: Some(format!("{e:#}")),
+                    divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
                 });
             }
         }
@@ -255,6 +318,7 @@ pub(crate) fn run_sweep_with_options(
         .filter(|r| !r.passed && r.error.is_none())
         .count();
     let errors = results.iter().filter(|r| r.error.is_some()).count();
+    let divergence_summary = summarise_results(&results);
 
     let source_hash = kid_core_source_hash(repo_root).ok();
     let report = SweepReport {
@@ -264,12 +328,27 @@ pub(crate) fn run_sweep_with_options(
         passed,
         failed,
         errors,
+        divergence_summary,
     };
 
     // Write report JSON
     let report_path = run_dir.join("report.json");
     fs::write(&report_path, serde_json::to_vec_pretty(&report)?)
         .with_context(|| format!("failed to write {}", report_path.display()))?;
+    append_sweep_history(
+        repo_root,
+        SweepHistoryEntry {
+            timestamp: report.timestamp.clone(),
+            tier,
+            levels_requested: levels.len(),
+            passed: report.passed,
+            failed: report.failed,
+            errors: report.errors,
+            kid_core_hash: report.kid_core_hash.clone(),
+            divergence_summary: report.divergence_summary.clone(),
+            report_path: report_path.to_string_lossy().into_owned(),
+        },
+    )?;
 
     println!("\nsweep complete: {passed} passed, {failed} failed, {errors} errors");
     println!("report: {}", report_path.display());
@@ -338,6 +417,7 @@ fn sweep_single_level(
                 "oracle warp broken: game_mode={:#06x}",
                 oracle.states.first().map(|s| s.game_mode).unwrap_or(0)
             )),
+            divergence_summary: divergence_summary_with(DivergenceCategory::OracleLimitation),
         });
     }
 
@@ -369,29 +449,16 @@ fn sweep_single_level(
     // small (≤32px = 0x0020_0000). Larger diffs indicate a real native bug
     // that merely coincides with an oracle pause — don't mask them.
     let oracle_pause_position_threshold: u32 = 0x0020_0000;
-    let state_passed = state_diffs.iter().all(|d| {
-        ADVISORY_FIELDS.contains(&d.field.as_str())
-            || (death_gap_checkpoints.contains(d.checkpoint.as_str())
-                && matches!(
-                    d.field.as_str(),
-                    "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos"
-                ))
-            || (oracle_paused_checkpoints.contains(d.checkpoint.as_str())
-                && match d.field.as_str() {
-                    "game_mode" => true,
-                    "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos" => {
-                        // Only mask small position diffs — large ones are real bugs
-                        let native_val =
-                            u32::from_str_radix(d.native_value.trim_start_matches("0x"), 16)
-                                .unwrap_or(0);
-                        let oracle_val =
-                            u32::from_str_radix(d.oracle_value.trim_start_matches("0x"), 16)
-                                .unwrap_or(0);
-                        native_val.abs_diff(oracle_val) <= oracle_pause_position_threshold
-                    }
-                    _ => false,
-                })
-    });
+    let divergence_summary = summarise_state_diffs(
+        &state_diffs,
+        &death_gap_checkpoints,
+        &oracle_paused_checkpoints,
+        oracle_pause_position_threshold,
+    );
+    let state_passed = divergence_summary.authoritative == 0
+        && divergence_summary.accumulation == 0
+        && divergence_summary.rng == 0
+        && divergence_summary.oracle_limitation == 0;
 
     // Tier 1 (state-only): done unless escalating
     let effective_tier = if !state_passed && requested_tier == SweepTier::State {
@@ -437,7 +504,83 @@ fn sweep_single_level(
         mae: mae_val,
         diff_images,
         error: None,
+        divergence_summary,
     })
+}
+
+fn summarise_state_diffs(
+    diffs: &[StateDiff],
+    death_gap_checkpoints: &std::collections::HashSet<&str>,
+    oracle_paused_checkpoints: &std::collections::HashSet<&str>,
+    oracle_pause_position_threshold: u32,
+) -> DivergenceSummary {
+    let mut summary = DivergenceSummary::default();
+    for diff in diffs {
+        summary.increment(classify_state_diff(
+            diff,
+            death_gap_checkpoints,
+            oracle_paused_checkpoints,
+            oracle_pause_position_threshold,
+        ));
+    }
+    summary
+}
+
+fn classify_state_diff(
+    diff: &StateDiff,
+    death_gap_checkpoints: &std::collections::HashSet<&str>,
+    oracle_paused_checkpoints: &std::collections::HashSet<&str>,
+    oracle_pause_position_threshold: u32,
+) -> DivergenceCategory {
+    if ADVISORY_FIELDS.contains(&diff.field.as_str()) {
+        return DivergenceCategory::Advisory;
+    }
+
+    if death_gap_checkpoints.contains(diff.checkpoint.as_str())
+        && matches!(
+            diff.field.as_str(),
+            "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos"
+        )
+    {
+        return DivergenceCategory::Advisory;
+    }
+
+    if oracle_paused_checkpoints.contains(diff.checkpoint.as_str()) {
+        match diff.field.as_str() {
+            "game_mode" => return DivergenceCategory::Advisory,
+            "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos" => {
+                if parse_prefixed_hex_u32(&diff.native_value)
+                    .zip(parse_prefixed_hex_u32(&diff.oracle_value))
+                    .is_some_and(|(native_val, oracle_val)| {
+                        native_val.abs_diff(oracle_val) <= oracle_pause_position_threshold
+                    })
+                {
+                    return DivergenceCategory::Advisory;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    DivergenceCategory::Authoritative
+}
+
+fn parse_prefixed_hex_u32(value: &str) -> Option<u32> {
+    u32::from_str_radix(value.trim_start_matches("0x"), 16).ok()
+}
+
+fn divergence_summary_with(category: DivergenceCategory) -> DivergenceSummary {
+    let mut summary = DivergenceSummary::default();
+    summary.increment(category);
+    summary
+}
+
+fn summarise_results(results: &[LevelSweepResult]) -> DivergenceSummary {
+    let mut summary = DivergenceSummary::default();
+    for result in results {
+        summary.merge(&result.divergence_summary);
+    }
+    summary
 }
 
 /// Extract NativeTraceFrame fields at checkpoint frame indices, returning
@@ -910,6 +1053,7 @@ fn warm_oracle_cache(
         passed: cached + ran,
         failed: 0,
         errors: errored,
+        divergence_summary: DivergenceSummary::default(),
     })
 }
 
@@ -1322,11 +1466,17 @@ pub(crate) fn golden_diff(
             mae: None,
             diff_images: Vec::new(),
             error: None,
+            divergence_summary: if passed {
+                DivergenceSummary::default()
+            } else {
+                divergence_summary_with(DivergenceCategory::Authoritative)
+            },
         });
     }
 
     let passed = results.iter().filter(|r| r.passed).count();
     let failed = results.iter().filter(|r| !r.passed).count();
+    let divergence_summary = summarise_results(&results);
     println!(
         "\ngolden diff complete: {passed} passed, {failed} failed, {total_diffs} total field changes"
     );
@@ -1338,6 +1488,7 @@ pub(crate) fn golden_diff(
         passed,
         failed,
         errors: 0,
+        divergence_summary,
     })
 }
 
@@ -1456,6 +1607,7 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
                     mae: None,
                     diff_images: Vec::new(),
                     error: Some(format!("{e:#}")),
+                    divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
                 });
             }
         }
@@ -1467,6 +1619,7 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
         .filter(|r| !r.passed && r.error.is_none())
         .count();
     let errors = results.iter().filter(|r| r.error.is_some()).count();
+    let divergence_summary = summarise_results(&results);
 
     let report = SweepReport {
         timestamp,
@@ -1475,6 +1628,7 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
         passed,
         failed,
         errors,
+        divergence_summary,
     };
 
     println!("\ngameplay sweep complete: {passed} passed, {failed} failed, {errors} errors");
@@ -1527,7 +1681,30 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result
         mae: None,
         diff_images: Vec::new(),
         error: None,
+        divergence_summary: if passed {
+            DivergenceSummary::default()
+        } else {
+            divergence_summary_with(DivergenceCategory::Authoritative)
+        },
     })
+}
+
+fn append_sweep_history(repo_root: &Path, entry: SweepHistoryEntry) -> Result<()> {
+    let metrics_dir = repo_root.join(".cache/metrics");
+    fs::create_dir_all(&metrics_dir)
+        .with_context(|| format!("failed to create {}", metrics_dir.display()))?;
+    let history_path = metrics_dir.join("sweep-history.jsonl");
+    let mut line = serde_json::to_string(&entry)?;
+    line.push('\n');
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&history_path)
+        .with_context(|| format!("failed to open {}", history_path.display()))?;
+    use std::io::Write;
+    file.write_all(line.as_bytes())
+        .with_context(|| format!("failed to append {}", history_path.display()))?;
+    Ok(())
 }
 
 /// Self-consistency assertion: player X position increases monotonically
@@ -1565,14 +1742,15 @@ fn check_walk_right_assertions(
     let end_x = trace.get(end_idx).and_then(|f| f.kid_x_pos);
 
     if let (Some(sx), Some(ex)) = (settle_x, end_x)
-        && ex <= sx {
-            diffs.push(StateDiff {
-                checkpoint: "walk_end".into(),
-                field: "kid_x_pos_monotonic".into(),
-                native_value: format!("start={sx:#010x} end={ex:#010x}"),
-                oracle_value: "end > start".into(),
-            });
-        }
+        && ex <= sx
+    {
+        diffs.push(StateDiff {
+            checkpoint: "walk_end".into(),
+            field: "kid_x_pos_monotonic".into(),
+            native_value: format!("start={sx:#010x} end={ex:#010x}"),
+            oracle_value: "end > start".into(),
+        });
+    }
 
     diffs
 }
