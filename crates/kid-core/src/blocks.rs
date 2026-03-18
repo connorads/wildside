@@ -339,4 +339,28 @@ impl NativeRuntime {
                     slice.player.on_ground = true;
                 }
     }
+
+    pub(crate) fn step_visual_effects(&mut self) {
+        for b in &mut self.block_bounces {
+            b.remaining = b.remaining.saturating_sub(1);
+        }
+        self.block_bounces.retain(|b| b.remaining > 0);
+
+        for e in &mut self.block_destroy_effects {
+            e.remaining = e.remaining.saturating_sub(1);
+        }
+        self.block_destroy_effects.retain(|e| e.remaining > 0);
+
+        for f in &mut self.floating_items {
+            f.remaining = f.remaining.saturating_sub(1);
+            // Rise upward: 1 pixel per frame
+            f.y_px = f.y_px.saturating_sub(1);
+        }
+        self.floating_items.retain(|f| f.remaining > 0);
+
+        for e in &mut self.enemy_death_effects {
+            e.remaining = e.remaining.saturating_sub(1);
+        }
+        self.enemy_death_effects.retain(|e| e.remaining > 0);
+    }
 }

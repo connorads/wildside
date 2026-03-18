@@ -174,51 +174,6 @@ impl NativeRuntime {
         Self::new(assets)
     }
 
-    /// Boot through menus to level 0, then advance to `target` using the
-    /// level skip mechanism. Used by sweep infrastructure to reach any level
-    /// without encoding warp buttons in the input script.
-    ///
-    /// Boot timing matches the oracle helper exactly: 720 frames with
-    /// Start presses at frames 120, 200, 280, 360, 440, 460.
-    pub fn boot_to_level(&mut self, target: LevelId) {
-        let start = FrameInput {
-            start: true,
-            ..FrameInput::default()
-        };
-        let idle = FrameInput::default();
-        let start_frames: &[usize] = &[120, 200, 280, 360, 440, 460];
-
-        for frame in 0..720 {
-            if start_frames.contains(&frame) {
-                self.step_frame(start);
-            } else {
-                self.step_frame(idle);
-            }
-        }
-
-        // Jump directly to target level using internal skip mechanism.
-        if self.current_level != target {
-            self.pending_level_skip = Some(target);
-            self.step_frame(idle);
-            self.pending_level_skip_resume = true;
-            self.step_frame(idle);
-            for _ in 0..LEVEL_SKIP_RESUME_TOTAL_FRAMES {
-                self.step_frame(idle);
-            }
-        }
-
-        // The original ASM has no entry animation — the player appears
-        // instantly at the spawn point. Always skip the native entry
-        // animation so parity timing matches the oracle.
-        self.skip_entry_animation = true;
-        // Reset the opening slice to the correct spawn position. Floor-snap
-        // places the player on the actual floor (header spawn Y is approximate).
-        // After floor-snap, simulate the camera's gravity-following path to
-        // match how the oracle's camera converges during real gravity settling.
-        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
-        self.level_start_frame = Some(self.frame_index);
-    }
-
     /// Set the block collision grid for the current level.
     /// Call after constructing the runtime, before stepping frames.
     pub fn set_block_grid(&mut self, grid: terrain::BlockGrid) {
@@ -228,22 +183,6 @@ impl NativeRuntime {
 
     pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
         self.block_grid.as_ref()
-    }
-
-    pub fn enter_level_playtest(&mut self, level_id: LevelId) -> NativeTraceFrame {
-        self.begin_level_entry(level_id);
-        let max_bootstrap_frames = TITLE_TO_LEVEL_FRAMES + PLAYTEST_LEVEL_SETTLE_FRAMES + 2;
-        for _ in 0..max_bootstrap_frames {
-            let trace = self.trace_frame();
-            if trace.game_mode == GameMode::InGame
-                && trace.kid_on_ground == Some(true)
-                && trace.kid_y_pos == Some(OPENING_GROUNDED_KID_Y_POS)
-            {
-                return trace;
-            }
-            self.step_frame(FrameInput::default());
-        }
-        self.trace_frame()
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
@@ -282,63 +221,6 @@ impl NativeRuntime {
         }
         self.frame_index += 1;
         trace
-    }
-
-    pub fn level_name(&self, level_id: LevelId) -> Option<&str> {
-        self.level_record(level_id)
-            .and_then(|level| level.display_name.as_deref())
-    }
-
-    fn level_header(&self, level_id: LevelId) -> Option<&kid_data::LevelHeader> {
-        // The game resolves headers via MapOrder_Index[level_id] → resource level.
-        // Prefer the resource level's header to match the ASM lookup path.
-        self.resource_level_record(level_id)
-            .and_then(|level| level.header_metadata.as_ref())
-            .or_else(|| {
-                self.level_record(level_id)
-                    .and_then(|level| level.header_metadata.as_ref())
-            })
-    }
-
-    fn enemy_layout(&self, level_id: LevelId) -> Option<&kid_data::EnemyLayout> {
-        self.resource_level_record(level_id)
-            .and_then(|level| level.enemy_layout_metadata.as_ref())
-            .or_else(|| {
-                self.level_record(level_id)
-                    .and_then(|level| level.enemy_layout_metadata.as_ref())
-            })
-    }
-
-    fn platform_layout(&self, level_id: LevelId) -> Option<&kid_data::PlatformLayout> {
-        self.resource_level_record(level_id)
-            .and_then(|level| level.platform_metadata.as_ref())
-            .or_else(|| {
-                self.level_record(level_id)
-                    .and_then(|level| level.platform_metadata.as_ref())
-            })
-    }
-
-    fn level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
-        self.assets
-            .levels
-            .iter()
-            .find(|level| level.level_id == level_id.0)
-    }
-
-    fn resource_level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
-        resource_level_record(&self.assets, level_id.0)
-    }
-
-    fn level_bounds(&self, level_id: LevelId) -> LevelBounds {
-        self.level_header(level_id)
-            .map(|header| LevelBounds {
-                width_pixels: u16::from(header.width_screens) * 320,
-                height_pixels: u16::from(header.height_screens) * 224,
-            })
-            .unwrap_or(LevelBounds {
-                width_pixels: 320,
-                height_pixels: 224,
-            })
     }
 
     fn level_elapsed_frames(&self) -> Option<usize> {
@@ -481,107 +363,6 @@ impl NativeRuntime {
             return;
         }
         self.opening_slice = Some(slice);
-    }
-
-    fn refresh_active_roster(&mut self) {
-        if self.paused {
-            return;
-        }
-        self.active_enemy_roster.clear();
-        self.active_platforms.clear();
-        self.active_platform_roster.clear();
-        if self.level_skip_resume_hold {
-            self.active_enemies.clear();
-            self.block_state.evanescent_blocks.clear();
-            self.block_state.ghost_groups.clear();
-            return;
-        }
-        if !matches!(self.boot_state, BootState::InGame | BootState::DemoPlay { .. }) {
-            return;
-        }
-
-        let Some(slice) = self.opening_slice else {
-            return;
-        };
-        if !matches!(
-            self.player_lifecycle,
-            PlayerLifecycle::Alive
-                | PlayerLifecycle::DeathWindup { .. }
-                | PlayerLifecycle::Respawning { .. }
-                | PlayerLifecycle::LevelComplete { .. }
-        ) {
-            return;
-        }
-        let window = ActivationWindow::from_camera(slice.camera);
-        let camera_x_px = slice.camera.x_pos >> 16;
-        let camera_y_px = slice.camera.y_pos >> 16;
-        let enemy_layout = self.enemy_layout(self.current_level).cloned();
-        let platform_layout = self.platform_layout(self.current_level).cloned();
-        if let Some(enemy_layout) = enemy_layout.as_ref() {
-            activate_enemies(
-                &mut self.active_enemies,
-                enemy_layout,
-                window,
-                camera_x_px,
-                camera_y_px,
-                slice.player.x_pos,
-            );
-            step_active_enemies(
-                &mut self.active_enemies,
-                self.block_grid.as_ref(),
-                Some(slice.player.x_pos),
-                Some(slice.player.y_pos),
-                self.progression.current_form,
-                Some(&mut self.projectiles),
-            );
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
-        }
-        if let Some(platform_layout) = platform_layout.as_ref() {
-            let mut objects = slice.objects;
-            objects
-                .platform_loader
-                .advance_to_window(platform_layout, window);
-            self.active_platform_roster = objects
-                .platform_loader
-                .active_platforms(platform_layout, window);
-            let script_table = self.platform_script_table.as_ref();
-            self.active_platforms = platform_layout
-                .placements
-                .iter()
-                .take(objects.platform_loader.next_index)
-                .filter(|p| platform_is_active(p, window))
-                .map(|p| ActivePlatform::from_placement(p, script_table))
-                .collect();
-            self.opening_slice = Some(OpeningSliceState { objects, ..slice });
-        }
-    }
-
-    fn step_visual_effects(&mut self) {
-        for b in &mut self.block_bounces {
-            b.remaining = b.remaining.saturating_sub(1);
-        }
-        self.block_bounces.retain(|b| b.remaining > 0);
-
-        for e in &mut self.block_destroy_effects {
-            e.remaining = e.remaining.saturating_sub(1);
-        }
-        self.block_destroy_effects.retain(|e| e.remaining > 0);
-
-        for f in &mut self.floating_items {
-            f.remaining = f.remaining.saturating_sub(1);
-            // Rise upward: 1 pixel per frame
-            f.y_px = f.y_px.saturating_sub(1);
-        }
-        self.floating_items.retain(|f| f.remaining > 0);
-
-        for e in &mut self.enemy_death_effects {
-            e.remaining = e.remaining.saturating_sub(1);
-        }
-        self.enemy_death_effects.retain(|e| e.remaining > 0);
     }
 }
 

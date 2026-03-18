@@ -809,4 +809,61 @@ impl NativeRuntime {
             })
             .unwrap_or(self.current_level)
     }
+
+    pub fn level_name(&self, level_id: LevelId) -> Option<&str> {
+        self.level_record(level_id)
+            .and_then(|level| level.display_name.as_deref())
+    }
+
+    pub(crate) fn level_header(&self, level_id: LevelId) -> Option<&kid_data::LevelHeader> {
+        // The game resolves headers via MapOrder_Index[level_id] → resource level.
+        // Prefer the resource level's header to match the ASM lookup path.
+        self.resource_level_record(level_id)
+            .and_then(|level| level.header_metadata.as_ref())
+            .or_else(|| {
+                self.level_record(level_id)
+                    .and_then(|level| level.header_metadata.as_ref())
+            })
+    }
+
+    pub(crate) fn enemy_layout(&self, level_id: LevelId) -> Option<&kid_data::EnemyLayout> {
+        self.resource_level_record(level_id)
+            .and_then(|level| level.enemy_layout_metadata.as_ref())
+            .or_else(|| {
+                self.level_record(level_id)
+                    .and_then(|level| level.enemy_layout_metadata.as_ref())
+            })
+    }
+
+    pub(crate) fn platform_layout(&self, level_id: LevelId) -> Option<&kid_data::PlatformLayout> {
+        self.resource_level_record(level_id)
+            .and_then(|level| level.platform_metadata.as_ref())
+            .or_else(|| {
+                self.level_record(level_id)
+                    .and_then(|level| level.platform_metadata.as_ref())
+            })
+    }
+
+    pub(crate) fn level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
+        self.assets
+            .levels
+            .iter()
+            .find(|level| level.level_id == level_id.0)
+    }
+
+    pub(crate) fn resource_level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
+        resource_level_record(&self.assets, level_id.0)
+    }
+
+    pub(crate) fn level_bounds(&self, level_id: LevelId) -> LevelBounds {
+        self.level_header(level_id)
+            .map(|header| LevelBounds {
+                width_pixels: u16::from(header.width_screens) * 320,
+                height_pixels: u16::from(header.height_screens) * 224,
+            })
+            .unwrap_or(LevelBounds {
+                width_pixels: 320,
+                height_pixels: 224,
+            })
+    }
 }

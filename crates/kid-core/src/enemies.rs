@@ -3595,3 +3595,82 @@ pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) 
     };
     ((raw_slot >> 14) & 3) as u8
 }
+
+impl NativeRuntime {
+    pub(crate) fn refresh_active_roster(&mut self) {
+        if self.paused {
+            return;
+        }
+        self.active_enemy_roster.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        if self.level_skip_resume_hold {
+            self.active_enemies.clear();
+            self.block_state.evanescent_blocks.clear();
+            self.block_state.ghost_groups.clear();
+            return;
+        }
+        if !matches!(self.boot_state, BootState::InGame | BootState::DemoPlay { .. }) {
+            return;
+        }
+
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+        if !matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::Alive
+                | PlayerLifecycle::DeathWindup { .. }
+                | PlayerLifecycle::Respawning { .. }
+                | PlayerLifecycle::LevelComplete { .. }
+        ) {
+            return;
+        }
+        let window = ActivationWindow::from_camera(slice.camera);
+        let camera_x_px = slice.camera.x_pos >> 16;
+        let camera_y_px = slice.camera.y_pos >> 16;
+        let enemy_layout = self.enemy_layout(self.current_level).cloned();
+        let platform_layout = self.platform_layout(self.current_level).cloned();
+        if let Some(enemy_layout) = enemy_layout.as_ref() {
+            activate_enemies(
+                &mut self.active_enemies,
+                enemy_layout,
+                window,
+                camera_x_px,
+                camera_y_px,
+                slice.player.x_pos,
+            );
+            step_active_enemies(
+                &mut self.active_enemies,
+                self.block_grid.as_ref(),
+                Some(slice.player.x_pos),
+                Some(slice.player.y_pos),
+                self.progression.current_form,
+                Some(&mut self.projectiles),
+            );
+            self.active_enemy_roster = self
+                .active_enemies
+                .iter()
+                .map(ActiveEnemy::snapshot)
+                .collect();
+        }
+        if let Some(platform_layout) = platform_layout.as_ref() {
+            let mut objects = slice.objects;
+            objects
+                .platform_loader
+                .advance_to_window(platform_layout, window);
+            self.active_platform_roster = objects
+                .platform_loader
+                .active_platforms(platform_layout, window);
+            let script_table = self.platform_script_table.as_ref();
+            self.active_platforms = platform_layout
+                .placements
+                .iter()
+                .take(objects.platform_loader.next_index)
+                .filter(|p| platform_is_active(p, window))
+                .map(|p| ActivePlatform::from_placement(p, script_table))
+                .collect();
+            self.opening_slice = Some(OpeningSliceState { objects, ..slice });
+        }
+    }
+}
