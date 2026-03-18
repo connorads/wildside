@@ -603,13 +603,21 @@ pub(super) fn push_background_tiles(
             }
         }
         kid_render::BackgroundVisuals::Layered(background) => {
-            // TODO(fidelity): shimmer period and amplitude from ASM constants
+            // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
+            // (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
+            const FOREST_RIPPLE: [i8; 64] = [
+                0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4,
+                3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6,
+                5, 5, 4, 4, 3, 3, 2, 1,
+            ];
             let shimmer_start = background.effect_start_row_selector.map(|s| s as usize);
+            // Phase advances by 1 table entry every 4 frames (Time_Frames >> 2),
+            // masked to 64 entries.
+            let time_phase = (trace.frame_index / 4) & 0x3F;
             for (row_index, row) in background.rows.iter().enumerate() {
-                // Water shimmer: horizontal sine offset for rows past the effect start
                 let shimmer_offset = if shimmer_start.is_some_and(|s| row_index >= s) {
-                    let phase = row_index as f32 * 0.4 + trace.frame_index as f32 * 0.15;
-                    (phase.sin() * 2.0) as i32
+                    let table_idx = (time_phase + row_index) & 0x3F;
+                    i32::from(FOREST_RIPPLE[table_idx])
                 } else {
                     0
                 };
