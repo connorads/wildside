@@ -23,7 +23,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
 | 015 | [x] | P2 | player | Can't wall-grab (A+A to grab block edges) | Jump at wall edge, confirm grab |
 | 016 | [x] | P2 | level | No level intro screen showing level name | Enter level, confirm name card |
-| 017 | [~] | P2 | form | Masks/helmets not visible when they appear | Hit helmet block, confirm sprite |
+| 017 | [x] | P2 | form | Masks/helmets not visible when they appear | Hit helmet block, confirm sprite |
 | 018 | [ ] | P2 | form | No form-change animation when equipping helmet | Collect helmet, confirm transform anim |
 | 019 | [~] | P2 | form | Player doesn't transform at all | Collect helmet, confirm form changes |
 | 020 | [ ] | P3 | render | No water/shimmer background effect | Load water level, confirm shimmer |
@@ -74,8 +74,9 @@ Prize blocks vanish when hit (cell cleared to empty). This is correct per origin
 Added `left_wall_sticky` field and mirrored right-wall logic in `apply_wall_collision()`.
 Both directions now support airborne wall-sticky with overhang top-edge retention.
 
-### 017/019 — Helmets and form transform
+### 017/019 — Helmets and form transform (PARTIALLY FIXED)
 `apply_prize_content` → `queue_form_change` → `resolve_pending_form_change` chain is wired.
-Forms change player hitbox, speed table, and abilities. FloatingItem now spawns on prize hit.
-The visual helmet sprite in the floating item is generic (coloured square) — not a helmet image.
-Needs playtest to confirm form change actually triggers on helmet prize blocks.
+Forms change player hitbox, speed table, and abilities. FloatingItem now spawns on prize hit
+with content-type-specific colours (distinct per helmet/diamond/item type).
+Full sprite art for floating items not yet implemented — uses coloured rectangles.
+Form change itself needs playtest to confirm it triggers correctly on helmet prize blocks.

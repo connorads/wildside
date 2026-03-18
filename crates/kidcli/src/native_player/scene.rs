@@ -926,16 +926,22 @@ fn build_game_scene_filtered(
         }
 
         // Floating prize items: small coloured shape rising upward
-        for &(x_px, y_px, remaining) in &trace.floating_items {
+        for &(x_px, y_px, remaining, content_id) in &trace.floating_items {
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
-            let brightness = u8::try_from(u16::from(remaining) * 12).unwrap_or(255);
+            let alpha = u16::from(remaining) * 8;
+            let base_colour = floating_item_colour(content_id);
+            let colour = [
+                (u16::from(base_colour[0]) * alpha / 255).min(255) as u8,
+                (u16::from(base_colour[1]) * alpha / 255).min(255) as u8,
+                (u16::from(base_colour[2]) * alpha / 255).min(255) as u8,
+            ];
             commands.push(DrawCommand::Rect {
-                x: fx - 3,
-                y: fy - 3,
-                width: 6,
-                height: 6,
-                colour: [brightness, brightness, 50],
+                x: fx - 4,
+                y: fy - 4,
+                width: 8,
+                height: 8,
+                colour,
             });
         }
 
@@ -1276,4 +1282,25 @@ fn push_collision_box(
         height: h,
         colour,
     });
+}
+
+/// Returns a distinct RGB colour for each prize content type.
+fn floating_item_colour(content_id: u8) -> [u8; 3] {
+    match content_id {
+        0x00 | 0x0E => [100, 200, 255], // Diamond / TenDiamonds — cyan
+        0x01 => [255, 255, 100],         // Points10000 — gold
+        0x02 => [200, 200, 255],         // Skycutter — light blue
+        0x03 => [180, 255, 180],         // Cyclone — green
+        0x04 => [255, 100, 100],         // RedStealth — red
+        0x05 => [255, 180, 50],          // Eyeclops — orange
+        0x06 => [160, 160, 160],         // Juggernaut — grey
+        0x07 => [220, 220, 255],         // IronKnight — silver-blue
+        0x08 => [255, 100, 50],          // Berzerker — red-orange
+        0x09 => [200, 150, 100],         // Maniaxe — brown
+        0x0A => [255, 200, 255],         // Micromax — pink
+        0x0B => [255, 255, 200],         // Ankh — pale gold
+        0x0C => [200, 255, 200],         // Clock — pale green
+        0x0D => [255, 255, 255],         // Continue — white
+        _ => [255, 255, 100],            // fallback — gold
+    }
 }

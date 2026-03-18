@@ -303,8 +303,8 @@ pub struct NativeTraceFrame {
     pub block_bounces: Vec<(u16, u16, u8)>,
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames).
     pub block_destroy_effects: Vec<(u16, u16, u8)>,
-    /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames).
-    pub floating_items: Vec<(u16, u16, u8)>,
+    /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
+    pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
     pub enemy_death_effects: Vec<(u32, u32, u8)>,
     /// True if a stomp occurred this frame (for SFX).
@@ -465,6 +465,7 @@ struct FloatingItem {
     x_px: u16,
     y_px: u16,
     remaining: u8,
+    content: terrain::PrizeContent,
 }
 
 #[derive(Debug, Clone)]
@@ -1563,7 +1564,7 @@ impl NativeRuntime {
             floating_items: self
                 .floating_items
                 .iter()
-                .map(|f| (f.x_px, f.y_px, f.remaining))
+                .map(|f| (f.x_px, f.y_px, f.remaining, f.content.to_id()))
                 .collect(),
             enemy_death_effects: self
                 .enemy_death_effects
@@ -1967,6 +1968,7 @@ impl NativeRuntime {
                 x_px,
                 y_px,
                 remaining: 30,
+                content,
             });
             self.block_destroy_effects.push(BlockDestroyEffect {
                 x_px,

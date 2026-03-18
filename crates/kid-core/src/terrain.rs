@@ -300,6 +300,26 @@ impl PrizeContent {
             _ => Self::Diamond,
         }
     }
+
+    pub fn to_id(self) -> u8 {
+        match self {
+            Self::Diamond => 0x00,
+            Self::Points10000 => 0x01,
+            Self::Skycutter => 0x02,
+            Self::Cyclone => 0x03,
+            Self::RedStealth => 0x04,
+            Self::Eyeclops => 0x05,
+            Self::Juggernaut => 0x06,
+            Self::IronKnight => 0x07,
+            Self::Berzerker => 0x08,
+            Self::Maniaxe => 0x09,
+            Self::Micromax => 0x0A,
+            Self::Ankh => 0x0B,
+            Self::Clock => 0x0C,
+            Self::Continue => 0x0D,
+            Self::TenDiamonds => 0x0E,
+        }
+    }
 }
 
 /// A single prize block entry from the Block List.
