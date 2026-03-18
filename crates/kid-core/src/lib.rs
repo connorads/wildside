@@ -8969,6 +8969,81 @@ mod tests {
     }
 
     #[test]
+    fn multi_head_boss_spawns_three_heads() {
+        use enemies::{
+            BOSS_HEAD_NONE, SHISHKABOSS_HEAD_HP, SHISHKABOSS_HEAD_Y_OFFSETS,
+            activate_enemies, is_multi_head_boss,
+        };
+        // Verify multi-head detection
+        assert!(is_multi_head_boss(EnemyFamily::Shishkaboss));
+        assert!(is_multi_head_boss(EnemyFamily::BoomerangBosses));
+        assert!(is_multi_head_boss(EnemyFamily::BagelBrothers));
+        assert!(!is_multi_head_boss(EnemyFamily::HeadyMetal));
+
+        // Test Shishkaboss: 3 heads with Y offsets 0, +72, +144
+        // object_type 0x80 = slot index 0, which resolves to enemy ID 0x22 (Shishkaboss)
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x22, 0, 0],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![EnemyLayoutObject {
+                object_type: 0x80,
+                flags: 0,
+                hit_points_plus_one: 1,
+                x: 200,
+                y: 100,
+            }],
+            segments: vec![],
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 800,
+            y_min: 0,
+            y_max: 600,
+        };
+        let mut active = Vec::new();
+        activate_enemies(&mut active, &layout, window, 0, 0, 200 << 16);
+        assert_eq!(active.len(), 3, "Shishkaboss should spawn 3 heads");
+        assert_eq!(active[0].boss_head_index, 0);
+        assert_eq!(active[1].boss_head_index, 1);
+        assert_eq!(active[2].boss_head_index, 2);
+        assert_eq!(active[0].hit_points, SHISHKABOSS_HEAD_HP[0]);
+        assert_eq!(active[1].hit_points, SHISHKABOSS_HEAD_HP[1]);
+        assert_eq!(active[2].hit_points, SHISHKABOSS_HEAD_HP[2]);
+        // Y offsets applied
+        let base_y = 100u32 << 16;
+        assert_eq!(active[0].y_pos, base_y);
+        let head2_y = (base_y as i64 + (i64::from(SHISHKABOSS_HEAD_Y_OFFSETS[1]) << 16)) as u32;
+        assert_eq!(active[1].y_pos, head2_y);
+
+        // Verify non-boss enemy has BOSS_HEAD_NONE
+        // object_type 0x01 = direct Diamond ID (bit 7 clear)
+        let layout2 = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![EnemyLayoutObject {
+                object_type: 0x01,
+                flags: 0,
+                hit_points_plus_one: 0,
+                x: 200,
+                y: 100,
+            }],
+            segments: vec![],
+        };
+        let mut active2 = Vec::new();
+        activate_enemies(&mut active2, &layout2, window, 0, 0, 200 << 16);
+        assert_eq!(active2.len(), 1);
+        assert_eq!(active2[0].boss_head_index, BOSS_HEAD_NONE);
+    }
+
+    #[test]
     fn ufo_beam_fires_when_player_below() {
         use enemies::{ActiveEnemy, EnemyFamily, step_ufo_beam};
 
