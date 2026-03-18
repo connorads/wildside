@@ -67,29 +67,31 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - Done: All 28 enemy families wired — Tier 3-4 mapped to closest archetypes (Pacer/Flyer/Hopper/Bouncer/Inert)
 - Source: `code/enemy/*.asm`, oracle per-object traces
 
-## Remaining player/gameplay work
+## Remaining work
 
 - Fidelity hardening: sweep tolerance tightening, per-enemy ASM verification, visual pixel-perfect convergence
-- Demo playback: no ROM source data found in disassembly (#026, open)
 - Perf baseline tracking (#031, open)
+- Transform animation visual sprites (needs ROM tile extraction, #033)
 
 ## Previously deferred (now done)
 
 - Platform collision — done (static + moving, riding logic, movement scripts)
-- Player forms — done (speed tables, form-specific abilities wired)
+- Player forms — done (speed tables, form-specific abilities, per-form Diamond Power)
 - Audio and GEMS — done (GemsAudioEngine: Z80+YM2612+PSG from ROM)
 - Tier 3-4 enemies + bosses — done (all 28 families, 26 with real sprite art)
 - Y look-ahead camera offset — done (`$FFFFFB58`, +1/frame down+grounded, -8/frame decay, applied at >=30px)
 - Block interactions — done at engine level (prize blocks, evanescent, ghost, smash, terrain types)
 - Multi-level progression — done (105 levels loadable, full progression, ending sequence, continue, score system)
 - Menus — done (boot/title, pause/resume, game over, continue, score board)
-- Diamond Power two-tier cost — done
+- Diamond Power two-tier cost — done (20 form/tier combos mapped to 8 unique power types)
+- Demo playback — done (#026, extracted from kid.asm:33373-33436, 2 demos alternate on title idle)
+- Per-helmet transform timing — done (#033 partial, correct frame counts from ASM tables)
 
 ## Validation methodology
 
 See `docs/source-port/methodology.md` for the full validation methodology: investigation playbook, testing taxonomy (property-based, metamorphic, mutation, fuzzing), divergence classification, framewise checksumming, fidelity metrics, and regression discipline. `CLAUDE.md` has the operational summary.
 
-## Open questions
+## Known oracle limitations
 
-- 8 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63
-- Demo playback: no source data found in disassembly
+- 6 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63 — jgenesis emulator bug, native works fine
+- 4 levels with idle_tail advisory diffs (0x00, 0x45, 0x48, 0x61) — oracle warp timing and enemy interaction accumulation
