@@ -996,6 +996,12 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
     }
 }
 
+// TODO(fidelity): Dragon Flying is a structural placeholder. ASM uses a
+// script-interpreter with 3 variant flight tables (unk_34710/34706/346FA),
+// acceleration-based drift ($800 start, $200/frame, cap $18000), per-frame
+// fire-breath cone check, descent-to-anchor, and collision response.
+// Native hardcodes a single 7-phase loop with none of these features.
+// See backlog #043 for full discrepancy list.
 pub(crate) fn step_dragon(enemy: &mut ActiveEnemy) {
     enemy.x_velocity = 0;
     enemy.y_velocity = 0;
@@ -1932,7 +1938,10 @@ pub(crate) fn step_orca(
 }
 
 // --- TarMonster constants ---
-// Emerge/submerge cycle durations (frames). From ASM bytecode: appear for ~120 frames, hide for ~90.
+// TODO(fidelity): ASM bytecode-driven state machine is more complex than this
+// approximation. Real timings: ~71f buried, ~225f above (Seq A) or ~21f pop-up
+// (Seq B). Missing: horizontal glob shot, visibility flicker windows (6/11/8/51f),
+// HP variants 2/4/6 by placement data. See backlog #046.
 pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 90;
 pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 16;
 pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 120;
@@ -2051,8 +2060,11 @@ pub(crate) fn step_dragon_walking(
 }
 
 // --- Drips constants ---
-// Drips hangs from ceiling and periodically drops a falling projectile.
-// From ASM: y_vel = -$10000 upward on spawn (to reach ceiling), then drops with +$2000 accel.
+// TODO(fidelity): ASM Drips is a multi-object enemy with ceiling-attachment init,
+// forming animation (12 ticks), animation-driven drop (not physics), random
+// wait timing (RNG & 0xFF >> 2 XOR kid_x = 1-128f), and surface-crawl spawning
+// (max 5 crawlers, x_vel=$3000). Native uses simplified physics projectile.
+// See backlog #047.
 pub(crate) const DRIPS_DROP_INTERVAL: u16 = 90;
 pub(crate) const DRIPS_DROP_Y_SPEED: i32 = 0x1_0000; // initial downward speed
 pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000; // acceleration per frame

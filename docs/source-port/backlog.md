@@ -46,6 +46,15 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 037 | [ ] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
 | 038 | [ ] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
 | 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
+| 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
+| 041 | [x] | P2 | enemy | Hand jump velocity fixed, should be randomised per-tier | Hand matches ASM jump tables |
+| 042 | [x] | P2 | enemy | Tornado acceleration $300 should be $C00, level-dependent timer | Tornado matches ASM init table |
+| 043 | [ ] | P2 | enemy | Dragon Flying is structural placeholder (3 variant scripts) | Dragon Flying matches ASM flight scripts |
+| 044 | [ ] | P3 | enemy | Lion projectile wall-bounce and per-enemy homing accel | Projectile bounces off terrain |
+| 045 | [ ] | P3 | enemy | Hand player-grab mechanic missing entirely | Hand grabs and drags player |
+| 046 | [ ] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
+| 047 | [ ] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM full behaviour |
+| 048 | [ ] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
 
 ## Investigation notes
 
