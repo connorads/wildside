@@ -1,6 +1,6 @@
 ---
 source: crates/kid-core/src/lib.rs
-assertion_line: 11700
+assertion_line: 11812
 expression: trace
 ---
 frame_index: 441
@@ -78,6 +78,7 @@ number_gfx_objects: "[advisory]"
 level_complete: false
 game_over: false
 game_complete: false
+ending_elapsed: ~
 options_cursor: ~
 sound_test_track: ~
 two_player: false

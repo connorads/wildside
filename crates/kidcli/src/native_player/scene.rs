@@ -88,6 +88,7 @@ pub(crate) fn build_scene_filtered(
         ),
         GameMode::LevelTransition => build_transition_scene(trace),
         GameMode::OptionsMenu => build_options_scene(trace),
+        GameMode::EndingSequence => build_ending_scene(trace),
         _ => build_status_scene(trace, debug_overlay_visible),
     }
 }
@@ -471,6 +472,144 @@ pub(super) fn build_victory_scene(trace: &NativeTraceFrame) -> Scene {
 
     Scene {
         background: [8, 32, 16],
+        commands,
+    }
+}
+
+/// Credits text screens matching ASM EndText1 (kid.asm:32804-32932).
+const CREDITS_SCREENS: &[&[&str]] = &[
+    &[
+        "CONGRATULATIONS",
+        "",
+        "YOU HAVE FREED THEM",
+        "FROM THE EVIL BOSS",
+        "",
+        "YOU WILL BE REMEMBERED",
+        "AS THE FIRST HOLOGRAPHIC",
+        "GAME CHAMPION ...",
+        "THE KID CHAMELEON.",
+    ],
+    &[
+        "AND NOW ...",
+        "",
+        "THE PEOPLE WHO GAVE",
+        "UP THEIR LIVES, WIVES",
+        "AND SANITY TO MAKE THIS",
+        "GAME A REALITY ...",
+        "",
+        "THE SEGA TECHNICAL",
+        "INSTITUTE TEAM.",
+    ],
+    &["... GAME DESIGN ..", "", "HOYT NG", "BILL DUNN", "RICK MACARAEG", "GRAEME BAYLESS"],
+    &["... SOFTWARE ...", "", "BC TCHIU LE", "MARK CERNY", "STEVE WOITA", "BILL WILLIS"],
+    &[
+        "... ART ...",
+        "",
+        "ALAN ACKERMAN",
+        "BRENDA ROSS",
+        "CRAIG STITT",
+        "PAUL MICA",
+        "JUDY TOTOYA",
+    ],
+    &[
+        "SOUND BY",
+        "NU ROMANTIC PRODUCTIONS",
+        "",
+        "SPECIAL THANKS TO ...",
+        "SCOTT CHANDLER",
+        "HUGH BOWEN",
+        "HAVEN CARTER",
+        "AND THE TEST GROUP",
+    ],
+    &["THE END", "", "THANK YOU FOR PLAYING!"],
+];
+
+/// ASM timing constants for the ending sequence phases.
+const ENDING_PHASE1_END: usize = 40;  // pause
+const ENDING_PHASE2_END: usize = ENDING_PHASE1_END + 200; // music delay
+const ENDING_PHASE3_END: usize = ENDING_PHASE2_END + 256; // fade to black
+/// Credits screens start after the fade.
+const CREDITS_START: usize = ENDING_PHASE3_END;
+/// Each credits screen: 112 frames scroll + 200 frames display = 312 frames.
+const CREDITS_PER_SCREEN: usize = 312;
+
+pub(super) fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
+    let mut commands = Vec::new();
+    let elapsed = trace.ending_elapsed.unwrap_or(0);
+
+    // Phase 1-3: fade to black (black screen, the level has already been cleared)
+    if elapsed < CREDITS_START {
+        // Calculate fade intensity: fully bright at start, fading to black
+        let fade_progress = if elapsed >= ENDING_PHASE2_END {
+            let fade_elapsed = elapsed - ENDING_PHASE2_END;
+            (fade_elapsed * 255 / 256).min(255) as u8
+        } else {
+            0
+        };
+        let brightness = 255u8.saturating_sub(fade_progress);
+        commands.push(DrawCommand::Rect {
+            x: 0,
+            y: 0,
+            width: FRAME_WIDTH as i32,
+            height: FRAME_HEIGHT as i32,
+            colour: [0, 0, brightness / 10], // dark blue fading to black
+        });
+        return Scene {
+            background: [0, 0, 0],
+            commands,
+        };
+    }
+
+    // Credits phase: determine which screen to show
+    let credits_elapsed = elapsed - CREDITS_START;
+    let screen_index = credits_elapsed / CREDITS_PER_SCREEN;
+
+    // Black background
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [4, 8, 20],
+    });
+
+    if screen_index < CREDITS_SCREENS.len() {
+        let screen = CREDITS_SCREENS[screen_index];
+        let within_screen = credits_elapsed % CREDITS_PER_SCREEN;
+
+        // Fade in during scroll phase, full brightness during display
+        let alpha = if within_screen < 112 {
+            ((within_screen as f32 / 112.0) * 255.0) as u8
+        } else {
+            255
+        };
+
+        let start_y = 40i32;
+        let line_height = 18i32;
+        for (i, line) in screen.iter().enumerate() {
+            if line.is_empty() {
+                continue;
+            }
+            let y = start_y + i as i32 * line_height;
+            let line_w = line.len() as i32 * 8;
+            let colour = if i == 0 && screen_index < 2 {
+                // Title lines in gold
+                [alpha, (alpha as u16 * 220 / 255) as u8, (alpha as u16 * 80 / 255) as u8]
+            } else {
+                [alpha, alpha, alpha]
+            };
+            commands.push(text(
+                (FRAME_WIDTH as i32 - line_w) / 2,
+                y,
+                line,
+                colour,
+                1,
+            ));
+        }
+    }
+
+    Scene {
+        background: [4, 8, 20],
         commands,
     }
 }

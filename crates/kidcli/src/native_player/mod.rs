@@ -661,6 +661,7 @@ fn game_mode_label(mode: GameMode) -> &'static str {
         GameMode::LevelTransition => "LevelTransition",
         GameMode::InGame => "InGame",
         GameMode::OptionsMenu => "OptionsMenu",
+        GameMode::EndingSequence => "EndingSequence",
     }
 }
 
@@ -1109,6 +1110,7 @@ mod tests {
             level_complete: false,
             game_over: false,
             game_complete: false,
+            ending_elapsed: None,
             options_cursor: None,
             two_player: false,
             number_continues: 3,

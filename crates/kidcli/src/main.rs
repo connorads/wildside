@@ -1615,6 +1615,7 @@ mod tests {
             level_complete: false,
             game_over: false,
             game_complete: false,
+            ending_elapsed: None,
             number_continues: 3,
             invulnerable_frames: 0,
             diamond_power_active: false,

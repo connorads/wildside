@@ -156,6 +156,8 @@ pub enum GameMode {
     OptionsMenu,
     LevelTransition,
     InGame,
+    /// ASM game mode 0x30 — end credits sequence after beating the final level.
+    EndingSequence,
 }
 
 impl GameMode {
@@ -169,6 +171,7 @@ impl GameMode {
             Self::OptionsMenu => 0x0028,
             Self::LevelTransition => 0x0008,
             Self::InGame => 0x000C,
+            Self::EndingSequence => 0x0030,
         }
     }
 }
@@ -314,6 +317,8 @@ pub struct NativeTraceFrame {
     pub level_complete: bool,
     pub game_over: bool,
     pub game_complete: bool,
+    /// Ending credits sequence elapsed frames (None if not in ending).
+    pub ending_elapsed: Option<usize>,
     pub options_cursor: Option<u8>,
     pub sound_test_track: Option<u8>,
     pub two_player: bool,
@@ -583,6 +588,19 @@ impl Default for PlayerSlot {
     }
 }
 
+/// Number of frames for the ending sequence phases (ASM End_Credits, kid.asm:16920).
+const ENDING_PAUSE_FRAMES: usize = 40; // Sleep 0x28
+const ENDING_MUSIC_DELAY_FRAMES: usize = 200; // Sleep 0xC8
+const ENDING_FADE_OUT_FRAMES: usize = 256; // fade counter 0x100
+/// Each credits screen: 112 frames scroll + 200 frames display.
+const CREDITS_SCROLL_FRAMES: usize = 112;
+const CREDITS_DISPLAY_FRAMES: usize = 200;
+const CREDITS_SCREEN_COUNT: usize = 7; // congratulations + 6 credits screens
+/// Total credits duration per screen.
+const CREDITS_SCREEN_TOTAL: usize = CREDITS_SCROLL_FRAMES + CREDITS_DISPLAY_FRAMES;
+/// Ending music track (ASM: bgm_Ending = 5). Used by native_player audio.
+pub const ENDING_MUSIC_TRACK: u8 = 5;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum BootState {
     SegaScreen { elapsed: usize },
@@ -593,6 +611,8 @@ enum BootState {
     StartingLevel { remaining_frames: usize },
     LevelSkipHold,
     InGame,
+    /// Post-final-level ending sequence: fade out, credits screens, return to title.
+    EndingSequence { elapsed: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1527,6 +1547,26 @@ impl NativeRuntime {
             }
             BootState::LevelSkipHold => {}
             BootState::InGame => {}
+            BootState::EndingSequence { elapsed } => {
+                *elapsed += 1;
+                let total_ending_frames = ENDING_PAUSE_FRAMES
+                    + ENDING_MUSIC_DELAY_FRAMES
+                    + ENDING_FADE_OUT_FRAMES
+                    + CREDITS_SCREEN_COUNT * CREDITS_SCREEN_TOTAL;
+                if *elapsed >= total_ending_frames {
+                    // Return to title screen after credits
+                    self.boot_state = BootState::TitleScreen;
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                    self.number_lives = 3;
+                    self.number_continues = 3;
+                    self.diamond_count = 0;
+                    self.score = 0;
+                    self.current_level = LevelId(0);
+                    self.two_player = false;
+                    self.current_player_index = 0;
+                    self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
+                }
+            }
         }
 
         self.refresh_active_roster();
@@ -1607,6 +1647,10 @@ impl NativeRuntime {
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. }),
             game_complete: self.game_complete,
+            ending_elapsed: match self.boot_state {
+                BootState::EndingSequence { elapsed } => Some(elapsed),
+                _ => None,
+            },
             options_cursor: match self.boot_state {
                 BootState::OptionsMenu { cursor } => Some(cursor),
                 _ => None,
@@ -1677,6 +1721,7 @@ impl NativeRuntime {
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
+            BootState::EndingSequence { .. } => GameMode::EndingSequence,
         }
     }
 
@@ -1746,7 +1791,8 @@ impl NativeRuntime {
             | BootState::IntroSequence { .. }
             | BootState::TitleScreen
             | BootState::OptionsMenu { .. }
-            | BootState::SoundTest { .. } => Some(PlayerState::title_pose()),
+            | BootState::SoundTest { .. }
+            | BootState::EndingSequence { .. } => Some(PlayerState::title_pose()),
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -1835,6 +1881,10 @@ impl NativeRuntime {
     }
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
+        if matches!(self.boot_state, BootState::EndingSequence { .. }) {
+            self.opening_slice = None;
+            return;
+        }
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::LevelSkipHold | BootState::InGame

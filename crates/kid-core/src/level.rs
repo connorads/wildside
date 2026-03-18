@@ -23,7 +23,7 @@ impl NativeRuntime {
 
         if self.is_final_level() {
             self.game_complete = true;
-            self.boot_state = BootState::TitleScreen;
+            self.boot_state = BootState::EndingSequence { elapsed: 0 };
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.opening_slice = None;
             return;
