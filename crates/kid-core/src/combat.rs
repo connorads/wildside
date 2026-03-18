@@ -1,5 +1,22 @@
 use super::*;
 
+/// Per-helmet transform animation frame counts from ASM Kid_Transform tables
+/// (kid.asm:8678-8812, stru_7EFA..stru_808A). TheKid (helmet 0) has no table.
+fn transform_anim_frames(form: PlayerForm) -> u16 {
+    match form {
+        PlayerForm::TheKid => 0,
+        PlayerForm::Skycutter => 47,   // stru_7EFA
+        PlayerForm::Cyclone => 72,     // stru_7F30
+        PlayerForm::RedStealth => 54,  // stru_7F5A
+        PlayerForm::Eyeclops => 93,    // stru_7F90
+        PlayerForm::Juggernaut => 33,  // stru_7FCA
+        PlayerForm::IronKnight => 96,  // stru_7FF8
+        PlayerForm::Berzerker => 51,   // stru_803A
+        PlayerForm::Maniaxe => 45,     // stru_8064
+        PlayerForm::Micromax => 59,    // stru_808A
+    }
+}
+
 impl NativeRuntime {
     pub(crate) fn should_apply_level_one_opening_hit(
         &self,
@@ -387,13 +404,25 @@ impl NativeRuntime {
         let Some(form) = self.pending_form.take() else {
             return;
         };
+        let old_form = self.current_form;
         self.current_form = form;
         self.number_hitpoints = form.max_hitpoints();
-        // TODO(fidelity): real Kid_Transform animation (kid.asm:8369-8607).
-        // Each helmet has unique per-frame sprite art + palette cycling tables
-        // (stru_7EFA..stru_8064). During transform, Currently_transforming flag
-        // freezes timer and hides HUD. Requires ROM sprite tile extraction.
-        self.form_change_flash_frames = 8;
+        // Per-helmet transform duration from ASM Kid_Transform tables
+        // (kid.asm:8369-8607, stru_7EFA..stru_808A). Two phases:
+        // Phase 1 (reverse old helmet) + Phase 2 (forward new helmet).
+        // TheKid has no table, so only one phase runs.
+        let old_frames = transform_anim_frames(old_form);
+        let new_frames = transform_anim_frames(form);
+        self.form_change_flash_frames = (old_frames + new_frames) as u8;
+        // ASM zeroes velocity at end of transform (kid.asm:8599-8600)
+        if let Some(ref mut slice) = self.opening_slice {
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+        }
+        // TODO(fidelity): visual sprite art for transform animation.
+        // ASM uses per-helmet sprite+palette cycling tables for a spinning
+        // animation. Currently renders as a flash overlay. Needs ROM sprite
+        // tile extraction for real visuals.
         // Clear ability state on form change
         self.skycutter_flipboard = 0;
         self.skycutter_on_board = false;

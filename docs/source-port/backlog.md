@@ -39,7 +39,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 030 | [x] | P3 | infra | Add GitHub Actions CI running `verify-slice-fast` | Tests run automatically on every push |
 | 031 | [ ] | P3 | infra | Add performance baseline tracking | Frame time and sweep duration tracked over time |
 | 032 | [x] | P2 | fidelity | Per-form Diamond Power effects (20 unique abilities) | Each form has correct visual and damage pattern |
-| 033 | [ ] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | Real spinning sprite + palette cycling per-helmet |
+| 033 | [~] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | Real spinning sprite + palette cycling per-helmet |
 | 034 | [x] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native had 3) | Boot captures match oracle |
 | 035 | [ ] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | All 69 BCD levels verifiable |
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
