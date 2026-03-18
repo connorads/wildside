@@ -63,11 +63,11 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 054 | [x] | P3 | enemy | MiniHoppingSkull ground delay 21 not 32 (dbf #$14) | Skull delay matches ASM |
 | 055 | [x] | P3 | enemy | BagelBrothers projectile speed 3 not 4, lifetime 50 not 45 | Projectile matches ASM |
 | 056 | [ ] | P3 | enemy | BigHoppingSkull is continuous bouncer, not discrete hopper | Needs structural rework |
-| 057 | [ ] | P3 | enemy | Goat player-tracking callback missing (turns toward player >32px) | Goat tracks player |
-| 058 | [ ] | P3 | enemy | Cloud 60-frame post-bounce idle period missing | Cloud idles after bounce |
-| 059 | [ ] | P3 | enemy | Fireball ceiling bounce uses Sphere formula, should be random+cap | Fireball bounce matches ASM |
+| 057 | [x] | P3 | enemy | Goat player-tracking callback missing (turns toward player >32px) | Goat tracks player |
+| 058 | [x] | P3 | enemy | Cloud 60-frame post-bounce idle period missing | Cloud idles after bounce |
+| 059 | [x] | P3 | enemy | Fireball ceiling bounce uses Sphere formula, should be random+cap | Fireball bounce matches ASM |
 | 060 | [ ] | P2 | enemy | Boss multi-head system (Shishkaboss/BoomerangBosses/BagelBrothers) | 3 objects per boss |
-| 061 | [ ] | P3 | enemy | Orca missing ceiling bounce, slope handling, X accel during lunge | Orca lunge matches ASM |
+| 061 | [~] | P3 | enemy | Orca missing ceiling bounce, slope handling, X accel during lunge | Ceiling done; slope/accel TODO |
 | 062 | [ ] | P3 | enemy | HeadyMetal fire rate animation-driven, missing death phase + eye spray | Boss phases match ASM |
 
 ## Investigation notes
