@@ -30,6 +30,21 @@ impl Palette {
             .collect();
         Ok(Self { colours })
     }
+
+    /// Apply a palette permutation table. The table maps pixel index → palette
+    /// slot, matching the ASM art decompression remapping. Reorders colours so
+    /// that un-permuted tile art indices look up the correct colour.
+    pub fn apply_permutation(&mut self, table: &[u8; 16]) {
+        // The table says: art pixel index i → palette slot table[i].
+        // We want: new_palette[i] = original_palette[table[i]].
+        let original = self.colours.clone();
+        for i in 0..16.min(self.colours.len()) {
+            let src = table[i] as usize;
+            if src < original.len() {
+                self.colours[i] = original[src];
+            }
+        }
+    }
 }
 
 impl MdColour {

@@ -138,31 +138,45 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     let enemies = load_enemy_visuals(manifest)?;
     let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
+    let mut fg_palette = Palette::from_bytes(&read_root_asset(
+        manifest,
+        "theme",
+        find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
+            || {
+                anyhow!(
+                    "missing foreground palette asset theme/palette_fg/{foreground_theme}.bin"
+                )
+            },
+        )?,
+        "foreground palette",
+    )?)?;
+    let mut bg_palette = Palette::from_bytes(&read_root_asset(
+        manifest,
+        "theme",
+        find_theme_asset(manifest, &format!("palette_bg/{background_theme}.bin")).ok_or_else(
+            || {
+                anyhow!(
+                    "missing background palette asset theme/palette_bg/{background_theme}.bin"
+                )
+            },
+        )?,
+        "background palette",
+    )?)?;
+
+    // Apply theme-specific palette permutations (ASM art decompression remapping)
+    if let Some(perm) = load_palette_permutation(manifest, fg_permutation_file(header.level_theme))
+    {
+        fg_palette.apply_permutation(&perm);
+    }
+    if let Some(perm) =
+        load_palette_permutation(manifest, bg_permutation_file(header.background_theme))
+    {
+        bg_palette.apply_permutation(&perm);
+    }
+
     let palettes = PaletteSet {
-        foreground: Palette::from_bytes(&read_root_asset(
-            manifest,
-            "theme",
-            find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
-                || {
-                    anyhow!(
-                        "missing foreground palette asset theme/palette_fg/{foreground_theme}.bin"
-                    )
-                },
-            )?,
-            "foreground palette",
-        )?)?,
-        background: Palette::from_bytes(&read_root_asset(
-            manifest,
-            "theme",
-            find_theme_asset(manifest, &format!("palette_bg/{background_theme}.bin")).ok_or_else(
-                || {
-                    anyhow!(
-                        "missing background palette asset theme/palette_bg/{background_theme}.bin"
-                    )
-                },
-            )?,
-            "background palette",
-        )?)?,
+        foreground: fg_palette,
+        background: bg_palette,
     };
 
     let terrain_quads = parse_tile_quads(&read_root_asset(
@@ -227,6 +241,40 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
 
 fn resolve_theme_name(theme_id: u8) -> Option<&'static str> {
     THEME_NAMES.get(usize::from(theme_id)).copied()
+}
+
+/// Foreground palette permutation file for a given theme ID.
+/// From ASM: City=city_fg, Forest=forest_fg, Mountain=mountain_fg, else identity.
+fn fg_permutation_file(theme_id: u8) -> &'static str {
+    match theme_id {
+        9 => "palette_permutations/forest_fg.bin",
+        7 => "palette_permutations/mountain_fg.bin",
+        10 => "palette_permutations/city_fg.bin",
+        _ => "palette_permutations/identity.bin",
+    }
+}
+
+/// Background palette permutation file for a given theme ID.
+/// From ASM: Forest=forest_bg, Mountain=mountain_bg, Hills=hill_bg, else identity.
+fn bg_permutation_file(theme_id: u8) -> &'static str {
+    match theme_id {
+        9 => "palette_permutations/forest_bg.bin",
+        7 => "palette_permutations/mountain_bg.bin",
+        3 => "palette_permutations/hill_bg.bin",
+        _ => "palette_permutations/identity.bin",
+    }
+}
+
+/// Load a 16-byte palette permutation table from the theme assets.
+fn load_palette_permutation(manifest: &AssetManifest, relative_path: &str) -> Option<[u8; 16]> {
+    let asset = find_theme_asset(manifest, relative_path)?;
+    let bytes = read_root_asset(manifest, "theme", asset, "palette permutation").ok()?;
+    if bytes.len() < 16 {
+        return None;
+    }
+    let mut table = [0u8; 16];
+    table.copy_from_slice(&bytes[..16]);
+    Some(table)
 }
 
 fn find_theme_asset<'a>(manifest: &'a AssetManifest, relative_path: &str) -> Option<&'a AssetFile> {

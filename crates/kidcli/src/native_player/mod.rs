@@ -2185,21 +2185,10 @@ mod tests {
         assert_eq!(opening_cell.collision, CollisionKind::Spikes);
         assert_eq!(opening_cell.block_type, BlockType::None);
         assert_eq!(opening_cell.skin, 0x33);
+        // Runtime now starts from the boot sequence (SegaScreen), not InGame
         let trace = runtime.trace_frame();
-        assert_eq!(trace.game_mode, GameMode::InGame);
+        assert_eq!(trace.game_mode, GameMode::SegaScreen);
         assert_eq!(trace.current_level.0, 0);
-        assert_eq!(
-            trace.current_level_name.as_deref(),
-            Some("Blue Lake Woods 1")
-        );
-        assert_eq!(trace.kid_on_ground, Some(true));
-        assert!(
-            trace
-                .active_objects
-                .iter()
-                .any(|object| matches!(object.kind, NativeObjectKind::Player)),
-            "native playtest should spawn with the player visible"
-        );
     }
 
     #[test]
