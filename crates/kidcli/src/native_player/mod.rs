@@ -2,8 +2,8 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
-    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
+    PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader};
 use kid_md::GemsAudioEngine;
@@ -2056,7 +2056,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2070,7 +2070,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -2084,7 +2084,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2098,7 +2098,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
         ];
         let grid = BlockGrid::from_level_layout(&[0x60, 0x00, 0xE1, 0x02], 2, 1);
@@ -2240,7 +2240,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2254,7 +2254,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2268,7 +2268,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
         ];
         let scene = build_ingame_scene(&trace, true, None);
@@ -2305,7 +2305,7 @@ mod tests {
             hit_points: None,
             damage_flash: false,
             palette_variant: 0,
-        stationary: false,
+            stationary: false,
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
@@ -2434,7 +2434,7 @@ mod tests {
             hit_points: None,
             damage_flash: false,
             palette_variant: 0,
-        stationary: false,
+            stationary: false,
         }];
         trace
     }
@@ -2514,7 +2514,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -2528,7 +2528,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
         ];
 
@@ -2568,7 +2568,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2582,7 +2582,7 @@ mod tests {
                 hit_points: None,
                 damage_flash: false,
                 palette_variant: 0,
-            stationary: false,
+                stationary: false,
             },
         ];
 

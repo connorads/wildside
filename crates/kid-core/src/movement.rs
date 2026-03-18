@@ -32,7 +32,7 @@ impl OpeningSliceState {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
-            left_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -81,7 +81,7 @@ impl OpeningSliceState {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
-            left_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState {
                 x_pos: pose.camera_x_pos,

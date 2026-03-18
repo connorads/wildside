@@ -859,7 +859,11 @@ pub(crate) fn step_ufo_beam(
 
     // Random beam: ~4/256 chance per frame (ASM ChkLoadBeam)
     // Use a deterministic pseudo-random from enemy position + wait_timer
-    let pseudo_rand = (enemy.x_pos.wrapping_add(enemy.wait_timer as u32).wrapping_mul(2654435761)) >> 24;
+    let pseudo_rand = (enemy
+        .x_pos
+        .wrapping_add(enemy.wait_timer as u32)
+        .wrapping_mul(2654435761))
+        >> 24;
     if pseudo_rand < 4 {
         enemy.ufo_beam_segments = UFO_BEAM_SEGMENT_COUNT;
         enemy.ufo_beam_interval = 0;
@@ -1929,11 +1933,7 @@ pub(crate) fn spawn_tar_monster_retaliation(
 }
 
 /// Fire Demon death trail: spawn 3 fire fragments arcing outward from death position.
-pub(crate) fn spawn_fire_demon_death_trail(
-    projectiles: &mut Vec<EnemyProjectile>,
-    x: u32,
-    y: u32,
-) {
+pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
     // TODO(fidelity): real fire trail sprite art from ASM
     let fragments: [(i32, i32); 3] = [
         (0x1_8000, -0x2_0000),  // right arc

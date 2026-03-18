@@ -142,11 +142,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         manifest,
         "theme",
         find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
-            || {
-                anyhow!(
-                    "missing foreground palette asset theme/palette_fg/{foreground_theme}.bin"
-                )
-            },
+            || anyhow!("missing foreground palette asset theme/palette_fg/{foreground_theme}.bin"),
         )?,
         "foreground palette",
     )?)?;
@@ -154,11 +150,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         manifest,
         "theme",
         find_theme_asset(manifest, &format!("palette_bg/{background_theme}.bin")).ok_or_else(
-            || {
-                anyhow!(
-                    "missing background palette asset theme/palette_bg/{background_theme}.bin"
-                )
-            },
+            || anyhow!("missing background palette asset theme/palette_bg/{background_theme}.bin"),
         )?,
         "background palette",
     )?)?;

@@ -1011,27 +1011,99 @@ fn build_game_scene_filtered(
             match content_id {
                 // Diamond: rotated square (diamond shape)
                 0 => {
-                    commands.push(DrawCommand::Rect { x: fx - 1, y: fy - 4, width: 2, height: 1, colour });
-                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 3, width: 6, height: 4, colour });
-                    commands.push(DrawCommand::Rect { x: fx - 1, y: fy + 1, width: 2, height: 1, colour });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 1,
+                        y: fy - 4,
+                        width: 2,
+                        height: 1,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 3,
+                        y: fy - 3,
+                        width: 6,
+                        height: 4,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 1,
+                        y: fy + 1,
+                        width: 2,
+                        height: 1,
+                        colour,
+                    });
                 }
                 // Ankh: cross shape
                 1 => {
-                    commands.push(DrawCommand::Rect { x: fx - 1, y: fy - 4, width: 2, height: 8, colour });
-                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 2, width: 6, height: 2, colour });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 1,
+                        y: fy - 4,
+                        width: 2,
+                        height: 8,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 3,
+                        y: fy - 2,
+                        width: 6,
+                        height: 2,
+                        colour,
+                    });
                 }
                 // Clock: square with dot centre
                 2 => {
-                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 3, width: 6, height: 1, colour });
-                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy + 2, width: 6, height: 1, colour });
-                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 2, width: 1, height: 4, colour });
-                    commands.push(DrawCommand::Rect { x: fx + 2, y: fy - 2, width: 1, height: 4, colour });
-                    commands.push(DrawCommand::Rect { x: fx, y: fy - 1, width: 1, height: 2, colour });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 3,
+                        y: fy - 3,
+                        width: 6,
+                        height: 1,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 3,
+                        y: fy + 2,
+                        width: 6,
+                        height: 1,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 3,
+                        y: fy - 2,
+                        width: 1,
+                        height: 4,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx + 2,
+                        y: fy - 2,
+                        width: 1,
+                        height: 4,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx,
+                        y: fy - 1,
+                        width: 1,
+                        height: 2,
+                        colour,
+                    });
                 }
                 // Helmets and other items: filled square with highlight
                 _ => {
-                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 3, width: 6, height: 6, colour });
-                    commands.push(DrawCommand::Rect { x: fx - 2, y: fy - 2, width: 2, height: 1, colour: [255, 255, 255] });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 3,
+                        y: fy - 3,
+                        width: 6,
+                        height: 6,
+                        colour,
+                    });
+                    commands.push(DrawCommand::Rect {
+                        x: fx - 2,
+                        y: fy - 2,
+                        width: 2,
+                        height: 1,
+                        colour: [255, 255, 255],
+                    });
                 }
             }
         }
@@ -1177,7 +1249,6 @@ fn build_game_scene_filtered(
             1,
         ));
     }
-
 
     // Level complete overlay
     if trace.level_complete {
@@ -1349,19 +1420,19 @@ fn push_collision_box(
 fn floating_item_colour(content_id: u8) -> [u8; 3] {
     match content_id {
         0x00 | 0x0E => [100, 200, 255], // Diamond / TenDiamonds — cyan
-        0x01 => [255, 255, 100],         // Points10000 — gold
-        0x02 => [200, 200, 255],         // Skycutter — light blue
-        0x03 => [180, 255, 180],         // Cyclone — green
-        0x04 => [255, 100, 100],         // RedStealth — red
-        0x05 => [255, 180, 50],          // Eyeclops — orange
-        0x06 => [160, 160, 160],         // Juggernaut — grey
-        0x07 => [220, 220, 255],         // IronKnight — silver-blue
-        0x08 => [255, 100, 50],          // Berzerker — red-orange
-        0x09 => [200, 150, 100],         // Maniaxe — brown
-        0x0A => [255, 200, 255],         // Micromax — pink
-        0x0B => [255, 255, 200],         // Ankh — pale gold
-        0x0C => [200, 255, 200],         // Clock — pale green
-        0x0D => [255, 255, 255],         // Continue — white
-        _ => [255, 255, 100],            // fallback — gold
+        0x01 => [255, 255, 100],        // Points10000 — gold
+        0x02 => [200, 200, 255],        // Skycutter — light blue
+        0x03 => [180, 255, 180],        // Cyclone — green
+        0x04 => [255, 100, 100],        // RedStealth — red
+        0x05 => [255, 180, 50],         // Eyeclops — orange
+        0x06 => [160, 160, 160],        // Juggernaut — grey
+        0x07 => [220, 220, 255],        // IronKnight — silver-blue
+        0x08 => [255, 100, 50],         // Berzerker — red-orange
+        0x09 => [200, 150, 100],        // Maniaxe — brown
+        0x0A => [255, 200, 255],        // Micromax — pink
+        0x0B => [255, 255, 200],        // Ankh — pale gold
+        0x0C => [200, 255, 200],        // Clock — pale green
+        0x0D => [255, 255, 255],        // Continue — white
+        _ => [255, 255, 100],           // fallback — gold
     }
 }

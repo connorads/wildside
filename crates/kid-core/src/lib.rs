@@ -4632,8 +4632,14 @@ mod tests {
         runtime.apply_damage();
 
         let slice = runtime.opening_slice.as_ref().unwrap();
-        assert!(!slice.player.right_wall_sticky, "right wall sticky should be cleared on damage");
-        assert!(!slice.player.left_wall_sticky, "left wall sticky should be cleared on damage");
+        assert!(
+            !slice.player.right_wall_sticky,
+            "right wall sticky should be cleared on damage"
+        );
+        assert!(
+            !slice.player.left_wall_sticky,
+            "left wall sticky should be cleared on damage"
+        );
     }
 
     #[test]
@@ -5449,7 +5455,10 @@ mod tests {
         runtime.step_frame(FrameInput::default());
 
         // Flash should be set after resolve_pending_form_change
-        assert!(runtime.form_change_flash_frames > 0, "flash should be active after form change");
+        assert!(
+            runtime.form_change_flash_frames > 0,
+            "flash should be active after form change"
+        );
 
         // Flash should count down
         let initial = runtime.form_change_flash_frames;
@@ -6940,7 +6949,7 @@ mod tests {
             hit_points: Some(1),
             damage_flash: false,
             palette_variant: 0,
-        stationary: false,
+            stationary: false,
         };
 
         assert_eq!(
@@ -6976,7 +6985,7 @@ mod tests {
             hit_points: Some(1),
             damage_flash: false,
             palette_variant: 0,
-        stationary: false,
+            stationary: false,
         };
 
         assert_eq!(
@@ -8436,7 +8445,10 @@ mod tests {
             step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
         }
         assert!(projectiles.len() >= 4, "should have spawned beam segments");
-        assert!(projectiles.iter().all(|p| p.y_velocity > 0), "beams go downward");
+        assert!(
+            projectiles.iter().all(|p| p.y_velocity > 0),
+            "beams go downward"
+        );
     }
 
     // --- UFO and Tornado flyer tests ---
@@ -11482,23 +11494,47 @@ mod tests {
         runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
 
         // A enters sound test
-        runtime.step_frame(FrameInput { a: true, ..FrameInput::default() });
-        assert!(matches!(runtime.boot_state, BootState::SoundTest { track: 0 }));
+        runtime.step_frame(FrameInput {
+            a: true,
+            ..FrameInput::default()
+        });
+        assert!(matches!(
+            runtime.boot_state,
+            BootState::SoundTest { track: 0 }
+        ));
 
         // Right increments track
         runtime.prior_input = FrameInput::default();
-        runtime.step_frame(FrameInput { right: true, ..FrameInput::default() });
-        assert!(matches!(runtime.boot_state, BootState::SoundTest { track: 1 }));
+        runtime.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
+        assert!(matches!(
+            runtime.boot_state,
+            BootState::SoundTest { track: 1 }
+        ));
 
         // Up adds 16
         runtime.prior_input = FrameInput::default();
-        runtime.step_frame(FrameInput { up: true, ..FrameInput::default() });
-        assert!(matches!(runtime.boot_state, BootState::SoundTest { track: 17 }));
+        runtime.step_frame(FrameInput {
+            up: true,
+            ..FrameInput::default()
+        });
+        assert!(matches!(
+            runtime.boot_state,
+            BootState::SoundTest { track: 17 }
+        ));
 
         // B exits back to options
         runtime.prior_input = FrameInput::default();
-        runtime.step_frame(FrameInput { b: true, ..FrameInput::default() });
-        assert!(matches!(runtime.boot_state, BootState::OptionsMenu { cursor: 1 }));
+        runtime.step_frame(FrameInput {
+            b: true,
+            ..FrameInput::default()
+        });
+        assert!(matches!(
+            runtime.boot_state,
+            BootState::OptionsMenu { cursor: 1 }
+        ));
     }
 
     #[test]
