@@ -392,7 +392,7 @@ impl NativeRuntime {
                 remaining: 10,
             });
             self.active_enemies.remove(idx);
-            self.score += 1000;
+            self.add_score(1000);
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self
@@ -452,7 +452,7 @@ impl NativeRuntime {
                 remaining: 10,
             });
             self.active_enemies.remove(idx);
-            self.score += 1000;
+            self.add_score(1000);
         }
         if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
             self.active_enemy_roster = self
@@ -501,7 +501,7 @@ impl NativeRuntime {
                 remaining: 10,
             });
             self.active_enemies.remove(idx);
-            self.score += 1000;
+            self.add_score(1000);
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self
@@ -710,7 +710,7 @@ impl NativeRuntime {
             }
             for &idx in kill_indices.iter().rev() {
                 self.active_enemies.remove(idx);
-                self.score += 1000;
+                self.add_score(1000);
             }
             if !kill_indices.is_empty() {
                 self.active_enemy_roster = self

@@ -46,6 +46,8 @@ impl NativeRuntime {
         self.init_weather(next_level);
         self.level_timer = LevelTimer::new();
         self.level_damage_taken = false;
+        self.level_prize_collected = false;
+        self.clocks_collected = 0;
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.invulnerable_frames = 0;
@@ -123,6 +125,8 @@ impl NativeRuntime {
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
         self.level_damage_taken = false;
+        self.level_prize_collected = false;
+        self.clocks_collected = 0;
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;

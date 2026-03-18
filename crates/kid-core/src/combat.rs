@@ -124,7 +124,7 @@ impl NativeRuntime {
                 spawn_fire_demon_death_trail(&mut self.projectiles, enemy.x_pos, enemy.y_pos);
             }
             self.active_enemies.remove(idx);
-            self.score += 1000;
+            self.add_score(1000);
         }
 
         // Rebuild roster after changes
@@ -194,19 +194,33 @@ impl NativeRuntime {
         }
     }
 
+    /// Add points with score cap (9,999,999) and extra-life-per-50K tracking.
+    pub(crate) fn add_score(&mut self, points: u32) {
+        let old_score = self.score;
+        self.score = self.score.saturating_add(points).min(SCORE_CAP);
+        // ASM: award extra life for every 50,000 point boundary crossed.
+        let old_lives = old_score / SCORE_EXTRA_LIFE_INTERVAL;
+        let new_lives = self.score / SCORE_EXTRA_LIFE_INTERVAL;
+        for _ in old_lives..new_lives {
+            self.add_life();
+        }
+    }
+
     /// Increment diamond count (capped at 99 per ASM). Awards extra life at 50/100.
     pub(crate) fn collect_diamond(&mut self) {
         if self.diamond_count >= 99 {
             return;
         }
         self.diamond_count += 1;
-        self.score += 500;
+        self.add_score(500);
         if self.diamond_count % 50 == 0 {
             self.add_life();
         }
     }
 
     pub(crate) fn apply_prize_content(&mut self, content: terrain::PrizeContent) {
+        // ASM: NoPrize_Bonus_Flag is set whenever any prize block content is collected.
+        self.level_prize_collected = true;
         match content {
             terrain::PrizeContent::Diamond => {
                 self.collect_diamond();
@@ -218,6 +232,7 @@ impl NativeRuntime {
             }
             terrain::PrizeContent::Clock => {
                 self.level_timer.add_clock_bonus();
+                self.clocks_collected += 1;
             }
             terrain::PrizeContent::Continue => {
                 self.number_continues = self.number_continues.saturating_add(1);
@@ -226,7 +241,7 @@ impl NativeRuntime {
                 self.add_life();
             }
             terrain::PrizeContent::Points10000 => {
-                self.score += 10_000;
+                self.add_score(10_000);
             }
             terrain::PrizeContent::Skycutter => self.queue_form_change(PlayerForm::Skycutter),
             terrain::PrizeContent::Cyclone => self.queue_form_change(PlayerForm::Cyclone),
@@ -284,6 +299,50 @@ impl NativeRuntime {
         let dx = slice.player.x_pos.abs_diff(flag_x_fp);
         let dy = slice.player.y_pos.abs_diff(flag_y_fp);
         dx <= half_fp && dy <= half_fp
+    }
+
+    /// Apply all end-of-level bonuses per ASM (kid.asm:16650-16900).
+    pub(crate) fn apply_level_completion_bonuses(&mut self) {
+        // Time bonus: remaining seconds × 100
+        self.add_score(u32::from(self.level_timer.seconds) * 100);
+
+        // No-hit bonus: 5000 points if no damage taken during level
+        if !self.level_damage_taken {
+            self.add_score(5000);
+        }
+
+        // No-prize bonus: 5000 points if no prize block content collected during level
+        // ASM: NoPrize_Bonus_Flag = 0 means bonus retained
+        if !self.level_prize_collected {
+            self.add_score(5000);
+        }
+
+        // Path and speed bonuses only apply to non-Elsewhere levels (< 0x49 in map order).
+        let level_idx = self.current_level.0 as usize;
+        if self.current_level.0 < FIRST_ELSEWHERE_LEVEL_ID {
+            // Path bonus: per-level multiplier × 1000
+            if level_idx < PATH_BONUS_TABLE.len() {
+                let path_mult = PATH_BONUS_TABLE[level_idx] as u32;
+                if path_mult > 0 {
+                    self.add_score(path_mult * 1000);
+                }
+            }
+
+            // Speed bonus: 10,000 points if completion time <= threshold.
+            // ASM completion time = 180 - remaining + (clocks_collected * 180), capped at 255.
+            if level_idx < SPEED_BONUS_TABLE.len() {
+                let threshold = SPEED_BONUS_TABLE[level_idx];
+                if threshold > 0 {
+                    let elapsed_secs = LEVEL_TIMER_START_SECONDS
+                        .saturating_sub(self.level_timer.seconds)
+                        .saturating_add(self.clocks_collected * LEVEL_TIMER_START_SECONDS);
+                    let completion_time = elapsed_secs.min(255) as u8;
+                    if completion_time <= threshold {
+                        self.add_score(10_000);
+                    }
+                }
+            }
+        }
     }
 
     /// Check if the player is standing on a teleporter block and return the destination.

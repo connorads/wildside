@@ -114,6 +114,34 @@ const LEVEL_TIMER_START_SECONDS: u16 = 180; // 3:00
 const LEVEL_TIMER_MAX_SECONDS: u16 = 600; // 10:00
 const LEVEL_TIMER_CLOCK_BONUS_SECONDS: u16 = 180; // +3:00
 const LEVEL_TIMER_FRAMES_PER_SECOND: u16 = 60;
+const SCORE_CAP: u32 = 9_999_999;
+/// ASM: FirstElsewhere_LevelID = $49. Path/speed bonuses only for levels < this.
+const FIRST_ELSEWHERE_LEVEL_ID: u8 = 0x49;
+/// ASM: extra life awarded every 50,000 points.
+const SCORE_EXTRA_LIFE_INTERVAL: u32 = 50_000;
+
+/// Per-level speed bonus thresholds in seconds (ASM: SpeedBonus_Values).
+/// If level completion time (elapsed seconds) <= threshold, award 10,000 pts.
+/// 0 means speed bonus is impossible for that level.
+#[rustfmt::skip]
+const SPEED_BONUS_TABLE: [u8; 76] = [
+    20, 22, 60, 27, 19, 26, 91, 17, 54, 37, 23, 28, 35, 26, 30, 28, // 0x00-0x0F
+    75, 42, 84,171,125, 48, 60, 64,103, 92, 54, 28, 32, 43,108, 60, // 0x10-0x1F
+    71, 27,174, 96, 50, 72, 60, 82, 41, 19,220,  0,  0, 50,  0, 60, // 0x20-0x2F
+     0, 68,125, 80, 28,  0, 15,  0,  0,  0,  0, 87,  0, 98,  0,  0, // 0x30-0x3F
+     0, 95,  0, 28, 30,  0,  0,  0,  0,  0,  0,  0,                  // 0x40-0x4B
+];
+
+/// Per-level path bonus multipliers × 1000 (ASM: PathBonus_Values).
+/// Non-zero only for later levels. Multiplied by 1000 to get point value.
+#[rustfmt::skip]
+const PATH_BONUS_TABLE: [u8; 76] = [
+     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, // 0x00-0x0F
+     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, // 0x10-0x1F
+     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 25,  0, 25, // 0x20-0x2F
+     0, 25, 25, 25, 10,  0, 10,  0,  0,  0,  0, 20,  0, 50,  0,  0, // 0x30-0x3F
+     0, 25,  0, 25, 25,  0,  0,  0,  0,  0,  0,  0,                  // 0x40-0x4B
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
@@ -453,6 +481,10 @@ pub struct NativeRuntime {
     y_look_offset: i16,
     /// Set to true when player takes damage during current level (for no-hit bonus).
     level_damage_taken: bool,
+    /// Set to true when player collects any prize from a block (disqualifies no-prize bonus).
+    level_prize_collected: bool,
+    /// Number of clock pickups collected during current level (for completion time calc).
+    clocks_collected: u16,
     /// Two-player alternating mode enabled.
     two_player: bool,
     /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
@@ -1166,6 +1198,8 @@ impl NativeRuntime {
             level_timer: LevelTimer::new(),
             y_look_offset: 0,
             level_damage_taken: false,
+            level_prize_collected: false,
+            clocks_collected: 0,
             two_player: false,
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
@@ -1271,6 +1305,8 @@ impl NativeRuntime {
         self.evanescent_blocks.clear();
         self.ghost_groups.clear();
         self.level_timer = LevelTimer::new();
+        self.level_prize_collected = false;
+        self.clocks_collected = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
     }
@@ -1854,6 +1890,8 @@ impl NativeRuntime {
                     self.reload_block_grid_for_level(self.current_level);
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
                     self.level_timer = LevelTimer::new();
+                    self.level_prize_collected = false;
+                    self.clocks_collected = 0;
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -1887,15 +1925,19 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else if self.number_continues > 0 {
-                    // Use a continue: restore lives and respawn at current level
+                    // Use a continue: restore lives and respawn at current level.
+                    // ASM: Use_Continue clears helmet, diamonds, resets to 3 lives / 2 HP.
                     self.number_continues -= 1;
                     self.number_lives = 3;
                     self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
                     self.current_form = PlayerForm::TheKid;
                     self.pending_form = None;
+                    self.diamond_count = 0;
                     self.reload_block_grid_for_level(self.current_level);
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
                     self.level_timer = LevelTimer::new();
+                    self.level_prize_collected = false;
+                    self.clocks_collected = 0;
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -2166,17 +2208,7 @@ impl NativeRuntime {
 
         // Flag collision: touching the flag completes the level
         if self.player_touches_flag(&slice) {
-            // Time bonus: remaining seconds × 100
-            self.score += u32::from(self.level_timer.seconds) * 100;
-            // No-hit bonus: 5000 points if no damage taken during level
-            if !self.level_damage_taken {
-                self.score += 5000;
-            }
-            // Speed bonus: 10000 points if completed in under 60 seconds
-            let elapsed = 180u16.saturating_sub(self.level_timer.seconds);
-            if elapsed < 60 {
-                self.score += 10_000;
-            }
+            self.apply_level_completion_bonuses();
             self.opening_slice = Some(slice);
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
@@ -4593,14 +4625,17 @@ mod tests {
             PlayerLifecycle::LevelComplete { .. }
         ));
 
-        // Score should include time bonus + no-hit bonus + speed bonus
-        let elapsed = 180u16.saturating_sub(seconds_remaining);
+        // Score should include time bonus + no-hit + no-prize + speed bonus.
+        // Level 0 speed threshold = 20s. Elapsed ~4s after 260 frames, so bonus applies.
+        let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
+        let speed_threshold = SPEED_BONUS_TABLE[0];
         let expected = u32::from(seconds_remaining) * 100
             + 5000  // no-hit bonus (no damage taken)
-            + if elapsed < 60 { 10_000 } else { 0 }; // speed bonus
+            + 5000  // no-prize bonus (no prize blocks hit)
+            + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
         assert_eq!(
             runtime.score, expected,
-            "score should include time, no-hit, and speed bonuses"
+            "score should include time, no-hit, no-prize, and speed bonuses"
         );
     }
 
@@ -4628,8 +4663,11 @@ mod tests {
         let seconds_remaining = runtime.level_timer.seconds;
         runtime.step_frame(FrameInput::default());
 
-        let elapsed = 180u16.saturating_sub(seconds_remaining);
-        let expected = u32::from(seconds_remaining) * 100 + if elapsed < 60 { 10_000 } else { 0 }; // speed bonus only, no no-hit
+        let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
+        let speed_threshold = SPEED_BONUS_TABLE[0];
+        let expected = u32::from(seconds_remaining) * 100
+            + 5000  // no-prize bonus (no prize blocks hit)
+            + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
         assert_eq!(
             runtime.score, expected,
             "no-hit bonus should be absent when damage was taken"
