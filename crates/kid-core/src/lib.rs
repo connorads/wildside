@@ -9284,7 +9284,8 @@ mod tests {
     }
 
     #[test]
-    fn robot_charge_returns_to_walking() {
+    fn robot_charge_flips_direction_on_timer() {
+        // ASM: charge is permanent — timer expiry flips direction, stays charging
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
@@ -9295,6 +9296,29 @@ mod tests {
         step_robot(&mut enemy, Some(&grid), None, &mut None);
         assert_eq!(enemy.wait_timer, 0);
         step_robot(&mut enemy, Some(&grid), None, &mut None);
+        // Should flip direction but stay charging
+        assert_eq!(enemy.robot_state, RobotState::Charging);
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(enemy.wait_timer, ROBOT_CHARGE_FLIP_BASE);
+    }
+
+    #[test]
+    fn robot_charge_exits_on_edge() {
+        // ASM: edge during charge → return to walking
+        let grid = grid_with_platform(17, 0, 10); // short platform
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        enemy.robot_state = RobotState::Charging;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+        enemy.wait_timer = 100;
+        // Step until edge detected
+        for _ in 0..60 {
+            step_robot(&mut enemy, Some(&grid), None, &mut None);
+            if matches!(enemy.robot_state, RobotState::Walking) {
+                break;
+            }
+        }
         assert_eq!(enemy.robot_state, RobotState::Walking);
         assert_eq!(enemy.wait_timer, ROBOT_SHOOT_INTERVAL);
     }

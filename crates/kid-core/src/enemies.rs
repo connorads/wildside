@@ -10,12 +10,16 @@ use super::{
 pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
 pub(crate) const MINI_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
 pub(crate) const MINI_SKULL_GRAVITY_FP: i32 = 0x0000_1200;
-pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
+pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 
 // Big Hopping Skull: gravity $FA0, x_vel ±$10000, y_vel -$20000
+// TODO(fidelity): BigHoppingSkull is a continuous bouncer in ASM (Big_Hopping_Skull.asm),
+// not a discrete hopper. ASM uses word-sized velocities (x_vel=1, y_vel=-2) and $FA0
+// gravity with wall/floor/ceiling deflection — no ground delay phase. Currently
+// approximated as a Hopper archetype with invented jump speeds.
 pub(crate) const BIG_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_0000;
 pub(crate) const BIG_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0002_0000;
-pub(crate) const BIG_SKULL_GRAVITY_FP: i32 = 0x0000_0FA0;
+pub(crate) const BIG_SKULL_GRAVITY_FP: i32 = 0x0000_0FA0; // matches ASM $FA0
 pub(crate) const BIG_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
 
 pub(crate) struct HopperConstants {
@@ -53,6 +57,8 @@ pub(crate) const ENEMY_PROBE_HEIGHT: i32 = 16;
 pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     let (base_hp, base_speed, speed_step) = match family {
         // Goat: HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
+        // TODO(fidelity): Goat has player-tracking callback (Goat.asm loc_3CC18) —
+        // turns toward player if >32px away. Not in native step_pacer.
         EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
         // Armadillo: HP = enemy_level + 1 (min 1). Base speed $8000, step $10000.
         EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
@@ -2087,11 +2093,13 @@ pub(crate) fn robot_walk_speed(hit_points: u8) -> i32 {
 /// Robot charge speed: always $28000 (Robot.asm line 157).
 pub(crate) const ROBOT_CHARGE_SPEED: i32 = 0x2_8000;
 
-/// Robot shoot interval (frames between shots while walking).
+/// Robot shoot interval: ASM Robot.asm init sets $4A(a5) = $20 = 32 frames.
 pub(crate) const ROBOT_SHOOT_INTERVAL: u16 = 32;
 
-/// Robot charge duration after shoot phase.
-pub(crate) const ROBOT_CHARGE_DURATION: u16 = 40;
+/// Robot charge direction-flip timer base: ASM Robot.asm sets $54(a5) = $F = 15.
+/// Reloads to (random_byte >> 1) + $F (range 15-142) on each flip.
+/// The charge is permanent until wall hit — no timed exit.
+pub(crate) const ROBOT_CHARGE_FLIP_BASE: u16 = 15;
 
 /// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
 pub(crate) const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
@@ -2184,13 +2192,14 @@ pub(crate) fn step_robot(
                     });
                 }
 
-                // Enter charge mode
+                // Enter charge mode — ASM: permanent until wall hit
                 enemy.robot_state = RobotState::Charging;
-                enemy.wait_timer = ROBOT_CHARGE_DURATION;
+                enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
             }
         }
         RobotState::Charging => {
-            // Charge at high speed
+            // ASM Robot.asm: charge is permanent until wall hit.
+            // Direction-flip timer fires periodically; Robot stays charging.
             enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
@@ -2207,6 +2216,7 @@ pub(crate) fn step_robot(
                     moving_right,
                 );
                 if wall.hit {
+                    // Wall hit ends charge → return to walking
                     reverse_enemy_direction(enemy);
                     enemy.robot_state = RobotState::Walking;
                     enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
@@ -2218,6 +2228,7 @@ pub(crate) fn step_robot(
                     cx - ENEMY_PROBE_HALF_WIDTH
                 };
                 if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+                    // Edge → also exit charge
                     reverse_enemy_direction(enemy);
                     enemy.robot_state = RobotState::Walking;
                     enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
@@ -2225,11 +2236,15 @@ pub(crate) fn step_robot(
                 }
             }
 
+            // Direction-flip timer: flip direction, stay charging
+            // ASM reload: (random_byte >> 1) + $F (range 15-142)
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
             } else {
-                enemy.robot_state = RobotState::Walking;
-                enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+                reverse_enemy_direction(enemy);
+                // Approximate randomised reload with fixed base
+                // TODO(fidelity): ASM uses random_byte for reload range 15-142
+                enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
             }
         }
     }
@@ -2650,8 +2665,10 @@ pub(crate) const EMO_ROCK_HOVER_HEIGHT: [i32; 3] = [0x50, 0x3C, 0x28];
 /// Level 0: $4000, Level 1: $6000, Level 2: $8000.
 pub(crate) const EMO_ROCK_GRAVITY: [i32; 3] = [0x4000, 0x6000, 0x8000];
 
-/// EmoRock terminal velocity while dropping.
-pub(crate) const EMO_ROCK_TERMINAL_VELOCITY: i32 = 0x6_0000;
+/// EmoRock terminal velocity threshold/cap while dropping.
+/// ASM Emo_Rock.asm:72-74: if y_vel > $60000, reset to $40000.
+pub(crate) const EMO_ROCK_VELOCITY_THRESHOLD: i32 = 0x6_0000;
+pub(crate) const EMO_ROCK_VELOCITY_CAP: i32 = 0x4_0000;
 
 /// EmoRock walk speed after landing.
 pub(crate) const EMO_ROCK_WALK_SPEED: i32 = 0x8000;
@@ -2711,7 +2728,13 @@ pub(crate) fn step_emo_rock(
     // Dropping phase: apply gravity, check floor.
     let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
     let gravity = EMO_ROCK_GRAVITY[level_index];
-    enemy.y_velocity = (enemy.y_velocity + gravity).min(EMO_ROCK_TERMINAL_VELOCITY);
+    let new_yv = enemy.y_velocity + gravity;
+    // ASM Emo_Rock.asm:72-74: if exceeds $60000, snap to $40000
+    enemy.y_velocity = if new_yv > EMO_ROCK_VELOCITY_THRESHOLD {
+        EMO_ROCK_VELOCITY_CAP
+    } else {
+        new_yv
+    };
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
     if let Some(grid) = block_grid {
@@ -2996,9 +3019,9 @@ pub(crate) fn step_boss_fire(
             projectiles.push(EnemyProjectile {
                 x_pos: enemy.x_pos,
                 y_pos: enemy.y_pos,
-                x_velocity: dir * 0x4_0000,
+                x_velocity: dir * 0x3_0000, // ASM: 3 px/frame (word)
                 y_velocity: 0,
-                lifetime: 45,
+                lifetime: 50, // ASM: 50 frames moving phase
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
@@ -3104,11 +3127,17 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Drips => 1,
         EnemyFamily::Hand => 1,
         EnemyFamily::Tornado => 1,
-        EnemyFamily::DragonWalking => 2,    // HP 2-3
+        EnemyFamily::DragonWalking => 1,    // HP 1-3 (ASM Dragon.asm:65 addq.w #1)
         EnemyFamily::HeadyMetal => 37,      // ASM: $25 = 37 hits
-        EnemyFamily::Shishkaboss => 20,     // ASM: $14 per head × 3 = 60 total; we use 20
-        EnemyFamily::BoomerangBosses => 30, // ASM: $1E per head × 3 = 90 total; we use 30
-        EnemyFamily::BagelBrothers => 30,   // ASM: $1E per head × 3 = 90 total; we use 30
+        // TODO(fidelity): Shishkaboss is 3 heads: head1=$14(20), head2=$1E(30), head3=$1E(30).
+        // Currently single-entity with head1 HP. Needs multi-head object system.
+        EnemyFamily::Shishkaboss => 20,
+        // TODO(fidelity): BoomerangBosses is 3 heads with scripted waypoint movement.
+        // Currently single-entity tracker. Needs multi-head + movement scripts.
+        EnemyFamily::BoomerangBosses => 30,
+        // TODO(fidelity): BagelBrothers is 3 heads with choreographed scripts.
+        // Projectile x_vel should be 3 px/frame (not 4), lifetime 50+200 (not 45).
+        EnemyFamily::BagelBrothers => 30,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
         _ => 0,
@@ -3127,8 +3156,8 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
-        // Robot: shoot interval timer ($4A = 32 frames).
-        EnemyFamily::Robot => ROBOT_SHOOT_INTERVAL,
+        // Robot: ASM init $54(a5) low word = 1 (fires on 2nd frame).
+        EnemyFamily::Robot => 1,
         // TarMonster: starts submerged, waits before first emergence.
         EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
         // Drips: first drop after one interval.
