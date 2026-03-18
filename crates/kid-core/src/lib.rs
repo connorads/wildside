@@ -11920,4 +11920,58 @@ mod tests {
             insta::assert_yaml_snapshot!("jump_sequence_6frames", trace);
         });
     }
+
+    // -------------------------------------------------------------------
+    // Determinism — same inputs must produce identical state (MR1)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn deterministic_replay_produces_identical_trace() {
+        let inputs: Vec<FrameInput> = (0..300)
+            .map(|f| match f {
+                0..=59 => FrameInput::default(),
+                60..=79 => FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                80..=85 => FrameInput {
+                    right: true,
+                    b: true,
+                    ..FrameInput::default()
+                },
+                86..=150 => FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                _ => FrameInput::default(),
+            })
+            .collect();
+
+        fn run_scenario(inputs: &[FrameInput]) -> Vec<NativeTraceFrame> {
+            let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+            runtime.set_block_grid(grid_with_floor_at_row(17));
+            start_level(&mut runtime);
+            for _ in 0..260 {
+                runtime.step_frame(FrameInput::default());
+            }
+            inputs
+                .iter()
+                .map(|input| {
+                    runtime.step_frame(*input);
+                    runtime.trace_frame()
+                })
+                .collect()
+        }
+
+        let run1 = run_scenario(&inputs);
+        let run2 = run_scenario(&inputs);
+        assert_eq!(run1.len(), run2.len());
+        for (i, (a, b)) in run1.iter().zip(run2.iter()).enumerate() {
+            assert_eq!(
+                format!("{a:?}"),
+                format!("{b:?}"),
+                "divergence at frame {i}"
+            );
+        }
+    }
 }
