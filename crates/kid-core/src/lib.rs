@@ -12495,4 +12495,70 @@ mod tests {
         assert!(input.right, "bit 3 = Right");
         assert!(!input.start, "bit 7 should be stripped");
     }
+
+    /// Determinism: running the same scenario twice must produce identical traces.
+    /// Non-determinism would invalidate all oracle comparisons.
+    #[test]
+    fn determinism_same_scenario_produces_identical_traces() {
+        let manifest = manifest_with_levels(3);
+        let script = vec![0u8; 121]; // 120 frames of idle
+
+        let trace1 = run_script_with_warp(manifest.clone(), &script, 120, Some(0));
+        let trace2 = run_script_with_warp(manifest, &script, 120, Some(0));
+
+        assert_eq!(trace1.len(), trace2.len(), "trace lengths differ");
+        for (i, (a, b)) in trace1.iter().zip(trace2.iter()).enumerate() {
+            assert_eq!(a.kid_x_pos, b.kid_x_pos, "frame {i}: kid_x_pos differs");
+            assert_eq!(a.kid_y_pos, b.kid_y_pos, "frame {i}: kid_y_pos differs");
+            assert_eq!(
+                a.camera_x_pos, b.camera_x_pos,
+                "frame {i}: camera_x_pos differs"
+            );
+            assert_eq!(
+                a.camera_y_pos, b.camera_y_pos,
+                "frame {i}: camera_y_pos differs"
+            );
+            assert_eq!(a.score, b.score, "frame {i}: score differs");
+            assert_eq!(
+                a.number_hitpoints, b.number_hitpoints,
+                "frame {i}: HP differs"
+            );
+            assert_eq!(
+                a.active_enemy_object_count, b.active_enemy_object_count,
+                "frame {i}: enemy count differs"
+            );
+        }
+    }
+
+    /// Determinism with active gameplay inputs (walk + jump).
+    #[test]
+    fn determinism_active_gameplay_identical_traces() {
+        let manifest = manifest_with_levels(3);
+        let mut script = vec![0u8; 181]; // 180 frames
+        // Walk right from frame 60
+        for s in script.iter_mut().skip(60).take(90) {
+            *s = 1 << 3; // right
+        }
+        // Jump at frame 90
+        for s in script.iter_mut().skip(90).take(4) {
+            *s |= 1 << 4; // B button (jump)
+        }
+
+        let trace1 = run_script_with_warp(manifest.clone(), &script, 180, Some(0));
+        let trace2 = run_script_with_warp(manifest, &script, 180, Some(0));
+
+        assert_eq!(trace1.len(), trace2.len());
+        for (i, (a, b)) in trace1.iter().zip(trace2.iter()).enumerate() {
+            assert_eq!(a.kid_x_pos, b.kid_x_pos, "frame {i}: kid_x_pos differs");
+            assert_eq!(a.kid_y_pos, b.kid_y_pos, "frame {i}: kid_y_pos differs");
+            assert_eq!(
+                a.kid_x_velocity, b.kid_x_velocity,
+                "frame {i}: kid_x_velocity differs"
+            );
+            assert_eq!(
+                a.kid_y_velocity, b.kid_y_velocity,
+                "frame {i}: kid_y_velocity differs"
+            );
+        }
+    }
 }
