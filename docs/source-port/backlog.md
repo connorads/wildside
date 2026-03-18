@@ -16,7 +16,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 007 | [x] | P1 | camera | Screen shakes/moves weirdly when hit | Take damage, confirm camera stays stable |
 | 008 | [x] | P1 | render | Unwanted dark overlay effect when hit | Take damage, confirm no full-screen tint |
 | 009 | [x] | P2 | menu | No menu — spawns directly into game | Launch, confirm title screen appears |
-| 010 | [~] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
+| 010 | [x] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
 | 011 | [~] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Capture frame, compare brick tiles to oracle |
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | Prize blocks vanish on hit (correct behaviour) |
@@ -58,9 +58,11 @@ camera-relative rates. Effect is subtle (e.g. Forest: 26% camera speed) matching
 Both Dragon (flying) and DragonWalking (pacer) correctly set facing in their step functions.
 Sprite system flips based on facing. Needs live reproduction to identify specific case.
 
-### 010 — Enemy attacks
-DragonWalking breath, Drips drops, Archer arrows, and boss retaliation projectiles are wired.
-Mark as "investigate" — some families may still be missing projectile spawning.
+### 010 — Enemy attacks (MOSTLY DONE)
+11 enemy families + 4 bosses + 3 helmets + 3 environmental sources have projectile support.
+Only gaps: UFO beam (child object system, spawns beam segments) and Fire Demon fire trails
+(child objects spawned on death). Both require a child-object spawning system not yet built.
+All simple projectile-based attacks are implemented.
 
 ### 011 — Bricks half-broken
 Block rendering uses `block_mapping.resolve(skin, block_type)` with theme-specific tile quads.
