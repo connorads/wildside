@@ -6273,6 +6273,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         }];
 
         activate_enemies(
@@ -6454,6 +6455,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
 
         let mut grounded_skull = None;
@@ -6515,6 +6517,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
 
         let mut grounded_skull = None;
@@ -6627,6 +6630,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -6698,6 +6702,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -7826,6 +7831,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         }
     }
 
@@ -7983,6 +7989,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -8034,6 +8041,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -8113,6 +8121,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         assert_eq!(bouncer_gravity(&make(1)), 0x1000);
         assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -8200,6 +8209,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(
@@ -8250,6 +8260,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -8306,6 +8317,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -8366,6 +8378,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -8429,6 +8442,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
 
         // Step until it lands
@@ -8562,6 +8576,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8607,6 +8622,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8700,6 +8716,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -8749,6 +8766,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let mut projs = Vec::new();
         step_tank_fire(&mut enemy, &mut projs);
@@ -8812,6 +8830,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -8860,6 +8879,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -8911,6 +8931,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -8986,6 +9007,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         };
         let mut projectiles = Vec::new();
 
@@ -11657,6 +11679,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            boss_head_index: enemies::BOSS_HEAD_NONE,
         }
     }
 

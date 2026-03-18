@@ -69,13 +69,14 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining work
 
-- Structural enemy reworks: Boss multi-head (#060), HeadyMetal death phase (#062)
+- Structural enemy reworks: HeadyMetal death phase (#062)
 - Transform animation visual sprites (needs ROM tile extraction, #033)
 - Fire Demon death trail visual sprites (rendered as generic projectile)
 - RNG-dependent behaviours: Tornado patterns, Fireball perturbation, Robot charge flip timer (documented as DEVIATION)
 
 ## Recently completed
 
+- Boss multi-head system (#060) — 3 heads per boss with ASM position offsets + per-head HP
 - BigHoppingSkull continuous bouncer rework (#056) — ASM $FA0 gravity, wall/floor/ceiling/slope deflection
 - Orca X-accel, slope re-lunge, wall-pin (#061) — all 3 from ASM
 - Lift block ASM coroutine timing (#067) — 2px/frame×8 up, erase, 1px/frame×16 down

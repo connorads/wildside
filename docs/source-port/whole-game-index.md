@@ -22,11 +22,11 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 - Per-helmet transform duration from ASM Kid_Transform tables
 - Source: `kid.asm`, `constants.asm`, helmet-related vars
 
-## Bosses (wired, fidelity gaps remain)
-- All 4 boss encounters wired as single-object entities
-- TODO(fidelity): multi-head system for Shishkaboss, BoomerangBosses, BagelBrothers (#060)
-- TODO(fidelity): HeadyMetal fire rate and death phase (#062)
-- Source: boss enemy modules, VRAM/resource loading code
+## Bosses (wired, minor fidelity gaps)
+- All 4 boss encounters wired
+- Multi-head system done: 3 heads per boss with ASM position offsets and per-head HP (#060)
+- HeadyMetal: phase-dependent fire rate + early X gate done; death wobble visual pending (#062)
+- Source: boss enemy modules, kid.asm:40177-40700
 
 ## Level transitions (done)
 - 105 levels loadable, full multi-level progression, ending sequence
@@ -52,5 +52,5 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 - Advisory fields: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` (oracle-pause artefacts)
 - Authoritative fields (0 diffs): score, diamonds, position, camera, game_mode, level_id
 - Determinism: verified — identical traces from repeated scenarios
-- Code annotations: 5 TODO(fidelity), 6 DEVIATION, 1 ORIGINAL_QUIRK, 0 UNVERIFIED
+- Code annotations: 2 TODO(fidelity), 6 DEVIATION, 1 ORIGINAL_QUIRK, 0 UNVERIFIED
 - Perf: criterion benchmarks ~92ns/frame idle, ~3µs level load

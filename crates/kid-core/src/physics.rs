@@ -595,7 +595,7 @@ pub fn apply_gravity(y_vel: i32, ascending_and_b_held: bool) -> i32 {
     } else {
         GRAVITY_NORMAL
     };
-    let next = y_vel + gravity;
+    let next = y_vel.saturating_add(gravity);
     next.clamp(MAX_RISE_SPEED, MAX_FALL_SPEED)
 }
 

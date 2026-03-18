@@ -36,6 +36,60 @@ pub(crate) fn hopper_constants(family: EnemyFamily) -> HopperConstants {
         },
     }
 }
+// ── Boss multi-head constants (ASM kid.asm:40177–40700) ──
+// Each boss spawns 3 head objects at offsets from the layout spawn position.
+// Offsets are pixel-level (word), applied to the layout x_pos/y_pos.
+/// Sentinel: not a boss head.
+pub(crate) const BOSS_HEAD_NONE: u8 = 0xFF;
+
+/// Shishkaboss head Y offsets (X is same for all 3).
+pub(crate) const SHISHKABOSS_HEAD_Y_OFFSETS: [i16; 3] = [0, 0x48, 0x90]; // 0, +72, +144
+pub(crate) const SHISHKABOSS_HEAD_X_OFFSETS: [i16; 3] = [0, 0, 0];
+/// Shishkaboss per-head HP: head1=$14(20), head2=$1E(30), head3=$1E(30).
+pub(crate) const SHISHKABOSS_HEAD_HP: [u8; 3] = [20, 30, 30];
+
+/// BoomerangBosses head X offsets (Y is same for all 3).
+pub(crate) const BOOMERANG_HEAD_X_OFFSETS: [i16; 3] = [0, -0xC8, -0x1C2]; // 0, -200, -450
+pub(crate) const BOOMERANG_HEAD_Y_OFFSETS: [i16; 3] = [0, 0, 0];
+/// BoomerangBosses per-head HP: $1E(30) each.
+pub(crate) const BOOMERANG_HEAD_HP: [u8; 3] = [30, 30, 30];
+
+/// BagelBrothers head offsets.
+pub(crate) const BAGEL_HEAD_X_OFFSETS: [i16; 3] = [0, -0x64, 0]; // 0, -100, 0
+pub(crate) const BAGEL_HEAD_Y_OFFSETS: [i16; 3] = [0, -0x96, -0x12C]; // 0, -150, -300
+/// BagelBrothers per-head HP: $1E(30) each.
+pub(crate) const BAGEL_HEAD_HP: [u8; 3] = [30, 30, 30];
+
+/// Returns true if this enemy family uses multi-head boss spawning.
+pub(crate) fn is_multi_head_boss(family: EnemyFamily) -> bool {
+    matches!(
+        family,
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers
+    )
+}
+
+/// Get per-head HP and position offsets for a multi-head boss.
+pub(crate) fn boss_head_config(family: EnemyFamily) -> ([u8; 3], [i16; 3], [i16; 3]) {
+    match family {
+        EnemyFamily::Shishkaboss => (
+            SHISHKABOSS_HEAD_HP,
+            SHISHKABOSS_HEAD_X_OFFSETS,
+            SHISHKABOSS_HEAD_Y_OFFSETS,
+        ),
+        EnemyFamily::BoomerangBosses => (
+            BOOMERANG_HEAD_HP,
+            BOOMERANG_HEAD_X_OFFSETS,
+            BOOMERANG_HEAD_Y_OFFSETS,
+        ),
+        EnemyFamily::BagelBrothers => (
+            BAGEL_HEAD_HP,
+            BAGEL_HEAD_X_OFFSETS,
+            BAGEL_HEAD_Y_OFFSETS,
+        ),
+        _ => ([1, 1, 1], [0, 0, 0], [0, 0, 0]),
+    }
+}
+
 // Enemy half-width for terrain probes (8px, matching the 16px sprite).
 pub(crate) const ENEMY_PROBE_HALF_WIDTH: i32 = 8;
 // Enemy height for terrain probes (16px).
@@ -340,6 +394,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) ufo_beam_segments: u8,
     /// UFO beam: frames until next segment. ASM $4A(a5).
     pub(crate) ufo_beam_interval: u8,
+    /// Boss head index (0, 1, 2) for multi-head bosses. BOSS_HEAD_NONE if not a boss head.
+    pub(crate) boss_head_index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -722,7 +778,6 @@ pub(crate) fn activate_enemies(
         // Dragon Flying uses hit_points_plus_one as script variant selector (ASM $46(a5)),
         // not as HP. All other families treat it as enemy_level for HP scaling.
         let enemy_level = object.hit_points_plus_one.saturating_sub(1) as u8;
-        let hit_points = spawn_hit_points(family, enemy_level);
         let spawn_y = spawn_y_pos(family, object_y);
         // Dragon Flying: variant from layout, anchor Y from spawn position (ASM $44(a5)).
         let dragon_variant = if matches!(family, EnemyFamily::Dragon) {
@@ -730,42 +785,74 @@ pub(crate) fn activate_enemies(
         } else {
             0
         };
-        active.push(ActiveEnemy {
-            segment_index: view.segment_index,
-            layout_index: index,
-            family,
-            x_pos: spawn_x_pos(family, object_x),
-            y_pos: spawn_y,
-            x_velocity: spawn_x_velocity(family, enemy_level),
-            y_velocity: spawn_y_velocity(family),
-            x_acceleration: spawn_x_acceleration(family),
-            y_acceleration: spawn_y_acceleration(family),
-            facing: spawn_facing(family, spawn_x_pos(family, object_x), player_x),
-            on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
-            hit_points,
-            grounded_frames: 0,
-            damage_flash_frames: 0,
-            palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
-            wait_timer: spawn_wait_timer(family),
-            dragon_phase: spawn_dragon_phase(family),
-            dragon_phase_frames: 0,
-            dragon_script_variant: dragon_variant,
-            dragon_script_cmd: 0,
-            dragon_anchor_y: spawn_y,
-            dragon_descent_index: 0,
-            dragon_descent_frames: 0,
-            ninja_state: NinjaState::Stealth,
-            hand_state: HandState::Walking,
-            lion_state: LionState::Walking,
-            robot_state: RobotState::Walking,
-            orca_state: OrcaState::Walking,
-            wall_pinned: false,
-            tar_monster_state: TarMonsterState::default(),
-            spinning_twins_phase: SpinningTwinsPhase::default(),
-            spinning_twins_orbit_index: 0,
-            ufo_beam_segments: 0,
-            ufo_beam_interval: 0,
-        });
+
+        // Multi-head bosses spawn 3 head objects per layout entry.
+        let head_count = if is_multi_head_boss(family) { 3u8 } else { 1 };
+        let (head_hp_table, head_x_offsets, head_y_offsets) = if is_multi_head_boss(family) {
+            boss_head_config(family)
+        } else {
+            ([0u8; 3], [0i16; 3], [0i16; 3])
+        };
+
+        for head_idx in 0..head_count {
+            let hit_points = if is_multi_head_boss(family) {
+                head_hp_table[head_idx as usize]
+            } else {
+                spawn_hit_points(family, enemy_level)
+            };
+            let base_x = spawn_x_pos(family, object_x);
+            let base_y = spawn_y;
+            let head_x = if is_multi_head_boss(family) {
+                let offset_px = head_x_offsets[head_idx as usize];
+                (base_x as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
+            } else {
+                base_x
+            };
+            let head_y = if is_multi_head_boss(family) {
+                let offset_px = head_y_offsets[head_idx as usize];
+                (base_y as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
+            } else {
+                base_y
+            };
+
+            active.push(ActiveEnemy {
+                segment_index: view.segment_index,
+                layout_index: index,
+                family,
+                x_pos: head_x,
+                y_pos: head_y,
+                x_velocity: spawn_x_velocity(family, enemy_level),
+                y_velocity: spawn_y_velocity(family),
+                x_acceleration: spawn_x_acceleration(family),
+                y_acceleration: spawn_y_acceleration(family),
+                facing: spawn_facing(family, head_x, player_x),
+                on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
+                hit_points,
+                grounded_frames: 0,
+                damage_flash_frames: 0,
+                palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
+                wait_timer: spawn_wait_timer(family),
+                dragon_phase: spawn_dragon_phase(family),
+                dragon_phase_frames: 0,
+                dragon_script_variant: dragon_variant,
+                dragon_script_cmd: 0,
+                dragon_anchor_y: head_y,
+                dragon_descent_index: 0,
+                dragon_descent_frames: 0,
+                ninja_state: NinjaState::Stealth,
+                hand_state: HandState::Walking,
+                lion_state: LionState::Walking,
+                robot_state: RobotState::Walking,
+                orca_state: OrcaState::Walking,
+                wall_pinned: false,
+                tar_monster_state: TarMonsterState::default(),
+                spinning_twins_phase: SpinningTwinsPhase::default(),
+                spinning_twins_orbit_index: 0,
+                ufo_beam_segments: 0,
+                ufo_beam_interval: 0,
+                boss_head_index: if is_multi_head_boss(family) { head_idx } else { BOSS_HEAD_NONE },
+            });
+        }
     }
 }
 
@@ -3323,14 +3410,10 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Tornado => 1,
         EnemyFamily::DragonWalking => 1,    // HP 1-3 (ASM Dragon.asm:65 addq.w #1)
         EnemyFamily::HeadyMetal => 37,      // ASM: $25 = 37 hits
-        // TODO(fidelity): Shishkaboss is 3 heads: head1=$14(20), head2=$1E(30), head3=$1E(30).
-        // Currently single-entity with head1 HP. Needs multi-head object system.
+        // Multi-head bosses: HP is set per-head in activate_enemies via boss_head_config.
+        // These values are fallback defaults (head 1 HP).
         EnemyFamily::Shishkaboss => 20,
-        // TODO(fidelity): BoomerangBosses is 3 heads with scripted waypoint movement.
-        // Currently single-entity tracker. Needs multi-head + movement scripts.
         EnemyFamily::BoomerangBosses => 30,
-        // TODO(fidelity): BagelBrothers is 3 heads with choreographed scripts.
-        // Projectile x_vel should be 3 px/frame (not 4), lifetime 50+200 (not 45).
         EnemyFamily::BagelBrothers => 30,
         // Existing families: Diamond and MiniHoppingSkull use raw level as
         // HP with a minimum of 1 (legacy behaviour preserved).
