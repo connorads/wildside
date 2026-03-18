@@ -301,15 +301,10 @@ impl NativeRuntime {
                 slice.player.on_ground = true;
                 slice.player.y_velocity = 0;
                 slice.terrain.floor_y_pos = floor_y_fp;
-                // Recompute camera to match snapped player position so the
-                // camera starts at the follow target (player - 160px) rather
-                // than the header-derived screen snap.
-                let bounds = self.level_bounds(level_id);
-                let max_cam_y = i32::from(bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
-                let cam_y = (floor_y_px as i32 - physics::CAMERA_PLAYER_OFFSET)
-                    .max(0)
-                    .min(max_cam_y);
-                slice.camera.y_pos = (cam_y.max(0) as u32) << 16;
+                // Camera is NOT recomputed here — the screen-snap camera from
+                // level_start_pose (using header PlayerStart_Y_pos) is correct.
+                // ASM: divu.w #$E0 / mulu.w #$E0 on PlayerStart_Y_pos, not
+                // on the gravity-settled floor position.
             }
         }
         slice

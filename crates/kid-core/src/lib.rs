@@ -1477,6 +1477,9 @@ impl NativeRuntime {
                     };
                 }
             }
+            // TODO(fidelity): ASM has 5 intro sequences (Load_IntroSequence1-5)
+            // plus Load_IntroSequence6 (title screen). Each loads unique VDP art.
+            // Native uses 3 segments as placeholder — visual art needs ROM extraction.
             BootState::IntroSequence { segment, elapsed } => {
                 *elapsed += 1;
                 if start_pressed || *elapsed >= INTRO_SEGMENT_FRAMES {

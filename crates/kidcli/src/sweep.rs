@@ -24,6 +24,11 @@ const ADVISORY_FIELDS: &[&str] = &[
     "murder_wall_x",
 ];
 
+/// Position tolerance in FP16.16 units. 6px = 0x0006_0000 accommodates the ±5px
+/// PLAYER_HALF_WIDTH offset from gravity settling differences between native
+/// (instant floor snap) and oracle (physics-based settling).
+const POSITION_TOLERANCE: u32 = 0; // 0px — exact match required
+
 /// Result tier controls how much data is collected per level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "snake_case")]
@@ -504,11 +509,8 @@ fn compare_sweep_states(
                 oracle_value: format!("{:#06x}", oracle.current_level_id),
             });
         }
-        // Position thresholds: 6px (0x0006_0000) accommodates the ±5px
-        // PLAYER_HALF_WIDTH offset from gravity settling differences between
-        // native (instant floor snap) and oracle (physics-based settling).
         let cam_x_delta = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
-        if cam_x_delta > 0x0006_0000 {
+        if cam_x_delta > POSITION_TOLERANCE {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "camera_x_pos".into(),
@@ -517,7 +519,7 @@ fn compare_sweep_states(
             });
         }
         let cam_y_delta = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
-        if cam_y_delta > 0x0006_0000 {
+        if cam_y_delta > POSITION_TOLERANCE {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "camera_y_pos".into(),
@@ -541,7 +543,7 @@ fn compare_sweep_states(
                 oracle_value: format!("{}", oracle.number_hitpoints),
             });
         }
-        if native.kid_x_pos.abs_diff(oracle.kid_x_pos) > 0x0006_0000 {
+        if native.kid_x_pos.abs_diff(oracle.kid_x_pos) > POSITION_TOLERANCE {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "kid_x_pos".into(),
@@ -549,7 +551,7 @@ fn compare_sweep_states(
                 oracle_value: format!("{:#010x}", oracle.kid_x_pos),
             });
         }
-        if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > 0x0006_0000 {
+        if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > POSITION_TOLERANCE {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
                 field: "kid_y_pos".into(),
@@ -1745,7 +1747,7 @@ mod tests {
     }
 
     #[test]
-    fn compare_sweep_states_tolerates_small_camera_drift() {
+    fn compare_sweep_states_exact_match_produces_no_diffs() {
         let native = vec![OracleState {
             label: "settle".into(),
             frame_index: 780,
@@ -1769,9 +1771,7 @@ mod tests {
             diamond_power_active: false,
             murder_wall_x: None,
         }];
-        let mut oracle = native.clone();
-        // Small drift within tolerance (0x0004_0000)
-        oracle[0].camera_x_pos = 0x0100_2000;
+        let oracle = native.clone();
 
         let diffs = compare_sweep_states(&native, &oracle);
         assert!(diffs.is_empty());
