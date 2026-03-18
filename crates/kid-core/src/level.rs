@@ -275,6 +275,12 @@ impl NativeRuntime {
     /// in the block grid. Used after `boot_to_level` where the entry animation
     /// is skipped — the header spawn Y is approximate and the ASM relies on
     /// gravity to settle the player on the first frame.
+    ///
+    /// Known limitation (#037): uses simplified probe_floor_hitbox which only
+    /// checks ±half_width edges. Levels where terrain is beyond the hitbox
+    /// width (e.g. 0x52: staircase at col 2, player at col 1) settle at the
+    /// wrong Y. ASM runs Hibernate_Object_1Frame (kid.asm:7710) with full
+    /// collision detection. Fix requires running real frame steps here.
     pub(crate) fn level_respawn_slice_with_floor_snap(
         &self,
         level_id: LevelId,
