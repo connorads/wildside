@@ -62,8 +62,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Scorpion => (3, 0x0001_8000, 0),
         // Driller: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
-        // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
-        EnemyFamily::Tank => (2, 0x0000_8000, 0x0001_0000),
+        // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        // ASM: Tank.asm lines 52-64, Tank_Shooting.asm lines 53-65.
+        EnemyFamily::Tank => (2, 0x0000_8000, 0x0000_8000),
         // Fire Demon: HP = enemy_level + 3 (min 3). Base speed $8000, step $8000.
         EnemyFamily::FireDemon => (3, 0x0000_8000, 0x0000_8000),
         // Robot: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
