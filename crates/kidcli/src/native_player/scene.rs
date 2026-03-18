@@ -885,15 +885,24 @@ fn build_game_scene_filtered(
                 .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
             {
                 push_player_sprite(&mut commands, object, trace, level_visuals);
-                // TODO(fidelity): real form-change spinning sprite animation from ASM
+                // Placeholder: palette flash overlay during form transform.
+                // Real animation uses per-helmet sprite art + palette cycling
+                // (Kid_Transform, kid.asm:8369). Alternates white/yellow for
+                // a rough approximation of the palette cycling effect.
                 if trace.form_change_flash_frames > 0 {
                     let (sx, sy) = player_screen_position(object, trace);
+                    let flash_phase = trace.form_change_flash_frames % 4;
+                    let colour = if flash_phase < 2 {
+                        [255, 255, 255] // white
+                    } else {
+                        [255, 255, 128] // warm yellow — palette cycling hint
+                    };
                     commands.push(DrawCommand::Rect {
                         x: sx - 12,
                         y: sy - 24,
                         width: 24,
                         height: 32,
-                        colour: [255, 255, 255],
+                        colour,
                     });
                 }
             }

@@ -326,7 +326,10 @@ impl NativeRuntime {
         };
         self.current_form = form;
         self.number_hitpoints = form.max_hitpoints();
-        // TODO(fidelity): real form-change spinning sprite animation from ASM
+        // TODO(fidelity): real Kid_Transform animation (kid.asm:8369-8607).
+        // Each helmet has unique per-frame sprite art + palette cycling tables
+        // (stru_7EFA..stru_8064). During transform, Currently_transforming flag
+        // freezes timer and hides HUD. Requires ROM sprite tile extraction.
         self.form_change_flash_frames = 8;
         // Clear ability state on form change
         self.skycutter_flipboard = 0;
