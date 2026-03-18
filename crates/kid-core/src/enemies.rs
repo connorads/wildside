@@ -1019,8 +1019,10 @@ pub(crate) fn step_ufo_beam(
 /// with UFO. Default acceleration from `loc_35444` is $C00 when random table
 /// entry is 0. Terminal velocity from table entries: $18000 is common.
 /// Cycle timer from `unk_3588C`: 60/40/30 by enemy_level.
-// TODO(fidelity): ASM picks random patterns from unk_35344 each sub-cycle;
-// native uses fixed acceleration. Levels 1-2 double accel/terminal via loc_3592E.
+// TODO(fidelity): ASM picks from 16 random patterns (unk_35344) each sub-cycle
+// using (random_byte XOR x_pos) & 0xF. Each pattern sets target_x_vel,
+// target_y_vel, x_accel, y_accel. Native uses fixed acceleration reversal.
+// RNG-dependent so will diverge from oracle regardless — cosmetic only.
 pub(crate) const TORNADO_ACCELERATION: i32 = 0xC00;
 pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x1_8000;
 /// Per-level cycle timers: level 0 = 60, level 1 = 40, level 2 = 30 (unk_3588C).
@@ -2454,7 +2456,8 @@ pub(crate) fn spawn_tar_monster_retaliation(
 
 /// Fire Demon death trail: spawn 3 fire fragments arcing outward from death position.
 pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
-    // TODO(fidelity): real fire trail sprite art from ASM
+    // TODO(fidelity): real fire trail sprite art (rendered as generic projectile;
+    // ASM uses fire fragment VRAM tiles). Needs ROM sprite extraction.
     let fragments: [(i32, i32); 3] = [
         (0x1_8000, -0x2_0000),  // right arc
         (-0x1_8000, -0x2_0000), // left arc
