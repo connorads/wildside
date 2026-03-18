@@ -2,7 +2,7 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
+    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
     NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader};
@@ -244,20 +244,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     }
     let mut sfx_engine = SfxEngine::new();
 
-    // Trigger BGM for the initial level (the level-change check in the main loop
-    // compares current_level_id with trace.current_level, but both start at 0x00
-    // so it never fires for the first level).
-    if let Some(ref mut gems) = gems_engine {
-        let level_theme = manifest
-            .levels
-            .get(0usize)
-            .and_then(|l| l.header_metadata.as_ref())
-            .map(|h| h.level_theme);
-        if let Some(bgm) = level_theme.and_then(theme_to_bgm) {
-            gems.play_sound(bgm);
-        }
-    }
-
     let mut runtime = initialise_runtime(manifest, &session_assets);
     let mut trace = runtime.trace_frame();
     #[allow(unused_assignments)]
@@ -265,6 +251,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
     let mut current_level_id: u8 = 0x00;
+    let mut in_game_bgm_playing = false; // triggers BGM on first InGame entry
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
 
@@ -387,11 +374,15 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             }
         }
 
-        if trace.current_level.0 != current_level_id {
+        // Trigger BGM when entering InGame for the first time or on level change
+        let level_changed = trace.current_level.0 != current_level_id;
+        let entered_in_game = trace.game_mode == GameMode::InGame && !in_game_bgm_playing;
+        if level_changed || entered_in_game {
             let new_level = trace.current_level.0;
-            fade_alpha = 255;
-            fading_in = true;
-            // Trigger BGM for new level's theme
+            if level_changed {
+                fade_alpha = 255;
+                fading_in = true;
+            }
             if let Some(ref mut gems) = gems_engine {
                 let level_theme = manifest
                     .levels
@@ -402,15 +393,23 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     gems.play_sound(bgm);
                 }
             }
-            match load_native_session_assets(manifest, new_level) {
-                Ok(new_assets) => {
-                    session_assets = new_assets;
-                    current_level_id = new_level;
-                }
-                Err(error) => {
-                    eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
+            if level_changed {
+                match load_native_session_assets(manifest, new_level) {
+                    Ok(new_assets) => {
+                        session_assets = new_assets;
+                        current_level_id = new_level;
+                    }
+                    Err(error) => {
+                        eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
+                    }
                 }
             }
+            if trace.game_mode == GameMode::InGame {
+                in_game_bgm_playing = true;
+            }
+        }
+        if trace.game_mode != GameMode::InGame {
+            in_game_bgm_playing = false;
         }
 
         let scene = build_scene(
@@ -513,7 +512,6 @@ fn initialise_runtime(
 ) -> NativeRuntime {
     let mut runtime = NativeRuntime::new(manifest.clone());
     runtime.set_block_grid(session_assets.block_grid.clone());
-    runtime.enter_level_playtest(LevelId(0));
     runtime
 }
 
