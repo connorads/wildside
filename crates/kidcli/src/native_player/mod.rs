@@ -2112,6 +2112,18 @@ mod tests {
     }
 
     #[test]
+    fn forest_ripple_starts_from_row_selector_not_row_index() {
+        assert_eq!(
+            super::scene::layered_background_shimmer_offset(0, 4, 0x10, Some(0x11)),
+            0
+        );
+        assert_eq!(
+            super::scene::layered_background_shimmer_offset(0, 4, 0x20, Some(0x11)),
+            1
+        );
+    }
+
+    #[test]
     fn build_game_scene_emits_level_layout_terrain_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

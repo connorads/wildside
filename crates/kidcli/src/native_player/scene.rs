@@ -743,24 +743,13 @@ pub(super) fn push_background_tiles(
             }
         }
         kid_render::BackgroundVisuals::Layered(background) => {
-            // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
-            // (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
-            const FOREST_RIPPLE: [i8; 64] = [
-                0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4,
-                3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6,
-                5, 5, 4, 4, 3, 3, 2, 1,
-            ];
-            let shimmer_start = background.effect_start_row_selector.map(|s| s as usize);
-            // Phase advances by 1 table entry every 4 frames (Time_Frames >> 2),
-            // masked to 64 entries.
-            let time_phase = (trace.frame_index / 4) & 0x3F;
             for (row_index, row) in background.rows.iter().enumerate() {
-                let shimmer_offset = if shimmer_start.is_some_and(|s| row_index >= s) {
-                    let table_idx = (time_phase + row_index) & 0x3F;
-                    i32::from(FOREST_RIPPLE[table_idx])
-                } else {
-                    0
-                };
+                let shimmer_offset = layered_background_shimmer_offset(
+                    trace.frame_index,
+                    row_index,
+                    row.selector,
+                    background.effect_start_row_selector,
+                );
                 for (column, tile) in row.tiles.iter().enumerate() {
                     let (screen_x, screen_y) = background_tile_screen_position(
                         trace,
@@ -789,6 +778,28 @@ pub(super) fn push_background_tiles(
             }
         }
     }
+}
+
+// Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
+// (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
+const FOREST_RIPPLE: [i8; 64] = [
+    0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2,
+    2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3,
+    2, 1,
+];
+
+pub(super) fn layered_background_shimmer_offset(
+    frame_index: usize,
+    row_index: usize,
+    row_selector: u8,
+    effect_start_row_selector: Option<u8>,
+) -> i32 {
+    if !effect_start_row_selector.is_some_and(|start| row_selector >= start) {
+        return 0;
+    }
+    let time_phase = (frame_index / 4) & 0x3F;
+    let table_idx = (time_phase + row_index) & 0x3F;
+    i32::from(FOREST_RIPPLE[table_idx])
 }
 
 pub(super) fn background_tile_screen_position(
