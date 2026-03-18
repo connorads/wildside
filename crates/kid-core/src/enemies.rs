@@ -2081,12 +2081,17 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
 // Applied relative to spawn position during orbit phase.
 pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
     [-0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11];
-// Frames spent in orbit before dropping to walking.
+// TODO(fidelity): orbit-to-walk transition should be collision-triggered (player
+// touching the orbiting form), not timer-based. ASM: collision_type check at
+// loc_3B904. The 120-frame timer is a native approximation.
 pub(crate) const SPINNING_TWINS_ORBIT_FRAMES: u16 = 120;
 // Gravity applied each frame once the twins drop. ASM: $2800 FP.
 pub(crate) const SPINNING_TWINS_GRAVITY: i32 = 0x2800;
 // Launch Y velocity when transitioning from orbit. ASM: -$10000.
 pub(crate) const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
+// Initial X velocity on drop: ASM sets $FFFC8000 (left) or $38000 (right).
+pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
+pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 
 /// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
 pub(crate) fn step_spinning_twins(
@@ -2107,9 +2112,13 @@ pub(crate) fn step_spinning_twins(
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
             } else {
-                // Drop to walking phase
+                // Drop to walking phase with initial X impulse (ASM loc_3BA74)
                 enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
                 enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+                enemy.x_velocity = match enemy.facing {
+                    Direction::Left => SPINNING_TWINS_DROP_X_VEL_LEFT,
+                    Direction::Right => SPINNING_TWINS_DROP_X_VEL_RIGHT,
+                };
                 enemy.on_ground = false;
             }
         }
