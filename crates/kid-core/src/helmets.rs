@@ -687,8 +687,19 @@ impl NativeRuntime {
         });
     }
 
-    /// Diamond Power: Start+A with 20+ diamonds grants invulnerability and
-    /// damages nearby enemies. Costs 20 diamonds per activation. Eyeclops excluded.
+    /// Diamond Power: Start+A with 20+ diamonds activates a per-form special.
+    /// ASM: DiamondPower_Run (kid.asm:44331). Eyeclops excluded.
+    ///
+    /// Two tiers: 20 diamonds = basic power, 50 diamonds (20+30) = enhanced power.
+    /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
+    ///
+    /// TODO(fidelity): per-form Diamond Power effects — currently approximated as
+    /// invulnerability + AoE damage for all forms. ASM has 20 unique effects:
+    /// Kid/IronKnight/Maniaxe=CircleOfDoom, Skycutter/Berzerker=Invulnerability,
+    /// Cyclone=SlashingRain/TrackingRain, RedStealth=SamuraiHaze/DeathSnake,
+    /// Juggernaut=FiveWayShot(5 diamonds), Micromax=MiniSnake/SwiftMiniSnake.
+    /// Tier 2: Kid/RedStealth=DeathSnake, IronKnight=ExtraHitPoint,
+    /// Berzerker=WallOfDeath, Maniaxe=ExtraLife. Timer varies per power type.
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
         // Count down active Diamond Power
         if self.diamond_power_frames > 0 {
@@ -723,6 +734,7 @@ impl NativeRuntime {
         }
 
         // Activation: Start+A held, not Eyeclops, 20+ diamonds
+        // ASM: DiamondPower_Check (kid.asm:44357)
         if !(input.start && input.a) {
             return;
         }
@@ -733,9 +745,20 @@ impl NativeRuntime {
             return;
         }
 
-        // Consume 20 diamonds, activate for 480 frames (8 seconds).
-        // ASM: move.w #$1E0,(Diamond_power_timer).w
+        // Two-tier diamond cost (ASM: DiamondPower_Check):
+        // Always costs 20. If remaining >= 30 after first deduction, costs 30 more
+        // (50 total) for enhanced tier-2 power.
         self.diamond_count -= 20;
+        let _tier2 = if self.diamond_count >= 30 {
+            self.diamond_count -= 30;
+            true
+        } else {
+            false
+        };
+
+        // Timer: 480 frames (0x1E0) for most powers. Varies per form in full ASM:
+        // MiniSnake=480, SwiftMiniSnake/DeathSnake=1200(0x4B0),
+        // SlashingRain=720(0x2D0), TrackingRain=1800(0x708).
         self.diamond_power_frames = 480;
     }
 }

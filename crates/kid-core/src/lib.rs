@@ -5486,6 +5486,48 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_tier2_costs_50_diamonds() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        // 50+ diamonds triggers tier 2: costs 20 + 30 = 50
+        runtime.diamond_count = 55;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            runtime.diamond_power_frames > 0,
+            "Diamond Power should activate"
+        );
+        assert_eq!(runtime.diamond_count, 5, "tier 2 should consume 50 diamonds (20+30)");
+    }
+
+    #[test]
+    fn diamond_power_tier1_when_under_50() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        for _ in 0..260 {
+            runtime.step_frame(FrameInput::default());
+        }
+        // 49 diamonds: deduct 20, remaining 29 < 30, so tier 1 only
+        runtime.diamond_count = 49;
+        runtime.step_frame(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            runtime.diamond_power_frames > 0,
+            "Diamond Power should activate"
+        );
+        assert_eq!(runtime.diamond_count, 29, "tier 1 should consume only 20 diamonds");
+    }
+
+    #[test]
     fn diamond_power_blocked_for_eyeclops() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
