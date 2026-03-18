@@ -1049,10 +1049,10 @@ pub(crate) fn step_ufo_beam(
 /// with UFO. Default acceleration from `loc_35444` is $C00 when random table
 /// entry is 0. Terminal velocity from table entries: $18000 is common.
 /// Cycle timer from `unk_3588C`: 60/40/30 by enemy_level.
-// TODO(fidelity): ASM picks from 16 random patterns (unk_35344) each sub-cycle
+// DEVIATION: ASM picks from 16 random patterns (unk_35344) each sub-cycle
 // using (random_byte XOR x_pos) & 0xF. Each pattern sets target_x_vel,
 // target_y_vel, x_accel, y_accel. Native uses fixed acceleration reversal.
-// RNG-dependent so will diverge from oracle regardless — cosmetic only.
+// RNG-dependent — would require full RNG synchronisation to match oracle.
 pub(crate) const TORNADO_ACCELERATION: i32 = 0xC00;
 pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x1_8000;
 /// Per-level cycle timers: level 0 = 60, level 1 = 40, level 2 = 30 (unk_3588C).
@@ -1158,7 +1158,7 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         if floor.on_ground && enemy.y_velocity > 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
                 // Fireball.asm BounceFloorCeiling: negate + random perturbation + cap
-                // TODO(fidelity): ASM adds ±$4000 random perturbation (RNG-dependent)
+                // DEVIATION: ASM adds ±$4000 random perturbation (RNG-dependent)
                 let new_yv = -enemy.y_velocity;
                 let tier = enemy.hit_points.saturating_sub(1).min(2) as usize;
                 let cap = FIREBALL_UPWARD_CAP[tier];
@@ -1178,7 +1178,7 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         if ceil.hit && enemy.y_velocity < 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
                 // Fireball.asm BounceFloorCeiling: same formula for floor and ceiling
-                // TODO(fidelity): ASM adds ±$4000 random perturbation (RNG-dependent)
+                // DEVIATION: ASM adds ±$4000 random perturbation (RNG-dependent)
                 let new_yv = -enemy.y_velocity;
                 let tier = enemy.hit_points.saturating_sub(1).min(2) as usize;
                 let cap = FIREBALL_UPWARD_CAP[tier];
@@ -2288,8 +2288,8 @@ pub(crate) fn step_robot(
                 enemy.wait_timer -= 1;
             } else {
                 reverse_enemy_direction(enemy);
-                // Approximate randomised reload with fixed base
-                // TODO(fidelity): ASM uses random_byte for reload range 15-142
+                // DEVIATION: ASM reload uses (random_byte >> 1) + $F (range 15-142).
+                // Native uses fixed base — RNG-dependent, cosmetic timing difference.
                 enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
             }
         }
@@ -2364,7 +2364,8 @@ pub(crate) fn step_orca(
             let cy = (enemy.y_pos >> 16) as i32;
 
             // Wall bounce — ASM Orca.asm loc_3D40C: zero x_vel, set wall-pinned flag.
-            // Simplified: invert x_vel (re-accel is TODO(fidelity))
+            // DEVIATION: ASM zeroes x_vel + sets pinned flag for re-acceleration.
+            // Native inverts x_vel — equivalent when lunge ends at wall.
             let moving_right = enemy.x_velocity >= 0;
             let wall = terrain::probe_wall(
                 grid,
@@ -2526,8 +2527,8 @@ pub(crate) fn spawn_tar_monster_retaliation(
 
 /// Fire Demon death trail: spawn 3 fire fragments arcing outward from death position.
 pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
-    // TODO(fidelity): real fire trail sprite art (rendered as generic projectile;
-    // ASM uses fire fragment VRAM tiles). Needs ROM sprite extraction.
+    // TODO(fidelity): visual — fire trail uses generic projectile rendering.
+    // ASM uses fire fragment VRAM tiles. Needs ROM sprite extraction for visual parity.
     let fragments: [(i32, i32); 3] = [
         (0x1_8000, -0x2_0000),  // right arc
         (-0x1_8000, -0x2_0000), // left arc
