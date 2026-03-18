@@ -603,7 +603,16 @@ pub(super) fn push_background_tiles(
             }
         }
         kid_render::BackgroundVisuals::Layered(background) => {
+            // TODO(fidelity): shimmer period and amplitude from ASM constants
+            let shimmer_start = background.effect_start_row_selector.map(|s| s as usize);
             for (row_index, row) in background.rows.iter().enumerate() {
+                // Water shimmer: horizontal sine offset for rows past the effect start
+                let shimmer_offset = if shimmer_start.is_some_and(|s| row_index >= s) {
+                    let phase = row_index as f32 * 0.4 + trace.frame_index as f32 * 0.15;
+                    (phase.sin() * 2.0) as i32
+                } else {
+                    0
+                };
                 for (column, tile) in row.tiles.iter().enumerate() {
                     let (screen_x, screen_y) = background_tile_screen_position(
                         trace,
@@ -613,6 +622,7 @@ pub(super) fn push_background_tiles(
                         camera_x_px,
                         camera_y_px,
                     );
+                    let screen_x = screen_x + shimmer_offset;
                     if screen_x <= -8
                         || screen_y <= -8
                         || screen_x >= FRAME_WIDTH as i32
