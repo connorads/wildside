@@ -996,8 +996,8 @@ struct OpeningSliceState {
     terrain: TerrainState,
     level_bounds: LevelBounds,
     objects: ObjectSystemState,
-    /// Prize block headbutted this frame — None if no prize block was hit.
-    prize_block_hit: Option<terrain::PrizeContent>,
+    /// Prize block headbutted this frame — (content, x_px, y_px) or None.
+    prize_block_hit: Option<(terrain::PrizeContent, u16, u16)>,
     /// Lift block activated this frame — (x_px, y_px) of block top-left in pixels.
     lift_block_hit: Option<(u16, u16)>,
     /// Drill block headbutted this frame — (x_fp, y_fp) centre of spawned projectile.
@@ -1959,8 +1959,13 @@ impl NativeRuntime {
         self.step_lava_geysers(&slice);
 
         // Prize block item spawning: spawn floating visual then apply prize
-        if let Some(content) = slice.prize_block_hit {
+        if let Some((content, x_px, y_px)) = slice.prize_block_hit {
             self.blocks_hit_this_frame += 1;
+            self.floating_items.push(FloatingItem {
+                x_px,
+                y_px,
+                remaining: 30,
+            });
             self.apply_prize_content(content);
         }
 

@@ -437,7 +437,9 @@ impl OpeningSliceState {
                     let content = block_list
                         .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
                         .unwrap_or(terrain::PrizeContent::Diamond);
-                    self.prize_block_hit = Some(content);
+                    let block_x_px = u16::from(probe.cell_x) * 16;
+                    let block_y_px = u16::from(probe.cell_y) * 16;
+                    self.prize_block_hit = Some((content, block_x_px, block_y_px));
                     // Clear the now-revealed prize block
                     grid.set_cell_at(
                         probe.cell_x,
@@ -454,7 +456,9 @@ impl OpeningSliceState {
                         let content = block_list
                             .and_then(|bl| bl.prize_content_at(probe.cell_x, probe.cell_y))
                             .unwrap_or(terrain::PrizeContent::Diamond);
-                        self.prize_block_hit = Some(content);
+                        let block_x_px = u16::from(probe.cell_x) * 16;
+                        let block_y_px = u16::from(probe.cell_y) * 16;
+                        self.prize_block_hit = Some((content, block_x_px, block_y_px));
                         grid.set_cell_at(
                             probe.cell_x,
                             probe.cell_y,
