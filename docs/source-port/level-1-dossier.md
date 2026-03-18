@@ -1,4 +1,6 @@
-# Level 1 Dossier
+# Level 1 Dossier — ARCHIVED
+
+> All work in this dossier is complete. All 10 milestones done, 105 levels loadable, 63/69 oracle sweep at 0px tolerance. See `research-map.md` for remaining work.
 
 ## Scope
 

@@ -1,4 +1,6 @@
-# Level 1 Enemy Fidelity Dossier
+# Level 1 Enemy Fidelity Dossier — ARCHIVED
+
+> All 28 enemy families implemented with ASM-verified constants. Oracle sweep passes at 0px tolerance. See `research-map.md` for remaining work.
 
 ## Scope
 

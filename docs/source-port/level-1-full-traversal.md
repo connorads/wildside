@@ -1,4 +1,6 @@
-# Level 1 Full Traversal Dossier
+# Level 1 Full Traversal Dossier — ARCHIVED
+
+> Traversal parity achieved. All traversal scenarios pass oracle comparison. See `research-map.md` for remaining work.
 
 ## Scope
 

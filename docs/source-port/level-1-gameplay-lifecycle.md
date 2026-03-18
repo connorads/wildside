@@ -1,4 +1,6 @@
-# Level 1 Gameplay Lifecycle Dossier
+# Level 1 Gameplay Lifecycle Dossier — ARCHIVED
+
+> All lifecycle states implemented: pause/resume, damage, death/respawn, game over, continue. See `research-map.md` for remaining work.
 
 ## Scope
 
