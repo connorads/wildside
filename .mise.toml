@@ -91,3 +91,7 @@ description = "Sweep all 105 levels for native vs oracle parity"
 [tasks.warm-cache]
 run = "cargo run --release -p kidcli -- sweep --warm-cache-only"
 description = "Pre-populate oracle cache for all levels (no native comparison)"
+
+[tasks.perf-baseline]
+run = "cargo bench -p kid-core --bench frame_step"
+description = "Run performance benchmarks (criterion); results in target/criterion/"
