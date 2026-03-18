@@ -41,33 +41,7 @@ pub struct NativeRuntime {
     number_continues: u8,
     number_hitpoints: u16,
     invulnerable_frames: usize,
-    /// Skycutter flipboard deploy counter (0=inactive, 1..31=animating).
-    /// Increments by 2 each frame; at 17 toggles on_board; at 32 expires.
-    skycutter_flipboard: u8,
-    /// True while the player is riding the Skycutter flipboard.
-    skycutter_on_board: bool,
-    /// Cyclone vertical flight active flag.
-    cyclone_flying: bool,
-    /// Cyclone Y acceleration accumulator (signed 16-bit, applied to y_vel each frame).
-    cyclone_y_accel: i16,
-    /// RedStealth sword swing timer: counts down from startup+active to 0.
-    red_stealth_sword_timer: u8,
-    /// Eyeclops beam active flag (one beam at a time).
-    eyeclops_beam_active: bool,
-    /// Maniaxe axe in flight (reuses projectile system with turnaround).
-    maniaxe_axe_active: bool,
-    /// Maniaxe axe turnaround counter (frames until direction reversal).
-    maniaxe_turnaround: u8,
-    /// IronKnight wall climb active flag.
-    iron_knight_climbing: bool,
-    /// IronKnight wall climb Y acceleration accumulator.
-    iron_knight_climb_accel: i16,
-    /// Berzerker charge accumulator — overflows at $FF to activate charge.
-    berzerker_charge_accum: u8,
-    /// Berzerker is charging (fast enough to break blocks and damage on contact).
-    berzerker_charging: bool,
-    /// Micromax wall/ceiling stick active flag.
-    micromax_stuck: bool,
+    helmet: HelmetState,
     /// Visual flash countdown after form change (0=inactive).
     form_change_flash_frames: u8,
     paused: bool,
@@ -168,19 +142,7 @@ impl NativeRuntime {
             number_continues: 3,
             number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
             invulnerable_frames: 0,
-            skycutter_flipboard: 0,
-            skycutter_on_board: false,
-            cyclone_flying: false,
-            cyclone_y_accel: 0,
-            red_stealth_sword_timer: 0,
-            eyeclops_beam_active: false,
-            maniaxe_axe_active: false,
-            maniaxe_turnaround: 0,
-            iron_knight_climbing: false,
-            iron_knight_climb_accel: 0,
-            berzerker_charge_accum: 0,
-            berzerker_charging: false,
-            micromax_stuck: false,
+            helmet: HelmetState::default(),
             form_change_flash_frames: 0,
             paused: false,
             pause_toggle_pending: false,
@@ -849,10 +811,10 @@ impl NativeRuntime {
         let pre_physics_y_pos = slice.player.y_pos;
 
         // Helmet abilities that override normal gravity
-        let custom_gravity = self.skycutter_on_board
-            || self.cyclone_flying
-            || self.iron_knight_climbing
-            || self.micromax_stuck;
+        let custom_gravity = self.helmet.skycutter_on_board
+            || self.helmet.cyclone_flying
+            || self.helmet.iron_knight_climbing
+            || self.helmet.micromax_stuck;
         slice.step(
             effective_elapsed,
             input,
@@ -879,7 +841,7 @@ impl NativeRuntime {
         }
 
         // Berzerker charge: break Smash blocks on wall contact
-        if self.berzerker_charging {
+        if self.helmet.berzerker_charging {
             self.berzerker_break_wall_block(&slice);
         }
 
@@ -9834,7 +9796,7 @@ mod tests {
 
         rt.step_skycutter_flipboard(&mut slice, input);
 
-        assert!(rt.skycutter_flipboard > 0, "flipboard counter should start");
+        assert!(rt.helmet.skycutter_flipboard > 0, "flipboard counter should start");
     }
 
     #[test]
@@ -9848,7 +9810,7 @@ mod tests {
             ..FrameInput::default()
         };
         rt.step_skycutter_flipboard(&mut slice, c_input);
-        assert!(!rt.skycutter_on_board, "not yet mounted at frame 1");
+        assert!(!rt.helmet.skycutter_on_board, "not yet mounted at frame 1");
 
         // Step until counter crosses SKYCUTTER_MOUNT_FRAME (17)
         let no_input = FrameInput::default();
@@ -9858,7 +9820,7 @@ mod tests {
         }
         // Counter: 1 + 2*9 = 19, which crosses 17
         assert!(
-            rt.skycutter_on_board,
+            rt.helmet.skycutter_on_board,
             "should be mounted after crossing mount frame"
         );
     }
@@ -9866,7 +9828,7 @@ mod tests {
     #[test]
     fn skycutter_flight_gravity_replaces_normal_gravity() {
         let mut rt = skycutter_runtime();
-        rt.skycutter_on_board = true;
+        rt.helmet.skycutter_on_board = true;
         let mut slice = airborne_slice();
         slice.player.y_velocity = 0; // hovering
 
@@ -9880,7 +9842,7 @@ mod tests {
     #[test]
     fn skycutter_flight_gravity_slower_with_b_held() {
         let mut rt = skycutter_runtime();
-        rt.skycutter_on_board = true;
+        rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput {
             b: true,
             ..FrameInput::default()
@@ -9904,7 +9866,7 @@ mod tests {
     #[test]
     fn skycutter_b_press_kicks_upward() {
         let mut rt = skycutter_runtime();
-        rt.skycutter_on_board = true;
+        rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput::default(); // B was not held last frame
         let mut slice = airborne_slice();
         slice.player.x_velocity = 0x2_0000;
@@ -9925,7 +9887,7 @@ mod tests {
     #[test]
     fn skycutter_max_upward_velocity_clamped() {
         let mut rt = skycutter_runtime();
-        rt.skycutter_on_board = true;
+        rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput {
             b: true,
             ..FrameInput::default()
@@ -9950,7 +9912,7 @@ mod tests {
     #[test]
     fn skycutter_landing_bounces_off_ground() {
         let mut rt = skycutter_runtime();
-        rt.skycutter_on_board = true;
+        rt.helmet.skycutter_on_board = true;
         let mut slice = airborne_slice();
         slice.player.on_ground = true; // just landed
         slice.player.y_velocity = 0;
@@ -9960,22 +9922,22 @@ mod tests {
 
         assert!(!slice.player.on_ground, "should bounce off ground");
         assert_eq!(slice.player.y_velocity, SKYCUTTER_LANDING_BOUNCE);
-        assert_eq!(rt.skycutter_flipboard, 1, "deploy animation should restart");
+        assert_eq!(rt.helmet.skycutter_flipboard, 1, "deploy animation should restart");
     }
 
     #[test]
     fn skycutter_non_skycutter_form_clears_state() {
         let mut rt = skycutter_runtime();
-        rt.skycutter_on_board = true;
-        rt.skycutter_flipboard = 10;
+        rt.helmet.skycutter_on_board = true;
+        rt.helmet.skycutter_flipboard = 10;
         rt.current_form = PlayerForm::TheKid; // no longer Skycutter
 
         let mut slice = airborne_slice();
         let no_input = FrameInput::default();
         rt.step_skycutter_flipboard(&mut slice, no_input);
 
-        assert!(!rt.skycutter_on_board);
-        assert_eq!(rt.skycutter_flipboard, 0);
+        assert!(!rt.helmet.skycutter_on_board);
+        assert_eq!(rt.helmet.skycutter_flipboard, 0);
     }
 
     // --- Cyclone flight tests ---
@@ -9997,10 +9959,10 @@ mod tests {
 
         rt.step_cyclone_flight(&mut slice, input);
 
-        assert!(rt.cyclone_flying);
+        assert!(rt.helmet.cyclone_flying);
         // Initial accel ($2000) + gravity ($400) - thrust ($3000) = -$C00
         let expected: i16 = CYCLONE_ACCEL_INITIAL + CYCLONE_ACCEL_GRAVITY - CYCLONE_ACCEL_THRUST;
-        assert_eq!(rt.cyclone_y_accel, expected);
+        assert_eq!(rt.helmet.cyclone_y_accel, expected);
     }
 
     #[test]
@@ -10015,27 +9977,27 @@ mod tests {
 
         rt.step_cyclone_flight(&mut slice, input);
 
-        assert!(!rt.cyclone_flying);
+        assert!(!rt.helmet.cyclone_flying);
     }
 
     #[test]
     fn cyclone_landing_clears_flight() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = 0x800;
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = 0x800;
         let mut slice = airborne_slice();
         slice.player.on_ground = true;
 
         rt.step_cyclone_flight(&mut slice, FrameInput::default());
 
-        assert!(!rt.cyclone_flying);
+        assert!(!rt.helmet.cyclone_flying);
     }
 
     #[test]
     fn cyclone_gravity_increases_acceleration() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = 0;
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = 0;
         let mut slice = airborne_slice();
         slice.player.y_velocity = 0;
 
@@ -10043,7 +10005,7 @@ mod tests {
 
         // Accel should be 0 + GRAVITY = $400, then clamped to MAX_DESCENT ($1200)
         // since C not held. $400 < $1200 so no clamp.
-        assert_eq!(rt.cyclone_y_accel, CYCLONE_ACCEL_GRAVITY);
+        assert_eq!(rt.helmet.cyclone_y_accel, CYCLONE_ACCEL_GRAVITY);
         // Velocity should be 0 + $400 = $400
         assert_eq!(slice.player.y_velocity, i32::from(CYCLONE_ACCEL_GRAVITY));
     }
@@ -10051,8 +10013,8 @@ mod tests {
     #[test]
     fn cyclone_c_held_provides_thrust() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = CYCLONE_ACCEL_INITIAL; // $2000
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL; // $2000
         rt.prior_input = FrameInput {
             c: true,
             ..FrameInput::default()
@@ -10068,7 +10030,7 @@ mod tests {
 
         // accel = $2000 + $400 - $3000 = -$C00 (negative = upward thrust)
         let expected_accel: i16 = 0x2000 + 0x400 - 0x3000; // -0xC00
-        assert_eq!(rt.cyclone_y_accel, expected_accel);
+        assert_eq!(rt.helmet.cyclone_y_accel, expected_accel);
         assert!(
             slice.player.y_velocity < 0,
             "should gain upward velocity with C held"
@@ -10078,22 +10040,22 @@ mod tests {
     #[test]
     fn cyclone_descent_accel_capped_without_c() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT; // already at cap
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT; // already at cap
         let mut slice = airborne_slice();
         slice.player.y_velocity = 0;
 
         rt.step_cyclone_flight(&mut slice, FrameInput::default());
 
         // accel = $1200 + $400 = $1600, but capped to $1200
-        assert_eq!(rt.cyclone_y_accel, CYCLONE_ACCEL_MAX_DESCENT);
+        assert_eq!(rt.helmet.cyclone_y_accel, CYCLONE_ACCEL_MAX_DESCENT);
     }
 
     #[test]
     fn cyclone_velocity_clamped_to_max_fall() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
         let mut slice = airborne_slice();
         slice.player.y_velocity = CYCLONE_MAX_FALL_VEL; // already at max
 
@@ -10105,8 +10067,8 @@ mod tests {
     #[test]
     fn cyclone_velocity_clamped_to_max_rise() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = CYCLONE_ACCEL_MIN; // max upward thrust
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN; // max upward thrust
         rt.prior_input = FrameInput {
             c: true,
             ..FrameInput::default()
@@ -10126,15 +10088,15 @@ mod tests {
     #[test]
     fn cyclone_non_cyclone_form_clears_state() {
         let mut rt = cyclone_runtime();
-        rt.cyclone_flying = true;
-        rt.cyclone_y_accel = 0x1000;
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = 0x1000;
         rt.current_form = PlayerForm::TheKid;
 
         let mut slice = airborne_slice();
         rt.step_cyclone_flight(&mut slice, FrameInput::default());
 
-        assert!(!rt.cyclone_flying);
-        assert_eq!(rt.cyclone_y_accel, 0);
+        assert!(!rt.helmet.cyclone_flying);
+        assert_eq!(rt.helmet.cyclone_y_accel, 0);
     }
 
     fn iron_knight_runtime_with_wall() -> NativeRuntime {
@@ -10161,7 +10123,7 @@ mod tests {
         };
         rt.step_iron_knight_climb(&mut slice, input);
 
-        assert!(rt.iron_knight_climbing, "should attach to wall");
+        assert!(rt.helmet.iron_knight_climbing, "should attach to wall");
         assert_eq!(slice.player.y_velocity, IRON_KNIGHT_ATTACH_Y_VEL);
         assert_eq!(slice.player.x_velocity, 0);
     }
@@ -10180,14 +10142,14 @@ mod tests {
         };
         rt.step_iron_knight_climb(&mut slice, input);
 
-        assert!(!rt.iron_knight_climbing);
+        assert!(!rt.helmet.iron_knight_climbing);
     }
 
     #[test]
     fn iron_knight_c_press_boosts_climb_upward() {
         let mut rt = iron_knight_runtime_with_wall();
-        rt.iron_knight_climbing = true;
-        rt.iron_knight_climb_accel = 0;
+        rt.helmet.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climb_accel = 0;
 
         let mut slice = airborne_slice();
         slice.player.x_pos = 154 << 16;
@@ -10203,15 +10165,15 @@ mod tests {
         rt.step_iron_knight_climb(&mut slice, input);
 
         // Drift (+$80) then boost (-$1800), clamped to min accel (-$800)
-        assert_eq!(rt.iron_knight_climb_accel, IRON_KNIGHT_MIN_ACCEL);
+        assert_eq!(rt.helmet.iron_knight_climb_accel, IRON_KNIGHT_MIN_ACCEL);
         assert!(slice.player.y_velocity < 0, "should be climbing upward");
     }
 
     #[test]
     fn iron_knight_slides_down_without_c() {
         let mut rt = iron_knight_runtime_with_wall();
-        rt.iron_knight_climbing = true;
-        rt.iron_knight_climb_accel = 0;
+        rt.helmet.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climb_accel = 0;
 
         let mut slice = airborne_slice();
         slice.player.x_pos = 154 << 16;
@@ -10221,14 +10183,14 @@ mod tests {
 
         rt.step_iron_knight_climb(&mut slice, FrameInput::default());
 
-        assert_eq!(rt.iron_knight_climb_accel, IRON_KNIGHT_SLIDE_DRIFT);
+        assert_eq!(rt.helmet.iron_knight_climb_accel, IRON_KNIGHT_SLIDE_DRIFT);
         assert!(slice.player.y_velocity > 0, "should slide down");
     }
 
     #[test]
     fn iron_knight_b_press_jumps_off_wall() {
         let mut rt = iron_knight_runtime_with_wall();
-        rt.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climbing = true;
 
         let mut slice = airborne_slice();
         slice.player.x_pos = 154 << 16;
@@ -10241,35 +10203,35 @@ mod tests {
         };
         rt.step_iron_knight_climb(&mut slice, input);
 
-        assert!(!rt.iron_knight_climbing, "should detach on B press");
+        assert!(!rt.helmet.iron_knight_climbing, "should detach on B press");
         assert!(slice.player.y_velocity < 0, "should jump upward");
     }
 
     #[test]
     fn iron_knight_landing_stops_climb() {
         let mut rt = iron_knight_runtime_with_wall();
-        rt.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climbing = true;
 
         let mut slice = airborne_slice();
         slice.player.on_ground = true;
 
         rt.step_iron_knight_climb(&mut slice, FrameInput::default());
 
-        assert!(!rt.iron_knight_climbing, "landing should end climb");
+        assert!(!rt.helmet.iron_knight_climbing, "landing should end climb");
     }
 
     #[test]
     fn iron_knight_non_iron_knight_clears_state() {
         let mut rt = iron_knight_runtime_with_wall();
-        rt.iron_knight_climbing = true;
-        rt.iron_knight_climb_accel = 0x500;
+        rt.helmet.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climb_accel = 0x500;
         rt.current_form = PlayerForm::TheKid;
 
         let mut slice = airborne_slice();
         rt.step_iron_knight_climb(&mut slice, FrameInput::default());
 
-        assert!(!rt.iron_knight_climbing);
-        assert_eq!(rt.iron_knight_climb_accel, 0);
+        assert!(!rt.helmet.iron_knight_climbing);
+        assert_eq!(rt.helmet.iron_knight_climb_accel, 0);
     }
 
     // --- Micromax wall/ceiling stick ---
@@ -10304,7 +10266,7 @@ mod tests {
 
         rt.step_micromax_stick(&mut slice, FrameInput::default());
 
-        assert!(rt.micromax_stuck, "should stick to ceiling");
+        assert!(rt.helmet.micromax_stuck, "should stick to ceiling");
         assert_eq!(slice.player.y_velocity, 0, "velocity zeroed on stick");
     }
 
@@ -10319,13 +10281,13 @@ mod tests {
 
         rt.step_micromax_stick(&mut slice, FrameInput::default());
 
-        assert!(!rt.micromax_stuck, "should not stick while moving upward");
+        assert!(!rt.helmet.micromax_stuck, "should not stick while moving upward");
     }
 
     #[test]
     fn micromax_b_press_detaches_with_kick() {
         let mut rt = micromax_runtime_with_ceiling();
-        rt.micromax_stuck = true;
+        rt.helmet.micromax_stuck = true;
         let mut slice = airborne_slice();
         slice.player.x_pos = (3 * 16 + 8) << 16;
         slice.player.y_pos = 63 << 16;
@@ -10337,7 +10299,7 @@ mod tests {
         };
         rt.step_micromax_stick(&mut slice, input);
 
-        assert!(!rt.micromax_stuck, "should detach on B press");
+        assert!(!rt.helmet.micromax_stuck, "should detach on B press");
         assert_eq!(
             slice.player.y_velocity, MICROMAX_DETACH_Y_VEL,
             "upward kick"
@@ -10349,12 +10311,12 @@ mod tests {
     fn micromax_non_micromax_clears_stuck() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::TheKid;
-        rt.micromax_stuck = true;
+        rt.helmet.micromax_stuck = true;
 
         let mut slice = airborne_slice();
         rt.step_micromax_stick(&mut slice, FrameInput::default());
 
-        assert!(!rt.micromax_stuck, "form change should clear stuck");
+        assert!(!rt.helmet.micromax_stuck, "form change should clear stuck");
     }
 
     #[test]
@@ -10656,7 +10618,7 @@ mod tests {
 
         rt.step_red_stealth_sword(input);
 
-        assert!(rt.red_stealth_sword_timer > 0);
+        assert!(rt.helmet.red_stealth_sword_timer > 0);
     }
 
     #[test]
@@ -10674,7 +10636,7 @@ mod tests {
         };
 
         // During startup frames the sword should not be active
-        assert!(rt.red_stealth_sword_timer > RED_STEALTH_ACTIVE_FRAMES);
+        assert!(rt.helmet.red_stealth_sword_timer > RED_STEALTH_ACTIVE_FRAMES);
         assert!(!rt.sword_is_active());
     }
 
@@ -10704,7 +10666,7 @@ mod tests {
     fn red_stealth_sword_damages_nearby_enemy() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::RedStealth;
-        rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
 
         // Enemy at sword reach: player at 128px, sword at 128+28=156px
@@ -10723,7 +10685,7 @@ mod tests {
     fn red_stealth_sword_kills_1hp_enemy() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::RedStealth;
-        rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
 
         rt.active_enemies
@@ -10738,7 +10700,7 @@ mod tests {
     fn red_stealth_sword_no_hit_when_out_of_range() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::RedStealth;
-        rt.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
 
         rt.active_enemies
@@ -10766,7 +10728,7 @@ mod tests {
 
         rt.step_maniaxe_axe(&slice, input);
 
-        assert!(rt.maniaxe_axe_active);
+        assert!(rt.helmet.maniaxe_axe_active);
         assert_eq!(rt.projectiles.len(), 1);
         assert!(rt.projectiles[0].x_velocity > 0, "axe should move right");
     }
@@ -10775,7 +10737,7 @@ mod tests {
     fn maniaxe_no_double_throw() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Maniaxe;
-        rt.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_axe_active = true;
         let slice = combat_slice();
         let input = FrameInput {
             c: true,
@@ -10794,12 +10756,12 @@ mod tests {
     fn maniaxe_non_maniaxe_form_clears_state() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::TheKid;
-        rt.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_axe_active = true;
         let slice = combat_slice();
 
         rt.step_maniaxe_axe(&slice, FrameInput::default());
 
-        assert!(!rt.maniaxe_axe_active);
+        assert!(!rt.helmet.maniaxe_axe_active);
     }
 
     // --- Berzerker charge tests ---
@@ -10902,11 +10864,11 @@ mod tests {
         // Accumulator builds by $10 each frame — needs 16 frames to overflow
         for _ in 0..15 {
             rt.step_berzerker_charge(&slice);
-            assert!(!rt.berzerker_charging, "should not be charging yet");
+            assert!(!rt.helmet.berzerker_charging, "should not be charging yet");
         }
         rt.step_berzerker_charge(&slice);
         assert!(
-            rt.berzerker_charging,
+            rt.helmet.berzerker_charging,
             "should start charging after overflow"
         );
     }
@@ -10919,8 +10881,8 @@ mod tests {
             right: true,
             ..FrameInput::default()
         };
-        rt.berzerker_charging = true;
-        rt.berzerker_charge_accum = 0xFF;
+        rt.helmet.berzerker_charging = true;
+        rt.helmet.berzerker_charge_accum = 0xFF;
         let mut slice = combat_slice();
         slice.player.on_ground = true;
         slice.player.x_velocity = 0x8000; // below threshold
@@ -10928,31 +10890,31 @@ mod tests {
         rt.step_berzerker_charge(&slice);
 
         assert!(
-            !rt.berzerker_charging,
+            !rt.helmet.berzerker_charging,
             "should stop charging below threshold"
         );
-        assert_eq!(rt.berzerker_charge_accum, 0, "accumulator should reset");
+        assert_eq!(rt.helmet.berzerker_charge_accum, 0, "accumulator should reset");
     }
 
     #[test]
     fn berzerker_charge_not_active_for_other_forms() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::TheKid;
-        rt.berzerker_charging = true;
+        rt.helmet.berzerker_charging = true;
         let mut slice = combat_slice();
         slice.player.on_ground = true;
         slice.player.x_velocity = 0x2_0000;
 
         rt.step_berzerker_charge(&slice);
 
-        assert!(!rt.berzerker_charging);
+        assert!(!rt.helmet.berzerker_charging);
     }
 
     #[test]
     fn berzerker_charge_kills_enemy_on_contact() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Berzerker;
-        rt.berzerker_charging = true;
+        rt.helmet.berzerker_charging = true;
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
@@ -10972,7 +10934,7 @@ mod tests {
     fn berzerker_charging_immune_to_contact_damage() {
         let mut rt = NativeRuntime::new(manifest());
         rt.current_form = PlayerForm::Berzerker;
-        rt.berzerker_charging = true;
+        rt.helmet.berzerker_charging = true;
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
@@ -11016,7 +10978,7 @@ mod tests {
         rt.set_block_grid(grid);
 
         rt.current_form = PlayerForm::Berzerker;
-        rt.berzerker_charging = true;
+        rt.helmet.berzerker_charging = true;
 
         // Player just left of the smash block, moving right
         let bounds = rt.level_bounds(rt.current_level);

@@ -79,37 +79,37 @@ impl NativeRuntime {
         input: FrameInput,
     ) {
         if self.current_form != PlayerForm::Skycutter {
-            self.skycutter_flipboard = 0;
-            self.skycutter_on_board = false;
+            self.helmet.skycutter_flipboard = 0;
+            self.helmet.skycutter_on_board = false;
             return;
         }
 
         // C button rising edge → deploy/retract flipboard
         let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && self.skycutter_flipboard == 0 {
-            self.skycutter_flipboard = 1;
+        if c_pressed && self.helmet.skycutter_flipboard == 0 {
+            self.helmet.skycutter_flipboard = 1;
         }
 
         // Step flipboard counter
-        if self.skycutter_flipboard > 0 {
+        if self.helmet.skycutter_flipboard > 0 {
             let next = self
-                .skycutter_flipboard
+                .helmet.skycutter_flipboard
                 .saturating_add(SKYCUTTER_COUNTER_STEP);
             if next >= SKYCUTTER_FLIPBOARD_TIMEOUT {
                 // Animation complete: retract
-                self.skycutter_flipboard = 0;
+                self.helmet.skycutter_flipboard = 0;
             } else {
                 // Mount toggle at midpoint
-                if self.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME && next >= SKYCUTTER_MOUNT_FRAME
+                if self.helmet.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME && next >= SKYCUTTER_MOUNT_FRAME
                 {
-                    self.skycutter_on_board = !self.skycutter_on_board;
+                    self.helmet.skycutter_on_board = !self.helmet.skycutter_on_board;
                 }
-                self.skycutter_flipboard = next;
+                self.helmet.skycutter_flipboard = next;
             }
         }
 
         // While on board: override gravity with Skycutter flight physics
-        if self.skycutter_on_board && !slice.player.on_ground {
+        if self.helmet.skycutter_on_board && !slice.player.on_ground {
             let gravity = if input.b {
                 SKYCUTTER_GRAVITY_B_HELD
             } else {
@@ -135,10 +135,10 @@ impl NativeRuntime {
         }
 
         // Landing while on board: bounce upward
-        if self.skycutter_on_board && slice.player.on_ground {
+        if self.helmet.skycutter_on_board && slice.player.on_ground {
             slice.player.y_velocity = SKYCUTTER_LANDING_BOUNCE;
             slice.player.on_ground = false;
-            self.skycutter_flipboard = 1; // restart deploy animation
+            self.helmet.skycutter_flipboard = 1; // restart deploy animation
         }
     }
 
@@ -150,46 +150,46 @@ impl NativeRuntime {
     /// Landing clears the flying flag.
     pub(crate) fn step_cyclone_flight(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         if self.current_form != PlayerForm::Cyclone {
-            self.cyclone_flying = false;
-            self.cyclone_y_accel = 0;
+            self.helmet.cyclone_flying = false;
+            self.helmet.cyclone_y_accel = 0;
             return;
         }
 
         // C rising edge activates flight when airborne
         let c_pressed = input.c && !self.prior_input.c;
         if c_pressed && !slice.player.on_ground {
-            self.cyclone_flying = true;
-            self.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
+            self.helmet.cyclone_flying = true;
+            self.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
         }
 
         // Landing clears flight
-        if self.cyclone_flying && slice.player.on_ground {
-            self.cyclone_flying = false;
+        if self.helmet.cyclone_flying && slice.player.on_ground {
+            self.helmet.cyclone_flying = false;
             return;
         }
 
-        if !self.cyclone_flying {
+        if !self.helmet.cyclone_flying {
             return;
         }
 
         // Accumulate gravity
-        self.cyclone_y_accel = self.cyclone_y_accel.saturating_add(CYCLONE_ACCEL_GRAVITY);
+        self.helmet.cyclone_y_accel = self.helmet.cyclone_y_accel.saturating_add(CYCLONE_ACCEL_GRAVITY);
 
         // C held: apply upward thrust
         if input.c {
-            self.cyclone_y_accel = self.cyclone_y_accel.saturating_sub(CYCLONE_ACCEL_THRUST);
-            if self.cyclone_y_accel < CYCLONE_ACCEL_MIN {
-                self.cyclone_y_accel = CYCLONE_ACCEL_MIN;
+            self.helmet.cyclone_y_accel = self.helmet.cyclone_y_accel.saturating_sub(CYCLONE_ACCEL_THRUST);
+            if self.helmet.cyclone_y_accel < CYCLONE_ACCEL_MIN {
+                self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN;
             }
         } else {
             // Not thrusting: cap descent acceleration
-            if self.cyclone_y_accel > CYCLONE_ACCEL_MAX_DESCENT {
-                self.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
+            if self.helmet.cyclone_y_accel > CYCLONE_ACCEL_MAX_DESCENT {
+                self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
             }
         }
 
         // Apply acceleration to velocity
-        slice.player.y_velocity += i32::from(self.cyclone_y_accel);
+        slice.player.y_velocity += i32::from(self.helmet.cyclone_y_accel);
 
         // Clamp velocity to rise/fall limits.
         slice.player.y_velocity = slice
@@ -206,15 +206,15 @@ impl NativeRuntime {
         input: FrameInput,
     ) {
         if self.current_form != PlayerForm::IronKnight {
-            self.iron_knight_climbing = false;
-            self.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
             return;
         }
 
         let c_pressed = input.c && !self.prior_input.c;
 
         // Try to attach to wall on C press while airborne and not already climbing
-        if c_pressed && !slice.player.on_ground && !self.iron_knight_climbing
+        if c_pressed && !slice.player.on_ground && !self.helmet.iron_knight_climbing
             && let Some(ref grid) = self.block_grid {
                 // Probe wall in player's facing direction
                 let facing_right = slice.player.facing == Direction::Right;
@@ -222,30 +222,30 @@ impl NativeRuntime {
                 let py = (slice.player.y_pos >> 16) as i32;
                 let probe = terrain::probe_wall(grid, px, py, 5, 31, facing_right);
                 if probe.hit {
-                    self.iron_knight_climbing = true;
-                    self.iron_knight_climb_accel = 0;
+                    self.helmet.iron_knight_climbing = true;
+                    self.helmet.iron_knight_climb_accel = 0;
                     slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
                     slice.player.x_velocity = 0;
                     return;
                 }
             }
 
-        if !self.iron_knight_climbing {
+        if !self.helmet.iron_knight_climbing {
             return;
         }
 
         // Landing stops climb
         if slice.player.on_ground {
-            self.iron_knight_climbing = false;
-            self.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
             return;
         }
 
         // B press = jump off wall
         let b_pressed = input.b && !self.prior_input.b;
         if b_pressed {
-            self.iron_knight_climbing = false;
-            self.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
             // Jump away from wall
             let jump_height =
                 physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
@@ -262,34 +262,34 @@ impl NativeRuntime {
             let probe = terrain::probe_wall(grid, px, py, 5, 31, facing_right);
             if !probe.hit {
                 // Wall gone, fall off
-                self.iron_knight_climbing = false;
-                self.iron_knight_climb_accel = 0;
+                self.helmet.iron_knight_climbing = false;
+                self.helmet.iron_knight_climb_accel = 0;
                 return;
             }
         }
 
         // Accumulate drift (sliding down)
-        self.iron_knight_climb_accel = self
-            .iron_knight_climb_accel
+        self.helmet.iron_knight_climb_accel = self
+            .helmet.iron_knight_climb_accel
             .saturating_add(IRON_KNIGHT_SLIDE_DRIFT);
 
         // C press: boost upward
         if c_pressed {
-            self.iron_knight_climb_accel = self
-                .iron_knight_climb_accel
+            self.helmet.iron_knight_climb_accel = self
+                .helmet.iron_knight_climb_accel
                 .saturating_sub(IRON_KNIGHT_CLIMB_BOOST);
-            if self.iron_knight_climb_accel < IRON_KNIGHT_MIN_ACCEL {
-                self.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
+            if self.helmet.iron_knight_climb_accel < IRON_KNIGHT_MIN_ACCEL {
+                self.helmet.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
             }
         } else {
             // Cap slide-down acceleration
-            if self.iron_knight_climb_accel > IRON_KNIGHT_MAX_SLIDE_ACCEL {
-                self.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL;
+            if self.helmet.iron_knight_climb_accel > IRON_KNIGHT_MAX_SLIDE_ACCEL {
+                self.helmet.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL;
             }
         }
 
         // Apply acceleration to velocity
-        slice.player.y_velocity += i32::from(self.iron_knight_climb_accel);
+        slice.player.y_velocity += i32::from(self.helmet.iron_knight_climb_accel);
 
         // Clamp velocity to climb/fall limits.
         slice.player.y_velocity = slice
@@ -306,16 +306,16 @@ impl NativeRuntime {
     pub(crate) fn step_micromax_stick(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         // Only active for Micromax form
         if self.current_form != PlayerForm::Micromax {
-            self.micromax_stuck = false;
+            self.helmet.micromax_stuck = false;
             return;
         }
 
         // Already stuck: handle slide and detach
-        if self.micromax_stuck {
+        if self.helmet.micromax_stuck {
             let b_pressed = input.b && !self.prior_input.b;
             if b_pressed {
                 // Detach: kick upward and away
-                self.micromax_stuck = false;
+                self.helmet.micromax_stuck = false;
                 slice.player.y_velocity = MICROMAX_DETACH_Y_VEL;
                 // Reverse facing direction
                 slice.player.facing = match slice.player.facing {
@@ -335,7 +335,7 @@ impl NativeRuntime {
             slice.player.y_velocity += MICROMAX_STUCK_GRAVITY;
             if slice.player.y_velocity > MICROMAX_STUCK_MAX_FALL {
                 // Peeled off
-                self.micromax_stuck = false;
+                self.helmet.micromax_stuck = false;
                 return;
             }
 
@@ -350,7 +350,7 @@ impl NativeRuntime {
                 let wall_r = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, true);
                 let wall_l = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, false);
                 if !ceiling.hit && !wall_r.hit && !wall_l.hit {
-                    self.micromax_stuck = false;
+                    self.helmet.micromax_stuck = false;
                 }
             }
             return;
@@ -372,7 +372,7 @@ impl NativeRuntime {
             // Check ceiling contact
             let ceiling = terrain::probe_ceiling(grid, px, py, MICROMAX_HALF_W, MICROMAX_H);
             if ceiling.hit {
-                self.micromax_stuck = true;
+                self.helmet.micromax_stuck = true;
                 slice.player.y_velocity = 0;
                 slice.player.x_velocity = 0;
                 return;
@@ -382,7 +382,7 @@ impl NativeRuntime {
             let facing_right = slice.player.facing == Direction::Right;
             let wall = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, facing_right);
             if wall.hit {
-                self.micromax_stuck = true;
+                self.helmet.micromax_stuck = true;
                 slice.player.y_velocity = 0;
                 slice.player.x_velocity = 0;
             }
@@ -392,26 +392,26 @@ impl NativeRuntime {
     /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
     pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
         if self.current_form != PlayerForm::RedStealth {
-            self.red_stealth_sword_timer = 0;
+            self.helmet.red_stealth_sword_timer = 0;
             return;
         }
 
         // C rising edge starts a new swing (only if not already swinging)
         let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && self.red_stealth_sword_timer == 0 {
-            self.red_stealth_sword_timer = RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
+        if c_pressed && self.helmet.red_stealth_sword_timer == 0 {
+            self.helmet.red_stealth_sword_timer = RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
         }
 
         // Tick down active timer
-        if self.red_stealth_sword_timer > 0 {
-            self.red_stealth_sword_timer -= 1;
+        if self.helmet.red_stealth_sword_timer > 0 {
+            self.helmet.red_stealth_sword_timer -= 1;
         }
     }
 
     /// Returns true if the sword hitbox is active (past startup, within active frames).
     pub(crate) fn sword_is_active(&self) -> bool {
-        self.red_stealth_sword_timer > 0
-            && self.red_stealth_sword_timer <= RED_STEALTH_ACTIVE_FRAMES
+        self.helmet.red_stealth_sword_timer > 0
+            && self.helmet.red_stealth_sword_timer <= RED_STEALTH_ACTIVE_FRAMES
     }
 
     /// Check sword hitbox against active enemies during active frames.
@@ -532,7 +532,7 @@ impl NativeRuntime {
 
     /// When Berzerker is charging, side contact with enemies damages them.
     pub(crate) fn process_berzerker_charge_hits(&mut self, slice: &OpeningSliceState) {
-        if !self.berzerker_charging {
+        if !self.helmet.berzerker_charging {
             return;
         }
 
@@ -582,19 +582,19 @@ impl NativeRuntime {
     /// Step Eyeclops beam: C press fires a horizontal beam projectile.
     pub(crate) fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.current_form != PlayerForm::Eyeclops {
-            self.eyeclops_beam_active = false;
+            self.helmet.eyeclops_beam_active = false;
             return;
         }
 
         // Check if beam expired
-        if self.eyeclops_beam_active && !self.projectiles.iter().any(|p| p.lifetime > 0) {
-            self.eyeclops_beam_active = false;
+        if self.helmet.eyeclops_beam_active && !self.projectiles.iter().any(|p| p.lifetime > 0) {
+            self.helmet.eyeclops_beam_active = false;
         }
 
         // C rising edge fires beam (one at a time)
         let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && !self.eyeclops_beam_active {
-            self.eyeclops_beam_active = true;
+        if c_pressed && !self.helmet.eyeclops_beam_active {
+            self.helmet.eyeclops_beam_active = true;
             let dir = if slice.player.facing == Direction::Right {
                 1
             } else {
@@ -618,15 +618,15 @@ impl NativeRuntime {
     /// Step Maniaxe thrown axe: boomerang projectile that reverses after 12 frames.
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.current_form != PlayerForm::Maniaxe {
-            self.maniaxe_axe_active = false;
+            self.helmet.maniaxe_axe_active = false;
             return;
         }
 
         // C rising edge throws axe (only one at a time)
         let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && !self.maniaxe_axe_active {
-            self.maniaxe_axe_active = true;
-            self.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
+        if c_pressed && !self.helmet.maniaxe_axe_active {
+            self.helmet.maniaxe_axe_active = true;
+            self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
             let dir = if slice.player.facing == Direction::Right {
                 1
             } else {
@@ -648,20 +648,20 @@ impl NativeRuntime {
         }
 
         // Turnaround: reverse axe projectile direction after travel frames
-        if self.maniaxe_axe_active {
-            if self.maniaxe_turnaround > 0 {
-                self.maniaxe_turnaround -= 1;
+        if self.helmet.maniaxe_axe_active {
+            if self.helmet.maniaxe_turnaround > 0 {
+                self.helmet.maniaxe_turnaround -= 1;
             }
-            if self.maniaxe_turnaround == 0 {
+            if self.helmet.maniaxe_turnaround == 0 {
                 // Reverse the axe projectile direction
                 if let Some(p) = self.projectiles.last_mut() {
                     p.x_velocity = -p.x_velocity;
-                    self.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
+                    self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
                 }
             }
             // Check if axe expired
             if !self.projectiles.iter().any(|p| p.lifetime > 0) {
-                self.maniaxe_axe_active = false;
+                self.helmet.maniaxe_axe_active = false;
             }
         }
     }
@@ -669,8 +669,8 @@ impl NativeRuntime {
     /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
     pub(crate) fn step_berzerker_charge(&mut self, slice: &OpeningSliceState) {
         if self.current_form != PlayerForm::Berzerker {
-            self.berzerker_charging = false;
-            self.berzerker_charge_accum = 0;
+            self.helmet.berzerker_charging = false;
+            self.helmet.berzerker_charge_accum = 0;
             return;
         }
 
@@ -678,19 +678,19 @@ impl NativeRuntime {
         if vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
             || !(slice.player.on_ground || self.previous_input.left || self.previous_input.right)
         {
-            self.berzerker_charging = false;
-            self.berzerker_charge_accum = 0;
+            self.helmet.berzerker_charging = false;
+            self.helmet.berzerker_charge_accum = 0;
             return;
         }
 
         let (new_accum, overflow) = self
-            .berzerker_charge_accum
+            .helmet.berzerker_charge_accum
             .overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
         if overflow {
-            self.berzerker_charge_accum = 0xFF;
-            self.berzerker_charging = true;
+            self.helmet.berzerker_charge_accum = 0xFF;
+            self.helmet.berzerker_charging = true;
         } else {
-            self.berzerker_charge_accum = new_accum;
+            self.helmet.berzerker_charge_accum = new_accum;
         }
     }
 

@@ -283,7 +283,7 @@ impl NativeRuntime {
             return None;
         }
         // Berzerker charging is immune to contact damage (they damage enemies instead)
-        if self.berzerker_charging {
+        if self.helmet.berzerker_charging {
             return None;
         }
 
@@ -424,19 +424,7 @@ impl NativeRuntime {
         // animation. Currently renders as a flash overlay. Needs ROM sprite
         // tile extraction for real visuals.
         // Clear ability state on form change
-        self.skycutter_flipboard = 0;
-        self.skycutter_on_board = false;
-        self.cyclone_flying = false;
-        self.cyclone_y_accel = 0;
-        self.red_stealth_sword_timer = 0;
-        self.eyeclops_beam_active = false;
-        self.maniaxe_axe_active = false;
-        self.maniaxe_turnaround = 0;
-        self.berzerker_charging = false;
-        self.berzerker_charge_accum = 0;
-        self.iron_knight_climbing = false;
-        self.iron_knight_climb_accel = 0;
-        self.micromax_stuck = false;
+        self.helmet.reset();
     }
 
     pub(crate) fn apply_damage_with_knockback(

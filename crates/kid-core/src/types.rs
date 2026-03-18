@@ -2,6 +2,31 @@ use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
 use serde::{Deserialize, Serialize};
 
+/// Per-helmet ability state, reset on form change or death.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct HelmetState {
+    /// Skycutter flipboard deploy counter (0=inactive, 1..31=animating).
+    pub(crate) skycutter_flipboard: u8,
+    pub(crate) skycutter_on_board: bool,
+    pub(crate) cyclone_flying: bool,
+    pub(crate) cyclone_y_accel: i16,
+    pub(crate) red_stealth_sword_timer: u8,
+    pub(crate) eyeclops_beam_active: bool,
+    pub(crate) maniaxe_axe_active: bool,
+    pub(crate) maniaxe_turnaround: u8,
+    pub(crate) iron_knight_climbing: bool,
+    pub(crate) iron_knight_climb_accel: i16,
+    pub(crate) berzerker_charge_accum: u8,
+    pub(crate) berzerker_charging: bool,
+    pub(crate) micromax_stuck: bool,
+}
+
+impl HelmetState {
+    pub(crate) fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 
