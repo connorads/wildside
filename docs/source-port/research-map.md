@@ -69,14 +69,44 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining work
 
-### Visual fidelity (3 TODO(fidelity) markers)
+### Visual fidelity — sprite extraction (3 TODO(fidelity) markers)
 - **#033** [~] Transform animation visual sprites — needs ROM tile extraction for spinning animation frames. `Kid_Transform` (kid.asm:8369-8607) has per-helmet sprite+palette cycling tables. Frame counts/durations already extracted; blocked on art pipeline for transform tile sheets.
 - Fire Demon death trail visual sprites — rendered as generic projectile, needs real fire fragment tiles from ROM.
 - Floating item ROM sprites — some items use content-type-specific pixel-art icons, others placeholder rectangles (scene.rs). Needs ROM VRAM tile extraction.
 
-### Gameplay fidelity (2 open items)
+### Visual fidelity — rendering accuracy (not yet investigated)
+- **Palette cycling per theme**: some themes animate palette entries (water shimmer done). Lava, neon, and other themes may have CRAM cycling in the VBlank handler. Trace `kid.asm` VBlank for CRAM writes per theme ID. Extract cycle tables (which entries, rotation speed, colour sequence).
+- **Sprite priority/layering**: VDP sprite priority bit determines front/behind-BG rendering. Some sprites intentionally render behind background (hiding behind pillars). Search ASM for priority bit usage, compare frame captures on levels with sprite-background overlap.
+- **HUD positioning accuracy**: compare HUD element pixel positions against oracle — lives icon, HP bar segments, timer digits, score digits, diamond count, diamond icon. Capture frame, overlay oracle, diff.
+- **Background scroll accuracy per theme**: 11 themes each have background scroll configurations (parallax rates, layer ordering). Verify `background_scroll_x_px()` rates are correct per theme by comparing background-only layer at several camera positions against oracle.
+- **Block destruction particle effects**: verify particle spawn positions, velocities, colours, and lifetime match ASM. Break blocks in multiple themes, capture debris frames, compare to oracle.
+- **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
+- **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
+
+### Gameplay fidelity (2 open backlog items)
 - **#037** [~] Floor-snap settling diffs on 5 levels — root cause documented: `probe_floor_hitbox` only checks ±half_width edges, misses terrain beyond hitbox width. ASM runs full `Hibernate_Object_1Frame`. Fix requires running real frame steps during init or widening probe. Affected: 0x52 (+14px Y), 0x29 (+5px X), 0x02/0x24/0x51 (1px cam_y).
 - **#062** [ ] HeadyMetal death wobble visual — purely cosmetic rendering effect during boss death sequence.
+
+### Game flow verification (not yet investigated)
+- **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
+- **Password system**: the original game has a password system for level progression. Not yet investigated whether this is implemented or needed. Trace ASM for password generation/validation. Check whether `BootState` has a password entry screen.
+
+### Enemy behaviour gaps (14 items — see `phase4-enemy-findings.md` for full details)
+High impact: Archer arrow lifetime + re-aiming, Dragon Flying fire velocity, Fireball gravity off-by-one, Tornado acceleration scaling.
+Medium impact: Crab proximity freeze, Cloud post-bounce idle removal, Dragon Flying wall-reversal, Tornado Cyclone interaction, Sphere/Fireball slope deflection.
+Low impact: Driller block drilling, speed caps at high HP, probe half-width per-family, Archer dx==0 aiming, Cloud lightning bolt attack.
+
+### Oracle sweep hardening (not yet implemented)
+- **Advisory field promotion**: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.
+- **Framewise checksumming**: methodology.md describes CRC32 per-frame game state checksumming for pinpointing divergences (player + enemies + camera + blocks). Not yet implemented. Add `--checksum` flag to sweep. First mismatch = exact divergence frame.
+- **Divergence classification output**: methodology.md describes a taxonomy (authoritative/advisory/accumulation/RNG/oracle limitation) and JSON tracking format. Sweep currently doesn't output structured divergence categories. Add per-level category logging to `.cache/metrics/sweep-history.jsonl`.
+- **Full-frame pixel comparison sweep**: run frame capture on all 105 levels at key frames (0, 30, 60, 120, 300), compare pixel-for-pixel against oracle. Extend `kidcli` with `sweep --tier frames`. Each pixel difference classified as rendering, palette, timing, sprite priority, or position error.
+
+### Testing infrastructure (not yet implemented)
+- **Input replay recording**: add `--record` flag to `play-native` capturing per-frame `FrameInput`. Write `DynamicScenario` JSON output — live play sessions become regression tests. Chocolate Doom-style demo regression.
+- **Mutation testing baseline**: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p kid-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
+- **Fuzz testing for parsers**: set up `cargo fuzz` targets for level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), audio bank loading (complex binary format). Run each for a few hours, fix crashes.
+- **Stateful property testing**: implement `proptest-state-machine` test for `PlayerLifecycle`. Model lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
 
 ### Known deviations (6 DEVIATION annotations, intentional)
 - Tornado, Fireball (×2), Robot: RNG-dependent behaviours. ASM uses deterministic global RNG, native uses independent RNG per enemy. Behaviour is statistically equivalent but not frame-identical.
