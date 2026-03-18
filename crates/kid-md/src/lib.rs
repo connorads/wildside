@@ -18,6 +18,9 @@ const Z80_RAM_END: u32 = 0x00A0_FFFF;
 const Z80_RAM_LEN: usize = 0x2000;
 // NTSC Genesis frame timing: 3420 master clocks/scanline * 262 scanlines / 7 m68k clocks.
 const SYNTHETIC_VBLANK_CYCLES: i32 = 128_006;
+const CONTROLLER_FLIP_COUNTER_CYCLES: u32 = 12_150;
+const CONTROLLER_TH_HIGH_DELAY_CYCLES: u32 = 30;
+const CONTROLLER_TH_BIT: u8 = 6;
 const V_INT_COUNTER_ADDR: u32 = 0x00FF_F806;
 const V_INT_DONE_ADDR: u32 = 0x00FF_F80A;
 const CAMERA_X_POS_ADDR: u32 = 0x00FF_F81C;
@@ -763,6 +766,7 @@ impl MdRuntime {
     pub fn step(&mut self) -> i32 {
         let Cycles(cycles) = self.core.execute1();
         self.core.mem.advance_ym2612_shadow(cycles.max(0) as u32);
+        self.core.mem.tick_controller_ports(cycles.max(0) as u32);
         self.step_z80(cycles);
         self.cycles_until_vblank -= cycles;
         while self.cycles_until_vblank <= 0 {
@@ -781,6 +785,17 @@ impl MdRuntime {
         for _ in 0..max_steps {
             self.step();
             if self.core.mem.read_work_ram_long(V_INT_COUNTER_ADDR) != starting_vint_counter {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn run_until_frame_rendered(&mut self, max_steps: u32) -> bool {
+        let starting_synthetic_vblanks = self.synthetic_vblanks;
+        for _ in 0..max_steps {
+            self.step();
+            if self.synthetic_vblanks != starting_synthetic_vblanks {
                 return true;
             }
         }
@@ -968,12 +983,8 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct IoState {
     version_register: u8,
-    p1_data: u8,
-    p2_data: u8,
-    p1_ctrl: u8,
-    p2_ctrl: u8,
-    controller_1: u8,
-    controller_2: u8,
+    p1_port: ControllerPortState,
+    p2_port: ControllerPortState,
     z80_busreq: bool,
     z80_reset: bool,
 }
@@ -982,15 +993,136 @@ impl Default for IoState {
     fn default() -> Self {
         Self {
             version_register: 0x20,
-            p1_data: 0x7F,
-            p2_data: 0x7F,
-            p1_ctrl: 0x00,
-            p2_ctrl: 0x00,
-            controller_1: 0,
-            controller_2: 0,
+            p1_port: ControllerPortState::new(ControllerType::SixButton),
+            p2_port: ControllerPortState::new(ControllerType::None),
             z80_busreq: false,
             z80_reset: true,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ControllerType {
+    None,
+    SixButton,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ControllerPortState {
+    controller_type: ControllerType,
+    buttons: u8,
+    last_data_write: u8,
+    last_ctrl_write: u8,
+    th_flip_count: u8,
+    flip_reset_counter: u32,
+    cycles_until_th_high: u32,
+    controller_th: bool,
+}
+
+impl ControllerPortState {
+    fn new(controller_type: ControllerType) -> Self {
+        Self {
+            controller_type,
+            buttons: 0,
+            last_data_write: 0,
+            last_ctrl_write: 0,
+            th_flip_count: 0,
+            flip_reset_counter: 0,
+            cycles_until_th_high: 0,
+            controller_th: true,
+        }
+    }
+
+    fn read_data(&self) -> u8 {
+        if matches!(self.controller_type, ControllerType::None) {
+            return 0xFF;
+        }
+
+        let mut controller_byte = match (self.th_flip_count, self.controller_th) {
+            (0..=2, true) => {
+                (u8::from(!button_pressed(self.buttons, 5)) << 5)
+                    | (u8::from(!button_pressed(self.buttons, 4)) << 4)
+                    | (u8::from(!button_pressed(self.buttons, 3)) << 3)
+                    | (u8::from(!button_pressed(self.buttons, 2)) << 2)
+                    | (u8::from(!button_pressed(self.buttons, 1)) << 1)
+                    | u8::from(!button_pressed(self.buttons, 0))
+            }
+            (0..=1, false) => {
+                (u8::from(!button_pressed(self.buttons, 7)) << 5)
+                    | (u8::from(!button_pressed(self.buttons, 6)) << 4)
+                    | (u8::from(!button_pressed(self.buttons, 1)) << 1)
+                    | u8::from(!button_pressed(self.buttons, 0))
+            }
+            (3, true) => {
+                (u8::from(!button_pressed(self.buttons, 5)) << 5)
+                    | (u8::from(!button_pressed(self.buttons, 4)) << 4)
+                    | 0b0000_1111
+            }
+            (2, false) => {
+                (u8::from(!button_pressed(self.buttons, 7)) << 5)
+                    | (u8::from(!button_pressed(self.buttons, 6)) << 4)
+            }
+            (3, false) => {
+                (u8::from(!button_pressed(self.buttons, 7)) << 5)
+                    | (u8::from(!button_pressed(self.buttons, 6)) << 4)
+                    | 0b0000_1111
+            }
+            _ => 0x3F,
+        };
+        controller_byte |= u8::from(self.controller_th) << CONTROLLER_TH_BIT;
+        controller_byte &= !self.last_ctrl_write;
+        let outputs_byte = self.last_data_write & (self.last_ctrl_write | 0x80);
+        controller_byte | outputs_byte
+    }
+
+    fn read_ctrl(&self) -> u8 {
+        self.last_ctrl_write
+    }
+
+    fn write_data(&mut self, value: u8) {
+        self.last_data_write = value;
+        self.maybe_set_th();
+    }
+
+    fn write_ctrl(&mut self, value: u8) {
+        self.last_ctrl_write = value;
+        self.maybe_set_th();
+        self.cycles_until_th_high = if !ctrl_bit_set(value, CONTROLLER_TH_BIT) {
+            CONTROLLER_TH_HIGH_DELAY_CYCLES
+        } else {
+            0
+        };
+    }
+
+    fn set_buttons(&mut self, buttons: u8) {
+        self.buttons = buttons;
+    }
+
+    fn tick(&mut self, m68k_cycles: u32) {
+        self.flip_reset_counter = self.flip_reset_counter.saturating_sub(m68k_cycles);
+        if self.flip_reset_counter == 0 {
+            self.th_flip_count = 0;
+        }
+
+        if self.cycles_until_th_high != 0 {
+            self.cycles_until_th_high = self.cycles_until_th_high.saturating_sub(m68k_cycles);
+            if self.cycles_until_th_high == 0 {
+                self.controller_th = true;
+            }
+        }
+    }
+
+    fn maybe_set_th(&mut self) {
+        if !ctrl_bit_set(self.last_ctrl_write, CONTROLLER_TH_BIT) {
+            return;
+        }
+
+        let th = ctrl_bit_set(self.last_data_write, CONTROLLER_TH_BIT);
+        if matches!(self.controller_type, ControllerType::SixButton) && !self.controller_th && th {
+            self.th_flip_count = (self.th_flip_count + 1) % 4;
+            self.flip_reset_counter = CONTROLLER_FLIP_COUNTER_CYCLES;
+        }
+        self.controller_th = th;
     }
 }
 
@@ -1188,14 +1320,10 @@ impl MdBus {
     fn read_io_register(&self, address: u32) -> u8 {
         match address {
             0x00A1_0000 | 0x00A1_0001 => self.io.version_register,
-            0x00A1_0002 | 0x00A1_0003 => {
-                self.controller_port_value(self.io.p1_data, self.io.controller_1)
-            }
-            0x00A1_0004 | 0x00A1_0005 => {
-                self.controller_port_value(self.io.p2_data, self.io.controller_2)
-            }
-            0x00A1_0008 | 0x00A1_0009 => self.io.p1_ctrl,
-            0x00A1_000A | 0x00A1_000B => self.io.p2_ctrl,
+            0x00A1_0002 | 0x00A1_0003 => self.io.p1_port.read_data(),
+            0x00A1_0004 | 0x00A1_0005 => self.io.p2_port.read_data(),
+            0x00A1_0008 | 0x00A1_0009 => self.io.p1_port.read_ctrl(),
+            0x00A1_000A | 0x00A1_000B => self.io.p2_port.read_ctrl(),
             0x00A1_000E | 0x00A1_000F | 0x00A1_0014 | 0x00A1_0015 | 0x00A1_001A | 0x00A1_001B => {
                 0xFF
             }
@@ -1205,16 +1333,21 @@ impl MdBus {
 
     fn write_io_register(&mut self, address: u32, value: u8) {
         match address {
-            0x00A1_0002 | 0x00A1_0003 => self.io.p1_data = value,
-            0x00A1_0004 | 0x00A1_0005 => self.io.p2_data = value,
-            0x00A1_0008 | 0x00A1_0009 => self.io.p1_ctrl = value,
-            0x00A1_000A | 0x00A1_000B => self.io.p2_ctrl = value,
+            0x00A1_0002 | 0x00A1_0003 => self.io.p1_port.write_data(value),
+            0x00A1_0004 | 0x00A1_0005 => self.io.p2_port.write_data(value),
+            0x00A1_0008 | 0x00A1_0009 => self.io.p1_port.write_ctrl(value),
+            0x00A1_000A | 0x00A1_000B => self.io.p2_port.write_ctrl(value),
             _ => {}
         }
     }
 
     fn set_controller_1(&mut self, buttons: u8) {
-        self.io.controller_1 = buttons;
+        self.io.p1_port.set_buttons(buttons);
+    }
+
+    fn tick_controller_ports(&mut self, m68k_cycles: u32) {
+        self.io.p1_port.tick(m68k_cycles);
+        self.io.p2_port.tick(m68k_cycles);
     }
 
     fn advance_ym2612_shadow(&mut self, clocks: u32) {
@@ -1246,27 +1379,6 @@ impl MdBus {
 
     fn z80_busack(&self) -> bool {
         self.io.z80_busreq && !self.io.z80_reset
-    }
-
-    fn controller_port_value(&self, latch: u8, buttons: u8) -> u8 {
-        let th_high = latch & 0x40 != 0;
-        let mut value = latch & 0x40;
-        if th_high {
-            value |= 0x3F;
-            value &= !controller_low_mask(buttons, 0);
-            value &= !controller_low_mask(buttons, 1);
-            value &= !controller_low_mask(buttons, 2);
-            value &= !controller_low_mask(buttons, 3);
-            value &= !controller_low_mask(buttons, 4);
-            value &= !controller_low_mask(buttons, 5);
-        } else {
-            value |= 0x33;
-            value &= !controller_low_mask(buttons, 0);
-            value &= !controller_low_mask(buttons, 1);
-            value &= !controller_low_mask(buttons, 6);
-            value &= !controller_low_mask(buttons, 7);
-        }
-        value
     }
 
     fn read_vdp_byte(&self, address: u32) -> u8 {
@@ -2219,22 +2331,12 @@ fn read_u16_wrapped(slice: &[u8], index: usize) -> u16 {
     ])
 }
 
-fn controller_low_mask(buttons: u8, button_bit: u8) -> u8 {
-    if buttons & (1 << button_bit) == 0 {
-        0
-    } else {
-        match button_bit {
-            0 => 1 << 0,
-            1 => 1 << 1,
-            2 => 1 << 2,
-            3 => 1 << 3,
-            4 => 1 << 4,
-            5 => 1 << 5,
-            6 => 1 << 4,
-            7 => 1 << 5,
-            _ => 0,
-        }
-    }
+fn button_pressed(buttons: u8, button_bit: u8) -> bool {
+    buttons & (1 << button_bit) != 0
+}
+
+fn ctrl_bit_set(value: u8, bit: u8) -> bool {
+    value & (1 << bit) != 0
 }
 
 impl AddressBus for MdBus {

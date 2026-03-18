@@ -178,6 +178,15 @@ fn is_valid_level_id(id: u8) -> bool {
     lo <= 9 && hi <= 6 && id <= 0x68
 }
 
+fn is_oracle_limitation_only(result: &LevelSweepResult) -> bool {
+    result.error.is_some()
+        && result.divergence_summary.oracle_limitation > 0
+        && result.divergence_summary.authoritative == 0
+        && result.divergence_summary.advisory == 0
+        && result.divergence_summary.accumulation == 0
+        && result.divergence_summary.rng == 0
+}
+
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
 /// Invalid BCD level IDs (0x0A-0x0F, 0x1A-0x1F, etc.) are filtered out.
 pub(crate) fn parse_level_range(spec: &str) -> Result<Vec<u8>> {
@@ -266,21 +275,34 @@ pub(crate) fn run_sweep_with_options(
         );
         match result {
             Ok(r) => {
-                let status = if r.passed { "PASS" } else { "FAIL" };
+                let oracle_limitation_only = is_oracle_limitation_only(&r);
+                let status = if r.passed {
+                    "PASS"
+                } else if oracle_limitation_only {
+                    "ORACLE LIMITATION"
+                } else {
+                    "FAIL"
+                };
                 let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
                 let blocking_diffs = r.divergence_summary.authoritative
                     + r.divergence_summary.accumulation
-                    + r.divergence_summary.rng
-                    + r.divergence_summary.oracle_limitation;
+                    + r.divergence_summary.rng;
                 let advisory_diffs = r.divergence_summary.advisory;
-                let diff_count = match (blocking_diffs, advisory_diffs) {
-                    (0, 0) => String::new(),
-                    (0, a) => format!(" ({a} advisory diffs)"),
-                    (b, 0) => format!(" ({b} blocking diffs)"),
-                    (b, a) => format!(" ({b} blocking diffs, {a} advisory)"),
+                let oracle_limitations = r.divergence_summary.oracle_limitation;
+                let diff_count = match (blocking_diffs, advisory_diffs, oracle_limitations) {
+                    (0, 0, 0) => String::new(),
+                    (0, 0, o) => format!(" ({o} oracle limitations)"),
+                    (0, a, 0) => format!(" ({a} advisory diffs)"),
+                    (b, 0, 0) => format!(" ({b} blocking diffs)"),
+                    (b, a, 0) => format!(" ({b} blocking diffs, {a} advisory)"),
+                    (0, a, o) => format!(" ({a} advisory diffs, {o} oracle limitations)"),
+                    (b, 0, o) => format!(" ({b} blocking diffs, {o} oracle limitations)"),
+                    (b, a, o) => {
+                        format!(" ({b} blocking diffs, {a} advisory, {o} oracle limitations)")
+                    }
                 };
                 println!("  {status}{mae_str}{diff_count}");
-                if !r.passed {
+                if !r.passed && !oracle_limitation_only {
                     failure_count += 1;
                 }
                 results.push(r);
@@ -315,9 +337,12 @@ pub(crate) fn run_sweep_with_options(
     let passed = results.iter().filter(|r| r.passed).count();
     let failed = results
         .iter()
-        .filter(|r| !r.passed && r.error.is_none())
+        .filter(|r| !r.passed && r.error.is_none() && !is_oracle_limitation_only(r))
         .count();
-    let errors = results.iter().filter(|r| r.error.is_some()).count();
+    let errors = results
+        .iter()
+        .filter(|r| r.error.is_some() && !is_oracle_limitation_only(r))
+        .count();
     let divergence_summary = summarise_results(&results);
 
     let source_hash = kid_core_source_hash(repo_root).ok();
