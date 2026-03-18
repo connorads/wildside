@@ -1197,9 +1197,9 @@ mod tests {
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
-        ForegroundLayout, HudIcon, HudVisuals, LevelVisuals, MdColour, NativeLevelVisuals, Palette,
-        PaletteSet, PlatformVisuals, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef,
-        TileSheet,
+        ForegroundLayout, HudIcon, HudVisuals, LevelVisuals, MdColour, NativeLevelVisuals,
+        Palette, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
+        PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
     use std::fs;
     use std::path::Path;
@@ -1483,22 +1483,66 @@ mod tests {
     }
 
     fn sample_player_visuals() -> PlayerVisuals {
-        PlayerVisuals {
-            palette: Palette {
-                colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+        let mut forms = std::collections::HashMap::new();
+        forms.insert(
+            0,
+            PlayerFormVisuals {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
+                },
+                idle: sample_player_frame(1),
+                walk: vec![
+                    sample_player_frame(2),
+                    sample_player_frame(3),
+                    sample_player_frame(4),
+                    sample_player_frame(5),
+                    sample_player_frame(6),
+                    sample_player_frame(7),
+                ],
+                jump_rise: sample_player_frame(8),
+                jump_fall: sample_player_frame(9),
+                transform_palette: None,
+                transform_steps: Vec::new(),
             },
-            idle: sample_player_frame(1),
-            walk: vec![
-                sample_player_frame(2),
-                sample_player_frame(3),
-                sample_player_frame(4),
-                sample_player_frame(5),
-                sample_player_frame(6),
-                sample_player_frame(7),
-            ],
-            jump_rise: sample_player_frame(8),
-            jump_fall: sample_player_frame(9),
-        }
+        );
+        forms.insert(
+            PlayerForm::IronKnight.helmet_id(),
+            PlayerFormVisuals {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(120, 180, 220)],
+                },
+                idle: sample_player_frame(10),
+                walk: vec![
+                    sample_player_frame(11),
+                    sample_player_frame(12),
+                    sample_player_frame(13),
+                    sample_player_frame(14),
+                    sample_player_frame(15),
+                    sample_player_frame(16),
+                ],
+                jump_rise: sample_player_frame(17),
+                jump_fall: sample_player_frame(18),
+                transform_palette: Some(Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 230, 160)],
+                }),
+                transform_steps: vec![
+                    PlayerTransformStep {
+                        duration_frames: 4,
+                        frame: Some(sample_player_frame(19)),
+                    },
+                    PlayerTransformStep {
+                        duration_frames: 4,
+                        frame: None,
+                    },
+                    PlayerTransformStep {
+                        duration_frames: 4,
+                        frame: Some(sample_player_frame(20)),
+                    },
+                ],
+            },
+        );
+
+        PlayerVisuals { forms }
     }
 
     fn sample_enemy_visuals() -> EnemyVisuals {
@@ -2056,6 +2100,15 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert!(indexed_tile_at(&scene, 0, 0).is_some());
+    }
+
+    #[test]
+    fn forest_parallax_uses_asm_scroll_divisor() {
+        let trace = sample_trace(GameMode::InGame);
+        let camera_x_px = 307;
+
+        assert_eq!(super::scene::background_scroll_x_px(&trace, camera_x_px, 0x30), 76);
+        assert_eq!(super::scene::background_scroll_x_px(&trace, camera_x_px, 0x50), 153);
     }
 
     #[test]
@@ -2642,6 +2695,31 @@ mod tests {
             }
             _ => None,
         })
+    }
+
+    #[test]
+    fn player_form_uses_iron_knight_sprite_art_when_helmet_equipped() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(player_sprite_signature(&scene), Some(10));
+    }
+
+    #[test]
+    fn player_form_change_prefers_transform_sprite_over_placeholder_flash() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        trace.form_change_flash_frames = 12;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(player_sprite_signature(&scene), Some(19));
+        assert!(!scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Rect { colour: [255, 255, 255], .. })
+                || matches!(command, DrawCommand::Rect { colour: [255, 255, 128], .. })
+        }));
     }
 
     fn sprite_position(scene: &Scene, signature: u8) -> Option<(i32, i32)> {

@@ -830,7 +830,7 @@ pub(super) fn background_scroll_x_px(
         0x10 => 0,
         0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
             let step = i32::from((layer_speed - 0x10) / 8);
-            camera_x_px.saturating_mul(step) / 15
+            camera_x_px.saturating_mul(step) / 16
         }
         _ => camera_x_px,
     }
@@ -1024,26 +1024,6 @@ fn build_game_scene_filtered(
                 .filter(|object| matches!(object.kind, kid_core::NativeObjectKind::Player))
             {
                 push_player_sprite(&mut commands, object, trace, level_visuals);
-                // Placeholder: palette flash overlay during form transform.
-                // Real animation uses per-helmet sprite art + palette cycling
-                // (Kid_Transform, kid.asm:8369). Alternates white/yellow for
-                // a rough approximation of the palette cycling effect.
-                if trace.form_change_flash_frames > 0 {
-                    let (sx, sy) = player_screen_position(object, trace);
-                    let flash_phase = trace.form_change_flash_frames % 4;
-                    let colour = if flash_phase < 2 {
-                        [255, 255, 255] // white
-                    } else {
-                        [255, 255, 128] // warm yellow — palette cycling hint
-                    };
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 12,
-                        y: sy - 24,
-                        width: 24,
-                        height: 32,
-                        colour,
-                    });
-                }
             }
         }
     }

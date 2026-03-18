@@ -1,4 +1,5 @@
 use crate::{Palette, TileSheet};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpriteFrame {
@@ -20,12 +21,25 @@ pub struct AnimatedSpriteVisual {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PlayerVisuals {
+pub struct PlayerTransformStep {
+    pub duration_frames: usize,
+    pub frame: Option<SpriteFrame>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlayerFormVisuals {
     pub palette: Palette,
     pub idle: SpriteFrame,
     pub walk: Vec<SpriteFrame>,
     pub jump_rise: SpriteFrame,
     pub jump_fall: SpriteFrame,
+    pub transform_palette: Option<Palette>,
+    pub transform_steps: Vec<PlayerTransformStep>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlayerVisuals {
+    pub forms: HashMap<u16, PlayerFormVisuals>,
 }
 
 /// Enemy sprite visuals keyed by object_type (0x00..0x22).

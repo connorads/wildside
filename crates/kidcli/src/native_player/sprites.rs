@@ -160,7 +160,7 @@ pub(super) fn append_sprite_chunk_tiles(
 
 pub(super) fn select_player_frame<'a>(
     trace: &NativeTraceFrame,
-    player_visuals: &'a kid_render::PlayerVisuals,
+    player_visuals: &'a kid_render::PlayerFormVisuals,
 ) -> &'a kid_render::SpriteFrame {
     let on_ground = trace.kid_on_ground.unwrap_or(true);
     let x_velocity = trace.kid_x_velocity.unwrap_or(0);
@@ -180,6 +180,46 @@ pub(super) fn select_player_frame<'a>(
     }
 }
 
+pub(super) fn select_player_form_visuals<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a kid_render::PlayerVisuals,
+) -> &'a kid_render::PlayerFormVisuals {
+    player_visuals
+        .forms
+        .get(&trace.current_helmet_id)
+        .or_else(|| player_visuals.forms.get(&0))
+        .expect("Kid visuals should always be loaded")
+}
+
+pub(super) fn select_player_transform_frame<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a kid_render::PlayerFormVisuals,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if trace.form_change_flash_frames == 0 || player_visuals.transform_steps.is_empty() {
+        return None;
+    }
+
+    let total_duration = player_visuals
+        .transform_steps
+        .iter()
+        .map(|step| step.duration_frames)
+        .sum::<usize>();
+    let mut elapsed =
+        total_duration.saturating_sub(usize::from(trace.form_change_flash_frames));
+    for step in &player_visuals.transform_steps {
+        if elapsed < step.duration_frames {
+            return step.frame.as_ref();
+        }
+        elapsed -= step.duration_frames;
+    }
+
+    player_visuals
+        .transform_steps
+        .iter()
+        .rev()
+        .find_map(|step| step.frame.as_ref())
+}
+
 pub(super) fn player_screen_position(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
@@ -196,16 +236,34 @@ pub(super) fn push_player_sprite(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
 ) {
-    let frame = select_player_frame(trace, &level_visuals.player);
+    let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
+    if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
+        let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+        commands.push(DrawCommand::Sprite {
+            x: draw_x,
+            y: draw_y,
+            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+            palette: Arc::new(
+                form_visuals
+                    .transform_palette
+                    .clone()
+                    .unwrap_or_else(|| form_visuals.palette.clone()),
+            ),
+            tiles: build_player_sprite_tiles(frame, facing),
+        });
+        return;
+    }
+
+    let frame = select_player_frame(trace, form_visuals);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
 
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(level_visuals.player.palette.clone()),
+        palette: Arc::new(form_visuals.palette.clone()),
         tiles: build_player_sprite_tiles(frame, facing),
     });
 }

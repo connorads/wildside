@@ -7,7 +7,8 @@ use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
 use crate::player::{
-    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
+    PlayerVisuals, SpriteFrame,
 };
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -28,7 +29,11 @@ const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
 const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
 const VERTICAL_PLATFORM_ART_PATH: &str = "artcomp/Vertical_platform.bin";
 const KID_PALETTE_PATH: &str = "palette_kid/Kid.bin";
+const IRON_KNIGHT_PALETTE_PATH: &str = "palette_kid/Iron_Knight.bin";
+const IRON_KNIGHT_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Iron_Knight_Transformation.bin";
 const BLOCK_MAPPING_PATH: &str = "block_mappings.bin";
+const PLAYER_FORM_THE_KID: u16 = 0;
+const PLAYER_FORM_IRON_KNIGHT: u16 = 6;
 const THEME_NAMES: [&str; 11] = [
     "theme0", "sky", "ice", "hill", "island", "desert", "swamp", "mountain", "cave", "forest",
     "city",
@@ -417,6 +422,12 @@ struct PlayerFrameDescriptor {
     origin_y: i16,
     width_px: u16,
     height_px: u16,
+}
+
+#[derive(Clone, Copy)]
+struct PlayerTransformStepDescriptor {
+    duration_frames: usize,
+    frame: Option<PlayerFrameDescriptor>,
 }
 
 #[derive(Clone, Copy)]
@@ -985,6 +996,226 @@ const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     height_px: 0x20,
 };
 
+const IRON_KNIGHT_IDLE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/iron_knight.bin",
+    origin_x: 0x13,
+    origin_y: 0x01,
+    width_px: 0x1E,
+    height_px: 0x26,
+};
+
+const IRON_KNIGHT_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/iron_knight_walk_1.bin",
+        origin_x: 0x10,
+        origin_y: 0x01,
+        width_px: 0x1B,
+        height_px: 0x25,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/iron_knight_walk_2.bin",
+        origin_x: 0x11,
+        origin_y: 0x01,
+        width_px: 0x1C,
+        height_px: 0x26,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/iron_knight_walk_3.bin",
+        origin_x: 0x11,
+        origin_y: 0x01,
+        width_px: 0x1C,
+        height_px: 0x25,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/iron_knight_walk_4.bin",
+        origin_x: 0x11,
+        origin_y: 0x01,
+        width_px: 0x1D,
+        height_px: 0x24,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/iron_knight_walk_5.bin",
+        origin_x: 0x11,
+        origin_y: 0x01,
+        width_px: 0x1C,
+        height_px: 0x25,
+    },
+    PlayerFrameDescriptor {
+        relative_path: "artunc_kid/iron_knight_walk_6.bin",
+        origin_x: 0x12,
+        origin_y: 0x01,
+        width_px: 0x1D,
+        height_px: 0x25,
+    },
+];
+
+const IRON_KNIGHT_JUMP_RISE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/iron_knight_jumping_1.bin",
+    origin_x: 0x14,
+    origin_y: 0x01,
+    width_px: 0x1F,
+    height_px: 0x24,
+};
+
+const IRON_KNIGHT_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/iron_knight_jumping_2.bin",
+    origin_x: 0x0D,
+    origin_y: -0x02,
+    width_px: 0x1A,
+    height_px: 0x21,
+};
+
+const IRON_KNIGHT_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 16] = [
+    PlayerTransformStepDescriptor {
+        duration_frames: 8,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_1.bin",
+            origin_x: 0x11,
+            origin_y: 0x07,
+            width_px: 0x23,
+            height_px: 0x32,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 7,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_2.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_1.bin",
+            origin_x: 0x11,
+            origin_y: 0x07,
+            width_px: 0x23,
+            height_px: 0x32,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_2.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 5,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_3.bin",
+            origin_x: 0x17,
+            origin_y: 0x11,
+            width_px: 0x2F,
+            height_px: 0x3F,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 5,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_2.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 5,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_3.bin",
+            origin_x: 0x17,
+            origin_y: 0x11,
+            width_px: 0x2F,
+            height_px: 0x3F,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 5,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_4.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_3.bin",
+            origin_x: 0x17,
+            origin_y: 0x11,
+            width_px: 0x2F,
+            height_px: 0x3F,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_4.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_3.bin",
+            origin_x: 0x17,
+            origin_y: 0x11,
+            width_px: 0x2F,
+            height_px: 0x3F,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_4.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: None,
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 6,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_4.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 10,
+        frame: None,
+    },
+    PlayerTransformStepDescriptor {
+        duration_frames: 4,
+        frame: Some(PlayerFrameDescriptor {
+            relative_path: "artunc_kid/iron_knight_transformation_4.bin",
+            origin_x: 0x14,
+            origin_y: 0x0B,
+            width_px: 0x26,
+            height_px: 0x36,
+        }),
+    },
+];
+
 fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
     let mut families = std::collections::HashMap::new();
     for spec in ENEMY_FAMILIES {
@@ -1056,23 +1287,86 @@ fn load_platform_visuals(
 }
 
 fn load_player_visuals(manifest: &AssetManifest) -> Result<PlayerVisuals> {
+    let mut forms = std::collections::HashMap::new();
+    forms.insert(
+        PLAYER_FORM_THE_KID,
+        load_player_form_visuals(
+            manifest,
+            KID_PALETTE_PATH,
+            "Kid palette",
+            KID_IDLE_FRAME,
+            &KID_WALK_FRAMES,
+            KID_JUMP_RISE_FRAME,
+            KID_JUMP_FALL_FRAME,
+            None,
+            &[],
+        )?,
+    );
+    forms.insert(
+        PLAYER_FORM_IRON_KNIGHT,
+        load_player_form_visuals(
+            manifest,
+            IRON_KNIGHT_PALETTE_PATH,
+            "Iron Knight palette",
+            IRON_KNIGHT_IDLE_FRAME,
+            &IRON_KNIGHT_WALK_FRAMES,
+            IRON_KNIGHT_JUMP_RISE_FRAME,
+            IRON_KNIGHT_JUMP_FALL_FRAME,
+            Some((IRON_KNIGHT_TRANSFORM_PALETTE_PATH, "Iron Knight transform palette")),
+            &IRON_KNIGHT_TRANSFORM_STEPS,
+        )?,
+    );
+
+    Ok(PlayerVisuals { forms })
+}
+
+fn load_player_form_visuals(
+    manifest: &AssetManifest,
+    palette_path: &str,
+    palette_family: &str,
+    idle: PlayerFrameDescriptor,
+    walk: &[PlayerFrameDescriptor],
+    jump_rise: PlayerFrameDescriptor,
+    jump_fall: PlayerFrameDescriptor,
+    transform_palette: Option<(&str, &str)>,
+    transform_steps: &[PlayerTransformStepDescriptor],
+) -> Result<PlayerFormVisuals> {
     let palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "ingame",
-        find_ingame_asset(manifest, KID_PALETTE_PATH)
-            .ok_or_else(|| anyhow!("missing Kid palette asset ingame/{KID_PALETTE_PATH}"))?,
-        "Kid palette",
+        find_ingame_asset(manifest, palette_path)
+            .ok_or_else(|| anyhow!("missing {palette_family} asset ingame/{palette_path}"))?,
+        palette_family,
     )?)?;
 
-    Ok(PlayerVisuals {
+    let transform_palette = transform_palette
+        .map(|(relative_path, family)| load_ingame_palette_asset(manifest, relative_path, family))
+        .transpose()?;
+
+    Ok(PlayerFormVisuals {
         palette,
-        idle: load_player_frame(manifest, KID_IDLE_FRAME)?,
-        walk: KID_WALK_FRAMES
-            .into_iter()
+        idle: load_player_frame(manifest, idle)?,
+        walk: walk
+            .iter()
+            .copied()
             .map(|descriptor| load_player_frame(manifest, descriptor))
             .collect::<Result<Vec<_>>>()?,
-        jump_rise: load_player_frame(manifest, KID_JUMP_RISE_FRAME)?,
-        jump_fall: load_player_frame(manifest, KID_JUMP_FALL_FRAME)?,
+        jump_rise: load_player_frame(manifest, jump_rise)?,
+        jump_fall: load_player_frame(manifest, jump_fall)?,
+        transform_palette,
+        transform_steps: transform_steps
+            .iter()
+            .copied()
+            .map(|step| {
+                Ok(PlayerTransformStep {
+                    duration_frames: step.duration_frames,
+                    frame: step
+                        .frame
+                        .map(|descriptor| load_player_frame(manifest, descriptor))
+                        .transpose()?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
     })
 }
 

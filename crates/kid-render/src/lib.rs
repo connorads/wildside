@@ -19,7 +19,10 @@ pub use level::{
     BlockVisualKind, BlockVisualMapping, ForegroundLayout, LevelVisuals, ResolvedBlockVisual,
 };
 pub use palette::{MdColour, Palette, PaletteSet};
-pub use player::{AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerVisuals, SpriteFrame};
+pub use player::{
+    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
+    PlayerVisuals, SpriteFrame,
+};
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
@@ -139,21 +142,31 @@ mod tests {
         let fixture = TestBundle::new().expect("test bundle");
 
         let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let kid = visuals.player.forms.get(&0).expect("Kid visuals");
+        let iron_knight = visuals.player.forms.get(&6).expect("Iron Knight visuals");
 
-        assert_eq!(visuals.player.palette.colours.len(), 15);
-        assert_eq!(visuals.player.idle.origin_x, 0x0B);
-        assert_eq!(visuals.player.idle.origin_y, 0x01);
-        assert_eq!(visuals.player.idle.width_px, 0x14);
-        assert_eq!(visuals.player.idle.height_px, 0x20);
-        assert_eq!(visuals.player.idle.tile_sheet.tiles.len(), 12);
-        assert_eq!(visuals.player.walk.len(), 6);
-        assert_eq!(visuals.player.walk[0].origin_x, 0x0A);
-        assert_eq!(visuals.player.walk[0].width_px, 0x13);
-        assert_eq!(visuals.player.jump_rise.origin_x, 0x0A);
-        assert_eq!(visuals.player.jump_rise.width_px, 0x16);
-        assert_eq!(visuals.player.jump_fall.origin_x, 0x09);
-        assert_eq!(visuals.player.jump_fall.width_px, 0x14);
-        assert_eq!(visuals.player.idle.tile_base_index, 0);
+        assert_eq!(kid.palette.colours.len(), 15);
+        assert_eq!(kid.idle.origin_x, 0x0B);
+        assert_eq!(kid.idle.origin_y, 0x01);
+        assert_eq!(kid.idle.width_px, 0x14);
+        assert_eq!(kid.idle.height_px, 0x20);
+        assert_eq!(kid.idle.tile_sheet.tiles.len(), 12);
+        assert_eq!(kid.walk.len(), 6);
+        assert_eq!(kid.walk[0].origin_x, 0x0A);
+        assert_eq!(kid.walk[0].width_px, 0x13);
+        assert_eq!(kid.jump_rise.origin_x, 0x0A);
+        assert_eq!(kid.jump_rise.width_px, 0x16);
+        assert_eq!(kid.jump_fall.origin_x, 0x09);
+        assert_eq!(kid.jump_fall.width_px, 0x14);
+        assert_eq!(kid.idle.tile_base_index, 0);
+
+        assert_eq!(iron_knight.palette.colours.len(), 15);
+        assert_eq!(iron_knight.idle.origin_x, 0x13);
+        assert_eq!(iron_knight.walk.len(), 6);
+        assert_eq!(iron_knight.jump_rise.width_px, 0x1F);
+        assert_eq!(iron_knight.transform_palette.as_ref().expect("transform palette").colours.len(), 15);
+        assert_eq!(iron_knight.transform_steps.len(), 16);
+        assert!(iron_knight.transform_steps.iter().any(|step| step.frame.is_none()));
     }
 
     #[test]
@@ -352,6 +365,22 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/palette_kid/Iron_Knight.bin",
+                &(0..15)
+                    .map(|value| 0x0240_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Iron_Knight_Transformation.bin",
+                &(0..15)
+                    .map(|value| 0x0280_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artunc_kid/kid.bin",
                 &vec![0x11; 32 * 12],
             )?;
@@ -394,6 +423,71 @@ mod tests {
                 root.path(),
                 "ingame/artunc_kid/kid_jumping_2.bin",
                 &vec![0x32; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight.bin",
+                &vec![0x41; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_1.bin",
+                &vec![0x42; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_2.bin",
+                &vec![0x43; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_3.bin",
+                &vec![0x44; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_4.bin",
+                &vec![0x45; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_5.bin",
+                &vec![0x46; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_6.bin",
+                &vec![0x47; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_jumping_1.bin",
+                &vec![0x48; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_jumping_2.bin",
+                &vec![0x49; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_1.bin",
+                &vec![0x4A; 32 * 40],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_2.bin",
+                &vec![0x4B; 32 * 40],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_3.bin",
+                &vec![0x4C; 32 * 48],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_4.bin",
+                &vec![0x4D; 32 * 40],
             )?;
             write_file(
                 root.path(),
@@ -492,6 +586,11 @@ mod tests {
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
                     asset_file(root.path(), "ingame/palette_kid/Kid.bin"),
+                    asset_file(root.path(), "ingame/palette_kid/Iron_Knight.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/palette_kid/Iron_Knight_Transformation.bin",
+                    ),
                     asset_file(root.path(), "ingame/artunc_kid/kid.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_2.bin"),
@@ -501,6 +600,31 @@ mod tests {
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_6.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_2.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_2.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_4.bin",
+                    ),
                 ],
                 decoded_levels: vec![DecodedLevelAssets {
                     contract_version: DECODED_LEVEL_ASSET_VERSION,
