@@ -287,6 +287,7 @@ pub struct NativeTraceFrame {
     pub game_over: bool,
     pub game_complete: bool,
     pub options_cursor: Option<u8>,
+    pub sound_test_track: Option<u8>,
     pub two_player: bool,
     pub invulnerable_frames: usize,
     pub diamond_power_active: bool,
@@ -311,6 +312,8 @@ pub struct NativeTraceFrame {
     pub stomped_this_frame: bool,
     /// Number of blocks hit by headbutt this frame (for SFX).
     pub blocks_hit_this_frame: u8,
+    /// Sound test: play was requested this frame (A/C pressed).
+    pub sound_test_play_pending: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -436,6 +439,8 @@ pub struct NativeRuntime {
     stomped_this_frame: bool,
     /// Count of blocks hit by headbutt this frame.
     blocks_hit_this_frame: u8,
+    /// Sound test play pending (consumed each frame).
+    sound_test_play_pending: bool,
     /// Global shooter block fire timer: fires from all on-screen shooter blocks every 22 frames.
     shooter_block_timer: u16,
     level_timer: LevelTimer,
@@ -545,6 +550,7 @@ enum BootState {
     IntroSequence { segment: usize, elapsed: usize },
     TitleScreen,
     OptionsMenu { cursor: u8 },
+    SoundTest { track: u8 },
     StartingLevel { remaining_frames: usize },
     LevelSkipHold,
     InGame,
@@ -1147,6 +1153,7 @@ impl NativeRuntime {
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
+            sound_test_play_pending: false,
             shooter_block_timer: 0,
             level_timer: LevelTimer::new(),
             level_damage_taken: false,
@@ -1426,13 +1433,43 @@ impl NativeRuntime {
                 if input.down && !self.prior_input.down && *cursor < 2 {
                     *cursor += 1;
                 }
+                let cur = *cursor;
                 // A/C on "2 PLAYERS" toggles the flag
-                if *cursor == 0 && (a_pressed || c_pressed) {
+                if cur == 0 && (a_pressed || c_pressed) {
                     self.two_player = !self.two_player;
                 }
-                // Start or B exits back to title
-                if start_pressed || b_pressed {
+                // A/C on "SOUND TEST" enters sound test screen
+                if cur == 1 && (a_pressed || c_pressed) {
+                    self.boot_state = BootState::SoundTest { track: 0 };
+                }
+                // A/C on "EXIT" or Start/B exits back to title
+                else if (cur == 2 && (a_pressed || c_pressed)) || start_pressed || b_pressed {
                     self.boot_state = BootState::TitleScreen;
+                }
+            }
+            BootState::SoundTest { track } => {
+                let b_pressed = input.b && !self.prior_input.b;
+                let a_pressed = input.a && !self.prior_input.a;
+                let c_pressed = input.c && !self.prior_input.c;
+                if input.right && !self.prior_input.right {
+                    *track = track.wrapping_add(1);
+                }
+                if input.left && !self.prior_input.left {
+                    *track = track.wrapping_sub(1);
+                }
+                if input.up && !self.prior_input.up {
+                    *track = track.wrapping_add(16);
+                }
+                if input.down && !self.prior_input.down {
+                    *track = track.wrapping_sub(16);
+                }
+                // A/C plays the current track (handled by renderer via sound_test_track)
+                // Start pressed flag is set on the trace for the audio layer to detect
+                if a_pressed || c_pressed {
+                    self.sound_test_play_pending = true;
+                }
+                if b_pressed || start_pressed {
+                    self.boot_state = BootState::OptionsMenu { cursor: 1 };
                 }
             }
             BootState::StartingLevel { remaining_frames } => {
@@ -1529,6 +1566,10 @@ impl NativeRuntime {
                 BootState::OptionsMenu { cursor } => Some(cursor),
                 _ => None,
             },
+            sound_test_track: match self.boot_state {
+                BootState::SoundTest { track } => Some(track),
+                _ => None,
+            },
             two_player: self.two_player,
             invulnerable_frames: self.invulnerable_frames,
             diamond_power_active: self.diamond_power_frames > 0,
@@ -1576,6 +1617,7 @@ impl NativeRuntime {
                 .collect(),
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,
+            sound_test_play_pending: self.sound_test_play_pending,
         }
     }
 
@@ -1586,7 +1628,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 1, .. } => GameMode::IntroSequence2,
             BootState::IntroSequence { .. } => GameMode::IntroSequence3,
             BootState::TitleScreen => GameMode::TitleScreen,
-            BootState::OptionsMenu { .. } => GameMode::OptionsMenu,
+            BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
         }
@@ -1657,7 +1699,8 @@ impl NativeRuntime {
             BootState::SegaScreen { .. }
             | BootState::IntroSequence { .. }
             | BootState::TitleScreen
-            | BootState::OptionsMenu { .. } => Some(PlayerState::title_pose()),
+            | BootState::OptionsMenu { .. }
+            | BootState::SoundTest { .. } => Some(PlayerState::title_pose()),
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -1897,6 +1940,7 @@ impl NativeRuntime {
         slice.teleporter_contact = None;
         self.stomped_this_frame = false;
         self.blocks_hit_this_frame = 0;
+        self.sound_test_play_pending = false;
         // Tick visual effects
         self.step_visual_effects();
         // Step helmet abilities BEFORE physics
@@ -11275,6 +11319,31 @@ mod tests {
             ..FrameInput::default()
         });
         assert!(!runtime.two_player, "second A press should disable 2P");
+    }
+
+    #[test]
+    fn sound_test_enter_navigate_exit() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
+
+        // A enters sound test
+        runtime.step_frame(FrameInput { a: true, ..FrameInput::default() });
+        assert!(matches!(runtime.boot_state, BootState::SoundTest { track: 0 }));
+
+        // Right increments track
+        runtime.prior_input = FrameInput::default();
+        runtime.step_frame(FrameInput { right: true, ..FrameInput::default() });
+        assert!(matches!(runtime.boot_state, BootState::SoundTest { track: 1 }));
+
+        // Up adds 16
+        runtime.prior_input = FrameInput::default();
+        runtime.step_frame(FrameInput { up: true, ..FrameInput::default() });
+        assert!(matches!(runtime.boot_state, BootState::SoundTest { track: 17 }));
+
+        // B exits back to options
+        runtime.prior_input = FrameInput::default();
+        runtime.step_frame(FrameInput { b: true, ..FrameInput::default() });
+        assert!(matches!(runtime.boot_state, BootState::OptionsMenu { cursor: 1 }));
     }
 
     #[test]

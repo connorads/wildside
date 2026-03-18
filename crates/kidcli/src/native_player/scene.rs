@@ -301,6 +301,10 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
 }
 
 pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
+    if let Some(track) = trace.sound_test_track {
+        return build_sound_test_scene(track);
+    }
+
     let mut commands = Vec::new();
 
     commands.push(DrawCommand::Rect {
@@ -345,6 +349,51 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
         60,
         172,
         "Up/Down select  A/C toggle  Start/B back",
+        [100, 100, 100],
+        1,
+    ));
+
+    Scene {
+        background: [8, 12, 20],
+        commands,
+    }
+}
+
+fn build_sound_test_scene(track: u8) -> Scene {
+    let mut commands = Vec::new();
+
+    commands.push(DrawCommand::Rect {
+        x: 0,
+        y: 0,
+        width: FRAME_WIDTH as i32,
+        height: FRAME_HEIGHT as i32,
+        colour: [8, 12, 20],
+    });
+
+    let title = "SOUND TEST";
+    let title_w = title.len() as i32 * 8 * 2;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - title_w) / 2,
+        40,
+        title,
+        [255, 220, 80],
+        2,
+    ));
+
+    let track_label = format!("TRACK: {:02X}", track);
+    let label_w = track_label.len() as i32 * 8 * 2;
+    commands.push(text(
+        (FRAME_WIDTH as i32 - label_w) / 2,
+        100,
+        &track_label,
+        [255, 255, 255],
+        2,
+    ));
+
+    commands.push(text(
+        44,
+        172,
+        "Left/Right +1  Up/Down +16  A/C play  B back",
         [100, 100, 100],
         1,
     ));

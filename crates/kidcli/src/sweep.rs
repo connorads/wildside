@@ -1857,6 +1857,8 @@ mod tests {
                 enemy_death_effects: Vec::new(),
                 stomped_this_frame: false,
                 blocks_hit_this_frame: 0,
+                sound_test_track: None,
+                sound_test_play_pending: false,
             })
             .collect();
         let diffs = check_walk_right_assertions(&trace, &scenario);
@@ -1927,6 +1929,8 @@ mod tests {
                 enemy_death_effects: Vec::new(),
                 stomped_this_frame: false,
                 blocks_hit_this_frame: 0,
+                sound_test_track: None,
+                sound_test_play_pending: false,
             })
             .collect();
 
@@ -2010,6 +2014,8 @@ mod tests {
                 enemy_death_effects: Vec::new(),
                 stomped_this_frame: false,
                 blocks_hit_this_frame: 0,
+                sound_test_track: None,
+                sound_test_play_pending: false,
             })
             .collect();
 
@@ -2119,6 +2125,8 @@ mod tests {
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
+            sound_test_track: None,
+            sound_test_play_pending: false,
         };
 
         let old = vec![make_frame(0)];
@@ -2189,6 +2197,8 @@ mod tests {
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
+            sound_test_track: None,
+            sound_test_play_pending: false,
         };
 
         let old = vec![frame.clone()];

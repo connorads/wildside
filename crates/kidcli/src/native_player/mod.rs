@@ -792,6 +792,13 @@ fn detect_gems_events(
     curr: &NativeTraceFrame,
     gems: &mut GemsAudioEngine,
 ) {
+    // Sound test: play the selected track when A/C pressed
+    if curr.sound_test_play_pending {
+        if let Some(track) = curr.sound_test_track {
+            gems.play_sound(track);
+        }
+    }
+
     // Jump
     if prev.kid_on_ground == Some(true)
         && curr.kid_on_ground == Some(false)
@@ -1104,6 +1111,8 @@ mod tests {
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
+            sound_test_track: None,
+            sound_test_play_pending: false,
         }
     }
 

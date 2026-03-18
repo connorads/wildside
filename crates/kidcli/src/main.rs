@@ -1631,6 +1631,8 @@ mod tests {
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
+            sound_test_track: None,
+            sound_test_play_pending: false,
             options_cursor: None,
             two_player: false,
         };
