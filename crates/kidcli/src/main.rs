@@ -76,7 +76,7 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         mute: bool,
     },
-    /// Launch the native Level 1 playtest runtime in release mode.
+    /// Launch the native runtime. Defaults to the full boot/title/game flow.
     PlayNative {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -88,6 +88,10 @@ enum Commands {
         scale: Option<u32>,
         #[arg(long, default_value_t = false)]
         debug_overlay: bool,
+        #[arg(long)]
+        warp_level: Option<u8>,
+        #[arg(long, default_value_t = false)]
+        settled: bool,
     },
     ProbeCpu {
         #[arg(long)]
@@ -448,6 +452,8 @@ fn main() -> Result<()> {
             fullscreen,
             scale,
             debug_overlay,
+            warp_level,
+            settled,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -459,6 +465,8 @@ fn main() -> Result<()> {
                     fullscreen,
                     scale,
                     debug_overlay,
+                    warp_level,
+                    settled,
                 },
             )?;
         }

@@ -2,8 +2,8 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
-    PlayerForm, physics::Direction, terrain::BlockGrid,
+    FrameInput, GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
+    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader};
 use kid_md::GemsAudioEngine;
@@ -24,6 +24,7 @@ use std::time::{Duration, Instant};
 const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
+const LEVEL_CARD_HOLD_FRAMES: usize = 60;
 #[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
 const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
@@ -74,6 +75,8 @@ pub struct NativePlayOptions {
     pub fullscreen: bool,
     pub scale: Option<u32>,
     pub debug_overlay: bool,
+    pub warp_level: Option<u8>,
+    pub settled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,7 +178,8 @@ pub(crate) fn load_session_assets(
 }
 
 pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
-    let mut session_assets = load_native_session_assets(manifest, 0x00)?;
+    let initial_level_id = options.warp_level.unwrap_or(0x00);
+    let mut session_assets = load_native_session_assets(manifest, initial_level_id)?;
     let sdl = sdl2::init().map_err(|error| anyhow!("failed to init SDL: {error}"))?;
     let video = sdl
         .video()
@@ -260,16 +264,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     }
     let mut sfx_engine = SfxEngine::new();
 
-    let mut runtime = initialise_runtime(manifest, &session_assets);
+    let mut runtime = initialise_runtime(manifest, &session_assets, &options);
     let mut trace = runtime.trace_frame();
     #[allow(unused_assignments)]
     let mut prev_trace = trace.clone();
     let mut debug_overlay_visible = options.debug_overlay;
     let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
-    let mut current_level_id: u8 = 0x00;
+    let mut current_level_id: u8 = trace.current_level.0;
     let mut in_game_bgm_playing = false; // triggers BGM on first InGame entry
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
+    let mut level_card_frames_remaining: usize = 0;
 
     let scene = build_scene(
         &trace,
@@ -353,14 +358,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         }
 
         if reset_runtime {
-            session_assets = load_native_session_assets(manifest, 0x00)?;
-            runtime = initialise_runtime(manifest, &session_assets);
+            session_assets = load_native_session_assets(manifest, initial_level_id)?;
+            runtime = initialise_runtime(manifest, &session_assets, &options);
             trace = runtime.trace_frame();
-            current_level_id = 0x00;
+            current_level_id = trace.current_level.0;
+            level_card_frames_remaining = 0;
         } else {
-            let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
             prev_trace = trace.clone();
-            trace = runtime.step_frame(FrameInput::from_mask(buttons));
+            if level_card_frames_remaining == 0 {
+                let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
+                trace = runtime.step_frame(FrameInput::from_mask(buttons));
+            }
 
             // Detect game events by comparing frames
             if !has_gems {
@@ -372,6 +380,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             if trace.number_lives < prev_trace.number_lives {
                 fade_alpha = 80;
                 fading_in = false;
+            }
+
+            let title_start_bootstrapped = options.warp_level.is_none()
+                && !options.settled
+                && prev_trace.start_press_count < 6
+                && trace.start_press_count >= 6
+                && matches!(trace.game_mode, GameMode::InGame);
+            if title_start_bootstrapped {
+                runtime.enter_level_playtest(LevelId(trace.current_level.0));
+                trace = runtime.trace_frame();
+                level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
             }
         }
 
@@ -395,8 +414,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         if level_changed || entered_in_game {
             let new_level = trace.current_level.0;
             if level_changed {
+                runtime.enter_level_playtest(LevelId(new_level));
+                trace = runtime.trace_frame();
                 fade_alpha = 255;
                 fading_in = true;
+                level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
             }
             if let Some(ref mut gems) = gems_engine {
                 let level_theme = manifest
@@ -427,8 +449,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             in_game_bgm_playing = false;
         }
 
+        let render_trace = if level_card_frames_remaining > 0 {
+            let mut overlay_trace = trace.clone();
+            overlay_trace.game_mode = GameMode::LevelTransition;
+            overlay_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
+            overlay_trace
+        } else {
+            trace.clone()
+        };
+
         let scene = build_scene(
-            &trace,
+            &render_trace,
             debug_overlay_visible,
             Some(&session_assets.level_visuals),
             runtime.block_grid(),
@@ -480,6 +511,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             .map_err(|error| anyhow!("failed to copy SDL texture: {error}"))?;
         canvas.present();
 
+        if level_card_frames_remaining > 0 {
+            level_card_frames_remaining -= 1;
+        }
+
         let elapsed = frame_started.elapsed();
         if elapsed < FRAME_TIME {
             thread::sleep(FRAME_TIME - elapsed);
@@ -524,9 +559,19 @@ where
 fn initialise_runtime(
     manifest: &AssetManifest,
     session_assets: &NativeSessionAssets,
+    options: &NativePlayOptions,
 ) -> NativeRuntime {
     let mut runtime = NativeRuntime::new(manifest.clone());
     runtime.set_block_grid(session_assets.block_grid.clone());
+    if let Some(level_id) = options.warp_level {
+        if options.settled {
+            runtime.enter_level_playtest(LevelId(level_id));
+        } else {
+            runtime.warp_to_level(LevelId(level_id));
+        }
+    } else if options.settled {
+        runtime.enter_level_playtest(LevelId(0));
+    }
     runtime
 }
 
@@ -2295,7 +2340,17 @@ mod tests {
             Ok(sample_level_visuals())
         })
         .expect("session assets");
-        let runtime = initialise_runtime(&fixture.manifest, &session_assets);
+        let runtime = initialise_runtime(
+            &fixture.manifest,
+            &session_assets,
+            &NativePlayOptions {
+                fullscreen: false,
+                scale: None,
+                debug_overlay: false,
+                warp_level: None,
+                settled: false,
+            },
+        );
 
         assert_eq!(load_count.load(Ordering::SeqCst), 1);
         let opening_cell = runtime
@@ -2309,6 +2364,31 @@ mod tests {
         let trace = runtime.trace_frame();
         assert_eq!(trace.game_mode, GameMode::SegaScreen);
         assert_eq!(trace.current_level.0, 0);
+    }
+
+    #[test]
+    fn initialise_runtime_can_enter_settled_shortcut_level() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let session_assets = load_native_session_assets_with(&fixture.manifest, 0x00, |_, _| {
+            Ok(sample_level_visuals())
+        })
+        .expect("session assets");
+        let runtime = initialise_runtime(
+            &fixture.manifest,
+            &session_assets,
+            &NativePlayOptions {
+                fullscreen: false,
+                scale: None,
+                debug_overlay: false,
+                warp_level: Some(0x00),
+                settled: true,
+            },
+        );
+
+        let trace = runtime.trace_frame();
+        assert_eq!(trace.current_level.0, 0x00);
+        assert_eq!(trace.game_mode, GameMode::InGame);
+        assert!(trace.kid_y_pos.is_some());
     }
 
     #[test]
@@ -2365,6 +2445,25 @@ mod tests {
         assert_eq!(sprite_position(&scene, 41), Some((-4, 16)));
         assert_eq!(sprite_position(&scene, 21), Some((14, 12)));
         assert_eq!(sprite_position(&scene, 1), Some((8, -24)));
+    }
+
+    #[test]
+    fn game_scene_renders_flag_marker_when_visible() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0730_0000;
+        trace.camera_y_pos = 0x02D0_0000;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Rect {
+                    colour: [255, 120, 80],
+                    ..
+                }
+            )
+        }));
     }
 
     #[test]

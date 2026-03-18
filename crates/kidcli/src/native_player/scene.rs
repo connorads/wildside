@@ -1049,6 +1049,35 @@ fn build_game_scene_filtered(
     }
 
     if filter.effects {
+        if !trace.level_complete
+            && let (Some(flag_x), Some(flag_y)) = (trace.flag_x, trace.flag_y)
+        {
+            let sx = i32::from(flag_x) - (trace.camera_x_pos >> 16) as i32;
+            let ground_y = i32::from(flag_y) - (trace.camera_y_pos >> 16) as i32;
+            let pole_top = ground_y - 40;
+            commands.push(DrawCommand::Rect {
+                x: sx - 1,
+                y: pole_top,
+                width: 2,
+                height: 40,
+                colour: [210, 210, 220],
+            });
+            commands.push(DrawCommand::Rect {
+                x: sx + 1,
+                y: pole_top + 2,
+                width: 12,
+                height: 8,
+                colour: [255, 120, 80],
+            });
+            commands.push(DrawCommand::Rect {
+                x: sx + 2,
+                y: pole_top + 3,
+                width: 3,
+                height: 2,
+                colour: [255, 240, 180],
+            });
+        }
+
         // Murder wall: layered red wall advancing from the side
         if let Some(wall_x_fp) = trace.murder_wall_x {
             let wall_x_screen = (wall_x_fp >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
