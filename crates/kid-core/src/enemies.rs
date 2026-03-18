@@ -73,8 +73,10 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Orca => (4, 0x0000_8000, 0),
         // Ninja: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
-        // Lion: HP = enemy_level + 6 (min 6). Speed $18000 base, $28000 at HP 8.
-        EnemyFamily::Lion => (6, 0x0001_8000, 0x0000_8000),
+        // Lion: HP = enemy_level + 6 (min 6). Binary speed check: $28000 at HP==8,
+        // $18000 otherwise. ASM: Lion.asm lines 32-41, `cmpi.b #8`.
+        // Using step=0 and handling HP==8 via lion_charge_speed instead.
+        EnemyFamily::Lion => return lion_charge_speed(hit_points),
         // DragonWalking: HP = enemy_level + 1 (min 1). Speed $8000 at HP≤2, $18000 at HP=3.
         // ASM: Dragon.asm lines 64-74 — only HP==3 sets $10000 base, then always +$8000.
         EnemyFamily::DragonWalking => (2, 0x0000_8000, 0x0001_0000),
@@ -1491,10 +1493,12 @@ pub(crate) fn step_hand(
     }
 }
 
-/// Lion charge detection range (Lion.asm ~$40-$A0 px).
-pub(crate) const LION_DETECT_RANGE: i32 = 0xA0;
+/// Lion charge detection range — primary trigger is $60 (96px) at loc_3E450/3E604.
+/// $A0 (160px) is used for turnaround hysteresis, not charge trigger.
+pub(crate) const LION_DETECT_RANGE: i32 = 0x60;
 
-/// Lion charge speed: $28000 for HP=8, $18000 otherwise (Lion.asm lines 36-48).
+/// Lion charge speed: $28000 for HP==8, $18000 otherwise (Lion.asm lines 36-48).
+/// Also used as walk speed — ASM sets both $50(a5) and $5E(a5) from same value.
 pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
     if hit_points >= 8 { 0x2_8000 } else { 0x1_8000 }
 }
@@ -1503,13 +1507,32 @@ pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
 /// When timer expires and player is in range, Lion charges.
 pub(crate) const LION_CHARGE_TIMER_INIT: u16 = 60;
 
-/// Lion charge duration (frames before returning to walk).
-pub(crate) const LION_CHARGE_DURATION: u16 = 40;
+/// Lion post-projectile cooldown: $B4 (180 frames) before next charge after
+/// firing a projectile (Lion.asm loc_3E096).
+pub(crate) const LION_COOLDOWN_AFTER_FIRE: u16 = 180;
+
+/// Lion charge overshoot distance for termination: $70 (112px).
+/// ASM does not use a fixed duration — charge ends when Lion overshoots
+/// the player by >112px (loc_3E450/3E604).
+pub(crate) const LION_CHARGE_OVERSHOOT: i32 = 0x70;
 
 /// Lion projectile speed (Lion.asm line 165: $60000).
 pub(crate) const LION_PROJECTILE_SPEED: i32 = 0x6_0000;
 
-/// Step a Lion enemy: paces normally, then charges toward player and fires a projectile.
+// TODO(fidelity): Lion homing accel is $2000/frame (Lion.asm loc_3E1C2),
+// but generic HOMING_ACCEL is $7D0 (HeadyMetal). Need per-projectile accel.
+// Also missing: lion projectile wall-bounce (Lion.asm loc_3E260) and
+// speed cap at $60000 on both axes.
+
+/// Lion projectile spawn X offset: 10px ahead in facing direction.
+pub(crate) const LION_PROJECTILE_X_OFFSET: i32 = 10;
+
+/// Lion projectile spawn Y offset: 24px above Lion's Y position ($18).
+pub(crate) const LION_PROJECTILE_Y_OFFSET: i32 = 24;
+
+/// Step a Lion enemy: paces normally, then charges toward player and fires a
+/// homing projectile. Charge ends on wall/edge or player overshoot >112px.
+/// ASM: Lion.asm — full state machine with detection, charge, and cooldown.
 pub(crate) fn step_lion(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -1527,7 +1550,7 @@ pub(crate) fn step_lion(
                 return;
             }
 
-            // Timer expired — check if player is in range
+            // Timer expired — check if player is in range ($60 = 96px)
             let Some(px) = player_x_pos else {
                 enemy.wait_timer = LION_CHARGE_TIMER_INIT;
                 return;
@@ -1545,26 +1568,33 @@ pub(crate) fn step_lion(
                 Direction::Left
             };
             enemy.lion_state = LionState::Charging;
-            enemy.wait_timer = LION_CHARGE_DURATION;
 
-            // Fire a fast projectile toward the player
+            // Fire a homing projectile toward the player (Lion.asm loc_3E12A).
+            // Spawns 10px ahead in X, 24px above in Y.
             if let Some(projs) = projectiles {
                 let speed = LION_PROJECTILE_SPEED;
-                let (xv, yv) = match enemy.facing {
-                    Direction::Right => (speed, 0),
-                    Direction::Left => (-speed, 0),
+                let (xv, x_off) = match enemy.facing {
+                    Direction::Right => (speed, LION_PROJECTILE_X_OFFSET),
+                    Direction::Left => (-speed, -LION_PROJECTILE_X_OFFSET),
                 };
+                let proj_x = (enemy.x_pos as i64 + ((x_off as i64) << 16)) as u32;
+                let proj_y = (enemy.y_pos as i64
+                    - ((LION_PROJECTILE_Y_OFFSET as i64) << 16))
+                    as u32;
                 projs.push(EnemyProjectile {
-                    x_pos: enemy.x_pos,
-                    y_pos: enemy.y_pos,
+                    x_pos: proj_x,
+                    y_pos: proj_y,
                     x_velocity: xv,
-                    y_velocity: yv,
-                    lifetime: 60,
+                    y_velocity: 0,
+                    lifetime: 120,
                     gravity: 0,
                     friendly: false,
-                    homing: false,
+                    homing: true,
                 });
             }
+
+            // Post-fire cooldown is longer: $B4 (180 frames) at loc_3E096.
+            // The cooldown is applied when returning to walk after charge.
         }
         LionState::Charging => {
             // Move at charge speed
@@ -1588,7 +1618,7 @@ pub(crate) fn step_lion(
                 if wall.hit {
                     reverse_enemy_direction(enemy);
                     enemy.lion_state = LionState::Walking;
-                    enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                    enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                     return;
                 }
 
@@ -1601,17 +1631,26 @@ pub(crate) fn step_lion(
                 if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
                     reverse_enemy_direction(enemy);
                     enemy.lion_state = LionState::Walking;
-                    enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                    enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                     return;
                 }
             }
 
-            // Timer countdown
-            if enemy.wait_timer > 0 {
-                enemy.wait_timer -= 1;
-            } else {
-                enemy.lion_state = LionState::Walking;
-                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+            // Overshoot check: if Lion has passed player by >112px, stop charging
+            // (Lion.asm loc_3E450/3E604 — no fixed duration timer).
+            if let Some(px) = player_x_pos {
+                let dx = match enemy.facing {
+                    Direction::Right => {
+                        (enemy.x_pos as i64 - px as i64) >> 16
+                    }
+                    Direction::Left => {
+                        (px as i64 - enemy.x_pos as i64) >> 16
+                    }
+                };
+                if dx > i64::from(LION_CHARGE_OVERSHOOT) {
+                    enemy.lion_state = LionState::Walking;
+                    enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                }
             }
         }
     }

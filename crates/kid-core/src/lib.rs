@@ -7504,10 +7504,10 @@ mod tests {
     }
 
     #[test]
-    fn pacer_walk_speed_lion_scales_with_hp() {
-        // Lion: base HP 6, base speed $18000, step $8000
+    fn pacer_walk_speed_lion_binary_hp_check() {
+        // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
-        assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 7), 0x0002_0000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 7), 0x0001_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 8), 0x0002_8000);
     }
 
@@ -8880,7 +8880,7 @@ mod tests {
         enemy.lion_state = LionState::Walking;
         enemy.on_ground = true;
         enemy.wait_timer = 0;
-        let player_x = Some((60 + 0xFF) << 16); // far away, beyond $A0 range
+        let player_x = Some((60 + 0xFF) << 16); // far away, beyond $60 range
         let mut projs = vec![];
         step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
         assert_eq!(
@@ -8892,23 +8892,30 @@ mod tests {
     }
 
     #[test]
-    fn lion_charge_returns_to_walking_after_duration() {
-        let grid = grid_with_platform(17, 0, 120);
+    fn lion_charge_returns_to_walking_on_overshoot() {
+        // Lion charge ends when overshooting player by >112px ($70), not a
+        // fixed duration timer. ASM: Lion.asm loc_3E450/3E604.
+        let grid = grid_with_platform(17, 0, 200);
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
         enemy.lion_state = LionState::Charging;
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
-        enemy.wait_timer = 1;
-        step_lion(&mut enemy, Some(&grid), None, &mut None);
-        assert_eq!(enemy.wait_timer, 0);
-        step_lion(&mut enemy, Some(&grid), None, &mut None);
+        // Player is at x=60, Lion starts at x=60 moving right.
+        // After enough steps the Lion passes the player by >112px.
+        let player_x = Some(60u32 << 16);
+        for _ in 0..100 {
+            if enemy.lion_state == LionState::Walking {
+                break;
+            }
+            step_lion(&mut enemy, Some(&grid), player_x, &mut None);
+        }
         assert_eq!(
             enemy.lion_state,
             LionState::Walking,
-            "should return to walking after charge duration"
+            "should return to walking after overshooting player"
         );
-        assert_eq!(enemy.wait_timer, LION_CHARGE_TIMER_INIT);
+        assert_eq!(enemy.wait_timer, LION_COOLDOWN_AFTER_FIRE);
     }
 
     #[test]

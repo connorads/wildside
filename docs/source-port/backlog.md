@@ -45,7 +45,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
 | 037 | [ ] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
 | 038 | [ ] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
-| 039 | [ ] | P3 | fidelity | 4th speed table entry (Berzerker?) not modelled | All 4 form slots per terrain |
+| 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
 
 ## Investigation notes
 
@@ -142,3 +142,11 @@ camera differs. Caused by `update_camera_axis` convergence dead-zone: `(target-c
 rounds to 0 when |target-camera| < 4, causing the camera to stop a few pixels above/below
 the target depending on the initial offset. Masked by oracle-pause threshold (≤32px).
 Full fix requires matching the exact initial camera + settling frame count.
+
+### 039 — 4th speed table entry (NOT A BUG)
+Normal terrain table (unk_9C0A) has 4 entries of 7 longwords each ($70 bytes total),
+but Ice (unk_9C7A) and Rubber (unk_9CCE) only have 3 entries ($54 bytes each).
+ASM selection at loc_9AFC checks Micromax (+$1C) and Juggernaut (+$38) independently.
+The 4th entry at offset +$54 is only reachable if BOTH checks matched simultaneously,
+which can't happen (one helmet at a time). Dead data — likely a cut form or dev remnant.
+Values: $20000/$4000/$2800/$4000/$30000/$3800/$6000 (similar to Juggernaut but higher accel).
