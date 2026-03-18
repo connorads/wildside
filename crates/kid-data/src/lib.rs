@@ -803,15 +803,15 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
         if let Some(rest) = trimmed.strip_prefix("PlatformScript_") {
             if let Some(colon_idx) = rest.find(':') {
                 // Flush previous script
-                if let Some(offset) = current_offset {
-                    if !current_commands.is_empty() {
-                        scripts.insert(
-                            offset,
-                            PlatformScript {
-                                commands: std::mem::take(&mut current_commands),
-                            },
-                        );
-                    }
+                if let Some(offset) = current_offset
+                    && !current_commands.is_empty()
+                {
+                    scripts.insert(
+                        offset,
+                        PlatformScript {
+                            commands: std::mem::take(&mut current_commands),
+                        },
+                    );
                 }
                 // Parse relative offset from comment or from label hex
                 if let Some(comment) = rest.get(colon_idx + 1..) {
@@ -836,32 +836,32 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
         if let Some(args) = trimmed.strip_prefix("ptfm_move") {
             let args = args.trim();
             let parts: Vec<&str> = args.split(',').map(|s| s.trim()).collect();
-            if parts.len() == 3 {
-                if let (Some(duration), Some(x_vel), Some(y_vel)) = (
+            if parts.len() == 3
+                && let (Some(duration), Some(x_vel), Some(y_vel)) = (
                     parse_asm_integer(parts[0]),
                     parse_asm_signed(parts[1]),
                     parse_asm_signed(parts[2]),
-                ) {
-                    current_commands.push(PlatformMoveCommand {
-                        duration: duration as u16,
-                        x_velocity: x_vel,
-                        y_velocity: y_vel,
-                    });
-                }
+                )
+            {
+                current_commands.push(PlatformMoveCommand {
+                    duration: duration as u16,
+                    x_velocity: x_vel,
+                    y_velocity: y_vel,
+                });
             }
         }
     }
 
     // Flush last script
-    if let Some(offset) = current_offset {
-        if !current_commands.is_empty() {
-            scripts.insert(
-                offset,
-                PlatformScript {
-                    commands: current_commands,
-                },
-            );
-        }
+    if let Some(offset) = current_offset
+        && !current_commands.is_empty()
+    {
+        scripts.insert(
+            offset,
+            PlatformScript {
+                commands: current_commands,
+            },
+        );
     }
 
     PlatformScriptTable { scripts }
@@ -1305,7 +1305,7 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
                 0..=2 => {
                     let count = usize::from(bits.read_bits(4)?) + 1;
                     let flags = read_enigma_flags(&mut bits, flag_mask)?;
-                    let mut value = (bits.read_bits(packet_length)? as u16) | flags;
+                    let mut value = bits.read_bits(packet_length)? | flags;
                     for _ in 0..count {
                         output.push(value);
                         value = match mode {
@@ -1323,7 +1323,7 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
                     }
                     for _ in 0..=count {
                         let flags = read_enigma_flags(&mut bits, flag_mask)?;
-                        let value = (bits.read_bits(packet_length)? as u16) | flags;
+                        let value = bits.read_bits(packet_length)? | flags;
                         output.push(value);
                     }
                 }
