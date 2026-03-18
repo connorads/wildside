@@ -57,8 +57,7 @@ pub(crate) const ENEMY_PROBE_HEIGHT: i32 = 16;
 pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     let (base_hp, base_speed, speed_step) = match family {
         // Goat: HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
-        // TODO(fidelity): Goat has player-tracking callback (Goat.asm loc_3CC18) —
-        // turns toward player if >32px away. Not in native step_pacer.
+        // Player-tracking callback (Goat.asm loc_3CC18) wired in step dispatch.
         EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
         // Armadillo: HP = enemy_level + 1 (min 1). Base speed $8000, step $10000.
         EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
@@ -818,6 +817,20 @@ pub(crate) fn step_active_enemies(
                     step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
                 } else {
                     step_pacer(enemy, block_grid);
+                    // Goat: player-tracking callback (Goat.asm loc_3CC18).
+                    // If player is >32px away, turn to face them.
+                    if matches!(enemy.family, EnemyFamily::Goat) {
+                        if let Some(px) = player_x_pos {
+                            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+                            if dx.abs() > 0x20 {
+                                enemy.facing = if dx > 0 {
+                                    Direction::Right
+                                } else {
+                                    Direction::Left
+                                };
+                            }
+                        }
+                    }
                     // Tank fires horizontal bullets at intervals
                     if matches!(enemy.family, EnemyFamily::Tank) {
                         if let Some(ref mut projs) = projectiles {
@@ -2350,7 +2363,8 @@ pub(crate) fn step_orca(
             let cx = (enemy.x_pos >> 16) as i32;
             let cy = (enemy.y_pos >> 16) as i32;
 
-            // Wall bounce
+            // Wall bounce — ASM Orca.asm loc_3D40C: zero x_vel, set wall-pinned flag.
+            // Simplified: invert x_vel (re-accel is TODO(fidelity))
             let moving_right = enemy.x_velocity >= 0;
             let wall = terrain::probe_wall(
                 grid,
@@ -2363,6 +2377,14 @@ pub(crate) fn step_orca(
             if wall.hit {
                 enemy.x_velocity = -enemy.x_velocity;
                 enemy.facing = opposite_direction(enemy.facing);
+            }
+
+            // Ceiling bounce — ASM Orca.asm loc_3D47A: y_vel = $18000
+            if enemy.y_velocity < 0 {
+                let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+                if ceil.hit {
+                    enemy.y_velocity = 0x1_8000; // bounce down
+                }
             }
 
             // Floor landing
