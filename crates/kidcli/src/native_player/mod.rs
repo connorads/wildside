@@ -1109,6 +1109,7 @@ mod tests {
             number_gfx_objects: 4,
             level_complete: false,
             game_over: false,
+            continue_countdown: None,
             game_complete: false,
             ending_elapsed: None,
             options_cursor: None,

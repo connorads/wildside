@@ -55,7 +55,10 @@ const ENEMY_CONTACT_HALF_HEIGHT: i64 = 8;
 const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
 const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 120;
-const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 300;
+/// ASM: Game Over display holds for 0x1A3 (419) frames.
+const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
+/// ASM: Continue countdown: 28 initial pause + 291 countdown = 319 frames.
+const CONTINUE_COUNTDOWN_FRAMES: usize = 319;
 const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
 // ASM: Just_received_damage flag cleared by flicker object (loc_BC54):
 // outer loop dbf d3 with d3=$A (11 iterations), 6 frames per iteration = 66 frames.
@@ -316,6 +319,8 @@ pub struct NativeTraceFrame {
     pub number_gfx_objects: u16,
     pub level_complete: bool,
     pub game_over: bool,
+    /// Continue countdown remaining frames (None if not in continue screen).
+    pub continue_countdown: Option<usize>,
     pub game_complete: bool,
     /// Ending credits sequence elapsed frames (None if not in ending).
     pub ending_elapsed: Option<usize>,
@@ -674,8 +679,13 @@ enum PlayerLifecycle {
     LevelComplete {
         remaining_frames: usize,
     },
-    /// All lives lost — hold for a pause then return to title screen.
+    /// All lives lost — "GAME OVER" display, then continue countdown if available.
     GameOver {
+        remaining_frames: usize,
+    },
+    /// "CONTINUE?" countdown (only enters if continues > 0). Button press uses continue.
+    /// ASM: 28 frames initial pause + 291 frames countdown = 319 total.
+    ContinueCountdown {
         remaining_frames: usize,
     },
 }
@@ -1645,7 +1655,11 @@ impl NativeRuntime {
             number_objects,
             number_gfx_objects,
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
-            game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. }),
+            game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }),
+            continue_countdown: match self.player_lifecycle {
+                PlayerLifecycle::ContinueCountdown { remaining_frames } => Some(remaining_frames),
+                _ => None,
+            },
             game_complete: self.game_complete,
             ending_elapsed: match self.boot_state {
                 BootState::EndingSequence { elapsed } => Some(elapsed),
@@ -1970,13 +1984,29 @@ impl NativeRuntime {
                 return;
             }
             PlayerLifecycle::GameOver { remaining_frames } => {
+                // ASM: "GAME OVER" display, then transition to continue screen or title.
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else if self.number_continues > 0 {
+                    // Transition to continue countdown screen
+                    self.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+                        remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
+                    };
+                } else if self.try_switch_player() {
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                } else {
+                    self.return_to_title();
+                }
+                return;
+            }
+            PlayerLifecycle::ContinueCountdown { remaining_frames } => {
+                // ASM Continue_Screen: button press uses continue, timeout goes to title.
+                let any_button = input.a || input.b || input.c || input.start;
+                if any_button {
                     // Use a continue: restore lives and respawn at current level.
-                    // ASM: Use_Continue clears helmet, diamonds, resets to 3 lives / 2 HP.
+                    // ASM Use_Continue: clears helmet, diamonds, resets to 3 lives / 2 HP.
                     self.number_continues -= 1;
                     self.number_lives = 3;
                     self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
@@ -1991,21 +2021,13 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
-                } else if self.try_switch_player() {
-                    // 2P mode: switched to other player's turn
-                    self.player_lifecycle = PlayerLifecycle::Alive;
+                } else if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+                        remaining_frames: remaining_frames - 1,
+                    };
                 } else {
-                    // No continues left (and no other player) — return to title screen
-                    self.boot_state = BootState::TitleScreen;
-                    self.player_lifecycle = PlayerLifecycle::Alive;
-                    self.number_lives = 3;
-                    self.number_continues = 3;
-                    self.diamond_count = 0;
-                    self.current_level = LevelId(0);
-                    self.opening_slice = None;
-                    self.two_player = false;
-                    self.current_player_index = 0;
-                    self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
+                    // Countdown expired without input — return to title
+                    self.return_to_title();
                 }
                 return;
             }
@@ -4511,10 +4533,21 @@ mod tests {
             runtime.player_lifecycle
         );
 
-        // Advance through game-over hold — should use continue
+        // Advance through game-over hold — should enter continue countdown
         for _ in 0..PLAYER_GAME_OVER_HOLD_FRAMES {
             runtime.step_frame(FrameInput::default());
         }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::ContinueCountdown { .. }),
+            "expected ContinueCountdown, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        // Press a button to use continue
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
         assert_eq!(
             runtime.boot_state,
             BootState::InGame,

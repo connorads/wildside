@@ -1614,6 +1614,7 @@ mod tests {
             number_gfx_objects: 3,
             level_complete: false,
             game_over: false,
+            continue_countdown: None,
             game_complete: false,
             ending_elapsed: None,
             number_continues: 3,

@@ -1340,12 +1340,17 @@ fn build_game_scene_filtered(
 
     // Game Over / Continue overlay
     if trace.game_over {
-        if trace.number_continues > 0 {
+        if let Some(countdown) = trace.continue_countdown {
+            // "CONTINUE?" countdown screen — shows remaining time and continues
             let title = "CONTINUE?";
             let title_w = title.len() as i32 * 8 * 2;
             let title_x = (FRAME_WIDTH as i32 - title_w) / 2;
-            let title_y = (FRAME_HEIGHT as i32) / 2 - 16;
-            let count_line = format!("{} REMAINING", trace.number_continues);
+            let title_y = (FRAME_HEIGHT as i32) / 2 - 24;
+            let seconds_left = (countdown / 60).min(9);
+            let timer_line = format!("{}", seconds_left);
+            let timer_w = timer_line.len() as i32 * 8 * 3;
+            let timer_x = (FRAME_WIDTH as i32 - timer_w) / 2;
+            let count_line = format!("{} CONTINUES LEFT", trace.number_continues);
             let count_w = count_line.len() as i32 * 8;
             let count_x = (FRAME_WIDTH as i32 - count_w) / 2;
             let panel_w = title_w.max(count_w + 16) + 16;
@@ -1355,13 +1360,34 @@ fn build_game_scene_filtered(
                 panel_x,
                 title_y - 4,
                 panel_w,
-                40,
+                56,
                 [0, 40, 80],
                 [80, 180, 255],
             );
             commands.push(text(title_x, title_y, title, [80, 180, 255], 2));
-            commands.push(text(count_x, title_y + 24, &count_line, [200, 220, 255], 1));
+            // Blinking countdown number
+            if (countdown / 15) % 2 == 0 {
+                commands.push(text(timer_x, title_y + 20, &timer_line, [255, 255, 80], 3));
+            }
+            commands.push(text(count_x, title_y + 44, &count_line, [200, 220, 255], 1));
+        } else if trace.number_continues > 0 {
+            // "GAME OVER" display before continue screen appears
+            let go_text = "GAME OVER";
+            let text_w = go_text.len() as i32 * 8 * 2;
+            let text_x = (FRAME_WIDTH as i32 - text_w) / 2;
+            let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
+            push_panel(
+                &mut commands,
+                text_x - 8,
+                text_y - 4,
+                text_w + 16,
+                24,
+                [80, 0, 0],
+                [255, 80, 80],
+            );
+            commands.push(text(text_x, text_y, go_text, [255, 80, 80], 2));
         } else {
+            // No continues — final "GAME OVER"
             let go_text = "GAME OVER";
             let text_w = go_text.len() as i32 * 8 * 2;
             let text_x = (FRAME_WIDTH as i32 - text_w) / 2;

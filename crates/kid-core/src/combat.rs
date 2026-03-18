@@ -529,6 +529,21 @@ impl NativeRuntime {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
         };
     }
+
+    /// Reset all state and return to title screen.
+    pub(crate) fn return_to_title(&mut self) {
+        self.boot_state = BootState::TitleScreen;
+        self.player_lifecycle = PlayerLifecycle::Alive;
+        self.number_lives = 3;
+        self.number_continues = 3;
+        self.diamond_count = 0;
+        self.score = 0;
+        self.current_level = LevelId(0);
+        self.opening_slice = None;
+        self.two_player = false;
+        self.current_player_index = 0;
+        self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
