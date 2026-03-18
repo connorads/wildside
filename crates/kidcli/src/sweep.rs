@@ -15,13 +15,13 @@ use sha1::{Digest, Sha1};
 /// - number_hitpoints: oracle is accidentally paused (Start press carry-over
 ///   from title card transition), so the oracle player doesn't take damage
 ///   from enemies/murder wall during idle while the native does
+/// Advisory fields — diverge due to architectural differences, not native bugs.
+/// Promoted to authoritative (removed from list): score, number_diamonds (0 diffs at 0px).
 const ADVISORY_FIELDS: &[&str] = &[
-    "number_objects",
-    "number_hitpoints",
-    "number_lives",
-    "number_diamonds",
-    "score",
-    "murder_wall_x",
+    "number_objects",   // native doesn't model system objects (palette rotation, etc.)
+    "number_hitpoints", // oracle-pause: idle_tail diverges because oracle is paused
+    "number_lives",     // oracle-pause: idle_tail diverges because oracle is paused
+    "murder_wall_x",    // oracle-pause: wall not initialised when oracle is paused
 ];
 
 /// Position tolerance in FP16.16 units. 6px = 0x0006_0000 accommodates the ±5px
