@@ -69,6 +69,12 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 060 | [ ] | P2 | enemy | Boss multi-head system (Shishkaboss/BoomerangBosses/BagelBrothers) | 3 objects per boss |
 | 061 | [~] | P3 | enemy | Orca missing ceiling bounce, slope handling, X accel during lunge | Ceiling done; slope/accel TODO |
 | 062 | [ ] | P3 | enemy | HeadyMetal fire rate animation-driven, missing death phase + eye spray | Boss phases match ASM |
+| 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
+| 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
+| 065 | [ ] | P3 | block | Shooter fire interval is approximation — ASM has no global timer | Shooter matches ASM mechanism |
+| 066 | [ ] | P3 | block | Mushroom bounce uses velocity; ASM uses coroutine pixel nudge | Mushroom matches ASM |
+| 067 | [ ] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM timing |
+| 068 | [ ] | P3 | block | Shifting block instant; ASM animates over ~23 frames | Shifting animation timing |
 
 ## Investigation notes
 
