@@ -29,9 +29,9 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 020 | [x] | P3 | render | No water/shimmer background effect | Load water level, confirm shimmer |
 | 021 | [x] | P3 | menu | Sound Test does nothing (cursor==1 unhandled) | Enter options, select Sound Test |
 | 022 | [x] | P3 | render | Duplicate Game Over overlay rendering | Game over screen renders once |
-| 023 | [ ] | P2 | render | Floating item sprites use placeholder rectangles | Replace with recognisable pixel-art icons |
-| 024 | [ ] | P1 | enemy | UFO beam child object system not implemented | UFO fires beam segments downward |
-| 025 | [ ] | P2 | enemy | Fire Demon death trail not implemented | Kill Fire Demon, confirm fire trail |
+| 023 | [x] | P2 | render | Floating item sprites use placeholder rectangles | Replace with recognisable pixel-art icons |
+| 024 | [x] | P1 | enemy | UFO beam child object system not implemented | UFO fires beam segments downward |
+| 025 | [x] | P2 | enemy | Fire Demon death trail not implemented | Kill Fire Demon, confirm fire trail |
 | 026 | [ ] | P3 | menu | Demo playback missing (no source data in ROM) | Title screen auto-plays demo |
 | 027 | [ ] | P2 | level | Multi-screen block list cross-level references | Some levels reference level 0x00 blocks |
 | 028 | [ ] | P3 | testing | Adopt `insta` snapshot testing for NativeTraceFrame | Snapshots detect state drift between commits |
