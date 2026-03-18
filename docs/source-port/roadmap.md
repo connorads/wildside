@@ -1,12 +1,16 @@
 # Long-Tail Roadmap: Finish Kid Chameleon Source Port
 
+## Current approach
+
+All 10 milestones below are done or substantially complete. The project is now in **playtest-driven iteration** — bugs and missing features are tracked in `docs/source-port/backlog.md`. See `CLAUDE.md` for the iteration protocol and validation methodology.
+
 ## Context
 
 The source port has closed three milestones (opening slice, gameplay lifecycle, Level 1 full traversal) and has a solid foundation: full physics, 3/28 enemy families, oracle comparison framework, 291 tests, and a working native player rendering Level 1. The remaining work spans ~25 enemy families, 9 helmet abilities, block interactions, platform collision, audio, 10 visual themes, weather, bosses, menus, and multi-level progression. This roadmap orders that work by gameplay impact, dependency chain, and the project's progressive-fidelity philosophy.
 
 ---
 
-## Milestone 1: Tier 1 Enemy Families + Archetype System
+## Milestone 1: Tier 1 Enemy Families + Archetype System — Done
 
 **Goal:** Every early level has moving enemies. Refactor enemy dispatch into reusable archetypes.
 
@@ -33,7 +37,7 @@ All use: walk at speed, probe floor ahead for edge, probe wall ahead for reversa
 
 ---
 
-## Milestone 2: Block Interactions + Prize System
+## Milestone 2: Block Interactions + Prize System — Done
 
 **Goal:** Blocks do things — prizes drop, blocks break, ice is slippery.
 
@@ -47,7 +51,7 @@ All use: walk at speed, probe floor ahead for edge, probe wall ahead for reversa
 
 ---
 
-## Milestone 3: Platform Collision + Multi-Theme Visuals
+## Milestone 3: Platform Collision + Multi-Theme Visuals — Done
 
 **Goal:** Player can stand on platforms. Levels beyond Cave theme render correctly.
 
@@ -60,7 +64,7 @@ All use: walk at speed, probe floor ahead for edge, probe wall ahead for reversa
 
 ---
 
-## Milestone 4: Tier 2 Enemy Families
+## Milestone 4: Tier 2 Enemy Families — Done
 
 **Goal:** Enemies that fly, hop, and shoot arrows.
 
@@ -75,7 +79,7 @@ All use: walk at speed, probe floor ahead for edge, probe wall ahead for reversa
 
 ---
 
-## Milestone 5: Helmet Abilities (Movement)
+## Milestone 5: Helmet Abilities (Movement) — Done
 
 **Goal:** Transform and conquer — the game's signature mechanic.
 
@@ -90,7 +94,7 @@ All use: walk at speed, probe floor ahead for edge, probe wall ahead for reversa
 
 ---
 
-## Milestone 6: Native Audio
+## Milestone 6: Native Audio — Done
 
 **Goal:** The game has a voice. Transformative quality-of-life.
 
@@ -108,7 +112,7 @@ Architecture: reuse Z80+GEMS binary from ROM via existing `z80` crate + `ymfm-sy
 
 ---
 
-## Milestone 7: Tier 3-4 Enemies + Bosses
+## Milestone 7: Tier 3-4 Enemies + Bosses — Done
 
 **Goal:** The full bestiary. Boss fights are playable.
 
@@ -123,7 +127,7 @@ HeadyMetal (L$05), Shishkaboss (L$10), BoomerangBosses (L$1E), BagelBrothers (L$
 
 ---
 
-## Milestone 8: Helmet Abilities (Combat) + Remaining Blocks
+## Milestone 8: Helmet Abilities (Combat) + Remaining Blocks — Done
 
 **Goal:** Full combat toolkit, full block vocabulary.
 
@@ -132,7 +136,7 @@ Blocks: Teleporter, Elevator/Lift, Shifting, Shooter, Hidden, Drill, Mushroom, B
 
 ---
 
-## Milestone 9: Weather, Murder Wall, Camera
+## Milestone 9: Weather, Murder Wall, Camera — Done
 
 **Goal:** Environmental hazards complete the atmosphere.
 
@@ -140,7 +144,7 @@ Murder wall, weather effects (lava/storm/hail/snow), camera Y look-ahead, lava g
 
 ---
 
-## Milestone 10: Menus, Progression, Polish
+## Milestone 10: Menus, Progression, Polish — Partial
 
 **Goal:** A complete game from title to credits.
 

@@ -8,12 +8,7 @@ This map records what the source port still needs to learn, where to source that
 
 ## Current frontier
 
-1. Tier 1 enemy families (Pacer archetype: Goat, Armadillo, Tank, Crab, Scorpion, Driller) — **done**
-2. Block interactions + prize system + terrain type physics — **terrain type done**, block interactions in progress
-3. Platform collision + multi-theme visual generalisation — **static + moving platform collision done**
-4. Tier 2 enemy families (Cloud, Sphere, BigHoppingSkull, EmoRock, Archer, Fireball) — **done**
-5. Tier 3-4 enemy families (all 28 families wired) — **done**
-6. See `roadmap.md` for the full 10-milestone plan
+All 10 original milestones are done. The project is now in **playtest-driven iteration** — see `backlog.md` for the canonical bug/feature tracker and `CLAUDE.md` for the iteration protocol.
 
 ## Done
 
@@ -79,27 +74,31 @@ This map records what the source port still needs to learn, where to source that
 - Block interactions beyond the current traversal slice
 - Broader multi-level progression beyond the current transition scenario
 
-## Deferred
+## Previously deferred (now done)
 
-### Platform collision
-- Need: player-platform interaction (stand on, bump into)
-- Need: platform movement scripts from `level/platform/*.asm`
-- Blocked by: tighter terrain/object parity work
+- Platform collision — done (static + moving, riding logic, movement scripts)
+- Player forms — done (speed tables, form-specific abilities wired)
+- Audio and GEMS — done (GemsAudioEngine: Z80+YM2612+PSG from ROM)
+- Tier 3-4 enemies + bosses — done (all 28 families, 26 with real sprite art)
 
-### Player forms
-- Done: speed tables for all forms
-- Done: form-specific ground speed table wiring (Micromax/Juggernaut use distinct tables)
-- Remaining: form-specific abilities (Skycutter flight, Cyclone climb, etc.)
-- Deferred until the enemy/object surface is trustworthy
+## Validation methodology
 
-### Audio and GEMS
-- Deferred until gameplay is solid
-- Source: `doc/sound.txt`, `.cache/references/gems`, `.cache/references/gemsplay`
+### Oracle comparison (correctness)
+- jgenesis as ground truth, `DynamicScenario` per-frame button masks
+- Sweep: 105 levels x idle scenario, state-level checkpoint comparison
+- Position tolerance: 6px. Advisory fields masked.
 
-### Bosses, menus, cutscenes, weather
-- Deferred; see `whole-game-index.md`
+### Pixel-perfect frame comparison (visual)
+- 320x224 fixed-palette — exact pixel matching, `image` crate RGBA comparison
+- `dify` CLI for ad-hoc diff
+
+### Input replay + snapshot testing (regression)
+- `DynamicScenario` for replay, `insta` for snapshot regression
+- See `CLAUDE.md` for full details
 
 ## Open questions
 
-- Which levels have the most block interactions to exercise first for oracle regression?
-- Platform collision: what is the minimal set of levels to exercise riding + movement scripts?
+- FloatingItem spawning: `prize_block_hit` doesn't record position — items never appear visually
+- Multi-screen foreground: some levels reference block layout for level 0x00 (asset extraction gap)
+- 6 oracle warp-broken levels (oracle crashes during gameplay: 0x09, 0x32, 0x33, 0x50, 0x57, 0x63)
+- Demo playback: no source data found in disassembly
