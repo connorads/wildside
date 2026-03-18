@@ -274,124 +274,103 @@ impl NativeRuntime {
     /// in the block grid. Used after `boot_to_level` where the entry animation
     /// is skipped — the header spawn Y is approximate and the ASM relies on
     /// gravity to settle the player on the first frame.
-    ///
-    /// Known limitation (#037): uses simplified probe_floor_hitbox which only
-    /// checks ±half_width edges. Levels where terrain is beyond the hitbox
-    /// width (e.g. 0x52: staircase at col 2, player at col 1) settle at the
-    /// wrong Y. ASM runs Hibernate_Object_1Frame (kid.asm:7710) with full
-    /// collision detection. Fix requires running real frame steps here.
     pub(crate) fn level_respawn_slice_with_floor_snap(
         &self,
         level_id: LevelId,
     ) -> OpeningSliceState {
-        let mut slice = self.level_respawn_slice(level_id);
-        if let Some(grid) = self.block_grid.as_ref() {
-            let header_x_px = (slice.player.x_pos >> 16) as i32;
-            let header_y_px = (slice.player.y_pos >> 16) as i32;
+        let bounds = self.level_bounds(level_id);
+        let pose = self.level_start_pose(level_id, bounds);
+        let mut slice = OpeningSliceState::respawn_from_pose(bounds, pose);
+        slice.player.on_ground = false;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
 
-            // Simulate real gravity settling: run frame-by-frame physics with
-            // floor probes and slope-slide to match the oracle's convergence path.
-            // This fixes levels where the static floor probe misses terrain that
-            // the real physics catch during the fall (e.g. level 0x52 #037) and
-            // slope-induced X drift (e.g. level 0x29 #049).
-            let max_x = i32::from(slice.level_bounds.width_pixels)
-                - physics::VIEWPORT_WIDTH;
-            let max_y = i32::from(slice.level_bounds.height_pixels)
-                - physics::VIEWPORT_HEIGHT;
-            let mut sim_x_fp = slice.player.x_pos;
-            let mut sim_y_fp = slice.player.y_pos;
-            let mut sim_y_vel: i32 = 0;
-            let mut sim_x_vel: i32 = 0;
-            let mut cam_x = (slice.camera.x_pos >> 16) as i32;
-            let mut cam_y = (slice.camera.y_pos >> 16) as i32;
-            let mut landed = false;
+        let Some(base_grid) = self.block_grid.as_ref() else {
+            return slice;
+        };
+        let mut grid = base_grid.clone();
+        let settle_input = FrameInput::default();
+        let mut stable_frames = 0usize;
 
-            // Gravity fall phase: step until landing or timeout
-            for _ in 0..120 {
-                sim_y_vel = physics::apply_gravity(sim_y_vel, false);
-                sim_y_fp = (sim_y_fp as i64 + i64::from(sim_y_vel)) as u32;
-                sim_x_fp = (sim_x_fp as i64 + i64::from(sim_x_vel)) as u32;
-
-                let x_px = (sim_x_fp >> 16) as i32;
-                let y_px = (sim_y_fp >> 16) as i32;
-
-                let floor = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
-                if floor.on_ground && sim_y_vel >= 0 {
-                    let floor_y_fp = (floor.floor_y_px.saturating_sub(1).max(0) as u32) << 16;
-                    if sim_y_fp >= floor_y_fp {
-                        sim_y_fp = floor_y_fp;
-                        sim_y_vel = 0;
-
-                        // Slope-slide: if standing on a slope cell, apply X drift.
-                        // ASM applies horizontal push proportional to the slope.
-                        match floor.cell.collision {
-                            terrain::CollisionKind::SlopeDown => {
-                                // Floor falls left-to-right → player slides right
-                                sim_x_vel = 0x8000; // ~0.5 px/frame
-                            }
-                            terrain::CollisionKind::SlopeUp => {
-                                // Floor rises left-to-right → player slides left
-                                sim_x_vel = -0x8000;
-                            }
-                            _ => {
-                                sim_x_vel = 0;
-                                landed = true;
-                            }
-                        }
-                    }
-                }
-
-                cam_x = physics::update_camera_axis(cam_x, x_px, max_x);
-                cam_y = physics::update_camera_axis(cam_y, y_px, max_y);
-
-                if landed {
-                    break;
-                }
+        for frame in 0..180 {
+            let prev_player = (slice.player.x_pos, slice.player.y_pos);
+            let prev_camera = (slice.camera.x_pos, slice.camera.y_pos);
+            slice.step(
+                OPENING_SCROLL_START_FRAME + frame,
+                settle_input,
+                false,
+                self.current_form,
+                Some(&mut grid),
+                self.block_list.as_ref(),
+                false,
+                0,
+            );
+            if self.try_settle_on_spawn_support(&mut slice, &grid) {
+                slice.update_camera_follow(0);
             }
 
-            // Continue settling camera after landing
-            let final_x_px = (sim_x_fp >> 16) as i32;
-            let final_y_px = (sim_y_fp >> 16) as i32;
-            for _ in 0..120 {
-                let prev_x = cam_x;
-                let prev_y = cam_y;
-                cam_x = physics::update_camera_axis(cam_x, final_x_px, max_x);
-                cam_y = physics::update_camera_axis(cam_y, final_y_px, max_y);
-                if cam_x == prev_x && cam_y == prev_y {
+            let current_player = (slice.player.x_pos, slice.player.y_pos);
+            let current_camera = (slice.camera.x_pos, slice.camera.y_pos);
+            if slice.player.on_ground
+                && current_player == prev_player
+                && current_camera == prev_camera
+                && slice.player.x_velocity == 0
+                && slice.player.y_velocity == 0
+            {
+                stable_frames += 1;
+                if stable_frames >= 8 {
                     break;
                 }
-            }
-
-            // Apply settled positions
-            slice.player.x_pos = sim_x_fp;
-            slice.player.y_pos = sim_y_fp;
-            slice.player.on_ground = true;
-            slice.player.y_velocity = 0;
-            slice.player.x_velocity = 0;
-            slice.terrain.floor_y_pos = sim_y_fp;
-            slice.camera.x_pos = (cam_x.max(0) as u32) << 16;
-            slice.camera.y_pos = (cam_y.max(0) as u32) << 16;
-
-            // Fallback: if simulation didn't find ground (player fell off map),
-            // restore original header position.
-            if !landed && header_y_px == final_y_px {
-                // No movement at all — no floor found below. Use static probe.
-                let floor_y = [
-                    terrain::find_floor_below(grid, header_x_px, header_y_px),
-                    terrain::find_floor_below(grid, header_x_px - PLAYER_HALF_WIDTH, header_y_px),
-                    terrain::find_floor_below(grid, header_x_px + PLAYER_HALF_WIDTH, header_y_px),
-                ]
-                .into_iter()
-                .flatten()
-                .min();
-                if let Some(fy) = floor_y {
-                    let floor_y_fp = (fy.saturating_sub(1).max(0) as u32) << 16;
-                    slice.player.y_pos = floor_y_fp;
-                    slice.terrain.floor_y_pos = floor_y_fp;
-                }
+            } else {
+                stable_frames = 0;
             }
         }
+
         slice
+    }
+
+    pub(crate) fn try_settle_on_spawn_support(
+        &self,
+        slice: &mut OpeningSliceState,
+        grid: &terrain::BlockGrid,
+    ) -> bool {
+        const INIT_SETTLE_HALF_WIDTH: i32 = 16;
+
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let probe = terrain::probe_floor_span(
+            grid,
+            x_px - INIT_SETTLE_HALF_WIDTH,
+            x_px + INIT_SETTLE_HALF_WIDTH,
+            y_px,
+        );
+        if !probe.cell.is_solid_floor() {
+            return false;
+        }
+        if slice.player.on_ground && !slice.player.on_spikes {
+            return false;
+        }
+
+        let floor_y_px = match probe.cell.collision {
+            terrain::CollisionKind::Solid
+            | terrain::CollisionKind::Spikes
+            | terrain::CollisionKind::HiddenBlock => probe.floor_y_px.saturating_sub(1),
+            terrain::CollisionKind::SlopeDown
+            | terrain::CollisionKind::SlopeUp
+            | terrain::CollisionKind::Empty => probe.floor_y_px,
+        };
+        let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+        let within_snap = slice.player.y_pos.abs_diff(floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP;
+        if slice.player.y_velocity < 0 || (slice.player.y_pos < floor_y_fp && !within_snap) {
+            return false;
+        }
+
+        slice.player.y_pos = floor_y_fp;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
+        slice.terrain.floor_y_pos = floor_y_fp;
+        slice.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
+        true
     }
 
     pub(crate) fn level_start_pose(

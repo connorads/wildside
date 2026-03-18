@@ -694,6 +694,47 @@ pub fn probe_floor_hitbox(
     }
 }
 
+/// Probe a horizontal span and return the highest floor support found.
+///
+/// This is used during level-entry settling where the original game runs a
+/// whole frame of collision logic before the first playable frame. Some spawn
+/// points stabilise against support slightly beyond the normal gameplay hitbox.
+pub fn probe_floor_span(
+    grid: &BlockGrid,
+    left_x_px: i32,
+    right_x_px: i32,
+    foot_y_px: i32,
+) -> FloorProbe {
+    let start_x = left_x_px.min(right_x_px);
+    let end_x = left_x_px.max(right_x_px);
+    let select_higher_floor = |a: FloorProbe, b: FloorProbe| {
+        if a.floor_y_px <= b.floor_y_px { a } else { b }
+    };
+    let mut best_on_ground: Option<FloorProbe> = None;
+    let mut best_support: Option<FloorProbe> = None;
+
+    for x_px in start_x..=end_x {
+        let probe = probe_floor(grid, x_px, foot_y_px);
+        if probe.on_ground {
+            best_on_ground = Some(match best_on_ground {
+                Some(current) => select_higher_floor(current, probe),
+                None => probe,
+            });
+            continue;
+        }
+        if probe.cell.is_solid_floor() {
+            best_support = Some(match best_support {
+                Some(current) => select_higher_floor(current, probe),
+                None => probe,
+            });
+        }
+    }
+
+    best_on_ground
+        .or(best_support)
+        .unwrap_or_else(|| probe_floor(grid, start_x, foot_y_px))
+}
+
 /// Check for a wall blocking horizontal movement.
 ///
 /// Probes the leading edge of the hitbox at lower-body, mid-body, and a
@@ -1247,5 +1288,25 @@ mod tests {
         assert!(probe.on_ground);
         assert_eq!(probe.cell.collision, CollisionKind::SlopeDown);
         assert_eq!(probe.floor_y_px, 19);
+    }
+
+    #[test]
+    fn probe_floor_span_finds_support_beyond_normal_hitbox() {
+        let w = 6u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(2u16) * usize::from(w) + usize::from(2u16)) * 2] = 0x60;
+        for col in 0..usize::from(w) {
+            data[(usize::from(3u16) * usize::from(w) + col) * 2] = 0x70;
+        }
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        let narrow = probe_floor_hitbox(&grid, 16, 47, 5);
+        assert_eq!(narrow.cell.collision, CollisionKind::Spikes);
+        assert_eq!(narrow.floor_y_px, 48);
+
+        let wide = probe_floor_span(&grid, 0, 32, 47);
+        assert_eq!(wide.cell.collision, CollisionKind::Solid);
+        assert_eq!(wide.floor_y_px, 32);
     }
 }

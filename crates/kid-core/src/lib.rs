@@ -2224,6 +2224,12 @@ impl NativeRuntime {
             custom_gravity,
             self.y_look_offset,
         );
+        if self.skip_entry_animation
+            && let Some(grid) = self.block_grid.as_ref()
+            && self.try_settle_on_spawn_support(&mut slice, grid)
+        {
+            slice.update_camera_follow(self.y_look_offset);
+        }
 
         // Y look-ahead accumulator ($FFFFFB58): +1/frame while grounded+down,
         // -8/frame on release, clamped to [0, 30].
@@ -3039,6 +3045,38 @@ mod tests {
             runtime.block_grid().is_none(),
             "moving to a level without a dumped layout should clear the stale grid"
         );
+
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
+    fn respawn_floor_snap_prefers_spawn_support_above_lower_hazards() {
+        let output_root = unique_temp_path("generated-layout-spawn-support");
+        let mut manifest = manifest();
+        manifest.output_root = output_root.clone();
+        let header = manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("test level should have header metadata");
+        header.player_start_x = 0x0010;
+        header.player_start_y = 0x0030;
+
+        let width_blocks = 6u16;
+        let height_blocks = 4u16;
+        let mut data = vec![0u8; usize::from(width_blocks) * usize::from(height_blocks) * 2];
+        data[(usize::from(2u16) * usize::from(width_blocks) + usize::from(2u16)) * 2] = 0x60;
+        for col in 0..usize::from(width_blocks) {
+            data[(usize::from(3u16) * usize::from(width_blocks) + col) * 2] = 0x70;
+        }
+        write_generated_level_layout(&output_root, 0, width_blocks, height_blocks, &data);
+
+        let runtime = NativeRuntime::new(manifest);
+        let slice = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
+
+        assert_eq!(slice.player.x_pos, 0x0010_0000);
+        assert_eq!(slice.player.y_pos, 0x001F_0000);
+        assert!(slice.player.on_ground);
+        assert!(!slice.player.on_spikes);
 
         fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
     }
