@@ -13,6 +13,7 @@ impl PlayerState {
             just_jumped: false,
             jump_buffer_frames: 0,
             right_wall_sticky: false,
+            left_wall_sticky: false,
         }
     }
 }
@@ -31,6 +32,7 @@ impl OpeningSliceState {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+            left_wall_sticky: false,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -79,6 +81,7 @@ impl OpeningSliceState {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+            left_wall_sticky: false,
             },
             camera: CameraState {
                 x_pos: pose.camera_x_pos,
@@ -337,11 +340,13 @@ impl OpeningSliceState {
     pub(crate) fn apply_wall_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
         let Some(grid) = block_grid else {
             self.player.right_wall_sticky = false;
+            self.player.left_wall_sticky = false;
             return;
         };
         if self.player.x_velocity == 0 {
             if self.player.on_ground {
                 self.player.right_wall_sticky = false;
+                self.player.left_wall_sticky = false;
             }
             return;
         }
@@ -349,8 +354,12 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         let moving_right = self.player.x_velocity > 0;
+        let moving_left = self.player.x_velocity < 0;
         if !moving_right || self.player.on_ground {
             self.player.right_wall_sticky = false;
+        }
+        if !moving_left || self.player.on_ground {
+            self.player.left_wall_sticky = false;
         }
 
         let mut probe = terrain::probe_wall(
@@ -361,6 +370,8 @@ impl OpeningSliceState {
             PLAYER_HEIGHT,
             moving_right,
         );
+
+        // Right wall top-edge retention (overhang sticky)
         if !probe.hit && moving_right && self.player.right_wall_sticky {
             let top_edge_probe = terrain::probe_wall_top_edge(
                 grid,
@@ -373,8 +384,6 @@ impl OpeningSliceState {
             if top_edge_probe.hit {
                 probe = top_edge_probe;
             } else {
-                // Release from the tighter inclusive clamp onto the normal
-                // right-edge clearance pixel before air acceleration resumes.
                 self.player.x_pos = ((self.player.x_pos >> 16) + 1) << 16;
                 self.player.x_velocity = 0;
                 self.player.right_wall_sticky = false;
@@ -382,23 +391,47 @@ impl OpeningSliceState {
             }
         }
 
+        // Left wall top-edge retention (overhang sticky)
+        if !probe.hit && moving_left && self.player.left_wall_sticky {
+            let top_edge_probe = terrain::probe_wall_top_edge(
+                grid,
+                x_px,
+                y_px,
+                PLAYER_HALF_WIDTH,
+                PLAYER_HEIGHT,
+                false,
+            );
+            if top_edge_probe.hit {
+                probe = top_edge_probe;
+            } else {
+                self.player.x_pos = ((self.player.x_pos >> 16) - 1) << 16;
+                self.player.x_velocity = 0;
+                self.player.left_wall_sticky = false;
+                return;
+            }
+        }
+
         if probe.hit {
             let clamped_center = if moving_right {
-                // The disassembly hitbox stores left=-5, width=10, so the right edge is inclusive.
                 probe.wall_x_px - PLAYER_RIGHT_WALL_EXTENT
             } else {
-                // Player centre must stay right of wall: centre - half_width >= wall_x
-                probe.wall_x_px + PLAYER_HALF_WIDTH
+                probe.wall_x_px + PLAYER_LEFT_WALL_EXTENT
             };
             if moving_right && x_px < clamped_center {
                 self.player.right_wall_sticky = false;
                 return;
             }
+            if moving_left && x_px > clamped_center {
+                self.player.left_wall_sticky = false;
+                return;
+            }
             self.player.x_pos = (clamped_center.max(0) as u32) << 16;
             self.player.x_velocity = 0;
             self.player.right_wall_sticky = moving_right && !self.player.on_ground;
+            self.player.left_wall_sticky = moving_left && !self.player.on_ground;
         } else {
             self.player.right_wall_sticky = false;
+            self.player.left_wall_sticky = false;
         }
     }
 

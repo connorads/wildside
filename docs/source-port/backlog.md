@@ -21,7 +21,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | Prize blocks vanish on hit (correct behaviour) |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
-| 015 | [ ] | P2 | player | Can't wall-grab (A+A to grab block edges) | Jump at wall edge, confirm grab |
+| 015 | [x] | P2 | player | Can't wall-grab (A+A to grab block edges) | Jump at wall edge, confirm grab |
 | 016 | [x] | P2 | level | No level intro screen showing level name | Enter level, confirm name card |
 | 017 | [~] | P2 | form | Masks/helmets not visible when they appear | Hit helmet block, confirm sprite |
 | 018 | [ ] | P2 | form | No form-change animation when equipping helmet | Collect helmet, confirm transform anim |
@@ -70,9 +70,9 @@ playtest verification — may look better now that palette is fixed.
 ### 013 — P-blocks (NOT A BUG)
 Prize blocks vanish when hit (cell cleared to empty). This is correct per original behaviour.
 
-### 015 — Wall grab
-Only right wall grab implemented. Original game supports both left and right. Left wall
-grab needs `left_wall_sticky` state and mirrored logic in `apply_wall_collision()`.
+### 015 — Wall grab (FIXED)
+Added `left_wall_sticky` field and mirrored right-wall logic in `apply_wall_collision()`.
+Both directions now support airborne wall-sticky with overhang top-edge retention.
 
 ### 017/019 — Helmets and form transform
 `apply_prize_content` → `queue_form_change` → `resolve_pending_form_change` chain is wired.

@@ -433,6 +433,7 @@ impl NativeRuntime {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             });
         };
 
@@ -462,6 +463,7 @@ impl NativeRuntime {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             });
         }
 
@@ -481,6 +483,7 @@ impl NativeRuntime {
             just_jumped: false,
             jump_buffer_frames: 0,
             right_wall_sticky: false,
+            left_wall_sticky: false,
         })
     }
 
@@ -574,6 +577,7 @@ impl NativeRuntime {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             });
         }
         let resume_entry_elapsed = elapsed.saturating_sub(TITLE_TO_LEVEL_FRAMES);
@@ -592,6 +596,7 @@ impl NativeRuntime {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             });
         }
         None

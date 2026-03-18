@@ -77,6 +77,7 @@ const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 const PLAYER_HALF_WIDTH: i32 = 5;
 const PLAYER_HEIGHT: i32 = 31;
 const PLAYER_RIGHT_WALL_EXTENT: i32 = PLAYER_HALF_WIDTH + 1;
+const PLAYER_LEFT_WALL_EXTENT: i32 = PLAYER_HALF_WIDTH + 1;
 const PLAYER_CONTACT_HALF_WIDTH: i64 = 4;
 const GROUND_SNAP_TOLERANCE_FP: u32 = 0x0006_0000;
 const JUMP_BUFFER_FRAMES: u8 = 6;
@@ -622,6 +623,7 @@ struct PlayerState {
     just_jumped: bool,
     jump_buffer_frames: u8,
     right_wall_sticky: bool,
+    left_wall_sticky: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -3961,6 +3963,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6276,6 +6279,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6325,6 +6329,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6378,6 +6383,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6427,6 +6433,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6477,6 +6484,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6531,6 +6539,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6579,6 +6588,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6638,6 +6648,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -6781,6 +6792,7 @@ mod tests {
             just_jumped: false,
             jump_buffer_frames: 0,
             right_wall_sticky: false,
+            left_wall_sticky: false,
         };
         let enemy = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -6815,6 +6827,7 @@ mod tests {
             just_jumped: false,
             jump_buffer_frames: 0,
             right_wall_sticky: false,
+            left_wall_sticky: false,
         };
         let enemy = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -8906,6 +8919,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -8951,6 +8965,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -9005,6 +9020,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -9247,6 +9263,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -9296,6 +9313,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -9354,6 +9372,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -9421,6 +9440,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
@@ -9608,6 +9628,7 @@ mod tests {
                 just_jumped: false,
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
+                left_wall_sticky: false,
             },
             camera: CameraState { x_pos: 0, y_pos: 0 },
             terrain: TerrainState {
