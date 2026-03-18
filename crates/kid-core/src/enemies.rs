@@ -874,11 +874,16 @@ pub(crate) fn step_ufo_beam(
     }
 }
 
-/// Tornado: acceleration-based bouncing patrol. Reverses accel on wall/floor contact.
-/// Slower than UFO, with periodic acceleration reversals every ~60 frames.
-pub(crate) const TORNADO_ACCELERATION: i32 = 0x300;
-pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x10000;
-pub(crate) const TORNADO_PATTERN_FRAMES: u16 = 60;
+/// Tornado: acceleration-based flight. ASM: shared `Enemy_HandleAcceleration`
+/// with UFO. Default acceleration from `loc_35444` is $C00 when random table
+/// entry is 0. Terminal velocity from table entries: $18000 is common.
+/// Cycle timer from `unk_3588C`: 60/40/30 by enemy_level.
+// TODO(fidelity): ASM picks random patterns from unk_35344 each sub-cycle;
+// native uses fixed acceleration. Levels 1-2 double accel/terminal via loc_3592E.
+pub(crate) const TORNADO_ACCELERATION: i32 = 0xC00;
+pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x1_8000;
+/// Per-level cycle timers: level 0 = 60, level 1 = 40, level 2 = 30 (unk_3588C).
+pub(crate) const TORNADO_PATTERN_FRAMES: [u16; 3] = [60, 40, 30];
 
 pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Apply acceleration
@@ -891,9 +896,10 @@ pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-    // Periodic direction change
+    // Periodic direction change — cycle timer from unk_3588C per enemy_level
     if enemy.wait_timer == 0 {
-        enemy.wait_timer = TORNADO_PATTERN_FRAMES;
+        let level = (enemy.hit_points.saturating_sub(1) as usize).min(2);
+        enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
         enemy.x_acceleration = -enemy.x_acceleration;
         enemy.y_acceleration = -enemy.y_acceleration;
     } else {
@@ -2611,6 +2617,8 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
+        // Tornado: first cycle timer (level 0 = 60 frames).
+        EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[0],
         // SpinningTwins: orbit for N frames before dropping.
         EnemyFamily::SpinningTwins => SPINNING_TWINS_ORBIT_FRAMES,
         // Bosses: fire first projectile after initial delay.

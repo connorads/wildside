@@ -8680,7 +8680,8 @@ mod tests {
         step_tornado(&mut enemy, None);
         assert_eq!(enemy.x_acceleration, -TORNADO_ACCELERATION);
         assert_eq!(enemy.y_acceleration, TORNADO_ACCELERATION);
-        assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES);
+        // HP=1, tier=(1-1).min(2)=0, so cycle timer = level-0 = 60 frames
+        assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[0]);
     }
 
     // --- Ninja ---
