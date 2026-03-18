@@ -44,7 +44,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 035 | [ ] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | All 69 BCD levels verifiable |
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
 | 037 | [ ] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
-| 038 | [ ] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
+| 038 | [x] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
 | 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
 | 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
 | 041 | [x] | P2 | enemy | Hand jump velocity fixed, should be randomised per-tier | Hand matches ASM jump tables |
@@ -145,12 +145,15 @@ doesn't reach it. The oracle's frame-by-frame gravity settling catches it becaus
 collision detection during movement sees the terrain. Fix: either widen the floor probe
 or implement real gravity settling during level init.
 
-### 038 — Camera Y settling dead-zone (INVESTIGATING)
-8 levels show +1 to +7px camera_y diffs at level_settle. Player Y matches; only
-camera differs. Caused by `update_camera_axis` convergence dead-zone: `(target-camera+4)>>3`
-rounds to 0 when |target-camera| < 4, causing the camera to stop a few pixels above/below
-the target depending on the initial offset. Masked by oracle-pause threshold (≤32px).
-Full fix requires matching the exact initial camera + settling frame count.
+### 038 — Camera Y settling dead-zone (FIXED)
+8 levels showed +1 to +7px camera_y diffs at level_settle. The asymmetric dead-zone
+in `update_camera_axis` (`(target-camera+4)>>3` rounds to 0 within ±4px) meant the
+final camera position depended on approach direction. Floor-snap placed the player
+instantly at the floor, so the camera approached from a different direction than the
+oracle (which tracks the player frame-by-frame during real gravity fall).
+Fix: simulate gravity fall + camera follow in `level_respawn_slice_with_floor_snap` —
+replay the player falling from header_y to floor_y under gravity, updating the camera
+each step. This matches the oracle's convergence path. Fixed all 8 levels.
 
 ### 039 — 4th speed table entry (NOT A BUG)
 Normal terrain table (unk_9C0A) has 4 entries of 7 longwords each ($70 bytes total),
