@@ -881,8 +881,18 @@ pub(crate) fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 }
 
+/// Cloud post-bounce idle frames: ASM Cloud.asm sets d3=$3C (60) after wall reversal.
+pub(crate) const CLOUD_POST_BOUNCE_IDLE: u8 = 60;
+
 /// Cloud flies horizontally, reversing direction on wall contact.
+/// After hitting a wall, idles for 60 frames before resuming (Cloud.asm).
 pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    // Post-bounce idle: count down grounded_frames as idle timer
+    if enemy.grounded_frames > 0 {
+        enemy.grounded_frames -= 1;
+        return;
+    }
+
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
@@ -902,6 +912,7 @@ pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
             enemy.facing = opposite_direction(enemy.facing);
+            enemy.grounded_frames = CLOUD_POST_BOUNCE_IDLE;
         }
     }
 }
@@ -1086,6 +1097,10 @@ pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
 /// ceiling→negate y_vel and halve.
 pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 
+/// Fireball max upward velocity per HP tier (unk_32BA6 second column).
+/// Level 0: -$30000, Level 1: -$40000, Level 2: -$50000.
+pub(crate) const FIREBALL_UPWARD_CAP: [i32; 3] = [-0x3_0000, -0x4_0000, -0x5_0000];
+
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     match enemy.family {
         // Fireball.asm: gravity indexed by enemy_level ($1000/$2000/$3000)
@@ -1128,7 +1143,16 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         // Floor bounce
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity > 0 {
-            enemy.y_velocity = -enemy.y_velocity;
+            if matches!(enemy.family, EnemyFamily::Fireball) {
+                // Fireball.asm BounceFloorCeiling: negate + random perturbation + cap
+                // TODO(fidelity): ASM adds ±$4000 random perturbation (RNG-dependent)
+                let new_yv = -enemy.y_velocity;
+                let tier = enemy.hit_points.saturating_sub(1).min(2) as usize;
+                let cap = FIREBALL_UPWARD_CAP[tier];
+                enemy.y_velocity = if new_yv < cap { cap } else { new_yv };
+            } else {
+                enemy.y_velocity = -enemy.y_velocity;
+            }
             // Snap out of floor
             let floor_y_fp = (floor.floor_y_px as u32) << 16;
             if enemy.y_pos > floor_y_fp {
@@ -1139,8 +1163,17 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         // Ceiling bounce
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
         if ceil.hit && enemy.y_velocity < 0 {
-            // Ceiling: negate and halve (Sphere.asm Enemy06_Sphere_BounceCeiling)
-            enemy.y_velocity = -(enemy.y_velocity >> 1);
+            if matches!(enemy.family, EnemyFamily::Fireball) {
+                // Fireball.asm BounceFloorCeiling: same formula for floor and ceiling
+                // TODO(fidelity): ASM adds ±$4000 random perturbation (RNG-dependent)
+                let new_yv = -enemy.y_velocity;
+                let tier = enemy.hit_points.saturating_sub(1).min(2) as usize;
+                let cap = FIREBALL_UPWARD_CAP[tier];
+                enemy.y_velocity = if new_yv < cap { cap } else { new_yv };
+            } else {
+                // Sphere.asm: negate and halve
+                enemy.y_velocity = -(enemy.y_velocity >> 1);
+            }
         }
     }
 }
