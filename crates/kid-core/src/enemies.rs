@@ -255,6 +255,7 @@ pub(crate) enum LionState {
 
 /// Hand patrol/attack state machine (Hand.asm).
 /// Walks until player enters forward detection range, then jump-attacks.
+/// On landing near player, grabs and follows player for 10 frames.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum HandState {
     /// Walking on ground, checking for player in detection cone.
@@ -262,6 +263,8 @@ pub(crate) enum HandState {
     Walking,
     /// Airborne jump toward the player.
     Jumping,
+    /// Grabbing: hand follows player position for 10 frames (Hand.asm loc_3292E).
+    Grabbing,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1737,6 +1740,9 @@ pub(crate) fn hand_jump_speed(tier: usize, frame_counter: u32) -> (i32, i32) {
 /// Hand max fall speed: $180000 (Hand.asm lines 728-730), NOT the shared MAX_FALL_SPEED.
 pub(crate) const HAND_MAX_FALL_SPEED: i32 = 0x18_0000;
 
+/// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
+pub(crate) const HAND_GRAB_DURATION: u16 = 10;
+
 /// Step a Hand enemy through its walk/detect/jump state machine.
 /// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
 /// Jumping: randomised arc toward player with gravity, lands and resumes walking.
@@ -1852,7 +1858,7 @@ pub(crate) fn step_hand(
                 enemy.x_velocity = 0;
             }
 
-            // Floor landing: return to walking
+            // Floor landing: check for grab, then return to walking
             if enemy.y_velocity > 0 {
                 let floor = terrain::probe_floor(grid, cx, cy);
                 if floor.on_ground {
@@ -1862,9 +1868,46 @@ pub(crate) fn step_hand(
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
-                        enemy.hand_state = HandState::Walking;
+
+                        // On landing, check if player is within grab range
+                        // (Hand.asm loc_3284C — same range check as jump trigger)
+                        let grab = if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+                            let dx = ((px as i64 - enemy.x_pos as i64) >> 16).abs();
+                            let dy = ((enemy.y_pos as i64 - py as i64) >> 16).abs();
+                            dx <= i64::from(HAND_DETECT_RANGE[tier]) && dy <= 16
+                        } else {
+                            false
+                        };
+
+                        if grab {
+                            // Enter grab: follow player for 10 frames (Hand.asm loc_32906)
+                            enemy.hand_state = HandState::Grabbing;
+                            enemy.wait_timer = HAND_GRAB_DURATION;
+                        } else {
+                            enemy.hand_state = HandState::Walking;
+                        }
                     }
                 }
+            }
+        }
+        HandState::Grabbing => {
+            // Hand follows player position for HAND_GRAB_DURATION frames.
+            // Hand.asm loc_3292E: hand snaps to kid's X±2, Y-4 each frame.
+            if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+                let x_off: i64 = match enemy.facing {
+                    Direction::Right => 2 << 16,
+                    Direction::Left => -(2i64 << 16),
+                };
+                enemy.x_pos = (px as i64 + x_off) as u32;
+                enemy.y_pos = (py as i64 - (4i64 << 16)) as u32;
+            }
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+
+            if enemy.wait_timer > 0 {
+                enemy.wait_timer -= 1;
+            } else {
+                enemy.hand_state = HandState::Walking;
             }
         }
     }
