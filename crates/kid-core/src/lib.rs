@@ -155,6 +155,8 @@ pub enum GameMode {
     IntroSequence1,
     IntroSequence2,
     IntroSequence3,
+    IntroSequence4,
+    IntroSequence5,
     TitleScreen,
     OptionsMenu,
     LevelTransition,
@@ -170,6 +172,8 @@ impl GameMode {
             Self::IntroSequence1 => 0x0004,
             Self::IntroSequence2 => 0x0018,
             Self::IntroSequence3 => 0x001C,
+            Self::IntroSequence4 => 0x0020,
+            Self::IntroSequence5 => 0x0024,
             Self::TitleScreen => 0x002C,
             Self::OptionsMenu => 0x0028,
             Self::LevelTransition => 0x0008,
@@ -1479,13 +1483,12 @@ impl NativeRuntime {
                     };
                 }
             }
-            // TODO(fidelity): ASM has 5 intro sequences (Load_IntroSequence1-5)
-            // plus Load_IntroSequence6 (title screen). Each loads unique VDP art.
-            // Native uses 3 segments as placeholder — visual art needs ROM extraction.
+            // ASM has 5 intro sequences (Load_IntroSequence1-5) plus
+            // Load_IntroSequence6 (title screen). Each loads unique VDP art.
             BootState::IntroSequence { segment, elapsed } => {
                 *elapsed += 1;
                 if start_pressed || *elapsed >= INTRO_SEGMENT_FRAMES {
-                    if *segment >= 2 {
+                    if *segment >= 4 {
                         self.boot_state = BootState::TitleScreen;
                     } else {
                         *segment += 1;
@@ -1735,7 +1738,9 @@ impl NativeRuntime {
             BootState::SegaScreen { .. } => GameMode::SegaScreen,
             BootState::IntroSequence { segment: 0, .. } => GameMode::IntroSequence1,
             BootState::IntroSequence { segment: 1, .. } => GameMode::IntroSequence2,
-            BootState::IntroSequence { .. } => GameMode::IntroSequence3,
+            BootState::IntroSequence { segment: 2, .. } => GameMode::IntroSequence3,
+            BootState::IntroSequence { segment: 3, .. } => GameMode::IntroSequence4,
+            BootState::IntroSequence { .. } => GameMode::IntroSequence5,
             BootState::TitleScreen => GameMode::TitleScreen,
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
@@ -2854,19 +2859,21 @@ mod tests {
 
     #[test]
     fn reaches_title_screen_without_input() {
-        let trace = run_script(manifest(), &[], 400);
-        assert_eq!(trace[359].game_mode, GameMode::TitleScreen);
-        assert_eq!(trace[359].current_level, LevelId(0));
-        assert_eq!(trace[359].player_start_x, Some(0x0750));
-        assert_eq!(trace[359].flag_y, Some(0x0300));
-        assert_eq!(trace[359].level_enemy_object_count, Some(22));
-        assert_eq!(trace[359].active_enemy_object_count, 0);
-        assert_eq!(trace[359].active_platform_object_count, 0);
-        assert_eq!(trace[359].kid_x_pos, Some(TITLE_KID_X_POS));
-        assert_eq!(trace[359].kid_y_pos, Some(TITLE_KID_Y_POS));
-        assert!(trace[359].active_objects.is_empty());
-        assert_eq!(trace[359].number_objects, 4);
-        assert_eq!(trace[359].number_gfx_objects, 4);
+        // SEGA(60) + 5 intro segments × 80 frames = 460 frames before title
+        let trace = run_script(manifest(), &[], 560);
+        let f = 519;
+        assert_eq!(trace[f].game_mode, GameMode::TitleScreen);
+        assert_eq!(trace[f].current_level, LevelId(0));
+        assert_eq!(trace[f].player_start_x, Some(0x0750));
+        assert_eq!(trace[f].flag_y, Some(0x0300));
+        assert_eq!(trace[f].level_enemy_object_count, Some(22));
+        assert_eq!(trace[f].active_enemy_object_count, 0);
+        assert_eq!(trace[f].active_platform_object_count, 0);
+        assert_eq!(trace[f].kid_x_pos, Some(TITLE_KID_X_POS));
+        assert_eq!(trace[f].kid_y_pos, Some(TITLE_KID_Y_POS));
+        assert!(trace[f].active_objects.is_empty());
+        assert_eq!(trace[f].number_objects, 4);
+        assert_eq!(trace[f].number_gfx_objects, 4);
     }
 
     #[test]

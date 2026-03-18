@@ -171,6 +171,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
     if matches!(
         trace.game_mode,
         GameMode::IntroSequence1 | GameMode::IntroSequence2 | GameMode::IntroSequence3
+        | GameMode::IntroSequence4 | GameMode::IntroSequence5
     ) {
         commands.push(DrawCommand::Rect {
             x: 0,
