@@ -68,8 +68,8 @@ impl NativeRuntime {
                     (group.col + u16::from(i), group.row)
                 };
                 if group.solid {
-                    // Restore solid ghost block (collision type 7 = full solid, block type 3 = SolidGhost)
-                    let hi = 0x80 | (0x07 << 4) | 0x03;
+                    // Restore solid ghost block (collision type 6 = Solid, block type 3 = SolidGhost)
+                    let hi = 0x80 | (0x06 << 4) | 0x03;
                     grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(hi, 0));
                 } else {
                     // Clear the cell (vanished)
