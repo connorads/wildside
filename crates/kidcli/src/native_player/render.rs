@@ -273,8 +273,14 @@ pub(super) fn resolve_palette_colour(
         return None;
     }
 
-    let colour = if palette.colours.len() == 8 && selected_palette_line == 0 {
-        palette.colours.get(usize::from(palette_index))
+    let colour = if palette.colours.len() == 8 {
+        match selected_palette_line {
+            0 => palette.colours.get(usize::from(palette_index)),
+            1 | 2 if (8..=15).contains(&palette_index) => {
+                palette.colours.get(usize::from(palette_index - 8))
+            }
+            _ => None,
+        }
     } else {
         let palette_offset =
             usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);

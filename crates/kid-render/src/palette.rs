@@ -35,13 +35,31 @@ impl Palette {
     /// slot, matching the ASM art decompression remapping. Reorders colours so
     /// that un-permuted tile art indices look up the correct colour.
     pub fn apply_permutation(&mut self, table: &[u8; 16]) {
-        // The table says: art pixel index i → palette slot table[i].
-        // We want: new_palette[i] = original_palette[table[i]].
         let original = self.colours.clone();
+        if self.colours.len() == 15 {
+            // Theme foreground palettes store only visible slots 1..15; slot 0
+            // is the transparent backdrop and is omitted from the asset bytes.
+            // The permutation tables are still expressed in full MD slot space,
+            // so visible slot N must read from table[N] and source slot M maps
+            // to stored index M-1.
+            for visible_slot in 1..=self.colours.len() {
+                let source_slot = usize::from(table[visible_slot]);
+                if source_slot == 0 {
+                    continue;
+                }
+                let source_index = source_slot - 1;
+                if source_index < original.len() {
+                    self.colours[visible_slot - 1] = original[source_index];
+                }
+            }
+            return;
+        }
+
+        // Palettes that include slot 0 can use the table directly.
         for (i, &entry) in table.iter().enumerate().take(16.min(self.colours.len())) {
-            let src = entry as usize;
-            if src < original.len() {
-                self.colours[i] = original[src];
+            let source_index = usize::from(entry);
+            if source_index < original.len() {
+                self.colours[i] = original[source_index];
             }
         }
     }
@@ -67,7 +85,7 @@ fn expand_channel(value: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::{MdColour, expand_channel};
+    use super::{MdColour, Palette, expand_channel};
 
     #[test]
     fn expands_megadrive_channels_using_oracle_rgb_rounding() {
@@ -84,5 +102,45 @@ mod tests {
         assert_eq!(colour.green, 0xFF);
         assert_eq!(colour.blue, 0xFF);
         assert_eq!(colour.raw_word, 0x0EEE);
+    }
+
+    #[test]
+    fn applies_permutation_to_visible_only_palette_slots() {
+        let make_colour = |raw_word| MdColour {
+            red: 0,
+            green: 0,
+            blue: 0,
+            raw_word,
+        };
+        let mut palette = Palette {
+            colours: (1..=15).map(make_colour).collect(),
+        };
+        let table = [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
+        palette.apply_permutation(&table);
+
+        let reordered: Vec<u16> = palette.colours.iter().map(|colour| colour.raw_word).collect();
+        assert_eq!(reordered[0], 1);
+        assert_eq!(reordered[1], 3);
+        assert_eq!(reordered[2], 2);
+    }
+
+    #[test]
+    fn applies_permutation_directly_when_palette_includes_slot_zero() {
+        let make_colour = |raw_word| MdColour {
+            red: 0,
+            green: 0,
+            blue: 0,
+            raw_word,
+        };
+        let mut palette = Palette {
+            colours: (0..8).map(make_colour).collect(),
+        };
+        let table = [0, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
+        palette.apply_permutation(&table);
+
+        let reordered: Vec<u16> = palette.colours.iter().map(|colour| colour.raw_word).collect();
+        assert_eq!(reordered[..4], [0, 2, 1, 3]);
     }
 }

@@ -1919,6 +1919,47 @@ mod tests {
     }
 
     #[test]
+    fn render_background_palette_supports_plane_line_offsets() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 8), (1, 0, 15)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![
+                colour(1, 2, 3),
+                colour(10, 20, 30),
+                colour(40, 50, 60),
+                colour(70, 80, 90),
+                colour(100, 110, 120),
+                colour(130, 140, 150),
+                colour(160, 170, 180),
+                colour(190, 200, 210),
+            ],
+        });
+        let scene = Scene {
+            background: [1, 2, 3],
+            commands: vec![DrawCommand::IndexedTile {
+                x: 0,
+                y: 0,
+                tile_sheet,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 1,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+                palette,
+            }],
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(pixel_at(&rgb, 0, 0), [1, 2, 3]);
+        assert_eq!(pixel_at(&rgb, 1, 0), [190, 200, 210]);
+    }
+
+    #[test]
     fn render_sprite_command_honours_mapping_priority_and_transparency() {
         let tile_sheet = Arc::new(TileSheet {
             tiles: vec![

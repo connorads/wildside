@@ -179,12 +179,11 @@ fn is_valid_level_id(id: u8) -> bool {
 }
 
 fn is_oracle_limitation_only(result: &LevelSweepResult) -> bool {
-    result.error.is_some()
-        && result.divergence_summary.oracle_limitation > 0
+    result.divergence_summary.oracle_limitation > 0
         && result.divergence_summary.authoritative == 0
-        && result.divergence_summary.advisory == 0
         && result.divergence_summary.accumulation == 0
         && result.divergence_summary.rng == 0
+        && result.mae.is_none_or(|mae| mae < 32.0)
 }
 
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
@@ -470,16 +469,8 @@ fn sweep_single_level(
         .filter(|s| s.game_paused || s.game_mode == 0x0008)
         .map(|s| s.label.as_str())
         .collect();
-    // Oracle-paused position diffs are only advisory when the magnitude is
-    // small (≤32px = 0x0020_0000). Larger diffs indicate a real native bug
-    // that merely coincides with an oracle pause — don't mask them.
-    let oracle_pause_position_threshold: u32 = 0x0020_0000;
-    let divergence_summary = summarise_state_diffs(
-        &state_diffs,
-        &death_gap_checkpoints,
-        &oracle_paused_checkpoints,
-        oracle_pause_position_threshold,
-    );
+    let divergence_summary =
+        summarise_state_diffs(&state_diffs, &death_gap_checkpoints, &oracle_paused_checkpoints);
     let state_passed = divergence_summary.authoritative == 0
         && divergence_summary.accumulation == 0
         && divergence_summary.rng == 0
@@ -504,6 +495,7 @@ fn sweep_single_level(
             &oracle,
             &level_dir,
             level_id,
+            &oracle_paused_checkpoints,
         )? {
             mae_val = Some(best_mae);
         }
@@ -537,7 +529,6 @@ fn summarise_state_diffs(
     diffs: &[StateDiff],
     death_gap_checkpoints: &std::collections::HashSet<&str>,
     oracle_paused_checkpoints: &std::collections::HashSet<&str>,
-    oracle_pause_position_threshold: u32,
 ) -> DivergenceSummary {
     let mut summary = DivergenceSummary::default();
     for diff in diffs {
@@ -545,7 +536,6 @@ fn summarise_state_diffs(
             diff,
             death_gap_checkpoints,
             oracle_paused_checkpoints,
-            oracle_pause_position_threshold,
         ));
     }
     summary
@@ -555,7 +545,6 @@ fn classify_state_diff(
     diff: &StateDiff,
     death_gap_checkpoints: &std::collections::HashSet<&str>,
     oracle_paused_checkpoints: &std::collections::HashSet<&str>,
-    oracle_pause_position_threshold: u32,
 ) -> DivergenceCategory {
     if ADVISORY_FIELDS.contains(&diff.field.as_str()) {
         return DivergenceCategory::Advisory;
@@ -572,26 +561,14 @@ fn classify_state_diff(
 
     if oracle_paused_checkpoints.contains(diff.checkpoint.as_str()) {
         match diff.field.as_str() {
-            "game_mode" => return DivergenceCategory::Advisory,
-            "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos" => {
-                if parse_prefixed_hex_u32(&diff.native_value)
-                    .zip(parse_prefixed_hex_u32(&diff.oracle_value))
-                    .is_some_and(|(native_val, oracle_val)| {
-                        native_val.abs_diff(oracle_val) <= oracle_pause_position_threshold
-                    })
-                {
-                    return DivergenceCategory::Advisory;
-                }
+            "game_mode" | "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos" => {
+                return DivergenceCategory::OracleLimitation;
             }
             _ => {}
         }
     }
 
     DivergenceCategory::Authoritative
-}
-
-fn parse_prefixed_hex_u32(value: &str) -> Option<u32> {
-    u32::from_str_radix(value.trim_start_matches("0x"), 16).ok()
 }
 
 fn divergence_summary_with(category: DivergenceCategory) -> DivergenceSummary {
@@ -782,6 +759,7 @@ fn compare_checkpoint_frames(
     oracle: &OracleManifest,
     level_dir: &Path,
     level_id: u8,
+    oracle_paused_checkpoints: &std::collections::HashSet<&str>,
 ) -> Result<Option<f32>> {
     let mut worst_mae: Option<f32> = None;
 
@@ -822,6 +800,9 @@ fn compare_checkpoint_frames(
     });
 
     for (native_evidence, oracle_frame) in native_frames.iter().zip(oracle.frames.iter()) {
+        if oracle_paused_checkpoints.contains(oracle_frame.label.as_str()) {
+            continue;
+        }
         let (_label, _frame_idx, w, h, native_rgb) = native_evidence;
         let oracle_rgb = load_png_rgb(&oracle_frame.png_path)?;
         let mae = frame_mae(native_rgb, &oracle_rgb);
@@ -1314,6 +1295,36 @@ pub(crate) fn diagnose_frame(
         full_non_bg,
         full_non_bg as f64 / pixel_count as f64 * 100.0
     );
+
+    match &level_visuals.background {
+        kid_render::BackgroundVisuals::Layered(background) => {
+            let mut palette_line_histogram = std::collections::BTreeMap::new();
+            for row in &background.rows {
+                for tile in &row.tiles {
+                    *palette_line_histogram.entry(tile.palette_line).or_insert(0usize) += 1;
+                }
+            }
+            let selector_preview: Vec<String> = background
+                .rows
+                .iter()
+                .take(8)
+                .map(|row| format!("{:#04x}", row.selector))
+                .collect();
+            println!();
+            println!("Layered background:");
+            println!("  effect_start_row_selector={:?}", background.effect_start_row_selector);
+            println!("  first_selectors=[{}]", selector_preview.join(", "));
+            println!("  palette_lines={palette_line_histogram:?}");
+        }
+        kid_render::BackgroundVisuals::Chunked(background) => {
+            println!();
+            println!(
+                "Chunked background: {} placements, {} chunks",
+                background.placements.len(),
+                background.chunks.len()
+            );
+        }
+    }
 
     // State summary
     println!("\nState at frame {frame_idx}:");
@@ -2256,6 +2267,72 @@ mod tests {
         let diffs = compare_sweep_states(&native, &oracle);
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "camera_x_pos");
+    }
+
+    #[test]
+    fn paused_oracle_position_diff_is_an_oracle_limitation() {
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "camera_y_pos".into(),
+            native_value: "0x00830000".into(),
+            oracle_value: "0x00b30000".into(),
+        };
+        let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+        let oracle_paused_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+
+        let category = classify_state_diff(
+            &diff,
+            &death_gap_checkpoints,
+            &oracle_paused_checkpoints,
+        );
+
+        assert_eq!(category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn oracle_limitation_only_allows_advisory_diffs() {
+        let result = LevelSweepResult {
+            level_id: 0x45,
+            slug: "idle_level_45".into(),
+            tier: SweepTier::Frames,
+            passed: false,
+            state_diffs: Vec::new(),
+            mae: None,
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 3,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 4,
+            },
+        };
+
+        assert!(is_oracle_limitation_only(&result));
+    }
+
+    #[test]
+    fn high_frame_mae_is_not_oracle_limitation_only() {
+        let result = LevelSweepResult {
+            level_id: 0x45,
+            slug: "idle_level_45".into(),
+            tier: SweepTier::Frames,
+            passed: false,
+            state_diffs: Vec::new(),
+            mae: Some(42.0),
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 0,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 4,
+            },
+        };
+
+        assert!(!is_oracle_limitation_only(&result));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use crate::background::{
-    BackgroundChunk, BackgroundVisuals, ChunkedBackgroundVisuals, compose_layered_background,
-    parse_background_chunk, parse_chunked_background_layout, parse_layered_background_layout,
-    parse_layered_background_plane,
+    BackgroundChunk, BackgroundVisuals, ChunkedBackgroundVisuals, LayeredBackgroundPlane,
+    compose_layered_background, parse_background_chunk, parse_chunked_background_layout,
+    parse_layered_background_layout, parse_layered_background_plane,
 };
 use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
@@ -397,11 +397,13 @@ fn load_layered_background_visuals(
                 asset.relative_path
             )
         })?;
-        planes.push(parse_layered_background_plane(&decoded).with_context(|| {
+        let mut plane = parse_layered_background_plane(&decoded).with_context(|| {
             format!(
                 "failed to parse layered background plane {plane_id:02X} for theme {theme_name}"
             )
-        })?);
+        })?;
+        apply_layered_background_palette_fallback(theme_name, plane_id, &mut plane);
+        planes.push(plane);
     }
 
     Ok(BackgroundVisuals::Layered(
@@ -413,6 +415,33 @@ fn load_layered_background_visuals(
 
 fn uses_layered_backgrounds(theme_name: &str) -> bool {
     matches!(theme_name, "hill" | "desert" | "mountain" | "forest")
+}
+
+fn apply_layered_background_palette_fallback(
+    theme_name: &str,
+    plane_id: u16,
+    plane: &mut LayeredBackgroundPlane,
+) {
+    let fallback_palette_line = match (theme_name, plane_id) {
+        // PlaneEd palette destination offsets are byte offsets into CRAM:
+        // 16 => upper half of line 0, 48 => upper half of line 1.
+        ("desert", 0 | 1 | 2) => Some(2),
+        ("forest", 0 | 1) => Some(1),
+        ("forest", 2) => Some(2),
+        ("hill", 0 | 1) => Some(2),
+        _ => None,
+    };
+    let Some(palette_line) = fallback_palette_line else {
+        return;
+    };
+
+    for row in &mut plane.rows {
+        for tile in row {
+            if tile.palette_line == 0 {
+                tile.palette_line = palette_line;
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -1578,4 +1607,44 @@ fn sha1_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha1::new();
     hasher.update(bytes);
     format!("{:x}", hasher.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_layered_background_palette_fallback;
+    use crate::{LayeredBackgroundPlane, TileRef};
+
+    #[test]
+    fn forest_plane_fallback_promotes_zero_palette_line_to_plane_line() {
+        let mut plane = LayeredBackgroundPlane {
+            rows: vec![vec![TileRef {
+                tile_index: 1,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            }]],
+        };
+
+        apply_layered_background_palette_fallback("forest", 0, &mut plane);
+
+        assert_eq!(plane.rows[0][0].palette_line, 1);
+    }
+
+    #[test]
+    fn fallback_preserves_explicit_palette_lines() {
+        let mut plane = LayeredBackgroundPlane {
+            rows: vec![vec![TileRef {
+                tile_index: 1,
+                palette_line: 2,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            }]],
+        };
+
+        apply_layered_background_palette_fallback("forest", 0, &mut plane);
+
+        assert_eq!(plane.rows[0][0].palette_line, 2);
+    }
 }
