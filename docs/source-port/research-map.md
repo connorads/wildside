@@ -69,7 +69,6 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining player/gameplay work
 
-- Terrain type switching (ice, rubber)
 - Y look-ahead camera offset (`$FFFFFB58`)
 - Block interactions beyond the current traversal slice
 - Broader multi-level progression beyond the current transition scenario
@@ -98,7 +97,5 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Open questions
 
-- FloatingItem spawning: `prize_block_hit` doesn't record position — items never appear visually
-- Multi-screen foreground: some levels reference block layout for level 0x00 (asset extraction gap)
-- 6 oracle warp-broken levels (oracle crashes during gameplay: 0x09, 0x32, 0x33, 0x50, 0x57, 0x63)
+- 8 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63
 - Demo playback: no source data found in disassembly

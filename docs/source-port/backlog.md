@@ -33,10 +33,10 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 024 | [x] | P1 | enemy | UFO beam child object system not implemented | UFO fires beam segments downward |
 | 025 | [x] | P2 | enemy | Fire Demon death trail not implemented | Kill Fire Demon, confirm fire trail |
 | 026 | [ ] | P3 | menu | Demo playback missing (no source data in ROM) | Title screen auto-plays demo |
-| 027 | [ ] | P2 | level | Multi-screen block list cross-level references | Some levels reference level 0x00 blocks |
-| 028 | [ ] | P3 | testing | Adopt `insta` snapshot testing for NativeTraceFrame | Snapshots detect state drift between commits |
-| 029 | [ ] | P3 | testing | Adopt `proptest` for physics pure functions | Speed tables, slopes, gravity hold across input range |
-| 030 | [ ] | P3 | infra | Add GitHub Actions CI running `verify-slice-fast` | Tests run automatically on every push |
+| 027 | [x] | P2 | level | Multi-screen block list cross-level references | Graceful fallback (ba36f63) |
+| 028 | [x] | P3 | testing | Adopt `insta` snapshot testing for NativeTraceFrame | Snapshots detect state drift between commits |
+| 029 | [x] | P3 | testing | Adopt `proptest` for physics pure functions | Speed tables, slopes, gravity hold across input range |
+| 030 | [x] | P3 | infra | Add GitHub Actions CI running `verify-slice-fast` | Tests run automatically on every push |
 | 031 | [ ] | P3 | infra | Add performance baseline tracking | Frame time and sweep duration tracked over time |
 
 ## Investigation notes
