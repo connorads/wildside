@@ -149,7 +149,7 @@ Murder wall, weather effects (lava/storm/hail/snow), camera Y look-ahead, lava g
 **Goal:** A complete game from title to credits.
 
 Done: game over/continue screen, score system, Diamond Power (20 form/tier combos), ending sequence, 105 levels loadable, full multi-level progression, demo playback (2 demos from ROM data), intro sequence (5 segments), per-helmet transform timing.
-Remaining: perf baseline tracking (#031), transform animation visual sprites (#033 — needs ROM tile extraction).
+Remaining: transform animation visual sprites (#033 — needs ROM tile extraction).
 
 ---
 

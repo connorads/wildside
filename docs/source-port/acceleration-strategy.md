@@ -16,9 +16,9 @@ All five original tracks are complete:
 4. **Level Traversal Skeleton** — flag collision + level transitions, 105 levels loadable
 5. **LLM-Assisted ASM Translation** — workflow used throughout, oracle verification catches errors
 
-## Track 6: Playtest-Driven Iteration (Current)
+## Track 6: Playtest-Driven Iteration (Active)
 
-With infrastructure across all systems, development shifts from milestone-driven to bug-driven. The playtest loop surfaces the most impactful issues; oracle sweep ensures fixes don't regress.
+With infrastructure across all systems, development shifted from milestone-driven to bug-driven. 68/69 backlog items resolved. Remaining: visual fidelity (transform animation, fire trail sprites, floating item sprites), floor-snap settling diffs on 3 levels, and RNG-dependent behaviours (documented as DEVIATION).
 
 - Canonical tracker: `docs/source-port/backlog.md`
 - Iteration protocol: `CLAUDE.md` (session protocol section)
