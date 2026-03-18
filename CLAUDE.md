@@ -27,6 +27,7 @@ Use sources in this order:
 
 4. Local skills and repo docs
 - `.agents/skills/as-assembler/SKILL.md`
+- `docs/source-port/methodology.md`
 - `docs/source-port/reference-index.md`
 - `docs/source-port/research-map.md`
 - `docs/source-port/level-1-dossier.md`
@@ -35,6 +36,15 @@ Use sources in this order:
 5. Web/manual fallback
 - Sega Retro Mega Drive hardware docs
 - official M68000 manual
+
+## Fidelity principles
+
+- **Bugs are features**: original game bugs must be faithfully reproduced — collision edge cases, sprite glitches, off-by-ones. Mark with `// ORIGINAL_QUIRK: <description>`. (Julius, OpenMW, Chocolate Doom, devilutionX all preserve original bugs for compatibility)
+- **Oracle is truth**: if native differs from oracle, native is wrong until proven otherwise. Exceptions: advisory fields only. ("Accuracy is not 'does it play Zelda?' — playing games is a side effect of accuracy" — byuu)
+- **Never guess**: when behaviour is ambiguous, trace the disassembly or compare oracle frames. Write a probe scenario before writing any fix. (bsnes: 80 hours to reverse-engineer one Speedy Gonzales bus conflict rather than guessing)
+- **Engine-level only**: no level-specific overrides or game-specific hacks. If a fix works for level 1 but breaks level 23, the architecture needs rethinking. (bsnes: "whack-a-mole emulation" anti-pattern)
+- **Progressive fidelity**: approximate implementations acceptable as stepping stones when marked `// TODO(fidelity): <description>` and tracked. Never ship a guess as if it were verified.
+- **Code as documentation**: implementation should read as a specification of original behaviour. Avoid speed hacks or clever abstractions that obscure what the original did. (bsnes: speed hacks "destroy code's ability to serve as verifiable hardware documentation")
 
 ## Cache layout
 
@@ -98,11 +108,21 @@ Canonical bug/feature backlog: `docs/source-port/backlog.md`
 - Every fix must pass full sweep — if it fixes level 1 but breaks level 23, the fix is wrong
 - Every bug fixed should become a permanent regression test (scenario or snapshot)
 - Advisory fields (score, lives, diamonds, number_objects, murder_wall_x) are expected divergences, not bugs
+- Probe before coding — write a scenario that exercises the behaviour, run against oracle, understand ground truth before touching native code
+- Cross-reference sources — check disassembly AND oracle; if they agree, proceed. If they disagree, investigate further
+- Preserve original quirks explicitly — mark with `// ORIGINAL_QUIRK:`. If behaviour looks wrong but oracle confirms it, the original game has that behaviour
+- Advisory vs authoritative — advisory divergences are expected and masked in sweep. Authoritative divergences (position, velocity, state, lifecycle) are always bugs
 
 ### Session protocol
 1. Read `docs/source-port/backlog.md`; pick the highest-priority open item
 2. Mark `[~]` when starting work
-3. Investigate: read relevant code, capture frames, view PNGs with Read tool
+3. Investigate (structured):
+   a. Reproduce: capture frames or run scenario showing the bug
+   b. Classify: timing, collision, state machine, rendering, or audio?
+   c. Trace oracle: run same scenario against oracle, capture state checkpoints
+   d. Read disassembly: find the relevant ASM routine (use source precedence)
+   e. Cross-reference: compare native logic to both ASM and oracle data
+   f. Write a probe scenario if one doesn't exist for this behaviour
 4. Fix: implement in focused commit(s)
 5. Verify visually: capture frames, Read PNGs, compare before/after
 6. Verify mechanically: `mise run verify-slice-fast` must pass
@@ -150,3 +170,23 @@ diff composites, and per-layer diagnostics.
 - `insta` crate: `assert_yaml_snapshot!` on NativeTraceFrame structs
 - Redactions for advisory fields, `cargo insta review` TUI for accepting intentional changes
 - Complements oracle (correctness) with native-vs-prior-native (regression)
+
+## Test strategy
+
+| Situation | Test type | Rationale |
+|-----------|-----------|-----------|
+| New engine behaviour | Probe scenario + oracle comparison | Like bsnes test ROMs: exercise specific behaviour, compare to ground truth |
+| Fixed bug | Timing/gameplay regression test (`verify-slice-fast` gate) | Every fix becomes a permanent regression test |
+| Pure function, large input space | Property-based test (proptest) | Speed tables, slope formulas, gravity — verify properties hold across range |
+| Complex state | Snapshot test (insta) | NativeTraceFrame at checkpoint — detect unexpected state changes between commits |
+| Visual correctness | Frame capture + pixel comparison | Any pixel mismatch against oracle = regression |
+| Determinism | Replay same scenario twice, diff output | Deterministic engine is prerequisite for all other testing |
+
+## Code conventions for fidelity
+
+- `// ORIGINAL_QUIRK: <desc>` — faithfully reproduced original bug (verified against oracle/disassembly)
+- `// DEVIATION: <desc>` — known intentional difference from original (e.g. modern input handling)
+- `// TODO(fidelity): <desc>` — approximate implementation needing refinement
+- `// UNVERIFIED: <desc>` — behaviour not yet compared to oracle/disassembly
+
+See `docs/source-port/methodology.md` for full investigation playbook, testing taxonomy, and cross-referencing protocol.

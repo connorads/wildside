@@ -27,6 +27,10 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 018 | [ ] | P2 | form | No form-change animation when equipping helmet | Collect helmet, confirm transform anim |
 | 019 | [ ] | P2 | form | Player doesn't transform at all | Collect helmet, confirm form changes |
 | 020 | [ ] | P3 | render | No water/shimmer background effect | Load water level, confirm shimmer |
+| 021 | [ ] | P3 | testing | Adopt `insta` snapshot testing for NativeTraceFrame | Snapshots detect state drift between commits |
+| 022 | [ ] | P3 | testing | Adopt `proptest` for physics pure functions | Speed tables, slopes, gravity hold across input range |
+| 023 | [ ] | P3 | infra | Add GitHub Actions CI running `verify-slice-fast` | Tests run automatically on every push |
+| 024 | [ ] | P3 | infra | Add performance baseline tracking | Frame time and sweep duration tracked over time |
 
 ## Investigation notes
 
