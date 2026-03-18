@@ -6,7 +6,7 @@ All 10 milestones below are done or substantially complete. The project is now i
 
 ## Context
 
-All 10 milestones are complete. The port is now a full playable game: all 10 forms, 28 enemy families, 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score), ending sequence, Diamond Power two-tier cost, and multi-level progression. 63/69 BCD levels pass oracle sweep at 6px tolerance. What remains is fidelity hardening: sweep tolerance tightening, per-enemy ASM verification, visual pixel-perfect convergence, and closing the two open backlog items (#026 demo playback, #031 perf baseline).
+All 10 milestones are complete. The port is a full playable game: all 10 forms, 28 enemy families (ASM-verified), 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score, sound test), ending sequence, demo playback, Diamond Power (20 form/tier combos), per-helmet transform timing, and multi-level progression. 63/69 BCD levels pass oracle sweep at 0px tolerance (6 errors are jgenesis oracle bugs). What remains is visual fidelity: transform animation sprites (needs ROM tile extraction) and perf baseline tracking (#031).
 
 ---
 
@@ -148,8 +148,8 @@ Murder wall, weather effects (lava/storm/hail/snow), camera Y look-ahead, lava g
 
 **Goal:** A complete game from title to credits.
 
-Done: game over/continue screen, score system, Diamond Power two-tier cost, ending sequence, 105 levels loadable, full multi-level progression.
-Remaining (open backlog): demo playback (#026 — no ROM source data found), perf baseline tracking (#031), cutscenes/intro art, 2-player alternating, password/save.
+Done: game over/continue screen, score system, Diamond Power (20 form/tier combos), ending sequence, 105 levels loadable, full multi-level progression, demo playback (2 demos from ROM data), intro sequence (5 segments), per-helmet transform timing.
+Remaining: perf baseline tracking (#031), transform animation visual sprites (#033 — needs ROM tile extraction).
 
 ---
 
