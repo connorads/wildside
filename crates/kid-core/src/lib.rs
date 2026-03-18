@@ -595,10 +595,12 @@ impl NativeRuntime {
         self.previous_input.b && !self.prior_input.b
     }
 
-    fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
+    /// Returns true if the frame should continue to physics/gameplay processing.
+    /// Returns false for early-return cases (non-alive lifecycle, paused, etc.).
+    fn step_lifecycle(&mut self, input: FrameInput) -> bool {
         if matches!(self.boot_state, BootState::EndingSequence { .. }) {
             self.opening_slice = None;
-            return;
+            return false;
         }
         if !matches!(
             self.boot_state,
@@ -618,7 +620,7 @@ impl NativeRuntime {
             self.pause_toggle_pending = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
-            return;
+            return false;
         }
 
         match self.player_lifecycle {
@@ -640,7 +642,7 @@ impl NativeRuntime {
                 } else {
                     self.enter_death_hidden_state();
                 }
-                return;
+                return false;
             }
             PlayerLifecycle::Dying { remaining_frames } => {
                 if remaining_frames > 1 {
@@ -664,7 +666,7 @@ impl NativeRuntime {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
                 }
-                return;
+                return false;
             }
             PlayerLifecycle::Respawning { remaining_frames } => {
                 if remaining_frames > 1 {
@@ -675,7 +677,7 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
                 }
-                return;
+                return false;
             }
             PlayerLifecycle::LevelComplete { remaining_frames } => {
                 if remaining_frames > 1 {
@@ -685,7 +687,7 @@ impl NativeRuntime {
                 } else {
                     self.advance_level();
                 }
-                return;
+                return false;
             }
             PlayerLifecycle::GameOver { remaining_frames } => {
                 // ASM: "GAME OVER" display, then transition to continue screen or title.
@@ -703,7 +705,7 @@ impl NativeRuntime {
                 } else {
                     self.return_to_title();
                 }
-                return;
+                return false;
             }
             PlayerLifecycle::ContinueCountdown { remaining_frames } => {
                 // ASM Continue_Screen: button press uses continue, timeout goes to title.
@@ -733,19 +735,27 @@ impl NativeRuntime {
                     // Countdown expired without input — return to title
                     self.return_to_title();
                 }
-                return;
+                return false;
             }
         }
 
         if matches!(self.boot_state, BootState::LevelSkipHold) {
-            return;
+            return false;
         }
 
         if self.level_skip_resume_hold {
-            return;
+            return false;
         }
 
         if self.paused {
+            return false;
+        }
+
+        true
+    }
+
+    fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
+        if !self.step_lifecycle(input) {
             return;
         }
 
@@ -855,6 +865,17 @@ impl NativeRuntime {
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
 
+        self.process_block_effects(&mut slice);
+        if self.resolve_frame_hazards(&mut slice, input, pre_physics_y_velocity, pre_physics_y_pos)
+        {
+            return;
+        }
+        self.opening_slice = Some(slice);
+    }
+
+    /// Process block hit effects from the current frame's slice (prizes, bounces,
+    /// lifts, drills, teleporter warps).
+    fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {
         // Prize block item spawning: spawn floating visual + debris then apply prize
         if let Some((content, x_px, y_px)) = slice.prize_block_hit {
             self.blocks_hit_this_frame += 1;
@@ -936,53 +957,61 @@ impl NativeRuntime {
                     slice.player.y_velocity = 0;
                     slice.player.on_ground = true;
                 }
+    }
 
+    /// Check all frame hazards in priority order. Returns true if the frame was
+    /// consumed by a hazard (damage, death, level transition) — caller should
+    /// return immediately. Returns false if no hazard fired and gameplay continues.
+    fn resolve_frame_hazards(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+        pre_physics_y_velocity: i32,
+        pre_physics_y_pos: u32,
+    ) -> bool {
         // Level timer: tick down and kill the player on expiry
         if self.level_timer.tick() {
-            self.opening_slice = Some(slice);
+            self.opening_slice = Some(*slice);
             self.number_hitpoints = 0;
             self.begin_death_windup();
-            return;
+            return true;
         }
 
         // Pit death: falling below the level floor boundary is instant death
-        if self.fell_below_level(&slice) {
-            self.opening_slice = Some(slice);
+        if self.fell_below_level(slice) {
+            self.opening_slice = Some(*slice);
             self.number_hitpoints = 0;
             self.begin_death_windup();
-            return;
+            return true;
         }
 
         // Spike death: contacting a spike cell is instant death
         if slice.player.on_spikes {
-            self.opening_slice = Some(slice);
+            self.opening_slice = Some(*slice);
             self.number_hitpoints = 0;
             self.begin_death_windup();
-            return;
+            return true;
         }
 
         // Projectiles: advance and damage player on hit
         self.step_projectiles();
-        if self.projectile_hits_player(&slice) {
-            self.opening_slice = Some(slice);
+        if self.projectile_hits_player(slice) {
+            self.opening_slice = Some(*slice);
             self.apply_damage();
-            return;
+            return true;
         }
 
         // Murder wall: advance and damage player on contact.
-        // The original game sets a hit flag that feeds into the normal damage
-        // path (checking invulnerability, removing helmet, reducing HP). It
-        // also pushes the player ahead of the wall.
         self.step_murder_wall();
-        if self.murder_wall_kills_player(&slice) && self.invulnerable_frames == 0 {
+        if self.murder_wall_kills_player(slice) && self.invulnerable_frames == 0 {
             self.apply_damage();
-            self.opening_slice = Some(slice);
-            return;
+            self.opening_slice = Some(*slice);
+            return true;
         }
 
         // Teleporter: stepping on a teleporter block warps the player
-        if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(&slice) {
-            self.opening_slice = Some(slice);
+        if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
+            self.opening_slice = Some(*slice);
             // Same-level teleport: reposition. Cross-level: trigger level skip.
             if dest_map == self.current_level.0 {
                 if let Some(ref mut s) = self.opening_slice {
@@ -992,53 +1021,54 @@ impl NativeRuntime {
             } else {
                 self.pending_level_skip = Some(LevelId(dest_map));
             }
-            return;
+            return true;
         }
 
         // Flag collision: touching the flag completes the level
-        if self.player_touches_flag(&slice) {
+        if self.player_touches_flag(slice) {
             self.apply_level_completion_bonuses();
-            self.opening_slice = Some(slice);
+            self.opening_slice = Some(*slice);
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
             };
-            return;
+            return true;
         }
 
         // Stomp check: kill enemies by landing on them from above
-        if self.process_stomps(&mut slice, pre_physics_y_velocity, pre_physics_y_pos) {
-            self.opening_slice = Some(slice);
-            return;
+        if self.process_stomps(slice, pre_physics_y_velocity, pre_physics_y_pos) {
+            self.opening_slice = Some(*slice);
+            return true;
         }
 
         // Combat abilities: sword/axe/beam/charge damage enemies
-        self.process_sword_hits(&slice);
+        self.process_sword_hits(slice);
         self.process_friendly_projectile_hits();
-        self.process_berzerker_charge_hits(&slice);
+        self.process_berzerker_charge_hits(slice);
 
         // Diamond collection: touching a Diamond picks it up
-        self.collect_diamonds(&slice);
+        self.collect_diamonds(slice);
 
         // Contact damage with knockback
-        if let Some(enemy_x) = self.find_contact_damage_source(&slice) {
-            self.apply_damage_with_knockback(&mut slice, enemy_x);
-            self.opening_slice = Some(slice);
-            return;
+        if let Some(enemy_x) = self.find_contact_damage_source(slice) {
+            self.apply_damage_with_knockback(slice, enemy_x);
+            self.opening_slice = Some(*slice);
+            return true;
         }
 
-        if self.should_apply_level_one_opening_hit(&slice, input) {
-            self.opening_slice = Some(slice);
+        if self.should_apply_level_one_opening_hit(slice, input) {
+            self.opening_slice = Some(*slice);
             self.apply_damage();
-            return;
+            return true;
         }
-        if self.should_apply_level_one_late_hazard(&slice) {
+        if self.should_apply_level_one_late_hazard(slice) {
             slice.camera.x_pos = LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP;
             slice.camera.y_pos = 0;
-            self.opening_slice = Some(slice);
+            self.opening_slice = Some(*slice);
             self.apply_damage();
-            return;
+            return true;
         }
-        self.opening_slice = Some(slice);
+
+        false
     }
 
     fn refresh_active_roster(&mut self) {
