@@ -1006,13 +1006,34 @@ fn build_game_scene_filtered(
                 (u16::from(base_colour[1]) * alpha / 255).min(255) as u8,
                 (u16::from(base_colour[2]) * alpha / 255).min(255) as u8,
             ];
-            commands.push(DrawCommand::Rect {
-                x: fx - 4,
-                y: fy - 4,
-                width: 8,
-                height: 8,
-                colour,
-            });
+            // Draw content-type-specific pixel-art icon
+            // TODO(fidelity): load real floating item sprites from ROM art
+            match content_id {
+                // Diamond: rotated square (diamond shape)
+                0 => {
+                    commands.push(DrawCommand::Rect { x: fx - 1, y: fy - 4, width: 2, height: 1, colour });
+                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 3, width: 6, height: 4, colour });
+                    commands.push(DrawCommand::Rect { x: fx - 1, y: fy + 1, width: 2, height: 1, colour });
+                }
+                // Ankh: cross shape
+                1 => {
+                    commands.push(DrawCommand::Rect { x: fx - 1, y: fy - 4, width: 2, height: 8, colour });
+                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 2, width: 6, height: 2, colour });
+                }
+                // Clock: square with dot centre
+                2 => {
+                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 3, width: 6, height: 1, colour });
+                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy + 2, width: 6, height: 1, colour });
+                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 2, width: 1, height: 4, colour });
+                    commands.push(DrawCommand::Rect { x: fx + 2, y: fy - 2, width: 1, height: 4, colour });
+                    commands.push(DrawCommand::Rect { x: fx, y: fy - 1, width: 1, height: 2, colour });
+                }
+                // Helmets and other items: filled square with highlight
+                _ => {
+                    commands.push(DrawCommand::Rect { x: fx - 3, y: fy - 3, width: 6, height: 6, colour });
+                    commands.push(DrawCommand::Rect { x: fx - 2, y: fy - 2, width: 2, height: 1, colour: [255, 255, 255] });
+                }
+            }
         }
 
         // Enemy death particle burst: expanding ring of particles
