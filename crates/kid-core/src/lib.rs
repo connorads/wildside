@@ -1958,13 +1958,18 @@ impl NativeRuntime {
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
 
-        // Prize block item spawning: spawn floating visual then apply prize
+        // Prize block item spawning: spawn floating visual + debris then apply prize
         if let Some((content, x_px, y_px)) = slice.prize_block_hit {
             self.blocks_hit_this_frame += 1;
             self.floating_items.push(FloatingItem {
                 x_px,
                 y_px,
                 remaining: 30,
+            });
+            self.block_destroy_effects.push(BlockDestroyEffect {
+                x_px,
+                y_px,
+                remaining: 8,
             });
             self.apply_prize_content(content);
         }
