@@ -6375,7 +6375,7 @@ mod tests {
             "breath fires in facing direction (right)"
         );
         assert_eq!(projectiles[0].y_velocity, 0, "breath is horizontal");
-        assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_INTERVAL);
+        assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_RESET);
     }
 
     #[test]

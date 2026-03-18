@@ -2750,8 +2750,9 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
 }
 
 // --- DragonWalking constants ---
-// From ASM: stationary dragon with breath attack. Timer $12C (300 frames) cooldown.
-pub(crate) const DRAGON_WALKING_BREATH_INTERVAL: u16 = 300;
+// From ASM Dragon.asm: initial cooldown $12C (300f, line 95), reset after breath $1F4 (500f, line 194).
+pub(crate) const DRAGON_WALKING_BREATH_INITIAL: u16 = 300;
+pub(crate) const DRAGON_WALKING_BREATH_RESET: u16 = 500;
 pub(crate) const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
 pub(crate) const DRAGON_WALKING_BREATH_LIFETIME: u16 = 60;
 
@@ -2783,7 +2784,7 @@ pub(crate) fn step_dragon_walking(
         speed_cap: 0,
         wall_bounce: false,
     });
-    enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
+    enemy.wait_timer = DRAGON_WALKING_BREATH_RESET;
 }
 
 // --- Drips constants (Drips.asm) ---
@@ -3440,7 +3441,7 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         // Drips: first drop after one interval.
         EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
         // DragonWalking: first breath after cooldown.
-        EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INTERVAL,
+        EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
         // Tornado: first cycle timer (level 0 = 60 frames).
         EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[0],
         // SpinningTwins: orbit-to-walk is collision-triggered, no timer needed.
