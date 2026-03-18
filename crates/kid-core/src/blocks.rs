@@ -133,7 +133,7 @@ impl NativeRuntime {
                             lifetime: 120,
                             gravity: 0,
                             friendly: false,
-                            homing: false,
+                            homing_accel: 0,
                         });
                     }
                 }

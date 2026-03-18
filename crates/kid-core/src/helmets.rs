@@ -541,7 +541,7 @@ impl NativeRuntime {
                 lifetime: EYECLOPS_BEAM_LIFETIME,
                 friendly: true,
                 gravity: 0,
-                homing: false,
+                homing_accel: 0,
             });
         }
     }
@@ -572,7 +572,7 @@ impl NativeRuntime {
                 lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
                 friendly: true,
                 gravity: 0,
-                homing: false,
+                homing_accel: 0,
             });
         }
 
@@ -683,7 +683,7 @@ impl NativeRuntime {
             lifetime: JUGGERNAUT_SKULL_LIFETIME,
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
-            homing: false,
+            homing_accel: 0,
         });
     }
 

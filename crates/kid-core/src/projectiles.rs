@@ -12,13 +12,13 @@ impl NativeRuntime {
             }
             p.lifetime -= 1;
             p.y_velocity += p.gravity;
-            // Homing: accelerate toward player ($7D0 per axis per frame from ASM)
-            if p.homing {
+            // Homing: accelerate toward player (per-projectile accel from ASM).
+            if p.homing_accel != 0 {
                 if let (Some(px), Some(py)) = (player_x, player_y) {
                     let dx = px as i64 - p.x_pos as i64;
                     let dy = py as i64 - p.y_pos as i64;
-                    p.x_velocity += if dx > 0 { HOMING_ACCEL } else { -HOMING_ACCEL };
-                    p.y_velocity += if dy > 0 { HOMING_ACCEL } else { -HOMING_ACCEL };
+                    p.x_velocity += if dx > 0 { p.homing_accel } else { -p.homing_accel };
+                    p.y_velocity += if dy > 0 { p.homing_accel } else { -p.homing_accel };
                 }
             }
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;

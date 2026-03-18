@@ -931,8 +931,9 @@ struct EnemyProjectile {
     friendly: bool,
     /// Per-frame gravity added to y_velocity (for arcing projectiles like Juggernaut skull).
     gravity: i32,
-    /// Homing: accelerates toward player each frame (HeadyMetal eye projectiles).
-    homing: bool,
+    /// Homing acceleration per axis per frame. 0 = not homing.
+    /// HeadyMetal: $7D0, Lion: $2000 (Lion.asm loc_3E1C2).
+    homing_accel: i32,
 }
 
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
@@ -940,8 +941,6 @@ struct EnemyProjectile {
 const MAX_PROJECTILES: usize = 4;
 /// Projectile hitbox half-width for player collision (pixels).
 const PROJECTILE_HITBOX_HALF: i32 = 6;
-/// Homing projectile acceleration per frame per axis ($7D0 FP from HeadyMetal ASM).
-const HOMING_ACCEL: i32 = 0x7D0;
 
 /// Skycutter flipboard counter threshold: animation complete at 32.
 const SKYCUTTER_FLIPBOARD_TIMEOUT: u8 = 0x20;
@@ -2213,7 +2212,7 @@ impl NativeRuntime {
                 lifetime: 120,
                 gravity: 0x1000,
                 friendly: false,
-                homing: false,
+                homing_accel: 0,
             });
         }
 
@@ -8232,7 +8231,7 @@ mod tests {
             lifetime: 10,
             friendly: false,
             gravity: 0,
-            homing: false,
+            homing_accel: 0,
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
@@ -8260,7 +8259,7 @@ mod tests {
             lifetime: 1,
             friendly: false,
             gravity: 0,
-            homing: false,
+            homing_accel: 0,
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
@@ -11574,7 +11573,7 @@ mod tests {
             lifetime: 10,
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
-            homing: false,
+            homing_accel: 0,
         });
 
         rt.step_projectiles();

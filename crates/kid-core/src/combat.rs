@@ -86,7 +86,7 @@ impl NativeRuntime {
                             lifetime: if is_heady { 120 } else { 90 },
                             gravity: if is_heady { 0x2710 } else { 0x800 },
                             friendly: false,
-                            homing: is_heady,
+                            homing_accel: if is_heady { 0x7D0 } else { 0 },
                         });
                         self.projectiles.push(EnemyProjectile {
                             x_pos: boss_x,
@@ -96,7 +96,7 @@ impl NativeRuntime {
                             lifetime: if is_heady { 120 } else { 90 },
                             gravity: if is_heady { 0x2710 } else { 0x800 },
                             friendly: false,
-                            homing: is_heady,
+                            homing_accel: if is_heady { 0x7D0 } else { 0 },
                         });
                     }
                     // TarMonster fires 5 tar blobs in a spread pattern when damaged

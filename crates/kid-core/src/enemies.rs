@@ -961,7 +961,7 @@ pub(crate) fn step_ufo_beam(
                 lifetime: 60,
                 gravity: 0,
                 friendly: false,
-                homing: false,
+                homing_accel: 0,
             });
             enemy.ufo_beam_segments -= 1;
             enemy.ufo_beam_interval = UFO_BEAM_INTERVAL_FRAMES;
@@ -1347,7 +1347,7 @@ fn step_dragon_descent(
                         lifetime: DRAGON_WALKING_BREATH_LIFETIME,
                         gravity: 0,
                         friendly: false,
-                        homing: false,
+                        homing_accel: 0,
                     });
                 }
                 enemy.dragon_descent_index += 1;
@@ -1883,9 +1883,8 @@ pub(crate) const LION_CHARGE_OVERSHOOT: i32 = 0x70;
 /// Lion projectile speed (Lion.asm line 165: $60000).
 pub(crate) const LION_PROJECTILE_SPEED: i32 = 0x6_0000;
 
-// TODO(fidelity): Lion homing accel is $2000/frame (Lion.asm loc_3E1C2),
-// but generic HOMING_ACCEL is $7D0 (HeadyMetal). Need per-projectile accel.
-// Also missing: lion projectile wall-bounce (Lion.asm loc_3E260) and
+// Lion homing accel is $2000/frame (Lion.asm loc_3E1C2) — set on projectile.
+// TODO(fidelity): lion projectile wall-bounce (Lion.asm loc_3E260) and
 // speed cap at $60000 on both axes.
 
 /// Lion projectile spawn X offset: 10px ahead in facing direction.
@@ -1953,7 +1952,7 @@ pub(crate) fn step_lion(
                     lifetime: 120,
                     gravity: 0,
                     friendly: false,
-                    homing: true,
+                    homing_accel: 0x2000, // Lion.asm loc_3E1C2
                 });
             }
 
@@ -2119,7 +2118,7 @@ pub(crate) fn step_robot(
                         lifetime: 60,
                         gravity: 0,
                         friendly: false,
-                        homing: false,
+                        homing_accel: 0,
                     });
                 }
 
@@ -2335,7 +2334,7 @@ pub(crate) fn spawn_tar_monster_retaliation(
             lifetime: 60,
             gravity: 0x1000,
             friendly: false,
-            homing: false,
+            homing_accel: 0,
         });
     }
 }
@@ -2357,7 +2356,7 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
             lifetime: 45,
             gravity: 0x1800,
             friendly: false,
-            homing: false,
+            homing_accel: 0,
         });
     }
 }
@@ -2392,7 +2391,7 @@ pub(crate) fn step_dragon_walking(
         lifetime: DRAGON_WALKING_BREATH_LIFETIME,
         gravity: 0,
         friendly: false,
-        homing: false,
+        homing_accel: 0,
     });
     enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
 }
@@ -2422,7 +2421,7 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
         lifetime: 120,
         gravity: DRIPS_DROP_GRAVITY,
         friendly: false,
-        homing: false,
+        homing_accel: 0,
     });
     enemy.wait_timer = DRIPS_DROP_INTERVAL;
 }
@@ -2693,7 +2692,7 @@ pub(crate) fn step_archer(
         lifetime: ARCHER_FIRE_TIMER[level],
         friendly: false,
         gravity: 0,
-        homing: false,
+        homing_accel: 0,
     });
 }
 
@@ -2718,7 +2717,7 @@ pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<Enem
         lifetime: TANK_BULLET_LIFETIME,
         friendly: false,
         gravity: 0,
-        homing: false,
+        homing_accel: 0,
     });
 }
 
@@ -2793,7 +2792,7 @@ pub(crate) fn step_boss_fire(
                 lifetime: 120,
                 gravity: 0x2710,
                 friendly: false,
-                homing: true,
+                homing_accel: 0x7D0, // HeadyMetal ASM
             });
         }
         EnemyFamily::Shishkaboss => {
@@ -2806,7 +2805,7 @@ pub(crate) fn step_boss_fire(
                 lifetime: 90,
                 gravity: 0,
                 friendly: false,
-                homing: false,
+                homing_accel: 0,
             });
         }
         EnemyFamily::BoomerangBosses => {
@@ -2827,7 +2826,7 @@ pub(crate) fn step_boss_fire(
                 lifetime: 60,
                 gravity: 0x1000,
                 friendly: false,
-                homing: false,
+                homing_accel: 0,
             });
         }
         EnemyFamily::BagelBrothers => {
@@ -2844,7 +2843,7 @@ pub(crate) fn step_boss_fire(
                 lifetime: 45,
                 gravity: 0,
                 friendly: false,
-                homing: false,
+                homing_accel: 0,
             });
         }
         _ => {}
