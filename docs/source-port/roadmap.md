@@ -6,7 +6,7 @@ All 10 milestones below are done or substantially complete. The project is now i
 
 ## Context
 
-All 10 milestones are complete. The port is a full playable game: all 10 forms, 28 enemy families (ASM-verified), 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score, sound test), ending sequence, demo playback, Diamond Power (20 form/tier combos), per-helmet transform timing, and multi-level progression. 63/69 BCD levels pass oracle sweep at 0px tolerance (6 errors are jgenesis oracle bugs). What remains is visual fidelity: transform animation sprites (needs ROM tile extraction) and perf baseline tracking (#031).
+All 10 milestones are complete. The port is a full playable game: all 10 forms, 28 enemy families (ASM-verified), 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score, sound test), ending sequence, demo playback, Diamond Power (20 form/tier combos), per-helmet transform timing, and multi-level progression. 63/69 BCD levels pass oracle sweep at 0px tolerance (6 errors are jgenesis oracle bugs). 69/69 gameplay scenarios pass. Perf baseline tracking done (#031). What remains: 3 visual fidelity items (#033 transform animation, fire trail sprites, floating item sprites), 2 gameplay items (#037 floor-snap settling, #062 HeadyMetal death wobble), and 6 documented deviations (RNG, structural differences). See `research-map.md` for details.
 
 ---
 

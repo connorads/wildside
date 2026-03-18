@@ -69,15 +69,27 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining work
 
-- Transform animation visual sprites (needs ROM tile extraction, #033)
-- Fire Demon death trail visual sprites (rendered as generic projectile)
-- Floating item ROM sprites (scene.rs placeholder icons)
-- HeadyMetal death wobble visual (#062)
-- Floor-snap settling diffs on 3 levels (#037, #038) — needs full physics step during init
-- RNG-dependent behaviours: Tornado patterns, Fireball perturbation, Robot charge flip timer (documented as DEVIATION)
+### Visual fidelity (3 TODO(fidelity) markers)
+- **#033** [~] Transform animation visual sprites — needs ROM tile extraction for spinning animation frames. `Kid_Transform` (kid.asm:8369-8607) has per-helmet sprite+palette cycling tables. Frame counts/durations already extracted; blocked on art pipeline for transform tile sheets.
+- Fire Demon death trail visual sprites — rendered as generic projectile, needs real fire fragment tiles from ROM.
+- Floating item ROM sprites — some items use content-type-specific pixel-art icons, others placeholder rectangles (scene.rs). Needs ROM VRAM tile extraction.
+
+### Gameplay fidelity (2 open items)
+- **#037** [~] Floor-snap settling diffs on 5 levels — root cause documented: `probe_floor_hitbox` only checks ±half_width edges, misses terrain beyond hitbox width. ASM runs full `Hibernate_Object_1Frame`. Fix requires running real frame steps during init or widening probe. Affected: 0x52 (+14px Y), 0x29 (+5px X), 0x02/0x24/0x51 (1px cam_y).
+- **#062** [ ] HeadyMetal death wobble visual — purely cosmetic rendering effect during boss death sequence.
+
+### Known deviations (6 DEVIATION annotations, intentional)
+- Tornado, Fireball (×2), Robot: RNG-dependent behaviours. ASM uses deterministic global RNG, native uses independent RNG per enemy. Behaviour is statistically equivalent but not frame-identical.
+- Shooter timer: ASM registers per-block on visibility, native uses global timer.
+- Mushroom bounce: ASM bounces via SoftPlatform objects, native bounces player inline.
+- Shifting block: ASM animates sprite with shared lift coroutine, native swaps grid instantly.
 
 ## Recently completed
 
+- Scorpion tracking callback with $38000 speed escalation (HP≥5, within 170px) — Phase 4C
+- Dragon Walking dual breath interval ($12C initial, $1F4 reset) — Phase 4C
+- MiniHoppingSkull HP-scaled hop velocity (+$4000 X, -$10000 Y at HP>1) — Phase 4C
+- Workspace clippy clean for Rust 1.94 (all warnings resolved or allowed)
 - Boss multi-head system (#060) — 3 heads per boss with ASM position offsets + per-head HP
 - BigHoppingSkull continuous bouncer rework (#056) — ASM $FA0 gravity, wall/floor/ceiling/slope deflection
 - Orca X-accel, slope re-lunge, wall-pin (#061) — all 3 from ASM
