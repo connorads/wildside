@@ -8833,8 +8833,9 @@ mod tests {
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y - (30 << 16), 1);
         enemy.hand_state = HandState::Jumping;
-        enemy.x_velocity = HAND_JUMP_X_SPEED;
-        enemy.y_velocity = HAND_JUMP_Y_SPEED;
+        let (x_speed, y_speed) = hand_jump_speed(0, 0);
+        enemy.x_velocity = x_speed;
+        enemy.y_velocity = y_speed;
         enemy.on_ground = false;
         for _ in 0..300 {
             step_hand(&mut enemy, Some(&grid), None, None);

@@ -1357,13 +1357,27 @@ pub(crate) const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
 /// Hand jump-attack gravity (Hand.asm line 130: $4000 per frame).
 pub(crate) const HAND_GRAVITY: i32 = 0x4000;
 
-/// Hand jump velocity magnitude (HP-biased, approximate from ASM).
-pub(crate) const HAND_JUMP_Y_SPEED: i32 = -0x3_0000;
-pub(crate) const HAND_JUMP_X_SPEED: i32 = 0x1_8000;
+/// Hand jump velocity: randomised per-jump from ASM (Hand.asm lines 128-147).
+/// Y: -(tier + random(0..3)) × $10000, X: ±(tier + random(0..3)) × $10000.
+/// Random component is `(random_byte XOR kid_pos) & 3`.
+/// We approximate with a frame-based pseudo-random in the range.
+pub(crate) fn hand_jump_speed(tier: usize, frame_counter: u32) -> (i32, i32) {
+    // Approximate the ASM's `random_byte XOR kid_pos & 3` pattern
+    let rand_y = ((frame_counter.wrapping_mul(7)) & 3) as i32;
+    let rand_x = ((frame_counter.wrapping_mul(13).wrapping_add(5)) & 3) as i32;
+    let t = (tier + 1) as i32; // tier 0 = HP 1 → multiplier 1
+    let y_speed = -(t + rand_y) * 0x1_0000;
+    let x_speed = (t + rand_x) * 0x1_0000;
+    (x_speed, y_speed)
+}
+
+/// Hand max fall speed: $180000 (Hand.asm lines 728-730), NOT the shared MAX_FALL_SPEED.
+pub(crate) const HAND_MAX_FALL_SPEED: i32 = 0x18_0000;
 
 /// Step a Hand enemy through its walk/detect/jump state machine.
-/// Walking: paces with edge/wall detection. Detects player in forward cone.
-/// Jumping: arcs toward player with gravity, lands and resumes walking.
+/// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
+/// Jumping: randomised arc toward player with gravity, lands and resumes walking.
+/// ASM: Hand.asm — full state machine with cone detection, random jump, gravity cap.
 pub(crate) fn step_hand(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -1417,7 +1431,7 @@ pub(crate) fn step_hand(
                 }
             }
 
-            // Player detection: must be within detection range ahead and within 16px above
+            // Player detection: forward cone + 16px vertical + 45-degree angle
             let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
                 return;
             };
@@ -1430,26 +1444,26 @@ pub(crate) fn step_hand(
             }
 
             let detect_range = i64::from(HAND_DETECT_RANGE[tier]);
-            let in_cone = match enemy.facing {
+            let in_range = match enemy.facing {
                 Direction::Right => dx > 0 && dx <= detect_range,
                 Direction::Left => dx < 0 && (-dx) <= detect_range,
             };
 
+            // 45-degree cone constraint: |dy| <= |dx| (Hand.asm loc_3284C lines 99-114)
+            let in_cone = in_range && dy.abs() <= dx.abs();
+
             if in_cone {
-                // Jump toward player
+                // Jump toward player with randomised velocity (Hand.asm lines 128-147)
                 enemy.hand_state = HandState::Jumping;
                 enemy.on_ground = false;
-                enemy.x_velocity = if dx >= 0 {
-                    HAND_JUMP_X_SPEED
-                } else {
-                    -HAND_JUMP_X_SPEED
-                };
-                enemy.y_velocity = HAND_JUMP_Y_SPEED;
+                let (x_speed, y_speed) = hand_jump_speed(tier, enemy.wait_timer as u32);
+                enemy.x_velocity = if dx >= 0 { x_speed } else { -x_speed };
+                enemy.y_velocity = y_speed;
             }
         }
         HandState::Jumping => {
-            // Apply gravity
-            enemy.y_velocity = (enemy.y_velocity + HAND_GRAVITY).min(physics::MAX_FALL_SPEED);
+            // Apply gravity, capped at Hand-specific $180000 (not shared MAX_FALL_SPEED)
+            enemy.y_velocity = (enemy.y_velocity + HAND_GRAVITY).min(HAND_MAX_FALL_SPEED);
 
             // Move
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
