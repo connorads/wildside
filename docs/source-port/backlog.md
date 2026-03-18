@@ -43,7 +43,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 034 | [x] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native had 3) | Boot captures match oracle |
 | 035 | [ ] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | All 69 BCD levels verifiable |
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
-| 037 | [ ] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
+| 037 | [x] | P3 | fidelity | Floor-snap shortcut misses terrain on level 0x52 (+13px Y) | Kid Y at settle matches oracle |
 | 038 | [x] | P3 | fidelity | Camera Y settling diffs (1-7px) on 8 levels due to dead-zone | Camera converges to oracle values |
 | 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
 | 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
@@ -55,7 +55,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 046 | [x] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
 | 047 | [x] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM drop timing |
 | 048 | [x] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
-| 049 | [ ] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |
+| 049 | [x] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |
 | 050 | [ ] | P3 | fidelity | 4 levels show idle_tail position diffs from enemy/timing divergence | Idle parity on 0x00,0x45,0x48,0x61 |
 
 ## Investigation notes
