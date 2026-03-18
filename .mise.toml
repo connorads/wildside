@@ -95,3 +95,15 @@ description = "Pre-populate oracle cache for all levels (no native comparison)"
 [tasks.perf-baseline]
 run = "cargo bench -p kid-core --bench frame_step"
 description = "Run performance benchmarks (criterion); results in target/criterion/"
+
+[tasks.sweep-gameplay]
+run = "cargo run --release -p kidcli -- sweep --levels 0-104 --tier gameplay"
+description = "Self-consistency gameplay sweep: walk-right + jump + stomp on all 69 BCD levels"
+
+[tasks.collect-metrics]
+run = """
+mkdir -p .cache/metrics
+echo "$(date -Iseconds) test_count=$(cargo test --workspace 2>&1 | grep -oP '\\d+ passed' | awk '{s+=int($1)}END{print s}') sweep_pass=$(cargo run --release -p kidcli -- sweep --levels 0-104 --tier state 2>&1 | grep -oP '\\d+ passed' | head -1 | awk '{print $1}') gameplay_pass=$(cargo run --release -p kidcli -- sweep --levels 0-104 --tier gameplay 2>&1 | grep -oP '\\d+ passed' | head -1 | awk '{print $1}') todo_fidelity=$(grep -r 'TODO(fidelity)' crates/ | wc -l) deviation=$(grep -r 'DEVIATION:' crates/ | wc -l)" >> .cache/metrics/history.log
+tail -1 .cache/metrics/history.log
+"""
+description = "Collect sweep/test/annotation metrics to .cache/metrics/history.log"
