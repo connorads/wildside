@@ -75,7 +75,8 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
         // Lion: HP = enemy_level + 6 (min 6). Speed $18000 base, $28000 at HP 8.
         EnemyFamily::Lion => (6, 0x0001_8000, 0x0000_8000),
-        // DragonWalking: HP = enemy_level + 1 (min 2). Speed $8000 at HP≤2, $18000 at HP=3.
+        // DragonWalking: HP = enemy_level + 1 (min 1). Speed $8000 at HP≤2, $18000 at HP=3.
+        // ASM: Dragon.asm lines 64-74 — only HP==3 sets $10000 base, then always +$8000.
         EnemyFamily::DragonWalking => (2, 0x0000_8000, 0x0001_0000),
         // Hand: HP = 1. Speed from table: $3000/$4800/$6000 by HP.
         EnemyFamily::Hand => (1, 0x0000_3000, 0x0000_1800),
