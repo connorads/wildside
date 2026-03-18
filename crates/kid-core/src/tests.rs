@@ -911,7 +911,7 @@ fn opening_hazard_strips_helmet_before_life_loss() {
     runtime.step_frame(FrameInput::default());
 
     let mut gameplay_frames = 0usize;
-    while runtime.current_form != PlayerForm::TheKid {
+    while runtime.progression.current_form != PlayerForm::TheKid {
         let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
         runtime.step_frame(FrameInput {
             right: true,
@@ -928,7 +928,7 @@ fn opening_hazard_strips_helmet_before_life_loss() {
     assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
     assert_eq!(trace.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
     assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
-    assert!(runtime.invulnerable_frames > 0);
+    assert!(runtime.progression.invulnerable_frames > 0);
 }
 
 #[test]
@@ -1057,7 +1057,7 @@ fn death_windup_keeps_player_motion_alive() {
         slice.camera.y_pos = 0x0045_0000;
     }
     let before = runtime.trace_frame();
-    runtime.number_hitpoints = 0;
+    runtime.progression.number_hitpoints = 0;
     runtime.begin_death_windup();
 
     let after = runtime.step_frame(FrameInput::default());
@@ -1794,7 +1794,7 @@ fn pit_death_triggers_death_and_respawn() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let pre_lives = runtime.number_lives;
+    let pre_lives = runtime.progression.number_lives;
     runtime.step_frame(FrameInput::default());
 
     // Should be in death windup
@@ -1806,7 +1806,7 @@ fn pit_death_triggers_death_and_respawn() {
         "expected DeathWindup, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.number_hitpoints, 0, "pit death sets HP to 0");
+    assert_eq!(runtime.progression.number_hitpoints, 0, "pit death sets HP to 0");
 
     // Advance through death windup + dying phases
     for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
@@ -1817,7 +1817,7 @@ fn pit_death_triggers_death_and_respawn() {
         "expected Dying, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.number_lives, pre_lives - 1, "should lose a life");
+    assert_eq!(runtime.progression.number_lives, pre_lives - 1, "should lose a life");
 
     // Advance through dying phase
     for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
@@ -1882,9 +1882,9 @@ fn spike_death_triggers_death_and_respawn() {
         "expected DeathWindup, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.number_hitpoints, 0, "spike death sets HP to 0");
+    assert_eq!(runtime.progression.number_hitpoints, 0, "spike death sets HP to 0");
 
-    let pre_lives = runtime.number_lives;
+    let pre_lives = runtime.progression.number_lives;
 
     // Advance through death windup
     for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
@@ -1895,7 +1895,7 @@ fn spike_death_triggers_death_and_respawn() {
         "expected Dying, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.number_lives, pre_lives - 1, "should lose a life");
+    assert_eq!(runtime.progression.number_lives, pre_lives - 1, "should lose a life");
 
     // Advance through dying phase
     for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
@@ -1918,7 +1918,7 @@ fn spike_death_ignores_hitpoints() {
     let mut runtime = NativeRuntime::new(manifest());
 
     // Give extra HP — spikes should still be instant kill
-    runtime.number_hitpoints = 5;
+    runtime.progression.number_hitpoints = 5;
     runtime.set_block_grid(grid_with_spikes_from_col(5));
 
     start_level(&mut runtime);
@@ -1942,7 +1942,7 @@ fn spike_death_ignores_hitpoints() {
         runtime.player_lifecycle
     );
     assert_eq!(
-        runtime.number_hitpoints, 0,
+        runtime.progression.number_hitpoints, 0,
         "spike death zeroes HP regardless"
     );
 }
@@ -1953,8 +1953,8 @@ fn game_over_when_last_life_lost() {
     runtime.set_block_grid(grid_with_spikes_from_col(5));
 
     start_level(&mut runtime);
-    runtime.number_lives = 1; // last life (set after boot so title doesn't reset it)
-    runtime.number_continues = 0; // no continues left, so game over → title
+    runtime.progression.number_lives = 1; // last life (set after boot so title doesn't reset it)
+    runtime.progression.number_continues = 0; // no continues left, so game over → title
 
     // Walk into spikes
     for _ in 0..300 {
@@ -1979,7 +1979,7 @@ fn game_over_when_last_life_lost() {
     for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
         runtime.step_frame(FrameInput::default());
     }
-    assert_eq!(runtime.number_lives, 0, "last life lost");
+    assert_eq!(runtime.progression.number_lives, 0, "last life lost");
 
     // Advance through dying phase — should enter GameOver, not Respawning
     for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
@@ -2003,7 +2003,7 @@ fn game_over_when_last_life_lost() {
         BootState::TitleScreen,
         "should return to title after game over"
     );
-    assert_eq!(runtime.number_lives, 3, "lives reset after game over");
+    assert_eq!(runtime.progression.number_lives, 3, "lives reset after game over");
 }
 
 #[test]
@@ -2012,8 +2012,8 @@ fn continue_restores_lives_and_respawns() {
     runtime.set_block_grid(grid_with_spikes_from_col(5));
 
     start_level(&mut runtime);
-    runtime.number_lives = 1;
-    runtime.number_continues = 2;
+    runtime.progression.number_lives = 1;
+    runtime.progression.number_continues = 2;
 
     // Walk into spikes
     for _ in 0..300 {
@@ -2056,8 +2056,8 @@ fn continue_restores_lives_and_respawns() {
         BootState::InGame,
         "should stay in-game after using continue"
     );
-    assert_eq!(runtime.number_lives, 3, "lives restored by continue");
-    assert_eq!(runtime.number_continues, 1, "one continue consumed");
+    assert_eq!(runtime.progression.number_lives, 3, "lives restored by continue");
+    assert_eq!(runtime.progression.number_continues, 1, "one continue consumed");
     assert!(
         matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
         "should be respawning after continue"
@@ -2195,7 +2195,7 @@ fn level_complete_awards_time_bonus() {
         runtime.step_frame(FrameInput::default());
     }
 
-    assert_eq!(runtime.score, 0);
+    assert_eq!(runtime.progression.score, 0);
 
     // Place player on flag
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2222,7 +2222,7 @@ fn level_complete_awards_time_bonus() {
         + 5000  // no-prize bonus (no prize blocks hit)
         + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
     assert_eq!(
-        runtime.score, expected,
+        runtime.progression.score, expected,
         "score should include time, no-hit, no-prize, and speed bonuses"
     );
 }
@@ -2257,7 +2257,7 @@ fn no_hit_bonus_absent_when_damage_taken() {
         + 5000  // no-prize bonus (no prize blocks hit)
         + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
     assert_eq!(
-        runtime.score, expected,
+        runtime.progression.score, expected,
         "no-hit bonus should be absent when damage was taken"
     );
 }
@@ -2361,7 +2361,7 @@ fn enemy_contact_deals_damage() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let hp_before = runtime.number_hitpoints;
+    let hp_before = runtime.progression.number_hitpoints;
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 0x0120_0000;
@@ -2383,10 +2383,10 @@ fn enemy_contact_deals_damage() {
     runtime.step_frame(FrameInput::default());
 
     assert!(
-        runtime.number_hitpoints < hp_before
+        runtime.progression.number_hitpoints < hp_before
             || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
         "player should take damage from enemy contact (HP before: {hp_before}, after: {})",
-        runtime.number_hitpoints
+        runtime.progression.number_hitpoints
     );
 }
 
@@ -2398,7 +2398,7 @@ fn invulnerability_prevents_rapid_rehit() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.number_hitpoints = 3;
+    runtime.progression.number_hitpoints = 3;
 
     // Activate skull, then position for contact
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2416,10 +2416,10 @@ fn invulnerability_prevents_rapid_rehit() {
     runtime.step_frame(FrameInput::default());
 
     assert!(
-        runtime.invulnerable_frames > 0,
+        runtime.progression.invulnerable_frames > 0,
         "should have invulnerability after hit"
     );
-    let hp_after_first = runtime.number_hitpoints;
+    let hp_after_first = runtime.progression.number_hitpoints;
 
     for _ in 0..10 {
         if let Some(ref mut slice) = runtime.opening_slice {
@@ -2433,7 +2433,7 @@ fn invulnerability_prevents_rapid_rehit() {
     }
 
     assert_eq!(
-        runtime.number_hitpoints, hp_after_first,
+        runtime.progression.number_hitpoints, hp_after_first,
         "invulnerability should prevent further damage"
     );
 }
@@ -2446,7 +2446,7 @@ fn enemy_contact_kills_at_one_hp() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.number_hitpoints = 1;
+    runtime.progression.number_hitpoints = 1;
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
@@ -2471,7 +2471,7 @@ fn enemy_contact_kills_at_one_hp() {
         runtime.player_lifecycle
     );
     assert_eq!(
-        runtime.number_hitpoints, 0,
+        runtime.progression.number_hitpoints, 0,
         "HP should be 0 after lethal contact"
     );
 }
@@ -2518,7 +2518,7 @@ fn unsupported_enemy_family_stays_inert_on_contact() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let hp_before = runtime.number_hitpoints;
+    let hp_before = runtime.progression.number_hitpoints;
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
@@ -2534,7 +2534,7 @@ fn unsupported_enemy_family_stays_inert_on_contact() {
     runtime.step_frame(FrameInput::default());
 
     assert_eq!(
-        runtime.number_hitpoints, hp_before,
+        runtime.progression.number_hitpoints, hp_before,
         "unsupported enemy families should not damage the player until implemented"
     );
     assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
@@ -2604,8 +2604,8 @@ fn diamond_collected_on_touch() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let hp_before = runtime.number_hitpoints;
-    let diamonds_before = runtime.diamond_count;
+    let hp_before = runtime.progression.number_hitpoints;
+    let diamonds_before = runtime.progression.diamond_count;
 
     // Activate Diamond
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2625,11 +2625,11 @@ fn diamond_collected_on_touch() {
     runtime.step_frame(FrameInput::default());
 
     assert_eq!(
-        runtime.number_hitpoints, hp_before,
+        runtime.progression.number_hitpoints, hp_before,
         "Diamond should not deal damage"
     );
     assert_eq!(
-        runtime.diamond_count,
+        runtime.progression.diamond_count,
         diamonds_before + 1,
         "Diamond should increment diamond_count"
     );
@@ -2651,7 +2651,7 @@ fn prize_block_headbutt_grants_diamond() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let diamonds_before = runtime.diamond_count;
+    let diamonds_before = runtime.progression.diamond_count;
 
     // Place player below the prize block at col 2, row 2 (y=32..48px)
     // After vertical motion: head needs to land in row 2 (y 32..48).
@@ -2671,7 +2671,7 @@ fn prize_block_headbutt_grants_diamond() {
     runtime.step_frame(FrameInput::default());
 
     assert_eq!(
-        runtime.diamond_count,
+        runtime.progression.diamond_count,
         diamonds_before + 1,
         "headbutting prize block should grant a diamond"
     );
@@ -2686,7 +2686,7 @@ fn smash_block_headbutt_does_not_grant_diamond() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let diamonds_before = runtime.diamond_count;
+    let diamonds_before = runtime.progression.diamond_count;
 
     // Place player below the smash block at col 4, row 2 (y=32..48px)
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2701,7 +2701,7 @@ fn smash_block_headbutt_does_not_grant_diamond() {
     runtime.step_frame(FrameInput::default());
 
     assert_eq!(
-        runtime.diamond_count, diamonds_before,
+        runtime.progression.diamond_count, diamonds_before,
         "headbutting smash block should not grant a diamond"
     );
 }
@@ -2927,16 +2927,16 @@ fn hidden_block_reveals_on_headbutt() {
 fn fifty_diamonds_grants_extra_life() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.diamond_count = 49;
-    let lives_before = runtime.number_lives;
+    runtime.progression.diamond_count = 49;
+    let lives_before = runtime.progression.number_lives;
     // Manually collect one more
-    runtime.diamond_count = 50;
+    runtime.progression.diamond_count = 50;
     // Test via the modulo check directly
-    if runtime.diamond_count.is_multiple_of(50) {
-        runtime.number_lives += 1;
+    if runtime.progression.diamond_count.is_multiple_of(50) {
+        runtime.progression.number_lives += 1;
     }
     assert_eq!(
-        runtime.number_lives,
+        runtime.progression.number_lives,
         lives_before + 1,
         "50th diamond should grant extra life"
     );
@@ -2950,8 +2950,8 @@ fn diamond_power_activates_with_start_a_and_20_diamonds() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.diamond_count = 25;
-    assert_eq!(runtime.diamond_power_frames, 0);
+    runtime.progression.diamond_count = 25;
+    assert_eq!(runtime.progression.diamond_power_frames, 0);
 
     // Press Start+A
     runtime.step_frame(FrameInput {
@@ -2961,10 +2961,10 @@ fn diamond_power_activates_with_start_a_and_20_diamonds() {
     });
 
     assert!(
-        runtime.diamond_power_frames > 0,
+        runtime.progression.diamond_power_frames > 0,
         "Diamond Power should activate"
     );
-    assert_eq!(runtime.diamond_count, 5, "should consume 20 diamonds");
+    assert_eq!(runtime.progression.diamond_count, 5, "should consume 20 diamonds");
 }
 
 #[test]
@@ -2974,17 +2974,17 @@ fn diamond_power_requires_20_diamonds() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.diamond_count = 19;
+    runtime.progression.diamond_count = 19;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
     assert_eq!(
-        runtime.diamond_power_frames, 0,
+        runtime.progression.diamond_power_frames, 0,
         "should not activate with <20 diamonds"
     );
-    assert_eq!(runtime.diamond_count, 19, "diamonds should not be consumed");
+    assert_eq!(runtime.progression.diamond_count, 19, "diamonds should not be consumed");
 }
 
 #[test]
@@ -2995,17 +2995,17 @@ fn diamond_power_tier2_costs_50_diamonds() {
         runtime.step_frame(FrameInput::default());
     }
     // 50+ diamonds triggers tier 2: costs 20 + 30 = 50
-    runtime.diamond_count = 55;
+    runtime.progression.diamond_count = 55;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
     assert!(
-        runtime.diamond_power_frames > 0,
+        runtime.progression.diamond_power_frames > 0,
         "Diamond Power should activate"
     );
-    assert_eq!(runtime.diamond_count, 5, "tier 2 should consume 50 diamonds (20+30)");
+    assert_eq!(runtime.progression.diamond_count, 5, "tier 2 should consume 50 diamonds (20+30)");
 }
 
 #[test]
@@ -3016,17 +3016,17 @@ fn diamond_power_tier1_when_under_50() {
         runtime.step_frame(FrameInput::default());
     }
     // 49 diamonds: deduct 20, remaining 29 < 30, so tier 1 only
-    runtime.diamond_count = 49;
+    runtime.progression.diamond_count = 49;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
     assert!(
-        runtime.diamond_power_frames > 0,
+        runtime.progression.diamond_power_frames > 0,
         "Diamond Power should activate"
     );
-    assert_eq!(runtime.diamond_count, 29, "tier 1 should consume only 20 diamonds");
+    assert_eq!(runtime.progression.diamond_count, 29, "tier 1 should consume only 20 diamonds");
 }
 
 #[test]
@@ -3036,15 +3036,15 @@ fn diamond_power_blocked_for_eyeclops() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.diamond_count = 25;
-    runtime.current_form = PlayerForm::Eyeclops;
+    runtime.progression.diamond_count = 25;
+    runtime.progression.current_form = PlayerForm::Eyeclops;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
     assert_eq!(
-        runtime.diamond_power_frames, 0,
+        runtime.progression.diamond_power_frames, 0,
         "Eyeclops cannot use Diamond Power"
     );
 }
@@ -3056,17 +3056,17 @@ fn diamond_power_juggernaut_costs_5_diamonds() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.current_form = PlayerForm::Juggernaut;
-    runtime.diamond_count = 10;
+    runtime.progression.current_form = PlayerForm::Juggernaut;
+    runtime.progression.diamond_count = 10;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
-    assert!(runtime.diamond_power_frames > 0, "Juggernaut 5-Way Shot should activate");
-    assert_eq!(runtime.diamond_count, 5, "Juggernaut costs 5 diamonds");
+    assert!(runtime.progression.diamond_power_frames > 0, "Juggernaut 5-Way Shot should activate");
+    assert_eq!(runtime.progression.diamond_count, 5, "Juggernaut costs 5 diamonds");
     assert_eq!(
-        runtime.diamond_power_type,
+        runtime.progression.diamond_power_type,
         helmets::DiamondPowerType::FiveWayShot
     );
 }
@@ -3078,16 +3078,16 @@ fn diamond_power_iron_knight_tier2_grants_hp() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.current_form = PlayerForm::IronKnight;
-    runtime.diamond_count = 55;
-    let hp_before = runtime.number_hitpoints;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.diamond_count = 55;
+    let hp_before = runtime.progression.number_hitpoints;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
     assert_eq!(
-        runtime.number_hitpoints,
+        runtime.progression.number_hitpoints,
         hp_before + 1,
         "IronKnight tier2 grants +1 HP"
     );
@@ -3100,16 +3100,16 @@ fn diamond_power_maniaxe_tier2_grants_life() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.current_form = PlayerForm::Maniaxe;
-    runtime.diamond_count = 55;
-    let lives_before = runtime.number_lives;
+    runtime.progression.current_form = PlayerForm::Maniaxe;
+    runtime.progression.diamond_count = 55;
+    let lives_before = runtime.progression.number_lives;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
     assert_eq!(
-        runtime.number_lives,
+        runtime.progression.number_lives,
         lives_before + 1,
         "Maniaxe tier2 grants +1 life"
     );
@@ -3122,14 +3122,14 @@ fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.current_form = PlayerForm::Cyclone;
-    runtime.diamond_count = 25;
+    runtime.progression.current_form = PlayerForm::Cyclone;
+    runtime.progression.diamond_count = 25;
     runtime.step_frame(FrameInput {
         start: true,
         a: true,
         ..FrameInput::default()
     });
-    assert_eq!(runtime.diamond_power_frames, 720, "SlashingRain = 720f");
+    assert_eq!(runtime.progression.diamond_power_frames, 720, "SlashingRain = 720f");
     // Step a few frames — rain should spawn projectiles
     for _ in 0..20 {
         runtime.step_frame(FrameInput::default());
@@ -3160,9 +3160,9 @@ fn prize_content_clock_adds_time() {
 fn prize_content_ten_diamonds_adds_ten() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.diamond_count = 0;
+    runtime.progression.diamond_count = 0;
     runtime.apply_prize_content(terrain::PrizeContent::TenDiamonds);
-    assert_eq!(runtime.diamond_count, 10);
+    assert_eq!(runtime.progression.diamond_count, 10);
 }
 
 #[test]
@@ -3170,37 +3170,37 @@ fn prize_content_helmet_queues_form_change() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
-    assert_eq!(runtime.pending_form, Some(PlayerForm::IronKnight));
+    assert_eq!(runtime.progression.pending_form, Some(PlayerForm::IronKnight));
 }
 
 #[test]
 fn prize_content_ankh_grants_extra_life() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    let lives_before = runtime.number_lives;
+    let lives_before = runtime.progression.number_lives;
     runtime.apply_prize_content(terrain::PrizeContent::Ankh);
-    assert_eq!(runtime.number_lives, lives_before + 1);
+    assert_eq!(runtime.progression.number_lives, lives_before + 1);
 }
 
 #[test]
 fn lives_capped_at_nine() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.number_lives = 9;
+    runtime.progression.number_lives = 9;
     runtime.apply_prize_content(terrain::PrizeContent::Ankh);
-    assert_eq!(runtime.number_lives, 9, "lives should not exceed 9");
+    assert_eq!(runtime.progression.number_lives, 9, "lives should not exceed 9");
 }
 
 #[test]
 fn prize_content_ten_diamonds_at_boundary_grants_extra_life() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.diamond_count = 45;
-    let lives_before = runtime.number_lives;
+    runtime.progression.diamond_count = 45;
+    let lives_before = runtime.progression.number_lives;
     runtime.apply_prize_content(terrain::PrizeContent::TenDiamonds);
-    assert_eq!(runtime.diamond_count, 55);
+    assert_eq!(runtime.progression.diamond_count, 55);
     assert_eq!(
-        runtime.number_lives,
+        runtime.progression.number_lives,
         lives_before + 1,
         "crossing 50 diamond threshold should grant extra life"
     );
@@ -3210,16 +3210,16 @@ fn prize_content_ten_diamonds_at_boundary_grants_extra_life() {
 fn prize_content_helmet_resolves_form_on_next_frame() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    assert_eq!(runtime.current_form, PlayerForm::TheKid);
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
     runtime.apply_prize_content(terrain::PrizeContent::Juggernaut);
     // Form is queued, not yet applied
-    assert_eq!(runtime.current_form, PlayerForm::TheKid);
-    assert_eq!(runtime.pending_form, Some(PlayerForm::Juggernaut));
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+    assert_eq!(runtime.progression.pending_form, Some(PlayerForm::Juggernaut));
     // Step one frame to resolve
     runtime.step_frame(FrameInput::default());
-    assert_eq!(runtime.current_form, PlayerForm::Juggernaut);
+    assert_eq!(runtime.progression.current_form, PlayerForm::Juggernaut);
     assert_eq!(
-        runtime.number_hitpoints,
+        runtime.progression.number_hitpoints,
         PlayerForm::Juggernaut.max_hitpoints()
     );
 }
@@ -3228,35 +3228,35 @@ fn prize_content_helmet_resolves_form_on_next_frame() {
 fn form_change_sets_flash_frames() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    assert_eq!(runtime.form_change_flash_frames, 0);
+    assert_eq!(runtime.progression.form_change_flash_frames, 0);
 
     runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
     runtime.step_frame(FrameInput::default());
 
     // Flash should be set after resolve_pending_form_change
     assert!(
-        runtime.form_change_flash_frames > 0,
+        runtime.progression.form_change_flash_frames > 0,
         "flash should be active after form change"
     );
 
     // Flash should count down
-    let initial = runtime.form_change_flash_frames;
+    let initial = runtime.progression.form_change_flash_frames;
     runtime.step_frame(FrameInput::default());
-    assert_eq!(runtime.form_change_flash_frames, initial - 1);
+    assert_eq!(runtime.progression.form_change_flash_frames, initial - 1);
 }
 
 #[test]
 fn form_transform_iron_knight_changes_form_and_hitpoints() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    assert_eq!(runtime.current_form, PlayerForm::TheKid);
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
 
     runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
     runtime.step_frame(FrameInput::default());
 
-    assert_eq!(runtime.current_form, PlayerForm::IronKnight);
+    assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
     assert_eq!(
-        runtime.number_hitpoints,
+        runtime.progression.number_hitpoints,
         PlayerForm::IronKnight.max_hitpoints(),
         "hitpoints should match IronKnight max"
     );
@@ -4808,7 +4808,7 @@ fn side_contact_damages_not_stomps() {
         runtime.step_frame(FrameInput::default());
     }
 
-    runtime.number_hitpoints = 3;
+    runtime.progression.number_hitpoints = 3;
     setup_stomp_scenario(&mut runtime, false);
     let enemies_before = runtime.active_enemies.len();
     assert!(enemies_before > 0, "Skull should be activated");
@@ -4820,7 +4820,7 @@ fn side_contact_damages_not_stomps() {
         "side contact should not kill enemy"
     );
     assert!(
-        runtime.number_hitpoints < 3
+        runtime.progression.number_hitpoints < 3
             || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
         "side contact should deal damage to player"
     );
@@ -4910,7 +4910,7 @@ fn stomp_works_during_invulnerability() {
         runtime.step_frame(FrameInput::default());
     }
 
-    runtime.invulnerable_frames = 100;
+    runtime.progression.invulnerable_frames = 100;
     setup_stomp_scenario(&mut runtime, true);
     let enemies_before = runtime.active_enemies.len();
     assert!(enemies_before > 0, "Skull should be activated");
@@ -4931,7 +4931,7 @@ fn falling_onto_diamond_collects_without_stomp_bounce() {
         runtime.step_frame(FrameInput::default());
     }
 
-    let diamonds_before = runtime.diamond_count;
+    let diamonds_before = runtime.progression.diamond_count;
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
@@ -4953,7 +4953,7 @@ fn falling_onto_diamond_collects_without_stomp_bounce() {
         .opening_slice
         .expect("opening slice should remain active");
     assert_eq!(
-        runtime.diamond_count,
+        runtime.progression.diamond_count,
         diamonds_before + 1,
         "falling through a diamond should still collect it"
     );
@@ -4979,7 +4979,7 @@ fn contact_damage_does_not_apply_knockback_velocity() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.number_hitpoints = 3;
+    runtime.progression.number_hitpoints = 3;
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
@@ -5012,7 +5012,7 @@ fn no_knockback_on_lethal_contact() {
     for _ in 0..260 {
         runtime.step_frame(FrameInput::default());
     }
-    runtime.number_hitpoints = 1; // will die on contact
+    runtime.progression.number_hitpoints = 1; // will die on contact
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
@@ -8493,7 +8493,7 @@ fn lava_geyser_erupts_and_collapses() {
 
 fn skycutter_runtime() -> NativeRuntime {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Skycutter;
+    rt.progression.current_form = PlayerForm::Skycutter;
     rt
 }
 
@@ -8655,7 +8655,7 @@ fn skycutter_non_skycutter_form_clears_state() {
     let mut rt = skycutter_runtime();
     rt.helmet.skycutter_on_board = true;
     rt.helmet.skycutter_flipboard = 10;
-    rt.current_form = PlayerForm::TheKid; // no longer Skycutter
+    rt.progression.current_form = PlayerForm::TheKid; // no longer Skycutter
 
     let mut slice = airborne_slice();
     let no_input = FrameInput::default();
@@ -8669,7 +8669,7 @@ fn skycutter_non_skycutter_form_clears_state() {
 
 fn cyclone_runtime() -> NativeRuntime {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Cyclone;
+    rt.progression.current_form = PlayerForm::Cyclone;
     rt
 }
 
@@ -8815,7 +8815,7 @@ fn cyclone_non_cyclone_form_clears_state() {
     let mut rt = cyclone_runtime();
     rt.helmet.cyclone_flying = true;
     rt.helmet.cyclone_y_accel = 0x1000;
-    rt.current_form = PlayerForm::TheKid;
+    rt.progression.current_form = PlayerForm::TheKid;
 
     let mut slice = airborne_slice();
     rt.step_cyclone_flight(&mut slice, FrameInput::default());
@@ -8826,8 +8826,8 @@ fn cyclone_non_cyclone_form_clears_state() {
 
 fn iron_knight_runtime_with_wall() -> NativeRuntime {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::IronKnight;
-    rt.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+    rt.progression.current_form = PlayerForm::IronKnight;
+    rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
     // Wall at col 10, floor at row 3, from col 0..20
     rt.block_grid = Some(grid_with_wall(3, 0, 20, 10));
     rt
@@ -8856,7 +8856,7 @@ fn iron_knight_c_press_attaches_to_wall_when_airborne() {
 #[test]
 fn iron_knight_no_attach_without_wall() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::IronKnight;
+    rt.progression.current_form = PlayerForm::IronKnight;
     // No block grid — no wall to attach to
     let mut slice = airborne_slice();
     slice.player.facing = Direction::Right;
@@ -8950,7 +8950,7 @@ fn iron_knight_non_iron_knight_clears_state() {
     let mut rt = iron_knight_runtime_with_wall();
     rt.helmet.iron_knight_climbing = true;
     rt.helmet.iron_knight_climb_accel = 0x500;
-    rt.current_form = PlayerForm::TheKid;
+    rt.progression.current_form = PlayerForm::TheKid;
 
     let mut slice = airborne_slice();
     rt.step_iron_knight_climb(&mut slice, FrameInput::default());
@@ -8963,8 +8963,8 @@ fn iron_knight_non_iron_knight_clears_state() {
 
 fn micromax_runtime_with_ceiling() -> NativeRuntime {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Micromax;
-    rt.number_hitpoints = PlayerForm::Micromax.max_hitpoints();
+    rt.progression.current_form = PlayerForm::Micromax;
+    rt.progression.number_hitpoints = PlayerForm::Micromax.max_hitpoints();
     // Build a grid with solid ceiling at row 2 (y=32..48px)
     let width_cells = 6u16 * 20;
     let height_cells = 4u16 * 14;
@@ -9035,7 +9035,7 @@ fn micromax_b_press_detaches_with_kick() {
 #[test]
 fn micromax_non_micromax_clears_stuck() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::TheKid;
+    rt.progression.current_form = PlayerForm::TheKid;
     rt.helmet.micromax_stuck = true;
 
     let mut slice = airborne_slice();
@@ -9335,7 +9335,7 @@ fn combat_slice() -> OpeningSliceState {
 #[test]
 fn red_stealth_c_press_starts_sword_swing() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::RedStealth;
+    rt.progression.current_form = PlayerForm::RedStealth;
     let input = FrameInput {
         c: true,
         ..FrameInput::default()
@@ -9349,7 +9349,7 @@ fn red_stealth_c_press_starts_sword_swing() {
 #[test]
 fn red_stealth_sword_inactive_during_startup() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::RedStealth;
+    rt.progression.current_form = PlayerForm::RedStealth;
     // Start swing
     rt.step_red_stealth_sword(FrameInput {
         c: true,
@@ -9368,7 +9368,7 @@ fn red_stealth_sword_inactive_during_startup() {
 #[test]
 fn red_stealth_sword_active_after_startup() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::RedStealth;
+    rt.progression.current_form = PlayerForm::RedStealth;
     // Start swing
     rt.step_red_stealth_sword(FrameInput {
         c: true,
@@ -9390,7 +9390,7 @@ fn red_stealth_sword_active_after_startup() {
 #[test]
 fn red_stealth_sword_damages_nearby_enemy() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::RedStealth;
+    rt.progression.current_form = PlayerForm::RedStealth;
     rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
     let slice = combat_slice();
 
@@ -9409,7 +9409,7 @@ fn red_stealth_sword_damages_nearby_enemy() {
 #[test]
 fn red_stealth_sword_kills_1hp_enemy() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::RedStealth;
+    rt.progression.current_form = PlayerForm::RedStealth;
     rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
     let slice = combat_slice();
 
@@ -9424,7 +9424,7 @@ fn red_stealth_sword_kills_1hp_enemy() {
 #[test]
 fn red_stealth_sword_no_hit_when_out_of_range() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::RedStealth;
+    rt.progression.current_form = PlayerForm::RedStealth;
     rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
     let slice = combat_slice();
 
@@ -9444,7 +9444,7 @@ fn red_stealth_sword_no_hit_when_out_of_range() {
 #[test]
 fn maniaxe_c_press_throws_axe() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Maniaxe;
+    rt.progression.current_form = PlayerForm::Maniaxe;
     let slice = combat_slice();
     let input = FrameInput {
         c: true,
@@ -9461,7 +9461,7 @@ fn maniaxe_c_press_throws_axe() {
 #[test]
 fn maniaxe_no_double_throw() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Maniaxe;
+    rt.progression.current_form = PlayerForm::Maniaxe;
     rt.helmet.maniaxe_axe_active = true;
     let slice = combat_slice();
     let input = FrameInput {
@@ -9480,7 +9480,7 @@ fn maniaxe_no_double_throw() {
 #[test]
 fn maniaxe_non_maniaxe_form_clears_state() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::TheKid;
+    rt.progression.current_form = PlayerForm::TheKid;
     rt.helmet.maniaxe_axe_active = true;
     let slice = combat_slice();
 
@@ -9496,7 +9496,7 @@ fn maniaxe_non_maniaxe_form_clears_state() {
 #[test]
 fn juggernaut_c_press_fires_skull() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Juggernaut;
+    rt.progression.current_form = PlayerForm::Juggernaut;
     let slice = combat_slice();
     let input = FrameInput {
         c: true,
@@ -9537,7 +9537,7 @@ fn juggernaut_skull_has_gravity() {
 #[test]
 fn juggernaut_max_skull_limit() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Juggernaut;
+    rt.progression.current_form = PlayerForm::Juggernaut;
     let slice = combat_slice();
     let input = FrameInput {
         c: true,
@@ -9560,7 +9560,7 @@ fn juggernaut_max_skull_limit() {
 #[test]
 fn juggernaut_non_juggernaut_form_no_skull() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::TheKid;
+    rt.progression.current_form = PlayerForm::TheKid;
     let slice = combat_slice();
     let input = FrameInput {
         c: true,
@@ -9577,7 +9577,7 @@ fn juggernaut_non_juggernaut_form_no_skull() {
 #[test]
 fn berzerker_charge_builds_when_moving_fast() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Berzerker;
+    rt.progression.current_form = PlayerForm::Berzerker;
     rt.previous_input = FrameInput {
         right: true,
         ..FrameInput::default()
@@ -9601,7 +9601,7 @@ fn berzerker_charge_builds_when_moving_fast() {
 #[test]
 fn berzerker_charge_resets_when_slow() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Berzerker;
+    rt.progression.current_form = PlayerForm::Berzerker;
     rt.previous_input = FrameInput {
         right: true,
         ..FrameInput::default()
@@ -9624,7 +9624,7 @@ fn berzerker_charge_resets_when_slow() {
 #[test]
 fn berzerker_charge_not_active_for_other_forms() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::TheKid;
+    rt.progression.current_form = PlayerForm::TheKid;
     rt.helmet.berzerker_charging = true;
     let mut slice = combat_slice();
     slice.player.on_ground = true;
@@ -9638,7 +9638,7 @@ fn berzerker_charge_not_active_for_other_forms() {
 #[test]
 fn berzerker_charge_kills_enemy_on_contact() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Berzerker;
+    rt.progression.current_form = PlayerForm::Berzerker;
     rt.helmet.berzerker_charging = true;
     let mut slice = combat_slice();
     slice.player.x_pos = 0x0040_0000;
@@ -9658,7 +9658,7 @@ fn berzerker_charge_kills_enemy_on_contact() {
 #[test]
 fn berzerker_charging_immune_to_contact_damage() {
     let mut rt = NativeRuntime::new(manifest());
-    rt.current_form = PlayerForm::Berzerker;
+    rt.progression.current_form = PlayerForm::Berzerker;
     rt.helmet.berzerker_charging = true;
     let mut slice = combat_slice();
     slice.player.x_pos = 0x0040_0000;
@@ -9702,7 +9702,7 @@ fn berzerker_charge_breaks_smash_block_wall() {
     let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
     rt.set_block_grid(grid);
 
-    rt.current_form = PlayerForm::Berzerker;
+    rt.progression.current_form = PlayerForm::Berzerker;
     rt.helmet.berzerker_charging = true;
 
     // Player just left of the smash block, moving right
@@ -9860,11 +9860,11 @@ fn two_player_switch_on_death() {
     runtime.player_slots[1].lives = 3;
     runtime.player_slots[1].level_id = LevelId(1);
     runtime.current_player_index = 0;
-    runtime.number_lives = 3;
+    runtime.progression.number_lives = 3;
     runtime.current_level = LevelId(0);
 
     // Simulate death: decrement lives and enter Dying state
-    runtime.number_lives = 2;
+    runtime.progression.number_lives = 2;
     runtime.player_lifecycle = PlayerLifecycle::Dying {
         remaining_frames: 1,
     };
@@ -9886,8 +9886,8 @@ fn two_player_game_over_when_both_out_of_lives() {
     runtime.set_block_grid(grid_with_floor_at_row(17));
     runtime.two_player = true;
     runtime.current_player_index = 0;
-    runtime.number_lives = 0;
-    runtime.number_continues = 0;
+    runtime.progression.number_lives = 0;
+    runtime.progression.number_continues = 0;
     runtime.player_slots[0].lives = 0;
     runtime.player_slots[0].continues = 0;
     runtime.player_slots[1].lives = 0;
@@ -9914,8 +9914,8 @@ fn two_player_game_over_switches_when_other_has_lives() {
     runtime.set_block_grid(grid_with_floor_at_row(17));
     runtime.two_player = true;
     runtime.current_player_index = 0;
-    runtime.number_lives = 0;
-    runtime.number_continues = 0;
+    runtime.progression.number_lives = 0;
+    runtime.progression.number_continues = 0;
     runtime.player_slots[0].lives = 0;
     runtime.player_slots[0].continues = 0;
     runtime.player_slots[1].lives = 2;
@@ -9932,31 +9932,31 @@ fn two_player_game_over_switches_when_other_has_lives() {
         runtime.current_player_index, 1,
         "should switch to P2 when P1 is game over"
     );
-    assert_eq!(runtime.number_lives, 2, "should have P2's lives");
+    assert_eq!(runtime.progression.number_lives, 2, "should have P2's lives");
 }
 
 #[test]
 fn save_load_player_slot_round_trips() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.current_player_index = 0;
-    runtime.number_lives = 5;
-    runtime.score = 42_000;
-    runtime.diamond_count = 30;
-    runtime.current_form = PlayerForm::Skycutter;
+    runtime.progression.number_lives = 5;
+    runtime.progression.score = 42_000;
+    runtime.progression.diamond_count = 30;
+    runtime.progression.current_form = PlayerForm::Skycutter;
 
     runtime.save_player_slot();
 
     // Modify working state
-    runtime.number_lives = 1;
-    runtime.score = 0;
+    runtime.progression.number_lives = 1;
+    runtime.progression.score = 0;
 
     // Load it back
     runtime.load_player_slot();
 
-    assert_eq!(runtime.number_lives, 5);
-    assert_eq!(runtime.score, 42_000);
-    assert_eq!(runtime.diamond_count, 30);
-    assert_eq!(runtime.current_form, PlayerForm::Skycutter);
+    assert_eq!(runtime.progression.number_lives, 5);
+    assert_eq!(runtime.progression.score, 42_000);
+    assert_eq!(runtime.progression.diamond_count, 30);
+    assert_eq!(runtime.progression.current_form, PlayerForm::Skycutter);
 }
 
 #[test]

@@ -29,9 +29,9 @@ impl NativeRuntime {
             LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK
         };
         self.current_level == LevelId(0)
-            && self.invulnerable_frames == 0
+            && self.progression.invulnerable_frames == 0
             && input.right
-            && self.number_hitpoints == self.current_form.max_hitpoints()
+            && self.progression.number_hitpoints == self.progression.current_form.max_hitpoints()
             && self
                 .level_elapsed_frames()
                 .is_some_and(|elapsed| elapsed >= hit_elapsed_frames && slice.camera.x_pos == 0)
@@ -210,18 +210,18 @@ impl NativeRuntime {
 
     /// Add one life, capped at 9 per ASM.
     pub(crate) fn add_life(&mut self) {
-        if self.number_lives < 9 {
-            self.number_lives += 1;
+        if self.progression.number_lives < 9 {
+            self.progression.number_lives += 1;
         }
     }
 
     /// Add points with score cap (9,999,999) and extra-life-per-50K tracking.
     pub(crate) fn add_score(&mut self, points: u32) {
-        let old_score = self.score;
-        self.score = self.score.saturating_add(points).min(SCORE_CAP);
+        let old_score = self.progression.score;
+        self.progression.score = self.progression.score.saturating_add(points).min(SCORE_CAP);
         // ASM: award extra life for every 50,000 point boundary crossed.
         let old_lives = old_score / SCORE_EXTRA_LIFE_INTERVAL;
-        let new_lives = self.score / SCORE_EXTRA_LIFE_INTERVAL;
+        let new_lives = self.progression.score / SCORE_EXTRA_LIFE_INTERVAL;
         for _ in old_lives..new_lives {
             self.add_life();
         }
@@ -229,12 +229,12 @@ impl NativeRuntime {
 
     /// Increment diamond count (capped at 99 per ASM). Awards extra life at 50/100.
     pub(crate) fn collect_diamond(&mut self) {
-        if self.diamond_count >= 99 {
+        if self.progression.diamond_count >= 99 {
             return;
         }
-        self.diamond_count += 1;
+        self.progression.diamond_count += 1;
         self.add_score(500);
-        if self.diamond_count.is_multiple_of(50) {
+        if self.progression.diamond_count.is_multiple_of(50) {
             self.add_life();
         }
     }
@@ -256,7 +256,7 @@ impl NativeRuntime {
                 self.clocks_collected += 1;
             }
             terrain::PrizeContent::Continue => {
-                self.number_continues = self.number_continues.saturating_add(1);
+                self.progression.number_continues = self.progression.number_continues.saturating_add(1);
             }
             terrain::PrizeContent::Ankh => {
                 self.add_life();
@@ -278,7 +278,7 @@ impl NativeRuntime {
 
     /// Returns the x_pos of the damaging enemy if contact damage should apply, or None.
     pub(crate) fn find_contact_damage_source(&self, slice: &OpeningSliceState) -> Option<u32> {
-        if self.invulnerable_frames != 0 || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+        if self.progression.invulnerable_frames != 0 || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
             return None;
         }
@@ -388,8 +388,8 @@ impl NativeRuntime {
 
     pub(crate) fn should_apply_level_one_late_hazard(&self, slice: &OpeningSliceState) -> bool {
         self.current_level == LevelId(0)
-            && self.number_hitpoints == 1
-            && self.invulnerable_frames == 0
+            && self.progression.number_hitpoints == 1
+            && self.progression.invulnerable_frames == 0
             && slice.camera.x_pos > LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP
             && self
                 .level_elapsed_frames()
@@ -397,23 +397,23 @@ impl NativeRuntime {
     }
 
     pub(crate) fn queue_form_change(&mut self, form: PlayerForm) {
-        self.pending_form = Some(form);
+        self.progression.pending_form = Some(form);
     }
 
     pub(crate) fn resolve_pending_form_change(&mut self) {
-        let Some(form) = self.pending_form.take() else {
+        let Some(form) = self.progression.pending_form.take() else {
             return;
         };
-        let old_form = self.current_form;
-        self.current_form = form;
-        self.number_hitpoints = form.max_hitpoints();
+        let old_form = self.progression.current_form;
+        self.progression.current_form = form;
+        self.progression.number_hitpoints = form.max_hitpoints();
         // Per-helmet transform duration from ASM Kid_Transform tables
         // (kid.asm:8369-8607, stru_7EFA..stru_808A). Two phases:
         // Phase 1 (reverse old helmet) + Phase 2 (forward new helmet).
         // TheKid has no table, so only one phase runs.
         let old_frames = transform_anim_frames(old_form);
         let new_frames = transform_anim_frames(form);
-        self.form_change_flash_frames = (old_frames + new_frames) as u8;
+        self.progression.form_change_flash_frames = (old_frames + new_frames) as u8;
         // ASM zeroes velocity at end of transform (kid.asm:8599-8600)
         if let Some(ref mut slice) = self.opening_slice {
             slice.player.x_velocity = 0;
@@ -447,27 +447,27 @@ impl NativeRuntime {
             slice.player.right_wall_sticky = false;
             slice.player.left_wall_sticky = false;
         }
-        if self.current_form != PlayerForm::TheKid {
+        if self.progression.current_form != PlayerForm::TheKid {
             self.queue_form_change(PlayerForm::TheKid);
             self.resolve_pending_form_change();
-            self.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+            self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
         }
 
-        if self.number_hitpoints > 1 {
-            self.number_hitpoints -= 1;
-            self.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+        if self.progression.number_hitpoints > 1 {
+            self.progression.number_hitpoints -= 1;
+            self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
         }
 
-        self.number_hitpoints = 0;
+        self.progression.number_hitpoints = 0;
         self.begin_death_windup();
     }
 
     pub(crate) fn begin_death_windup(&mut self) {
         self.paused = false;
         self.pause_toggle_pending = false;
-        self.invulnerable_frames = 0;
+        self.progression.invulnerable_frames = 0;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
         self.player_lifecycle = PlayerLifecycle::DeathWindup {
             remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
@@ -522,7 +522,7 @@ impl NativeRuntime {
             level_elapsed,
             FrameInput::default(),
             false,
-            self.current_form,
+            self.progression.current_form,
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
             false,
@@ -535,10 +535,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn enter_death_hidden_state(&mut self) {
-        self.current_form = PlayerForm::TheKid;
-        self.pending_form = None;
-        self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
-        self.number_lives = self.number_lives.saturating_sub(1);
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.progression.number_lives = self.progression.number_lives.saturating_sub(1);
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platforms.clear();
@@ -555,10 +555,10 @@ impl NativeRuntime {
     pub(crate) fn return_to_title(&mut self) {
         self.boot_state = BootState::TitleScreen;
         self.player_lifecycle = PlayerLifecycle::Alive;
-        self.number_lives = 3;
-        self.number_continues = 3;
-        self.diamond_count = 0;
-        self.score = 0;
+        self.progression.number_lives = 3;
+        self.progression.number_continues = 3;
+        self.progression.diamond_count = 0;
+        self.progression.score = 0;
         self.current_level = LevelId(0);
         self.opening_slice = None;
         self.two_player = false;

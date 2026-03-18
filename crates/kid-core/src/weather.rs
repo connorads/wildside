@@ -208,7 +208,7 @@ impl NativeRuntime {
             }
         }
 
-        if should_damage && self.invulnerable_frames == 0 {
+        if should_damage && self.progression.invulnerable_frames == 0 {
             self.apply_damage();
         }
     }

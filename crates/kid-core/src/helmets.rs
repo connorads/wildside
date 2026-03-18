@@ -78,7 +78,7 @@ impl NativeRuntime {
         slice: &mut OpeningSliceState,
         input: FrameInput,
     ) {
-        if self.current_form != PlayerForm::Skycutter {
+        if self.progression.current_form != PlayerForm::Skycutter {
             self.helmet.skycutter_flipboard = 0;
             self.helmet.skycutter_on_board = false;
             return;
@@ -149,7 +149,7 @@ impl NativeRuntime {
     /// to y_velocity each frame, with velocity clamped to [-$30000, $28000].
     /// Landing clears the flying flag.
     pub(crate) fn step_cyclone_flight(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
-        if self.current_form != PlayerForm::Cyclone {
+        if self.progression.current_form != PlayerForm::Cyclone {
             self.helmet.cyclone_flying = false;
             self.helmet.cyclone_y_accel = 0;
             return;
@@ -205,7 +205,7 @@ impl NativeRuntime {
         slice: &mut OpeningSliceState,
         input: FrameInput,
     ) {
-        if self.current_form != PlayerForm::IronKnight {
+        if self.progression.current_form != PlayerForm::IronKnight {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
             return;
@@ -305,7 +305,7 @@ impl NativeRuntime {
     /// reduced gravity while stuck, B press detaches with kick velocity.
     pub(crate) fn step_micromax_stick(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         // Only active for Micromax form
-        if self.current_form != PlayerForm::Micromax {
+        if self.progression.current_form != PlayerForm::Micromax {
             self.helmet.micromax_stuck = false;
             return;
         }
@@ -391,7 +391,7 @@ impl NativeRuntime {
 
     /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
     pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
-        if self.current_form != PlayerForm::RedStealth {
+        if self.progression.current_form != PlayerForm::RedStealth {
             self.helmet.red_stealth_sword_timer = 0;
             return;
         }
@@ -581,7 +581,7 @@ impl NativeRuntime {
 
     /// Step Eyeclops beam: C press fires a horizontal beam projectile.
     pub(crate) fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
-        if self.current_form != PlayerForm::Eyeclops {
+        if self.progression.current_form != PlayerForm::Eyeclops {
             self.helmet.eyeclops_beam_active = false;
             return;
         }
@@ -617,7 +617,7 @@ impl NativeRuntime {
 
     /// Step Maniaxe thrown axe: boomerang projectile that reverses after 12 frames.
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
-        if self.current_form != PlayerForm::Maniaxe {
+        if self.progression.current_form != PlayerForm::Maniaxe {
             self.helmet.maniaxe_axe_active = false;
             return;
         }
@@ -668,7 +668,7 @@ impl NativeRuntime {
 
     /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
     pub(crate) fn step_berzerker_charge(&mut self, slice: &OpeningSliceState) {
-        if self.current_form != PlayerForm::Berzerker {
+        if self.progression.current_form != PlayerForm::Berzerker {
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
             return;
@@ -722,7 +722,7 @@ impl NativeRuntime {
 
     /// Juggernaut skull shot: C fires a skull projectile with gravity arc.
     pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
-        if self.current_form != PlayerForm::Juggernaut {
+        if self.progression.current_form != PlayerForm::Juggernaut {
             return;
         }
 
@@ -767,29 +767,29 @@ impl NativeRuntime {
     /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
         // Count down active Diamond Power
-        if self.diamond_power_frames > 0 {
-            self.diamond_power_frames -= 1;
+        if self.progression.diamond_power_frames > 0 {
+            self.progression.diamond_power_frames -= 1;
 
-            match self.diamond_power_type {
+            match self.progression.diamond_power_type {
                 DiamondPowerType::CircleOfDoom
                 | DiamondPowerType::WallOfDeath => {
                     // AoE damage: kill enemies each frame (orbiting diamonds / wall)
-                    self.invulnerable_frames = self.invulnerable_frames.max(1);
+                    self.progression.invulnerable_frames = self.progression.invulnerable_frames.max(1);
                     self.diamond_power_kill_enemies();
                 }
                 DiamondPowerType::Invulnerability
                 | DiamondPowerType::SamuraiHaze => {
                     // Pure invulnerability, no AoE damage
-                    self.invulnerable_frames = self.invulnerable_frames.max(1);
+                    self.progression.invulnerable_frames = self.progression.invulnerable_frames.max(1);
                 }
                 DiamondPowerType::SlashingRain
                 | DiamondPowerType::TrackingRain => {
                     // Rain projectiles from top of screen every 4 frames
-                    if self.diamond_power_frames.is_multiple_of(4) && self.projectiles.len() < MAX_PROJECTILES {
+                    if self.progression.diamond_power_frames.is_multiple_of(4) && self.projectiles.len() < MAX_PROJECTILES {
                         let slice = self.opening_slice.as_ref();
                         let cam_x = slice.map(|s| s.camera.x_pos).unwrap_or(0);
                         // Random-ish X across screen width (320px)
-                        let offset = ((self.diamond_power_frames as u32).wrapping_mul(137)) % 320;
+                        let offset = ((self.progression.diamond_power_frames as u32).wrapping_mul(137)) % 320;
                         let rain_x = (cam_x as i64 + ((offset as i64) << 16)) as u32;
                         let rain_y = slice.map(|s| s.camera.y_pos).unwrap_or(0);
                         self.projectiles.push(EnemyProjectile {
@@ -808,7 +808,7 @@ impl NativeRuntime {
                 }
                 DiamondPowerType::FiveWayShot => {
                     // 5-way spread on first frame only
-                    if self.diamond_power_frames == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1 {
+                    if self.progression.diamond_power_frames == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1 {
                         let slice = self.opening_slice.as_ref();
                         let (px, py) = slice
                             .map(|s| (s.player.x_pos, s.player.y_pos))
@@ -840,15 +840,15 @@ impl NativeRuntime {
                 }
                 DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake => {
                     // Forward-firing diamond chain: spawn projectile every 8 frames
-                    self.invulnerable_frames = self.invulnerable_frames.max(1);
-                    if self.diamond_power_frames.is_multiple_of(8) && self.projectiles.len() < MAX_PROJECTILES {
+                    self.progression.invulnerable_frames = self.progression.invulnerable_frames.max(1);
+                    if self.progression.diamond_power_frames.is_multiple_of(8) && self.projectiles.len() < MAX_PROJECTILES {
                         let slice = self.opening_slice.as_ref();
                         let (px, py, facing) = slice
                             .map(|s| {
                                 (s.player.x_pos, s.player.y_pos, s.player.facing)
                             })
                             .unwrap_or((0, 0, Direction::Right));
-                        let speed = if self.diamond_power_type == DiamondPowerType::MiniSnake {
+                        let speed = if self.progression.diamond_power_type == DiamondPowerType::MiniSnake {
                             0x3_0000 // 0x300 scaled
                         } else {
                             0x4_0000 // 0x400 scaled
@@ -871,8 +871,8 @@ impl NativeRuntime {
                 DiamondPowerType::None | DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife => {}
             }
 
-            if self.diamond_power_frames == 0 {
-                self.diamond_power_type = DiamondPowerType::None;
+            if self.progression.diamond_power_frames == 0 {
+                self.progression.diamond_power_type = DiamondPowerType::None;
             }
             return;
         }
@@ -882,46 +882,46 @@ impl NativeRuntime {
         if !(input.start && input.a) {
             return;
         }
-        if self.current_form == PlayerForm::Eyeclops {
+        if self.progression.current_form == PlayerForm::Eyeclops {
             return;
         }
 
         // Juggernaut 5-Way Shot only costs 5 diamonds (ASM: special case)
-        let cost = if self.current_form == PlayerForm::Juggernaut { 5 } else { 20 };
-        if self.diamond_count < cost {
+        let cost = if self.progression.current_form == PlayerForm::Juggernaut { 5 } else { 20 };
+        if self.progression.diamond_count < cost {
             return;
         }
 
         // Two-tier diamond cost (ASM: DiamondPower_Check):
         // Always costs base amount. If remaining >= 30 after first deduction, costs 30 more
         // (50 total for non-Juggernaut) for enhanced tier-2 power.
-        self.diamond_count -= cost;
-        let tier2 = if self.current_form != PlayerForm::Juggernaut && self.diamond_count >= 30 {
-            self.diamond_count -= 30;
+        self.progression.diamond_count -= cost;
+        let tier2 = if self.progression.current_form != PlayerForm::Juggernaut && self.progression.diamond_count >= 30 {
+            self.progression.diamond_count -= 30;
             true
         } else {
             false
         };
 
-        let power = diamond_power_for_form(self.current_form, tier2);
-        self.diamond_power_type = power;
+        let power = diamond_power_for_form(self.progression.current_form, tier2);
+        self.progression.diamond_power_type = power;
 
         // Instant effects (no timer)
         match power {
             DiamondPowerType::ExtraHitPoint => {
-                self.number_hitpoints = self.number_hitpoints.saturating_add(1);
-                self.diamond_power_frames = 1; // single frame for visual feedback
+                self.progression.number_hitpoints = self.progression.number_hitpoints.saturating_add(1);
+                self.progression.diamond_power_frames = 1; // single frame for visual feedback
                 return;
             }
             DiamondPowerType::ExtraLife => {
-                self.number_lives = self.number_lives.saturating_add(1);
-                self.diamond_power_frames = 1;
+                self.progression.number_lives = self.progression.number_lives.saturating_add(1);
+                self.progression.diamond_power_frames = 1;
                 return;
             }
             _ => {}
         }
 
-        self.diamond_power_frames = diamond_power_duration(power);
+        self.progression.diamond_power_frames = diamond_power_duration(power);
     }
 
     /// AoE damage helper: kill all non-diamond enemies (used by CircleOfDoom, WallOfDeath).

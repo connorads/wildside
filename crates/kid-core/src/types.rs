@@ -52,6 +52,43 @@ impl HelmetState {
     }
 }
 
+/// Player progression: form, lives, HP, diamonds, score, and combat state.
+#[derive(Debug, Clone)]
+pub(crate) struct PlayerProgression {
+    pub(crate) current_form: PlayerForm,
+    pub(crate) pending_form: Option<PlayerForm>,
+    pub(crate) number_lives: u16,
+    pub(crate) number_continues: u8,
+    pub(crate) number_hitpoints: u16,
+    pub(crate) invulnerable_frames: usize,
+    /// Visual flash countdown after form change (0=inactive).
+    pub(crate) form_change_flash_frames: u8,
+    pub(crate) diamond_count: u16,
+    pub(crate) score: u32,
+    /// Diamond Power active: grants invulnerability and clears nearby enemies.
+    pub(crate) diamond_power_frames: u16,
+    /// Which Diamond Power type is currently active (determines behaviour).
+    pub(crate) diamond_power_type: super::helmets::DiamondPowerType,
+}
+
+impl Default for PlayerProgression {
+    fn default() -> Self {
+        Self {
+            current_form: PlayerForm::TheKid,
+            pending_form: None,
+            number_lives: 3,
+            number_continues: 3,
+            number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
+            invulnerable_frames: 0,
+            form_change_flash_frames: 0,
+            diamond_count: 0,
+            score: 0,
+            diamond_power_frames: 0,
+            diamond_power_type: super::helmets::DiamondPowerType::None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LevelId(pub u8);
 

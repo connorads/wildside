@@ -35,15 +35,8 @@ pub struct NativeRuntime {
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
-    current_form: PlayerForm,
-    pending_form: Option<PlayerForm>,
-    number_lives: u16,
-    number_continues: u8,
-    number_hitpoints: u16,
-    invulnerable_frames: usize,
+    progression: PlayerProgression,
     helmet: HelmetState,
-    /// Visual flash countdown after form change (0=inactive).
-    form_change_flash_frames: u8,
     paused: bool,
     pause_toggle_pending: bool,
     pending_level_skip: Option<LevelId>,
@@ -64,12 +57,6 @@ pub struct NativeRuntime {
     block_grid: Option<terrain::BlockGrid>,
     block_list: Option<terrain::BlockList>,
     block_grid_source: BlockGridSource,
-    diamond_count: u16,
-    score: u32,
-    /// Diamond Power active: grants invulnerability and clears nearby enemies.
-    diamond_power_frames: u16,
-    /// Which Diamond Power type is currently active (determines behaviour).
-    diamond_power_type: helmets::DiamondPowerType,
     /// Player has beaten the final level — show victory/ending.
     game_complete: bool,
     block_state: BlockInteractionState,
@@ -123,14 +110,8 @@ impl NativeRuntime {
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
-            current_form: PlayerForm::TheKid,
-            pending_form: None,
-            number_lives: 3,
-            number_continues: 3,
-            number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
-            invulnerable_frames: 0,
+            progression: PlayerProgression::default(),
             helmet: HelmetState::default(),
-            form_change_flash_frames: 0,
             paused: false,
             pause_toggle_pending: false,
             pending_level_skip: None,
@@ -149,10 +130,6 @@ impl NativeRuntime {
             block_grid: None,
             block_list: None,
             block_grid_source: BlockGridSource::None,
-            diamond_count: 0,
-            score: 0,
-            diamond_power_frames: 0,
-            diamond_power_type: helmets::DiamondPowerType::None,
             game_complete: false,
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
@@ -336,10 +313,10 @@ impl NativeRuntime {
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
             active_platform_object_count,
-            number_lives: self.number_lives,
-            number_continues: self.number_continues,
-            number_hitpoints: self.number_hitpoints,
-            current_helmet_id: self.current_form.helmet_id(),
+            number_lives: self.progression.number_lives,
+            number_continues: self.progression.number_continues,
+            number_hitpoints: self.progression.number_hitpoints,
+            current_helmet_id: self.progression.current_form.helmet_id(),
             paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
@@ -372,10 +349,10 @@ impl NativeRuntime {
                 _ => None,
             },
             two_player: self.two_player,
-            invulnerable_frames: self.invulnerable_frames,
-            diamond_power_active: self.diamond_power_frames > 0,
-            diamond_count: self.diamond_count,
-            score: self.score,
+            invulnerable_frames: self.progression.invulnerable_frames,
+            diamond_power_active: self.progression.diamond_power_frames > 0,
+            diamond_count: self.progression.diamond_count,
+            score: self.progression.score,
             level_timer_seconds: self.level_timer.seconds,
             level_damage_taken: self.level_damage_taken,
             murder_wall_x: self.murder_wall.map(|w| w.x_pos),
@@ -416,7 +393,7 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_pos, e.y_pos, e.remaining))
                 .collect(),
-            form_change_flash_frames: self.form_change_flash_frames,
+            form_change_flash_frames: self.progression.form_change_flash_frames,
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,
             sound_test_play_pending: self.sound_test_play_pending,
@@ -610,12 +587,12 @@ impl NativeRuntime {
                 | BootState::DemoPlay { .. }
         ) {
             self.opening_slice = None;
-            self.current_form = PlayerForm::TheKid;
-            self.pending_form = None;
-            self.number_lives = 3;
-            self.number_continues = 3;
-            self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
-            self.invulnerable_frames = 0;
+            self.progression.current_form = PlayerForm::TheKid;
+            self.progression.pending_form = None;
+            self.progression.number_lives = 3;
+            self.progression.number_continues = 3;
+            self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+            self.progression.invulnerable_frames = 0;
             self.paused = false;
             self.pause_toggle_pending = false;
             self.player_lifecycle = PlayerLifecycle::Alive;
@@ -625,11 +602,11 @@ impl NativeRuntime {
 
         match self.player_lifecycle {
             PlayerLifecycle::Alive => {
-                if self.invulnerable_frames > 0 {
-                    self.invulnerable_frames -= 1;
+                if self.progression.invulnerable_frames > 0 {
+                    self.progression.invulnerable_frames -= 1;
                 }
-                if self.form_change_flash_frames > 0 {
-                    self.form_change_flash_frames -= 1;
+                if self.progression.form_change_flash_frames > 0 {
+                    self.progression.form_change_flash_frames -= 1;
                 }
                 self.resolve_pending_form_change();
             }
@@ -649,7 +626,7 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::Dying {
                         remaining_frames: remaining_frames - 1,
                     };
-                } else if self.number_lives == 0 {
+                } else if self.progression.number_lives == 0 {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
                     };
@@ -675,7 +652,7 @@ impl NativeRuntime {
                     };
                 } else {
                     self.player_lifecycle = PlayerLifecycle::Alive;
-                    self.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+                    self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
                 }
                 return false;
             }
@@ -695,7 +672,7 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: remaining_frames - 1,
                     };
-                } else if self.number_continues > 0 {
+                } else if self.progression.number_continues > 0 {
                     // Transition to continue countdown screen
                     self.player_lifecycle = PlayerLifecycle::ContinueCountdown {
                         remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
@@ -713,12 +690,12 @@ impl NativeRuntime {
                 if any_button {
                     // Use a continue: restore lives and respawn at current level.
                     // ASM Use_Continue: clears helmet, diamonds, resets to 3 lives / 2 HP.
-                    self.number_continues -= 1;
-                    self.number_lives = 3;
-                    self.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
-                    self.current_form = PlayerForm::TheKid;
-                    self.pending_form = None;
-                    self.diamond_count = 0;
+                    self.progression.number_continues -= 1;
+                    self.progression.number_lives = 3;
+                    self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+                    self.progression.current_form = PlayerForm::TheKid;
+                    self.progression.pending_form = None;
+                    self.progression.diamond_count = 0;
                     self.reload_block_grid_for_level(self.current_level);
                     self.opening_slice = Some(self.level_respawn_slice(self.current_level));
                     self.level_timer = LevelTimer::new();
@@ -809,7 +786,7 @@ impl NativeRuntime {
             effective_elapsed,
             input,
             jump_pressed,
-            self.current_form,
+            self.progression.current_form,
             self.block_grid.as_mut(),
             self.block_list.as_ref(),
             custom_gravity,
@@ -972,7 +949,7 @@ impl NativeRuntime {
         // Level timer: tick down and kill the player on expiry
         if self.level_timer.tick() {
             self.opening_slice = Some(*slice);
-            self.number_hitpoints = 0;
+            self.progression.number_hitpoints = 0;
             self.begin_death_windup();
             return true;
         }
@@ -980,7 +957,7 @@ impl NativeRuntime {
         // Pit death: falling below the level floor boundary is instant death
         if self.fell_below_level(slice) {
             self.opening_slice = Some(*slice);
-            self.number_hitpoints = 0;
+            self.progression.number_hitpoints = 0;
             self.begin_death_windup();
             return true;
         }
@@ -988,7 +965,7 @@ impl NativeRuntime {
         // Spike death: contacting a spike cell is instant death
         if slice.player.on_spikes {
             self.opening_slice = Some(*slice);
-            self.number_hitpoints = 0;
+            self.progression.number_hitpoints = 0;
             self.begin_death_windup();
             return true;
         }
@@ -1003,7 +980,7 @@ impl NativeRuntime {
 
         // Murder wall: advance and damage player on contact.
         self.step_murder_wall();
-        if self.murder_wall_kills_player(slice) && self.invulnerable_frames == 0 {
+        if self.murder_wall_kills_player(slice) && self.progression.invulnerable_frames == 0 {
             self.apply_damage();
             self.opening_slice = Some(*slice);
             return true;
@@ -1119,7 +1096,7 @@ impl NativeRuntime {
                 self.block_grid.as_ref(),
                 Some(slice.player.x_pos),
                 Some(slice.player.y_pos),
-                self.current_form,
+                self.progression.current_form,
                 Some(&mut self.projectiles),
             );
             self.active_enemy_roster = self

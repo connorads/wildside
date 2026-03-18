@@ -50,7 +50,7 @@ impl NativeRuntime {
         self.clocks_collected = 0;
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
-        self.invulnerable_frames = 0;
+        self.progression.invulnerable_frames = 0;
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
@@ -92,7 +92,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
-        self.invulnerable_frames = 0;
+        self.progression.invulnerable_frames = 0;
         self.death_camera_lock = None;
         self.paused = false;
         self.boot_state = BootState::InGame;
@@ -135,26 +135,26 @@ impl NativeRuntime {
     /// Save working state to the current player's slot (ASM sub_8C2).
     pub(crate) fn save_player_slot(&mut self) {
         let slot = &mut self.player_slots[self.current_player_index as usize];
-        slot.lives = self.number_lives;
-        slot.hitpoints = self.number_hitpoints;
-        slot.diamonds = self.diamond_count;
+        slot.lives = self.progression.number_lives;
+        slot.hitpoints = self.progression.number_hitpoints;
+        slot.diamonds = self.progression.diamond_count;
         slot.level_id = self.current_level;
-        slot.form = self.current_form;
-        slot.continues = self.number_continues;
-        slot.score = self.score;
+        slot.form = self.progression.current_form;
+        slot.continues = self.progression.number_continues;
+        slot.score = self.progression.score;
     }
 
     /// Load a player slot into working state (ASM sub_8A4).
     pub(crate) fn load_player_slot(&mut self) {
         let slot = &self.player_slots[self.current_player_index as usize];
-        self.number_lives = slot.lives;
-        self.number_hitpoints = slot.hitpoints;
-        self.diamond_count = slot.diamonds;
+        self.progression.number_lives = slot.lives;
+        self.progression.number_hitpoints = slot.hitpoints;
+        self.progression.diamond_count = slot.diamonds;
         self.current_level = slot.level_id;
-        self.current_form = slot.form;
-        self.pending_form = None;
-        self.number_continues = slot.continues;
-        self.score = slot.score;
+        self.progression.current_form = slot.form;
+        self.progression.pending_form = None;
+        self.progression.number_continues = slot.continues;
+        self.progression.score = slot.score;
     }
 
     /// In 2P mode, switch to the other player if they have lives remaining.
@@ -298,7 +298,7 @@ impl NativeRuntime {
                 OPENING_SCROLL_START_FRAME + frame,
                 settle_input,
                 false,
-                self.current_form,
+                self.progression.current_form,
                 Some(&mut grid),
                 self.block_list.as_ref(),
                 false,

@@ -81,8 +81,8 @@ impl NativeRuntime {
                         self.pending_level_skip = Some(self.next_level_id());
                     } else if input.a
                         && !input.c
-                        && self.current_form != PlayerForm::Eyeclops
-                        && self.diamond_count >= 20
+                        && self.progression.current_form != PlayerForm::Eyeclops
+                        && self.progression.diamond_count >= 20
                     {
                         // Diamond Power activation suppresses pause toggle
                     } else if self.paused {
@@ -234,10 +234,10 @@ impl NativeRuntime {
                     self.boot_state = BootState::TitleScreen;
                     self.title_idle_frames = 0;
                     self.player_lifecycle = PlayerLifecycle::Alive;
-                    self.number_lives = 3;
-                    self.number_continues = 3;
-                    self.diamond_count = 0;
-                    self.score = 0;
+                    self.progression.number_lives = 3;
+                    self.progression.number_continues = 3;
+                    self.progression.diamond_count = 0;
+                    self.progression.score = 0;
                     self.current_level = LevelId(0);
                     self.two_player = false;
                     self.current_player_index = 0;
