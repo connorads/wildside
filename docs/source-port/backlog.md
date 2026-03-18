@@ -7,17 +7,17 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 001 | [~] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
+| 001 | [ ] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
-| 003 | [~] | P1 | audio | No music or sound effects playing | Load level, confirm BGM and SFX |
+| 003 | [ ] | P1 | audio | No music or sound effects playing | Load level, confirm BGM and SFX |
 | 004 | [x] | P1 | render | Colour palette wrong (floor/tree colours reversed) | Capture frame, compare to oracle |
 | 005 | [x] | P1 | render | No parallax background | Scroll right, confirm background layers move |
-| 006 | [~] | P1 | enemy | Dragon moonwalking (sprite direction vs movement) | Watch dragon, confirm facing matches walk dir |
+| 006 | [ ] | P1 | enemy | Dragon moonwalking (sprite direction vs movement) | Watch dragon, confirm facing matches walk dir |
 | 007 | [x] | P1 | camera | Screen shakes/moves weirdly when hit | Take damage, confirm camera stays stable |
 | 008 | [x] | P1 | render | Unwanted dark overlay effect when hit | Take damage, confirm no full-screen tint |
 | 009 | [x] | P2 | menu | No menu — spawns directly into game | Launch, confirm title screen appears |
 | 010 | [x] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
-| 011 | [~] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Capture frame, compare brick tiles to oracle |
+| 011 | [ ] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Capture frame, compare brick tiles to oracle |
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | Prize blocks vanish on hit (correct behaviour) |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
@@ -25,15 +25,17 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 016 | [x] | P2 | level | No level intro screen showing level name | Enter level, confirm name card |
 | 017 | [x] | P2 | form | Masks/helmets not visible when they appear | Hit helmet block, confirm sprite |
 | 018 | [ ] | P2 | form | No form-change animation when equipping helmet | Collect helmet, confirm transform anim |
-| 019 | [~] | P2 | form | Player doesn't transform at all | Collect helmet, confirm form changes |
+| 019 | [ ] | P2 | form | Player doesn't transform at all | Collect helmet, confirm form changes |
 | 020 | [ ] | P3 | render | No water/shimmer background effect | Load water level, confirm shimmer |
 
 ## Investigation notes
 
-### 001 — Player stuck after damage
+### 001 — Player stuck after damage (BLOCKED — needs live play)
 Code review: `apply_damage()` sets `invulnerable_frames=66` and stays in `PlayerLifecycle::Alive`.
 Movement continues normally during invulnerability. No mechanism found that blocks movement.
-Needs live reproduction to identify root cause — may be a corner/wall physics edge case.
+No code path sets paused/frozen state on damage. Possible causes: terrain wedge after
+knockback separation, input unresponsiveness during flicker, or rendering artifact.
+Needs live reproduction to identify root cause.
 
 ### 002 — Enemies don't die when stomped (FIXED)
 Root cause: stomp detection used strict `previous_bottom <= stomp_e_top` position check,
@@ -56,9 +58,11 @@ Fix: load 16-byte permutation tables and reorder palette entries during level vi
 Parallax IS working. bgscroll data loads correctly, `background_scroll_x_px()` applies
 camera-relative rates. Effect is subtle (e.g. Forest: 26% camera speed) matching original.
 
-### 006 — Dragon moonwalking
-Both Dragon (flying) and DragonWalking (pacer) correctly set facing in their step functions.
-Sprite system flips based on facing. Needs live reproduction to identify specific case.
+### 006 — Dragon moonwalking (BLOCKED — needs live play)
+Code review: `step_pacer` sets velocity from facing, `step_dragon` sets facing per phase.
+`reverse_enemy_direction` flips facing on wall/edge collision. Sprite flip uses facing.
+All code paths maintain facing→velocity consistency. Cannot reproduce in code review;
+likely a rendering timing issue or specific enemy instance placement.
 
 ### 010 — Enemy attacks (MOSTLY DONE)
 11 enemy families + 4 bosses + 3 helmets + 3 environmental sources have projectile support.
@@ -66,10 +70,11 @@ Only gaps: UFO beam (child object system, spawns beam segments) and Fire Demon f
 (child objects spawned on death). Both require a child-object spawning system not yet built.
 All simple projectile-based attacks are implemented.
 
-### 011 — Bricks half-broken
+### 011 — Bricks half-broken (BLOCKED — needs live play)
 Block rendering uses `block_mapping.resolve(skin, block_type)` with theme-specific tile quads.
-With palette permutation now applied, colours should be correct. Skin-to-visual mapping needs
-playtest verification — may look better now that palette is fixed.
+Palette permutation now applied (#004). Terrain layer renders under blocks, block layer on top.
+Block type→visual mapping is correct per ASM (Smash, Prize, Ice, Metal, Rubber, Generic).
+Likely resolved by palette fix — needs playtest comparison against oracle screenshots.
 
 ### 013 — P-blocks (NOT A BUG)
 Prize blocks vanish when hit (cell cleared to empty). This is correct per original behaviour.
