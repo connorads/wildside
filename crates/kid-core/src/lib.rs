@@ -8122,10 +8122,10 @@ mod tests {
     // --- Big Hopping Skull enemy ---
 
     #[test]
-    fn big_hopping_skull_maps_to_hopper() {
+    fn big_hopping_skull_maps_to_bouncer() {
         assert_eq!(
             EnemyFamily::BigHoppingSkull.archetype(),
-            EnemyArchetype::Hopper
+            EnemyArchetype::Bouncer
         );
     }
 
@@ -8138,13 +8138,16 @@ mod tests {
     }
 
     #[test]
-    fn big_hopping_skull_uses_slower_gravity() {
-        let hc = hopper_constants(EnemyFamily::BigHoppingSkull);
-        let mini = hopper_constants(EnemyFamily::MiniHoppingSkull);
-        assert!(
-            hc.gravity < mini.gravity,
-            "BHS gravity ($FA0) should be less than MHS ($1200)"
-        );
+    fn big_hopping_skull_initial_velocities() {
+        // ASM: x_vel=$10000 (1px/frame), y_vel=$FFFE0000 (-2px/frame)
+        assert_eq!(spawn_x_velocity(EnemyFamily::BigHoppingSkull, 0), 0x10000);
+        assert_eq!(spawn_y_velocity(EnemyFamily::BigHoppingSkull), -0x20000);
+    }
+
+    #[test]
+    fn big_hopping_skull_gravity_matches_asm() {
+        // ASM: addi.l #$FA0,y_vel (Big_Hopping_Skull.asm:54)
+        assert_eq!(BIG_SKULL_GRAVITY, 0xFA0);
     }
 
     // --- Sphere enemy ---

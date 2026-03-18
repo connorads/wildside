@@ -12,15 +12,12 @@ pub(crate) const MINI_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
 pub(crate) const MINI_SKULL_GRAVITY_FP: i32 = 0x0000_1200;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 
-// Big Hopping Skull: gravity $FA0, x_vel ±$10000, y_vel -$20000
-// TODO(fidelity): BigHoppingSkull is a continuous bouncer in ASM (Big_Hopping_Skull.asm),
-// not a discrete hopper. ASM uses word-sized velocities (x_vel=1, y_vel=-2) and $FA0
-// gravity with wall/floor/ceiling deflection — no ground delay phase. Currently
-// approximated as a Hopper archetype with invented jump speeds.
-pub(crate) const BIG_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_0000;
-pub(crate) const BIG_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0002_0000;
-pub(crate) const BIG_SKULL_GRAVITY_FP: i32 = 0x0000_0FA0; // matches ASM $FA0
-pub(crate) const BIG_SKULL_GROUND_DELAY_FRAMES: u8 = 32;
+// Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
+// FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
+// Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
+pub(crate) const BIG_SKULL_INIT_X_SPEED: i32 = 0x0001_0000; // ASM: move.w #1,x_vel (high word)
+pub(crate) const BIG_SKULL_INIT_Y_SPEED: i32 = -0x0002_0000; // ASM: move.w #$FFFE,y_vel (high word)
+pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_vel
 
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
@@ -31,12 +28,6 @@ pub(crate) struct HopperConstants {
 
 pub(crate) fn hopper_constants(family: EnemyFamily) -> HopperConstants {
     match family {
-        EnemyFamily::BigHoppingSkull => HopperConstants {
-            jump_x_speed: BIG_SKULL_JUMP_X_SPEED_FP,
-            jump_y_speed: BIG_SKULL_JUMP_Y_SPEED_FP,
-            gravity: BIG_SKULL_GRAVITY_FP,
-            ground_delay: BIG_SKULL_GROUND_DELAY_FRAMES,
-        },
         _ => HopperConstants {
             jump_x_speed: MINI_SKULL_JUMP_X_SPEED_FP,
             jump_y_speed: MINI_SKULL_JUMP_Y_SPEED_FP,
@@ -553,7 +544,8 @@ impl EnemyFamily {
             Self::DragonWalking => EnemyArchetype::Pacer, // paces + breath attack
             Self::Sphere | Self::Fireball => EnemyArchetype::Bouncer,
             Self::UFO | Self::Tornado => EnemyArchetype::Flyer,
-            Self::MiniHoppingSkull | Self::BigHoppingSkull => EnemyArchetype::Hopper,
+            Self::MiniHoppingSkull => EnemyArchetype::Hopper,
+            Self::BigHoppingSkull => EnemyArchetype::Bouncer, // continuous bouncer, handled in step_enemy
             Self::Drips => EnemyArchetype::Stationary, // ceiling dropper
             Self::Goat
             | Self::Armadillo
@@ -745,7 +737,7 @@ pub(crate) fn activate_enemies(
             x_pos: spawn_x_pos(family, object_x),
             y_pos: spawn_y,
             x_velocity: spawn_x_velocity(family, enemy_level),
-            y_velocity: 0,
+            y_velocity: spawn_y_velocity(family),
             x_acceleration: spawn_x_acceleration(family),
             y_acceleration: spawn_y_acceleration(family),
             facing: spawn_facing(family, spawn_x_pos(family, object_x), player_x),
@@ -790,7 +782,13 @@ pub(crate) fn step_active_enemies(
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
         match enemy.family.archetype() {
             EnemyArchetype::Collectible | EnemyArchetype::Inert => {}
-            EnemyArchetype::Bouncer => step_bouncer(enemy, block_grid),
+            EnemyArchetype::Bouncer => {
+                if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
+                    step_big_hopping_skull(enemy, block_grid);
+                } else {
+                    step_bouncer(enemy, block_grid);
+                }
+            }
             EnemyArchetype::Flyer => {
                 if matches!(enemy.family, EnemyFamily::Dragon) {
                     step_dragon(enemy, player_x_pos, player_y_pos, &mut projectiles);
@@ -1126,6 +1124,82 @@ pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
             FIREBALL_GRAVITY[level.min(2)]
         }
         _ => SPHERE_GRAVITY,
+    }
+}
+
+/// Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
+/// Gravity $FA0/frame, deflects off all surfaces. No ground delay.
+/// Floor: negate y_vel. Wall: backup 2x, negate x_vel, clear y_vel.
+/// Ceiling: negate y_vel. Slope up: swap+negate both. Slope down: swap only.
+pub(crate) fn step_big_hopping_skull(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    // Apply gravity (ASM loc_36540: addi.l #$FA0,y_vel)
+    enemy.y_velocity = enemy.y_velocity.saturating_add(BIG_SKULL_GRAVITY);
+
+    // Advance position
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+
+        // Wall collision (ASM loc_366EC: backup 2x, negate x_vel, clear y_vel)
+        let moving_right = enemy.x_velocity >= 0;
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+        if wall.hit {
+            // Backup position by 2x x_velocity
+            let backup = 2 * i64::from(enemy.x_velocity);
+            enemy.x_pos = (enemy.x_pos as i64 - backup).max(0) as u32;
+            enemy.y_velocity = 0;
+            enemy.x_velocity = -enemy.x_velocity;
+            enemy.facing = opposite_direction(enemy.facing);
+        }
+
+        // Floor collision (ASM loc_36580: triggers kid-hit state, but for physics
+        // the restart at loc_366D0 resets y_vel to $FFFE0000. We negate as bounce.)
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground && enemy.y_velocity > 0 {
+            let floor_y_fp = (floor.floor_y_px as u32) << 16;
+            if enemy.y_pos >= floor_y_fp {
+                enemy.y_pos = floor_y_fp;
+                // Floor bounce: negate y_velocity
+                enemy.y_velocity = -enemy.y_velocity;
+            }
+
+            // Slope deflection: check if floor cell is a slope
+            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                // ASM loc_36706: swap and negate both
+                let old_x = enemy.x_velocity;
+                let old_y = enemy.y_velocity;
+                enemy.y_velocity = -old_x;
+                enemy.x_velocity = -old_y;
+                enemy.facing = opposite_direction(enemy.facing);
+            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                // ASM loc_36720: swap without negate
+                let old_x = enemy.x_velocity;
+                let old_y = enemy.y_velocity;
+                enemy.y_velocity = old_x;
+                enemy.x_velocity = old_y;
+                enemy.facing = opposite_direction(enemy.facing);
+            }
+        }
+
+        // Ceiling bounce (ASM loc_366E6: neg.l y_vel)
+        let ceil =
+            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+        if ceil.hit && enemy.y_velocity < 0 {
+            enemy.y_velocity = -enemy.y_velocity;
+        }
     }
 }
 
@@ -3155,6 +3229,8 @@ pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
             const FIREBALL_MAX_UPWARD: [i32; 3] = [-0x30000, -0x40000, -0x50000];
             FIREBALL_MAX_UPWARD[usize::from(enemy_level).min(2)] >> 1
         }
+        // Big_Hopping_Skull.asm: move.w #1,x_vel → $10000 FP16.16
+        EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_X_SPEED,
         _ => 0,
     }
 }
@@ -3173,6 +3249,14 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
                 Direction::Right
             }
         }
+    }
+}
+
+pub(crate) fn spawn_y_velocity(family: EnemyFamily) -> i32 {
+    match family {
+        // Big_Hopping_Skull.asm: move.w #$FFFE,y_vel → $FFFE0000 FP16.16
+        EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_Y_SPEED,
+        _ => 0,
     }
 }
 
