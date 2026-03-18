@@ -2836,10 +2836,14 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
         .as_ref()
         .ok_or_else(|| anyhow!("generated bundle is missing decoded Level 1 assets"))?;
     if decoded.level_id != level_id {
-        bail!(
-            "decoded Level 1 block layout points at level 0x{:02X}, expected 0x{level_id:02X}",
-            decoded.level_id
+        // Layout not yet extracted for this level — return an empty grid so the
+        // level still loads (no block collision). The user can extract it with:
+        //   mise run dump-level-layout 2E
+        eprintln!(
+            "warning: no block layout for level 0x{level_id:02X} (run `mise run dump-level-layout {level_id:02X}` to extract)"
         );
+        let (width, height) = level_layout_dimensions(header);
+        return Ok(BlockGrid::from_level_layout(&[], width, height));
     }
 
     let layout_path = manifest.output_root.join(&decoded.block.relative_path);
