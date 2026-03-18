@@ -52,7 +52,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 043 | [x] | P2 | enemy | Dragon Flying is structural placeholder (3 variant scripts) | Dragon Flying matches ASM flight scripts |
 | 044 | [x] | P3 | enemy | Lion projectile wall-bounce and per-enemy homing accel | Projectile bounces off terrain |
 | 045 | [ ] | P3 | enemy | Hand player-grab mechanic missing entirely | Hand grabs and drags player |
-| 046 | [ ] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
+| 046 | [x] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
 | 047 | [ ] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM full behaviour |
 | 048 | [x] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
 | 049 | [ ] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |

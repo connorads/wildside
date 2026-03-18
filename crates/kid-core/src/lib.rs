@@ -9183,35 +9183,48 @@ mod tests {
     #[test]
     fn tar_monster_cycles_through_states() {
         let mut enemy = test_enemy(EnemyFamily::TarMonster, 60 << 16, 200 << 16, 4);
+        let mut projs = Vec::new();
         enemy.tar_monster_state = TarMonsterState::Submerged;
         enemy.wait_timer = 0;
 
         // Submerged → Emerging
-        step_tar_monster(&mut enemy);
+        step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Emerging);
         assert_eq!(enemy.wait_timer, TAR_MONSTER_EMERGE_FRAMES);
 
-        // Wait through emerge animation (timer ticks down, then next call transitions)
+        // Wait through emerge animation
         for _ in 0..TAR_MONSTER_EMERGE_FRAMES {
-            step_tar_monster(&mut enemy);
+            step_tar_monster(&mut enemy, &mut projs);
         }
         assert_eq!(enemy.wait_timer, 0);
-        step_tar_monster(&mut enemy);
+        step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Visible);
         assert_eq!(enemy.wait_timer, TAR_MONSTER_VISIBLE_FRAMES);
 
         // Wait through visible period
         for _ in 0..TAR_MONSTER_VISIBLE_FRAMES {
-            step_tar_monster(&mut enemy);
+            step_tar_monster(&mut enemy, &mut projs);
         }
-        step_tar_monster(&mut enemy);
+        step_tar_monster(&mut enemy, &mut projs);
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Attacking);
+        assert_eq!(enemy.wait_timer, TAR_MONSTER_ATTACK_FRAMES);
+
+        // During attack, a glob shot fires at frame 8
+        projs.clear();
+        for _ in 0..TAR_MONSTER_ATTACK_FRAMES {
+            step_tar_monster(&mut enemy, &mut projs);
+        }
+        assert_eq!(projs.len(), 1, "glob shot should fire during attack");
+        assert_ne!(projs[0].x_velocity, 0, "glob shot has horizontal velocity");
+
+        step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
 
         // Wait through submerge animation
         for _ in 0..TAR_MONSTER_SUBMERGE_FRAMES {
-            step_tar_monster(&mut enemy);
+            step_tar_monster(&mut enemy, &mut projs);
         }
-        step_tar_monster(&mut enemy);
+        step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerged);
         assert_eq!(enemy.wait_timer, TAR_MONSTER_SUBMERGED_FRAMES);
     }

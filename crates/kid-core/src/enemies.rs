@@ -269,11 +269,13 @@ pub(crate) enum TarMonsterState {
     /// Hidden underground, waiting to emerge.
     #[default]
     Submerged,
-    /// Rising from the floor (animation frames).
+    /// Rising from the floor (animation frames, 24f).
     Emerging,
-    /// Visible and vulnerable, attacks on a timer.
+    /// Visible and vulnerable above ground.
     Visible,
-    /// Sinking back into the floor.
+    /// Attack wind-up + glob shot + wind-down (8+8+8 = 24f). ASM Op 5.
+    Attacking,
+    /// Sinking back into the floor (24f).
     Submerging,
 }
 
@@ -505,7 +507,10 @@ impl ActiveEnemy {
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
         if matches!(self.family, EnemyFamily::TarMonster) {
-            return matches!(self.tar_monster_state, TarMonsterState::Visible);
+            return matches!(
+                self.tar_monster_state,
+                TarMonsterState::Visible | TarMonsterState::Attacking
+            );
         }
         true
     }
@@ -820,7 +825,11 @@ pub(crate) fn step_active_enemies(
             }
             EnemyArchetype::Stationary => {
                 if matches!(enemy.family, EnemyFamily::TarMonster) {
-                    step_tar_monster(enemy);
+                    if let Some(ref mut projs) = projectiles {
+                        step_tar_monster(enemy, projs);
+                    } else {
+                        step_tar_monster(enemy, &mut Vec::new());
+                    }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut() {
                         step_drips(enemy, projs);
@@ -2282,21 +2291,66 @@ pub(crate) fn step_orca(
     }
 }
 
-// --- TarMonster constants ---
-// TODO(fidelity): ASM bytecode-driven state machine is more complex than this
-// approximation. Real timings: ~71f buried, ~225f above (Seq A) or ~21f pop-up
-// (Seq B). Missing: horizontal glob shot, visibility flicker windows (6/11/8/51f),
-// HP variants 2/4/6 by placement data. See backlog #046.
-pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 90;
-pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 16;
-pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 120;
-pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 16;
+// --- TarMonster constants (Tar_Monster.asm) ---
+// Bytecode-driven cycle: submerged → emerge → visible → attack → submerge → loop.
+// Timings from ASM script tables (unk_32264, unk_3226C):
+//   Initial idle: 4f then 90f ($5A)
+//   Emerge animation: 24f (stru_3272E, 6 sprites × 4fps)
+//   Visible hold: 50f ($32) before attack
+//   Attack: 24f (8+8+8 wind-up/fire/wind-down), fires horizontal glob shot
+//   Submerge animation: 24f (stru_3274C, reverse of emerge)
+/// Initial submerged wait before first emergence (Tar_Monster.asm unk_32264: 4 + 90).
+pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 94;
+/// Emerge animation duration (6 frames × 4 ticks = 24 frames).
+pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 24;
+/// Visible hold before attack sequence ($32 = 50 frames from bytecode).
+pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 50;
+/// Attack sequence: 8f wind-up + 8f fire + 8f wind-down = 24f.
+pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 24;
+/// Frame within attack at which glob shot fires (after 8f wind-up).
+pub(crate) const TAR_MONSTER_ATTACK_FIRE_FRAME: u16 = 8;
+/// Submerge animation duration (24 frames, reverse of emerge).
+pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 24;
+/// Horizontal glob shot speed: ±4px/frame (Tar_Monster.asm line 316: $FFFC = -4).
+pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
+/// Glob gravity: $1000/frame (Tar_Monster.asm line 412).
+pub(crate) const TAR_MONSTER_GLOB_GRAVITY: i32 = 0x1000;
 
-/// Step a TarMonster through its emerge/submerge cycle.
-/// Submerged → Emerging → Visible → Submerging → Submerged.
+/// Step a TarMonster through its bytecode-driven emerge/attack/submerge cycle.
+/// ASM: Tar_Monster.asm, jump table off_32290.
+/// Submerged → Emerging → Visible → Attacking → Submerging → Submerged (loop).
 /// While Submerged, the enemy is invulnerable and invisible (handled by collision/render).
-pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy) {
+pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
     if enemy.wait_timer > 0 {
+        // Check if we need to fire during attack sequence
+        if enemy.tar_monster_state == TarMonsterState::Attacking {
+            let elapsed = TAR_MONSTER_ATTACK_FRAMES - enemy.wait_timer;
+            if elapsed == TAR_MONSTER_ATTACK_FIRE_FRAME {
+                // Fire horizontal glob shot (Tar_Monster.asm Op 5 line 175)
+                let xv = match enemy.facing {
+                    Direction::Right => TAR_MONSTER_GLOB_SPEED_X,
+                    Direction::Left => -TAR_MONSTER_GLOB_SPEED_X,
+                };
+                let spawn_y = (enemy.y_pos as i64 - (0x12 << 16)) as u32; // -18px Y offset
+                let spawn_x = if matches!(enemy.facing, Direction::Left) {
+                    (enemy.x_pos as i64 - (0x19 << 16)) as u32 // -25px X offset
+                } else {
+                    (enemy.x_pos as i64 + (0x19 << 16)) as u32 // +25px (mirrored)
+                };
+                projectiles.push(EnemyProjectile {
+                    x_pos: spawn_x,
+                    y_pos: spawn_y,
+                    x_velocity: xv,
+                    y_velocity: 0,
+                    lifetime: 120,
+                    gravity: TAR_MONSTER_GLOB_GRAVITY,
+                    friendly: false,
+                    homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
+                });
+            }
+        }
         enemy.wait_timer -= 1;
         return;
     }
@@ -2306,10 +2360,16 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy) {
             enemy.wait_timer = TAR_MONSTER_EMERGE_FRAMES;
         }
         TarMonsterState::Emerging => {
+            // Flip direction on emerge (ASM Op 3: not.b x_direction)
+            enemy.facing = opposite_direction(enemy.facing);
             enemy.tar_monster_state = TarMonsterState::Visible;
             enemy.wait_timer = TAR_MONSTER_VISIBLE_FRAMES;
         }
         TarMonsterState::Visible => {
+            enemy.tar_monster_state = TarMonsterState::Attacking;
+            enemy.wait_timer = TAR_MONSTER_ATTACK_FRAMES;
+        }
+        TarMonsterState::Attacking => {
             enemy.tar_monster_state = TarMonsterState::Submerging;
             enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
         }
