@@ -297,14 +297,46 @@ impl NativeRuntime {
             if let Some(floor_y) = floor_y {
                 let floor_y_px = floor_y.saturating_sub(1);
                 let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+                let header_y_px = y_px;
                 slice.player.y_pos = floor_y_fp;
                 slice.player.on_ground = true;
                 slice.player.y_velocity = 0;
                 slice.terrain.floor_y_pos = floor_y_fp;
-                // Camera is NOT recomputed here — the screen-snap camera from
-                // level_start_pose (using header PlayerStart_Y_pos) is correct.
-                // ASM: divu.w #$E0 / mulu.w #$E0 on PlayerStart_Y_pos, not
-                // on the gravity-settled floor position.
+                // Simulate the camera following the player during gravity settling.
+                // The oracle's camera tracks the player frame-by-frame as they fall
+                // from header_y to floor_y. The asymmetric dead-zone in
+                // update_camera_axis (±4px) means the final camera position depends
+                // on which direction it approaches from. Replaying the fall ensures
+                // the camera ends in the same dead-zone region as the oracle.
+                let max_y = i32::from(slice.level_bounds.height_pixels)
+                    - physics::VIEWPORT_HEIGHT;
+                let landed_y_px = floor_y_px.max(0);
+                if header_y_px != landed_y_px {
+                    let mut sim_y_vel: i32 = 0;
+                    let mut sim_y_px = header_y_px;
+                    let mut cam_y = (slice.camera.y_pos >> 16) as i32;
+                    // Simulate gravity fall + camera follow
+                    for _ in 0..120 {
+                        sim_y_vel = physics::apply_gravity(sim_y_vel, false);
+                        sim_y_px += sim_y_vel >> 16;
+                        if sim_y_px >= landed_y_px {
+                            sim_y_px = landed_y_px;
+                        }
+                        cam_y = physics::update_camera_axis(cam_y, sim_y_px, max_y);
+                        if sim_y_px == landed_y_px {
+                            break;
+                        }
+                    }
+                    // Continue settling the camera after landing
+                    for _ in 0..120 {
+                        let prev = cam_y;
+                        cam_y = physics::update_camera_axis(cam_y, landed_y_px, max_y);
+                        if cam_y == prev {
+                            break;
+                        }
+                    }
+                    slice.camera.y_pos = (cam_y.max(0) as u32) << 16;
+                }
             }
         }
         slice

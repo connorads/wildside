@@ -1398,10 +1398,10 @@ impl NativeRuntime {
         // instantly at the spawn point. Always skip the native entry
         // animation so parity timing matches the oracle.
         self.skip_entry_animation = true;
-        // Reset the opening slice to the correct spawn position (the entry
-        // animation may have already modified it during boot). Use the
-        // floor-snap variant because we skip the entry animation — the header
-        // spawn Y is approximate and the ASM relies on gravity to settle.
+        // Reset the opening slice to the correct spawn position. Floor-snap
+        // places the player on the actual floor (header spawn Y is approximate).
+        // After floor-snap, simulate the camera's gravity-following path to
+        // match how the oracle's camera converges during real gravity settling.
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.level_start_frame = Some(self.frame_index);
     }

@@ -627,7 +627,7 @@ pub fn update_camera(
 /// Single-axis camera follow: target = player - $A0, clamped to [0, max_pos],
 /// delta = (target - camera + 4) >> 3, clamped to [-8, 8]. Special edge
 /// behaviour when camera is near boundary.
-fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 {
+pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 {
     let target = (player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos);
 
     let velocity = if camera <= 4 && target < camera {
