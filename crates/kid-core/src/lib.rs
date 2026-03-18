@@ -1082,14 +1082,14 @@ struct MurderWallState {
     reversed: bool,
 }
 
-/// Murder wall acceleration per frame (fixed-point 16.16).
-const MURDER_WALL_ACCELERATION: i32 = 0x0100;
-/// Default max speed for most murder wall levels.
-const MURDER_WALL_DEFAULT_MAX_SPEED: i32 = 0x2_0000;
-/// Slower max speed for Hills of the Warrior 1.
-const MURDER_WALL_SLOW_MAX_SPEED: i32 = 0x1_8000;
-/// Initial offset from camera (48 pixels in fixed-point).
-const MURDER_WALL_CAMERA_OFFSET_PX: i32 = 0x30;
+/// Murder wall acceleration per frame (kid.asm:7456 `addi.l #$100`).
+const MURDER_WALL_ACCELERATION: i32 = 0x0100; // ASM-verified
+/// Default max speed (kid.asm:26889 `move.l #$20000`).
+const MURDER_WALL_DEFAULT_MAX_SPEED: i32 = 0x2_0000; // ASM-verified
+/// Slower max speed for Hills of the Warrior 1 (kid.asm:26892 `move.l #$18000`).
+const MURDER_WALL_SLOW_MAX_SPEED: i32 = 0x1_8000; // ASM-verified
+/// Initial offset from camera (kid.asm:26898 `addi.w #$30`).
+const MURDER_WALL_CAMERA_OFFSET_PX: i32 = 0x30; // ASM-verified
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct PlatformLoaderState {
