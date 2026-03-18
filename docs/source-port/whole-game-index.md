@@ -30,7 +30,7 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 
 ## Level transitions (done)
 - 105 levels loadable, full multi-level progression, ending sequence
-- 6 oracle-warp-broken levels (jgenesis bug): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63
+- 9 oracle-warp-broken levels (jgenesis bug): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63 (6 in BCD sweep)
 - Source: level-order data, completion flow in `kid.asm`
 
 ## Menus and cutscenes (done)
@@ -52,5 +52,5 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 - Advisory fields: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` (oracle-pause artefacts)
 - Authoritative fields (0 diffs): score, diamonds, position, camera, game_mode, level_id
 - Determinism: verified — identical traces from repeated scenarios
-- Code annotations: 2 TODO(fidelity), 6 DEVIATION, 1 ORIGINAL_QUIRK, 0 UNVERIFIED
+- Code annotations: 3 TODO(fidelity), 6 DEVIATION, 1 ORIGINAL_QUIRK, 0 UNVERIFIED
 - Perf: criterion benchmarks ~92ns/frame idle, ~3µs level load

@@ -69,9 +69,11 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining work
 
-- Structural enemy reworks: HeadyMetal death phase (#062)
 - Transform animation visual sprites (needs ROM tile extraction, #033)
 - Fire Demon death trail visual sprites (rendered as generic projectile)
+- Floating item ROM sprites (scene.rs placeholder icons)
+- HeadyMetal death wobble visual (#062)
+- Floor-snap settling diffs on 3 levels (#037, #038) — needs full physics step during init
 - RNG-dependent behaviours: Tornado patterns, Fireball perturbation, Robot charge flip timer (documented as DEVIATION)
 
 ## Recently completed
@@ -98,7 +100,7 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - Demo playback — done (#026, extracted from kid.asm:33373-33436, 2 demos alternate on title idle)
 - Per-helmet transform timing — done (#033 partial, correct frame counts from ASM tables)
 - Perf baseline tracking — done (#031, criterion benchmarks: ~92ns/frame idle, ~3µs level load)
-- Per-enemy constant verification — done for 24/28 families against ASM (Phase 4)
+- Per-enemy constant verification — done for all 28 families against ASM (Phase 4)
 - Block constant verification — done for all 13 block types against ASM (Phase 3)
 - Ghost block collision fix — type 6 (Solid) not 7 (Spikes) (#063)
 - Drill block direction fix — horizontal ±4px/frame not downward (#064)
@@ -110,5 +112,5 @@ See `docs/source-port/methodology.md` for the full validation methodology: inves
 
 ## Known oracle limitations
 
-- 6 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63 — jgenesis emulator bug, native works fine
+- 9 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63 — jgenesis emulator bug, native works fine (6 in BCD sweep)
 - 4 levels with idle_tail advisory diffs (0x00, 0x45, 0x48, 0x61) — oracle warp timing and enemy interaction accumulation
