@@ -226,21 +226,37 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let has_gems = gems_engine.is_some();
     // Stereo if GEMS is available, mono otherwise
     let audio_channels: u8 = if has_gems { 2 } else { 1 };
-    let audio_queue: Option<AudioQueue<f32>> = sdl.audio().ok().and_then(|audio| {
-        let desired = sdl2::audio::AudioSpecDesired {
-            freq: Some(44_100),
-            channels: Some(audio_channels),
-            samples: Some(1024),
-        };
-        audio.open_queue::<f32, _>(None, &desired).ok()
-    });
+    let audio_queue: Option<AudioQueue<f32>> = match sdl.audio() {
+        Ok(audio) => {
+            let desired = sdl2::audio::AudioSpecDesired {
+                freq: Some(44_100),
+                channels: Some(audio_channels),
+                samples: Some(1024),
+            };
+            match audio.open_queue::<f32, _>(None, &desired) {
+                Ok(queue) => Some(queue),
+                Err(e) => {
+                    eprintln!("Audio: failed to open queue: {e}");
+                    eprintln!("  Check SDL2 audio drivers: SDL_AUDIODRIVER env var");
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Audio: SDL2 audio subsystem unavailable: {e}");
+            eprintln!("  Ensure SDL2 is built with audio support");
+            None
+        }
+    };
     if let Some(ref aq) = audio_queue {
         aq.resume();
     }
     match (&audio_queue, &gems_engine) {
-        (Some(_), Some(_)) => eprintln!("Audio: GEMS engine active (stereo)"),
+        (Some(_), Some(_)) => {
+            eprintln!("Audio: GEMS engine active (stereo, 44100 Hz)");
+        }
         (Some(_), None) => eprintln!("Audio: SFX fallback (GEMS data unavailable)"),
-        (None, _) => eprintln!("Audio: disabled (SDL2 audio unavailable)"),
+        (None, _) => eprintln!("Audio: disabled — no sound will play"),
     }
     let mut sfx_engine = SfxEngine::new();
 
