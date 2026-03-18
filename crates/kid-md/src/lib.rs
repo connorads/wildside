@@ -2193,7 +2193,7 @@ fn cram_rgb(cram: &[u8], palette_index: usize) -> [u8; 3] {
 
 #[inline]
 fn scale_channel(value: u8) -> u8 {
-    (u16::from(value) * 255 / 7) as u8
+    ((u16::from(value) * 255 + 3) / 7) as u8
 }
 
 #[inline]
@@ -2583,8 +2583,9 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE,
-        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, probe_rom,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE, cram_rgb,
+        scale_channel, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus,
+        Z80Shared, probe_rom,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2717,6 +2718,20 @@ mod tests {
             peak < 0.02,
             "expected silent PSG reset output, got peak {peak}"
         );
+    }
+
+    #[test]
+    fn scale_channel_matches_megadrive_rgb_rounding() {
+        let expanded: Vec<u8> = (0..=7).map(scale_channel).collect();
+
+        assert_eq!(expanded, vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]);
+    }
+
+    #[test]
+    fn cram_rgb_decodes_3bit_channels_from_cram_words() {
+        let cram = [0x0E, 0xEE];
+
+        assert_eq!(cram_rgb(&cram, 0), [0xFF, 0xFF, 0xFF]);
     }
 
     #[test]

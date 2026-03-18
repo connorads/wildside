@@ -62,5 +62,27 @@ impl MdColour {
 }
 
 fn expand_channel(value: u8) -> u8 {
-    ((u16::from(value) * 255) / 7) as u8
+    ((u16::from(value) * 255 + 3) / 7) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MdColour, expand_channel};
+
+    #[test]
+    fn expands_megadrive_channels_using_oracle_rgb_rounding() {
+        let expanded: Vec<u8> = (0..=7).map(expand_channel).collect();
+
+        assert_eq!(expanded, vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]);
+    }
+
+    #[test]
+    fn decodes_rgb_components_from_packed_md_colour_word() {
+        let colour = MdColour::from_word(0x0EEE);
+
+        assert_eq!(colour.red, 0xFF);
+        assert_eq!(colour.green, 0xFF);
+        assert_eq!(colour.blue, 0xFF);
+        assert_eq!(colour.raw_word, 0x0EEE);
+    }
 }
