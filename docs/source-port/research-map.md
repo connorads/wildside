@@ -69,9 +69,12 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ## Remaining work
 
-- Fidelity hardening: sweep tolerance tightening, per-enemy ASM verification, visual pixel-perfect convergence
-- Perf baseline tracking (#031, open)
+- Structural enemy reworks: BigHoppingSkull (#056), Boss multi-head (#060), HeadyMetal (#062)
+- Orca slope/X-accel (#061 partial)
+- Block timing: Shooter mechanism (#065), Mushroom bounce (#066), Lift animation (#067), Shifting animation (#068)
 - Transform animation visual sprites (needs ROM tile extraction, #033)
+- Fire Demon death trail visual sprites (rendered as generic projectile)
+- RNG-dependent behaviours: Tornado patterns, Fireball perturbation, Robot charge flip timer (documented as DEVIATION)
 
 ## Previously deferred (now done)
 
@@ -86,6 +89,12 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - Diamond Power two-tier cost — done (20 form/tier combos mapped to 8 unique power types)
 - Demo playback — done (#026, extracted from kid.asm:33373-33436, 2 demos alternate on title idle)
 - Per-helmet transform timing — done (#033 partial, correct frame counts from ASM tables)
+- Perf baseline tracking — done (#031, criterion benchmarks: ~92ns/frame idle, ~3µs level load)
+- Per-enemy constant verification — done for 24/28 families against ASM (Phase 4)
+- Block constant verification — done for all 13 block types against ASM (Phase 3)
+- Ghost block collision fix — type 6 (Solid) not 7 (Spikes) (#063)
+- Drill block direction fix — horizontal ±4px/frame not downward (#064)
+- Murder wall constants — ASM-verified (acceleration, max speeds, offset)
 
 ## Validation methodology
 

@@ -22,8 +22,10 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 - Per-helmet transform duration from ASM Kid_Transform tables
 - Source: `kid.asm`, `constants.asm`, helmet-related vars
 
-## Bosses (all done)
-- All 4 boss encounters wired (HeadyMetal, Shishkaboss, BoomerangBosses, BagelBrothers)
+## Bosses (wired, fidelity gaps remain)
+- All 4 boss encounters wired as single-object entities
+- TODO(fidelity): multi-head system for Shishkaboss, BoomerangBosses, BagelBrothers (#060)
+- TODO(fidelity): HeadyMetal fire rate and death phase (#062)
 - Source: boss enemy modules, VRAM/resource loading code
 
 ## Level transitions (done)
@@ -44,3 +46,11 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 ## Audio and GEMS (done)
 - GemsAudioEngine (Z80+YM2612+PSG from ROM), SDL2 audio, full FM+PSG
 - Source: `sound/`, `doc/sound.txt`, `.cache/references/gems`, `.cache/references/gemsplay`
+
+## Fidelity status
+- Oracle sweep: **63/69 levels pass at 0px tolerance**, 6 errors (oracle warp bug)
+- Advisory fields: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` (oracle-pause artefacts)
+- Authoritative fields (0 diffs): score, diamonds, position, camera, game_mode, level_id
+- Determinism: verified — identical traces from repeated scenarios
+- Code annotations: 7 TODO(fidelity), 6 DEVIATION, 0 UNVERIFIED
+- Perf: criterion benchmarks ~92ns/frame idle, ~3µs level load
