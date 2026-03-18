@@ -542,8 +542,8 @@ impl NativeRuntime {
                 friendly: true,
                 gravity: 0,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
     }
@@ -575,8 +575,8 @@ impl NativeRuntime {
                 friendly: true,
                 gravity: 0,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
 
@@ -688,8 +688,8 @@ impl NativeRuntime {
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
             homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+            speed_cap: 0,
+            wall_bounce: false,
         });
     }
 

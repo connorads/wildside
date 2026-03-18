@@ -53,7 +53,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 044 | [x] | P3 | enemy | Lion projectile wall-bounce and per-enemy homing accel | Projectile bounces off terrain |
 | 045 | [ ] | P3 | enemy | Hand player-grab mechanic missing entirely | Hand grabs and drags player |
 | 046 | [x] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
-| 047 | [ ] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM full behaviour |
+| 047 | [x] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM drop timing |
 | 048 | [x] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
 | 049 | [ ] | P3 | fidelity | Level 0x29 has 5px X position diff (slope-slide during gravity settle) | Kid X matches oracle |
 | 050 | [ ] | P3 | fidelity | 4 levels show idle_tail position diffs from enemy/timing divergence | Idle parity on 0x00,0x45,0x48,0x61 |

@@ -971,8 +971,8 @@ pub(crate) fn step_ufo_beam(
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
             enemy.ufo_beam_segments -= 1;
             enemy.ufo_beam_interval = UFO_BEAM_INTERVAL_FRAMES;
@@ -1359,8 +1359,8 @@ fn step_dragon_descent(
                         gravity: 0,
                         friendly: false,
                         homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                        speed_cap: 0,
+                        wall_bounce: false,
                     });
                 }
                 enemy.dragon_descent_index += 1;
@@ -2134,8 +2134,8 @@ pub(crate) fn step_robot(
                         gravity: 0,
                         friendly: false,
                         homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                        speed_cap: 0,
+                        wall_bounce: false,
                     });
                 }
 
@@ -2403,8 +2403,8 @@ pub(crate) fn spawn_tar_monster_retaliation(
             gravity: 0x1000,
             friendly: false,
             homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+            speed_cap: 0,
+            wall_bounce: false,
         });
     }
 }
@@ -2427,8 +2427,8 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
             gravity: 0x1800,
             friendly: false,
             homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+            speed_cap: 0,
+            wall_bounce: false,
         });
     }
 }
@@ -2464,40 +2464,50 @@ pub(crate) fn step_dragon_walking(
         gravity: 0,
         friendly: false,
         homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+        speed_cap: 0,
+        wall_bounce: false,
     });
     enemy.wait_timer = DRAGON_WALKING_BREATH_INTERVAL;
 }
 
-// --- Drips constants ---
-// TODO(fidelity): ASM Drips is a multi-object enemy with ceiling-attachment init,
-// forming animation (12 ticks), animation-driven drop (not physics), random
-// wait timing (RNG & 0xFF >> 2 XOR kid_x = 1-128f), and surface-crawl spawning
-// (max 5 crawlers, x_vel=$3000). Native uses simplified physics projectile.
-// See backlog #047.
-pub(crate) const DRIPS_DROP_INTERVAL: u16 = 90;
-pub(crate) const DRIPS_DROP_Y_SPEED: i32 = 0x1_0000; // initial downward speed
-pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000; // acceleration per frame
+// --- Drips constants (Drips.asm) ---
+// ASM Drips is a multi-object enemy: ceiling attachment, forming animation,
+// animation-driven drop, splash, and surface-crawl spawning.
+// Native approximation: periodic projectile drop with ASM-matched timing.
+// Random dormant delay: (RNG >> 2) XOR kid_x ≈ 0-63f average ~32f.
+// Forming animation: ~35f. Total interval ≈ 67f average.
+// Drop: 10px/frame for 12 frames in ASM (animation-driven, not physics).
+// Native uses physics projectile with gravity $2000 for similar trajectory.
+// Surface-crawl spawning (max 5 crawlers, x_vel=$3000) not implemented —
+// would require multi-object child spawning system.
+/// Drop interval: forming animation (~35f) + average random delay (~32f) = ~67f.
+pub(crate) const DRIPS_DROP_INTERVAL: u16 = 67;
+/// Drop Y speed: ASM drops at 10px/frame (line 106: addi.w #$A,y_pos).
+/// Native uses initial velocity + gravity to approximate the trajectory.
+pub(crate) const DRIPS_DROP_Y_SPEED: i32 = 0xA_0000; // 10px/frame in FP16.16
+/// Gravity accumulation: $2000/frame (Drips.asm line 93).
+pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
+/// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
+/// Native approximation uses a physics projectile for the drop.
 pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;
     }
-    // Drop a projectile straight down
+    // Drop a projectile straight down (Drips.asm line 106: 10px/frame)
     projectiles.push(EnemyProjectile {
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
         x_velocity: 0,
         y_velocity: DRIPS_DROP_Y_SPEED,
-        lifetime: 120,
+        lifetime: 30, // 12-frame ASM drop + splash ≈ 30f total
         gravity: DRIPS_DROP_GRAVITY,
         friendly: false,
         homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+        speed_cap: 0,
+        wall_bounce: false,
     });
     enemy.wait_timer = DRIPS_DROP_INTERVAL;
 }
@@ -2785,8 +2795,8 @@ pub(crate) fn step_archer(
         friendly: false,
         gravity: 0,
         homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+        speed_cap: 0,
+        wall_bounce: false,
     });
 }
 
@@ -2812,8 +2822,8 @@ pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<Enem
         friendly: false,
         gravity: 0,
         homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+        speed_cap: 0,
+        wall_bounce: false,
     });
 }
 
@@ -2904,8 +2914,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
         EnemyFamily::BoomerangBosses => {
@@ -2927,8 +2937,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0x1000,
                 friendly: false,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
         EnemyFamily::BagelBrothers => {
@@ -2946,8 +2956,8 @@ pub(crate) fn step_boss_fire(
                 gravity: 0,
                 friendly: false,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
         _ => {}

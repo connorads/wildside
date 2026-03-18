@@ -2218,8 +2218,8 @@ impl NativeRuntime {
                 gravity: 0x1000,
                 friendly: false,
                 homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+                speed_cap: 0,
+                wall_bounce: false,
             });
         }
 
@@ -8239,8 +8239,8 @@ mod tests {
             friendly: false,
             gravity: 0,
             homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+            speed_cap: 0,
+            wall_bounce: false,
         }];
         // Simulate step_projectiles inline (since it's on NativeRuntime)
         projs.retain_mut(|p| {
@@ -8269,8 +8269,8 @@ mod tests {
             friendly: false,
             gravity: 0,
             homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+            speed_cap: 0,
+            wall_bounce: false,
         }];
         // Step once: lifetime goes 1→0, projectile moves
         projs.retain_mut(|p| {
@@ -11610,8 +11610,8 @@ mod tests {
             friendly: true,
             gravity: JUGGERNAUT_SKULL_GRAVITY,
             homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
+            speed_cap: 0,
+            wall_bounce: false,
         });
 
         rt.step_projectiles();
