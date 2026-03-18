@@ -253,4 +253,90 @@ impl NativeRuntime {
             true
         });
     }
+
+    /// Process block hit effects from the current frame's slice (prizes, bounces,
+    /// lifts, drills, teleporter warps).
+    pub(crate) fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {
+        // Prize block item spawning: spawn floating visual + debris then apply prize
+        if let Some((content, x_px, y_px)) = slice.prize_block_hit {
+            self.blocks_hit_this_frame += 1;
+            self.floating_items.push(FloatingItem {
+                x_px,
+                y_px,
+                remaining: 30,
+                content,
+            });
+            self.block_destroy_effects.push(BlockDestroyEffect {
+                x_px,
+                y_px,
+                remaining: 8,
+            });
+            self.apply_prize_content(content);
+        }
+
+        // Metal block bounce animation
+        if let Some((cx, cy)) = slice.metal_block_hit {
+            self.blocks_hit_this_frame += 1;
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: cx,
+                cell_y: cy,
+                remaining: 8,
+            });
+        }
+
+        // Smash block destruction effect
+        if let Some((x_px, y_px)) = slice.smash_block_hit {
+            self.blocks_hit_this_frame += 1;
+            self.block_destroy_effects.push(BlockDestroyEffect {
+                x_px,
+                y_px,
+                remaining: 8,
+            });
+        }
+
+        // Lift block: headbutt spawns a rising platform (ASM sub_113C0)
+        if let Some((x_px, y_px)) = slice.lift_block_hit {
+            let col = x_px / 16;
+            let row = y_px / 16;
+            self.block_state.lift_platforms.push(LiftPlatform {
+                x_pos: u32::from(x_px) << 16,
+                y_pos: u32::from(y_px) << 16,
+                y_velocity: 0,
+                age: 0,
+                width_px: 16,
+                source_col: col,
+                source_row: row,
+                block_erased: false,
+            });
+        }
+
+        // Drill block: headbutt spawns a horizontal projectile (ASM sub_1129C: ±4px/frame)
+        if let Some((x_fp, y_fp)) = slice.drill_projectile_hit {
+            // Direction based on player position relative to drill block
+            let dir = if slice.player.x_pos >= x_fp { 1i32 } else { -1 };
+            self.projectiles.push(EnemyProjectile {
+                x_pos: x_fp,
+                y_pos: y_fp,
+                x_velocity: dir * 0x4_0000, // 4 px/frame horizontal
+                y_velocity: 0,
+                lifetime: 120,
+                gravity: 0,
+                friendly: false,
+                homing_accel: 0,
+                speed_cap: 0,
+                wall_bounce: false,
+            });
+        }
+
+        // Teleporter block: warp player to destination
+        if let Some((cell_x, cell_y)) = slice.teleporter_contact
+            && let Some(block_list) = self.block_list.as_ref()
+                && let Some(tp) = block_list.teleporter_at(cell_x, cell_y) {
+                    // Warp to destination position
+                    slice.player.x_pos = (u32::from(tp.dest_x) * 16) << 16;
+                    slice.player.y_pos = (u32::from(tp.dest_y) * 16) << 16;
+                    slice.player.y_velocity = 0;
+                    slice.player.on_ground = true;
+                }
+    }
 }

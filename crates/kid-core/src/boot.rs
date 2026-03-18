@@ -351,4 +351,163 @@ impl NativeRuntime {
         self.level_start_frame = Some(self.frame_index);
         self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
     }
+
+    /// Returns true if the frame should continue to physics/gameplay processing.
+    /// Returns false for early-return cases (non-alive lifecycle, paused, etc.).
+    pub(crate) fn step_lifecycle(&mut self, input: FrameInput) -> bool {
+        if matches!(self.boot_state, BootState::EndingSequence { .. }) {
+            self.opening_slice = None;
+            return false;
+        }
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. }
+                | BootState::LevelSkipHold
+                | BootState::InGame
+                | BootState::DemoPlay { .. }
+        ) {
+            self.opening_slice = None;
+            self.progression.current_form = PlayerForm::TheKid;
+            self.progression.pending_form = None;
+            self.progression.number_lives = 3;
+            self.progression.number_continues = 3;
+            self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+            self.progression.invulnerable_frames = 0;
+            self.paused = false;
+            self.pause_toggle_pending = false;
+            self.player_lifecycle = PlayerLifecycle::Alive;
+            self.death_camera_lock = None;
+            return false;
+        }
+
+        match self.player_lifecycle {
+            PlayerLifecycle::Alive => {
+                if self.progression.invulnerable_frames > 0 {
+                    self.progression.invulnerable_frames -= 1;
+                }
+                if self.progression.form_change_flash_frames > 0 {
+                    self.progression.form_change_flash_frames -= 1;
+                }
+                self.resolve_pending_form_change();
+            }
+            PlayerLifecycle::DeathWindup { remaining_frames } => {
+                self.advance_death_windup_motion();
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::DeathWindup {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    self.enter_death_hidden_state();
+                }
+                return false;
+            }
+            PlayerLifecycle::Dying { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::Dying {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else if self.progression.number_lives == 0 {
+                    self.player_lifecycle = PlayerLifecycle::GameOver {
+                        remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
+                    };
+                } else if self.try_switch_player() {
+                    // 2P: both have lives, switch turns
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                } else {
+                    self.reload_block_grid_for_level(self.current_level);
+                    self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+                    self.level_timer = LevelTimer::new();
+                    self.level_prize_collected = false;
+                    self.clocks_collected = 0;
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+                    };
+                }
+                return false;
+            }
+            PlayerLifecycle::Respawning { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                    self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
+                }
+                return false;
+            }
+            PlayerLifecycle::LevelComplete { remaining_frames } => {
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::LevelComplete {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    self.advance_level();
+                }
+                return false;
+            }
+            PlayerLifecycle::GameOver { remaining_frames } => {
+                // ASM: "GAME OVER" display, then transition to continue screen or title.
+                if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::GameOver {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else if self.progression.number_continues > 0 {
+                    // Transition to continue countdown screen
+                    self.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+                        remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
+                    };
+                } else if self.try_switch_player() {
+                    self.player_lifecycle = PlayerLifecycle::Alive;
+                } else {
+                    self.return_to_title();
+                }
+                return false;
+            }
+            PlayerLifecycle::ContinueCountdown { remaining_frames } => {
+                // ASM Continue_Screen: button press uses continue, timeout goes to title.
+                let any_button = input.a || input.b || input.c || input.start;
+                if any_button {
+                    // Use a continue: restore lives and respawn at current level.
+                    // ASM Use_Continue: clears helmet, diamonds, resets to 3 lives / 2 HP.
+                    self.progression.number_continues -= 1;
+                    self.progression.number_lives = 3;
+                    self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+                    self.progression.current_form = PlayerForm::TheKid;
+                    self.progression.pending_form = None;
+                    self.progression.diamond_count = 0;
+                    self.reload_block_grid_for_level(self.current_level);
+                    self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+                    self.level_timer = LevelTimer::new();
+                    self.level_prize_collected = false;
+                    self.clocks_collected = 0;
+                    self.player_lifecycle = PlayerLifecycle::Respawning {
+                        remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+                    };
+                } else if remaining_frames > 1 {
+                    self.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+                        remaining_frames: remaining_frames - 1,
+                    };
+                } else {
+                    // Countdown expired without input — return to title
+                    self.return_to_title();
+                }
+                return false;
+            }
+        }
+
+        if matches!(self.boot_state, BootState::LevelSkipHold) {
+            return false;
+        }
+
+        if self.level_skip_resume_hold {
+            return false;
+        }
+
+        if self.paused {
+            return false;
+        }
+
+        true
+    }
 }

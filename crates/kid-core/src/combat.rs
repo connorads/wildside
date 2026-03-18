@@ -652,3 +652,117 @@ pub(crate) fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnap
         EnemyContactResult::None
     )
 }
+
+impl NativeRuntime {
+    /// Check all frame hazards in priority order. Returns true if the frame was
+    /// consumed by a hazard (damage, death, level transition) — caller should
+    /// return immediately. Returns false if no hazard fired and gameplay continues.
+    pub(crate) fn resolve_frame_hazards(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+        pre_physics_y_velocity: i32,
+        pre_physics_y_pos: u32,
+    ) -> bool {
+        // Level timer: tick down and kill the player on expiry
+        if self.level_timer.tick() {
+            self.opening_slice = Some(*slice);
+            self.progression.number_hitpoints = 0;
+            self.begin_death_windup();
+            return true;
+        }
+
+        // Pit death: falling below the level floor boundary is instant death
+        if self.fell_below_level(slice) {
+            self.opening_slice = Some(*slice);
+            self.progression.number_hitpoints = 0;
+            self.begin_death_windup();
+            return true;
+        }
+
+        // Spike death: contacting a spike cell is instant death
+        if slice.player.on_spikes {
+            self.opening_slice = Some(*slice);
+            self.progression.number_hitpoints = 0;
+            self.begin_death_windup();
+            return true;
+        }
+
+        // Projectiles: advance and damage player on hit
+        self.step_projectiles();
+        if self.projectile_hits_player(slice) {
+            self.opening_slice = Some(*slice);
+            self.apply_damage();
+            return true;
+        }
+
+        // Murder wall: advance and damage player on contact.
+        self.step_murder_wall();
+        if self.murder_wall_kills_player(slice) && self.progression.invulnerable_frames == 0 {
+            self.apply_damage();
+            self.opening_slice = Some(*slice);
+            return true;
+        }
+
+        // Teleporter: stepping on a teleporter block warps the player
+        if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
+            self.opening_slice = Some(*slice);
+            // Same-level teleport: reposition. Cross-level: trigger level skip.
+            if dest_map == self.current_level.0 {
+                if let Some(ref mut s) = self.opening_slice {
+                    s.player.x_pos = u32::from(dest_x) << 20; // blocks to FP16.16
+                    s.player.y_pos = u32::from(dest_y as u16) << 20;
+                }
+            } else {
+                self.pending_level_skip = Some(LevelId(dest_map));
+            }
+            return true;
+        }
+
+        // Flag collision: touching the flag completes the level
+        if self.player_touches_flag(slice) {
+            self.apply_level_completion_bonuses();
+            self.opening_slice = Some(*slice);
+            self.player_lifecycle = PlayerLifecycle::LevelComplete {
+                remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
+            };
+            return true;
+        }
+
+        // Stomp check: kill enemies by landing on them from above
+        if self.process_stomps(slice, pre_physics_y_velocity, pre_physics_y_pos) {
+            self.opening_slice = Some(*slice);
+            return true;
+        }
+
+        // Combat abilities: sword/axe/beam/charge damage enemies
+        self.process_sword_hits(slice);
+        self.process_friendly_projectile_hits();
+        self.process_berzerker_charge_hits(slice);
+
+        // Diamond collection: touching a Diamond picks it up
+        self.collect_diamonds(slice);
+
+        // Contact damage with knockback
+        if let Some(enemy_x) = self.find_contact_damage_source(slice) {
+            self.apply_damage_with_knockback(slice, enemy_x);
+            self.opening_slice = Some(*slice);
+            return true;
+        }
+
+        if self.should_apply_level_one_opening_hit(slice, input) {
+            self.opening_slice = Some(*slice);
+            self.apply_damage();
+            return true;
+        }
+        if self.should_apply_level_one_late_hazard(slice) {
+            slice.camera.x_pos = LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP;
+            slice.camera.y_pos = 0;
+            self.opening_slice = Some(*slice);
+            self.apply_damage();
+            return true;
+        }
+
+        false
+    }
+}
