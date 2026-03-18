@@ -2,22 +2,22 @@
 
 Canonical tracker for bugs and missing features. See `CLAUDE.md` for iteration protocol.
 
-Status: `[ ]` open, `[~]` in progress, `[x]` done
+Status: `[ ]` open, `[~]` in progress, `[x]` done, `[-]` won't fix / not a bug
 Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 001 | [ ] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
-| 002 | [ ] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
+| 001 | [~] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
+| 002 | [~] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
 | 003 | [~] | P1 | audio | No music or sound effects playing | Load level, confirm BGM and SFX |
-| 004 | [ ] | P1 | render | Colour palette wrong (floor/tree colours reversed) | Capture frame, compare to oracle |
-| 005 | [ ] | P1 | render | No parallax background | Scroll right, confirm background layers move |
-| 006 | [ ] | P1 | enemy | Dragon moonwalking (sprite direction vs movement) | Watch dragon, confirm facing matches walk dir |
+| 004 | [x] | P1 | render | Colour palette wrong (floor/tree colours reversed) | Capture frame, compare to oracle |
+| 005 | [x] | P1 | render | No parallax background | Scroll right, confirm background layers move |
+| 006 | [~] | P1 | enemy | Dragon moonwalking (sprite direction vs movement) | Watch dragon, confirm facing matches walk dir |
 | 007 | [x] | P1 | camera | Screen shakes/moves weirdly when hit | Take damage, confirm camera stays stable |
 | 008 | [x] | P1 | render | Unwanted dark overlay effect when hit | Take damage, confirm no full-screen tint |
 | 009 | [x] | P2 | menu | No menu — spawns directly into game | Launch, confirm title screen appears |
 | 010 | [~] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
-| 011 | [ ] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Capture frame, compare brick tiles to oracle |
+| 011 | [~] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Capture frame, compare brick tiles to oracle |
 | 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
 | 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | Prize blocks vanish on hit (correct behaviour) |
 | 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
@@ -45,6 +45,15 @@ GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/
 Audio init prints status to stderr. If no sound, check SDL2 audio device availability.
 Now triggers BGM on first InGame entry (was previously triggered at init).
 
+### 004 — Palette (FIXED)
+Root cause: theme-specific palette permutation tables were not applied. The ASM art
+decompression remaps palette indices per theme (Forest, City, Mountain have unique tables).
+Fix: load 16-byte permutation tables and reorder palette entries during level visual loading.
+
+### 005 — Parallax (NOT A BUG)
+Parallax IS working. bgscroll data loads correctly, `background_scroll_x_px()` applies
+camera-relative rates. Effect is subtle (e.g. Forest: 26% camera speed) matching original.
+
 ### 006 — Dragon moonwalking
 Both Dragon (flying) and DragonWalking (pacer) correctly set facing in their step functions.
 Sprite system flips based on facing. Needs live reproduction to identify specific case.
@@ -53,9 +62,17 @@ Sprite system flips based on facing. Needs live reproduction to identify specifi
 DragonWalking breath, Drips drops, Archer arrows, and boss retaliation projectiles are wired.
 Mark as "investigate" — some families may still be missing projectile spawning.
 
-### 013 — P-blocks
+### 011 — Bricks half-broken
+Block rendering uses `block_mapping.resolve(skin, block_type)` with theme-specific tile quads.
+With palette permutation now applied, colours should be correct. Skin-to-visual mapping needs
+playtest verification — may look better now that palette is fixed.
+
+### 013 — P-blocks (NOT A BUG)
 Prize blocks vanish when hit (cell cleared to empty). This is correct per original behaviour.
-The block was already gone; the playtest may have expected a "used block" visual state.
+
+### 015 — Wall grab
+Only right wall grab implemented. Original game supports both left and right. Left wall
+grab needs `left_wall_sticky` state and mirrored logic in `apply_wall_collision()`.
 
 ### 017/019 — Helmets and form transform
 `apply_prize_content` → `queue_form_change` → `resolve_pending_form_change` chain is wired.
