@@ -3081,7 +3081,15 @@ pub(crate) fn step_tracker(
     let target_y = (py as i64).saturating_sub(0x28 << 16); // 40px above player
 
     // Horizontal: chase player at $8000 (0.5 px/frame)
-    let x_chase_speed: i32 = 0x8000;
+    // HeadyMetal ASM: X velocity forced to 0 during first 4 hit phases ($3E < 4).
+    // Phase = 37 - current_hp, so phase < 4 means hp > 33.
+    let x_chase_speed: i32 = if matches!(enemy.family, EnemyFamily::HeadyMetal)
+        && enemy.hit_points > 33
+    {
+        0 // Early phases: vertical-only tracking
+    } else {
+        0x8000
+    };
     if (px as i64) > ex {
         enemy.x_velocity = x_chase_speed;
         enemy.facing = Direction::Right;
@@ -3118,7 +3126,15 @@ pub(crate) fn step_boss_fire(
         enemy.wait_timer -= 1;
         return;
     }
-    enemy.wait_timer = BOSS_FIRE_INTERVAL;
+    // HeadyMetal ASM: fire rate is animation-driven, faster in later phases.
+    // Phase = 37 - hp. Phases < 6 (hp > 31): slower animation → ~120 frame interval.
+    // Phases >= 6 (hp <= 31): rapid-fire animation → ~30 frame interval.
+    let interval = if matches!(enemy.family, EnemyFamily::HeadyMetal) {
+        if enemy.hit_points > 31 { 120 } else { 30 }
+    } else {
+        BOSS_FIRE_INTERVAL
+    };
+    enemy.wait_timer = interval;
 
     if projectiles.len() >= MAX_PROJECTILES {
         return;
