@@ -448,6 +448,21 @@ enum Commands {
         #[arg(long)]
         layer: Option<String>,
     },
+    /// Import a BK2 TAS recording as a DynamicScenario JSON.
+    ImportTas {
+        /// Path to the .bk2 file
+        #[arg(long)]
+        bk2: PathBuf,
+        /// Output directory (default: .cache/tas-imports/<slug>/)
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Frames between checkpoints (default: 300 ≈ 5s at 60fps)
+        #[arg(long, default_value_t = 300)]
+        checkpoint_interval: usize,
+        /// Override the auto-detected slug
+        #[arg(long)]
+        slug: Option<String>,
+    },
     /// Per-layer frame diagnosis: render each layer solo, report pixel contribution.
     DiagnoseFrame {
         #[arg(long)]
@@ -1026,6 +1041,36 @@ fn main() -> Result<()> {
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
             sweep::capture_frames(&manifest, level_id, &frame_indices, &output, &filter)?;
+        }
+        Commands::ImportTas {
+            bk2,
+            out,
+            checkpoint_interval,
+            slug,
+        } => {
+            let repo_root = current_dir()?;
+            let mut import = tas::parse_bk2(&bk2)?;
+            if let Some(slug_override) = slug {
+                import.slug = slug_override;
+            }
+            let scenario = tas::bk2_to_scenario(&import, checkpoint_interval);
+            let out_dir = out.unwrap_or_else(|| {
+                repo_root
+                    .join(".cache/tas-imports")
+                    .join(&scenario.slug)
+            });
+            fs::create_dir_all(&out_dir)
+                .with_context(|| format!("failed to create {}", out_dir.display()))?;
+            let scenario_file = out_dir.join("scenario.json");
+            let json = serde_json::to_vec_pretty(&scenario)?;
+            fs::write(&scenario_file, &json)
+                .with_context(|| format!("failed to write {}", scenario_file.display()))?;
+            let duration_secs = import.total_frames as f64 / 60.0;
+            println!("imported TAS: {}", import.slug);
+            println!("  frames: {}", import.total_frames);
+            println!("  duration: {duration_secs:.1}s ({:.1}m)", duration_secs / 60.0);
+            println!("  checkpoints: {}", scenario.checkpoints.len());
+            println!("  scenario: {}", scenario_file.display());
         }
         Commands::DiagnoseFrame {
             rom,
