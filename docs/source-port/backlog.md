@@ -39,11 +39,11 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 030 | [x] | P3 | infra | Add GitHub Actions CI running `verify-slice-fast` | Tests run automatically on every push |
 | 031 | [x] | P3 | infra | Add performance baseline tracking | criterion benchmarks: ~92ns/frame idle, ~3µs level load |
 | 032 | [x] | P2 | fidelity | Per-form Diamond Power effects (20 unique abilities) | Each form has correct visual and damage pattern |
-| 033 | [~] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | Real spinning sprite + palette cycling per-helmet |
+| 033 | [x] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | Original transform art/timing loaded for all forms, including Juggernaut composite rendering |
 | 034 | [x] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native had 3) | Boot captures match oracle |
 | 035 | [-] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | ORACLE LIMITATION — jgenesis warp bug, native works; determinism + soak tested |
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
-| 037 | [~] | P3 | fidelity | Floor-snap settling diffs: 0x52 (+14px Y), 0x29 (+5px X), 0x02/0x24/0x51 (1px cam_y) | Needs full physics step during init |
+| 037 | [~] | P3 | fidelity | Floor-snap settling diffs: 0x52 (~2px cam_y, ~2.25px kid_y), 0x29 (+5px X), 0x24/0x51 (1px cam_y) | Needs full physics step during init |
 | 038 | [-] | P3 | fidelity | Camera Y settling 1px diffs on 0x02, 0x24, 0x51 | MERGED with #037 — same root cause |
 | 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
 | 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
@@ -68,7 +68,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 059 | [x] | P3 | enemy | Fireball ceiling bounce uses Sphere formula, should be random+cap | Fireball bounce matches ASM |
 | 060 | [x] | P2 | enemy | Boss multi-head system (Shishkaboss/BoomerangBosses/BagelBrothers) | 3 heads per boss with ASM offsets + per-head HP |
 | 061 | [x] | P3 | enemy | Orca missing ceiling bounce, slope handling, X accel during lunge | All 3 from ASM: ceiling bounce, slope re-lunge, X accel $200/frame |
-| 062 | [ ] | P3 | enemy | HeadyMetal death wobble visual (rendering-only) | Phase-dependent fire + X gate done; wobble is cosmetic |
+| 062 | [~] | P3 | enemy | HeadyMetal death wobble visual (rendering-only) | ASM-timed wobble death effect wired; still needs oracle-backed visual verification |
 | 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
 | 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
 | 065 | [-] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | DEVIATION — structural: ASM EvanescentBlock_Trigger per-block, native global timer |
@@ -158,16 +158,18 @@ All other pacer families verified correct: Goat/Armadillo/Crab ($10000), Driller
 Scorpion (fixed $18000), FireDemon/Robot/Ninja ($8000).
 
 ### 037 — Floor-snap misses terrain (PARTIALLY FIXED)
-Gravity simulation in `level_respawn_slice_with_floor_snap` fixed most levels but 2 remain:
-- **Level 0x52**: native=351px oracle=337.25px (+14px). Floor at col 2 row 21 is outside
-  player hitbox (X=11-21 → cols 0-1). ASM level init runs full game frame via
-  `Hibernate_Object_1Frame` (kid.asm:7710) with real collision detection. Native uses
-  3-point probe that doesn't reach col 2.
-- **Level 0x29**: native X=672 oracle X=677 (+5px). Slope-slide during gravity settling
-  accumulates X drift the simplified simulation doesn't reproduce.
-- **Levels 0x02, 0x24, 0x51**: 1px camera_y dead-zone rounding differences.
-Fix: replace simplified gravity simulation with actual `step()` calls during init, or
-widen floor probe to cover adjacent columns. Both masked by oracle-pause tolerance (32px).
+Gravity simulation in `level_respawn_slice_with_floor_snap` fixed most levels but a small tail remains:
+- **Level 0x52**: native `camera_y=0x00B30000`, oracle `0x00B50000` (+2px);
+  native `kid_y=0x014F0000`, oracle `0x01514000` (+2.25px). The wide spawn-support
+  fallback still snaps onto support outside the narrow hitbox on frame 1.
+- **Level 0x29**: native `camera_x=0x02040000`, oracle `0x02090000` (+5px);
+  native `kid_x=0x02A00000`, oracle `0x02A50000` (+5px). Slope-slide during gravity settling
+  still accumulates X drift the simplified init path doesn't reproduce.
+- **Levels 0x24, 0x51**: 1px `camera_y` dead-zone rounding differences remain.
+- **Level 0x02**: now clean apart from the usual advisory `number_lives` field.
+Fix: replace the remaining spawn-support shortcut with an init path that reproduces the
+real frame-step collision/camera convergence, not a widened probe. Current diffs are all
+classified advisory/oracle-limited in the focused sweeps, but they are still fidelity debt.
 
 ### 038 — Camera Y settling dead-zone (FIXED)
 8 levels showed +1 to +7px camera_y diffs at level_settle. The asymmetric dead-zone

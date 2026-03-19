@@ -7,8 +7,8 @@ use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
 use crate::player::{
-    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
-    PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, PlatformVisuals, PlayerFormVisuals,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -25,15 +25,41 @@ const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
+const FLAG_ART_PATH: &str = "artunc/End_of_level_Flag_(6_frames).bin";
+const FLAG_BOTTOM_ART_PATH: &str = "artunc/Flag_bottom.bin";
 // Enemy art/palette paths removed — now defined inline in ENEMY_FAMILIES table.
 const HORIZONTAL_PLATFORM_ART_PATH: &str = "artcomp/Horizontal_platform.bin";
 const VERTICAL_PLATFORM_ART_PATH: &str = "artcomp/Vertical_platform.bin";
 const KID_PALETTE_PATH: &str = "palette_kid/Kid.bin";
+const SKYCUTTER_PALETTE_PATH: &str = "palette_kid/Skycutter.bin";
+const SKYCUTTER_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Skycutter_Transformation.bin";
+const CYCLONE_PALETTE_PATH: &str = "palette_kid/Cyclone.bin";
+const CYCLONE_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Cyclone_Transformation.bin";
+const RED_STEALTH_PALETTE_PATH: &str = "palette_kid/Red_Stealth.bin";
+const RED_STEALTH_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Red_Stealth_Transformation.bin";
+const EYECLOPS_PALETTE_PATH: &str = "palette_kid/Eyeclops.bin";
+const EYECLOPS_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Eyeclops_Transformation.bin";
+const JUGGERNAUT_PALETTE_PATH: &str = "palette_kid/Juggernaut.bin";
+const JUGGERNAUT_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Juggernaut_Transformation.bin";
 const IRON_KNIGHT_PALETTE_PATH: &str = "palette_kid/Iron_Knight.bin";
 const IRON_KNIGHT_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Iron_Knight_Transformation.bin";
+const BERZERKER_PALETTE_PATH: &str = "palette_kid/Berzerker.bin";
+const BERZERKER_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Berzerker_Transformation.bin";
+const MANIAXE_PALETTE_PATH: &str = "palette_kid/Maniaxe.bin";
+const MANIAXE_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Maniaxe_Transformation.bin";
+const MICROMAX_PALETTE_PATH: &str = "palette_kid/Micromax.bin";
+const MICROMAX_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Micromax_Transformation.bin";
 const BLOCK_MAPPING_PATH: &str = "block_mappings.bin";
 const PLAYER_FORM_THE_KID: u16 = 0;
+const PLAYER_FORM_SKYCUTTER: u16 = 1;
+const PLAYER_FORM_CYCLONE: u16 = 2;
+const PLAYER_FORM_RED_STEALTH: u16 = 3;
+const PLAYER_FORM_EYECLOPS: u16 = 4;
+const PLAYER_FORM_JUGGERNAUT: u16 = 5;
 const PLAYER_FORM_IRON_KNIGHT: u16 = 6;
+const PLAYER_FORM_BERZERKER: u16 = 7;
+const PLAYER_FORM_MANIAXE: u16 = 8;
+const PLAYER_FORM_MICROMAX: u16 = 9;
 const THEME_NAMES: [&str; 11] = [
     "theme0", "sky", "ice", "hill", "island", "desert", "swamp", "mountain", "cave", "forest",
     "city",
@@ -50,6 +76,7 @@ pub struct NativeLevelVisuals {
     pub hud: HudVisuals,
     pub player: PlayerVisuals,
     pub enemies: EnemyVisuals,
+    pub flag: FlagVisuals,
     pub platforms: PlatformVisuals,
 }
 
@@ -60,7 +87,10 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         .parsed_header
         .as_ref()
         .ok_or_else(|| anyhow!("level 0x{level_id:02X} is missing header metadata"))?;
-    let decoded = manifest.decoded_levels.iter().find(|d| d.level_id == level_id);
+    let decoded = manifest
+        .decoded_levels
+        .iter()
+        .find(|d| d.level_id == level_id);
 
     let foreground_theme = resolve_theme_name(header.level_theme)
         .ok_or_else(|| anyhow!("unsupported foreground theme id {}", header.level_theme))?;
@@ -101,7 +131,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "failed to parse level 0x{level_id:02X} foreground layout"
     ))?;
 
-    let foreground_tiles = load_tile_sheet(
+    let mut foreground_tiles = load_tile_sheet(
         manifest,
         "theme",
         find_theme_asset(manifest, &format!("artcomp_fg/{foreground_theme}.bin")).ok_or_else(
@@ -109,7 +139,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         )?,
         "foreground tile sheet",
     )?;
-    let background_tiles = load_tile_sheet(
+    let mut background_tiles = load_tile_sheet(
         manifest,
         "theme",
         find_theme_asset(manifest, &format!("artcomp_bg/{background_theme}.bin")).ok_or_else(
@@ -139,11 +169,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         })?,
         "HUD diamond tile sheet",
     )?;
-    let player = load_player_visuals(manifest)?;
-    let enemies = load_enemy_visuals(manifest)?;
-    let platforms = load_platform_visuals(manifest, foreground_theme)?;
-
-    let mut fg_palette = Palette::from_bytes(&read_root_asset(
+    let fg_palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "theme",
         find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
@@ -151,7 +177,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         )?,
         "foreground palette",
     )?)?;
-    let mut bg_palette = Palette::from_bytes(&read_root_asset(
+    let bg_palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "theme",
         find_theme_asset(manifest, &format!("palette_bg/{background_theme}.bin")).ok_or_else(
@@ -160,16 +186,20 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "background palette",
     )?)?;
 
-    // Apply theme-specific palette permutations (ASM art decompression remapping)
     if let Some(perm) = load_palette_permutation(manifest, fg_permutation_file(header.level_theme))
     {
-        fg_palette.apply_permutation(&perm);
+        foreground_tiles.apply_pixel_permutation(&perm);
     }
     if let Some(perm) =
         load_palette_permutation(manifest, bg_permutation_file(header.background_theme))
     {
-        bg_palette.apply_permutation(&perm);
+        background_tiles.apply_pixel_permutation(&perm);
     }
+
+    let player = load_player_visuals(manifest)?;
+    let enemies = load_enemy_visuals(manifest)?;
+    let flag = load_flag_visuals(manifest, &fg_palette)?;
+    let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
     let palettes = PaletteSet {
         foreground: fg_palette,
@@ -232,6 +262,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         },
         player,
         enemies,
+        flag,
         platforms,
     })
 }
@@ -457,6 +488,51 @@ struct PlayerFrameDescriptor {
 struct PlayerTransformStepDescriptor {
     duration_frames: usize,
     frame: Option<PlayerFrameDescriptor>,
+}
+
+struct PlayerFormSpec {
+    form_id: u16,
+    palette_path: &'static str,
+    palette_family: &'static str,
+    idle: PlayerFrameDescriptor,
+    walk: &'static [PlayerFrameDescriptor],
+    jump_rise: PlayerFrameDescriptor,
+    jump_fall: PlayerFrameDescriptor,
+    transform_palette: Option<(&'static str, &'static str)>,
+    transform_steps: &'static [PlayerTransformStepDescriptor],
+}
+
+const fn pfd(
+    relative_path: &'static str,
+    origin_x: i16,
+    origin_y: i16,
+    width_px: u16,
+    height_px: u16,
+) -> PlayerFrameDescriptor {
+    PlayerFrameDescriptor {
+        relative_path,
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+    }
+}
+
+const fn tfd(
+    duration_frames: usize,
+    frame: PlayerFrameDescriptor,
+) -> PlayerTransformStepDescriptor {
+    PlayerTransformStepDescriptor {
+        duration_frames,
+        frame: Some(frame),
+    }
+}
+
+const fn blank_tfd(duration_frames: usize) -> PlayerTransformStepDescriptor {
+    PlayerTransformStepDescriptor {
+        duration_frames,
+        frame: None,
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -956,6 +1032,23 @@ const VERTICAL_PLATFORM_FRAME: SpriteFrameDescriptor = SpriteFrameDescriptor {
     tile_base_index: 0,
 };
 
+const FLAG_WAVING_FRAMES: [SpriteFrameDescriptor; 6] = [
+    fd(0, 0x06, 0x00, 0x28, 0x20),
+    fd(20, 0x06, 0x00, 0x28, 0x20),
+    fd(40, 0x06, 0x00, 0x28, 0x20),
+    fd(60, 0x06, 0x00, 0x28, 0x20),
+    fd(80, 0x06, 0x00, 0x28, 0x20),
+    fd(100, 0x06, 0x00, 0x28, 0x20),
+];
+
+const FLAG_POLE_BOTTOM_FRAME: SpriteFrameDescriptor = SpriteFrameDescriptor {
+    origin_x: 0x08,
+    origin_y: 0x10,
+    width_px: 0x10,
+    height_px: 0x10,
+    tile_base_index: 0,
+};
+
 const KID_IDLE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     relative_path: "artunc_kid/kid.bin",
     origin_x: 0x0B,
@@ -1008,6 +1101,13 @@ const KID_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
         height_px: 0x20,
     },
 ];
+
+const KID_WALK_1_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/kid_walk_1.bin", 0x0A, 0x01, 0x13, 0x1F);
+const KID_WALK_2_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/kid_walk_2.bin", 0x08, 0x01, 0x11, 0x20);
+const KID_WALK_4_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/kid_walk_4.bin", 0x0A, 0x01, 0x14, 0x1F);
 
 const KID_JUMP_RISE_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     relative_path: "artunc_kid/kid_jumping_1.bin",
@@ -1245,6 +1345,1017 @@ const IRON_KNIGHT_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 16] = [
     },
 ];
 
+const SKYCUTTER_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/skycutter.bin", 0x11, 0x00, 0x1F, 0x1F);
+const SKYCUTTER_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    SKYCUTTER_IDLE_FRAME,
+    pfd("artunc_kid/skycutter_walk_2.bin", 0x11, 0x00, 0x1F, 0x1E),
+    pfd("artunc_kid/skycutter_walk_3.bin", 0x11, 0x00, 0x1F, 0x1E),
+    pfd("artunc_kid/skycutter_walk_4.bin", 0x11, 0x00, 0x1F, 0x1D),
+    pfd("artunc_kid/skycutter_walk_5.bin", 0x11, 0x00, 0x1F, 0x1E),
+    pfd("artunc_kid/skycutter_walk_6.bin", 0x11, 0x00, 0x1F, 0x1F),
+];
+const SKYCUTTER_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 13] = [
+    tfd(8, KID_WALK_2_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/skycutter_transformation_1.bin",
+            0x0E,
+            0x01,
+            0x19,
+            0x20,
+        ),
+    ),
+    tfd(4, KID_WALK_2_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/skycutter_transformation_1.bin",
+            0x0E,
+            0x01,
+            0x19,
+            0x20,
+        ),
+    ),
+    tfd(4, KID_WALK_2_FRAME),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/skycutter_transformation_1.bin",
+            0x0E,
+            0x01,
+            0x19,
+            0x20,
+        ),
+    ),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/skycutter_transformation_2.bin",
+            0x13,
+            0x01,
+            0x23,
+            0x26,
+        ),
+    ),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/skycutter_transformation_3.bin",
+            0x16,
+            0x01,
+            0x2B,
+            0x3F,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/skycutter_transformation_2.bin",
+            0x13,
+            0x01,
+            0x23,
+            0x26,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/skycutter_transformation_3.bin",
+            0x16,
+            0x01,
+            0x2B,
+            0x3F,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/skycutter_transformation_2.bin",
+            0x13,
+            0x01,
+            0x23,
+            0x26,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/skycutter_transformation_1.bin",
+            0x0E,
+            0x01,
+            0x19,
+            0x20,
+        ),
+    ),
+    tfd(
+        5,
+        pfd(
+            "artunc_kid/skycutter_transformation_4.bin",
+            0x13,
+            0x01,
+            0x20,
+            0x20,
+        ),
+    ),
+];
+
+const CYCLONE_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/cyclone.bin", 0x0C, 0x01, 0x16, 0x20);
+const CYCLONE_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/cyclone_walk_1.bin", 0x0C, 0x01, 0x17, 0x20),
+    pfd("artunc_kid/cyclone_walk_2.bin", 0x0C, 0x01, 0x17, 0x20),
+    pfd("artunc_kid/cyclone_walk_3.bin", 0x0C, 0x01, 0x17, 0x1F),
+    pfd("artunc_kid/cyclone_walk_4.bin", 0x0D, 0x01, 0x17, 0x20),
+    pfd("artunc_kid/cyclone_walk_5.bin", 0x0D, 0x01, 0x17, 0x20),
+    pfd("artunc_kid/cyclone_walk_6.bin", 0x0D, 0x01, 0x17, 0x1F),
+];
+const CYCLONE_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 10] = [
+    tfd(16, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/cyclone_transformation_1.bin",
+            0x0F,
+            0x01,
+            0x1D,
+            0x26,
+        ),
+    ),
+    tfd(8, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/cyclone_transformation_1.bin",
+            0x0F,
+            0x01,
+            0x1D,
+            0x26,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/cyclone_transformation_2.bin",
+            0x0F,
+            0x01,
+            0x1F,
+            0x26,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/cyclone_transformation_1.bin",
+            0x0F,
+            0x01,
+            0x1D,
+            0x26,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/cyclone_transformation_2.bin",
+            0x0F,
+            0x01,
+            0x1F,
+            0x26,
+        ),
+    ),
+    blank_tfd(8),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/cyclone_transformation_2.bin",
+            0x0F,
+            0x01,
+            0x1F,
+            0x26,
+        ),
+    ),
+    blank_tfd(16),
+];
+
+const RED_STEALTH_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/red_stealth.bin", 0x10, 0x01, 0x1E, 0x20);
+const RED_STEALTH_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/red_stealth_walk_1.bin", 0x0E, 0x01, 0x17, 0x21),
+    pfd("artunc_kid/red_stealth_walk_2.bin", 0x0E, 0x01, 0x17, 0x22),
+    pfd("artunc_kid/red_stealth_walk_3.bin", 0x0E, 0x01, 0x18, 0x23),
+    pfd("artunc_kid/red_stealth_walk_4.bin", 0x0E, 0x01, 0x17, 0x26),
+    pfd("artunc_kid/red_stealth_walk_5.bin", 0x0F, 0x01, 0x18, 0x24),
+    pfd("artunc_kid/red_stealth_walk_6.bin", 0x0F, 0x01, 0x18, 0x22),
+];
+const RED_STEALTH_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 13] = [
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/red_stealth_transformation_1.bin",
+            0x18,
+            0x13,
+            0x2F,
+            0x4E,
+        ),
+    ),
+    tfd(8, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/red_stealth_transformation_1.bin",
+            0x18,
+            0x13,
+            0x2F,
+            0x4E,
+        ),
+    ),
+    tfd(4, KID_WALK_1_FRAME),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/red_stealth_transformation_1.bin",
+            0x18,
+            0x13,
+            0x2F,
+            0x4E,
+        ),
+    ),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/red_stealth_transformation_2.bin",
+            0x18,
+            0x11,
+            0x2E,
+            0x49,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/red_stealth_transformation_1.bin",
+            0x18,
+            0x13,
+            0x2F,
+            0x4E,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/red_stealth_transformation_2.bin",
+            0x18,
+            0x11,
+            0x2E,
+            0x49,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/red_stealth_transformation_1.bin",
+            0x18,
+            0x13,
+            0x2F,
+            0x4E,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/red_stealth_transformation_2.bin",
+            0x18,
+            0x11,
+            0x2E,
+            0x49,
+        ),
+    ),
+    blank_tfd(3),
+    tfd(
+        5,
+        pfd(
+            "artunc_kid/red_stealth_transformation_2.bin",
+            0x18,
+            0x11,
+            0x2E,
+            0x49,
+        ),
+    ),
+    blank_tfd(8),
+];
+
+const EYECLOPS_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/eyeclops.bin", 0x12, 0x01, 0x20, 0x21);
+const EYECLOPS_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/eyeclops_walk_1.bin", 0x0C, 0x01, 0x1F, 0x21),
+    pfd("artunc_kid/eyeclops_walk_2.bin", 0x0C, 0x01, 0x20, 0x20),
+    pfd("artunc_kid/eyeclops_walk_3.bin", 0x0C, 0x01, 0x1F, 0x21),
+    pfd("artunc_kid/eyeclops_walk_4.bin", 0x0C, 0x01, 0x1F, 0x21),
+    pfd("artunc_kid/eyeclops_walk_5.bin", 0x0C, 0x01, 0x1F, 0x20),
+    pfd("artunc_kid/eyeclops_walk_6.bin", 0x0C, 0x01, 0x1F, 0x21),
+];
+const EYECLOPS_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 14] = [
+    tfd(24, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_1.bin",
+            0x17,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    tfd(12, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_1.bin",
+            0x17,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    tfd(6, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_1.bin",
+            0x17,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_2.bin",
+            0x18,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_3.bin",
+            0x18,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_2.bin",
+            0x18,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_3.bin",
+            0x18,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    blank_tfd(8),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/eyeclops_transformation_3.bin",
+            0x18,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+    blank_tfd(8),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/eyeclops_transformation_3.bin",
+            0x18,
+            0x02,
+            0x2F,
+            0x2F,
+        ),
+    ),
+];
+
+const JUGGERNAUT_HEAD_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/juggernaut_head.bin", 0x13, -0x0A, 0x1A, 0x15);
+const JUGGERNAUT_HEAD_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    JUGGERNAUT_HEAD_IDLE_FRAME,
+    pfd(
+        "artunc_kid/juggernaut_head_walk_2.bin",
+        0x13,
+        -0x0A,
+        0x1A,
+        0x15,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_head_walk_3.bin",
+        0x13,
+        -0x0A,
+        0x1A,
+        0x15,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_head_walk_4.bin",
+        0x13,
+        -0x0A,
+        0x1A,
+        0x15,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_head_walk_5.bin",
+        0x13,
+        -0x0A,
+        0x1A,
+        0x15,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_head_walk_6.bin",
+        0x13,
+        -0x0A,
+        0x1A,
+        0x15,
+    ),
+];
+const JUGGERNAUT_BOTTOM_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/juggernaut_bottom.bin", 0x17, 0x01, 0x2F, 0x0D);
+const JUGGERNAUT_BOTTOM_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    JUGGERNAUT_BOTTOM_IDLE_FRAME,
+    pfd(
+        "artunc_kid/juggernaut_bottom_move_1.bin",
+        0x17,
+        0x01,
+        0x30,
+        0x0F,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_bottom_move_2.bin",
+        0x17,
+        0x01,
+        0x30,
+        0x0F,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_bottom_move_3.bin",
+        0x17,
+        0x01,
+        0x30,
+        0x0F,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_bottom_move_4.bin",
+        0x17,
+        0x01,
+        0x30,
+        0x0F,
+    ),
+    pfd(
+        "artunc_kid/juggernaut_bottom_move_1.bin",
+        0x17,
+        0x01,
+        0x30,
+        0x0F,
+    ),
+];
+const JUGGERNAUT_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 11] = [
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_1.bin",
+            0x10,
+            0x05,
+            0x22,
+            0x28,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_2.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x28,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_3.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x2A,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_4.bin",
+            0x17,
+            0x11,
+            0x2E,
+            0x3E,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_3.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x2A,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_2.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x28,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_1.bin",
+            0x10,
+            0x05,
+            0x22,
+            0x28,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_2.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x28,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_3.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x2A,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_4.bin",
+            0x17,
+            0x11,
+            0x2E,
+            0x3E,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/juggernaut_transformation_3.bin",
+            0x11,
+            0x05,
+            0x23,
+            0x2A,
+        ),
+    ),
+];
+
+const BERZERKER_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/berzerker.bin", 0x15, 0x01, 0x1F, 0x25);
+const BERZERKER_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/berzerker_walk_1.bin", 0x0F, 0x01, 0x1B, 0x22),
+    pfd("artunc_kid/berzerker_walk_2.bin", 0x0F, 0x01, 0x1B, 0x23),
+    pfd("artunc_kid/berzerker_walk_3.bin", 0x0E, 0x01, 0x1A, 0x23),
+    pfd("artunc_kid/berzerker_walk_4.bin", 0x0D, 0x01, 0x19, 0x22),
+    pfd("artunc_kid/berzerker_walk_5.bin", 0x0F, 0x01, 0x1B, 0x23),
+    pfd("artunc_kid/berzerker_walk_6.bin", 0x0F, 0x01, 0x1B, 0x23),
+];
+const BERZERKER_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 10] = [
+    tfd(15, KID_WALK_4_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/berzerker_transformation_1.bin",
+            0x0C,
+            0x01,
+            0x1B,
+            0x23,
+        ),
+    ),
+    tfd(4, KID_WALK_4_FRAME),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/berzerker_transformation_1.bin",
+            0x0C,
+            0x01,
+            0x1B,
+            0x23,
+        ),
+    ),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/berzerker_transformation_2.bin",
+            0x0D,
+            0x01,
+            0x1C,
+            0x22,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/berzerker_transformation_1.bin",
+            0x0C,
+            0x01,
+            0x1B,
+            0x23,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/berzerker_transformation_2.bin",
+            0x0D,
+            0x01,
+            0x1C,
+            0x22,
+        ),
+    ),
+    blank_tfd(3),
+    tfd(
+        5,
+        pfd(
+            "artunc_kid/berzerker_transformation_2.bin",
+            0x0D,
+            0x01,
+            0x1C,
+            0x22,
+        ),
+    ),
+    blank_tfd(8),
+];
+
+const MANIAXE_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/maniaxe.bin", 0x0E, 0x01, 0x1D, 0x20);
+const MANIAXE_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/maniaxe_walk_1.bin", 0x11, 0x01, 0x1C, 0x20),
+    pfd("artunc_kid/maniaxe_walk_2.bin", 0x0F, 0x01, 0x19, 0x21),
+    pfd("artunc_kid/maniaxe_walk_3.bin", 0x0B, 0x01, 0x15, 0x21),
+    pfd("artunc_kid/maniaxe_walk_4.bin", 0x0B, 0x01, 0x18, 0x20),
+    pfd("artunc_kid/maniaxe_walk_5.bin", 0x0B, 0x01, 0x16, 0x21),
+    pfd("artunc_kid/maniaxe_walk_6.bin", 0x0D, 0x01, 0x16, 0x20),
+];
+const MANIAXE_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 9] = [
+    tfd(
+        8,
+        pfd(
+            "artunc_kid/maniaxe_transformation_1.bin",
+            0x0B,
+            0x01,
+            0x19,
+            0x21,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/maniaxe_transformation_2.bin",
+            0x0E,
+            0x01,
+            0x20,
+            0x22,
+        ),
+    ),
+    tfd(
+        6,
+        pfd(
+            "artunc_kid/maniaxe_transformation_1.bin",
+            0x0B,
+            0x01,
+            0x19,
+            0x21,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/maniaxe_transformation_2.bin",
+            0x0E,
+            0x01,
+            0x20,
+            0x22,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/maniaxe_transformation_3.bin",
+            0x11,
+            0x01,
+            0x22,
+            0x23,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/maniaxe_transformation_2.bin",
+            0x0E,
+            0x01,
+            0x20,
+            0x22,
+        ),
+    ),
+    tfd(
+        6,
+        pfd(
+            "artunc_kid/maniaxe_transformation_3.bin",
+            0x11,
+            0x01,
+            0x22,
+            0x23,
+        ),
+    ),
+    tfd(
+        3,
+        pfd(
+            "artunc_kid/maniaxe_transformation_2.bin",
+            0x0E,
+            0x01,
+            0x20,
+            0x22,
+        ),
+    ),
+    tfd(
+        8,
+        pfd(
+            "artunc_kid/maniaxe_transformation_3.bin",
+            0x11,
+            0x01,
+            0x22,
+            0x23,
+        ),
+    ),
+];
+
+const MICROMAX_IDLE_FRAME: PlayerFrameDescriptor =
+    pfd("artunc_kid/micromax.bin", 0x07, 0x01, 0x0E, 0x12);
+const MICROMAX_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
+    pfd("artunc_kid/micromax_walk_1.bin", 0x0A, 0x01, 0x10, 0x11),
+    pfd("artunc_kid/micromax_walk_2.bin", 0x09, 0x01, 0x0F, 0x12),
+    pfd("artunc_kid/micromax_walk_3.bin", 0x09, 0x01, 0x0F, 0x12),
+    pfd("artunc_kid/micromax_walk_4.bin", 0x09, 0x01, 0x0F, 0x11),
+    pfd("artunc_kid/micromax_walk_5.bin", 0x08, 0x01, 0x0E, 0x12),
+    pfd("artunc_kid/micromax_walk_6.bin", 0x09, 0x01, 0x0F, 0x12),
+];
+const MICROMAX_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 12] = [
+    tfd(15, KID_WALK_1_FRAME),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/micromax_transformation_1.bin",
+            0x0F,
+            0x01,
+            0x20,
+            0x22,
+        ),
+    ),
+    tfd(4, KID_WALK_4_FRAME),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/micromax_transformation_1.bin",
+            0x0F,
+            0x01,
+            0x20,
+            0x22,
+        ),
+    ),
+    tfd(
+        2,
+        pfd(
+            "artunc_kid/micromax_transformation_2.bin",
+            0x0F,
+            0x01,
+            0x1F,
+            0x1E,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/micromax_transformation_3.bin",
+            0x0D,
+            0x01,
+            0x1A,
+            0x18,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/micromax_transformation_2.bin",
+            0x0F,
+            0x01,
+            0x1F,
+            0x1E,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/micromax_transformation_3.bin",
+            0x0D,
+            0x01,
+            0x1A,
+            0x18,
+        ),
+    ),
+    tfd(
+        4,
+        pfd(
+            "artunc_kid/micromax_transformation_2.bin",
+            0x0F,
+            0x01,
+            0x1F,
+            0x1E,
+        ),
+    ),
+    blank_tfd(3),
+    tfd(
+        5,
+        pfd(
+            "artunc_kid/micromax_transformation_3.bin",
+            0x0D,
+            0x01,
+            0x1A,
+            0x18,
+        ),
+    ),
+    blank_tfd(8),
+];
+
+static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_THE_KID,
+        palette_path: KID_PALETTE_PATH,
+        palette_family: "Kid palette",
+        idle: KID_IDLE_FRAME,
+        walk: &KID_WALK_FRAMES,
+        jump_rise: KID_JUMP_RISE_FRAME,
+        jump_fall: KID_JUMP_FALL_FRAME,
+        transform_palette: None,
+        transform_steps: &[],
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_SKYCUTTER,
+        palette_path: SKYCUTTER_PALETTE_PATH,
+        palette_family: "Skycutter palette",
+        idle: SKYCUTTER_IDLE_FRAME,
+        walk: &SKYCUTTER_WALK_FRAMES,
+        jump_rise: SKYCUTTER_IDLE_FRAME,
+        jump_fall: SKYCUTTER_IDLE_FRAME,
+        transform_palette: Some((
+            SKYCUTTER_TRANSFORM_PALETTE_PATH,
+            "Skycutter transform palette",
+        )),
+        transform_steps: &SKYCUTTER_TRANSFORM_STEPS,
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_CYCLONE,
+        palette_path: CYCLONE_PALETTE_PATH,
+        palette_family: "Cyclone palette",
+        idle: CYCLONE_IDLE_FRAME,
+        walk: &CYCLONE_WALK_FRAMES,
+        jump_rise: pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
+        jump_fall: pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
+        transform_palette: Some((CYCLONE_TRANSFORM_PALETTE_PATH, "Cyclone transform palette")),
+        transform_steps: &CYCLONE_TRANSFORM_STEPS,
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_RED_STEALTH,
+        palette_path: RED_STEALTH_PALETTE_PATH,
+        palette_family: "Red Stealth palette",
+        idle: RED_STEALTH_IDLE_FRAME,
+        walk: &RED_STEALTH_WALK_FRAMES,
+        jump_rise: pfd(
+            "artunc_kid/red_stealth_jumping_1.bin",
+            0x0B,
+            0x02,
+            0x16,
+            0x28,
+        ),
+        jump_fall: pfd(
+            "artunc_kid/red_stealth_jumping_2.bin",
+            0x0A,
+            0x00,
+            0x15,
+            0x25,
+        ),
+        transform_palette: Some((
+            RED_STEALTH_TRANSFORM_PALETTE_PATH,
+            "Red Stealth transform palette",
+        )),
+        transform_steps: &RED_STEALTH_TRANSFORM_STEPS,
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_EYECLOPS,
+        palette_path: EYECLOPS_PALETTE_PATH,
+        palette_family: "Eyeclops palette",
+        idle: EYECLOPS_IDLE_FRAME,
+        walk: &EYECLOPS_WALK_FRAMES,
+        jump_rise: pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
+        jump_fall: pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+        transform_palette: Some((
+            EYECLOPS_TRANSFORM_PALETTE_PATH,
+            "Eyeclops transform palette",
+        )),
+        transform_steps: &EYECLOPS_TRANSFORM_STEPS,
+    },
+    // TODO(fidelity): Juggernaut uses split head/base sprites in the original game.
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_IRON_KNIGHT,
+        palette_path: IRON_KNIGHT_PALETTE_PATH,
+        palette_family: "Iron Knight palette",
+        idle: IRON_KNIGHT_IDLE_FRAME,
+        walk: &IRON_KNIGHT_WALK_FRAMES,
+        jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
+        jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
+        transform_palette: Some((
+            IRON_KNIGHT_TRANSFORM_PALETTE_PATH,
+            "Iron Knight transform palette",
+        )),
+        transform_steps: &IRON_KNIGHT_TRANSFORM_STEPS,
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_BERZERKER,
+        palette_path: BERZERKER_PALETTE_PATH,
+        palette_family: "Berzerker palette",
+        idle: BERZERKER_IDLE_FRAME,
+        walk: &BERZERKER_WALK_FRAMES,
+        jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
+        jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
+        transform_palette: Some((
+            BERZERKER_TRANSFORM_PALETTE_PATH,
+            "Berzerker transform palette",
+        )),
+        transform_steps: &BERZERKER_TRANSFORM_STEPS,
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_MANIAXE,
+        palette_path: MANIAXE_PALETTE_PATH,
+        palette_family: "Maniaxe palette",
+        idle: MANIAXE_IDLE_FRAME,
+        walk: &MANIAXE_WALK_FRAMES,
+        jump_rise: pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
+        jump_fall: pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+        transform_palette: Some((MANIAXE_TRANSFORM_PALETTE_PATH, "Maniaxe transform palette")),
+        transform_steps: &MANIAXE_TRANSFORM_STEPS,
+    },
+    PlayerFormSpec {
+        form_id: PLAYER_FORM_MICROMAX,
+        palette_path: MICROMAX_PALETTE_PATH,
+        palette_family: "Micromax palette",
+        idle: MICROMAX_IDLE_FRAME,
+        walk: &MICROMAX_WALK_FRAMES,
+        jump_rise: pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
+        jump_fall: pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
+        transform_palette: Some((
+            MICROMAX_TRANSFORM_PALETTE_PATH,
+            "Micromax transform palette",
+        )),
+        transform_steps: &MICROMAX_TRANSFORM_STEPS,
+    },
+];
+
 fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
     let mut families = std::collections::HashMap::new();
     for spec in ENEMY_FAMILIES {
@@ -1317,36 +2428,122 @@ fn load_platform_visuals(
 
 fn load_player_visuals(manifest: &AssetManifest) -> Result<PlayerVisuals> {
     let mut forms = std::collections::HashMap::new();
-    forms.insert(
-        PLAYER_FORM_THE_KID,
-        load_player_form_visuals(
-            manifest,
-            KID_PALETTE_PATH,
-            "Kid palette",
-            KID_IDLE_FRAME,
-            &KID_WALK_FRAMES,
-            KID_JUMP_RISE_FRAME,
-            KID_JUMP_FALL_FRAME,
-            None,
-            &[],
-        )?,
-    );
-    forms.insert(
-        PLAYER_FORM_IRON_KNIGHT,
-        load_player_form_visuals(
-            manifest,
-            IRON_KNIGHT_PALETTE_PATH,
-            "Iron Knight palette",
-            IRON_KNIGHT_IDLE_FRAME,
-            &IRON_KNIGHT_WALK_FRAMES,
-            IRON_KNIGHT_JUMP_RISE_FRAME,
-            IRON_KNIGHT_JUMP_FALL_FRAME,
-            Some((IRON_KNIGHT_TRANSFORM_PALETTE_PATH, "Iron Knight transform palette")),
-            &IRON_KNIGHT_TRANSFORM_STEPS,
-        )?,
-    );
+    for spec in PLAYER_FORM_SPECS {
+        let Some(visuals) = load_player_form_visuals_if_present(manifest, spec)? else {
+            if spec.form_id == PLAYER_FORM_THE_KID {
+                bail!("missing required Kid visuals");
+            }
+            if !cfg!(test) {
+                eprintln!(
+                    "skipping player form 0x{:02X}: missing {}",
+                    spec.form_id, spec.palette_family
+                );
+            }
+            continue;
+        };
+        forms.insert(spec.form_id, visuals);
+    }
+    if let Some(visuals) = load_juggernaut_form_visuals_if_present(manifest)? {
+        forms.insert(PLAYER_FORM_JUGGERNAUT, visuals);
+    }
 
     Ok(PlayerVisuals { forms })
+}
+
+fn load_player_form_visuals_if_present(
+    manifest: &AssetManifest,
+    spec: &PlayerFormSpec,
+) -> Result<Option<PlayerFormVisuals>> {
+    if find_ingame_asset(manifest, spec.palette_path).is_none() {
+        return Ok(None);
+    }
+    load_player_form_visuals(
+        manifest,
+        spec.palette_path,
+        spec.palette_family,
+        spec.idle,
+        spec.walk,
+        spec.jump_rise,
+        spec.jump_fall,
+        spec.transform_palette,
+        spec.transform_steps,
+    )
+    .map(Some)
+}
+
+fn load_juggernaut_form_visuals_if_present(
+    manifest: &AssetManifest,
+) -> Result<Option<PlayerFormVisuals>> {
+    if find_ingame_asset(manifest, JUGGERNAUT_PALETTE_PATH).is_none() {
+        return Ok(None);
+    }
+
+    let palette = Palette::from_bytes(&read_root_asset(
+        manifest,
+        "ingame",
+        find_ingame_asset(manifest, JUGGERNAUT_PALETTE_PATH).ok_or_else(|| {
+            anyhow!("missing Juggernaut palette asset ingame/{JUGGERNAUT_PALETTE_PATH}")
+        })?,
+        "Juggernaut palette",
+    )?)?;
+    let transform_palette = load_ingame_palette_asset(
+        manifest,
+        JUGGERNAUT_TRANSFORM_PALETTE_PATH,
+        "Juggernaut transform palette",
+    )?;
+
+    Ok(Some(PlayerFormVisuals {
+        palette,
+        idle: load_composite_player_frame(
+            manifest,
+            &[JUGGERNAUT_HEAD_IDLE_FRAME, JUGGERNAUT_BOTTOM_IDLE_FRAME],
+        )?,
+        walk: JUGGERNAUT_HEAD_WALK_FRAMES
+            .iter()
+            .zip(JUGGERNAUT_BOTTOM_WALK_FRAMES.iter())
+            .map(|(&head, &bottom)| load_composite_player_frame(manifest, &[head, bottom]))
+            .collect::<Result<Vec<_>>>()?,
+        jump_rise: load_composite_player_frame(
+            manifest,
+            &[
+                JUGGERNAUT_HEAD_IDLE_FRAME,
+                pfd(
+                    "artunc_kid/juggernaut_bottom_jumping_1.bin",
+                    0x17,
+                    0x06,
+                    0x30,
+                    0x14,
+                ),
+            ],
+        )?,
+        jump_fall: load_composite_player_frame(
+            manifest,
+            &[
+                JUGGERNAUT_HEAD_IDLE_FRAME,
+                pfd(
+                    "artunc_kid/juggernaut_bottom_jumping_3.bin",
+                    0x17,
+                    0x04,
+                    0x2F,
+                    0x12,
+                ),
+            ],
+        )?,
+        transform_palette: Some(transform_palette),
+        transform_steps: JUGGERNAUT_TRANSFORM_STEPS
+            .iter()
+            .copied()
+            .map(|step| {
+                Ok(PlayerTransformStep {
+                    duration_frames: step.duration_frames,
+                    frame: step
+                        .frame
+                        .map(|descriptor| load_player_frame(manifest, descriptor))
+                        .transpose()?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+    }))
 }
 
 fn load_player_form_visuals(
@@ -1425,6 +2622,135 @@ fn load_player_frame(
     })
 }
 
+fn load_composite_player_frame(
+    manifest: &AssetManifest,
+    descriptors: &[PlayerFrameDescriptor],
+) -> Result<SpriteFrame> {
+    let parts = descriptors
+        .iter()
+        .copied()
+        .map(|descriptor| load_player_frame(manifest, descriptor))
+        .collect::<Result<Vec<_>>>()?;
+    compose_player_frame(&parts)
+}
+
+fn compose_player_frame(parts: &[SpriteFrame]) -> Result<SpriteFrame> {
+    if parts.is_empty() {
+        bail!("composite player frame requires at least one part");
+    }
+
+    let mut min_left = i32::MAX;
+    let mut min_top = i32::MAX;
+    let mut max_right = i32::MIN;
+    let mut max_bottom = i32::MIN;
+    for part in parts {
+        let left = -i32::from(part.origin_x);
+        let top = -i32::from(part.height_px) + i32::from(part.origin_y);
+        let right = left + i32::from(part.width_px);
+        let bottom = top + i32::from(part.height_px);
+        min_left = min_left.min(left);
+        min_top = min_top.min(top);
+        max_right = max_right.max(right);
+        max_bottom = max_bottom.max(bottom);
+    }
+
+    let width_px =
+        u16::try_from(max_right.saturating_sub(min_left)).context("composite player width")?;
+    let height_px =
+        u16::try_from(max_bottom.saturating_sub(min_top)).context("composite player height")?;
+    let canvas_width = usize::from(align_sprite_dimension(width_px));
+    let canvas_height = usize::from(align_sprite_dimension(height_px));
+    let mut canvas = vec![0_u8; canvas_width * canvas_height];
+
+    for part in parts {
+        let left = -i32::from(part.origin_x) - min_left;
+        let top = -i32::from(part.height_px) + i32::from(part.origin_y) - min_top;
+        blit_player_frame_pixels(
+            part,
+            &mut canvas,
+            canvas_width,
+            canvas_height,
+            usize::try_from(left).context("composite frame x offset")?,
+            usize::try_from(top).context("composite frame y offset")?,
+        );
+    }
+
+    Ok(SpriteFrame {
+        origin_x: i16::try_from(-min_left).context("composite origin x")?,
+        origin_y: i16::try_from(max_bottom).context("composite origin y")?,
+        width_px,
+        height_px,
+        tile_base_index: 0,
+        tile_sheet: TileSheet {
+            tiles: canvas_to_tiles(&canvas, canvas_width, canvas_height),
+        },
+    })
+}
+
+fn blit_player_frame_pixels(
+    frame: &SpriteFrame,
+    canvas: &mut [u8],
+    canvas_width: usize,
+    canvas_height: usize,
+    offset_x: usize,
+    offset_y: usize,
+) {
+    let aligned_width = usize::from(align_sprite_dimension(frame.width_px));
+    let aligned_height = usize::from(align_sprite_dimension(frame.height_px));
+    let frame_pixels = frame_to_pixels(frame);
+    let copy_width = aligned_width.min(canvas_width.saturating_sub(offset_x));
+    let copy_height = aligned_height.min(canvas_height.saturating_sub(offset_y));
+    for y in 0..copy_height {
+        let dst_row = offset_y + y;
+        let src_row = y * aligned_width;
+        let dst_index = dst_row * canvas_width + offset_x;
+        let dst_slice = &mut canvas[dst_index..dst_index + copy_width];
+        let src_slice = &frame_pixels[src_row..src_row + copy_width];
+        for (dst, &src) in dst_slice.iter_mut().zip(src_slice.iter()) {
+            if src != 0 {
+                *dst = src;
+            }
+        }
+    }
+}
+
+fn frame_to_pixels(frame: &SpriteFrame) -> Vec<u8> {
+    let aligned_width = usize::from(align_sprite_dimension(frame.width_px));
+    let aligned_height = usize::from(align_sprite_dimension(frame.height_px));
+    let tiles_per_row = aligned_width / 8;
+    let mut pixels = vec![0_u8; aligned_width * aligned_height];
+    for (tile_index, tile) in frame.tile_sheet.tiles.iter().enumerate() {
+        let tile_x = (tile_index % tiles_per_row) * 8;
+        let tile_y = (tile_index / tiles_per_row) * 8;
+        for row in 0..8 {
+            let dst_row = (tile_y + row) * aligned_width + tile_x;
+            let src_row = row * 8;
+            pixels[dst_row..dst_row + 8].copy_from_slice(&tile.pixels[src_row..src_row + 8]);
+        }
+    }
+    pixels
+}
+
+fn canvas_to_tiles(canvas: &[u8], width: usize, height: usize) -> Vec<crate::Tile> {
+    let mut tiles = Vec::with_capacity((width / 8) * (height / 8));
+    for tile_y in (0..height).step_by(8) {
+        for tile_x in (0..width).step_by(8) {
+            let mut pixels = [0_u8; 64];
+            for row in 0..8 {
+                let src_index = (tile_y + row) * width + tile_x;
+                let dst_index = row * 8;
+                pixels[dst_index..dst_index + 8].copy_from_slice(&canvas[src_index..src_index + 8]);
+            }
+            tiles.push(crate::Tile { pixels });
+        }
+    }
+    tiles
+}
+
+const fn align_sprite_dimension(value: u16) -> u16 {
+    value.div_ceil(8) * 8
+}
+
 fn load_ingame_palette_asset(
     manifest: &AssetManifest,
     relative_path: &str,
@@ -1484,6 +2810,77 @@ fn load_compressed_sprite_sheet(
     let asset = find_ingame_asset(manifest, relative_path)
         .ok_or_else(|| anyhow!("missing {family} asset ingame/{relative_path}"))?;
     load_tile_sheet(manifest, "ingame", asset, family)
+}
+
+fn load_flag_visuals(
+    manifest: &AssetManifest,
+    foreground_palette: &Palette,
+) -> Result<FlagVisuals> {
+    let Some(flag_art) = find_ingame_asset(manifest, FLAG_ART_PATH) else {
+        return Ok(placeholder_flag_visuals(foreground_palette));
+    };
+    let Some(pole_art) = find_ingame_asset(manifest, FLAG_BOTTOM_ART_PATH) else {
+        return Ok(placeholder_flag_visuals(foreground_palette));
+    };
+    let flag_tile_sheet =
+        load_uncompressed_tile_sheet(manifest, "ingame", flag_art, "end-of-level flag art")?;
+    let pole_tile_sheet =
+        load_uncompressed_tile_sheet(manifest, "ingame", pole_art, "flag pole bottom art")?;
+
+    Ok(FlagVisuals {
+        palette: foreground_palette.clone(),
+        pole_bottom: SpriteFrame {
+            origin_x: FLAG_POLE_BOTTOM_FRAME.origin_x,
+            origin_y: FLAG_POLE_BOTTOM_FRAME.origin_y,
+            width_px: FLAG_POLE_BOTTOM_FRAME.width_px,
+            height_px: FLAG_POLE_BOTTOM_FRAME.height_px,
+            tile_base_index: FLAG_POLE_BOTTOM_FRAME.tile_base_index,
+            tile_sheet: pole_tile_sheet,
+        },
+        waving: FLAG_WAVING_FRAMES
+            .iter()
+            .copied()
+            .map(|descriptor| SpriteFrame {
+                origin_x: descriptor.origin_x,
+                origin_y: descriptor.origin_y,
+                width_px: descriptor.width_px,
+                height_px: descriptor.height_px,
+                tile_base_index: descriptor.tile_base_index,
+                tile_sheet: flag_tile_sheet.clone(),
+            })
+            .collect(),
+        frame_duration: 6,
+    })
+}
+
+fn placeholder_flag_visuals(foreground_palette: &Palette) -> FlagVisuals {
+    let blank = |count: usize| TileSheet {
+        tiles: vec![crate::Tile { pixels: [0; 64] }; count],
+    };
+    FlagVisuals {
+        palette: foreground_palette.clone(),
+        pole_bottom: SpriteFrame {
+            origin_x: FLAG_POLE_BOTTOM_FRAME.origin_x,
+            origin_y: FLAG_POLE_BOTTOM_FRAME.origin_y,
+            width_px: FLAG_POLE_BOTTOM_FRAME.width_px,
+            height_px: FLAG_POLE_BOTTOM_FRAME.height_px,
+            tile_base_index: 0,
+            tile_sheet: blank(4),
+        },
+        waving: FLAG_WAVING_FRAMES
+            .iter()
+            .copied()
+            .map(|descriptor| SpriteFrame {
+                origin_x: descriptor.origin_x,
+                origin_y: descriptor.origin_y,
+                width_px: descriptor.width_px,
+                height_px: descriptor.height_px,
+                tile_base_index: descriptor.tile_base_index,
+                tile_sheet: blank(120),
+            })
+            .collect(),
+        frame_duration: 6,
+    }
 }
 
 fn parse_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {
@@ -1611,8 +3008,8 @@ fn sha1_hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::apply_layered_background_palette_fallback;
-    use crate::{LayeredBackgroundPlane, TileRef};
+    use super::{apply_layered_background_palette_fallback, compose_player_frame};
+    use crate::{LayeredBackgroundPlane, SpriteFrame, Tile, TileRef, TileSheet};
 
     #[test]
     fn forest_plane_fallback_promotes_zero_palette_line_to_plane_line() {
@@ -1646,5 +3043,35 @@ mod tests {
         apply_layered_background_palette_fallback("forest", 0, &mut plane);
 
         assert_eq!(plane.rows[0][0].palette_line, 2);
+    }
+
+    #[test]
+    fn composite_player_frame_clips_padded_tiles_to_declared_bounds() {
+        let head = SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 9,
+            height_px: 9,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [1; 64] }; 4],
+            },
+        };
+        let body = SpriteFrame {
+            origin_x: 0,
+            origin_y: 4,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [2; 64] }],
+            },
+        };
+
+        let composite = compose_player_frame(&[head, body]).expect("composite frame");
+
+        assert_eq!(composite.width_px, 9);
+        assert_eq!(composite.height_px, 13);
+        assert!(!composite.tile_sheet.tiles.is_empty());
     }
 }

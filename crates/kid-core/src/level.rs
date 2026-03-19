@@ -73,9 +73,12 @@ impl NativeRuntime {
     /// Previous logical level ID (for debug warping).
     pub fn prev_level_id(&self) -> LevelId {
         if let Some(logical_levels) = self.logical_level_ids() {
-            let current_pos = logical_levels.iter().position(|&id| id == self.current_level);
+            let current_pos = logical_levels
+                .iter()
+                .position(|&id| id == self.current_level);
             if let Some(pos) = current_pos
-                && pos > 0 {
+                && pos > 0
+            {
                 return logical_levels[pos - 1];
             }
         }
@@ -287,11 +290,61 @@ impl NativeRuntime {
         &self,
         level_id: LevelId,
     ) -> OpeningSliceState {
+        self.level_respawn_slice_with_floor_snap_inner(level_id, None)
+    }
+
+    pub fn inspect_respawn_settle(
+        &self,
+        level_id: LevelId,
+        max_steps: usize,
+    ) -> Vec<RespawnSettleFrame> {
+        let mut frames = Vec::with_capacity(max_steps.saturating_add(1));
+        let _ = self
+            .level_respawn_slice_with_floor_snap_inner(level_id, Some((&mut frames, max_steps)));
+        frames
+    }
+
+    pub fn inspect_spawn_probes(&self, level_id: LevelId) -> Option<SpawnProbeInspection> {
+        let grid = self.block_grid.as_ref()?;
+        let bounds = self.level_bounds(level_id);
+        let pose = self.level_start_pose(level_id, bounds);
+        let x_px = (pose.kid_x_pos >> 16) as i32;
+        let y_px = (pose.kid_y_pos >> 16) as i32;
+
+        Some(SpawnProbeInspection {
+            kid_x_pos: pose.kid_x_pos,
+            kid_y_pos: pose.kid_y_pos,
+            hitbox_probe: terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH),
+            span_probe: terrain::probe_floor_span(grid, x_px - 16, x_px + 16, y_px),
+        })
+    }
+
+    fn level_respawn_slice_with_floor_snap_inner(
+        &self,
+        level_id: LevelId,
+        mut settle_trace: Option<(&mut Vec<RespawnSettleFrame>, usize)>,
+    ) -> OpeningSliceState {
         let bounds = self.level_bounds(level_id);
         let pose = self.level_start_pose(level_id, bounds);
         let mut slice = OpeningSliceState::respawn_from_pose(bounds, pose);
         slice.player.on_ground = false;
         slice.terrain.floor_y_pos = slice.player.y_pos;
+
+        if let Some((trace, _)) = settle_trace.as_mut() {
+            trace.push(RespawnSettleFrame {
+                step_index: 0,
+                kid_x_pos: slice.player.x_pos,
+                kid_y_pos: slice.player.y_pos,
+                kid_x_velocity: slice.player.x_velocity,
+                kid_y_velocity: slice.player.y_velocity,
+                kid_on_ground: slice.player.on_ground,
+                kid_on_spikes: slice.player.on_spikes,
+                camera_x_pos: slice.camera.x_pos,
+                camera_y_pos: slice.camera.y_pos,
+                floor_y_pos: slice.terrain.floor_y_pos,
+                wide_support_applied: false,
+            });
+        }
 
         let Some(base_grid) = self.block_grid.as_ref() else {
             return slice;
@@ -300,7 +353,12 @@ impl NativeRuntime {
         let settle_input = FrameInput::default();
         let mut stable_frames = 0usize;
 
-        for frame in 0..180 {
+        let max_steps = settle_trace
+            .as_ref()
+            .map(|(_, max_steps)| *max_steps)
+            .unwrap_or(180)
+            .min(180);
+        for frame in 0..max_steps {
             let prev_player = (slice.player.x_pos, slice.player.y_pos);
             let prev_camera = (slice.camera.x_pos, slice.camera.y_pos);
             slice.step(
@@ -313,8 +371,24 @@ impl NativeRuntime {
                 false,
                 0,
             );
-            if self.try_settle_on_spawn_support(&mut slice, &grid) {
+            let wide_support_applied = self.try_settle_on_spawn_support(&mut slice, &grid);
+            if wide_support_applied {
                 slice.update_camera_follow(0);
+            }
+            if let Some((trace, _)) = settle_trace.as_mut() {
+                trace.push(RespawnSettleFrame {
+                    step_index: frame + 1,
+                    kid_x_pos: slice.player.x_pos,
+                    kid_y_pos: slice.player.y_pos,
+                    kid_x_velocity: slice.player.x_velocity,
+                    kid_y_velocity: slice.player.y_velocity,
+                    kid_on_ground: slice.player.on_ground,
+                    kid_on_spikes: slice.player.on_spikes,
+                    camera_x_pos: slice.camera.x_pos,
+                    camera_y_pos: slice.camera.y_pos,
+                    floor_y_pos: slice.terrain.floor_y_pos,
+                    wide_support_applied,
+                });
             }
 
             let current_player = (slice.player.x_pos, slice.player.y_pos);
@@ -346,6 +420,25 @@ impl NativeRuntime {
 
         let x_px = (slice.player.x_pos >> 16) as i32;
         let y_px = (slice.player.y_pos >> 16) as i32;
+        let hitbox_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+        let hitbox_floor_y_px = match hitbox_probe.cell.collision {
+            terrain::CollisionKind::Solid
+            | terrain::CollisionKind::Spikes
+            | terrain::CollisionKind::HiddenBlock => hitbox_probe.floor_y_px.saturating_sub(1),
+            terrain::CollisionKind::SlopeDown
+            | terrain::CollisionKind::SlopeUp
+            | terrain::CollisionKind::Empty => hitbox_probe.floor_y_px,
+        };
+        let hitbox_floor_y_fp = (hitbox_floor_y_px.max(0) as u32) << 16;
+        let hitbox_has_safe_support = hitbox_probe.cell.is_solid_floor()
+            && hitbox_probe.cell.collision != terrain::CollisionKind::Spikes;
+        if hitbox_has_safe_support
+            && (hitbox_probe.on_ground
+                || slice.player.y_pos.abs_diff(hitbox_floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP)
+        {
+            return false;
+        }
+
         let probe = terrain::probe_floor_span(
             grid,
             x_px - INIT_SETTLE_HALF_WIDTH,
@@ -430,27 +523,24 @@ impl NativeRuntime {
                 number_objects: 15,
                 number_gfx_objects: 14,
             },
-            _ => {
-
-                self
-                    .level_header(level_id)
-                    .map(|header| LevelSkipHoldPose {
-                        kid_x_pos: u32::from(header.player_start_x) << 16,
-                        kid_y_pos: u32::from(header.player_start_y) << 16,
-                        camera_x_pos: 0,
-                        camera_y_pos: 0,
-                        number_objects: 4,
-                        number_gfx_objects: 4,
-                    })
-                    .unwrap_or(LevelSkipHoldPose {
-                        kid_x_pos: OPENING_ENTRY_KID_X_POS,
-                        kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
-                        camera_x_pos: 0,
-                        camera_y_pos: 0,
-                        number_objects: 4,
-                        number_gfx_objects: 4,
-                    })
-            }
+            _ => self
+                .level_header(level_id)
+                .map(|header| LevelSkipHoldPose {
+                    kid_x_pos: u32::from(header.player_start_x) << 16,
+                    kid_y_pos: u32::from(header.player_start_y) << 16,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    number_objects: 4,
+                    number_gfx_objects: 4,
+                })
+                .unwrap_or(LevelSkipHoldPose {
+                    kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                    kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    number_objects: 4,
+                    number_gfx_objects: 4,
+                }),
         }
     }
 
@@ -786,7 +876,9 @@ impl NativeRuntime {
 
     pub fn next_level_id(&self) -> LevelId {
         if let Some(logical_levels) = self.logical_level_ids() {
-            let current_pos = logical_levels.iter().position(|&id| id == self.current_level);
+            let current_pos = logical_levels
+                .iter()
+                .position(|&id| id == self.current_level);
             if let Some(pos) = current_pos {
                 let next_pos = pos + 1;
                 if next_pos < logical_levels.len() {
@@ -856,7 +948,10 @@ impl NativeRuntime {
             .find(|level| level.level_id == level_id.0)
     }
 
-    pub(crate) fn resource_level_record(&self, level_id: LevelId) -> Option<&kid_data::LevelRecord> {
+    pub(crate) fn resource_level_record(
+        &self,
+        level_id: LevelId,
+    ) -> Option<&kid_data::LevelRecord> {
         resource_level_record(&self.assets, level_id.0)
     }
 

@@ -1,4 +1,10 @@
 use super::*;
+use kid_core::GENERIC_ENEMY_DEATH_EFFECT_FRAMES;
+
+const HEADYMETAL_WOBBLE_STAGE_1: u16 = 0x015E;
+const HEADYMETAL_WOBBLE_STAGE_2: u16 = 0x00FA;
+const HEADYMETAL_WOBBLE_STAGE_3: u16 = 0x0096;
+const HEADYMETAL_WOBBLE_STAGE_4: u16 = 0x0064;
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
 #[derive(Debug, Clone, Copy)]
@@ -170,8 +176,11 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
     // Intro sequences — distinct visuals per segment
     if matches!(
         trace.game_mode,
-        GameMode::IntroSequence1 | GameMode::IntroSequence2 | GameMode::IntroSequence3
-        | GameMode::IntroSequence4 | GameMode::IntroSequence5
+        GameMode::IntroSequence1
+            | GameMode::IntroSequence2
+            | GameMode::IntroSequence3
+            | GameMode::IntroSequence4
+            | GameMode::IntroSequence5
     ) {
         commands.push(DrawCommand::Rect {
             x: 0,
@@ -501,8 +510,22 @@ const CREDITS_SCREENS: &[&[&str]] = &[
         "THE SEGA TECHNICAL",
         "INSTITUTE TEAM.",
     ],
-    &["... GAME DESIGN ..", "", "HOYT NG", "BILL DUNN", "RICK MACARAEG", "GRAEME BAYLESS"],
-    &["... SOFTWARE ...", "", "BC TCHIU LE", "MARK CERNY", "STEVE WOITA", "BILL WILLIS"],
+    &[
+        "... GAME DESIGN ..",
+        "",
+        "HOYT NG",
+        "BILL DUNN",
+        "RICK MACARAEG",
+        "GRAEME BAYLESS",
+    ],
+    &[
+        "... SOFTWARE ...",
+        "",
+        "BC TCHIU LE",
+        "MARK CERNY",
+        "STEVE WOITA",
+        "BILL WILLIS",
+    ],
     &[
         "... ART ...",
         "",
@@ -526,7 +549,7 @@ const CREDITS_SCREENS: &[&[&str]] = &[
 ];
 
 /// ASM timing constants for the ending sequence phases.
-const ENDING_PHASE1_END: usize = 40;  // pause
+const ENDING_PHASE1_END: usize = 40; // pause
 const ENDING_PHASE2_END: usize = ENDING_PHASE1_END + 200; // music delay
 const ENDING_PHASE3_END: usize = ENDING_PHASE2_END + 256; // fade to black
 /// Credits screens start after the fade.
@@ -595,17 +618,15 @@ pub(super) fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
             let line_w = line.len() as i32 * 8;
             let colour = if i == 0 && screen_index < 2 {
                 // Title lines in gold
-                [alpha, (alpha as u16 * 220 / 255) as u8, (alpha as u16 * 80 / 255) as u8]
+                [
+                    alpha,
+                    (alpha as u16 * 220 / 255) as u8,
+                    (alpha as u16 * 80 / 255) as u8,
+                ]
             } else {
                 [alpha, alpha, alpha]
             };
-            commands.push(text(
-                (FRAME_WIDTH as i32 - line_w) / 2,
-                y,
-                line,
-                colour,
-                1,
-            ));
+            commands.push(text((FRAME_WIDTH as i32 - line_w) / 2, y, line, colour, 1));
         }
     }
 
@@ -695,7 +716,7 @@ pub(super) fn push_background_tiles(
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
     let tile_sheet = Arc::new(level_visuals.background_tiles.clone());
-    let palette = Arc::new(level_visuals.palettes.background.clone());
+    let palette = Arc::new(background_palette_for_scene(level_visuals));
 
     match &level_visuals.background {
         kid_render::BackgroundVisuals::Chunked(background) => {
@@ -780,12 +801,43 @@ pub(super) fn push_background_tiles(
     }
 }
 
+fn background_palette_for_scene(level_visuals: &NativeLevelVisuals) -> Palette {
+    let mut palette = level_visuals.palettes.background.clone();
+    if level_visuals.level.background_theme_id == 9 && palette.colours.len() >= 8 {
+        // ASM sub_129AE swaps CRAM slot 8 with slot 10 for forest backgrounds
+        // after loading the 8-colour background palette into line 1.
+        let original = palette.colours.clone();
+        palette.colours[0] = original[2];
+        palette.colours[1] = original[1];
+        palette.colours[2] = kid_render::MdColour::from_word(0);
+        palette.colours[3..8].copy_from_slice(&original[3..8]);
+    }
+    palette
+}
+
+fn push_sprite_frame(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    palette: &Palette,
+    screen_x: i32,
+    screen_y: i32,
+) {
+    let facing = Direction::Right;
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(palette.clone()),
+        tiles: build_sprite_tiles(frame, facing, 0),
+    });
+}
+
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
 // (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
 const FOREST_RIPPLE: [i8; 64] = [
-    0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2,
-    2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3,
-    2, 1,
+    0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2, 2,
+    1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
 ];
 
 pub(super) fn layered_background_shimmer_offset(
@@ -812,10 +864,12 @@ pub(super) fn background_tile_screen_position(
 ) -> (i32, i32) {
     let world_x_px = i32::from(x_tiles) * 8;
     let world_y_px = i32::from(y_tiles) * 8;
+    // Plane B vertical scroll uses Camera_Y_pos >> 2 in the original game.
+    let background_scroll_y_px = camera_y_px >> 2;
     let Some(profile) = level_visuals.level.background_scroll.as_ref() else {
         return (
             world_x_px.saturating_sub(camera_x_px),
-            world_y_px.saturating_sub(camera_y_px),
+            world_y_px.saturating_sub(background_scroll_y_px),
         );
     };
 
@@ -826,7 +880,7 @@ pub(super) fn background_tile_screen_position(
         .unwrap_or(0x10);
     (
         world_x_px.saturating_sub(background_scroll_x_px(trace, camera_x_px, layer_speed)),
-        world_y_px,
+        world_y_px.saturating_sub(background_scroll_y_px),
     )
 }
 
@@ -867,25 +921,22 @@ pub(super) fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
-    block_grid: Option<&BlockGrid>,
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-    let Some(grid) = block_grid else {
-        return;
-    };
+    let layout = &level_visuals.level.foreground_layout;
 
     let col_start = (camera_x_px / 16).max(0) as u16;
     let col_end =
-        ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16).min(i32::from(grid.width_cells)) as u16;
+        ((camera_x_px + FRAME_WIDTH as i32 + 15) / 16).min(i32::from(layout.width_cells)) as u16;
     let row_start = (camera_y_px / 16).max(0) as u16;
     let row_end =
-        ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(grid.height_cells)) as u16;
+        ((camera_y_px + FRAME_HEIGHT as i32 + 15) / 16).min(i32::from(layout.height_cells)) as u16;
 
     for row in row_start..row_end {
         for col in col_start..col_end {
-            let cell = grid.cell_at(col, row);
-            let Some(resolved) = level_visuals.level.block_mapping.resolve(cell.skin, None) else {
+            let skin = layout.skin_at(col, row);
+            let Some(resolved) = level_visuals.level.block_mapping.resolve(skin, None) else {
                 continue;
             };
             push_tile_quad(
@@ -989,7 +1040,7 @@ fn build_game_scene_filtered(
         push_background_tiles(&mut commands, trace, level_visuals);
     }
     if filter.terrain {
-        push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
+        push_level_layout_terrain(&mut commands, trace, level_visuals);
     }
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
@@ -1015,19 +1066,18 @@ fn build_game_scene_filtered(
             if let NativeObjectKind::Enemy { object_type } = object.kind {
                 push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
                 // Debug: show enemy HP above each enemy
-                if debug_overlay_visible
-                    && let Some(hp) = object.hit_points {
-                        let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-                        let ey =
-                            (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
-                        commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
-                    }
+                if debug_overlay_visible && let Some(hp) = object.hit_points {
+                    let ex = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                    let ey = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32 - 12;
+                    commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
+                }
             }
         }
     }
     if filter.player {
         // Player: blink every 4 frames during invulnerability
-        let player_visible = trace.invulnerable_frames == 0 || (trace.frame_index / 4).is_multiple_of(2);
+        let player_visible =
+            trace.invulnerable_frames == 0 || (trace.frame_index / 4).is_multiple_of(2);
         if player_visible {
             for object in trace
                 .active_objects
@@ -1044,29 +1094,33 @@ fn build_game_scene_filtered(
             && let (Some(flag_x), Some(flag_y)) = (trace.flag_x, trace.flag_y)
         {
             let sx = i32::from(flag_x) - (trace.camera_x_pos >> 16) as i32;
-            let ground_y = i32::from(flag_y) - (trace.camera_y_pos >> 16) as i32;
-            let pole_top = ground_y - 40;
+            let pole_base_y = i32::from(flag_y) - (trace.camera_y_pos >> 16) as i32;
+            let pole_top = pole_base_y - 32;
             commands.push(DrawCommand::Rect {
                 x: sx - 1,
                 y: pole_top,
                 width: 2,
-                height: 40,
+                height: 32,
                 colour: [210, 210, 220],
             });
-            commands.push(DrawCommand::Rect {
-                x: sx + 1,
-                y: pole_top + 2,
-                width: 12,
-                height: 8,
-                colour: [255, 120, 80],
-            });
-            commands.push(DrawCommand::Rect {
-                x: sx + 2,
-                y: pole_top + 3,
-                width: 3,
-                height: 2,
-                colour: [255, 240, 180],
-            });
+            let frame_index = (trace.frame_index / level_visuals.flag.frame_duration)
+                % level_visuals.flag.waving.len().max(1);
+            if let Some(frame) = level_visuals.flag.waving.get(frame_index) {
+                push_sprite_frame(
+                    &mut commands,
+                    frame,
+                    &level_visuals.flag.palette,
+                    sx,
+                    pole_base_y,
+                );
+            }
+            push_sprite_frame(
+                &mut commands,
+                &level_visuals.flag.pole_bottom,
+                &level_visuals.flag.palette,
+                sx,
+                pole_base_y,
+            );
         }
 
         // Murder wall: layered red wall advancing from the side
@@ -1284,31 +1338,43 @@ fn build_game_scene_filtered(
             }
         }
 
-        // Enemy death particle burst: expanding ring of particles
+        // Enemy death particle burst: expanding ring of particles.
+        // HeadyMetal uses a long wobble countdown from the original boss-death routine.
         for &(ex, ey, remaining) in &trace.enemy_death_effects {
-            let sx = (ex >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-            let sy = (ey >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
-            let spread = i32::from(10 - remaining) * 2;
-            let brightness = u8::try_from(u16::from(remaining) * 25).unwrap_or(255);
-            let colour = [255, brightness, brightness.saturating_sub(50)];
-            for angle in 0..8 {
-                let (dx, dy) = match angle {
-                    0 => (spread, 0),
-                    1 => (spread * 7 / 10, spread * 7 / 10),
-                    2 => (0, spread),
-                    3 => (-spread * 7 / 10, spread * 7 / 10),
-                    4 => (-spread, 0),
-                    5 => (-spread * 7 / 10, -spread * 7 / 10),
-                    6 => (0, -spread),
-                    _ => (spread * 7 / 10, -spread * 7 / 10),
-                };
-                commands.push(DrawCommand::Rect {
-                    x: sx + dx - 1,
-                    y: sy + dy - 1,
-                    width: 3,
-                    height: 3,
-                    colour,
-                });
+            if remaining > GENERIC_ENEMY_DEATH_EFFECT_FRAMES {
+                push_heady_metal_death_wobble(
+                    &mut commands,
+                    trace,
+                    level_visuals,
+                    ex,
+                    ey,
+                    remaining,
+                );
+            } else {
+                let sx = (ex >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+                let sy = (ey >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+                let spread = i32::from(GENERIC_ENEMY_DEATH_EFFECT_FRAMES - remaining) * 2;
+                let brightness = u8::try_from(remaining * 25).unwrap_or(255);
+                let colour = [255, brightness, brightness.saturating_sub(50)];
+                for angle in 0..8 {
+                    let (dx, dy) = match angle {
+                        0 => (spread, 0),
+                        1 => (spread * 7 / 10, spread * 7 / 10),
+                        2 => (0, spread),
+                        3 => (-spread * 7 / 10, spread * 7 / 10),
+                        4 => (-spread, 0),
+                        5 => (-spread * 7 / 10, -spread * 7 / 10),
+                        6 => (0, -spread),
+                        _ => (spread * 7 / 10, -spread * 7 / 10),
+                    };
+                    commands.push(DrawCommand::Rect {
+                        x: sx + dx - 1,
+                        y: sy + dy - 1,
+                        width: 3,
+                        height: 3,
+                        colour,
+                    });
+                }
             }
         }
     }
@@ -1573,6 +1639,87 @@ fn build_game_scene_filtered(
         background,
         commands,
     }
+}
+
+fn push_heady_metal_death_wobble(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    x_pos: u32,
+    y_pos: u32,
+    remaining: u16,
+) {
+    let screen_x = (x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+    let screen_y = (y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+    let amplitude = match remaining {
+        r if r > HEADYMETAL_WOBBLE_STAGE_1 => 2,
+        r if r > HEADYMETAL_WOBBLE_STAGE_2 => 3,
+        r if r > HEADYMETAL_WOBBLE_STAGE_3 => 4,
+        r if r > HEADYMETAL_WOBBLE_STAGE_4 => 5,
+        _ => 6,
+    };
+    let phase = if (trace.frame_index & 0x2) == 0 {
+        -1
+    } else {
+        1
+    };
+    let horizontal = amplitude * phase;
+    let vertical = amplitude * -phase;
+
+    push_effect_enemy_sprite(
+        commands,
+        level_visuals,
+        0x20,
+        screen_x,
+        screen_y + vertical,
+        Direction::Right,
+        true,
+    );
+    push_effect_enemy_sprite(
+        commands,
+        level_visuals,
+        0x21,
+        screen_x - 12 + horizontal,
+        screen_y - 18,
+        Direction::Right,
+        false,
+    );
+    push_effect_enemy_sprite(
+        commands,
+        level_visuals,
+        0x21,
+        screen_x + 12 - horizontal,
+        screen_y - 18,
+        Direction::Left,
+        false,
+    );
+}
+
+fn push_effect_enemy_sprite(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    object_type: u8,
+    screen_x: i32,
+    screen_y: i32,
+    facing: Direction,
+    stationary: bool,
+) {
+    let Some(enemy_visuals) = level_visuals.enemies.families.get(&object_type) else {
+        return;
+    };
+    let frame = if stationary {
+        &enemy_visuals.frames[0]
+    } else {
+        &enemy_visuals.frames[0]
+    };
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(enemy_visuals.palette.clone()),
+        tiles: build_sprite_tiles(frame, facing, 0),
+    });
 }
 
 /// Draw a 1px outline rectangle for collision box visualisation.

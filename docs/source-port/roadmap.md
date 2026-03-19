@@ -6,7 +6,7 @@ All 10 milestones below are done or substantially complete. The project is now i
 
 ## Context
 
-All 10 milestones are complete. The port is a full playable game: all 10 forms, 28 enemy families (ASM-verified), 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score, sound test), ending sequence, demo playback, Diamond Power (20 form/tier combos), per-helmet transform timing, and multi-level progression. 63/69 BCD levels pass oracle sweep at 0px tolerance (6 errors are jgenesis oracle bugs). 69/69 gameplay scenarios pass. Perf baseline tracking done (#031). What remains: 3 visual fidelity items (#033 transform animation, fire trail sprites, floating item sprites), 2 gameplay items (#037 floor-snap settling, #062 HeadyMetal death wobble), and 6 documented deviations (RNG, structural differences). See `research-map.md` for details.
+All 10 milestones are complete. The port is a full playable game: all 10 forms, 28 enemy families (ASM-verified), 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score, sound test), ending sequence, demo playback, Diamond Power (20 form/tier combos), per-helmet transform timing, original transform sprites, and multi-level progression. 63/69 BCD levels pass oracle sweep at 0px tolerance (6 errors are jgenesis oracle bugs). 69/69 gameplay scenarios pass. Perf baseline tracking done (#031). What remains: 2 visual fidelity items (fire trail sprites, floating item sprites), 2 gameplay items (#037 floor-snap settling, #062 HeadyMetal death wobble), and 6 documented deviations (RNG, structural differences). See `research-map.md` for details.
 
 ---
 
@@ -149,7 +149,7 @@ Murder wall, weather effects (lava/storm/hail/snow), camera Y look-ahead, lava g
 **Goal:** A complete game from title to credits.
 
 Done: game over/continue screen, score system, Diamond Power (20 form/tier combos), ending sequence, 105 levels loadable, full multi-level progression, demo playback (2 demos from ROM data), intro sequence (5 segments), per-helmet transform timing.
-Remaining: transform animation visual sprites (#033 — needs ROM tile extraction).
+Remaining: no open transform-animation backlog item; Juggernaut split-body rendering is now handled by the composite player-frame path.
 
 ---
 

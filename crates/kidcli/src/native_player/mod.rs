@@ -1633,6 +1633,28 @@ mod tests {
                 frame_duration: 9,
             },
         );
+        families.insert(
+            0x20,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 80, 80)],
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(61, 25, 32)],
+                frame_duration: 10,
+            },
+        );
+        families.insert(
+            0x21,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 220, 120)],
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(71, 16, 16)],
+                frame_duration: 6,
+            },
+        );
         EnemyVisuals { families }
     }
 
@@ -1733,6 +1755,7 @@ mod tests {
             },
             player: sample_player_visuals(),
             enemies: sample_enemy_visuals(),
+            flag: sample_flag_visuals(),
             platforms: sample_platform_visuals(),
         }
     }
@@ -1747,6 +1770,34 @@ mod tests {
         bytes[1] = 3;
         bytes[20] = 5;
         bytes
+    }
+
+    fn sample_flag_visuals() -> kid_render::FlagVisuals {
+        let palette = Palette {
+            colours: vec![colour(12, 34, 56)],
+        };
+        kid_render::FlagVisuals {
+            palette: palette.clone(),
+            pole_bottom: kid_render::SpriteFrame {
+                origin_x: 8,
+                origin_y: 16,
+                width_px: 16,
+                height_px: 16,
+                tile_base_index: 0,
+                tile_sheet: blank_tile_sheet(4),
+            },
+            waving: (0..6)
+                .map(|frame| kid_render::SpriteFrame {
+                    origin_x: 6,
+                    origin_y: 0,
+                    width_px: 40,
+                    height_px: 32,
+                    tile_base_index: frame * 20,
+                    tile_sheet: blank_tile_sheet(120),
+                })
+                .collect(),
+            frame_duration: 6,
+        }
     }
 
     fn build_ingame_scene(
@@ -2246,8 +2297,8 @@ mod tests {
         };
         assert_eq!(tile.tile_index, 12);
 
-        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 32, 0, 0x80) else {
-            panic!("expected a third terrain tile in the opening row");
+        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 0, 16, 0x80) else {
+            panic!("expected a terrain tile on the second row");
         };
         assert_eq!(tile.tile_index, 20);
     }
@@ -2334,6 +2385,45 @@ mod tests {
         );
         assert!(!contains_text(&scene, "x3"));
         assert!(!contains_text(&scene, "D:7"));
+    }
+
+    #[test]
+    fn build_effects_scene_renders_headymetal_wobble_as_sprites() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.flag_x = None;
+        trace.flag_y = None;
+        trace.enemy_death_effects = vec![(
+            100 << 16,
+            120 << 16,
+            kid_core::HEADYMETAL_DEATH_EFFECT_FRAMES,
+        )];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            &LayerFilter::solo("effects"),
+        );
+
+        let sprite_count = scene
+            .commands
+            .iter()
+            .filter(|command| matches!(command, DrawCommand::Sprite { .. }))
+            .count();
+        assert_eq!(sprite_count, 3, "boss body + two eye sprites should render");
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect {
+                    width: 3,
+                    height: 3,
+                    ..
+                }
+            )),
+            "HeadyMetal wobble should not fall back to the generic burst rectangles"
+        );
     }
 
     #[test]
@@ -2626,13 +2716,10 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert!(scene.commands.iter().any(|command| {
-            matches!(
-                command,
-                DrawCommand::Rect {
-                    colour: [255, 120, 80],
-                    ..
-                }
-            )
+            matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 120)
+        }));
+        assert!(scene.commands.iter().any(|command| {
+            matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4)
         }));
     }
 
@@ -2678,13 +2765,12 @@ mod tests {
     }
 
     #[test]
-    fn level_layout_terrain_renders_visible_cells() {
+    fn foreground_layout_terrain_renders_visible_cells() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        let grid = BlockGrid::from_level_layout(&[0x00, 0x01, 0x00, 0x02, 0x00, 0x03], 3, 1);
 
-        let scene = build_ingame_scene(&trace, false, Some(&grid));
+        let scene = build_ingame_scene(&trace, false, None);
         for col in 0..2 {
             assert!(
                 indexed_tile_at_with_sheet_len(&scene, col * 16, 0, 0x80).is_some(),
@@ -2724,7 +2810,7 @@ mod tests {
     }
 
     #[test]
-    fn destroyed_block_renders_as_empty() {
+    fn destroyed_block_reveals_foreground_terrain() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
@@ -2737,11 +2823,13 @@ mod tests {
         // Before destruction: prize cell visible
         let scene = build_ingame_scene(&trace, false, Some(&grid));
         assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_some());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80).is_some());
 
-        // Destroy the block (set to empty)
+        // Destroy the block override; the immutable terrain art should remain.
         grid.set_cell_at(0, 0, Cell::from_be_bytes(0, 0));
         let scene = build_ingame_scene(&trace, false, Some(&grid));
         assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_none());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80).is_some());
     }
 
     #[test]
@@ -2799,17 +2887,20 @@ mod tests {
     }
 
     fn scene_has_player_sprite(scene: &Scene) -> bool {
-        scene
-            .commands
-            .iter()
-            .any(|command| matches!(command, DrawCommand::Sprite { .. }))
+        player_sprite_signature(scene).is_some()
+    }
+
+    fn is_player_test_signature(signature: u8) -> bool {
+        (1..=20).contains(&signature)
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
         scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { tile_sheet, .. } => {
-                tile_sheet.tiles.first().map(|tile| tile.pixels[0])
-            }
+            DrawCommand::Sprite { tile_sheet, .. } => tile_sheet
+                .tiles
+                .first()
+                .map(|tile| tile.pixels[0])
+                .filter(|signature| is_player_test_signature(*signature)),
             _ => None,
         })
     }

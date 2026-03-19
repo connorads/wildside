@@ -167,6 +167,10 @@ pub struct FloorProbe {
     pub floor_y_px: i32,
     /// The cell that provides the floor.
     pub cell: Cell,
+    /// Column in the cell grid that provided the floor.
+    pub cell_x: u16,
+    /// Row in the cell grid that provided the floor.
+    pub cell_y: u16,
 }
 
 /// Result of checking for a wall blocking horizontal movement.
@@ -616,6 +620,8 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
             on_ground,
             floor_y_px: floor_y,
             cell,
+            cell_x: col,
+            cell_y: row,
         };
     }
 
@@ -632,6 +638,8 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
             on_ground,
             floor_y_px: floor_y,
             cell: below_cell,
+            cell_x: col,
+            cell_y: below_row,
         };
     }
 
@@ -639,6 +647,8 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
         on_ground: false,
         floor_y_px: grid.height_pixels(),
         cell,
+        cell_x: col,
+        cell_y: row,
     }
 }
 

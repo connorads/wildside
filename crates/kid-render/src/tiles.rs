@@ -39,6 +39,14 @@ impl TileSheet {
         Ok(Self { tiles })
     }
 
+    pub fn apply_pixel_permutation(&mut self, table: &[u8; 16]) {
+        for tile in &mut self.tiles {
+            for pixel in &mut tile.pixels {
+                *pixel = table[usize::from(*pixel)];
+            }
+        }
+    }
+
     pub fn tile_size(&self) -> (u8, u8) {
         (8, 8)
     }

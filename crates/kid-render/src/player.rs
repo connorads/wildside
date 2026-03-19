@@ -42,6 +42,14 @@ pub struct PlayerVisuals {
     pub forms: HashMap<u16, PlayerFormVisuals>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlagVisuals {
+    pub palette: Palette,
+    pub pole_bottom: SpriteFrame,
+    pub waving: Vec<SpriteFrame>,
+    pub frame_duration: usize,
+}
+
 /// Enemy sprite visuals keyed by object_type (0x00..0x22).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyVisuals {

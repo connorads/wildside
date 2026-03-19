@@ -229,6 +229,10 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
+        #[arg(long)]
+        frame_start: Option<usize>,
+        #[arg(long)]
+        frame_end: Option<usize>,
     },
     ProbeNativeGameplay {
         #[arg(long)]
@@ -243,6 +247,24 @@ enum Commands {
         frame_end: Option<usize>,
     },
     InspectLevel {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long)]
+        level: String,
+    },
+    InspectRespawnSettle {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long)]
+        level: String,
+        #[arg(long, default_value_t = 180)]
+        steps: usize,
+    },
+    InspectSpawnProbe {
         #[arg(long)]
         rom: Option<PathBuf>,
         #[arg(long)]
@@ -738,12 +760,18 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             print_asset_manifest(&manifest);
         }
-        Commands::ProbeNative { rom, dir, scenario } => {
+        Commands::ProbeNative {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+        } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            probe_native_scenario(&manifest, scenario)?;
+            probe_native_scenario(&manifest, scenario, frame_start, frame_end)?;
         }
         Commands::ProbeNativeGameplay {
             rom,
@@ -765,6 +793,25 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             inspect_level(&manifest, &level)?;
+        }
+        Commands::InspectRespawnSettle {
+            rom,
+            dir,
+            level,
+            steps,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            inspect_respawn_settle(&manifest, &level, steps)?;
+        }
+        Commands::InspectSpawnProbe { rom, dir, level } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            inspect_spawn_probe(&manifest, &level)?;
         }
         Commands::InspectEnemy { rom, dir, enemy } => {
             let repo_root = current_dir()?;

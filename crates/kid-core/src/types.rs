@@ -2,6 +2,17 @@ use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
 use serde::{Deserialize, Serialize};
 
+pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
+pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpawnProbeInspection {
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
+    pub hitbox_probe: terrain::FloorProbe,
+    pub span_probe: terrain::FloorProbe,
+}
+
 /// Block interaction state: evanescent, ghost, shooter, and lift blocks.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct BlockInteractionState {
@@ -176,7 +187,10 @@ impl PlayerForm {
 
     /// Select the ground speed table for this form and terrain type.
     /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
-    pub(crate) fn ground_speed_table(self, terrain_type: TerrainType) -> &'static crate::physics::SpeedTable {
+    pub(crate) fn ground_speed_table(
+        self,
+        terrain_type: TerrainType,
+    ) -> &'static crate::physics::SpeedTable {
         match (self, terrain_type) {
             (Self::Micromax, TerrainType::Normal) => &crate::physics::NORMAL_MICROMAX,
             (Self::Micromax, TerrainType::Ice) => &crate::physics::ICE_MICROMAX,
@@ -295,7 +309,7 @@ pub struct NativeTraceFrame {
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
-    pub enemy_death_effects: Vec<(u32, u32, u8)>,
+    pub enemy_death_effects: Vec<(u32, u32, u16)>,
     /// Form-change visual flash countdown (0=no flash).
     pub form_change_flash_frames: u8,
     /// True if a stomp occurred this frame (for SFX).
@@ -359,7 +373,22 @@ pub(crate) struct FloatingItem {
 pub(crate) struct EnemyDeathEffect {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
-    pub(crate) remaining: u8,
+    pub(crate) remaining: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RespawnSettleFrame {
+    pub step_index: usize,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
+    pub kid_x_velocity: i32,
+    pub kid_y_velocity: i32,
+    pub kid_on_ground: bool,
+    pub kid_on_spikes: bool,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+    pub floor_y_pos: u32,
+    pub wide_support_applied: bool,
 }
 
 /// A lift block that has been activated and is now a moving platform.
@@ -427,12 +456,23 @@ impl Default for PlayerSlot {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum BootState {
-    SegaScreen { elapsed: usize },
-    IntroSequence { segment: usize, elapsed: usize },
+    SegaScreen {
+        elapsed: usize,
+    },
+    IntroSequence {
+        segment: usize,
+        elapsed: usize,
+    },
     TitleScreen,
-    OptionsMenu { cursor: u8 },
-    SoundTest { track: u8 },
-    StartingLevel { remaining_frames: usize },
+    OptionsMenu {
+        cursor: u8,
+    },
+    SoundTest {
+        track: u8,
+    },
+    StartingLevel {
+        remaining_frames: usize,
+    },
     LevelSkipHold,
     InGame,
     /// Demo playback: auto-plays a recorded input sequence on a demo level.
@@ -445,7 +485,9 @@ pub(crate) enum BootState {
         use_demo_2: bool,
     },
     /// Post-final-level ending sequence: fade out, credits screens, return to title.
-    EndingSequence { elapsed: usize },
+    EndingSequence {
+        elapsed: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

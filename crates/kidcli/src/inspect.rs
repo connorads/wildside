@@ -151,6 +151,82 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
     Ok(())
 }
 
+pub(crate) fn inspect_respawn_settle(
+    manifest: &AssetManifest,
+    level_spec: &str,
+    steps: usize,
+) -> Result<()> {
+    let level_id = parse_level_id(level_spec)?;
+    let mut runtime = kid_core::NativeRuntime::with_generated_level_layout(manifest.clone());
+    runtime.warp_to_level(kid_core::LevelId(level_id));
+    let frames = runtime.inspect_respawn_settle(kid_core::LevelId(level_id), steps);
+
+    println!("level: 0x{level_id:02X}");
+    if let Some(name) = runtime.level_name(kid_core::LevelId(level_id)) {
+        println!("name: {name}");
+    }
+    println!("steps: {}", frames.len().saturating_sub(1));
+
+    for frame in frames {
+        println!(
+            "step {}: kid {:08X},{:08X} vel {:08X},{:08X} ground {} spikes {} camera {:08X},{:08X} floor {:08X} wide_support {}",
+            frame.step_index,
+            frame.kid_x_pos,
+            frame.kid_y_pos,
+            frame.kid_x_velocity as u32,
+            frame.kid_y_velocity as u32,
+            frame.kid_on_ground,
+            frame.kid_on_spikes,
+            frame.camera_x_pos,
+            frame.camera_y_pos,
+            frame.floor_y_pos,
+            frame.wide_support_applied,
+        );
+    }
+
+    Ok(())
+}
+
+pub(crate) fn inspect_spawn_probe(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
+    let level_id = parse_level_id(level_spec)?;
+    let mut runtime = kid_core::NativeRuntime::with_generated_level_layout(manifest.clone());
+    runtime.warp_to_level(kid_core::LevelId(level_id));
+    let inspection = runtime
+        .inspect_spawn_probes(kid_core::LevelId(level_id))
+        .ok_or_else(|| anyhow!("level 0x{level_id:02X} has no generated block grid"))?;
+
+    println!("level: 0x{level_id:02X}");
+    if let Some(name) = runtime.level_name(kid_core::LevelId(level_id)) {
+        println!("name: {name}");
+    }
+    println!(
+        "spawn: kid {:08X},{:08X}",
+        inspection.kid_x_pos, inspection.kid_y_pos
+    );
+    println!(
+        "hitbox probe: ground {} floor {} cell ({}, {}) collision {:?} block {:?} skin 0x{:02X}",
+        inspection.hitbox_probe.on_ground,
+        inspection.hitbox_probe.floor_y_px,
+        inspection.hitbox_probe.cell_x,
+        inspection.hitbox_probe.cell_y,
+        inspection.hitbox_probe.cell.collision,
+        inspection.hitbox_probe.cell.block_type,
+        inspection.hitbox_probe.cell.skin,
+    );
+    println!(
+        "span probe: ground {} floor {} cell ({}, {}) collision {:?} block {:?} skin 0x{:02X}",
+        inspection.span_probe.on_ground,
+        inspection.span_probe.floor_y_px,
+        inspection.span_probe.cell_x,
+        inspection.span_probe.cell_y,
+        inspection.span_probe.cell.collision,
+        inspection.span_probe.cell.block_type,
+        inspection.span_probe.cell.skin,
+    );
+
+    Ok(())
+}
+
 pub(crate) fn print_loaded_asset(label: &str, asset: Option<&kid_data::LoadedAsset>) {
     match asset {
         Some(asset) => println!(
@@ -517,7 +593,53 @@ pub(crate) fn ym2612_register_writes_are_audible(values: &[Ym2612RegisterWrite])
     left.iter().any(|sample| *sample != left[0]) || right.iter().any(|sample| *sample != right[0])
 }
 
-pub(crate) fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario) -> Result<()> {
+fn print_trace_frames_in_range(
+    trace: &[NativeTraceFrame],
+    script: &[u8],
+    frame_start: Option<usize>,
+    frame_end: Option<usize>,
+) {
+    if let Some(start) = frame_start {
+        let end = frame_end.unwrap_or(start);
+        for frame in trace
+            .iter()
+            .filter(|frame| (start..=end).contains(&frame.frame_index))
+        {
+            let input = script
+                .get(frame.frame_index)
+                .copied()
+                .map(kid_core::FrameInput::from_mask)
+                .unwrap_or_default();
+            println!(
+                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} invuln {} form_flash {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                frame.frame_index,
+                describe_frame_input(input),
+                frame.game_mode,
+                frame.camera_x_pos,
+                frame.camera_y_pos,
+                frame.kid_x_pos.unwrap_or_default(),
+                frame.kid_y_pos.unwrap_or_default(),
+                frame.kid_x_velocity.unwrap_or_default() as u32,
+                frame.kid_y_velocity.unwrap_or_default() as u32,
+                frame.kid_on_ground,
+                frame.invulnerable_frames,
+                frame.form_change_flash_frames,
+                frame.number_lives,
+                frame.number_hitpoints,
+                frame.active_enemy_object_count,
+                frame.active_platform_object_count,
+                describe_active_objects(frame)
+            );
+        }
+    }
+}
+
+pub(crate) fn probe_native_scenario(
+    manifest: &AssetManifest,
+    scenario: Scenario,
+    frame_start: Option<usize>,
+    frame_end: Option<usize>,
+) -> Result<()> {
     let script = scenario.script()?;
     let trace = run_native_script_for_scenario(manifest, &script, scenario);
     let final_frame = trace
@@ -579,6 +701,8 @@ pub(crate) fn probe_native_scenario(manifest: &AssetManifest, scenario: Scenario
             );
         }
     }
+
+    print_trace_frames_in_range(&trace, &script, frame_start, frame_end);
 
     Ok(())
 }
@@ -655,37 +779,7 @@ pub(crate) fn probe_native_gameplay_scenario(
         }
     }
 
-    if let Some(start) = frame_start {
-        let end = frame_end.unwrap_or(start);
-        for frame in trace
-            .iter()
-            .filter(|frame| (start..=end).contains(&frame.frame_index))
-        {
-            let input = script
-                .get(frame.frame_index)
-                .copied()
-                .map(kid_core::FrameInput::from_mask)
-                .unwrap_or_default();
-            println!(
-                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
-                frame.frame_index,
-                describe_frame_input(input),
-                frame.game_mode,
-                frame.camera_x_pos,
-                frame.camera_y_pos,
-                frame.kid_x_pos.unwrap_or_default(),
-                frame.kid_y_pos.unwrap_or_default(),
-                frame.kid_x_velocity.unwrap_or_default() as u32,
-                frame.kid_y_velocity.unwrap_or_default() as u32,
-                frame.kid_on_ground,
-                frame.number_lives,
-                frame.number_hitpoints,
-                frame.active_enemy_object_count,
-                frame.active_platform_object_count,
-                describe_active_objects(frame)
-            );
-        }
-    }
+    print_trace_frames_in_range(&trace, &script, frame_start, frame_end);
 
     Ok(())
 }

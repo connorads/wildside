@@ -5,19 +5,32 @@ use super::*;
 fn transform_anim_frames(form: PlayerForm) -> u16 {
     match form {
         PlayerForm::TheKid => 0,
-        PlayerForm::Skycutter => 47,   // stru_7EFA
-        PlayerForm::Cyclone => 72,     // stru_7F30
-        PlayerForm::RedStealth => 54,  // stru_7F5A
-        PlayerForm::Eyeclops => 93,    // stru_7F90
-        PlayerForm::Juggernaut => 33,  // stru_7FCA
-        PlayerForm::IronKnight => 96,  // stru_7FF8
-        PlayerForm::Berzerker => 51,   // stru_803A
-        PlayerForm::Maniaxe => 45,     // stru_8064
-        PlayerForm::Micromax => 59,    // stru_808A
+        PlayerForm::Skycutter => 47,  // stru_7EFA
+        PlayerForm::Cyclone => 72,    // stru_7F30
+        PlayerForm::RedStealth => 54, // stru_7F5A
+        PlayerForm::Eyeclops => 93,   // stru_7F90
+        PlayerForm::Juggernaut => 33, // stru_7FCA
+        PlayerForm::IronKnight => 96, // stru_7FF8
+        PlayerForm::Berzerker => 51,  // stru_803A
+        PlayerForm::Maniaxe => 45,    // stru_8064
+        PlayerForm::Micromax => 59,   // stru_808A
     }
 }
 
 impl NativeRuntime {
+    pub(crate) fn spawn_enemy_death_effect(&mut self, family: EnemyFamily, x_pos: u32, y_pos: u32) {
+        let remaining = if matches!(family, EnemyFamily::HeadyMetal) {
+            HEADYMETAL_DEATH_EFFECT_FRAMES
+        } else {
+            GENERIC_ENEMY_DEATH_EFFECT_FRAMES
+        };
+        self.enemy_death_effects.push(EnemyDeathEffect {
+            x_pos,
+            y_pos,
+            remaining,
+        });
+    }
+
     pub(crate) fn should_apply_level_one_opening_hit(
         &self,
         slice: &OpeningSliceState,
@@ -135,14 +148,13 @@ impl NativeRuntime {
         // Remove dead enemies, spawn death effects, and award points
         for &idx in kill_indices.iter().rev() {
             let enemy = &self.active_enemies[idx];
-            self.enemy_death_effects.push(EnemyDeathEffect {
-                x_pos: enemy.x_pos,
-                y_pos: enemy.y_pos,
-                remaining: 10,
-            });
+            let family = enemy.family;
+            let x_pos = enemy.x_pos;
+            let y_pos = enemy.y_pos;
+            self.spawn_enemy_death_effect(family, x_pos, y_pos);
             // Fire Demon: spawn fire trail on death
-            if matches!(enemy.family, EnemyFamily::FireDemon) {
-                spawn_fire_demon_death_trail(&mut self.projectiles, enemy.x_pos, enemy.y_pos);
+            if matches!(family, EnemyFamily::FireDemon) {
+                spawn_fire_demon_death_trail(&mut self.projectiles, x_pos, y_pos);
             }
             self.active_enemies.remove(idx);
             self.add_score(1000);
@@ -256,7 +268,8 @@ impl NativeRuntime {
                 self.clocks_collected += 1;
             }
             terrain::PrizeContent::Continue => {
-                self.progression.number_continues = self.progression.number_continues.saturating_add(1);
+                self.progression.number_continues =
+                    self.progression.number_continues.saturating_add(1);
             }
             terrain::PrizeContent::Ankh => {
                 self.add_life();
@@ -278,7 +291,8 @@ impl NativeRuntime {
 
     /// Returns the x_pos of the damaging enemy if contact damage should apply, or None.
     pub(crate) fn find_contact_damage_source(&self, slice: &OpeningSliceState) -> Option<u32> {
-        if self.progression.invulnerable_frames != 0 || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+        if self.progression.invulnerable_frames != 0
+            || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
             return None;
         }

@@ -70,7 +70,7 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 ## Remaining work
 
 ### Visual fidelity — sprite extraction (3 TODO(fidelity) markers)
-- **#033** [~] Transform animation visual sprites — needs ROM tile extraction for spinning animation frames. `Kid_Transform` (kid.asm:8369-8607) has per-helmet sprite+palette cycling tables. Frame counts/durations already extracted; blocked on art pipeline for transform tile sheets.
+- **#033** [x] Transform animation visual sprites — original `Kid_Transform` art and timing are now wired for all forms. Juggernaut now composes the split head/base sprites into native player frames.
 - Fire Demon death trail visual sprites — rendered as generic projectile, needs real fire fragment tiles from ROM.
 - Floating item ROM sprites — some items use content-type-specific pixel-art icons, others placeholder rectangles (scene.rs). Needs ROM VRAM tile extraction.
 
@@ -84,8 +84,8 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
 
 ### Gameplay fidelity (2 open backlog items)
-- **#037** [~] Floor-snap settling diffs on 5 levels — root cause documented: `probe_floor_hitbox` only checks ±half_width edges, misses terrain beyond hitbox width. ASM runs full `Hibernate_Object_1Frame`. Fix requires running real frame steps during init or widening probe. Affected: 0x52 (+14px Y), 0x29 (+5px X), 0x02/0x24/0x51 (1px cam_y).
-- **#062** [ ] HeadyMetal death wobble visual — purely cosmetic rendering effect during boss death sequence.
+- **#037** [~] Floor-snap settling diffs on 4 levels — residuals are now small but real. Current focused sweeps show: 0x52 (`camera_y` +2px, `kid_y` +2.25px), 0x29 (`camera_x`/`kid_x` +5px), and 0x24/0x51 (`camera_y` +1px). `0x02` is now clean apart from advisory lives. Root cause remains the init-time spawn-support shortcut versus the original frame-step settling.
+- **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
 
 ### Game flow verification (not yet investigated)
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
@@ -140,7 +140,7 @@ Low impact: Driller block drilling, speed caps at high HP, probe half-width per-
 - Menus — done (boot/title, pause/resume, game over, continue, score board)
 - Diamond Power two-tier cost — done (20 form/tier combos mapped to 8 unique power types)
 - Demo playback — done (#026, extracted from kid.asm:33373-33436, 2 demos alternate on title idle)
-- Per-helmet transform timing — done (#033 partial, correct frame counts from ASM tables)
+- Per-helmet transform timing + transform sprites — done (#033, correct frame counts and original art tables)
 - Perf baseline tracking — done (#031, criterion benchmarks: ~92ns/frame idle, ~3µs level load)
 - Per-enemy constant verification — done for all 28 families against ASM (Phase 4)
 - Block constant verification — done for all 13 block types against ASM (Phase 3)

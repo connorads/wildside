@@ -20,8 +20,8 @@ pub use level::{
 };
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
-    AnimatedSpriteVisual, EnemyVisuals, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
-    PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, PlatformVisuals, PlayerFormVisuals,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -29,8 +29,8 @@ pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 mod tests {
     use super::{BlockVisualKind, load_level_visuals};
     use kid_data::{
-        AssetFile, AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION,
-        DECODED_LEVEL_ASSET_VERSION, LevelHeader, LevelRecord, LevelResources,
+        AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
+        DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
     };
     use sha1::{Digest, Sha1};
     use std::fs;
@@ -164,9 +164,22 @@ mod tests {
         assert_eq!(iron_knight.idle.origin_x, 0x13);
         assert_eq!(iron_knight.walk.len(), 6);
         assert_eq!(iron_knight.jump_rise.width_px, 0x1F);
-        assert_eq!(iron_knight.transform_palette.as_ref().expect("transform palette").colours.len(), 15);
+        assert_eq!(
+            iron_knight
+                .transform_palette
+                .as_ref()
+                .expect("transform palette")
+                .colours
+                .len(),
+            15
+        );
         assert_eq!(iron_knight.transform_steps.len(), 16);
-        assert!(iron_knight.transform_steps.iter().any(|step| step.frame.is_none()));
+        assert!(
+            iron_knight
+                .transform_steps
+                .iter()
+                .any(|step| step.frame.is_none())
+        );
     }
 
     #[test]

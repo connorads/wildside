@@ -25,7 +25,7 @@ Source: `.cache/upstream/kid-chameleon-disasm/code/enemy/*.asm`
 ## Bosses (wired, minor fidelity gaps)
 - All 4 boss encounters wired
 - Multi-head system done: 3 heads per boss with ASM position offsets and per-head HP (#060)
-- HeadyMetal: phase-dependent fire rate + early X gate done; death wobble visual pending (#062)
+- HeadyMetal: phase-dependent fire rate + early X gate done; death wobble render path wired, oracle visual verification pending (#062)
 - Source: boss enemy modules, kid.asm:40177-40700
 
 ## Level transitions (done)
