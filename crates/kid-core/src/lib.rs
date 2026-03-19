@@ -234,7 +234,9 @@ impl NativeRuntime {
         }
         if gameplay_slice_active {
             match self.demo_startup_frame() {
-                Some(frame) if frame == demo::DEMO_GAMEPLAY_START_FRAME => {}
+                Some(frame) if frame == demo::DEMO_GAMEPLAY_START_FRAME => {
+                    self.apply_demo_bootstrap_camera_handoff();
+                }
                 Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
                     self.apply_demo_bootstrap_initial_settle();
                 }

@@ -10552,6 +10552,49 @@ fn demo_bootstrap_holds_spawn_pose_then_applies_hidden_initial_settle() {
 }
 
 #[test]
+fn demo_bootstrap_first_visible_gameplay_frame_advances_camera_only() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(0x1C));
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_GAMEPLAY_START_FRAME - 1,
+        data_index: 0,
+        use_demo_2: true,
+    };
+    runtime.current_level = LevelId(demo::DEMO_2_LEVEL);
+    runtime.level_start_frame = Some(runtime.frame_index);
+    runtime.opening_slice = Some(OpeningSliceState {
+        player: PlayerState {
+            x_pos: 0x0020_0000,
+            y_pos: 0x02DD_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+        },
+        camera: CameraState {
+            x_pos: 0,
+            y_pos: 0x02A0_0000,
+        },
+        terrain: TerrainState {
+            floor_y_pos: 0x02DD_0000,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        ..OpeningSliceState::new(runtime.level_bounds(LevelId(demo::DEMO_2_LEVEL)))
+    });
+
+    let first_visible = runtime.step_frame(FrameInput::default());
+    assert_eq!(first_visible.boot_phase_elapsed, Some(65));
+    assert_eq!(first_visible.kid_y_pos, Some(0x02DD_0000));
+    assert_eq!(first_visible.camera_y_pos, 0x0298_0000);
+    assert_eq!(first_visible.number_objects, 5);
+    assert_eq!(first_visible.number_gfx_objects, 4);
+}
+
+#[test]
 fn demo_plays_correct_level_and_alternates() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::TitleScreen { cursor: 0 };

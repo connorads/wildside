@@ -96,6 +96,16 @@ impl NativeRuntime {
         slice.player.y_velocity = 0;
     }
 
+    pub(crate) fn apply_demo_bootstrap_camera_handoff(&mut self) {
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        // The first visible demo gameplay frame keeps the held bootstrap
+        // player pose but lets camera follow advance once from the respawn
+        // preload position before the trace is sampled.
+        slice.update_camera_follow(0);
+    }
+
     pub(crate) fn try_snap_demo_bootstrap_floor(
         &self,
         slice: &mut OpeningSliceState,
