@@ -10860,6 +10860,32 @@ fn demo_plays_correct_level_and_alternates() {
 }
 
 #[test]
+fn demo_play_non_knights_isle_suppresses_enemy_loading() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+        data_index: 0,
+        use_demo_2: true,
+    };
+    runtime.current_level = LevelId(0);
+    runtime.opening_slice = Some(OpeningSliceState {
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        ..OpeningSliceState::new(runtime.level_bounds(LevelId(0)))
+    });
+
+    runtime.refresh_active_roster();
+
+    assert!(
+        runtime.active_enemies.is_empty(),
+        "non-Knights Isle demo playback should not load enemies"
+    );
+    assert!(
+        runtime.active_enemy_roster.is_empty(),
+        "demo traces should stay free of enemy snapshots when loading is suppressed"
+    );
+}
+
+#[test]
 fn demo_aborts_on_start_press() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::TitleScreen { cursor: 0 };

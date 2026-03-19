@@ -3808,6 +3808,11 @@ pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) 
 }
 
 impl NativeRuntime {
+    fn enemy_loading_enabled(&self) -> bool {
+        !matches!(self.boot_state, BootState::DemoPlay { .. })
+            || self.current_level == LevelId(demo::DEMO_1_LEVEL)
+    }
+
     pub(crate) fn refresh_active_roster(&mut self) {
         if self.paused {
             return;
@@ -3846,27 +3851,34 @@ impl NativeRuntime {
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
         if let Some(enemy_layout) = enemy_layout.as_ref() {
-            activate_enemies(
-                &mut self.active_enemies,
-                enemy_layout,
-                window,
-                camera_x_px,
-                camera_y_px,
-                slice.player.x_pos,
-            );
-            step_active_enemies(
-                &mut self.active_enemies,
-                self.block_grid.as_ref(),
-                Some(slice.player.x_pos),
-                Some(slice.player.y_pos),
-                self.progression.current_form,
-                Some(&mut self.projectiles),
-            );
-            self.active_enemy_roster = self
-                .active_enemies
-                .iter()
-                .map(ActiveEnemy::snapshot)
-                .collect();
+            if self.enemy_loading_enabled() {
+                activate_enemies(
+                    &mut self.active_enemies,
+                    enemy_layout,
+                    window,
+                    camera_x_px,
+                    camera_y_px,
+                    slice.player.x_pos,
+                );
+                step_active_enemies(
+                    &mut self.active_enemies,
+                    self.block_grid.as_ref(),
+                    Some(slice.player.x_pos),
+                    Some(slice.player.y_pos),
+                    self.progression.current_form,
+                    Some(&mut self.projectiles),
+                );
+                self.active_enemy_roster = self
+                    .active_enemies
+                    .iter()
+                    .map(ActiveEnemy::snapshot)
+                    .collect();
+            } else {
+                // ORIGINAL_QUIRK: during title-screen demo playback, the game
+                // suppresses enemy loading for every level except Knights Isle.
+                self.active_enemies.clear();
+                self.active_enemy_roster.clear();
+            }
         }
         if let Some(platform_layout) = platform_layout.as_ref() {
             let mut objects = slice.objects;
