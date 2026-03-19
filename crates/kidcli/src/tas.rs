@@ -348,10 +348,10 @@ pub fn verify_tas(
         scenario.warp_to_level,
     );
 
-    let native_states =
+    let mut native_states =
         crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
 
-    // Detect level transitions in native trace
+    // Detect level transitions in native trace and inject transition checkpoints
     let mut transitions = Vec::new();
     for window in native_trace.windows(2) {
         if window[0].current_level != window[1].current_level {
@@ -363,13 +363,18 @@ pub fn verify_tas(
         }
     }
     if !transitions.is_empty() {
-        println!("  level transitions detected:");
+        println!("  level transitions detected: {}", transitions.len());
         for (frame, from, to) in &transitions {
             println!("    frame {frame}: {from:?} -> {to:?}");
         }
+        // Two-pass: merge transition checkpoints into scenario
+        merge_transition_checkpoints(&mut scenario, &transitions);
+        // Re-extract native states with the augmented checkpoints
+        native_states =
+            crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
     }
 
-    // Write scenario JSON for oracle
+    // Write scenario JSON for oracle (with transition checkpoints merged)
     let run_dir = repo_root.join(".cache/tas-verify").join(&scenario.slug);
     std::fs::create_dir_all(&run_dir)
         .with_context(|| format!("failed to create {}", run_dir.display()))?;
@@ -441,6 +446,43 @@ pub fn verify_tas(
     println!("  report: {}", report_path.display());
 
     Ok(())
+}
+
+/// Merge level-transition checkpoints into the scenario's existing checkpoints.
+/// Adds checkpoints at the frame just before and just after each transition.
+fn merge_transition_checkpoints(
+    scenario: &mut DynamicScenario,
+    transitions: &[(usize, kid_core::LevelId, kid_core::LevelId)],
+) {
+    let existing_frames: std::collections::HashSet<usize> = scenario
+        .checkpoints
+        .iter()
+        .map(|cp| cp.frame_index)
+        .collect();
+
+    for &(frame, from, to) in transitions {
+        // Checkpoint just before transition (the last frame of the old level)
+        if !existing_frames.contains(&frame) && frame < scenario.frame_count {
+            scenario.checkpoints.push(DynamicCheckpoint {
+                label: format!("transition_{:02x}_to_{:02x}_pre", from.0, to.0),
+                frame_index: frame,
+            });
+        }
+        // Checkpoint just after transition (the first frame of the new level)
+        let after = frame + 1;
+        if !existing_frames.contains(&after) && after < scenario.frame_count {
+            scenario.checkpoints.push(DynamicCheckpoint {
+                label: format!("transition_{:02x}_to_{:02x}_post", from.0, to.0),
+                frame_index: after,
+            });
+        }
+    }
+
+    // Sort checkpoints by frame index for consistent oracle comparison
+    scenario
+        .checkpoints
+        .sort_by_key(|cp| cp.frame_index);
+    scenario.checkpoints.dedup_by_key(|cp| cp.frame_index);
 }
 
 fn generate_checkpoints(start: usize, end: usize, interval: usize) -> Vec<DynamicCheckpoint> {
@@ -677,6 +719,75 @@ mod tests {
         let scenario = bk2_to_scenario(&import, 300);
         let labels: Vec<&str> = scenario.checkpoints.iter().map(|c| c.label.as_str()).collect();
         assert_eq!(labels, vec!["frame_0", "frame_49"]);
+    }
+
+    #[test]
+    fn merge_transition_checkpoints_inserts_pre_and_post() {
+        let mut scenario = DynamicScenario {
+            slug: "test".into(),
+            script: vec![0; 1000],
+            frame_count: 1000,
+            checkpoints: vec![
+                DynamicCheckpoint {
+                    label: "frame_0".into(),
+                    frame_index: 0,
+                },
+                DynamicCheckpoint {
+                    label: "frame_300".into(),
+                    frame_index: 300,
+                },
+            ],
+            warp_to_level: None,
+        };
+        let transitions = vec![
+            (500, kid_core::LevelId(0x00), kid_core::LevelId(0x01)),
+            (800, kid_core::LevelId(0x01), kid_core::LevelId(0x02)),
+        ];
+        super::merge_transition_checkpoints(&mut scenario, &transitions);
+
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .collect();
+        // Should have: 0, 300, 500, 501, 800, 801
+        assert_eq!(indices, vec![0, 300, 500, 501, 800, 801]);
+
+        // Verify labels
+        assert!(scenario.checkpoints[2].label.contains("transition_00_to_01"));
+        assert!(scenario.checkpoints[4].label.contains("transition_01_to_02"));
+    }
+
+    #[test]
+    fn merge_transition_checkpoints_deduplicates_existing() {
+        let mut scenario = DynamicScenario {
+            slug: "test".into(),
+            script: vec![0; 500],
+            frame_count: 500,
+            checkpoints: vec![DynamicCheckpoint {
+                label: "frame_200".into(),
+                frame_index: 200,
+            }],
+            warp_to_level: None,
+        };
+        // Transition at frame 200 — already a checkpoint
+        let transitions = vec![(200, kid_core::LevelId(0x00), kid_core::LevelId(0x01))];
+        super::merge_transition_checkpoints(&mut scenario, &transitions);
+
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .collect();
+        // frame 200 already existed, 201 is new
+        assert_eq!(indices, vec![200, 201]);
+    }
+
+    #[test]
+    fn generate_checkpoints_covers_range() {
+        let cps = super::generate_checkpoints(100, 500, 150);
+        let indices: Vec<usize> = cps.iter().map(|cp| cp.frame_index).collect();
+        assert_eq!(indices, vec![100, 250, 400, 499]);
     }
 
     #[test]
