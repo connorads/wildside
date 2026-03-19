@@ -4,28 +4,32 @@ impl NativeRuntime {
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
-            && let Some(grid) = &self.block_grid {
-                let x_px = (slice.player.x_pos >> 16) as i32;
-                let y_px = (slice.player.y_pos >> 16) as i32;
-                let probe = terrain::probe_floor(grid, x_px, y_px);
-                if probe.on_ground && probe.cell.block_type == terrain::BlockType::Evanescent {
-                    let col = terrain::pixel_to_cell(x_px).max(0) as u16;
-                    // The floor cell is the one the player is standing ON (below feet)
-                    let row = terrain::pixel_to_cell(probe.floor_y_px).max(0) as u16;
-                    let already_tracked = self
-                        .block_state.evanescent_blocks
-                        .iter()
-                        .any(|e| e.col == col && e.row == row);
-                    if !already_tracked && self.block_state.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES {
-                        let initial_timer = i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
-                        self.block_state.evanescent_blocks.push(EvanescentEntry {
-                            col,
-                            row,
-                            timer: initial_timer,
-                        });
-                    }
+            && let Some(grid) = &self.block_grid
+        {
+            let x_px = (slice.player.x_pos >> 16) as i32;
+            let y_px = (slice.player.y_pos >> 16) as i32;
+            let probe = terrain::probe_floor(grid, x_px, y_px);
+            if probe.on_ground && probe.cell.block_type == terrain::BlockType::Evanescent {
+                let col = terrain::pixel_to_cell(x_px).max(0) as u16;
+                // The floor cell is the one the player is standing ON (below feet)
+                let row = terrain::pixel_to_cell(probe.floor_y_px).max(0) as u16;
+                let already_tracked = self
+                    .block_state
+                    .evanescent_blocks
+                    .iter()
+                    .any(|e| e.col == col && e.row == row);
+                if !already_tracked
+                    && self.block_state.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES
+                {
+                    let initial_timer = i16::from(probe.cell.skin) - EVANESCENT_SKIN_OFFSET;
+                    self.block_state.evanescent_blocks.push(EvanescentEntry {
+                        col,
+                        row,
+                        timer: initial_timer,
+                    });
                 }
             }
+        }
 
         // Tick timers and remove expired blocks
         if let Some(grid) = &mut self.block_grid {
@@ -189,8 +193,8 @@ impl NativeRuntime {
                 // Phase 1: rise at 2px/frame
                 let delta = -(LIFT_RISE_SPEED_PX << 16);
                 lift.y_velocity = delta;
-                lift.y_pos = (i64::from(lift.y_pos) + i64::from(delta))
-                    .clamp(0, i64::from(u32::MAX)) as u32;
+                lift.y_pos =
+                    (i64::from(lift.y_pos) + i64::from(delta)).clamp(0, i64::from(u32::MAX)) as u32;
             } else if lift.age <= LIFT_RISE_FRAMES + LIFT_FALL_FRAMES {
                 // Phase 2: erase block from grid (once, at start of fall phase)
                 if !lift.block_erased {
@@ -207,8 +211,8 @@ impl NativeRuntime {
                 // Phase 3: fall at 1px/frame
                 let delta = LIFT_FALL_SPEED_PX << 16;
                 lift.y_velocity = delta;
-                lift.y_pos = (i64::from(lift.y_pos) + i64::from(delta))
-                    .clamp(0, i64::from(u32::MAX)) as u32;
+                lift.y_pos =
+                    (i64::from(lift.y_pos) + i64::from(delta)).clamp(0, i64::from(u32::MAX)) as u32;
             } else {
                 // Phase 4: delete
                 return false;
@@ -331,13 +335,14 @@ impl NativeRuntime {
         // Teleporter block: warp player to destination
         if let Some((cell_x, cell_y)) = slice.teleporter_contact
             && let Some(block_list) = self.block_list.as_ref()
-                && let Some(tp) = block_list.teleporter_at(cell_x, cell_y) {
-                    // Warp to destination position
-                    slice.player.x_pos = (u32::from(tp.dest_x) * 16) << 16;
-                    slice.player.y_pos = (u32::from(tp.dest_y) * 16) << 16;
-                    slice.player.y_velocity = 0;
-                    slice.player.on_ground = true;
-                }
+            && let Some(tp) = block_list.teleporter_at(cell_x, cell_y)
+        {
+            // Warp to destination position
+            slice.player.x_pos = (u32::from(tp.dest_x) * 16) << 16;
+            slice.player.y_pos = (u32::from(tp.dest_y) * 16) << 16;
+            slice.player.y_velocity = 0;
+            slice.player.on_ground = true;
+        }
     }
 
     pub(crate) fn step_visual_effects(&mut self) {

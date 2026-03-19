@@ -86,7 +86,10 @@ fn runtime_in_game() -> NativeRuntime {
         runtime.step_frame(FrameInput::default());
     }
     // Press start to begin
-    runtime.step_frame(FrameInput { start: true, ..Default::default() });
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..Default::default()
+    });
     // Settle into gameplay
     for _ in 0..60 {
         runtime.step_frame(FrameInput::default());
@@ -105,7 +108,10 @@ fn bench_frame_step_idle(c: &mut Criterion) {
 
 fn bench_frame_step_walking(c: &mut Criterion) {
     let mut runtime = runtime_in_game();
-    let input = FrameInput { right: true, ..Default::default() };
+    let input = FrameInput {
+        right: true,
+        ..Default::default()
+    };
     c.bench_function("frame_step_walking", |b| {
         b.iter(|| {
             runtime.step_frame(input);

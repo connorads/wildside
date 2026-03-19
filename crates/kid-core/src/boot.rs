@@ -4,10 +4,7 @@ impl NativeRuntime {
     /// Handle demo playback input override and exit conditions.
     /// Returns `Some(input)` with the (possibly overridden) input to continue,
     /// or `None` if the frame was fully handled (early return with trace).
-    pub(crate) fn step_demo_input(
-        &mut self,
-        input: FrameInput,
-    ) -> Option<FrameInput> {
+    pub(crate) fn step_demo_input(&mut self, input: FrameInput) -> Option<FrameInput> {
         let BootState::DemoPlay {
             frame_counter,
             data_index,

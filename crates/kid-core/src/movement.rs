@@ -578,9 +578,10 @@ impl OpeningSliceState {
                     (false, false) => None,
                 };
                 if let Some(edge_probe) = edge_probe
-                    && edge_probe.floor_y_px > probe.floor_y_px {
-                        probe = edge_probe;
-                    }
+                    && edge_probe.floor_y_px > probe.floor_y_px
+                {
+                    probe = edge_probe;
+                }
             }
             let mut allow_hitbox_snap = true;
             let mut center_slope_snap_candidate = false;

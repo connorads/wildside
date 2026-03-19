@@ -52,7 +52,10 @@ impl NativeRuntime {
             number_objects,
             number_gfx_objects,
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
-            game_over: matches!(self.player_lifecycle, PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }),
+            game_over: matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::GameOver { .. } | PlayerLifecycle::ContinueCountdown { .. }
+            ),
             continue_countdown: match self.player_lifecycle {
                 PlayerLifecycle::ContinueCountdown { remaining_frames } => Some(remaining_frames),
                 _ => None,
@@ -84,7 +87,8 @@ impl NativeRuntime {
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
                 .collect(),
             active_geysers: self
-                .weather.lava_geysers
+                .weather
+                .lava_geysers
                 .iter()
                 .filter(|g| g.current_height > 0)
                 .map(|g| {

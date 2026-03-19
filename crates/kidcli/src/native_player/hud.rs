@@ -139,5 +139,11 @@ pub(super) fn push_game_hud(
         HUD_DIAMOND_COUNT_X,
         HUD_DIAMOND_COUNT_Y,
     );
-    push_hud_icon(commands, level_visuals, "diamond", HUD_DIAMOND_X, HUD_DIAMOND_Y);
+    push_hud_icon(
+        commands,
+        level_visuals,
+        "diamond",
+        HUD_DIAMOND_X,
+        HUD_DIAMOND_Y,
+    );
 }

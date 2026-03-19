@@ -2685,9 +2685,9 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE, cram_rgb,
-        scale_channel, YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus,
-        Z80Shared, probe_rom,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE,
+        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
+        probe_rom, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2826,7 +2826,10 @@ mod tests {
     fn scale_channel_matches_megadrive_rgb_rounding() {
         let expanded: Vec<u8> = (0..=7).map(scale_channel).collect();
 
-        assert_eq!(expanded, vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]);
+        assert_eq!(
+            expanded,
+            vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]
+        );
     }
 
     #[test]

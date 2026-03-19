@@ -16,11 +16,7 @@ mod trace;
 pub(crate) mod types;
 mod weather;
 
-pub use types::*;
-pub use scenario::{run_script, run_script_with_warp};
 use constants::*;
-#[cfg(test)]
-pub(crate) use trace::opening_level_one_object_counts;
 use enemies::*;
 use kid_data::{
     AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
@@ -28,7 +24,11 @@ use kid_data::{
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
+pub use scenario::{run_script, run_script_with_warp};
 use std::fs;
+#[cfg(test)]
+pub(crate) use trace::opening_level_one_object_counts;
+pub use types::*;
 
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {
@@ -201,7 +201,10 @@ impl NativeRuntime {
         self.refresh_active_roster();
         // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
         if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
-            && matches!(self.boot_state, BootState::InGame | BootState::DemoPlay { .. })
+            && matches!(
+                self.boot_state,
+                BootState::InGame | BootState::DemoPlay { .. }
+            )
             && !self.paused
         {
             self.step_diamond_power(input);

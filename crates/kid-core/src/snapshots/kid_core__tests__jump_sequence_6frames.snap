@@ -1,6 +1,6 @@
 ---
-source: crates/kid-core/src/lib.rs
-assertion_line: 11875
+source: crates/kid-core/src/tests.rs
+assertion_line: 10218
 expression: trace
 ---
 frame_index: 637

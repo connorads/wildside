@@ -91,7 +91,10 @@ mod tests {
     fn expands_megadrive_channels_using_oracle_rgb_rounding() {
         let expanded: Vec<u8> = (0..=7).map(expand_channel).collect();
 
-        assert_eq!(expanded, vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]);
+        assert_eq!(
+            expanded,
+            vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]
+        );
     }
 
     #[test]
@@ -119,7 +122,11 @@ mod tests {
 
         palette.apply_permutation(&table);
 
-        let reordered: Vec<u16> = palette.colours.iter().map(|colour| colour.raw_word).collect();
+        let reordered: Vec<u16> = palette
+            .colours
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect();
         assert_eq!(reordered[0], 1);
         assert_eq!(reordered[1], 3);
         assert_eq!(reordered[2], 2);
@@ -140,7 +147,11 @@ mod tests {
 
         palette.apply_permutation(&table);
 
-        let reordered: Vec<u16> = palette.colours.iter().map(|colour| colour.raw_word).collect();
+        let reordered: Vec<u16> = palette
+            .colours
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect();
         assert_eq!(reordered[..4], [0, 2, 1, 3]);
     }
 }

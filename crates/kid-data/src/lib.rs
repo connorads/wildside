@@ -1106,7 +1106,14 @@ fn export_saxman_decoded_asset(
         &fs::read(&encoded_path)
             .with_context(|| format!("failed to read {}", encoded_path.display()))?,
     )?;
-    export_decoded_asset_file(manifest, stem, &decoded_bytes, preview_width, false, output_dir)
+    export_decoded_asset_file(
+        manifest,
+        stem,
+        &decoded_bytes,
+        preview_width,
+        false,
+        output_dir,
+    )
 }
 
 fn export_raw_level_asset(
@@ -1173,10 +1180,7 @@ fn validate_decoded_asset_file(
     let asset_path = manifest.output_root.join(&asset.relative_path);
     let preview_path = manifest.output_root.join(&asset.preview_png_path);
     if !asset_path.is_file() {
-        bail!(
-            "decoded {label} asset is missing: {}",
-            asset_path.display()
-        );
+        bail!("decoded {label} asset is missing: {}", asset_path.display());
     }
     if !preview_path.is_file() {
         bail!(
@@ -2122,10 +2126,7 @@ mod tests {
             .iter()
             .find(|d| d.level_id == 0x00)
             .expect("decoded level 0x00 should be present");
-        assert_eq!(
-            decoded_level0.contract_version,
-            DECODED_LEVEL_ASSET_VERSION
-        );
+        assert_eq!(decoded_level0.contract_version, DECODED_LEVEL_ASSET_VERSION);
         assert_eq!(decoded_level0.level_id, 0x00);
         assert_eq!(
             fs::read(output.path().join(&decoded_level0.foreground.relative_path))

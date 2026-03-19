@@ -204,8 +204,7 @@ pub(super) fn select_player_transform_frame<'a>(
         .iter()
         .map(|step| step.duration_frames)
         .sum::<usize>();
-    let mut elapsed =
-        total_duration.saturating_sub(usize::from(trace.form_change_flash_frames));
+    let mut elapsed = total_duration.saturating_sub(usize::from(trace.form_change_flash_frames));
     for step in &player_visuals.transform_steps {
         if elapsed < step.duration_frames {
             return step.frame.as_ref();
@@ -319,9 +318,10 @@ fn select_enemy_palette(
     variant: u8,
 ) -> &kid_render::Palette {
     if variant > 0
-        && let Some(pal) = visuals.extra_palettes.get(usize::from(variant) - 1) {
-            return pal;
-        }
+        && let Some(pal) = visuals.extra_palettes.get(usize::from(variant) - 1)
+    {
+        return pal;
+    }
     &visuals.palette
 }
 

@@ -910,20 +910,21 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                 }
                 let cheat = &CHEATS[*selected];
                 if let CheatEffect::Adjustable { min, max } = cheat.effect
-                    && (menu_left || menu_right) {
-                        let current = pending_value.unwrap_or_else(|| {
-                            runtime
-                                .as_ref()
-                                .map(|rt| (cheat.read)(&rt.game_state()))
-                                .unwrap_or(0)
-                        });
-                        let next = if menu_left {
-                            if current <= min { max } else { current - 1 }
-                        } else {
-                            if current >= max { min } else { current + 1 }
-                        };
-                        *pending_value = Some(next);
-                    }
+                    && (menu_left || menu_right)
+                {
+                    let current = pending_value.unwrap_or_else(|| {
+                        runtime
+                            .as_ref()
+                            .map(|rt| (cheat.read)(&rt.game_state()))
+                            .unwrap_or(0)
+                    });
+                    let next = if menu_left {
+                        if current <= min { max } else { current - 1 }
+                    } else {
+                        if current >= max { min } else { current + 1 }
+                    };
+                    *pending_value = Some(next);
+                }
                 if confirm {
                     if let Some(rt) = runtime.as_mut() {
                         let value = pending_value.unwrap_or_else(|| (cheat.read)(&rt.game_state()));
