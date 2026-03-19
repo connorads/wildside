@@ -330,6 +330,12 @@ impl NativeRuntime {
         slice.player.on_ground = false;
         slice.terrain.floor_y_pos = slice.player.y_pos;
 
+        let Some(base_grid) = self.block_grid.as_ref() else {
+            return slice;
+        };
+        let mut grid = base_grid.clone();
+        Self::resolve_spawn_wall_overlap(&mut slice, &grid);
+
         if let Some((trace, _)) = settle_trace.as_mut() {
             trace.push(RespawnSettleFrame {
                 step_index: 0,
@@ -345,11 +351,6 @@ impl NativeRuntime {
                 wide_support_applied: false,
             });
         }
-
-        let Some(base_grid) = self.block_grid.as_ref() else {
-            return slice;
-        };
-        let mut grid = base_grid.clone();
         let settle_input = FrameInput::default();
         let mut stable_frames = 0usize;
 
@@ -411,6 +412,31 @@ impl NativeRuntime {
         slice
     }
 
+    pub(crate) fn resolve_spawn_wall_overlap(
+        slice: &mut OpeningSliceState,
+        grid: &terrain::BlockGrid,
+    ) {
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let left_probe = terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, false);
+        let right_probe =
+            terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, true);
+        let mut resolved_x_px = x_px;
+
+        if left_probe.hit {
+            let min_clear_x = (i32::from(left_probe.cell_x) + 1) * 16 + PLAYER_HALF_WIDTH;
+            resolved_x_px = resolved_x_px.max(min_clear_x);
+        }
+        if right_probe.hit {
+            let max_clear_x = i32::from(right_probe.cell_x) * 16 - PLAYER_HALF_WIDTH - 1;
+            resolved_x_px = resolved_x_px.min(max_clear_x);
+        }
+
+        if resolved_x_px != x_px {
+            slice.player.x_pos = (resolved_x_px.max(0) as u32) << 16;
+        }
+    }
+
     pub(crate) fn try_settle_on_spawn_support(
         &self,
         slice: &mut OpeningSliceState,
@@ -449,6 +475,16 @@ impl NativeRuntime {
             return false;
         }
         if slice.player.on_ground && !slice.player.on_spikes {
+            return false;
+        }
+        let fallback_floor = terrain::find_floor_below(grid, x_px, y_px).map(|floor_y_px| {
+            let floor_probe = terrain::probe_floor(grid, x_px, floor_y_px);
+            (floor_y_px, floor_probe.cell.collision)
+        });
+        if let Some((floor_y_px, collision)) = fallback_floor
+            && floor_y_px > probe.floor_y_px
+            && collision != terrain::CollisionKind::Spikes
+        {
             return false;
         }
 

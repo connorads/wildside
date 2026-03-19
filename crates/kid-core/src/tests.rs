@@ -541,6 +541,66 @@ fn spawn_support_fallback_does_not_override_safe_hitbox_floor() {
 }
 
 #[test]
+fn respawn_floor_snap_resolves_initial_wall_overlap() {
+    let output_root = unique_temp_path("generated-layout-spawn-wall-overlap");
+    let mut manifest = manifest();
+    manifest.output_root = output_root.clone();
+    let header = manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .expect("test level should have header metadata");
+    header.player_start_x = 0x0020;
+    header.player_start_y = 0x0030;
+
+    let width_blocks = 6u16;
+    let height_blocks = 4u16;
+    let mut data = vec![0u8; usize::from(width_blocks) * usize::from(height_blocks) * 2];
+    data[(usize::from(1u16) * usize::from(width_blocks) + usize::from(1u16)) * 2] = 0x60;
+    for col in 0..usize::from(width_blocks) {
+        data[(usize::from(3u16) * usize::from(width_blocks) + col) * 2] = 0x60;
+    }
+    write_generated_level_layout(&output_root, 0, width_blocks, height_blocks, &data);
+
+    let runtime = NativeRuntime::new(manifest);
+    let slice = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
+
+    assert_eq!(slice.player.x_pos, 0x0025_0000);
+    assert!(slice.player.on_ground);
+
+    fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+}
+
+#[test]
+fn spawn_support_fallback_skips_diagonal_support_when_safe_floor_exists_below() {
+    let output_root = unique_temp_path("generated-layout-diagonal-support-fallthrough");
+    let mut manifest = manifest();
+    manifest.output_root = output_root.clone();
+    let header = manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .expect("test level should have header metadata");
+    header.player_start_x = 0x0010;
+    header.player_start_y = 0x0030;
+
+    let width_blocks = 6u16;
+    let height_blocks = 5u16;
+    let mut data = vec![0u8; usize::from(width_blocks) * usize::from(height_blocks) * 2];
+    data[(usize::from(2u16) * usize::from(width_blocks) + usize::from(2u16)) * 2] = 0x60;
+    data[(usize::from(3u16) * usize::from(width_blocks) + usize::from(1u16)) * 2] = 0x60;
+    write_generated_level_layout(&output_root, 0, width_blocks, height_blocks, &data);
+
+    let runtime = NativeRuntime::new(manifest);
+    let frames = runtime.inspect_respawn_settle(LevelId(0), 12);
+
+    assert!(
+        frames.iter().all(|frame| !frame.wide_support_applied),
+        "diagonal support should not snap when a safe floor exists directly below the spawn"
+    );
+
+    fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+}
+
+#[test]
 fn aliased_levels_resolve_header_and_platform_metadata_from_resource_level() {
     let mut manifest = manifest_with_levels(7);
     manifest.map_order[6] = 2;
