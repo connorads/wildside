@@ -101,6 +101,33 @@ When reimplementing a game formula (physics, damage, spawn rates), use the OpenM
 | Visual | Pixel-perfect frame output | `capture-frames` + byte comparison | Key frames | Before/after fix verification |
 | Gameplay | Multi-frame player journeys | `verify-gameplay` scenarios | Key paths | pause/resume, death/respawn, transitions |
 
+### TAS (Tool-Assisted Speedrun) fidelity testing
+
+TAS recordings are deterministic per-frame button sequences from real full-game playthroughs. They exercise code paths that synthetic scenarios don't: level transitions, helmet pickups, boss fights, warps, and full boot-to-completion.
+
+**Workflow:**
+
+1. Obtain a BK2 file (BizHawk TAS format) from [TASVideos.org](https://tasvideos.org/UserFiles/Game/180)
+2. Import: `mise run import-tas path/to/recording.bk2`
+3. Quick test (first 1000 frames): `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/<slug>/scenario.json --frame-end 1000`
+4. Full run: `mise run verify-tas .cache/tas-imports/<slug>/scenario.json`
+
+**How it works:**
+
+- BK2 is a ZIP containing `Header.txt` (system metadata) and `Input Log.txt` (per-frame button state)
+- `import-tas` parses the BK2 and converts to `DynamicScenario` JSON with `warp_to_level: None` (power-on boot)
+- `verify-tas` runs the scenario through both native and oracle from frame 0
+- Level transitions are auto-detected from the native trace and injected as additional checkpoints
+- The oracle scenario JSON includes transition checkpoints, giving diagnostic data at level boundaries
+- `--frame-start`/`--frame-end` slicing enables iterative debugging of specific sections
+
+**Available recordings (Kid Chameleon):**
+
+| Recording | Format | Frames | Use case |
+|-----------|--------|--------|----------|
+| Any% by CaseyTAS (10:30) — TASVideos #6944 | BK2 | ~37k | Warps, transitions, bosses |
+| KC Any% TAS 2024 — TASVideos user files | BK2 | ~4,900 | Quick smoke test (warp code) |
+
 ### Decision tree
 
 | Situation | Test type | Rationale |

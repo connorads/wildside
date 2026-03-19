@@ -111,3 +111,11 @@ echo "$(date -Iseconds) test_count=$(cargo test --workspace 2>&1 | grep -oP '\\d
 tail -1 .cache/metrics/history.log
 """
 description = "Collect sweep/test/annotation metrics to .cache/metrics/history.log"
+
+[tasks.import-tas]
+run = "cargo run -p kidcli -- import-tas --bk2 ${1:?usage: mise run import-tas <path.bk2>}"
+description = "Import a BK2 TAS recording as a DynamicScenario JSON"
+
+[tasks.verify-tas]
+run = "cargo run --release -p kidcli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
+description = "Verify a TAS scenario against the oracle (native vs emulator)"

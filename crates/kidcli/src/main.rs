@@ -1095,11 +1095,8 @@ fn main() -> Result<()> {
                 import.slug = slug_override;
             }
             let scenario = tas::bk2_to_scenario(&import, checkpoint_interval);
-            let out_dir = out.unwrap_or_else(|| {
-                repo_root
-                    .join(".cache/tas-imports")
-                    .join(&scenario.slug)
-            });
+            let out_dir =
+                out.unwrap_or_else(|| repo_root.join(".cache/tas-imports").join(&scenario.slug));
             fs::create_dir_all(&out_dir)
                 .with_context(|| format!("failed to create {}", out_dir.display()))?;
             let scenario_file = out_dir.join("scenario.json");
@@ -1109,7 +1106,10 @@ fn main() -> Result<()> {
             let duration_secs = import.total_frames as f64 / 60.0;
             println!("imported TAS: {}", import.slug);
             println!("  frames: {}", import.total_frames);
-            println!("  duration: {duration_secs:.1}s ({:.1}m)", duration_secs / 60.0);
+            println!(
+                "  duration: {duration_secs:.1}s ({:.1}m)",
+                duration_secs / 60.0
+            );
             println!("  checkpoints: {}", scenario.checkpoints.len());
             println!("  scenario: {}", scenario_file.display());
         }

@@ -58,7 +58,10 @@ pub fn parse_bk2_from_reader<R: Read + std::io::Seek>(
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_else(|| "tas".into())
-        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+        .replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+            "_",
+        );
 
     Ok(Bk2Import {
         slug,
@@ -234,18 +237,16 @@ fn parse_frame_line(line: &str, positions: &ButtonPositions) -> Result<u8> {
     // Split by | — sections: ["", console, p1, p2, ""]
     let sections: Vec<&str> = line.split('|').collect();
     // P1 is typically the third section (index 2): |console|p1|p2|
-    let p1_section = sections
-        .get(2)
-        .context("frame line missing P1 section")?;
+    let p1_section = sections.get(2).context("frame line missing P1 section")?;
 
     let p1_chars: Vec<char> = p1_section.chars().collect();
     let mut mask: u8 = 0;
 
     for &(char_idx, bit) in &positions.mappings {
-        if let Some(&ch) = p1_chars.get(char_idx) {
-            if ch != '.' {
-                mask |= 1 << bit;
-            }
+        if let Some(&ch) = p1_chars.get(char_idx)
+            && ch != '.'
+        {
+            mask |= 1 << bit;
         }
     }
 
@@ -312,12 +313,16 @@ pub fn verify_tas(
 
     // Slice the scenario if requested
     let start = frame_start.unwrap_or(0);
-    let end = frame_end.unwrap_or(scenario.frame_count).min(scenario.frame_count);
+    let end = frame_end
+        .unwrap_or(scenario.frame_count)
+        .min(scenario.frame_count);
     if start > 0 || end < scenario.frame_count {
         scenario.script = scenario.script[..end.min(scenario.script.len())].to_vec();
         scenario.frame_count = end;
         // Filter checkpoints to the slice
-        scenario.checkpoints.retain(|cp| cp.frame_index >= start && cp.frame_index < end);
+        scenario
+            .checkpoints
+            .retain(|cp| cp.frame_index >= start && cp.frame_index < end);
     }
 
     // Regenerate checkpoints if interval overridden
@@ -397,7 +402,10 @@ pub fn verify_tas(
         crate::sweep::summarise_state_diffs(&state_diffs, &empty_set, &empty_set);
 
     if state_diffs.is_empty() {
-        println!("  PASS: all {} checkpoints match", scenario.checkpoints.len());
+        println!(
+            "  PASS: all {} checkpoints match",
+            scenario.checkpoints.len()
+        );
     } else {
         println!(
             "  {} divergences ({} authoritative, {} advisory):",
@@ -417,12 +425,15 @@ pub fn verify_tas(
         }
 
         // Find first authoritative divergence frame
-        if divergence_summary.authoritative > 0 {
-            if let Some(first_auth) = state_diffs.iter().find(|d| {
-                !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str())
-            }) {
-                println!("  first authoritative divergence: checkpoint {}", first_auth.checkpoint);
-            }
+        if divergence_summary.authoritative > 0
+            && let Some(first_auth) = state_diffs
+                .iter()
+                .find(|d| !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str()))
+        {
+            println!(
+                "  first authoritative divergence: checkpoint {}",
+                first_auth.checkpoint
+            );
         }
     }
 
@@ -479,9 +490,7 @@ fn merge_transition_checkpoints(
     }
 
     // Sort checkpoints by frame index for consistent oracle comparison
-    scenario
-        .checkpoints
-        .sort_by_key(|cp| cp.frame_index);
+    scenario.checkpoints.sort_by_key(|cp| cp.frame_index);
     scenario.checkpoints.dedup_by_key(|cp| cp.frame_index);
 }
 
@@ -558,8 +567,7 @@ mod tests {
     fn parse_empty_input_produces_empty_script() {
         let input_log = standard_input_log(&[]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.total_frames, 0);
         assert!(import.script.is_empty());
     }
@@ -568,8 +576,7 @@ mod tests {
     fn parse_idle_frame_produces_zero_mask() {
         let input_log = standard_input_log(&["|..|............|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.total_frames, 1);
         assert_eq!(import.script[0], 0);
     }
@@ -579,8 +586,7 @@ mod tests {
         // Start is column index 7 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|.......S....|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.script[0], 0x80); // bit 7 = Start
     }
 
@@ -589,8 +595,7 @@ mod tests {
         // Right is column index 3: U D L R
         let input_log = standard_input_log(&["|..|...R........|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 3); // bit 3 = Right
     }
 
@@ -599,8 +604,7 @@ mod tests {
         // B is column index 5 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|.....B......|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 4); // bit 4 = B (jump)
     }
 
@@ -609,8 +613,7 @@ mod tests {
         // C is column index 6 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|......C.....|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 5); // bit 5 = C (run)
     }
 
@@ -619,8 +622,7 @@ mod tests {
         // A is column index 4 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|....A.......|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 6); // bit 6 = A
     }
 
@@ -629,8 +631,7 @@ mod tests {
         // Right + B + Start: U D L R A B C S
         let input_log = standard_input_log(&["|..|...R.B.S....|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         let expected = (1 << 3) | (1 << 4) | (1 << 7); // Right + B + Start
         assert_eq!(import.script[0], expected);
     }
@@ -643,8 +644,7 @@ mod tests {
             "|..|...R........|............|", // Right
         ]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         assert_eq!(import.total_frames, 3);
         assert_eq!(import.script[0], 0);
         assert_eq!(import.script[1], 0x80);
@@ -656,8 +656,7 @@ mod tests {
         // Up + Down + Left
         let input_log = standard_input_log(&["|..|UDL.........|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import =
-            parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
         let expected = (1 << 0) | (1 << 1) | (1 << 2); // Up + Down + Left
         assert_eq!(import.script[0], expected);
     }
@@ -683,11 +682,8 @@ mod tests {
     fn slug_sanitised_from_filename() {
         let input_log = standard_input_log(&["|..|............|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(
-            Cursor::new(bk2),
-            "Kid Chameleon (Any%) v2.bk2".into(),
-        )
-        .expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "Kid Chameleon (Any%) v2.bk2".into())
+            .expect("parse_bk2");
         assert_eq!(import.slug, "Kid_Chameleon__Any___v2");
     }
 
@@ -702,10 +698,20 @@ mod tests {
         assert_eq!(scenario.slug, "test_tas");
         assert_eq!(scenario.frame_count, 1000);
         assert!(scenario.warp_to_level.is_none());
-        let labels: Vec<&str> = scenario.checkpoints.iter().map(|c| c.label.as_str()).collect();
+        let labels: Vec<&str> = scenario
+            .checkpoints
+            .iter()
+            .map(|c| c.label.as_str())
+            .collect();
         assert_eq!(
             labels,
-            vec!["frame_0", "frame_300", "frame_600", "frame_900", "frame_999"]
+            vec![
+                "frame_0",
+                "frame_300",
+                "frame_600",
+                "frame_900",
+                "frame_999"
+            ]
         );
     }
 
@@ -717,7 +723,11 @@ mod tests {
             script: vec![0; 50],
         };
         let scenario = bk2_to_scenario(&import, 300);
-        let labels: Vec<&str> = scenario.checkpoints.iter().map(|c| c.label.as_str()).collect();
+        let labels: Vec<&str> = scenario
+            .checkpoints
+            .iter()
+            .map(|c| c.label.as_str())
+            .collect();
         assert_eq!(labels, vec!["frame_0", "frame_49"]);
     }
 
@@ -754,8 +764,16 @@ mod tests {
         assert_eq!(indices, vec![0, 300, 500, 501, 800, 801]);
 
         // Verify labels
-        assert!(scenario.checkpoints[2].label.contains("transition_00_to_01"));
-        assert!(scenario.checkpoints[4].label.contains("transition_01_to_02"));
+        assert!(
+            scenario.checkpoints[2]
+                .label
+                .contains("transition_00_to_01")
+        );
+        assert!(
+            scenario.checkpoints[4]
+                .label
+                .contains("transition_01_to_02")
+        );
     }
 
     #[test]
@@ -817,10 +835,7 @@ mod tests {
                 "start" => input.start,
                 _ => unreachable!(),
             };
-            assert!(
-                active,
-                "mask {mask:#04x} should activate {expected_name}"
-            );
+            assert!(active, "mask {mask:#04x} should activate {expected_name}");
         }
     }
 }
