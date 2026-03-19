@@ -291,6 +291,182 @@ pub fn bk2_to_scenario(import: &Bk2Import, checkpoint_interval: usize) -> Dynami
     }
 }
 
+/// Verify a TAS scenario: run native + oracle, compare state at checkpoints.
+///
+/// Optionally slices the scenario to `[frame_start, frame_end)` for iterative
+/// debugging. When `checkpoint_interval` is provided, regenerates checkpoints
+/// within the slice rather than using the scenario's original checkpoints.
+pub fn verify_tas(
+    repo_root: &std::path::Path,
+    rom_path: &std::path::Path,
+    manifest: &kid_data::AssetManifest,
+    scenario_path: &std::path::Path,
+    frame_start: Option<usize>,
+    frame_end: Option<usize>,
+    checkpoint_interval: Option<usize>,
+) -> Result<()> {
+    let scenario_json = std::fs::read_to_string(scenario_path)
+        .with_context(|| format!("failed to read {}", scenario_path.display()))?;
+    let mut scenario: DynamicScenario =
+        serde_json::from_str(&scenario_json).context("invalid scenario JSON")?;
+
+    // Slice the scenario if requested
+    let start = frame_start.unwrap_or(0);
+    let end = frame_end.unwrap_or(scenario.frame_count).min(scenario.frame_count);
+    if start > 0 || end < scenario.frame_count {
+        scenario.script = scenario.script[..end.min(scenario.script.len())].to_vec();
+        scenario.frame_count = end;
+        // Filter checkpoints to the slice
+        scenario.checkpoints.retain(|cp| cp.frame_index >= start && cp.frame_index < end);
+    }
+
+    // Regenerate checkpoints if interval overridden
+    if let Some(interval) = checkpoint_interval {
+        scenario.checkpoints = generate_checkpoints(start, end, interval);
+    }
+
+    // Ensure we have at least one checkpoint
+    if scenario.checkpoints.is_empty() && end > start {
+        scenario.checkpoints.push(DynamicCheckpoint {
+            label: format!("frame_{}", end.saturating_sub(1)),
+            frame_index: end.saturating_sub(1),
+        });
+    }
+
+    println!(
+        "verify-tas: {} (frames {start}..{end}, {} checkpoints)",
+        scenario.slug,
+        scenario.checkpoints.len()
+    );
+
+    // Run native
+    println!("  running native ({end} frames)...");
+    let native_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &scenario.script,
+        scenario.frame_count,
+        scenario.warp_to_level,
+    );
+
+    let native_states =
+        crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
+
+    // Detect level transitions in native trace
+    let mut transitions = Vec::new();
+    for window in native_trace.windows(2) {
+        if window[0].current_level != window[1].current_level {
+            transitions.push((
+                window[0].frame_index,
+                window[0].current_level,
+                window[1].current_level,
+            ));
+        }
+    }
+    if !transitions.is_empty() {
+        println!("  level transitions detected:");
+        for (frame, from, to) in &transitions {
+            println!("    frame {frame}: {from:?} -> {to:?}");
+        }
+    }
+
+    // Write scenario JSON for oracle
+    let run_dir = repo_root.join(".cache/tas-verify").join(&scenario.slug);
+    std::fs::create_dir_all(&run_dir)
+        .with_context(|| format!("failed to create {}", run_dir.display()))?;
+    let scenario_file = run_dir.join("scenario.json");
+    std::fs::write(&scenario_file, serde_json::to_vec_pretty(&scenario)?)
+        .with_context(|| format!("failed to write {}", scenario_file.display()))?;
+
+    // Run oracle
+    println!("  running oracle ({end} frames)...");
+    let env = crate::oracle::ensure_oracles(repo_root)?;
+    let oracle_dir = run_dir.join("oracle");
+    std::fs::create_dir_all(&oracle_dir)?;
+    let oracle =
+        crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
+
+    // Compare
+    let state_diffs = crate::sweep::compare_sweep_states(&native_states, &oracle.states);
+    let empty_set: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let divergence_summary =
+        crate::sweep::summarise_state_diffs(&state_diffs, &empty_set, &empty_set);
+
+    if state_diffs.is_empty() {
+        println!("  PASS: all {} checkpoints match", scenario.checkpoints.len());
+    } else {
+        println!(
+            "  {} divergences ({} authoritative, {} advisory):",
+            state_diffs.len(),
+            divergence_summary.authoritative,
+            divergence_summary.advisory
+        );
+        // Show first few divergences
+        for diff in state_diffs.iter().take(20) {
+            println!(
+                "    [{}/{}] native={} oracle={}",
+                diff.checkpoint, diff.field, diff.native_value, diff.oracle_value
+            );
+        }
+        if state_diffs.len() > 20 {
+            println!("    ... and {} more", state_diffs.len() - 20);
+        }
+
+        // Find first authoritative divergence frame
+        if divergence_summary.authoritative > 0 {
+            if let Some(first_auth) = state_diffs.iter().find(|d| {
+                !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str())
+            }) {
+                println!("  first authoritative divergence: checkpoint {}", first_auth.checkpoint);
+            }
+        }
+    }
+
+    // Write summary report
+    let report = serde_json::json!({
+        "slug": scenario.slug,
+        "frame_range": [start, end],
+        "checkpoints": scenario.checkpoints.len(),
+        "transitions": transitions.len(),
+        "total_diffs": state_diffs.len(),
+        "divergence_summary": {
+            "authoritative": divergence_summary.authoritative,
+            "advisory": divergence_summary.advisory,
+            "accumulation": divergence_summary.accumulation,
+            "rng": divergence_summary.rng,
+            "oracle_limitation": divergence_summary.oracle_limitation,
+        },
+    });
+    let report_path = run_dir.join("report.json");
+    std::fs::write(&report_path, serde_json::to_vec_pretty(&report)?)?;
+    println!("  report: {}", report_path.display());
+
+    Ok(())
+}
+
+fn generate_checkpoints(start: usize, end: usize, interval: usize) -> Vec<DynamicCheckpoint> {
+    let mut checkpoints = Vec::new();
+    checkpoints.push(DynamicCheckpoint {
+        label: format!("frame_{start}"),
+        frame_index: start,
+    });
+    let mut next = start + interval;
+    while next < end {
+        checkpoints.push(DynamicCheckpoint {
+            label: format!("frame_{next}"),
+            frame_index: next,
+        });
+        next += interval;
+    }
+    let last = end.saturating_sub(1);
+    if last > start && checkpoints.last().is_none_or(|cp| cp.frame_index != last) {
+        checkpoints.push(DynamicCheckpoint {
+            label: format!("frame_{last}"),
+            frame_index: last,
+        });
+    }
+    checkpoints
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

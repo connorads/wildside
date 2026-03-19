@@ -17,7 +17,7 @@ use sha1::{Digest, Sha1};
 ///   from enemies/murder wall during idle while the native does
 /// Advisory fields — diverge due to architectural differences, not native bugs.
 /// Promoted to authoritative (removed from list): score, number_diamonds (0 diffs at 0px).
-const ADVISORY_FIELDS: &[&str] = &[
+pub(crate) const ADVISORY_FIELDS: &[&str] = &[
     "number_objects",   // native doesn't model system objects (palette rotation, etc.)
     "number_hitpoints", // oracle-pause: idle_tail diverges because oracle is paused
     "number_lives",     // oracle-pause: idle_tail diverges because oracle is paused
@@ -528,7 +528,7 @@ fn sweep_single_level(
     })
 }
 
-fn summarise_state_diffs(
+pub(crate) fn summarise_state_diffs(
     diffs: &[StateDiff],
     death_gap_checkpoints: &std::collections::HashSet<&str>,
     oracle_paused_checkpoints: &std::collections::HashSet<&str>,
@@ -590,7 +590,7 @@ fn summarise_results(results: &[LevelSweepResult]) -> DivergenceSummary {
 
 /// Extract NativeTraceFrame fields at checkpoint frame indices, returning
 /// OracleState-compatible structs for comparison.
-fn extract_checkpoint_states(
+pub(crate) fn extract_checkpoint_states(
     trace: &[NativeTraceFrame],
     checkpoints: &[DynamicCheckpoint],
 ) -> Vec<OracleState> {
@@ -626,7 +626,7 @@ fn extract_checkpoint_states(
 }
 
 /// Compare native vs oracle state at each checkpoint, returning diffs.
-fn compare_sweep_states(
+pub(crate) fn compare_sweep_states(
     native_states: &[OracleState],
     oracle_states: &[OracleState],
 ) -> Vec<StateDiff> {

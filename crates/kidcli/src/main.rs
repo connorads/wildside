@@ -448,6 +448,25 @@ enum Commands {
         #[arg(long)]
         layer: Option<String>,
     },
+    /// Verify a TAS scenario against the oracle (native vs emulator comparison).
+    VerifyTas {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON (from import-tas)
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Only compare from this frame onwards
+        #[arg(long)]
+        frame_start: Option<usize>,
+        /// Only compare up to this frame
+        #[arg(long)]
+        frame_end: Option<usize>,
+        /// Override checkpoint interval (regenerates checkpoints within the slice)
+        #[arg(long)]
+        checkpoint_interval: Option<usize>,
+    },
     /// Import a BK2 TAS recording as a DynamicScenario JSON.
     ImportTas {
         /// Path to the .bk2 file
@@ -1041,6 +1060,28 @@ fn main() -> Result<()> {
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
             sweep::capture_frames(&manifest, level_id, &frame_indices, &output, &filter)?;
+        }
+        Commands::VerifyTas {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+            checkpoint_interval,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            tas::verify_tas(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                &scenario,
+                frame_start,
+                frame_end,
+                checkpoint_interval,
+            )?;
         }
         Commands::ImportTas {
             bk2,
