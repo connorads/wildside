@@ -10516,6 +10516,42 @@ fn title_idle_triggers_demo_after_640_frames() {
 }
 
 #[test]
+fn demo_bootstrap_holds_spawn_pose_then_applies_hidden_initial_settle() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(0x1C));
+    runtime.set_block_grid(grid_with_floor_at_row(15));
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_GAMEPLAY_START_FRAME,
+        data_index: 0,
+        use_demo_2: true,
+    };
+    runtime.begin_demo_gameplay(LevelId(demo::DEMO_2_LEVEL));
+
+    let opening_slice = runtime
+        .opening_slice
+        .expect("demo bootstrap should create an opening slice");
+    assert_eq!(opening_slice.player.y_pos, 0x00DF_0000);
+    assert_eq!(opening_slice.terrain.floor_y_pos, 0x00EF_0000);
+
+    runtime.opening_slice = Some(opening_slice);
+    let held = runtime.trace_frame();
+    assert_eq!(held.kid_y_pos, Some(0x00DF_0000));
+    assert_eq!(held.number_objects, 5);
+    assert_eq!(held.number_gfx_objects, 4);
+
+    let bootstrap_init = runtime.step_frame(FrameInput::default());
+    assert_eq!(bootstrap_init.boot_phase_elapsed, Some(66));
+    assert_eq!(bootstrap_init.kid_y_pos, Some(0x00E0_0000));
+    assert_eq!(bootstrap_init.number_objects, 5);
+    assert_eq!(bootstrap_init.number_gfx_objects, 4);
+
+    let falling = runtime.step_frame(FrameInput::default());
+    assert_eq!(falling.boot_phase_elapsed, Some(67));
+    assert_eq!(falling.kid_y_pos, Some(0x00E0_4000));
+    assert_eq!(falling.number_objects, 5);
+    assert_eq!(falling.number_gfx_objects, 4);
+}
+
+#[test]
 fn demo_plays_correct_level_and_alternates() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::TitleScreen { cursor: 0 };

@@ -58,7 +58,13 @@ impl NativeRuntime {
     pub(crate) fn begin_demo_gameplay(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(self.level_respawn_slice(level_id));
+        self.reload_block_grid_for_level(level_id);
+        let mut opening_slice = self.level_respawn_slice(level_id);
+        if self.block_grid.is_some() {
+            let settled_slice = self.level_respawn_slice_with_floor_snap(level_id);
+            opening_slice.terrain.floor_y_pos = settled_slice.player.y_pos;
+        }
+        self.opening_slice = Some(opening_slice);
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platforms.clear();
@@ -76,7 +82,48 @@ impl NativeRuntime {
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
-        self.reload_block_grid_for_level(level_id);
+    }
+
+    pub(crate) fn apply_demo_bootstrap_initial_settle(&mut self) {
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        // Load_InGame leaves the demo player one pixel above the later
+        // gameplay physics pose, then the hidden bootstrap drops that pixel
+        // before regular gravity/floor collision starts running.
+        slice.player.y_pos = slice.player.y_pos.saturating_add(0x0001_0000);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0;
+    }
+
+    pub(crate) fn try_snap_demo_bootstrap_floor(
+        &self,
+        slice: &mut OpeningSliceState,
+    ) -> bool {
+        let Some(frame_counter) = self.demo_startup_frame() else {
+            return false;
+        };
+        if !(demo::DEMO_BOOTSTRAP_INIT_FRAME..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+            .contains(&frame_counter)
+            || slice.player.y_velocity < 0
+            || self.block_grid.is_none()
+        {
+            return false;
+        }
+
+        let settled_slice = self.level_respawn_slice_with_floor_snap(self.current_level);
+        let settled_floor_y = settled_slice.player.y_pos;
+        if slice.player.y_pos.abs_diff(settled_floor_y) > GROUND_SNAP_TOLERANCE_FP {
+            return false;
+        }
+
+        slice.player.y_pos = settled_floor_y;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.player.on_spikes = false;
+        slice.terrain.floor_y_pos = settled_floor_y;
+        slice.terrain.floor_terrain_type = settled_slice.terrain.floor_terrain_type;
+        true
     }
 
     pub(crate) fn boot_phase_label(&self) -> Option<&'static str> {
@@ -181,7 +228,6 @@ impl NativeRuntime {
         };
         let byte = data.get(data_index).copied().unwrap_or(0);
         let demo_input = demo::decode_demo_byte(byte);
-        let playback_frame = frame_counter - demo::DEMO_GAMEPLAY_START_FRAME;
         // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
         if let BootState::DemoPlay {
             frame_counter,
@@ -189,6 +235,7 @@ impl NativeRuntime {
             ..
         } = &mut self.boot_state
         {
+            let playback_frame = *frame_counter - demo::DEMO_GAMEPLAY_START_FRAME;
             *frame_counter += 1;
             if playback_frame % 2 == 1 {
                 *data_index += 1;

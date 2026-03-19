@@ -233,7 +233,18 @@ impl NativeRuntime {
             self.step_diamond_power(input);
         }
         if gameplay_slice_active {
-            self.refresh_opening_slice(self.gameplay_input(input), self.gameplay_jump_pressed());
+            match self.demo_startup_frame() {
+                Some(frame) if frame == demo::DEMO_GAMEPLAY_START_FRAME => {}
+                Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
+                    self.apply_demo_bootstrap_initial_settle();
+                }
+                _ => {
+                    self.refresh_opening_slice(
+                        self.gameplay_input(input),
+                        self.gameplay_jump_pressed(),
+                    );
+                }
+            }
         }
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
@@ -343,10 +354,13 @@ impl NativeRuntime {
             custom_gravity,
             self.y_look_offset,
         );
-        if self.skip_entry_animation
-            && let Some(grid) = self.block_grid.as_ref()
-            && self.try_settle_on_spawn_support(&mut slice, grid)
-        {
+        let spawn_support_snapped = (self.skip_entry_animation || self.demo_gameplay_active())
+            && self
+                .block_grid
+                .as_ref()
+                .is_some_and(|grid| self.try_settle_on_spawn_support(&mut slice, grid));
+        let demo_bootstrap_floor_snapped = self.try_snap_demo_bootstrap_floor(&mut slice);
+        if spawn_support_snapped || demo_bootstrap_floor_snapped {
             slice.update_camera_follow(self.y_look_offset);
         }
 

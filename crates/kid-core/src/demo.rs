@@ -101,6 +101,12 @@ pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 pub(crate) const DEMO_OBJECT_WARMUP_FRAME: u16 = 64;
 /// First demo startup frame where gameplay, physics, and recorded inputs apply.
 pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
+/// Hidden bootstrap frame where the player drops the missing spawn pixel before
+/// normal gravity takes over.
+pub(crate) const DEMO_BOOTSTRAP_INIT_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 1;
+/// Native roster counts lag the oracle by one hidden system object during the
+/// first visible demo bootstrap frames.
+pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 9;
 
 /// Decode a demo data byte into a FrameInput.
 /// Bit 7 (Start) is stripped — the real Start button state is applied separately.

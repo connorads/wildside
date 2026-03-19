@@ -216,8 +216,7 @@ impl NativeRuntime {
         {
             let camera_y_pos = if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
                 0x0228_0000
-            } else if (demo::DEMO_CAMERA_HOLD_START_FRAME..=demo::DEMO_GAMEPLAY_START_FRAME)
-                .contains(&frame_counter)
+            } else if frame_counter >= demo::DEMO_CAMERA_HOLD_START_FRAME
             {
                 0x02A0_0000
             } else {
@@ -292,10 +291,12 @@ impl NativeRuntime {
             return self.level_skip_object_counts();
         }
         if let Some(frame_counter) = self.demo_startup_frame()
-            && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
+            && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
+            } else if frame_counter >= demo::DEMO_GAMEPLAY_START_FRAME {
+                (5, 4)
             } else if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME {
                 (5, 2)
             } else {
