@@ -1005,11 +1005,18 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
         runtime.run_until_vblank(500_000);
         runtime.set_controller_1(0);
 
-        // Poll for the level to finish loading (game_mode == 0x0C).
-        // Press Start periodically to dismiss any title card.
+        // Poll for the level to finish loading (game_mode == 0x0C), then wait
+        // for the active layout bytes to stop changing. Some levels populate
+        // deeper Level_Layout rows a few frames after the first in-game frame,
+        // so sampling only the first cache line can freeze in partially loaded
+        // collision data.
         let mut settled = false;
+        let mut level_loaded = false;
+        let mut stable_frames = 0u8;
+        let mut previous_layout = Vec::new();
+        let mut previous_block_list = Vec::new();
         for frame in 0..600 {
-            if frame % 30 == 20 {
+            if !level_loaded && frame % 30 == 20 {
                 runtime.set_controller_1(0x80);
             } else {
                 runtime.set_controller_1(0);
@@ -1017,29 +1024,51 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
             runtime.run_until_vblank(500_000);
 
             let snapshot = runtime.snapshot();
-            if snapshot.game_mode == 0x000C && snapshot.current_level_id == u16::from(level_id) {
-                // Layout is populated by Load_InGame before Mode_Level runs.
-                // Capture immediately — some levels (e.g. 0x61, 0x62) have
-                // the player die within a few frames, reverting game_mode
-                // before a slow settle loop would complete.
-                let sample = runtime.read_work_ram_range(LEVEL_LAYOUT_ADDR, 200);
-                let nz = sample.chunks(2).filter(|w| w[0] != 0 || w[1] != 0).count();
-                if nz <= 10 {
-                    // Layout not yet populated — run a few more frames.
-                    // This handles the rare case where Load_InGame hasn't
-                    // finished decompression on the first 0x000C frame.
-                    for settle in 0..60 {
-                        runtime.set_controller_1(0);
-                        runtime.run_until_vblank(500_000);
-                        if settle % 10 == 0 {
-                            let s = runtime.read_work_ram_range(LEVEL_LAYOUT_ADDR, 200);
-                            let nz2 = s.chunks(2).filter(|w| w[0] != 0 || w[1] != 0).count();
-                            if nz2 > 10 {
-                                break;
-                            }
-                        }
-                    }
-                }
+            if snapshot.current_level_id != u16::from(level_id) {
+                continue;
+            }
+            if snapshot.game_mode == 0x000C {
+                level_loaded = true;
+            }
+            if !level_loaded {
+                continue;
+            }
+
+            let width_blocks = runtime.read_work_ram_word(0x00FF_F89E);
+            let height_blocks = runtime.read_work_ram_word(0x00FF_F8A4);
+            let active_layout_bytes = usize::from(width_blocks)
+                .saturating_mul(usize::from(height_blocks))
+                .saturating_mul(2)
+                .min(LEVEL_LAYOUT_SIZE);
+            if active_layout_bytes == 0 {
+                stable_frames = 0;
+                previous_layout.clear();
+                previous_block_list.clear();
+                continue;
+            }
+
+            let layout = runtime.read_work_ram_range(LEVEL_LAYOUT_ADDR, active_layout_bytes);
+            let nonzero_words = layout
+                .chunks(2)
+                .filter(|word| word[0] != 0 || word[1] != 0)
+                .count();
+            if nonzero_words <= 10 {
+                stable_frames = 0;
+                previous_layout.clear();
+                previous_block_list.clear();
+                continue;
+            }
+
+            let block_list = runtime.read_work_ram_range(BLOCK_LIST_ADDR, BLOCK_LIST_SIZE);
+            if layout == previous_layout && block_list == previous_block_list {
+                stable_frames = stable_frames.saturating_add(1);
+            } else {
+                stable_frames = 0;
+                previous_layout = layout;
+                previous_block_list = block_list;
+            }
+
+            if stable_frames >= 4 {
                 settled = true;
                 break;
             }
