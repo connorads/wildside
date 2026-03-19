@@ -86,6 +86,21 @@ pub(crate) const DEMO_2_LEVEL: u8 = 0x1B;
 pub(crate) const TITLE_IDLE_FRAMES: u16 = 640;
 /// Demo auto-ends after this many frames (ASM: $3F2 = 1010).
 pub(crate) const DEMO_MAX_FRAMES: u16 = 1010;
+/// Oracle-backed demo-mode traces keep the title pose visible for 27 frames
+/// after the mode flip before the demo level bootstrap begins.
+pub(crate) const DEMO_TITLE_POSE_FRAMES: u16 = 27;
+/// Current level switches from title (0x00) to the demo level on this demo
+/// startup frame.
+pub(crate) const DEMO_LEVEL_SWITCH_FRAME: u16 = 30;
+/// Demo bootstrap briefly exposes a camera-only preload pose before gameplay.
+pub(crate) const DEMO_CAMERA_PRELOAD_FRAME: u16 = 57;
+/// Demo bootstrap holds the level camera on the respawn pose for these frames.
+pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
+/// Demo bootstrap publishes widened object counts one frame before the player
+/// becomes visible.
+pub(crate) const DEMO_OBJECT_WARMUP_FRAME: u16 = 64;
+/// First demo startup frame where gameplay, physics, and recorded inputs apply.
+pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 
 /// Decode a demo data byte into a FrameInput.
 /// Bit 7 (Start) is stripped — the real Start button state is applied separately.

@@ -92,7 +92,9 @@ impl NativeRuntime {
                 _ => None,
             },
             options_cursor: match self.boot_state {
-                BootState::OptionsMenu { cursor } => Some(cursor),
+                BootState::TitleScreen { cursor } | BootState::OptionsMenu { cursor } => {
+                    Some(cursor)
+                }
                 _ => None,
             },
             sound_test_track: match self.boot_state {
@@ -160,7 +162,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 2, .. } => GameMode::IntroSequence3,
             BootState::IntroSequence { segment: 3, .. } => GameMode::IntroSequence4,
             BootState::IntroSequence { .. } => GameMode::IntroSequence5,
-            BootState::TitleScreen => GameMode::TitleScreen,
+            BootState::TitleScreen { .. } => GameMode::TitleScreen,
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
@@ -175,10 +177,22 @@ impl NativeRuntime {
         }
         match self.boot_state {
             BootState::SegaScreen { .. } | BootState::IntroSequence { .. } => None,
-            BootState::TitleScreen | BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => {
+            BootState::TitleScreen { .. }
+            | BootState::OptionsMenu { .. }
+            | BootState::SoundTest { .. } => {
                 self.title_screen_ready().then(PlayerState::title_pose)
             }
             BootState::EndingSequence { .. } => Some(PlayerState::title_pose()),
+            BootState::DemoPlay { frame_counter, .. }
+                if frame_counter < demo::DEMO_TITLE_POSE_FRAMES =>
+            {
+                Some(PlayerState::title_pose())
+            }
+            BootState::DemoPlay { frame_counter, .. }
+                if frame_counter < demo::DEMO_GAMEPLAY_START_FRAME =>
+            {
+                None
+            }
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -197,6 +211,23 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_camera_state();
         }
+        if let Some(frame_counter) = self.demo_startup_frame()
+            && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
+        {
+            let camera_y_pos = if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
+                0x0228_0000
+            } else if (demo::DEMO_CAMERA_HOLD_START_FRAME..=demo::DEMO_GAMEPLAY_START_FRAME)
+                .contains(&frame_counter)
+            {
+                0x02A0_0000
+            } else {
+                0
+            };
+            return CameraState {
+                x_pos: 0,
+                y_pos: camera_y_pos,
+            };
+        }
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             CameraState::default()
         } else {
@@ -212,6 +243,11 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_active_objects();
+        }
+        if let Some(frame_counter) = self.demo_startup_frame()
+            && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
+        {
+            return Vec::new();
         }
         if !matches!(
             self.boot_state,
@@ -255,13 +291,26 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_object_counts();
         }
+        if let Some(frame_counter) = self.demo_startup_frame()
+            && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
+        {
+            return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
+                (4, 4)
+            } else if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME {
+                (5, 2)
+            } else {
+                (1, 0)
+            };
+        }
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
         ) {
             return if matches!(
                 self.boot_state,
-                BootState::TitleScreen | BootState::OptionsMenu { .. } | BootState::SoundTest { .. }
+                BootState::TitleScreen { .. }
+                    | BootState::OptionsMenu { .. }
+                    | BootState::SoundTest { .. }
             ) && self.title_screen_ready()
             {
                 (4, 4)

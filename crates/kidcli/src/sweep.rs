@@ -598,6 +598,11 @@ pub(crate) fn extract_checkpoint_states(
         .iter()
         .filter_map(|cp| {
             let frame = trace.get(cp.frame_index)?;
+            let main_menu_option = match frame.game_mode {
+                kid_core::GameMode::TitleScreen => frame.options_cursor,
+                kid_core::GameMode::OptionsMenu => frame.options_cursor,
+                _ => None,
+            };
             Some(OracleState {
                 label: cp.label.clone(),
                 frame_index: cp.frame_index,
@@ -605,7 +610,7 @@ pub(crate) fn extract_checkpoint_states(
                 boot_phase: frame.boot_phase.clone(),
                 boot_phase_elapsed: frame.boot_phase_elapsed,
                 title_screen_ready: frame.title_screen_ready,
-                main_menu_option: None,
+                main_menu_option,
                 current_player: frame.current_player,
                 number_hitpoints: frame.number_hitpoints,
                 current_helmet_id: frame.current_helmet_id,

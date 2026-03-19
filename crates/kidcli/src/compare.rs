@@ -621,6 +621,12 @@ pub(crate) fn native_trace_to_oracle_state(
     frame_index: usize,
     frame: &NativeTraceFrame,
 ) -> OracleState {
+    let main_menu_option = match frame.game_mode {
+        kid_core::GameMode::TitleScreen => frame.options_cursor,
+        kid_core::GameMode::OptionsMenu => frame.options_cursor,
+        _ => None,
+    };
+
     OracleState {
         label: label.to_owned(),
         frame_index,
@@ -628,7 +634,7 @@ pub(crate) fn native_trace_to_oracle_state(
         boot_phase: frame.boot_phase.clone(),
         boot_phase_elapsed: frame.boot_phase_elapsed,
         title_screen_ready: frame.title_screen_ready,
-        main_menu_option: None,
+        main_menu_option,
         current_player: frame.current_player,
         number_hitpoints: frame.number_hitpoints,
         current_helmet_id: frame.current_helmet_id,

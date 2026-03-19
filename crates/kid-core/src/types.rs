@@ -466,7 +466,9 @@ pub(crate) enum BootState {
         segment: usize,
         elapsed: usize,
     },
-    TitleScreen,
+    TitleScreen {
+        cursor: u8,
+    },
     OptionsMenu {
         cursor: u8,
     },

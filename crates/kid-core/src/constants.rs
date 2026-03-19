@@ -17,15 +17,18 @@ pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK: usize = 289;
 pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN: usize = 300;
 pub(crate) const OPENING_SCROLL_START_FRAME: usize = 260;
 pub(crate) const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
-pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 6] = [120, 200, 280, 360, 440, 460];
-pub(crate) const TITLE_KID_X_POS: u32 = 0x0028_0000;
-pub(crate) const TITLE_KID_Y_POS: u32 = 0x0030_0000;
+// Oracle boot-to-level traces use an early intro-skip sequence, then one
+// Start press to arm the title menu and a later Start press to select 1P.
+pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] =
+    [33, 77, 135, 137, 178, 360, 460];
+pub(crate) const TITLE_KID_X_POS: u32 = 0x002E_0000;
+pub(crate) const TITLE_KID_Y_POS: u32 = 0x008C_0000;
 // Oracle-backed TAS traces show the title screen reaches a "ready" state only
 // once the overall boot timeline has progressed far enough. Synthetic
 // bootstrap scripts reach title much later and are ready immediately on entry,
 // while power-on TAS recordings can enter title earlier and remain inert until
-// roughly frame 300.
-pub(crate) const TITLE_SCREEN_READY_GLOBAL_FRAME: usize = 300;
+// frame 287.
+pub(crate) const TITLE_SCREEN_READY_GLOBAL_FRAME: usize = 287;
 pub(crate) const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
 pub(crate) const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 pub(crate) const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;

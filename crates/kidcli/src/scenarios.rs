@@ -681,8 +681,9 @@ mod tests {
         let script = Scenario::BootTitleStartLevel1
             .script()
             .expect("scenario script should build");
-        assert_eq!(script[120], 0x80);
-        assert_eq!(script[440], 0x80);
+        assert_eq!(script[33], 0x80);
+        assert_eq!(script[178], 0x80);
+        assert_eq!(script[360], 0x80);
         assert_eq!(script[460], 0x80);
     }
 

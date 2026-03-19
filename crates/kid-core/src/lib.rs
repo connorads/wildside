@@ -25,7 +25,7 @@ use kid_data::{
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
 pub use scenario::{run_script, run_script_with_warp};
-pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 6] = constants::BOOT_TO_LEVEL_START_FRAMES;
+pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 use std::fs;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
@@ -93,12 +93,19 @@ pub struct NativeRuntime {
     level_prize_collected: bool,
     /// Number of clock pickups collected during current level (for completion time calc).
     clocks_collected: u16,
-    /// Title screen idle frame counter: triggers demo after 640 frames.
+    /// Title screen phase timer: counts down to demo playback in both the
+    /// pre-menu attract phase and the interactive title menu. The interactive
+    /// loop resets this on Up/Down navigation, matching the ASM.
     title_idle_frames: u16,
     /// Title screen local elapsed frames, used for diagnostics and demo timing.
     title_screen_elapsed_frames: usize,
-    /// First global boot frame where title/menu input and the title pose become active.
+    /// First global boot frame where the title pose becomes visible in trace output.
     title_screen_ready_frame: usize,
+    /// Last global boot frame of the initial title attract lock.
+    title_menu_arm_frame: usize,
+    /// False during the initial title attract wait where only Start matters.
+    /// True once the Start press arms the real interactive title menu.
+    title_menu_active: bool,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Two-player alternating mode enabled.
@@ -160,6 +167,8 @@ impl NativeRuntime {
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
             title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
+            title_menu_arm_frame: 0,
+            title_menu_active: false,
             demo_toggle: false,
             two_player: false,
             current_player_index: 0,
@@ -204,19 +213,28 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.handle_start_press(input, start_pressed);
         self.step_boot_state(input, start_pressed);
+        if let BootState::DemoPlay { use_demo_2, .. } = self.boot_state
+            && self.demo_gameplay_active()
+            && self.opening_slice.is_none()
+        {
+            self.begin_demo_gameplay(NativeRuntime::demo_level_id(use_demo_2));
+        }
 
         self.refresh_active_roster();
+        let gameplay_slice_active = matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) || (self.demo_gameplay_active() && self.opening_slice.is_some());
         // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
         if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
-            && matches!(
-                self.boot_state,
-                BootState::InGame | BootState::DemoPlay { .. }
-            )
+            && gameplay_slice_active
             && !self.paused
         {
             self.step_diamond_power(input);
         }
-        self.refresh_opening_slice(self.gameplay_input(input), self.gameplay_jump_pressed());
+        if gameplay_slice_active {
+            self.refresh_opening_slice(self.gameplay_input(input), self.gameplay_jump_pressed());
+        }
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
         }
@@ -266,7 +284,7 @@ impl NativeRuntime {
         // the level has been running long enough to bypass the entry animation.
         // The original game has no entry animation — the player appears
         // instantly at the spawn point.
-        let effective_elapsed = if self.skip_entry_animation {
+        let effective_elapsed = if self.skip_entry_animation || self.demo_gameplay_active() {
             level_elapsed + OPENING_SCROLL_START_FRAME
         } else {
             level_elapsed
@@ -274,7 +292,15 @@ impl NativeRuntime {
         let bounds = self.level_bounds(self.current_level);
         let mut slice = self
             .opening_slice
-            .unwrap_or_else(|| OpeningSliceState::new(bounds));
+            .unwrap_or_else(|| {
+                if matches!(self.boot_state, BootState::DemoPlay { .. })
+                    && self.current_level != LevelId(0)
+                {
+                    self.level_respawn_slice(self.current_level)
+                } else {
+                    OpeningSliceState::new(bounds)
+                }
+            });
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;

@@ -24,6 +24,14 @@ fn expected_level0_respawn_pose(runtime: &NativeRuntime) -> (u32, u32, u32, u32)
     )
 }
 
+fn imported_early_start_boot_script() -> Vec<u8> {
+    let mut script = vec![0; TITLE_SCREEN_READY_GLOBAL_FRAME + 1];
+    for frame in [33usize, 77, 135, 137, 178] {
+        script[frame] = 1 << 7;
+    }
+    script
+}
+
 fn manifest() -> AssetManifest {
     AssetManifest {
         generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
@@ -375,6 +383,41 @@ fn early_title_frames_stay_inert_until_boot_ready() {
     assert_eq!(ready_title.kid_x_pos, Some(TITLE_KID_X_POS));
     assert_eq!(ready_title.kid_y_pos, Some(TITLE_KID_Y_POS));
     assert_eq!(ready_title.number_objects, 4);
+}
+
+#[test]
+fn timing_regression_early_start_boot_path_uses_oracle_title_ready_frame() {
+    let trace = run_script(
+        manifest(),
+        &imported_early_start_boot_script(),
+        TITLE_SCREEN_READY_GLOBAL_FRAME + 1,
+    );
+
+    let before_ready = &trace[TITLE_SCREEN_READY_GLOBAL_FRAME - 1];
+    assert_eq!(before_ready.game_mode, GameMode::TitleScreen);
+    assert!(!before_ready.title_screen_ready);
+    assert_eq!(before_ready.kid_x_pos, None);
+    assert_eq!(before_ready.kid_y_pos, None);
+
+    let ready = &trace[TITLE_SCREEN_READY_GLOBAL_FRAME];
+    assert_eq!(ready.game_mode, GameMode::TitleScreen);
+    assert!(ready.title_screen_ready);
+    assert_eq!(ready.kid_x_pos, Some(TITLE_KID_X_POS));
+    assert_eq!(ready.kid_y_pos, Some(TITLE_KID_Y_POS));
+    assert_eq!(ready.number_objects, 4);
+}
+
+#[test]
+fn timing_regression_early_start_boot_path_stays_in_title_until_demo_cutover() {
+    let trace = run_script(manifest(), &imported_early_start_boot_script(), 836);
+
+    assert_eq!(trace[300].game_mode, GameMode::TitleScreen);
+    assert_eq!(trace[834].game_mode, GameMode::TitleScreen);
+    assert_eq!(trace[834].options_cursor, Some(0));
+
+    let demo = &trace[835];
+    assert_eq!(demo.game_mode, GameMode::DemoPlay);
+    assert_eq!(demo.current_level, LevelId(0));
 }
 
 #[test]
@@ -2120,7 +2163,7 @@ fn game_over_when_last_life_lost() {
     }
     assert_eq!(
         runtime.boot_state,
-        BootState::TitleScreen,
+        BootState::TitleScreen { cursor: 0 },
         "should return to title after game over"
     );
     assert_eq!(
@@ -10073,8 +10116,7 @@ fn two_player_toggle_in_options() {
     let mut runtime = NativeRuntime::new(manifest());
     assert!(!runtime.two_player);
 
-    // Navigate to options menu (B on title)
-    runtime.boot_state = BootState::TitleScreen;
+    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
     runtime.step_frame(FrameInput::default()); // settle
     runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
 
@@ -10196,7 +10238,7 @@ fn two_player_game_over_when_both_out_of_lives() {
 
     assert_eq!(
         runtime.boot_state,
-        BootState::TitleScreen,
+        BootState::TitleScreen { cursor: 0 },
         "should return to title when both players out of lives and continues"
     );
     assert!(!runtime.two_player, "2P should be reset on game over");
@@ -10399,7 +10441,9 @@ fn deterministic_replay_produces_identical_trace() {
 #[test]
 fn title_idle_triggers_demo_after_640_frames() {
     let mut runtime = NativeRuntime::new(manifest());
-    runtime.boot_state = BootState::TitleScreen;
+    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+    runtime.frame_index = 1;
+    runtime.title_menu_arm_frame = 0;
     // Run 640 frames of idle input
     for _ in 0..640 {
         runtime.step_frame(FrameInput::default());
@@ -10414,7 +10458,9 @@ fn title_idle_triggers_demo_after_640_frames() {
 #[test]
 fn demo_plays_correct_level_and_alternates() {
     let mut runtime = NativeRuntime::new(manifest());
-    runtime.boot_state = BootState::TitleScreen;
+    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+    runtime.frame_index = 1;
+    runtime.title_menu_arm_frame = 0;
     // First demo: toggle starts false, NOT flips to true → demo 2 (Skydragon Castle)
     for _ in 0..640 {
         runtime.step_frame(FrameInput::default());
@@ -10423,13 +10469,15 @@ fn demo_plays_correct_level_and_alternates() {
         BootState::DemoPlay { use_demo_2, .. } => assert!(use_demo_2),
         _ => panic!("expected DemoPlay"),
     }
-    assert_eq!(runtime.current_level.0, demo::DEMO_2_LEVEL);
+    assert_eq!(runtime.current_level.0, 0);
 }
 
 #[test]
 fn demo_aborts_on_start_press() {
     let mut runtime = NativeRuntime::new(manifest());
-    runtime.boot_state = BootState::TitleScreen;
+    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+    runtime.frame_index = 1;
+    runtime.title_menu_arm_frame = 0;
     for _ in 0..640 {
         runtime.step_frame(FrameInput::default());
     }
@@ -10440,7 +10488,7 @@ fn demo_aborts_on_start_press() {
         ..FrameInput::default()
     });
     assert!(
-        matches!(runtime.boot_state, BootState::TitleScreen),
+        matches!(runtime.boot_state, BootState::TitleScreen { .. }),
         "Start should return to TitleScreen"
     );
 }
@@ -10459,7 +10507,7 @@ fn demo_auto_ends_after_max_frames() {
     }));
     runtime.step_frame(FrameInput::default());
     assert!(
-        matches!(runtime.boot_state, BootState::TitleScreen),
+        matches!(runtime.boot_state, BootState::TitleScreen { .. }),
         "should return to TitleScreen after max demo frames"
     );
 }

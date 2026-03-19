@@ -2,14 +2,81 @@ use super::*;
 
 impl NativeRuntime {
     pub(crate) fn enter_title_screen(&mut self) {
-        self.boot_state = BootState::TitleScreen;
+        self.boot_state = BootState::TitleScreen { cursor: 0 };
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
         self.title_screen_ready_frame = self.frame_index.max(TITLE_SCREEN_READY_GLOBAL_FRAME);
+        self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_TO_LEVEL_FRAMES);
+        self.title_menu_active = false;
     }
 
     pub(crate) fn title_screen_ready(&self) -> bool {
         self.frame_index >= self.title_screen_ready_frame
+    }
+
+    pub(crate) fn demo_startup_frame(&self) -> Option<u16> {
+        match self.boot_state {
+            BootState::DemoPlay { frame_counter, .. } => Some(frame_counter),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn demo_gameplay_active(&self) -> bool {
+        self.demo_startup_frame()
+            .is_some_and(|frame| frame >= demo::DEMO_GAMEPLAY_START_FRAME)
+    }
+
+    pub(crate) fn demo_level_id(use_demo_2: bool) -> LevelId {
+        LevelId(if use_demo_2 {
+            demo::DEMO_2_LEVEL
+        } else {
+            demo::DEMO_1_LEVEL
+        })
+    }
+
+    fn begin_demo_play(&mut self, use_demo_2: bool) {
+        self.boot_state = BootState::DemoPlay {
+            frame_counter: 0,
+            data_index: 0,
+            use_demo_2,
+        };
+        self.current_level = LevelId(0);
+        self.level_start_frame = None;
+        self.opening_slice = None;
+        self.active_enemies.clear();
+        self.active_enemy_roster.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.projectiles.clear();
+        self.player_lifecycle = PlayerLifecycle::Alive;
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.reload_block_grid_for_level(self.current_level);
+    }
+
+    pub(crate) fn begin_demo_gameplay(&mut self, level_id: LevelId) {
+        self.current_level = level_id;
+        self.level_start_frame = Some(self.frame_index);
+        self.opening_slice = Some(self.level_respawn_slice(level_id));
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.ghost_groups.clear();
+        self.projectiles.clear();
+        self.block_state.lift_platforms.clear();
+        self.init_murder_wall(level_id, 0);
+        self.init_weather(level_id);
+        self.level_timer = LevelTimer::new();
+        self.level_damage_taken = false;
+        self.level_prize_collected = false;
+        self.clocks_collected = 0;
+        self.y_look_offset = 0;
+        self.paused = false;
+        self.pause_toggle_pending = false;
+        self.reload_block_grid_for_level(level_id);
     }
 
     pub(crate) fn boot_phase_label(&self) -> Option<&'static str> {
@@ -20,7 +87,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 2, .. } => Some("intro_sequence_3"),
             BootState::IntroSequence { segment: 3, .. } => Some("intro_sequence_4"),
             BootState::IntroSequence { .. } => Some("intro_sequence_5"),
-            BootState::TitleScreen => Some("title_screen"),
+            BootState::TitleScreen { .. } => Some("title_screen"),
             BootState::OptionsMenu { .. } => Some("options_menu"),
             BootState::SoundTest { .. } => Some("sound_test"),
             BootState::StartingLevel { .. } => Some("starting_level"),
@@ -35,7 +102,9 @@ impl NativeRuntime {
         match self.boot_state {
             BootState::SegaScreen { elapsed } => Some(elapsed),
             BootState::IntroSequence { elapsed, .. } => Some(elapsed),
-            BootState::TitleScreen | BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => {
+            BootState::TitleScreen { .. }
+            | BootState::OptionsMenu { .. }
+            | BootState::SoundTest { .. } => {
                 Some(self.title_screen_elapsed_frames)
             }
             BootState::StartingLevel { remaining_frames } => {
@@ -51,12 +120,14 @@ impl NativeRuntime {
     /// Returns `Some(input)` with the (possibly overridden) input to continue,
     /// or `None` if the frame was fully handled (early return with trace).
     pub(crate) fn step_demo_input(&mut self, input: FrameInput) -> Option<FrameInput> {
-        let BootState::DemoPlay {
-            frame_counter,
-            data_index,
-            use_demo_2,
-        } = &mut self.boot_state
-        else {
+        let Some((frame_counter, data_index, use_demo_2)) = (match self.boot_state {
+            BootState::DemoPlay {
+                frame_counter,
+                data_index,
+                use_demo_2,
+            } => Some((frame_counter, data_index, use_demo_2)),
+            _ => None,
+        }) else {
             return Some(input);
         };
 
@@ -75,7 +146,7 @@ impl NativeRuntime {
             return None;
         }
         // Auto-end after DEMO_MAX_FRAMES
-        if *frame_counter >= demo::DEMO_MAX_FRAMES {
+        if frame_counter >= demo::DEMO_MAX_FRAMES {
             self.enter_title_screen();
             self.opening_slice = None;
             self.active_enemies.clear();
@@ -88,18 +159,40 @@ impl NativeRuntime {
             self.frame_index += 1;
             return None;
         }
+        let level_id = Self::demo_level_id(use_demo_2);
+        if frame_counter == demo::DEMO_LEVEL_SWITCH_FRAME {
+            self.current_level = level_id;
+            self.reload_block_grid_for_level(level_id);
+        }
+        if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME && self.opening_slice.is_none() {
+            self.begin_demo_gameplay(level_id);
+        }
+        if frame_counter < demo::DEMO_GAMEPLAY_START_FRAME {
+            if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
+                *frame_counter += 1;
+            }
+            return Some(FrameInput::default());
+        }
         // Read demo byte and decode into input
-        let data = if *use_demo_2 {
+        let data = if use_demo_2 {
             &demo::DEMO_INPUT_DATA_2[..]
         } else {
             &demo::DEMO_INPUT_DATA_1[..]
         };
-        let byte = data.get(*data_index).copied().unwrap_or(0);
+        let byte = data.get(data_index).copied().unwrap_or(0);
         let demo_input = demo::decode_demo_byte(byte);
+        let playback_frame = frame_counter - demo::DEMO_GAMEPLAY_START_FRAME;
         // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
-        *frame_counter += 1;
-        if *frame_counter % 2 == 0 {
-            *data_index += 1;
+        if let BootState::DemoPlay {
+            frame_counter,
+            data_index,
+            ..
+        } = &mut self.boot_state
+        {
+            *frame_counter += 1;
+            if playback_frame % 2 == 1 {
+                *data_index += 1;
+            }
         }
         Some(demo_input)
     }
@@ -179,36 +272,54 @@ impl NativeRuntime {
                     }
                 }
             }
-            BootState::TitleScreen => {
-                if start_pressed && self.title_screen_ready() {
+            BootState::TitleScreen { cursor } => {
+                let up_pressed = input.up && !self.prior_input.up;
+                let down_pressed = input.down && !self.prior_input.down;
+
+                if self.frame_index <= self.title_menu_arm_frame {
+                    // Oracle-backed imported TAS traces keep title fully inert for
+                    // one attract-lock window after entry, even if Start was
+                    // already being tapped during the intro skip path.
+                } else if !self.title_menu_active {
+                    if start_pressed {
+                        self.title_idle_frames = 0;
+                        self.title_menu_active = true;
+                    } else {
+                        self.title_idle_frames += 1;
+                        if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
+                            self.title_idle_frames = 0;
+                            self.demo_toggle = !self.demo_toggle;
+                            self.begin_demo_play(self.demo_toggle);
+                        }
+                    }
+                } else if start_pressed {
                     self.title_idle_frames = 0;
-                    self.begin_level_entry(self.current_level);
-                }
-                // B button opens options menu
-                else if input.b && !self.prior_input.b && self.title_screen_ready() {
+                    match *cursor {
+                        0 => {
+                            self.two_player = false;
+                            self.begin_level_entry(self.current_level);
+                        }
+                        1 => {
+                            self.two_player = true;
+                            self.begin_level_entry(self.current_level);
+                        }
+                        _ => {
+                            self.boot_state = BootState::OptionsMenu { cursor: 0 };
+                        }
+                    }
+                } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
-                    self.boot_state = BootState::OptionsMenu { cursor: 0 };
-                } else if input == FrameInput::default() {
-                    // No buttons pressed — count idle frames for demo trigger
+                    *cursor -= 1;
+                } else if down_pressed && *cursor < 2 {
+                    self.title_idle_frames = 0;
+                    *cursor += 1;
+                } else {
                     self.title_idle_frames += 1;
                     if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
                         self.title_idle_frames = 0;
                         self.demo_toggle = !self.demo_toggle;
-                        let use_demo_2 = self.demo_toggle;
-                        let level = if use_demo_2 {
-                            demo::DEMO_2_LEVEL
-                        } else {
-                            demo::DEMO_1_LEVEL
-                        };
-                        self.begin_level_entry(LevelId(level));
-                        self.boot_state = BootState::DemoPlay {
-                            frame_counter: 0,
-                            data_index: 0,
-                            use_demo_2,
-                        };
+                        self.begin_demo_play(self.demo_toggle);
                     }
-                } else {
-                    self.title_idle_frames = 0;
                 }
                 self.title_screen_elapsed_frames += 1;
             }
