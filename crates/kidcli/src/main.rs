@@ -14,6 +14,7 @@ mod inspect;
 mod native_player;
 mod oracle;
 mod player;
+mod recording;
 mod release_gate;
 mod scenarios;
 mod sweep;
@@ -42,6 +43,7 @@ use oracle::{
     run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
+use recording::{validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{GameplayScenario, Scenario};
 use serde::{Deserialize, Serialize};
@@ -94,6 +96,8 @@ enum Commands {
         warp_level: Option<u8>,
         #[arg(long, default_value_t = false)]
         settled: bool,
+        #[arg(long)]
+        record: Option<String>,
     },
     ProbeCpu {
         #[arg(long)]
@@ -282,6 +286,14 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
         scenario: GameplayScenario,
     },
+    VerifyRecording {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long)]
+        slug: String,
+    },
     DiagnoseNativeGameplayDrift {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -468,11 +480,17 @@ fn main() -> Result<()> {
             debug_overlay,
             warp_level,
             settled,
+            record,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let record_to = record
+                .as_deref()
+                .map(validate_recording_slug)
+                .transpose()?
+                .map(|slug| repo_root.join(".cache/recordings").join(slug));
             run_native_player(
                 &manifest,
                 NativePlayOptions {
@@ -481,6 +499,7 @@ fn main() -> Result<()> {
                     debug_overlay,
                     warp_level,
                     settled,
+                    record_to,
                 },
             )?;
         }
@@ -780,6 +799,16 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             compare_native_gameplay(&repo_root, &rom_path, &manifest, scenario)?;
+        }
+        Commands::VerifyRecording { rom, dir, slug } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let record_to = repo_root
+                .join(".cache/recordings")
+                .join(validate_recording_slug(&slug)?);
+            verify_recording(&repo_root, &rom_path, &manifest, &record_to)?;
         }
         Commands::DiagnoseNativeGameplayDrift {
             rom,

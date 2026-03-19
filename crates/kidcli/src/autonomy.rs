@@ -92,6 +92,8 @@ pub(crate) enum CapabilityId {
     TerrainRuntimeAuthority,
     ProgressTwoTransitionsOracle,
     TraversalGoalLoopCompletion,
+    ReleaseGateGreen,
+    StateSweepGreen,
 }
 
 impl CapabilityId {
@@ -113,6 +115,8 @@ impl CapabilityId {
             Self::TerrainRuntimeAuthority => "terrain_runtime_authority",
             Self::ProgressTwoTransitionsOracle => "progress_two_transitions_oracle",
             Self::TraversalGoalLoopCompletion => "traversal_goal_loop_completion",
+            Self::ReleaseGateGreen => "release_gate_green",
+            Self::StateSweepGreen => "state_sweep_green",
         }
     }
 }
@@ -223,6 +227,8 @@ struct RepositorySignals {
     pause_oracle: CheckOutcome,
     death_oracle: CheckOutcome,
     progress_two_transitions_oracle: CheckOutcome,
+    release_gate: CheckOutcome,
+    state_sweep: CheckOutcome,
     has_level_one_header: bool,
     has_level_one_start_and_flag: bool,
     enemy_layout_count: Option<u8>,
@@ -532,6 +538,8 @@ fn collect_repository_signals(
         pause_oracle,
         death_oracle,
         progress_two_transitions_oracle,
+        release_gate: latest_release_gate_signal(repo_root),
+        state_sweep: latest_state_sweep_signal(repo_root),
         has_level_one_header,
         has_level_one_start_and_flag,
         enemy_layout_count,
@@ -555,6 +563,86 @@ fn collect_repository_signals(
             && research_map.contains(RESEARCH_MAP_TRAVERSAL_MARKER),
         dossier_open_markers,
     })
+}
+
+fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
+    let latest_path = repo_root
+        .join(".cache/release-gate")
+        .join("1p-accurate")
+        .join("latest.json");
+    let bytes = match fs::read(&latest_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return CheckOutcome::failing(
+                format!("missing release gate artefact: {error}"),
+                Some(latest_path),
+            );
+        }
+    };
+    let report: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(report) => report,
+        Err(error) => {
+            return CheckOutcome::failing(
+                format!("failed to parse release gate artefact: {error}"),
+                Some(latest_path),
+            );
+        }
+    };
+    if report
+        .get("passed")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        CheckOutcome::passing("latest release gate passed", Some(latest_path))
+    } else {
+        CheckOutcome::failing("latest release gate did not pass", Some(latest_path))
+    }
+}
+
+fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
+    let history_path = repo_root.join(".cache/metrics/sweep-history.jsonl");
+    let contents = match fs::read_to_string(&history_path) {
+        Ok(contents) => contents,
+        Err(error) => {
+            return CheckOutcome::failing(
+                format!("missing sweep history artefact: {error}"),
+                Some(history_path),
+            );
+        }
+    };
+    let latest = contents.lines().rev().find_map(|line| {
+        let parsed = serde_json::from_str::<serde_json::Value>(line).ok()?;
+        if parsed
+            .get("tier")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|tier| tier == "state")
+        {
+            Some(parsed)
+        } else {
+            None
+        }
+    });
+    let Some(latest) = latest else {
+        return CheckOutcome::failing(
+            "no state-tier sweep run found in sweep history",
+            Some(history_path),
+        );
+    };
+    let passed = latest
+        .get("failed")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(1)
+        == 0
+        && latest
+            .get("errors")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(1)
+            == 0;
+    if passed {
+        CheckOutcome::passing("latest state sweep passed", Some(history_path))
+    } else {
+        CheckOutcome::failing("latest state sweep reported failures", Some(history_path))
+    }
 }
 
 fn run_check<F>(artefact_path: PathBuf, check: F) -> CheckOutcome
@@ -830,6 +918,28 @@ fn capability_completion_summary(
                 "The full traversal slice still has unresolved traversal work.".to_owned()
             },
         ),
+        CapabilityId::ReleaseGateGreen => (
+            signals.release_gate.ok,
+            if signals.release_gate.ok {
+                "The latest release-gate artefact reports a passing 1p-accurate gate.".to_owned()
+            } else {
+                format!(
+                    "The latest release-gate artefact is missing or failing: {}",
+                    signals.release_gate.detail
+                )
+            },
+        ),
+        CapabilityId::StateSweepGreen => (
+            signals.state_sweep.ok,
+            if signals.state_sweep.ok {
+                "The latest state-tier sweep artefact reports no failures or errors.".to_owned()
+            } else {
+                format!(
+                    "The latest state-tier sweep artefact is missing or failing: {}",
+                    signals.state_sweep.detail
+                )
+            },
+        ),
     }
 }
 
@@ -1012,6 +1122,12 @@ fn evidence_for_capability(
                 &signals.progress_two_transitions_oracle,
             ),
         ],
+        CapabilityId::ReleaseGateGreen => {
+            vec![check_evidence("release-gate:1p-accurate", &signals.release_gate)]
+        }
+        CapabilityId::StateSweepGreen => {
+            vec![check_evidence("sweep:state", &signals.state_sweep)]
+        }
     }
 }
 
@@ -1230,6 +1346,8 @@ mod tests {
             pause_oracle: CheckOutcome::passing("passed", None),
             death_oracle: CheckOutcome::passing("passed", None),
             progress_two_transitions_oracle: CheckOutcome::passing("passed", None),
+            release_gate: CheckOutcome::passing("passed", None),
+            state_sweep: CheckOutcome::passing("passed", None),
             has_level_one_header: true,
             has_level_one_start_and_flag: true,
             enemy_layout_count: Some(22),

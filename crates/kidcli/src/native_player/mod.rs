@@ -1,3 +1,4 @@
+use crate::recording::{build_recording, recording_start_from_options, save_recording};
 use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
@@ -17,6 +18,7 @@ use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
 use serde::Deserialize;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -70,13 +72,14 @@ const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
 const SKY_COLOUR: [u8; 3] = [28, 42, 56];
 const PALETTE_LINE_COLOUR_COUNT: usize = 15;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct NativePlayOptions {
     pub fullscreen: bool,
     pub scale: Option<u32>,
     pub debug_overlay: bool,
     pub warp_level: Option<u8>,
     pub settled: bool,
+    pub record_to: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -275,6 +278,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut fade_alpha: u8 = 0; // 0=no fade, 255=fully black
     let mut fading_in = false; // true: fade from black to clear
     let mut level_card_frames_remaining: usize = 0;
+    let mut recorded_script = Vec::new();
+    let mut recorded_trace = Vec::new();
 
     let scene = build_scene(
         &trace,
@@ -330,13 +335,25 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     keycode: Some(Keycode::R),
                     repeat: false,
                     ..
-                } => reset_runtime = true,
+                } => {
+                    if options.record_to.is_some() {
+                        bail!(
+                            "play-native recording does not support reset/warp debug controls (R/N/P)"
+                        );
+                    }
+                    reset_runtime = true
+                }
                 // Debug: N = next level, P = previous level
                 Event::KeyDown {
                     keycode: Some(Keycode::N),
                     repeat: false,
                     ..
                 } => {
+                    if options.record_to.is_some() {
+                        bail!(
+                            "play-native recording does not support reset/warp debug controls (R/N/P)"
+                        );
+                    }
                     let next = runtime.next_level_id();
                     runtime.warp_to_level(next);
                 }
@@ -345,6 +362,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     repeat: false,
                     ..
                 } => {
+                    if options.record_to.is_some() {
+                        bail!(
+                            "play-native recording does not support reset/warp debug controls (R/N/P)"
+                        );
+                    }
                     let prev = runtime.prev_level_id();
                     runtime.warp_to_level(prev);
                 }
@@ -368,6 +390,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             if level_card_frames_remaining == 0 {
                 let buttons = keyboard_buttons(&events) | controller_buttons(controller.as_ref());
                 trace = runtime.step_frame(FrameInput::from_mask(buttons));
+                if options.record_to.is_some() {
+                    recorded_script.push(buttons);
+                    recorded_trace.push(trace.clone());
+                }
             }
 
             // Detect game events by comparing frames
@@ -396,21 +422,23 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
         // Push audio samples to SDL2 queue
         if let Some(ref aq) = audio_queue
-            && aq.size() < 8192 {
-                if let Some(ref mut gems) = gems_engine {
-                    detect_gems_events(&prev_trace, &trace, gems);
-                    gems.step_frame();
-                    let samples = gems.generate_samples(735);
-                    let _ = aq.queue_audio(&samples);
-                } else {
-                    let samples = sfx_engine.generate(735);
-                    let _ = aq.queue_audio(&samples);
-                }
+            && aq.size() < 8192
+        {
+            if let Some(ref mut gems) = gems_engine {
+                detect_gems_events(&prev_trace, &trace, gems);
+                gems.step_frame();
+                let samples = gems.generate_samples(735);
+                let _ = aq.queue_audio(&samples);
+            } else {
+                let samples = sfx_engine.generate(735);
+                let _ = aq.queue_audio(&samples);
             }
+        }
 
         // Trigger BGM when entering InGame for the first time or on level change
         let level_changed = trace.current_level.0 != current_level_id;
-        let entered_in_game = matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) && !in_game_bgm_playing;
+        let entered_in_game = matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+            && !in_game_bgm_playing;
         if level_changed || entered_in_game {
             let new_level = trace.current_level.0;
             if level_changed {
@@ -519,6 +547,33 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         if elapsed < FRAME_TIME {
             thread::sleep(FRAME_TIME - elapsed);
         }
+    }
+
+    if let Some(record_to) = &options.record_to {
+        if recorded_script.is_empty() {
+            bail!("recording captured no stepped frames");
+        }
+        let slug = record_to
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| {
+                anyhow!(
+                    "recording path has no valid file name: {}",
+                    record_to.display()
+                )
+            })?;
+        let recording = build_recording(
+            slug,
+            recording_start_from_options(&options),
+            recorded_script,
+            recorded_trace,
+        );
+        save_recording(record_to, &recording)?;
+        println!(
+            "recording saved to {}. verify with: cargo run -p kidcli -- verify-recording --slug {}",
+            record_to.display(),
+            slug
+        );
     }
 
     Ok(())
@@ -858,9 +913,10 @@ fn detect_gems_events(
 ) {
     // Sound test: play the selected track when A/C pressed
     if curr.sound_test_play_pending
-        && let Some(track) = curr.sound_test_track {
-            gems.play_sound(track);
-        }
+        && let Some(track) = curr.sound_test_track
+    {
+        gems.play_sound(track);
+    }
 
     // Jump
     if prev.kid_on_ground == Some(true)
@@ -1197,9 +1253,9 @@ mod tests {
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
-        ForegroundLayout, HudIcon, HudVisuals, LevelVisuals, MdColour, NativeLevelVisuals,
-        Palette, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
-        PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
+        ForegroundLayout, HudIcon, HudVisuals, LevelVisuals, MdColour, NativeLevelVisuals, Palette,
+        PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals,
+        SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
     use std::fs;
     use std::path::Path;
@@ -2148,8 +2204,14 @@ mod tests {
         let trace = sample_trace(GameMode::InGame);
         let camera_x_px = 307;
 
-        assert_eq!(super::scene::background_scroll_x_px(&trace, camera_x_px, 0x30), 76);
-        assert_eq!(super::scene::background_scroll_x_px(&trace, camera_x_px, 0x50), 153);
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, camera_x_px, 0x30),
+            76
+        );
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, camera_x_px, 0x50),
+            153
+        );
     }
 
     #[test]
@@ -2455,6 +2517,7 @@ mod tests {
                 debug_overlay: false,
                 warp_level: None,
                 settled: false,
+                record_to: None,
             },
         );
 
@@ -2488,6 +2551,7 @@ mod tests {
                 debug_overlay: false,
                 warp_level: Some(0x00),
                 settled: true,
+                record_to: None,
             },
         );
 
@@ -2770,8 +2834,19 @@ mod tests {
 
         assert_eq!(player_sprite_signature(&scene), Some(19));
         assert!(!scene.commands.iter().any(|command| {
-            matches!(command, DrawCommand::Rect { colour: [255, 255, 255], .. })
-                || matches!(command, DrawCommand::Rect { colour: [255, 255, 128], .. })
+            matches!(
+                command,
+                DrawCommand::Rect {
+                    colour: [255, 255, 255],
+                    ..
+                }
+            ) || matches!(
+                command,
+                DrawCommand::Rect {
+                    colour: [255, 255, 128],
+                    ..
+                }
+            )
         }));
     }
 

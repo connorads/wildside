@@ -1,0 +1,47 @@
+{
+  "goal_id": "sweep-parity",
+  "title": "Whole-game sweep parity",
+  "summary": "Keep the latest release gate and full state sweep green so whole-game parity regressions are visible without rereading chat history.",
+  "capabilities": [
+    {
+      "id": "release_gate_green",
+      "title": "Release gate green",
+      "summary": "The latest cached 1p-accurate release-gate report passes.",
+      "prerequisites": [],
+      "sources": [
+        ".cache/release-gate/1p-accurate/latest.json"
+      ],
+      "implementation_targets": [
+        "crates/kidcli/src/release_gate.rs",
+        "README.md"
+      ],
+      "commands": [
+        "mise run release-gate"
+      ],
+      "done_criteria": [
+        "The latest release-gate artefact reports passed=true."
+      ]
+    },
+    {
+      "id": "state_sweep_green",
+      "title": "State sweep green",
+      "summary": "The latest state-tier sweep history entry reports no failures or errors.",
+      "prerequisites": [
+        "release_gate_green"
+      ],
+      "sources": [
+        ".cache/metrics/sweep-history.jsonl"
+      ],
+      "implementation_targets": [
+        "crates/kidcli/src/sweep.rs",
+        "docs/source-port/methodology.md"
+      ],
+      "commands": [
+        "cargo run --release -p kidcli -- sweep --levels 0-104 --tier state"
+      ],
+      "done_criteria": [
+        "The latest state-tier sweep history entry has failed=0 and errors=0."
+      ]
+    }
+  ]
+}
