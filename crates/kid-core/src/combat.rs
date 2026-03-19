@@ -567,7 +567,7 @@ impl NativeRuntime {
 
     /// Reset all state and return to title screen.
     pub(crate) fn return_to_title(&mut self) {
-        self.boot_state = BootState::TitleScreen;
+        self.enter_title_screen();
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.progression.number_lives = 3;
         self.progression.number_continues = 3;

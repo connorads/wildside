@@ -25,6 +25,7 @@ use kid_data::{
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
 pub use scenario::{run_script, run_script_with_warp};
+pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 6] = constants::BOOT_TO_LEVEL_START_FRAMES;
 use std::fs;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
@@ -94,6 +95,10 @@ pub struct NativeRuntime {
     clocks_collected: u16,
     /// Title screen idle frame counter: triggers demo after 640 frames.
     title_idle_frames: u16,
+    /// Title screen local elapsed frames, used for diagnostics and demo timing.
+    title_screen_elapsed_frames: usize,
+    /// First global boot frame where title/menu input and the title pose become active.
+    title_screen_ready_frame: usize,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Two-player alternating mode enabled.
@@ -153,6 +158,8 @@ impl NativeRuntime {
             level_prize_collected: false,
             clocks_collected: 0,
             title_idle_frames: 0,
+            title_screen_elapsed_frames: 0,
+            title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
             demo_toggle: false,
             two_player: false,
             current_player_index: 0,

@@ -120,6 +120,8 @@ TAS recordings are deterministic per-frame button sequences from real full-game 
 - Level transitions are auto-detected from the native trace and injected as additional checkpoints
 - The oracle scenario JSON includes transition checkpoints, giving diagnostic data at level boundaries
 - `--frame-start`/`--frame-end` slicing enables iterative debugging of specific sections
+- `verify-tas` now reports boot diagnostics for the first authoritative mismatch (phase, elapsed, title readiness, menu slot when available)
+- Trimmed 250-frame boot-slice fixtures live in `crates/kidcli/tests/fixtures/tas/` so early boot regressions stay reproducible without cache-local BK2 imports
 
 **Available recordings (Kid Chameleon):**
 

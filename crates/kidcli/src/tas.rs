@@ -2,6 +2,7 @@ use anyhow::{Context, Result, bail};
 use std::io::Read;
 use std::path::Path;
 
+use crate::oracle::OracleState;
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 
 /// Parsed BK2 (BizHawk) TAS recording.
@@ -434,8 +435,40 @@ pub fn verify_tas(
                 "  first authoritative divergence: checkpoint {}",
                 first_auth.checkpoint
             );
+            if let Some((native_state, oracle_state)) =
+                checkpoint_pair(&first_auth.checkpoint, &native_states, &oracle.states)
+            {
+                println!(
+                    "    native: {}",
+                    state_boot_summary(native_state)
+                );
+                println!(
+                    "    oracle: {}",
+                    state_boot_summary(oracle_state)
+                );
+            }
         }
     }
+
+    let first_authoritative_diff = state_diffs
+        .iter()
+        .find(|d| !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str()))
+        .map(|diff| {
+            let (native_state, oracle_state) = checkpoint_pair(
+                &diff.checkpoint,
+                &native_states,
+                &oracle.states,
+            )
+            .unwrap_or_else(|| panic!("missing checkpoint pair for {}", diff.checkpoint));
+            serde_json::json!({
+                "checkpoint": diff.checkpoint,
+                "field": diff.field,
+                "native_value": diff.native_value,
+                "oracle_value": diff.oracle_value,
+                "native_state": native_state,
+                "oracle_state": oracle_state,
+            })
+        });
 
     // Write summary report
     let report = serde_json::json!({
@@ -451,12 +484,49 @@ pub fn verify_tas(
             "rng": divergence_summary.rng,
             "oracle_limitation": divergence_summary.oracle_limitation,
         },
+        "first_authoritative_diff": first_authoritative_diff,
     });
     let report_path = run_dir.join("report.json");
     std::fs::write(&report_path, serde_json::to_vec_pretty(&report)?)?;
     println!("  report: {}", report_path.display());
 
     Ok(())
+}
+
+fn checkpoint_pair<'a>(
+    checkpoint: &str,
+    native_states: &'a [OracleState],
+    oracle_states: &'a [OracleState],
+) -> Option<(&'a OracleState, &'a OracleState)> {
+    let native = native_states.iter().find(|state| state.label == checkpoint)?;
+    let oracle = oracle_states.iter().find(|state| state.label == checkpoint)?;
+    Some((native, oracle))
+}
+
+fn state_boot_summary(state: &OracleState) -> String {
+    let boot_phase = state.boot_phase.as_deref().unwrap_or("in_game");
+    let elapsed = state
+        .boot_phase_elapsed
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".into());
+    let menu = state
+        .main_menu_option
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "-".into());
+    format!(
+        "mode={:#06x} phase={} elapsed={} title_ready={} menu={} kid=({:#010x},{:#010x}) objects={}/{} lives={} hp={}",
+        state.game_mode,
+        boot_phase,
+        elapsed,
+        state.title_screen_ready,
+        menu,
+        state.kid_x_pos,
+        state.kid_y_pos,
+        state.number_objects,
+        state.number_gfx_objects,
+        state.number_lives,
+        state.number_hitpoints
+    )
 }
 
 /// Merge level-transition checkpoints into the scenario's existing checkpoints.
@@ -836,6 +906,25 @@ mod tests {
                 _ => unreachable!(),
             };
             assert!(active, "mask {mask:#04x} should activate {expected_name}");
+        }
+    }
+
+    #[test]
+    fn checked_in_boot_slice_fixtures_deserialise() {
+        let fixtures = [
+            include_str!("../tests/fixtures/tas/short-demo-boot-slice.json"),
+            include_str!("../tests/fixtures/tas/kc-any-percent-2024-boot-slice.json"),
+            include_str!("../tests/fixtures/tas/any-percent-published-boot-slice.json"),
+        ];
+
+        for fixture in fixtures {
+            let scenario: DynamicScenario =
+                serde_json::from_str(fixture).expect("fixture should deserialize");
+            assert_eq!(scenario.frame_count, 250);
+            assert_eq!(scenario.checkpoints.len(), 6);
+            assert!(scenario.warp_to_level.is_none());
+            assert_eq!(scenario.checkpoints[0].frame_index, 0);
+            assert_eq!(scenario.checkpoints.last().map(|cp| cp.frame_index), Some(249));
         }
     }
 }

@@ -100,6 +100,14 @@ pub struct OracleState {
     pub label: String,
     pub frame_index: usize,
     pub game_mode: u16,
+    #[serde(default)]
+    pub boot_phase: Option<String>,
+    #[serde(default)]
+    pub boot_phase_elapsed: Option<usize>,
+    #[serde(default)]
+    pub title_screen_ready: bool,
+    #[serde(default)]
+    pub main_menu_option: Option<u8>,
     pub current_player: u8,
     pub number_hitpoints: u16,
     pub current_helmet_id: u16,
@@ -135,7 +143,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     checkout_repo(&jgenesis_dir, JGENESIS_URL, JGENESIS_COMMIT)?;
 
     let helper_dir = oracle_root.join("jgenesis-helper");
-    write_helper_project(&helper_dir, &jgenesis_dir)?;
+    write_helper_project(&helper_dir, repo_root, &jgenesis_dir)?;
     run_command(
         Command::new("cargo")
             .arg("build")
@@ -222,16 +230,17 @@ pub fn run_jgenesis_enemy_layout_trace(
     serde_json::from_slice(&stdout).context("failed to parse jgenesis enemy-layout trace")
 }
 
-fn write_helper_project(helper_dir: &Path, jgenesis_dir: &Path) -> Result<()> {
+fn write_helper_project(helper_dir: &Path, repo_root: &Path, jgenesis_dir: &Path) -> Result<()> {
     let src_dir = helper_dir.join("src");
     fs::create_dir_all(&src_dir)
         .with_context(|| format!("failed to create {}", src_dir.display()))?;
 
     let cargo_toml = format!(
-        "[package]\nname = \"kid-jgenesis-oracle\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n[dependencies]\nanyhow = \"1\"\nbincode = \"2\"\ngenesis-config = {{ path = {:?} }}\ngenesis-core = {{ path = {:?} }}\nhound = \"3.5.1\"\nimage = {{ version = \"0.25.8\", default-features = false, features = [\"png\"] }}\njgenesis-common = {{ path = {:?} }}\nserde = {{ version = \"1\", features = [\"derive\"] }}\nserde_json = \"1\"\nsha1 = \"0.10.6\"\n",
+        "[package]\nname = \"kid-jgenesis-oracle\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n[dependencies]\nanyhow = \"1\"\nbincode = \"2\"\ngenesis-config = {{ path = {:?} }}\ngenesis-core = {{ path = {:?} }}\nhound = \"3.5.1\"\nimage = {{ version = \"0.25.8\", default-features = false, features = [\"png\"] }}\njgenesis-common = {{ path = {:?} }}\nkid-core = {{ path = {:?} }}\nserde = {{ version = \"1\", features = [\"derive\"] }}\nserde_json = \"1\"\nsha1 = \"0.10.6\"\n",
         jgenesis_dir.join("config/genesis-config"),
         jgenesis_dir.join("backend/genesis-core"),
         jgenesis_dir.join("common/jgenesis-common"),
+        repo_root.join("crates/kid-core"),
     );
 
     write_if_changed(&helper_dir.join("Cargo.toml"), cargo_toml.as_bytes())?;

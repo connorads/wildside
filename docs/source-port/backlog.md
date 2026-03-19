@@ -75,6 +75,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 066 | [-] | P3 | block | Mushroom bounce uses direct player velocity; ASM bounces platform object | DEVIATION — structural: ASM uses SoftPlatform objects, native bounces player inline |
 | 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
 | 068 | [-] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | DEVIATION — visual only: ASM animates sprite with shared lift coroutine |
+| 069 | [x] | P2 | fidelity | TAS boot slice desync: native consumed early boot/title Start presses on the wrong frames | First 250-frame boot slices of 3 imported TAS recordings show 0 authoritative diffs |
 
 ## Investigation notes
 
@@ -203,3 +204,18 @@ Levels 0x00, 0x45, 0x48, 0x61 show wildly different positions at idle_tail (fram
 Root cause: combination of oracle warp timing differences and enemy interaction timing.
 These are not simple constant fixes — they require either matching oracle warp timing
 exactly or increasing settle frames in scenarios.
+
+### 069 — TAS boot slice desync (FIXED)
+Imported BK2 recordings exposed a boot-only fidelity gap that the per-level warp sweep
+could not see. Native was exposing gameplay-looking state on frame 0, title readiness
+was modelled with a global six-Start shortcut, and the first intro segment accepted
+Start too early. Fixes:
+- cold boot trace now keeps gameplay-visible state zeroed on frame 0
+- title readiness is phase-local instead of keyed off cumulative Start count
+- intro segment 1 has an oracle-backed early-Start dead zone plus direct-to-title skip
+- TAS reports now include boot-phase diagnostics and checked-in 250-frame boot-slice fixtures
+
+Verification:
+- `kid_chameleon_short_demo` first 250 frames: 0 authoritative diffs
+- `kc_any_percent_2024` first 250 frames: 0 authoritative diffs
+- `any-percent-published` first 250 frames: 0 authoritative diffs

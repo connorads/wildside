@@ -14,7 +14,8 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 
 ### Boot and title
 - Done: typed boot/title state machine (`BootState` enum)
-- Done: mode flow, title timing, 6-press start handling
+- Done: mode flow, title timing, oracle-backed title readiness and intro-skip handling
+- Done: TAS-backed early boot slice parity across 3 imported recordings (first 250 frames, 0 authoritative diffs)
 - Source: `kid.asm`, oracle checkpoints
 
 ### Level load

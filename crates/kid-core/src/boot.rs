@@ -1,6 +1,52 @@
 use super::*;
 
 impl NativeRuntime {
+    pub(crate) fn enter_title_screen(&mut self) {
+        self.boot_state = BootState::TitleScreen;
+        self.title_idle_frames = 0;
+        self.title_screen_elapsed_frames = 0;
+        self.title_screen_ready_frame = self.frame_index.max(TITLE_SCREEN_READY_GLOBAL_FRAME);
+    }
+
+    pub(crate) fn title_screen_ready(&self) -> bool {
+        self.frame_index >= self.title_screen_ready_frame
+    }
+
+    pub(crate) fn boot_phase_label(&self) -> Option<&'static str> {
+        match self.boot_state {
+            BootState::SegaScreen { .. } => Some("sega_screen"),
+            BootState::IntroSequence { segment: 0, .. } => Some("intro_sequence_1"),
+            BootState::IntroSequence { segment: 1, .. } => Some("intro_sequence_2"),
+            BootState::IntroSequence { segment: 2, .. } => Some("intro_sequence_3"),
+            BootState::IntroSequence { segment: 3, .. } => Some("intro_sequence_4"),
+            BootState::IntroSequence { .. } => Some("intro_sequence_5"),
+            BootState::TitleScreen => Some("title_screen"),
+            BootState::OptionsMenu { .. } => Some("options_menu"),
+            BootState::SoundTest { .. } => Some("sound_test"),
+            BootState::StartingLevel { .. } => Some("starting_level"),
+            BootState::LevelSkipHold => Some("level_skip_hold"),
+            BootState::DemoPlay { .. } => Some("demo_play"),
+            BootState::EndingSequence { .. } => Some("ending_sequence"),
+            BootState::InGame => None,
+        }
+    }
+
+    pub(crate) fn boot_phase_elapsed_frames(&self) -> Option<usize> {
+        match self.boot_state {
+            BootState::SegaScreen { elapsed } => Some(elapsed),
+            BootState::IntroSequence { elapsed, .. } => Some(elapsed),
+            BootState::TitleScreen | BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => {
+                Some(self.title_screen_elapsed_frames)
+            }
+            BootState::StartingLevel { remaining_frames } => {
+                Some(TITLE_TO_LEVEL_FRAMES.saturating_sub(remaining_frames))
+            }
+            BootState::DemoPlay { frame_counter, .. } => Some(frame_counter as usize),
+            BootState::EndingSequence { elapsed } => Some(elapsed),
+            BootState::LevelSkipHold | BootState::InGame => None,
+        }
+    }
+
     /// Handle demo playback input override and exit conditions.
     /// Returns `Some(input)` with the (possibly overridden) input to continue,
     /// or `None` if the frame was fully handled (early return with trace).
@@ -16,8 +62,7 @@ impl NativeRuntime {
 
         // Start button aborts demo → return to title
         if input.start && !self.previous_input.start {
-            self.boot_state = BootState::TitleScreen;
-            self.title_idle_frames = 0;
+            self.enter_title_screen();
             self.opening_slice = None;
             self.active_enemies.clear();
             self.active_enemy_roster.clear();
@@ -31,8 +76,7 @@ impl NativeRuntime {
         }
         // Auto-end after DEMO_MAX_FRAMES
         if *frame_counter >= demo::DEMO_MAX_FRAMES {
-            self.boot_state = BootState::TitleScreen;
-            self.title_idle_frames = 0;
+            self.enter_title_screen();
             self.opening_slice = None;
             self.active_enemies.clear();
             self.active_enemy_roster.clear();
@@ -114,10 +158,21 @@ impl NativeRuntime {
             // Load_IntroSequence6 (title screen). Each loads unique VDP art.
             BootState::IntroSequence { segment, elapsed } => {
                 *elapsed += 1;
-                if start_pressed || *elapsed >= INTRO_SEGMENT_FRAMES {
+                let segment_frames = if *segment == 0 {
+                    INTRO_FIRST_SEGMENT_FRAMES
+                } else {
+                    INTRO_SEGMENT_FRAMES
+                };
+                let start_advances_segment = start_pressed
+                    && (*segment != 0 || *elapsed >= INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES);
+                let start_jumps_to_title = start_pressed
+                    && ((*segment == 0 && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
+                        || *segment >= 3);
+                if start_jumps_to_title {
+                    self.enter_title_screen();
+                } else if start_advances_segment || *elapsed >= segment_frames {
                     if *segment >= 4 {
-                        self.title_idle_frames = 0;
-                        self.boot_state = BootState::TitleScreen;
+                        self.enter_title_screen();
                     } else {
                         *segment += 1;
                         *elapsed = 0;
@@ -125,12 +180,12 @@ impl NativeRuntime {
                 }
             }
             BootState::TitleScreen => {
-                if start_pressed && self.start_press_count >= BOOTSTRAP_LEVEL_START_PRESS_COUNT {
+                if start_pressed && self.title_screen_ready() {
                     self.title_idle_frames = 0;
                     self.begin_level_entry(self.current_level);
                 }
                 // B button opens options menu
-                else if input.b && !self.prior_input.b {
+                else if input.b && !self.prior_input.b && self.title_screen_ready() {
                     self.title_idle_frames = 0;
                     self.boot_state = BootState::OptionsMenu { cursor: 0 };
                 } else if input == FrameInput::default() {
@@ -155,6 +210,7 @@ impl NativeRuntime {
                 } else {
                     self.title_idle_frames = 0;
                 }
+                self.title_screen_elapsed_frames += 1;
             }
             BootState::OptionsMenu { cursor } => {
                 let b_pressed = input.b && !self.prior_input.b;
@@ -178,9 +234,9 @@ impl NativeRuntime {
                 }
                 // A/C on "EXIT" or Start/B exits back to title
                 else if (cur == 2 && (a_pressed || c_pressed)) || start_pressed || b_pressed {
-                    self.title_idle_frames = 0;
-                    self.boot_state = BootState::TitleScreen;
+                    self.enter_title_screen();
                 }
+                self.title_screen_elapsed_frames += 1;
             }
             BootState::SoundTest { track } => {
                 let b_pressed = input.b && !self.prior_input.b;
@@ -206,6 +262,7 @@ impl NativeRuntime {
                 if b_pressed || start_pressed {
                     self.boot_state = BootState::OptionsMenu { cursor: 1 };
                 }
+                self.title_screen_elapsed_frames += 1;
             }
             BootState::StartingLevel { remaining_frames } => {
                 if *remaining_frames > 0 {
@@ -228,8 +285,7 @@ impl NativeRuntime {
                     + CREDITS_SCREEN_COUNT * CREDITS_SCREEN_TOTAL;
                 if *elapsed >= total_ending_frames {
                     // Return to title screen after credits
-                    self.boot_state = BootState::TitleScreen;
-                    self.title_idle_frames = 0;
+                    self.enter_title_screen();
                     self.player_lifecycle = PlayerLifecycle::Alive;
                     self.progression.number_lives = 3;
                     self.progression.number_continues = 3;

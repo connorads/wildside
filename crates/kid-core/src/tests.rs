@@ -140,20 +140,17 @@ fn start_level(runtime: &mut NativeRuntime) {
     if runtime.block_grid().is_none() {
         runtime.set_block_grid(grid_with_floor_at_row(17));
     }
-    for _ in 0..360 {
-        runtime.step_frame(FrameInput::default());
+    for frame_index in 0..=460 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        runtime.step_frame(input);
     }
-    for _ in 0..5 {
-        runtime.step_frame(FrameInput {
-            start: true,
-            ..FrameInput::default()
-        });
-        runtime.step_frame(FrameInput::default());
-    }
-    runtime.step_frame(FrameInput {
-        start: true,
-        ..FrameInput::default()
-    });
     for _ in 0..60 {
         runtime.step_frame(FrameInput::default());
     }
@@ -239,7 +236,7 @@ fn pause_resume_script_input(frame_index: usize) -> FrameInput {
 
 fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
     let mut input = FrameInput::default();
-    if [120usize, 200, 280, 360, 440, 460].contains(&frame_index) {
+    if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
         input.start = true;
     }
     if (720..=899).contains(&frame_index)
@@ -327,9 +324,9 @@ fn write_generated_level_layout(
 
 #[test]
 fn reaches_title_screen_without_input() {
-    // SEGA(60) + 5 intro segments × 80 frames = 460 frames before title
-    let trace = run_script(manifest(), &[], 560);
-    let f = 519;
+    // Sega (120) + intro1 (160) + intro2-5 (4 × 80) = 600 frames before title.
+    let trace = run_script(manifest(), &[], 640);
+    let f = 599;
     assert_eq!(trace[f].game_mode, GameMode::TitleScreen);
     assert_eq!(trace[f].current_level, LevelId(0));
     assert_eq!(trace[f].player_start_x, Some(0x0750));
@@ -342,6 +339,42 @@ fn reaches_title_screen_without_input() {
     assert!(trace[f].active_objects.is_empty());
     assert_eq!(trace[f].number_objects, 4);
     assert_eq!(trace[f].number_gfx_objects, 4);
+}
+
+#[test]
+fn first_boot_frame_keeps_gameplay_state_cold() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let trace = runtime.step_frame(FrameInput::default());
+
+    assert_eq!(trace.frame_index, 0);
+    assert_eq!(trace.game_mode, GameMode::SegaScreen);
+    assert_eq!(trace.number_lives, 0);
+    assert_eq!(trace.number_hitpoints, 0);
+    assert_eq!(trace.current_helmet_id, 0);
+    assert_eq!(trace.kid_x_pos, None);
+    assert_eq!(trace.kid_y_pos, None);
+    assert_eq!(trace.number_objects, 0);
+    assert_eq!(trace.number_gfx_objects, 0);
+}
+
+#[test]
+fn early_title_frames_stay_inert_until_boot_ready() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.frame_index = 137;
+    runtime.enter_title_screen();
+
+    let early_title = runtime.trace_frame();
+    assert_eq!(early_title.game_mode, GameMode::TitleScreen);
+    assert!(!early_title.title_screen_ready);
+    assert_eq!(early_title.kid_x_pos, None);
+    assert_eq!(early_title.number_objects, 0);
+
+    runtime.frame_index = TITLE_SCREEN_READY_GLOBAL_FRAME;
+    let ready_title = runtime.trace_frame();
+    assert!(ready_title.title_screen_ready);
+    assert_eq!(ready_title.kid_x_pos, Some(TITLE_KID_X_POS));
+    assert_eq!(ready_title.kid_y_pos, Some(TITLE_KID_Y_POS));
+    assert_eq!(ready_title.number_objects, 4);
 }
 
 #[test]
@@ -1252,7 +1285,7 @@ fn moves_camera_when_holding_right_in_game() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
     for frame in 0..1_020 {
-        let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
@@ -1288,7 +1321,7 @@ fn level_one_opening_run_path_takes_damage_on_frame_760() {
     let mut first_hit_frame = None;
 
     for frame in 0..900 {
-        let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
@@ -1322,7 +1355,7 @@ fn progress_two_transitions_takes_opening_damage_by_frame_749() {
     runtime.set_block_grid(grid_with_floor_at_row(17));
 
     for frame in 0..750 {
-        let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
@@ -1356,7 +1389,7 @@ fn timing_regression_level_one_opening_hit_keeps_advanced_position() {
     let mut hit_trace = None;
 
     for frame in 0..900 {
-        let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()

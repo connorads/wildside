@@ -6,17 +6,16 @@ impl NativeRuntime {
     /// without encoding warp buttons in the input script.
     ///
     /// Boot timing matches the oracle helper exactly: 720 frames with
-    /// Start presses at frames 120, 200, 280, 360, 440, 460.
+    /// Start presses at frames 120, 200, 280, 360, 460.
     pub fn boot_to_level(&mut self, target: LevelId) {
         let start = FrameInput {
             start: true,
             ..FrameInput::default()
         };
         let idle = FrameInput::default();
-        let start_frames: &[usize] = &[120, 200, 280, 360, 440, 460];
 
         for frame in 0..720 {
-            if start_frames.contains(&frame) {
+            if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
                 self.step_frame(start);
             } else {
                 self.step_frame(idle);

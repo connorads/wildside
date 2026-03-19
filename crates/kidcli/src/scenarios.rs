@@ -474,12 +474,10 @@ impl Scenario {
         match self {
             Self::BootTitleIdle10s => {}
             Self::BootTitleStartLevel1 => {
-                apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
-                apply_range(&mut script, 460, 460, 0x80);
+                apply_boot_to_level_1(&mut script);
             }
             Self::BootTitleStartLevel1MoveRight5s => {
-                apply_single_frames(&mut script, &[120, 200, 280, 360, 440], 0x80);
-                apply_range(&mut script, 460, 460, 0x80);
+                apply_boot_to_level_1(&mut script);
                 apply_range(&mut script, 720, 1_019, 1 << 3);
             }
             Self::Level1EnemyWindow => {
@@ -631,8 +629,7 @@ impl GameplayScenario {
 }
 
 fn apply_boot_to_level_1(script: &mut [u8]) {
-    apply_single_frames(script, &[120, 200, 280, 360, 440], 0x80);
-    apply_range(script, 460, 460, 0x80);
+    apply_single_frames(script, &kid_core::BOOT_TO_LEVEL_START_FRAMES, 0x80);
 }
 
 fn add_periodic_jump(script: &mut [u8], start: usize, end: usize, period: usize, width: usize) {
@@ -685,6 +682,7 @@ mod tests {
             .script()
             .expect("scenario script should build");
         assert_eq!(script[120], 0x80);
+        assert_eq!(script[440], 0x80);
         assert_eq!(script[460], 0x80);
     }
 

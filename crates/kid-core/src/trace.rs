@@ -3,6 +3,17 @@ use super::*;
 impl NativeRuntime {
     pub fn trace_frame(&self) -> NativeTraceFrame {
         let game_mode = self.game_mode();
+        let boot_phase = self.boot_phase_label().map(str::to_owned);
+        let boot_phase_elapsed = self.boot_phase_elapsed_frames();
+        let cold_boot_frame = self.frame_index == 0
+            && !matches!(
+                self.boot_state,
+                BootState::StartingLevel { .. }
+                    | BootState::LevelSkipHold
+                    | BootState::InGame
+                    | BootState::DemoPlay { .. }
+                    | BootState::EndingSequence { .. }
+            );
         let current_level_name = self.level_name(self.current_level).map(str::to_owned);
         let level_header = self.level_header(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level);
@@ -24,6 +35,9 @@ impl NativeRuntime {
             game_mode,
             game_mode_value: game_mode.as_disassembly_value(),
             start_press_count: self.start_press_count,
+            boot_phase,
+            boot_phase_elapsed,
+            title_screen_ready: self.title_screen_ready(),
             current_player: self.current_player_index,
             current_level: self.current_level,
             player_1_level_id: self.current_level,
@@ -35,10 +49,22 @@ impl NativeRuntime {
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
             active_platform_object_count,
-            number_lives: self.progression.number_lives,
+            number_lives: if cold_boot_frame {
+                0
+            } else {
+                self.progression.number_lives
+            },
             number_continues: self.progression.number_continues,
-            number_hitpoints: self.progression.number_hitpoints,
-            current_helmet_id: self.progression.current_form.helmet_id(),
+            number_hitpoints: if cold_boot_frame {
+                0
+            } else {
+                self.progression.number_hitpoints
+            },
+            current_helmet_id: if cold_boot_frame {
+                0
+            } else {
+                self.progression.current_form.helmet_id()
+            },
             paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
@@ -148,12 +174,11 @@ impl NativeRuntime {
             return self.level_skip_resume_player_state();
         }
         match self.boot_state {
-            BootState::SegaScreen { .. }
-            | BootState::IntroSequence { .. }
-            | BootState::TitleScreen
-            | BootState::OptionsMenu { .. }
-            | BootState::SoundTest { .. }
-            | BootState::EndingSequence { .. } => Some(PlayerState::title_pose()),
+            BootState::SegaScreen { .. } | BootState::IntroSequence { .. } => None,
+            BootState::TitleScreen | BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => {
+                self.title_screen_ready().then(PlayerState::title_pose)
+            }
+            BootState::EndingSequence { .. } => Some(PlayerState::title_pose()),
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
                 if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -234,7 +259,15 @@ impl NativeRuntime {
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
         ) {
-            return (4, 4);
+            return if matches!(
+                self.boot_state,
+                BootState::TitleScreen | BootState::OptionsMenu { .. } | BootState::SoundTest { .. }
+            ) && self.title_screen_ready()
+            {
+                (4, 4)
+            } else {
+                (0, 0)
+            };
         }
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             return (0, 0);
