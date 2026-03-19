@@ -5089,6 +5089,92 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
     assert!(slice.player.on_ground);
 }
 
+#[test]
+fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
+    let grid = grid_with_floor_at_row(4);
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            x_pos: 100 << 16,
+            y_pos: (63 << 16) + 0x0000_4000,
+            x_velocity: 0,
+            y_velocity: 0x0000_4000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 0,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+    };
+
+    slice.apply_floor_collision(Some(&grid), false, false);
+
+    assert!(slice.player.on_ground);
+    assert_eq!(slice.player.y_pos, 63 << 16);
+}
+
+#[test]
+fn solid_floor_snap_waits_at_half_pixel_gap() {
+    let grid = grid_with_floor_at_row(4);
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            x_pos: 100 << 16,
+            y_pos: (63 << 16) + 0x0000_8000,
+            x_velocity: 0,
+            y_velocity: 0x0000_4000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 0,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+    };
+
+    slice.apply_floor_collision(Some(&grid), false, false);
+
+    assert!(!slice.player.on_ground);
+    assert_eq!(slice.player.y_pos, (63 << 16) + 0x0000_8000);
+}
+
 // --- US-011: Stomp-kill enemies ---
 
 /// Set up a stomp scenario around the first active test enemy.

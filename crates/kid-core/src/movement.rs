@@ -688,16 +688,17 @@ impl OpeningSliceState {
             if center_slope_snap_candidate
                 || (allow_hitbox_snap && (probe.on_ground || preserving_ground_contact))
             {
-                let floor_y_px = match probe.cell.collision {
+                let (floor_y_px, contact_y_px) = match probe.cell.collision {
                     terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes => {
-                        probe.floor_y_px.saturating_sub(1)
+                        (probe.floor_y_px.saturating_sub(1), probe.floor_y_px)
                     }
                     terrain::CollisionKind::SlopeDown
                     | terrain::CollisionKind::SlopeUp
                     | terrain::CollisionKind::HiddenBlock
-                    | terrain::CollisionKind::Empty => probe.floor_y_px,
+                    | terrain::CollisionKind::Empty => (probe.floor_y_px, probe.floor_y_px),
                 };
                 let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+                let contact_y_fp = (contact_y_px.max(0) as u32) << 16;
                 self.terrain.floor_y_pos = floor_y_fp;
                 let within_snap =
                     self.player.y_pos.abs_diff(floor_y_fp) <= GROUND_SNAP_TOLERANCE_FP;
@@ -717,8 +718,12 @@ impl OpeningSliceState {
                     | terrain::CollisionKind::Spikes
                     | terrain::CollisionKind::HiddenBlock
                     | terrain::CollisionKind::Empty => {
+                        let within_solid_touch_snap =
+                            self.player.y_pos.abs_diff(floor_y_fp) < 0x0000_8000;
                         self.player.y_velocity >= 0
-                            && (self.player.y_pos >= floor_y_fp || within_snap)
+                            && (self.player.y_pos >= contact_y_fp
+                                || within_solid_touch_snap
+                                || (was_on_ground && within_snap))
                     }
                 };
                 if can_land {
