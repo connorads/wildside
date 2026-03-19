@@ -10676,7 +10676,7 @@ fn title_idle_triggers_demo_after_640_frames() {
 }
 
 #[test]
-fn demo_bootstrap_holds_spawn_pose_then_applies_hidden_initial_settle() {
+fn demo_bootstrap_holds_spawn_pose_then_freefalls_before_grounded_hold() {
     let mut runtime = NativeRuntime::new(manifest_with_levels(0x1C));
     runtime.set_block_grid(grid_with_floor_at_row(15));
     runtime.boot_state = BootState::DemoPlay {
@@ -10704,21 +10704,22 @@ fn demo_bootstrap_holds_spawn_pose_then_applies_hidden_initial_settle() {
     assert_eq!(bootstrap_init.number_objects, 5);
     assert_eq!(bootstrap_init.number_gfx_objects, 4);
 
-    let grounded = runtime.step_frame(FrameInput::default());
-    assert_eq!(grounded.boot_phase_elapsed, Some(67));
-    assert_eq!(grounded.kid_y_pos, Some(0x00E1_0000));
-    assert_eq!(grounded.kid_y_velocity, Some(0));
-    assert_eq!(grounded.kid_on_ground, Some(true));
-    assert_eq!(grounded.number_objects, 5);
-    assert_eq!(grounded.number_gfx_objects, 4);
+    let freefall = runtime.step_frame(FrameInput::default());
+    assert_eq!(freefall.boot_phase_elapsed, Some(67));
+    assert!(freefall.kid_y_pos.expect("freefall y") > bootstrap_init.kid_y_pos.expect("settle y"));
+    assert_eq!(freefall.kid_y_velocity, Some(0x0000_4000));
+    assert_eq!(freefall.kid_on_ground, Some(false));
+    assert_eq!(freefall.number_objects, 5);
+    assert_eq!(freefall.number_gfx_objects, 4);
 
-    let held_grounded = runtime.step_frame(FrameInput::default());
-    assert_eq!(held_grounded.boot_phase_elapsed, Some(68));
-    assert_eq!(held_grounded.kid_y_pos, Some(0x00E1_0000));
-    assert_eq!(held_grounded.kid_y_velocity, Some(0));
-    assert_eq!(held_grounded.kid_on_ground, Some(true));
-    assert_eq!(held_grounded.number_objects, 5);
-    assert_eq!(held_grounded.number_gfx_objects, 4);
+    let mut grounded_hold = freefall;
+    while grounded_hold.boot_phase_elapsed != Some(demo::DEMO_BOOTSTRAP_GROUNDED_FRAME as usize) {
+        grounded_hold = runtime.step_frame(FrameInput::default());
+    }
+    assert_eq!(grounded_hold.kid_y_velocity, Some(0));
+    assert_eq!(grounded_hold.kid_on_ground, Some(true));
+    assert_eq!(grounded_hold.number_objects, 5);
+    assert_eq!(grounded_hold.number_gfx_objects, 4);
 }
 
 #[test]
@@ -10770,12 +10771,21 @@ fn demo_bootstrap_first_visible_gameplay_frame_advances_camera_only() {
     assert_eq!(hidden_settle.number_objects, 5);
     assert_eq!(hidden_settle.number_gfx_objects, 4);
 
-    let grounded_handoff = runtime.step_frame(FrameInput::default());
-    assert_eq!(grounded_handoff.boot_phase_elapsed, Some(67));
-    assert_eq!(grounded_handoff.kid_y_pos, Some(0x02DF_0000));
+    let freefall = runtime.step_frame(FrameInput::default());
+    assert_eq!(freefall.boot_phase_elapsed, Some(67));
+    assert_eq!(freefall.kid_y_pos, Some(0x02DE_4000));
+    assert_eq!(freefall.kid_y_velocity, Some(0x0000_4000));
+    assert_eq!(freefall.kid_on_ground, Some(false));
+    assert_eq!(freefall.number_objects, 5);
+    assert_eq!(freefall.number_gfx_objects, 4);
+
+    let mut grounded_handoff = freefall;
+    while grounded_handoff.boot_phase_elapsed != Some(demo::DEMO_BOOTSTRAP_GROUNDED_FRAME as usize) {
+        grounded_handoff = runtime.step_frame(FrameInput::default());
+    }
     assert_eq!(grounded_handoff.kid_y_velocity, Some(0));
     assert_eq!(grounded_handoff.kid_on_ground, Some(true));
-    assert_eq!(grounded_handoff.camera_y_pos, 0x0288_0000);
+    assert_eq!(grounded_handoff.camera_y_pos, 0x0271_0000);
     assert_eq!(grounded_handoff.number_objects, 5);
     assert_eq!(grounded_handoff.number_gfx_objects, 4);
 }

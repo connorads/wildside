@@ -101,13 +101,10 @@ impl NativeRuntime {
         let Some(slice) = self.opening_slice.as_mut() else {
             return;
         };
-        // Oracle-backed demo traces for Skydragon Castle keep the player in a
-        // short grounded hand-off after the hidden settle pixel drops. Camera
-        // follow keeps converging during this window, but full gameplay
-        // gravity does not start until the bootstrap object tail disappears.
-        if !slice.player.on_ground {
-            slice.player.y_pos = slice.player.y_pos.saturating_add(0x0001_0000);
-        }
+        // Oracle-backed demo traces keep the player on a short grounded
+        // bootstrap hold after a 3-frame free-fall hand-off from the hidden
+        // settle. Camera follow keeps converging during the hold.
+        slice.player.y_pos = slice.player.y_pos.saturating_sub(slice.player.y_pos & 0x0000_FFFF);
         slice.player.y_velocity = 0;
         slice.player.on_ground = true;
         slice.player.on_spikes = false;
@@ -145,8 +142,8 @@ impl NativeRuntime {
         }
 
         // Demo playback keeps the actor grounded on an invisible hand-off path
-        // for a short run-up after bootstrap, then regular physics resumes once
-        // the recorded jump lifts off from that pinned floor.
+        // after the bootstrap hold, then regular physics resumes once the
+        // recorded jump lifts off from that pinned floor.
         slice.update_horizontal_motion(input, false, self.progression.current_form, Some(grid));
         slice.apply_wall_collision(Some(grid));
         slice.player.y_pos = slice.terrain.floor_y_pos;
@@ -174,7 +171,7 @@ impl NativeRuntime {
         let Some(frame_counter) = self.demo_startup_frame() else {
             return false;
         };
-        if !(demo::DEMO_BOOTSTRAP_INIT_FRAME..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+        if !(demo::DEMO_BOOTSTRAP_GROUNDED_FRAME..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
             .contains(&frame_counter)
             || slice.player.y_velocity < 0
             || self.block_grid.is_none()

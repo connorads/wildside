@@ -1,12 +1,15 @@
 ---
 source: crates/kid-core/src/tests.rs
-assertion_line: 10218
+assertion_line: 10601
 expression: trace
 ---
-frame_index: 637
+frame_index: 727
 game_mode: InGame
 game_mode_value: 12
-start_press_count: 6
+start_press_count: 7
+boot_phase: ~
+boot_phase_elapsed: ~
+title_screen_ready: true
 current_player: 0
 current_level: 0
 player_1_level_id: 0
