@@ -233,6 +233,20 @@ impl NativeRuntime {
             self.step_diamond_power(input);
         }
         if gameplay_slice_active {
+            let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
+                && self
+                    .demo_startup_frame()
+                    .is_some_and(|frame| frame > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+            let gameplay_input = if demo_live_input {
+                input
+            } else {
+                self.gameplay_input(input)
+            };
+            let jump_pressed = if demo_live_input {
+                input.b && !self.previous_input.b
+            } else {
+                self.gameplay_jump_pressed()
+            };
             match self.demo_startup_frame() {
                 Some(frame) if frame == demo::DEMO_GAMEPLAY_START_FRAME => {
                     self.apply_demo_bootstrap_camera_handoff();
@@ -240,11 +254,17 @@ impl NativeRuntime {
                 Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
                     self.apply_demo_bootstrap_initial_settle();
                 }
+                Some(frame)
+                    if (demo::DEMO_BOOTSTRAP_GROUNDED_FRAME
+                        ..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+                        .contains(&frame) =>
+                {
+                    self.apply_demo_bootstrap_grounded_hold();
+                }
                 _ => {
-                    self.refresh_opening_slice(
-                        self.gameplay_input(input),
-                        self.gameplay_jump_pressed(),
-                    );
+                    if !self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed) {
+                        self.refresh_opening_slice(gameplay_input, jump_pressed);
+                    }
                 }
             }
         }

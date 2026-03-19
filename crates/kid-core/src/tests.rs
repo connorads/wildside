@@ -10544,11 +10544,21 @@ fn demo_bootstrap_holds_spawn_pose_then_applies_hidden_initial_settle() {
     assert_eq!(bootstrap_init.number_objects, 5);
     assert_eq!(bootstrap_init.number_gfx_objects, 4);
 
-    let falling = runtime.step_frame(FrameInput::default());
-    assert_eq!(falling.boot_phase_elapsed, Some(67));
-    assert_eq!(falling.kid_y_pos, Some(0x00E0_4000));
-    assert_eq!(falling.number_objects, 5);
-    assert_eq!(falling.number_gfx_objects, 4);
+    let grounded = runtime.step_frame(FrameInput::default());
+    assert_eq!(grounded.boot_phase_elapsed, Some(67));
+    assert_eq!(grounded.kid_y_pos, Some(0x00E1_0000));
+    assert_eq!(grounded.kid_y_velocity, Some(0));
+    assert_eq!(grounded.kid_on_ground, Some(true));
+    assert_eq!(grounded.number_objects, 5);
+    assert_eq!(grounded.number_gfx_objects, 4);
+
+    let held_grounded = runtime.step_frame(FrameInput::default());
+    assert_eq!(held_grounded.boot_phase_elapsed, Some(68));
+    assert_eq!(held_grounded.kid_y_pos, Some(0x00E1_0000));
+    assert_eq!(held_grounded.kid_y_velocity, Some(0));
+    assert_eq!(held_grounded.kid_on_ground, Some(true));
+    assert_eq!(held_grounded.number_objects, 5);
+    assert_eq!(held_grounded.number_gfx_objects, 4);
 }
 
 #[test]
@@ -10592,6 +10602,74 @@ fn demo_bootstrap_first_visible_gameplay_frame_advances_camera_only() {
     assert_eq!(first_visible.camera_y_pos, 0x0298_0000);
     assert_eq!(first_visible.number_objects, 5);
     assert_eq!(first_visible.number_gfx_objects, 4);
+
+    let hidden_settle = runtime.step_frame(FrameInput::default());
+    assert_eq!(hidden_settle.boot_phase_elapsed, Some(66));
+    assert_eq!(hidden_settle.kid_y_pos, Some(0x02DE_0000));
+    assert_eq!(hidden_settle.camera_y_pos, 0x0290_0000);
+    assert_eq!(hidden_settle.number_objects, 5);
+    assert_eq!(hidden_settle.number_gfx_objects, 4);
+
+    let grounded_handoff = runtime.step_frame(FrameInput::default());
+    assert_eq!(grounded_handoff.boot_phase_elapsed, Some(67));
+    assert_eq!(grounded_handoff.kid_y_pos, Some(0x02DF_0000));
+    assert_eq!(grounded_handoff.kid_y_velocity, Some(0));
+    assert_eq!(grounded_handoff.kid_on_ground, Some(true));
+    assert_eq!(grounded_handoff.camera_y_pos, 0x0288_0000);
+    assert_eq!(grounded_handoff.number_objects, 5);
+    assert_eq!(grounded_handoff.number_gfx_objects, 4);
+}
+
+#[test]
+fn demo_bootstrap_keeps_hidden_system_object_through_last_grounded_frame() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(0x1C));
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME,
+        data_index: 0,
+        use_demo_2: true,
+    };
+    runtime.current_level = LevelId(demo::DEMO_2_LEVEL);
+    runtime.level_start_frame = Some(runtime.frame_index);
+    runtime.opening_slice = Some(OpeningSliceState {
+        player: PlayerState {
+            x_pos: 0x0020_0000,
+            y_pos: 0x02DF_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+        },
+        camera: CameraState {
+            x_pos: 0,
+            y_pos: 0x0259_0000,
+        },
+        terrain: TerrainState {
+            floor_y_pos: 0x02DF_0000,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        ..OpeningSliceState::new(runtime.level_bounds(LevelId(demo::DEMO_2_LEVEL)))
+    });
+
+    let last_bootstrap = runtime.trace_frame();
+    assert_eq!(
+        last_bootstrap.boot_phase_elapsed,
+        Some(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME as usize)
+    );
+    assert_eq!(last_bootstrap.number_objects, 5);
+    assert_eq!(last_bootstrap.number_gfx_objects, 4);
+
+    let first_regular = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        first_regular.boot_phase_elapsed,
+        Some((demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1) as usize)
+    );
+    assert_eq!(first_regular.number_objects, 4);
+    assert_eq!(first_regular.number_gfx_objects, 4);
 }
 
 #[test]

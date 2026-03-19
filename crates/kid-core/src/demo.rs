@@ -102,11 +102,14 @@ pub(crate) const DEMO_OBJECT_WARMUP_FRAME: u16 = 64;
 /// First demo startup frame where gameplay, physics, and recorded inputs apply.
 pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// Hidden bootstrap frame where the player drops the missing spawn pixel before
-/// normal gravity takes over.
+/// the grounded hand-off begins.
 pub(crate) const DEMO_BOOTSTRAP_INIT_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 1;
+/// First grounded bootstrap frame after the hidden settle pixel has dropped.
+pub(crate) const DEMO_BOOTSTRAP_GROUNDED_FRAME: u16 = DEMO_BOOTSTRAP_INIT_FRAME + 1;
 /// Native roster counts lag the oracle by one hidden system object during the
-/// first visible demo bootstrap frames.
-pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 9;
+/// first visible demo bootstrap frames, including the last grounded hand-off
+/// frame before regular gameplay owns the slice.
+pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 10;
 
 /// Decode a demo data byte into a FrameInput.
 /// Bit 7 (Start) is stripped — the real Start button state is applied separately.

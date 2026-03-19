@@ -89,11 +89,72 @@ impl NativeRuntime {
             return;
         };
         // Load_InGame leaves the demo player one pixel above the later
-        // gameplay physics pose, then the hidden bootstrap drops that pixel
-        // before regular gravity/floor collision starts running.
+        // grounded hand-off pose, then the hidden bootstrap drops that pixel
+        // and advances camera follow once before the grounded hold begins.
         slice.player.y_pos = slice.player.y_pos.saturating_add(0x0001_0000);
         slice.player.on_ground = false;
         slice.player.y_velocity = 0;
+        slice.update_camera_follow(0);
+    }
+
+    pub(crate) fn apply_demo_bootstrap_grounded_hold(&mut self) {
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        // Oracle-backed demo traces for Skydragon Castle keep the player in a
+        // short grounded hand-off after the hidden settle pixel drops. Camera
+        // follow keeps converging during this window, but full gameplay
+        // gravity does not start until the bootstrap object tail disappears.
+        if !slice.player.on_ground {
+            slice.player.y_pos = slice.player.y_pos.saturating_add(0x0001_0000);
+        }
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.player.on_spikes = false;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.update_camera_follow(0);
+    }
+
+    pub(crate) fn try_apply_demo_bootstrap_grounded_run(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+    ) -> bool {
+        let Some(frame_counter) = self.demo_startup_frame() else {
+            return false;
+        };
+        if frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME || jump_pressed || input.b {
+            return false;
+        }
+
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return false;
+        };
+        if !slice.player.on_ground || slice.player.y_velocity != 0 {
+            return false;
+        }
+
+        let Some(grid) = self.block_grid.as_ref() else {
+            return false;
+        };
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let support_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+        if support_probe.on_ground || support_probe.cell.is_solid_floor() {
+            return false;
+        }
+
+        // Demo playback keeps the actor grounded on an invisible hand-off path
+        // for a short run-up after bootstrap, then regular physics resumes once
+        // the recorded jump lifts off from that pinned floor.
+        slice.update_horizontal_motion(input, false, self.progression.current_form, Some(grid));
+        slice.apply_wall_collision(Some(grid));
+        slice.player.y_pos = slice.terrain.floor_y_pos;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = true;
+        slice.player.on_spikes = false;
+        slice.update_camera_follow(self.y_look_offset);
+        true
     }
 
     pub(crate) fn apply_demo_bootstrap_camera_handoff(&mut self) {
