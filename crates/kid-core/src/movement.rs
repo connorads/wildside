@@ -126,6 +126,10 @@ impl OpeningSliceState {
         self.update_vertical_motion(input, jump_pressed, form, custom_gravity);
         let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
             self.apply_wall_collision(Some(grid));
+            if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                self.update_camera_follow(y_look_offset);
+                return;
+            }
             self.apply_ceiling_collision(Some(grid), block_list);
             self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
         } else {
@@ -135,6 +139,63 @@ impl OpeningSliceState {
             self.apply_immediate_slope_recontact(input, form, collision, grid);
         }
         self.update_camera_follow(y_look_offset);
+    }
+
+    pub(crate) fn try_snap_wall_sticky_ledge(
+        &mut self,
+        jump_pressed: bool,
+        grid: &terrain::BlockGrid,
+    ) -> bool {
+        if !jump_pressed || self.player.on_ground || self.player.y_velocity >= 0 {
+            return false;
+        }
+
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let (probe, snap_x_px) = if self.player.right_wall_sticky {
+            let probe = terrain::probe_floor(grid, x_px + PLAYER_HALF_WIDTH + 1, y_px);
+            let support_left_px = i32::from(probe.cell_x) * 16;
+            (probe, support_left_px + PLAYER_HALF_WIDTH - 1)
+        } else if self.player.left_wall_sticky {
+            let probe = terrain::probe_floor(grid, x_px - PLAYER_HALF_WIDTH - 1, y_px);
+            let support_right_px = (i32::from(probe.cell_x) + 1) * 16 - 1;
+            (probe, support_right_px - PLAYER_HALF_WIDTH + 1)
+        } else {
+            return false;
+        };
+
+        if !probe.cell.is_solid_floor() {
+            return false;
+        }
+
+        let (floor_y_px, contact_y_px) = match probe.cell.collision {
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes => {
+                (probe.floor_y_px.saturating_sub(1), probe.floor_y_px)
+            }
+            terrain::CollisionKind::SlopeDown
+            | terrain::CollisionKind::SlopeUp
+            | terrain::CollisionKind::HiddenBlock
+            | terrain::CollisionKind::Empty => (probe.floor_y_px, probe.floor_y_px),
+        };
+        let contact_y_fp = (contact_y_px.max(0) as u32) << 16;
+        if self.player.y_pos < contact_y_fp
+            || self.player.y_pos > contact_y_fp.saturating_add(15u32 << 16)
+        {
+            return false;
+        }
+
+        let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
+        self.player.x_pos = (snap_x_px.max(0) as u32) << 16;
+        self.player.y_pos = floor_y_fp;
+        self.player.x_velocity = 0;
+        self.player.y_velocity = 0;
+        self.player.on_ground = true;
+        self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
+        self.player.right_wall_sticky = false;
+        self.player.left_wall_sticky = false;
+        self.terrain.floor_y_pos = floor_y_fp;
+        self.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
+        true
     }
 
     /// Pre-physics entry animation: player descends and settles to ground.
@@ -372,6 +433,20 @@ impl OpeningSliceState {
             PLAYER_HEIGHT,
             moving_right,
         );
+
+        if !probe.hit && !self.player.on_ground {
+            let top_edge_probe = terrain::probe_wall_top_edge(
+                grid,
+                x_px,
+                y_px,
+                PLAYER_HALF_WIDTH,
+                PLAYER_HEIGHT,
+                moving_right,
+            );
+            if top_edge_probe.hit {
+                probe = top_edge_probe;
+            }
+        }
 
         // Right wall top-edge retention (overhang sticky)
         if !probe.hit && moving_right && self.player.right_wall_sticky {

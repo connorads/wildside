@@ -1632,6 +1632,31 @@ fn airborne_landing_prefers_center_slope_before_edge_solid() {
 }
 
 #[test]
+fn jump_pressed_from_right_wall_sticky_catches_adjacent_ledge() {
+    let w = 8u16;
+    let h = 50u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    data[(usize::from(41u16) * usize::from(w) + usize::from(4u16)) * 2] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let mut slice = OpeningSliceState::respawn(LevelBounds {
+        width_pixels: 128,
+        height_pixels: 800,
+    });
+    slice.player.x_pos = 58 << 16;
+    slice.player.y_pos = (665 << 16) + 0x0000_E6E0;
+    slice.player.y_velocity = -0x0000_A620;
+    slice.player.facing = Direction::Right;
+    slice.player.on_ground = false;
+    slice.player.right_wall_sticky = true;
+
+    assert!(slice.try_snap_wall_sticky_ledge(true, &grid));
+
+    assert_eq!(slice.player.x_pos, 68 << 16);
+    assert_eq!(slice.player.y_pos, 655 << 16);
+    assert!(slice.player.on_ground);
+}
+
+#[test]
 fn timing_regression_airborne_within_ground_snap_tolerance_cannot_jump_early() {
     let mut slice = OpeningSliceState::respawn(LevelBounds {
         width_pixels: 320,
@@ -4901,6 +4926,55 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
 
     assert_eq!(slice.player.x_pos, 42 << 16);
     assert_eq!(slice.player.x_velocity, 0);
+}
+
+#[test]
+fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
+    let w = 5u16;
+    let h = 5u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let offset = (usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2;
+    data[offset] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            x_pos: (26 << 16) + 0x0000_4000,
+            y_pos: 56 << 16,
+            x_velocity: 0x0000_4000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 64 << 16,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 80,
+            height_pixels: 80,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+    };
+
+    slice.apply_wall_collision(Some(&grid));
+    assert_eq!(slice.player.x_pos, 26 << 16);
+    assert_eq!(slice.player.x_velocity, 0);
+    assert!(slice.player.right_wall_sticky);
 }
 
 #[test]
