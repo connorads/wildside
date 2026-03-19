@@ -285,14 +285,18 @@ fn checkout_repo(dir: &Path, url: &str, commit: &str) -> Result<()> {
 }
 
 fn pkg_config_exists(packages: &[&str]) -> Result<bool> {
-    let status = Command::new("pkg-config")
+    let status = match Command::new("pkg-config")
         .arg("--exists")
         .args(packages)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .context("failed to execute pkg-config")?;
+    {
+        Ok(status) => status,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error).context("failed to execute pkg-config"),
+    };
     Ok(status.success())
 }
 

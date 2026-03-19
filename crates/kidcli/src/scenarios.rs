@@ -77,7 +77,7 @@ const WALK_RIGHT_3S_CHECKPOINTS: [FrameCheckpoint; 4] = [
     },
 ];
 
-const LEVEL_1_ENEMY_WINDOW_CHECKPOINTS: [FrameCheckpoint; 3] = [
+const LEVEL_1_ENEMY_WINDOW_CHECKPOINTS: [FrameCheckpoint; 4] = [
     FrameCheckpoint {
         label: "level_settle",
         frame_index: 719,
@@ -87,8 +87,12 @@ const LEVEL_1_ENEMY_WINDOW_CHECKPOINTS: [FrameCheckpoint; 3] = [
         frame_index: 730,
     },
     FrameCheckpoint {
+        label: "enemy_first_hit",
+        frame_index: 786,
+    },
+    FrameCheckpoint {
         label: "enemy_window_tail",
-        frame_index: 750,
+        frame_index: 820,
     },
 ];
 
@@ -176,10 +180,14 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
 ];
 
-const PROGRESS_TWO_TRANSITIONS_CHECKPOINTS: [GameplayCheckpoint; 4] = [
+const PROGRESS_TWO_TRANSITIONS_CHECKPOINTS: [GameplayCheckpoint; 5] = [
     GameplayCheckpoint {
         label: "level_settle",
         frame_index: 719,
+    },
+    GameplayCheckpoint {
+        label: "opening_hit",
+        frame_index: 786,
     },
     GameplayCheckpoint {
         label: "progress_mid",
@@ -725,7 +733,12 @@ mod tests {
                 .iter()
                 .map(|checkpoint| checkpoint.label)
                 .collect::<Vec<_>>(),
-            vec!["level_settle", "enemy_window_open", "enemy_window_tail"]
+            vec![
+                "level_settle",
+                "enemy_window_open",
+                "enemy_first_hit",
+                "enemy_window_tail",
+            ]
         );
     }
 

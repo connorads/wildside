@@ -469,8 +469,11 @@ fn sweep_single_level(
         .filter(|s| s.game_paused || s.game_mode == 0x0008)
         .map(|s| s.label.as_str())
         .collect();
-    let divergence_summary =
-        summarise_state_diffs(&state_diffs, &death_gap_checkpoints, &oracle_paused_checkpoints);
+    let divergence_summary = summarise_state_diffs(
+        &state_diffs,
+        &death_gap_checkpoints,
+        &oracle_paused_checkpoints,
+    );
     let state_passed = divergence_summary.authoritative == 0
         && divergence_summary.accumulation == 0
         && divergence_summary.rng == 0
@@ -1301,7 +1304,9 @@ pub(crate) fn diagnose_frame(
             let mut palette_line_histogram = std::collections::BTreeMap::new();
             for row in &background.rows {
                 for tile in &row.tiles {
-                    *palette_line_histogram.entry(tile.palette_line).or_insert(0usize) += 1;
+                    *palette_line_histogram
+                        .entry(tile.palette_line)
+                        .or_insert(0usize) += 1;
                 }
             }
             let selector_preview: Vec<String> = background
@@ -1312,7 +1317,10 @@ pub(crate) fn diagnose_frame(
                 .collect();
             println!();
             println!("Layered background:");
-            println!("  effect_start_row_selector={:?}", background.effect_start_row_selector);
+            println!(
+                "  effect_start_row_selector={:?}",
+                background.effect_start_row_selector
+            );
             println!("  first_selectors=[{}]", selector_preview.join(", "));
             println!("  palette_lines={palette_line_histogram:?}");
         }
@@ -2280,11 +2288,8 @@ mod tests {
         let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
         let oracle_paused_checkpoints = std::collections::HashSet::from(["idle_tail"]);
 
-        let category = classify_state_diff(
-            &diff,
-            &death_gap_checkpoints,
-            &oracle_paused_checkpoints,
-        );
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
 
         assert_eq!(category, DivergenceCategory::OracleLimitation);
     }

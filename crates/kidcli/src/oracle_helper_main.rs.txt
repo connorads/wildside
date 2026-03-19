@@ -589,8 +589,12 @@ fn scenario_checkpoints(scenario: Scenario) -> &'static [FrameCheckpoint] {
                 frame_index: 730,
             },
             FrameCheckpoint {
+                label: "enemy_first_hit",
+                frame_index: 786,
+            },
+            FrameCheckpoint {
                 label: "enemy_window_tail",
-                frame_index: 750,
+                frame_index: 820,
             },
         ],
         Scenario::WalkRight3s => &[

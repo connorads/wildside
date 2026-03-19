@@ -4,8 +4,7 @@ use crate::native_player::{
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene, load_session_assets,
     render_scene,
 };
-use crate::oracle::OracleFrame;
-use crate::oracle::run_jgenesis_capture_dynamic;
+use crate::oracle::{OracleFrame, OracleManifest, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
@@ -13,6 +12,8 @@ use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime};
 use serde::{Deserialize, Serialize};
 
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
+const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
+const RECORDING_SETTLED_ORACLE_PREFIX_FRAMES: usize = 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RecordingStart {
@@ -142,23 +143,31 @@ pub(crate) fn save_recording(record_to: &Path, recording: &NativeRecording) -> R
 }
 
 pub(crate) fn load_recording(record_to: &Path) -> Result<NativeRecording> {
-    let manifest = fs::read(record_to.join("manifest.json")).with_context(|| {
+    let record_dir = resolve_recording_dir(record_to)?;
+    load_recording_from_dir(&record_dir)
+}
+
+fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
+    let manifest = fs::read(record_dir.join("manifest.json")).with_context(|| {
         format!(
             "failed to read {}",
-            record_to.join("manifest.json").display()
+            record_dir.join("manifest.json").display()
         )
     })?;
-    let trace = fs::read(record_to.join("trace.json"))
-        .with_context(|| format!("failed to read {}", record_to.join("trace.json").display()))?;
+    let trace = fs::read(record_dir.join("trace.json"))
+        .with_context(|| format!("failed to read {}", record_dir.join("trace.json").display()))?;
     Ok(NativeRecording {
         manifest: serde_json::from_slice(&manifest).with_context(|| {
             format!(
                 "failed to parse {}",
-                record_to.join("manifest.json").display()
+                record_dir.join("manifest.json").display()
             )
         })?,
         trace: serde_json::from_slice(&trace).with_context(|| {
-            format!("failed to parse {}", record_to.join("trace.json").display())
+            format!(
+                "failed to parse {}",
+                record_dir.join("trace.json").display()
+            )
         })?,
     })
 }
@@ -185,30 +194,43 @@ pub(crate) fn run_recorded_trace(
     let mut trace = runtime.trace_frame();
     let mut current_level_id = trace.current_level.0;
     let mut replay = Vec::with_capacity(script.len());
+    let mut level_card_frames_remaining = 0usize;
+    let mut script_index = 0usize;
 
-    for &buttons in script {
-        let previous_trace = trace.clone();
-        trace = runtime.step_frame(FrameInput::from_mask(buttons));
+    while script_index < script.len() {
+        if level_card_frames_remaining == 0 {
+            let buttons = script[script_index];
+            script_index += 1;
+            let previous_trace = trace.clone();
+            trace = runtime.step_frame(FrameInput::from_mask(buttons));
+            let recorded_frame = trace.clone();
 
-        let title_start_bootstrapped = start.warp_level.is_none()
-            && !start.settled
-            && previous_trace.start_press_count < 6
-            && trace.start_press_count >= 6
-            && matches!(trace.game_mode, GameMode::InGame);
-        if title_start_bootstrapped {
-            runtime.enter_level_playtest(LevelId(trace.current_level.0));
-            trace = runtime.trace_frame();
+            let title_start_bootstrapped = start.warp_level.is_none()
+                && !start.settled
+                && previous_trace.start_press_count < 6
+                && trace.start_press_count >= 6
+                && matches!(trace.game_mode, GameMode::InGame);
+            if title_start_bootstrapped {
+                runtime.enter_level_playtest(LevelId(trace.current_level.0));
+                trace = runtime.trace_frame();
+                level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+            }
+
+            let level_changed = recorded_frame.current_level.0 != current_level_id;
+            if level_changed {
+                let new_level = recorded_frame.current_level.0;
+                runtime.enter_level_playtest(LevelId(new_level));
+                trace = runtime.trace_frame();
+                current_level_id = new_level;
+                level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
+            }
+
+            replay.push(recorded_frame);
         }
 
-        let level_changed = trace.current_level.0 != current_level_id;
-        if level_changed {
-            let new_level = trace.current_level.0;
-            runtime.enter_level_playtest(LevelId(new_level));
-            trace = runtime.trace_frame();
-            current_level_id = new_level;
+        if level_card_frames_remaining > 0 {
+            level_card_frames_remaining -= 1;
         }
-
-        replay.push(trace.clone());
     }
 
     Ok(replay)
@@ -220,14 +242,15 @@ pub(crate) fn verify_recording(
     manifest: &AssetManifest,
     record_to: &Path,
 ) -> Result<()> {
-    let recording = load_recording(record_to)?;
+    let record_dir = resolve_recording_dir(record_to)?;
+    let recording = load_recording(&record_dir)?;
     let replay_trace = run_recorded_trace(
         manifest,
         recording.manifest.start,
         &recording.manifest.scenario.script,
     )?;
 
-    let verify_dir = record_to.join("verify");
+    let verify_dir = record_dir.join("verify");
     let native_dir = verify_dir.join("native");
     let oracle_dir = verify_dir.join("oracle");
     if verify_dir.exists() {
@@ -271,12 +294,15 @@ pub(crate) fn verify_recording(
     write_rendered_frames(&native_dir, &native_frames)?;
 
     let env = ensure_oracles(repo_root)?;
-    let oracle = run_jgenesis_capture_dynamic(
-        &env,
-        rom_path,
-        &record_to.join("scenario.json"),
-        &oracle_dir,
-    )?;
+    let (oracle_scenario, oracle_frame_prefix) = oracle_scenario_for_recording(&recording);
+    let oracle_scenario_path = oracle_dir.join("scenario.json");
+    fs::write(
+        &oracle_scenario_path,
+        serde_json::to_vec_pretty(&oracle_scenario)?,
+    )
+    .with_context(|| format!("failed to write {}", oracle_scenario_path.display()))?;
+    let oracle = run_jgenesis_capture_dynamic(&env, rom_path, &oracle_scenario_path, &oracle_dir)?;
+    let oracle = normalise_oracle_manifest_frame_indices(oracle, oracle_frame_prefix);
     fs::write(
         oracle_dir.join("manifest.json"),
         serde_json::to_vec_pretty(&oracle)?,
@@ -289,7 +315,7 @@ pub(crate) fn verify_recording(
     })?;
 
     let oracle_state_match =
-        compare_native_states_against_oracle(record_to, &native_states, &oracle.states).is_ok();
+        compare_native_states_against_oracle(&record_dir, &native_states, &oracle.states).is_ok();
     let frame_diffs = compare_recording_frames(
         &native_dir,
         &native_frames,
@@ -359,6 +385,32 @@ pub(crate) fn verify_recording(
     Ok(())
 }
 
+fn resolve_recording_dir(record_to: &Path) -> Result<PathBuf> {
+    if record_to.join("manifest.json").is_file() && record_to.join("trace.json").is_file() {
+        return Ok(record_to.to_path_buf());
+    }
+    if !record_to.is_dir() {
+        return Ok(record_to.to_path_buf());
+    }
+
+    let mut nested_candidates = fs::read_dir(record_to)
+        .with_context(|| format!("failed to read {}", record_to.display()))?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.is_dir())
+        .filter(|path| path.join("manifest.json").is_file() && path.join("trace.json").is_file())
+        .collect::<Vec<_>>();
+    nested_candidates.sort();
+
+    match nested_candidates.as_slice() {
+        [nested] => Ok(nested.clone()),
+        [] => Ok(record_to.to_path_buf()),
+        _ => bail!(
+            "found multiple nested recordings under {}; expected one",
+            record_to.display()
+        ),
+    }
+}
+
 fn recording_checkpoints(frame_count: usize) -> Vec<DynamicCheckpoint> {
     if frame_count == 0 {
         return Vec::new();
@@ -387,6 +439,54 @@ fn recording_checkpoints(frame_count: usize) -> Vec<DynamicCheckpoint> {
         });
     }
     checkpoints
+}
+
+fn oracle_scenario_for_recording(recording: &NativeRecording) -> (DynamicScenario, usize) {
+    if !recording.manifest.start.settled {
+        return (recording.manifest.scenario.clone(), 0);
+    }
+
+    let mut script = vec![0; RECORDING_SETTLED_ORACLE_PREFIX_FRAMES];
+    script.extend_from_slice(&recording.manifest.scenario.script);
+    let checkpoints = recording
+        .manifest
+        .scenario
+        .checkpoints
+        .iter()
+        .map(|checkpoint| DynamicCheckpoint {
+            label: checkpoint.label.clone(),
+            frame_index: checkpoint.frame_index + RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
+        })
+        .collect::<Vec<_>>();
+
+    (
+        DynamicScenario {
+            slug: format!("{}-oracle", recording.manifest.scenario.slug),
+            frame_count: script.len(),
+            script,
+            checkpoints,
+            warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
+        },
+        RECORDING_SETTLED_ORACLE_PREFIX_FRAMES,
+    )
+}
+
+fn normalise_oracle_manifest_frame_indices(
+    mut oracle: OracleManifest,
+    prefix_frames: usize,
+) -> OracleManifest {
+    if prefix_frames == 0 {
+        return oracle;
+    }
+
+    for frame in &mut oracle.frames {
+        frame.frame_index = frame.frame_index.saturating_sub(prefix_frames);
+    }
+    for state in &mut oracle.states {
+        state.frame_index = state.frame_index.saturating_sub(prefix_frames);
+    }
+
+    oracle
 }
 
 fn capture_dynamic_checkpoint_states(
@@ -546,6 +646,7 @@ fn unix_timestamp() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     fn sample_trace_frame(frame_index: usize) -> NativeTraceFrame {
         NativeTraceFrame {
@@ -645,5 +746,72 @@ mod tests {
         );
         assert_eq!(recording.manifest.scenario.frame_count, 3);
         assert_eq!(recording.manifest.scenario.warp_to_level, Some(0));
+    }
+
+    #[test]
+    fn resolve_recording_dir_accepts_single_nested_copy() {
+        let temp = TempDir::new().expect("temp dir");
+        let outer = temp.path().join("level1-tree-break");
+        let nested = outer.join("level1-tree-break");
+        fs::create_dir_all(&nested).expect("nested dir");
+        fs::write(nested.join("manifest.json"), b"{}").expect("manifest");
+        fs::write(nested.join("trace.json"), b"[]").expect("trace");
+
+        let resolved = resolve_recording_dir(&outer).expect("resolved dir");
+        assert_eq!(resolved, nested);
+    }
+
+    #[test]
+    fn settled_recordings_translate_to_oracle_warp_with_prefix() {
+        let recording = build_recording(
+            "level1-tree-bug",
+            RecordingStart {
+                warp_level: Some(0),
+                settled: true,
+            },
+            vec![1, 2, 3],
+            vec![
+                sample_trace_frame(0),
+                sample_trace_frame(1),
+                sample_trace_frame(2),
+            ],
+        );
+
+        let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
+
+        assert_eq!(prefix, RECORDING_SETTLED_ORACLE_PREFIX_FRAMES);
+        assert_eq!(oracle_scenario.warp_to_level, Some(0));
+        assert_eq!(oracle_scenario.frame_count, 63);
+        assert_eq!(oracle_scenario.script.len(), 63);
+        assert!(
+            oracle_scenario.script[..prefix]
+                .iter()
+                .all(|input| *input == 0)
+        );
+        assert_eq!(&oracle_scenario.script[prefix..], &[1, 2, 3]);
+        assert_eq!(oracle_scenario.checkpoints[0].label, "start");
+        assert_eq!(oracle_scenario.checkpoints[0].frame_index, prefix);
+    }
+
+    #[test]
+    fn unsettled_recordings_keep_original_oracle_scenario() {
+        let recording = build_recording(
+            "title-start",
+            RecordingStart {
+                warp_level: None,
+                settled: false,
+            },
+            vec![1, 2, 3],
+            vec![
+                sample_trace_frame(0),
+                sample_trace_frame(1),
+                sample_trace_frame(2),
+            ],
+        );
+
+        let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
+
+        assert_eq!(prefix, 0);
+        assert_eq!(oracle_scenario, recording.manifest.scenario);
     }
 }
