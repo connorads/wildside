@@ -18,6 +18,7 @@ mod recording;
 mod release_gate;
 mod scenarios;
 mod sweep;
+mod tas;
 mod verify;
 
 use verify::*;
