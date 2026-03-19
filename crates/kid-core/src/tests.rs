@@ -101,9 +101,7 @@ fn manifest() -> AssetManifest {
                         h_variant: 0,
                         v_variant: 0,
                         script: PlatformScriptRef {
-                            raw: String::from(
-                                "PlatformScript_Nothing-PlatformScript_BaseAddress",
-                            ),
+                            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
                             relative_offset: None,
                         },
                     },
@@ -119,9 +117,7 @@ fn manifest() -> AssetManifest {
                         h_variant: 0,
                         v_variant: 0,
                         script: PlatformScriptRef {
-                            raw: String::from(
-                                "PlatformScript_Nothing-PlatformScript_BaseAddress",
-                            ),
+                            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
                             relative_offset: None,
                         },
                     },
@@ -179,6 +175,22 @@ fn start_level_settled(runtime: &mut NativeRuntime) {
     while runtime.trace_frame().frame_index < 719 {
         runtime.step_frame(FrameInput::default());
     }
+}
+
+fn advance_past_level_entry_damage_grace(runtime: &mut NativeRuntime) {
+    const ENTRY_BUFFER_FRAMES: usize = 260;
+    let mut saw_spawn_invulnerability = runtime.progression.invulnerable_frames > 0;
+    for step in 0..512 {
+        runtime.step_frame(FrameInput::default());
+        saw_spawn_invulnerability |= runtime.progression.invulnerable_frames > 0;
+        if step + 1 < ENTRY_BUFFER_FRAMES {
+            continue;
+        }
+        if !saw_spawn_invulnerability || runtime.progression.invulnerable_frames == 0 {
+            return;
+        }
+    }
+    panic!("did not reach a stable post-entry gameplay state within the expected frame budget");
 }
 
 #[test]
@@ -272,8 +284,7 @@ fn manifest_with_levels(count: u8) -> AssetManifest {
             level.level_id = level_id;
             level.display_name = Some(format!("Level {level_id}"));
             if let Some(header) = level.header_metadata.as_mut() {
-                header.player_start_x =
-                    header.player_start_x.saturating_add(u16::from(level_id));
+                header.player_start_x = header.player_start_x.saturating_add(u16::from(level_id));
                 header.flag_x = header.flag_x.saturating_add(u16::from(level_id));
             }
             level
@@ -412,6 +423,43 @@ fn respawn_floor_snap_prefers_spawn_support_above_lower_hazards() {
     assert_eq!(slice.player.y_pos, 0x001F_0000);
     assert!(slice.player.on_ground);
     assert!(!slice.player.on_spikes);
+
+    fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+}
+
+#[test]
+fn spawn_support_fallback_does_not_override_safe_hitbox_floor() {
+    let output_root = unique_temp_path("generated-layout-hitbox-floor-wins");
+    let mut manifest = manifest();
+    manifest.output_root = output_root.clone();
+    let header = manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .expect("test level should have header metadata");
+    header.player_start_x = 0x0010;
+    header.player_start_y = 0x0030;
+
+    let width_blocks = 6u16;
+    let height_blocks = 4u16;
+    let mut data = vec![0u8; usize::from(width_blocks) * usize::from(height_blocks) * 2];
+    data[(usize::from(3u16) * usize::from(width_blocks) + usize::from(1u16)) * 2] = 0x60;
+    data[(usize::from(2u16) * usize::from(width_blocks) + usize::from(2u16)) * 2] = 0x60;
+    write_generated_level_layout(&output_root, 0, width_blocks, height_blocks, &data);
+
+    let runtime = NativeRuntime::new(manifest);
+    let grid = runtime
+        .block_grid()
+        .expect("generated layout should load for fallback test");
+    let mut slice = runtime.level_respawn_slice(LevelId(0));
+    slice.player.y_pos = 0x002F_0000;
+    slice.player.on_ground = false;
+    slice.player.y_velocity = 0;
+    slice.terrain.floor_y_pos = slice.player.y_pos;
+
+    assert!(
+        !runtime.try_settle_on_spawn_support(&mut slice, grid),
+        "wide spawn-support fallback should not override a safe floor already under the normal hitbox"
+    );
 
     fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
 }
@@ -595,6 +643,23 @@ fn starts_level_after_title_start_press() {
         }
     );
     assert_eq!(trace.camera_y_pos, OPENING_ENTRY_CAMERA_Y_FP);
+}
+
+#[test]
+fn level_entry_has_no_damage_grace_window() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    for _ in 0..400 {
+        let trace = runtime.step_frame(FrameInput::default());
+        if trace.kid_on_ground == Some(true) {
+            assert_eq!(
+                runtime.progression.invulnerable_frames, 0,
+                "oracle gameplay takes damage immediately after level entry settles"
+            );
+            return;
+        }
+    }
+    panic!("level entry never reached a grounded gameplay frame");
 }
 
 #[test]
@@ -911,21 +976,10 @@ fn changes_form_and_hitpoints_from_helmet_queue() {
 fn opening_hazard_strips_helmet_before_life_loss() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
+    advance_past_level_entry_damage_grace(&mut runtime);
     runtime.queue_form_change(PlayerForm::IronKnight);
     runtime.step_frame(FrameInput::default());
-
-    let mut gameplay_frames = 0usize;
-    while runtime.progression.current_form != PlayerForm::TheKid {
-        let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
-        runtime.step_frame(FrameInput {
-            right: true,
-            a: true,
-            b: jumping,
-            ..FrameInput::default()
-        });
-        gameplay_frames += 1;
-        assert!(gameplay_frames < 1_400);
-    }
+    runtime.apply_damage();
 
     let trace = runtime.trace_frame();
     assert_eq!(trace.number_lives, 3);
@@ -1163,12 +1217,8 @@ fn loses_life_and_respawns_after_opening_hazard() {
     }
 
     let respawn_entry = runtime.trace_frame();
-    let (
-        expected_camera_x,
-        expected_camera_y,
-        expected_kid_x,
-        expected_kid_y,
-    ) = expected_level0_respawn_pose(&runtime);
+    let (expected_camera_x, expected_camera_y, expected_kid_x, expected_kid_y) =
+        expected_level0_respawn_pose(&runtime);
     assert_eq!(respawn_entry.number_lives, 2);
     assert_eq!(respawn_entry.camera_x_pos, expected_camera_x);
     assert_eq!(respawn_entry.camera_y_pos, expected_camera_y);
@@ -1232,7 +1282,7 @@ fn moves_camera_when_holding_right_in_game() {
 }
 
 #[test]
-fn level_one_opening_hit_matches_oracle_frame() {
+fn level_one_opening_run_path_takes_damage_on_frame_760() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
     let mut first_hit_frame = None;
@@ -1262,7 +1312,7 @@ fn level_one_opening_hit_matches_oracle_frame() {
     assert_eq!(
         first_hit_frame,
         Some(760),
-        "Level 1 opening hit should land on the oracle frame during the run-right script"
+        "the run-right opening path should match the traced dragon-contact frame"
     );
 }
 
@@ -1291,7 +1341,11 @@ fn progress_two_transitions_takes_opening_damage_by_frame_749() {
     let trace = runtime.trace_frame();
     assert_eq!(
         trace.number_hitpoints, 1,
-        "progress-two-transitions should have already taken the opening Dragon hit by frame 749"
+        "progress-two-transitions should take the traced opening dragon hit by frame 749"
+    );
+    assert!(
+        trace.invulnerable_frames > 0,
+        "post-hit damage grace should begin immediately after the traced opening hit"
     );
 }
 
@@ -1299,30 +1353,37 @@ fn progress_two_transitions_takes_opening_damage_by_frame_749() {
 fn timing_regression_level_one_opening_hit_keeps_advanced_position() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
+    let mut hit_trace = None;
 
-    for frame in 0..761 {
+    for frame in 0..900 {
         let input = if [120usize, 200, 280, 360, 440, 460].contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
             }
-        } else if (720..761).contains(&frame) {
+        } else if (720..900).contains(&frame) {
             FrameInput {
                 right: true,
-                a: true,
                 ..FrameInput::default()
             }
         } else {
             FrameInput::default()
         };
-        runtime.step_frame(input);
+        let trace = runtime.step_frame(input);
+        if frame >= 720 && trace.number_hitpoints == 1 {
+            hit_trace = Some((frame, trace));
+            break;
+        }
     }
 
-    let trace = runtime.trace_frame();
-    assert_eq!(trace.number_hitpoints, 1, "opening hit should have landed");
+    let (hit_frame, trace) = hit_trace.expect("opening hit should land during the opening run");
+    assert_eq!(
+        hit_frame, 749,
+        "opening hit should match the traced walk-only frame"
+    );
     assert_eq!(
         trace.kid_x_pos,
-        Some(0x0075_C000),
+        Some(0x003B_3000),
         "opening hit should preserve the stepped X position on the hit frame"
     );
 }
@@ -1816,7 +1877,10 @@ fn pit_death_triggers_death_and_respawn() {
         "expected DeathWindup, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.progression.number_hitpoints, 0, "pit death sets HP to 0");
+    assert_eq!(
+        runtime.progression.number_hitpoints, 0,
+        "pit death sets HP to 0"
+    );
 
     // Advance through death windup + dying phases
     for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
@@ -1827,7 +1891,11 @@ fn pit_death_triggers_death_and_respawn() {
         "expected Dying, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.progression.number_lives, pre_lives - 1, "should lose a life");
+    assert_eq!(
+        runtime.progression.number_lives,
+        pre_lives - 1,
+        "should lose a life"
+    );
 
     // Advance through dying phase
     for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
@@ -1893,7 +1961,10 @@ fn spike_death_triggers_death_and_respawn() {
         "expected DeathWindup, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.progression.number_hitpoints, 0, "spike death sets HP to 0");
+    assert_eq!(
+        runtime.progression.number_hitpoints, 0,
+        "spike death sets HP to 0"
+    );
 
     let pre_lives = runtime.progression.number_lives;
 
@@ -1906,7 +1977,11 @@ fn spike_death_triggers_death_and_respawn() {
         "expected Dying, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(runtime.progression.number_lives, pre_lives - 1, "should lose a life");
+    assert_eq!(
+        runtime.progression.number_lives,
+        pre_lives - 1,
+        "should lose a life"
+    );
 
     // Advance through dying phase
     for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
@@ -2015,7 +2090,10 @@ fn game_over_when_last_life_lost() {
         BootState::TitleScreen,
         "should return to title after game over"
     );
-    assert_eq!(runtime.progression.number_lives, 3, "lives reset after game over");
+    assert_eq!(
+        runtime.progression.number_lives, 3,
+        "lives reset after game over"
+    );
 }
 
 #[test]
@@ -2053,7 +2131,10 @@ fn continue_restores_lives_and_respawns() {
         runtime.step_frame(FrameInput::default());
     }
     assert!(
-        matches!(runtime.player_lifecycle, PlayerLifecycle::ContinueCountdown { .. }),
+        matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::ContinueCountdown { .. }
+        ),
         "expected ContinueCountdown, got {:?}",
         runtime.player_lifecycle
     );
@@ -2068,8 +2149,14 @@ fn continue_restores_lives_and_respawns() {
         BootState::InGame,
         "should stay in-game after using continue"
     );
-    assert_eq!(runtime.progression.number_lives, 3, "lives restored by continue");
-    assert_eq!(runtime.progression.number_continues, 1, "one continue consumed");
+    assert_eq!(
+        runtime.progression.number_lives, 3,
+        "lives restored by continue"
+    );
+    assert_eq!(
+        runtime.progression.number_continues, 1,
+        "one continue consumed"
+    );
     assert!(
         matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
         "should be respawning after continue"
@@ -2369,9 +2456,7 @@ fn enemy_contact_deals_damage() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
 
     let hp_before = runtime.progression.number_hitpoints;
 
@@ -2407,9 +2492,7 @@ fn invulnerability_prevents_rapid_rehit() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
     runtime.progression.number_hitpoints = 3;
 
     // Activate skull, then position for contact
@@ -2455,9 +2538,7 @@ fn enemy_contact_kills_at_one_hp() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
     runtime.progression.number_hitpoints = 1;
 
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2493,9 +2574,7 @@ fn enemy_survives_after_damaging_player() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
@@ -2786,7 +2865,10 @@ fn drill_block_headbutt_spawns_projectile() {
     let proj = &runtime.projectiles[0];
     // ASM sub_1129C: drill projectile moves horizontally at ±4px/frame
     assert!(proj.x_velocity != 0, "drill projectile moves horizontally");
-    assert_eq!(proj.y_velocity, 0, "drill projectile has no vertical velocity");
+    assert_eq!(
+        proj.y_velocity, 0,
+        "drill projectile has no vertical velocity"
+    );
     assert!(!proj.friendly);
 
     // Block should be cleared from grid
@@ -2976,7 +3058,10 @@ fn diamond_power_activates_with_start_a_and_20_diamonds() {
         runtime.progression.diamond_power_frames > 0,
         "Diamond Power should activate"
     );
-    assert_eq!(runtime.progression.diamond_count, 5, "should consume 20 diamonds");
+    assert_eq!(
+        runtime.progression.diamond_count, 5,
+        "should consume 20 diamonds"
+    );
 }
 
 #[test]
@@ -2996,7 +3081,10 @@ fn diamond_power_requires_20_diamonds() {
         runtime.progression.diamond_power_frames, 0,
         "should not activate with <20 diamonds"
     );
-    assert_eq!(runtime.progression.diamond_count, 19, "diamonds should not be consumed");
+    assert_eq!(
+        runtime.progression.diamond_count, 19,
+        "diamonds should not be consumed"
+    );
 }
 
 #[test]
@@ -3017,7 +3105,10 @@ fn diamond_power_tier2_costs_50_diamonds() {
         runtime.progression.diamond_power_frames > 0,
         "Diamond Power should activate"
     );
-    assert_eq!(runtime.progression.diamond_count, 5, "tier 2 should consume 50 diamonds (20+30)");
+    assert_eq!(
+        runtime.progression.diamond_count, 5,
+        "tier 2 should consume 50 diamonds (20+30)"
+    );
 }
 
 #[test]
@@ -3038,7 +3129,10 @@ fn diamond_power_tier1_when_under_50() {
         runtime.progression.diamond_power_frames > 0,
         "Diamond Power should activate"
     );
-    assert_eq!(runtime.progression.diamond_count, 29, "tier 1 should consume only 20 diamonds");
+    assert_eq!(
+        runtime.progression.diamond_count, 29,
+        "tier 1 should consume only 20 diamonds"
+    );
 }
 
 #[test]
@@ -3075,8 +3169,14 @@ fn diamond_power_juggernaut_costs_5_diamonds() {
         a: true,
         ..FrameInput::default()
     });
-    assert!(runtime.progression.diamond_power_frames > 0, "Juggernaut 5-Way Shot should activate");
-    assert_eq!(runtime.progression.diamond_count, 5, "Juggernaut costs 5 diamonds");
+    assert!(
+        runtime.progression.diamond_power_frames > 0,
+        "Juggernaut 5-Way Shot should activate"
+    );
+    assert_eq!(
+        runtime.progression.diamond_count, 5,
+        "Juggernaut costs 5 diamonds"
+    );
     assert_eq!(
         runtime.progression.diamond_power_type,
         helmets::DiamondPowerType::FiveWayShot
@@ -3141,7 +3241,10 @@ fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
         a: true,
         ..FrameInput::default()
     });
-    assert_eq!(runtime.progression.diamond_power_frames, 720, "SlashingRain = 720f");
+    assert_eq!(
+        runtime.progression.diamond_power_frames, 720,
+        "SlashingRain = 720f"
+    );
     // Step a few frames — rain should spawn projectiles
     for _ in 0..20 {
         runtime.step_frame(FrameInput::default());
@@ -3182,7 +3285,10 @@ fn prize_content_helmet_queues_form_change() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     runtime.apply_prize_content(terrain::PrizeContent::IronKnight);
-    assert_eq!(runtime.progression.pending_form, Some(PlayerForm::IronKnight));
+    assert_eq!(
+        runtime.progression.pending_form,
+        Some(PlayerForm::IronKnight)
+    );
 }
 
 #[test]
@@ -3200,7 +3306,10 @@ fn lives_capped_at_nine() {
     start_level(&mut runtime);
     runtime.progression.number_lives = 9;
     runtime.apply_prize_content(terrain::PrizeContent::Ankh);
-    assert_eq!(runtime.progression.number_lives, 9, "lives should not exceed 9");
+    assert_eq!(
+        runtime.progression.number_lives, 9,
+        "lives should not exceed 9"
+    );
 }
 
 #[test]
@@ -3226,7 +3335,10 @@ fn prize_content_helmet_resolves_form_on_next_frame() {
     runtime.apply_prize_content(terrain::PrizeContent::Juggernaut);
     // Form is queued, not yet applied
     assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
-    assert_eq!(runtime.progression.pending_form, Some(PlayerForm::Juggernaut));
+    assert_eq!(
+        runtime.progression.pending_form,
+        Some(PlayerForm::Juggernaut)
+    );
     // Step one frame to resolve
     runtime.step_frame(FrameInput::default());
     assert_eq!(runtime.progression.current_form, PlayerForm::Juggernaut);
@@ -3753,7 +3865,7 @@ fn dragon_walking_fires_breath_in_facing_direction() {
     enemy.wait_timer = 0;
     enemy.facing = Direction::Right;
     let mut projectiles = Vec::new();
-    step_dragon_walking(&mut enemy, &mut projectiles, None);
+    step_dragon_walking(&mut enemy, None, &mut projectiles, None);
     assert_eq!(projectiles.len(), 1);
     assert!(
         projectiles[0].x_velocity > 0,
@@ -3761,6 +3873,10 @@ fn dragon_walking_fires_breath_in_facing_direction() {
     );
     assert_eq!(projectiles[0].y_velocity, 0, "breath is horizontal");
     assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_RESET);
+    assert_eq!(
+        enemy.dragon_script_cmd, 1,
+        "dragon should enter breath hold"
+    );
 }
 
 #[test]
@@ -3769,7 +3885,7 @@ fn dragon_walking_fires_breath_left_when_facing_left() {
     enemy.wait_timer = 0;
     enemy.facing = Direction::Left;
     let mut projectiles = Vec::new();
-    step_dragon_walking(&mut enemy, &mut projectiles, None);
+    step_dragon_walking(&mut enemy, None, &mut projectiles, None);
     assert!(
         projectiles[0].x_velocity < 0,
         "breath fires left when facing left"
@@ -3777,14 +3893,44 @@ fn dragon_walking_fires_breath_left_when_facing_left() {
 }
 
 #[test]
+fn dragon_walking_stops_to_breathe_then_turns_from_a_wall() {
+    let grid = grid_with_wall(17, 0, 20, 2);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
+    enemy.facing = Direction::Left;
+    enemy.wait_timer = 0;
+    enemy.dragon_script_cmd = 0;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(60 << 16));
+    assert_eq!(projectiles.len(), 1, "wall-blocked dragon should breathe");
+    assert_eq!(
+        enemy.x_velocity, 0,
+        "dragon should hold position during breath"
+    );
+    assert_eq!(
+        enemy.dragon_script_cmd, 1,
+        "dragon should enter breath hold"
+    );
+
+    for _ in 0..(DRAGON_WALKING_BREATH_HOLD_FRAMES + DRAGON_WALKING_RECOVER_FRAMES + 8) {
+        step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(60 << 16));
+    }
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "dragon should flip after the hold"
+    );
+    assert_eq!(
+        enemy.dragon_script_cmd, 0,
+        "dragon should return to walking"
+    );
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
-        opening_level_one_object_counts(
-            LevelId(0),
-            2,
-            429u32 << 16,
-            OPENING_GROUNDED_CAMERA_Y_FP,
-        ),
+        opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
         Some((4, 5))
     );
     assert_eq!(
@@ -3792,12 +3938,7 @@ fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
         Some((3, 4))
     );
     assert_eq!(
-        opening_level_one_object_counts(
-            LevelId(1),
-            2,
-            429u32 << 16,
-            OPENING_GROUNDED_CAMERA_Y_FP
-        ),
+        opening_level_one_object_counts(LevelId(1), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP),
         None
     );
 }
@@ -4816,9 +4957,7 @@ fn side_contact_damages_not_stomps() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
 
     runtime.progression.number_hitpoints = 3;
     setup_stomp_scenario(&mut runtime, false);
@@ -4988,9 +5127,7 @@ fn contact_damage_does_not_apply_knockback_velocity() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
     runtime.progression.number_hitpoints = 3;
 
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -5021,9 +5158,7 @@ fn no_knockback_on_lethal_contact() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+    advance_past_level_entry_damage_grace(&mut runtime);
     runtime.progression.number_hitpoints = 1; // will die on contact
 
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -5226,7 +5361,10 @@ fn scorpion_tracking_boosts_speed_at_high_hp() {
     let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
     let player_x = Some(150u32 << 16); // 50px away (within 170px range)
     step_scorpion_tracking(&mut enemy, player_x, None);
-    assert_eq!(enemy.walk_speed_override, 0x3_8000, "HP>=5 within range should boost");
+    assert_eq!(
+        enemy.walk_speed_override, 0x3_8000,
+        "HP>=5 within range should boost"
+    );
     assert_eq!(enemy.facing, Direction::Right, "should face toward player");
 }
 
@@ -5248,7 +5386,10 @@ fn scorpion_tracking_resets_speed_outside_range() {
     enemy.walk_speed_override = 0x3_8000; // previously boosted
     let player_x = Some(500u32 << 16); // 400px away (outside 170px)
     step_scorpion_tracking(&mut enemy, player_x, None);
-    assert_eq!(enemy.walk_speed_override, 0x1_8000, "outside range should reset");
+    assert_eq!(
+        enemy.walk_speed_override, 0x1_8000,
+        "outside range should reset"
+    );
 }
 
 #[test]
@@ -6501,10 +6642,79 @@ fn boss_fires_projectiles_when_stomped() {
 }
 
 #[test]
+fn headymetal_kill_uses_long_death_wobble_effect() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let boss = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        family: EnemyFamily::HeadyMetal,
+        x_pos: 100 << 16,
+        y_pos: 120 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        walk_speed_override: 0,
+    };
+    runtime.active_enemies = vec![boss];
+    runtime.projectiles.clear();
+
+    let mut slice = runtime.opening_slice.unwrap();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 113 << 16;
+    slice.player.y_velocity = 0x2_0000;
+    slice.player.on_ground = false;
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    let pre_y_velocity = slice.player.y_velocity;
+    let pre_y_pos = slice.player.y_pos;
+    let stomped = runtime.process_stomps(&mut slice, pre_y_velocity, pre_y_pos);
+    assert!(stomped, "should register a stomp kill");
+    assert!(runtime.active_enemies.is_empty(), "boss should be removed");
+    assert_eq!(runtime.enemy_death_effects.len(), 1);
+    assert_eq!(
+        runtime.enemy_death_effects[0].remaining,
+        HEADYMETAL_DEATH_EFFECT_FRAMES
+    );
+}
+
+#[test]
 fn multi_head_boss_spawns_three_heads() {
     use enemies::{
-        BOSS_HEAD_NONE, SHISHKABOSS_HEAD_HP, SHISHKABOSS_HEAD_Y_OFFSETS,
-        activate_enemies, is_multi_head_boss,
+        BOSS_HEAD_NONE, SHISHKABOSS_HEAD_HP, SHISHKABOSS_HEAD_Y_OFFSETS, activate_enemies,
+        is_multi_head_boss,
     };
     // Verify multi-head detection
     assert!(is_multi_head_boss(EnemyFamily::Shishkaboss));
@@ -7095,7 +7305,10 @@ fn orca_wall_pinned_suppresses_x_accel() {
 
     step_orca(&mut enemy, Some(&grid), None);
     // X velocity should stay 0 when wall-pinned
-    assert_eq!(enemy.x_velocity, 0, "X accel should be suppressed when wall-pinned");
+    assert_eq!(
+        enemy.x_velocity, 0,
+        "X accel should be suppressed when wall-pinned"
+    );
 }
 
 // --- TarMonster ---
@@ -8510,7 +8723,10 @@ fn lava_geyser_erupts_and_collapses() {
     for _ in 0..4 {
         runtime.step_lava_geysers(&slice);
     }
-    assert_eq!(runtime.weather.lava_geysers[0].phase, 0, "should return to dormant");
+    assert_eq!(
+        runtime.weather.lava_geysers[0].phase, 0,
+        "should return to dormant"
+    );
     assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
 }
 
@@ -8546,7 +8762,10 @@ fn skycutter_c_press_starts_flipboard_deploy() {
 
     rt.step_skycutter_flipboard(&mut slice, input);
 
-    assert!(rt.helmet.skycutter_flipboard > 0, "flipboard counter should start");
+    assert!(
+        rt.helmet.skycutter_flipboard > 0,
+        "flipboard counter should start"
+    );
 }
 
 #[test]
@@ -8672,7 +8891,10 @@ fn skycutter_landing_bounces_off_ground() {
 
     assert!(!slice.player.on_ground, "should bounce off ground");
     assert_eq!(slice.player.y_velocity, SKYCUTTER_LANDING_BOUNCE);
-    assert_eq!(rt.helmet.skycutter_flipboard, 1, "deploy animation should restart");
+    assert_eq!(
+        rt.helmet.skycutter_flipboard, 1,
+        "deploy animation should restart"
+    );
 }
 
 #[test]
@@ -9031,7 +9253,10 @@ fn micromax_does_not_stick_when_moving_upward() {
 
     rt.step_micromax_stick(&mut slice, FrameInput::default());
 
-    assert!(!rt.helmet.micromax_stuck, "should not stick while moving upward");
+    assert!(
+        !rt.helmet.micromax_stuck,
+        "should not stick while moving upward"
+    );
 }
 
 #[test]
@@ -9323,12 +9548,20 @@ fn test_dragon(variant: u8, x: u32, y: u32) -> ActiveEnemy {
         DragonFlyingCmd::DriftWithFire(frames) => {
             e.dragon_phase = DragonFlyingState::DriftingWithFire;
             e.dragon_phase_frames = frames;
-            e.x_velocity = if e.facing == Direction::Right { 0x800 } else { -0x800 };
+            e.x_velocity = if e.facing == Direction::Right {
+                0x800
+            } else {
+                -0x800
+            };
         }
         DragonFlyingCmd::Drift(frames) => {
             e.dragon_phase = DragonFlyingState::Drifting;
             e.dragon_phase_frames = frames;
-            e.x_velocity = if e.facing == Direction::Right { 0x800 } else { -0x800 };
+            e.x_velocity = if e.facing == Direction::Right {
+                0x800
+            } else {
+                -0x800
+            };
         }
         _ => {
             e.dragon_phase = DragonFlyingState::Hovering;
@@ -9643,7 +9876,10 @@ fn berzerker_charge_resets_when_slow() {
         !rt.helmet.berzerker_charging,
         "should stop charging below threshold"
     );
-    assert_eq!(rt.helmet.berzerker_charge_accum, 0, "accumulator should reset");
+    assert_eq!(
+        rt.helmet.berzerker_charge_accum, 0,
+        "accumulator should reset"
+    );
 }
 
 #[test]
@@ -9957,7 +10193,10 @@ fn two_player_game_over_switches_when_other_has_lives() {
         runtime.current_player_index, 1,
         "should switch to P2 when P1 is game over"
     );
-    assert_eq!(runtime.progression.number_lives, 2, "should have P2's lives");
+    assert_eq!(
+        runtime.progression.number_lives, 2,
+        "should have P2's lives"
+    );
 }
 
 #[test]
