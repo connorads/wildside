@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+crc32fast.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 kid-data = { path = "../kid-data" }

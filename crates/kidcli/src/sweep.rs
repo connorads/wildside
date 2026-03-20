@@ -629,6 +629,14 @@ pub(crate) fn extract_checkpoint_states(
                 number_diamonds: frame.diamond_count,
                 diamond_power_active: frame.diamond_power_active,
                 murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
+                kid_x_vel: frame.kid_x_velocity,
+                kid_y_vel: frame.kid_y_velocity,
+                character_movement: None, // native doesn't track this separately
+                just_received_damage: None, // native doesn't track this separately
+                invulnerable_frames: Some(frame.invulnerable_frames as u8),
+                currently_transforming: None, // native doesn't track this separately
+                rng_offset: None, // native uses different RNG system
+                level_special_effects: None, // native doesn't track this separately
             })
         })
         .collect()
@@ -756,6 +764,38 @@ pub(crate) fn compare_sweep_states(
                 native_value: format!("{:?}", native.murder_wall_x),
                 oracle_value: format!("{:?}", oracle.murder_wall_x),
             });
+        }
+        // Extended fields — velocity comparison (authoritative when both available)
+        if let (Some(n_xv), Some(o_xv)) = (native.kid_x_vel, oracle.kid_x_vel) {
+            if n_xv != o_xv {
+                diffs.push(StateDiff {
+                    checkpoint: cp.clone(),
+                    field: "kid_x_vel".into(),
+                    native_value: format!("{n_xv:#010x}"),
+                    oracle_value: format!("{o_xv:#010x}"),
+                });
+            }
+        }
+        if let (Some(n_yv), Some(o_yv)) = (native.kid_y_vel, oracle.kid_y_vel) {
+            if n_yv != o_yv {
+                diffs.push(StateDiff {
+                    checkpoint: cp.clone(),
+                    field: "kid_y_vel".into(),
+                    native_value: format!("{n_yv:#010x}"),
+                    oracle_value: format!("{o_yv:#010x}"),
+                });
+            }
+        }
+        if let (Some(n_inv), Some(o_inv)) = (native.invulnerable_frames, oracle.invulnerable_frames)
+        {
+            if n_inv != o_inv {
+                diffs.push(StateDiff {
+                    checkpoint: cp.clone(),
+                    field: "invulnerable_frames".into(),
+                    native_value: format!("{n_inv}"),
+                    oracle_value: format!("{o_inv}"),
+                });
+            }
         }
     }
 
@@ -1959,6 +1999,14 @@ mod tests {
             number_diamonds: 0,
             diamond_power_active: false,
             murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
         }];
         let mut oracle = native.clone();
         oracle[0].game_mode = 0x0020;
@@ -1996,6 +2044,14 @@ mod tests {
             number_diamonds: 0,
             diamond_power_active: false,
             murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
         }];
         let oracle = native.clone();
 
@@ -2298,6 +2354,14 @@ mod tests {
             number_diamonds: 0,
             diamond_power_active: false,
             murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
         }];
         let mut oracle = native.clone();
         oracle[0].camera_x_pos = 0x0110_0000;

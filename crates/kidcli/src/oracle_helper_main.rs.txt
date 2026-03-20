@@ -183,6 +183,22 @@ struct OracleState {
     diamond_power_active: bool,
     #[serde(default)]
     murder_wall_x: Option<i32>,
+    #[serde(default)]
+    kid_x_vel: Option<i32>,
+    #[serde(default)]
+    kid_y_vel: Option<i32>,
+    #[serde(default)]
+    character_movement: Option<u16>,
+    #[serde(default)]
+    just_received_damage: Option<bool>,
+    #[serde(default)]
+    invulnerable_frames: Option<u8>,
+    #[serde(default)]
+    currently_transforming: Option<bool>,
+    #[serde(default)]
+    rng_offset: Option<u16>,
+    #[serde(default)]
+    level_special_effects: Option<u16>,
 }
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
@@ -205,6 +221,12 @@ const DIAMOND_POWER_ACTIVE_ADDR: usize = 0xFF_F5B8;
 const MURDER_WALL_FLAG_ADDR: usize = 0xFF_FAC1;
 const MURDER_WALL_X_POS_ADDR: usize = 0xFF_FAC4;
 const MAIN_MENU_OPTION_ADDR: usize = 0xFF_0DBD;
+const CHARACTER_MOVEMENT_ADDR: usize = 0xFF_FA56;
+const JUST_RECEIVED_DAMAGE_ADDR: usize = 0xFF_FA73;
+const INVULNERABLE_FRAMES_ADDR: usize = 0xFF_FA2B;
+const CURRENTLY_TRANSFORMING_ADDR: usize = 0xFF_FA6D;
+const RNG_OFFSET_ADDR: usize = 0xFF_FC12;
+const LEVEL_SPECIAL_EFFECTS_ADDR: usize = 0xFF_FB40;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
 const ENEMY_LAYOUT_OBJECT_PTR_ADDR: usize = 0xFF_F8F6;
 const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
@@ -707,6 +729,22 @@ fn capture_state(
         } else {
             None
         },
+        kid_x_vel: if matches!(game_mode, 0x0008 | 0x0010) {
+            Some(read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_X_VEL_OFFSET))
+        } else {
+            None
+        },
+        kid_y_vel: if matches!(game_mode, 0x0008 | 0x0010) {
+            Some(read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_Y_VEL_OFFSET))
+        } else {
+            None
+        },
+        character_movement: Some(read_wram_u16(&work_ram, CHARACTER_MOVEMENT_ADDR)),
+        just_received_damage: Some(read_wram_u8(&work_ram, JUST_RECEIVED_DAMAGE_ADDR) != 0),
+        invulnerable_frames: Some(read_wram_u8(&work_ram, INVULNERABLE_FRAMES_ADDR)),
+        currently_transforming: Some(read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0),
+        rng_offset: Some(read_wram_u16(&work_ram, RNG_OFFSET_ADDR)),
+        level_special_effects: Some(read_wram_u16(&work_ram, LEVEL_SPECIAL_EFFECTS_ADDR)),
     }
 }
 

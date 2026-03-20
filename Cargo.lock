@@ -609,6 +609,7 @@ dependencies = [
 name = "kid-core"
 version = "0.1.0"
 dependencies = [
+ "crc32fast",
  "criterion",
  "insta",
  "kid-data",
@@ -664,6 +665,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "crc32fast",
  "font8x8",
  "hound",
  "image",

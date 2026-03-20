@@ -653,6 +653,14 @@ pub(crate) fn native_trace_to_oracle_state(
         number_diamonds: frame.diamond_count,
         diamond_power_active: frame.diamond_power_active,
         murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
+        kid_x_vel: frame.kid_x_velocity,
+        kid_y_vel: frame.kid_y_velocity,
+        character_movement: None,
+        just_received_damage: None,
+        invulnerable_frames: Some(frame.invulnerable_frames as u8),
+        currently_transforming: None,
+        rng_offset: None,
+        level_special_effects: None,
     }
 }
 

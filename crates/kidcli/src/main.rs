@@ -1768,6 +1768,14 @@ mod tests {
             number_diamonds: 0,
             diamond_power_active: false,
             murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
         }
     }
 

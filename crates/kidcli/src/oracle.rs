@@ -132,6 +132,22 @@ pub struct OracleState {
     pub diamond_power_active: bool,
     #[serde(default)]
     pub murder_wall_x: Option<i32>,
+    #[serde(default)]
+    pub kid_x_vel: Option<i32>,
+    #[serde(default)]
+    pub kid_y_vel: Option<i32>,
+    #[serde(default)]
+    pub character_movement: Option<u16>,
+    #[serde(default)]
+    pub just_received_damage: Option<bool>,
+    #[serde(default)]
+    pub invulnerable_frames: Option<u8>,
+    #[serde(default)]
+    pub currently_transforming: Option<bool>,
+    #[serde(default)]
+    pub rng_offset: Option<u16>,
+    #[serde(default)]
+    pub level_special_effects: Option<u16>,
 }
 
 pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
