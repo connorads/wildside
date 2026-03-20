@@ -25,3 +25,5 @@ toml = "0.8.23"
 zip = { version = "8.2", default-features = false, features = ["deflate"] }
 font8x8 = "0.3.1"
 ymfm-sys = { path = "../ymfm-sys" }
+ratatui.workspace = true
+crossterm.workspace = true

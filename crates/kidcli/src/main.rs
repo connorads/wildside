@@ -19,6 +19,7 @@ mod release_gate;
 mod scenarios;
 mod sweep;
 mod tas;
+mod tui_debugger;
 mod verify;
 
 use verify::*;
@@ -503,6 +504,19 @@ enum Commands {
         /// Output directory
         #[arg(long, default_value = ".cache/diagnose")]
         output: PathBuf,
+    },
+    /// Interactive TUI for comparing native vs oracle state frame-by-frame.
+    DebugTui {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to a DynamicScenario JSON
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Only run up to this frame
+        #[arg(long)]
+        frame_end: Option<usize>,
     },
 }
 
@@ -1143,6 +1157,73 @@ fn main() -> Result<()> {
             let level_id =
                 u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 05)")?;
             sweep::diagnose_frame(&manifest, level_id, frame, save_layers, &output)?;
+        }
+        Commands::DebugTui {
+            rom,
+            dir,
+            scenario,
+            frame_end,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+
+            let scenario_json = fs::read_to_string(&scenario)?;
+            let mut dyn_scenario: crate::scenarios::DynamicScenario =
+                serde_json::from_str(&scenario_json)?;
+
+            if let Some(end) = frame_end {
+                dyn_scenario.script =
+                    dyn_scenario.script[..end.min(dyn_scenario.script.len())].to_vec();
+                dyn_scenario.frame_count = end;
+                dyn_scenario.checkpoints.retain(|cp| cp.frame_index < end);
+            }
+
+            // Run native
+            println!(
+                "Running native ({} frames)...",
+                dyn_scenario.frame_count
+            );
+            let native_trace = kid_core::run_script_with_warp(
+                manifest,
+                &dyn_scenario.script,
+                dyn_scenario.frame_count,
+                dyn_scenario.warp_to_level,
+            );
+
+            // Run oracle
+            println!(
+                "Running oracle ({} frames)...",
+                dyn_scenario.frame_count
+            );
+            let run_dir = repo_root.join(".cache/debug-tui");
+            fs::create_dir_all(&run_dir)?;
+            let scenario_file = run_dir.join("scenario.json");
+            fs::write(
+                &scenario_file,
+                serde_json::to_vec_pretty(&dyn_scenario)?,
+            )?;
+            let env = crate::oracle::ensure_oracles(&repo_root)?;
+            let oracle_dir = run_dir.join("oracle");
+            fs::create_dir_all(&oracle_dir)?;
+            let oracle = crate::oracle::run_jgenesis_capture_dynamic(
+                &env,
+                &rom_path,
+                &scenario_file,
+                &oracle_dir,
+                None,
+            )?;
+
+            println!(
+                "Launching TUI ({} native frames, {} oracle checkpoints, {} CRCs)...",
+                native_trace.len(),
+                oracle.states.len(),
+                oracle.frame_crcs.len()
+            );
+
+            let debugger = tui_debugger::TuiDebugger::new(native_trace, &oracle);
+            debugger.run()?;
         }
     }
     Ok(())
