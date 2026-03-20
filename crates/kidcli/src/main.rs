@@ -564,6 +564,10 @@ enum Commands {
         /// Frames at which to dump full 64KB WRAM (e.g. 954,955,956)
         #[arg(long)]
         wram_dump_frames: Option<String>,
+        /// Conditional filter: only show frames matching predicate (e.g. "0xFF2502>=0")
+        /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
+        #[arg(long)]
+        when: Vec<String>,
     },
     /// Compare sweep results between two physics orderings (GravityFirst vs PositionFirst).
     SweepCompare {
@@ -1329,6 +1333,7 @@ fn main() -> Result<()> {
             frame_end,
             watches,
             wram_dump_frames,
+            when,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1382,6 +1387,9 @@ fn main() -> Result<()> {
                 &options,
             )?;
 
+            // Parse --when predicates
+            let predicates = parse_when_predicates(&when)?;
+
             // Output memory watches as CSV
             if !oracle_manifest.memory_watches.is_empty() {
                 // Collect all column names (excluding "frame")
@@ -1402,8 +1410,16 @@ fn main() -> Result<()> {
                 }
                 println!();
 
-                // Print rows
+                // Print rows (filtered by --when predicates)
+                let mut shown = 0usize;
                 for watch_map in &oracle_manifest.memory_watches {
+                    if !predicates.is_empty()
+                        && !predicates
+                            .iter()
+                            .all(|pred| pred.evaluate(watch_map))
+                    {
+                        continue;
+                    }
                     let frame = watch_map.get("frame").copied().unwrap_or(-1);
                     print!("{frame}");
                     for col in &columns {
@@ -1411,6 +1427,13 @@ fn main() -> Result<()> {
                         print!(",0x{val:X}");
                     }
                     println!();
+                    shown += 1;
+                }
+                if !predicates.is_empty() {
+                    eprintln!(
+                        "  --when filter: {shown}/{} rows shown",
+                        oracle_manifest.memory_watches.len()
+                    );
                 }
             }
 
@@ -1456,6 +1479,79 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// --when predicate parsing for oracle-probe conditional filtering
+// ---------------------------------------------------------------------------
+
+#[derive(Debug)]
+enum WhenOp {
+    Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+}
+
+#[derive(Debug)]
+struct WhenPredicate {
+    /// Watch column name (e.g. "0xFF24FE_u32")
+    address_key: String,
+    op: WhenOp,
+    value: i64,
+}
+
+impl WhenPredicate {
+    fn evaluate(&self, watch_map: &std::collections::HashMap<String, i64>) -> bool {
+        let actual = watch_map.get(&self.address_key).copied().unwrap_or(0);
+        match self.op {
+            WhenOp::Eq => actual == self.value,
+            WhenOp::Ne => actual != self.value,
+            WhenOp::Lt => actual < self.value,
+            WhenOp::Gt => actual > self.value,
+            WhenOp::Le => actual <= self.value,
+            WhenOp::Ge => actual >= self.value,
+        }
+    }
+}
+
+fn parse_when_predicates(specs: &[String]) -> Result<Vec<WhenPredicate>> {
+    // Order matters: check two-char ops before single-char
+    let op_tokens: &[(&str, fn() -> WhenOp)] = &[
+        ("!=", || WhenOp::Ne),
+        (">=", || WhenOp::Ge),
+        ("<=", || WhenOp::Le),
+        ("=", || WhenOp::Eq),
+        (">", || WhenOp::Gt),
+        ("<", || WhenOp::Lt),
+    ];
+    let mut predicates = Vec::new();
+    for spec in specs {
+        let (addr, mk_op, val_str) = op_tokens
+            .iter()
+            .find_map(|(tok, mk)| {
+                let (left, right) = spec.split_once(tok)?;
+                Some((left.trim(), *mk, right.trim()))
+            })
+            .ok_or_else(|| anyhow!("invalid --when predicate: '{spec}' (expected ADDRESS OP VALUE)"))?;
+        let address_key = addr.replace(':', "_");
+        let value = if let Some(hex) = val_str.strip_prefix("0x").or_else(|| val_str.strip_prefix("0X")) {
+            i64::from_str_radix(hex, 16)
+                .with_context(|| format!("invalid hex value: {val_str}"))?
+        } else {
+            val_str
+                .parse::<i64>()
+                .with_context(|| format!("invalid value: {val_str}"))?
+        };
+        predicates.push(WhenPredicate {
+            address_key,
+            op: mk_op(),
+            value,
+        });
+    }
+    Ok(predicates)
 }
 
 fn build_controller_script(
