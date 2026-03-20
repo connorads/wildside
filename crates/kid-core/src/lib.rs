@@ -460,6 +460,7 @@ impl NativeRuntime {
         self.step_lava_geysers(&slice);
 
         self.process_block_effects(&mut slice);
+        self.collect_floating_items(&mut slice);
         if self.resolve_frame_hazards(&mut slice, input, pre_physics_y_velocity, pre_physics_y_pos)
         {
             return;

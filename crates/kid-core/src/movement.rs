@@ -1139,8 +1139,11 @@ impl OpeningSliceState {
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
             let new_y = probe.ceiling_y_px + PLAYER_HEIGHT;
             self.player.y_pos = (new_y.max(0) as u32) << 16;
-            // Small downward nudge on ceiling hit (original game pushes player down)
-            self.player.y_velocity = 0x0001_0000;
+            // ASM sub_902A ceiling path (loc_908C): clr.l y_vel(a3) then
+            // clr.w $20(a3) (zero sub-pixel). y_pos is already pixel-aligned
+            // from the << 16 above (sub-pixel zeroed). sub_BB54 also re-zeros
+            // y_vel at line 15092.
+            self.player.y_velocity = 0;
         }
     }
 

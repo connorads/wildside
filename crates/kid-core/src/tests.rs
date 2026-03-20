@@ -2932,10 +2932,16 @@ fn prize_block_headbutt_grants_diamond() {
 
     runtime.step_frame(FrameInput::default());
 
+    // ASM spawns prize items as separate objects — the player must contact
+    // the floating item to collect it. At block-hit time the diamond isn't
+    // granted immediately; only a floating item is spawned.
     assert_eq!(
-        runtime.progression.diamond_count,
-        diamonds_before + 1,
-        "headbutting prize block should grant a diamond"
+        runtime.progression.diamond_count, diamonds_before,
+        "diamond should NOT be granted immediately at block-hit time (deferred to floating item contact)"
+    );
+    assert!(
+        !runtime.floating_items.is_empty(),
+        "a floating item should be spawned when the prize block is headbutted"
     );
 }
 
@@ -4683,8 +4689,8 @@ fn headbutt_prize_block_changes_to_empty() {
     assert!(!cell_after.has_block);
     assert_eq!(cell_after.collision, terrain::CollisionKind::Empty);
 
-    // Player should have been pushed down with slight downward nudge
-    assert_eq!(slice.player.y_velocity, 0x0001_0000);
+    // ASM sub_902A zeroes y_vel on ceiling hit (clr.l y_vel)
+    assert_eq!(slice.player.y_velocity, 0);
 }
 
 #[test]
@@ -4795,8 +4801,8 @@ fn headbutt_smash_block_changes_to_empty() {
     assert!(!cell_after.has_block);
     assert_eq!(cell_after.collision, terrain::CollisionKind::Empty);
 
-    // Player should have been pushed down with slight downward nudge
-    assert_eq!(slice.player.y_velocity, 0x0001_0000);
+    // ASM sub_902A zeroes y_vel on ceiling hit (clr.l y_vel)
+    assert_eq!(slice.player.y_velocity, 0);
 }
 
 #[test]

@@ -493,6 +493,9 @@ pub(crate) struct FloatingItem {
     pub(crate) y_px: u16,
     pub(crate) remaining: u8,
     pub(crate) content: terrain::PrizeContent,
+    /// Whether the player has collected this item by touching it.
+    /// ASM spawns prize items as objects — the player must contact them.
+    pub(crate) collected: bool,
 }
 
 #[derive(Debug, Clone)]

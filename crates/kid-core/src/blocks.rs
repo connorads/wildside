@@ -269,13 +269,13 @@ impl NativeRuntime {
                 y_px,
                 remaining: 30,
                 content,
+                collected: false,
             });
             self.block_destroy_effects.push(BlockDestroyEffect {
                 x_px,
                 y_px,
                 remaining: 8,
             });
-            self.apply_prize_content(content);
         }
 
         // Metal block bounce animation
@@ -342,6 +342,48 @@ impl NativeRuntime {
             slice.player.y_pos = (u32::from(tp.dest_y) * 16) << 16;
             slice.player.y_velocity = 0;
             slice.player.on_ground = true;
+        }
+    }
+
+    /// Check player overlap with floating prize items and collect on contact.
+    /// ASM spawns prize items as separate objects — the player must physically
+    /// touch them. The native previously applied prizes immediately at block-hit
+    /// time, causing spurious form changes.
+    /// Check player overlap with floating prize items and collect on contact.
+    /// ASM spawns prize items as separate objects — the player must physically
+    /// touch them. The native previously applied prizes immediately at block-hit
+    /// time, causing spurious form changes.
+    pub(crate) fn collect_floating_items(&mut self, slice: &mut OpeningSliceState) {
+        use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
+
+        let player_x_px = (slice.player.x_pos >> 16) as i32;
+        let player_y_px = (slice.player.y_pos >> 16) as i32;
+        let player_left = player_x_px - PLAYER_HALF_WIDTH;
+        let player_right = player_x_px + PLAYER_HALF_WIDTH;
+        let player_top = player_y_px - PLAYER_HEIGHT;
+
+        // Collect contents to apply after the loop to avoid double-borrow
+        let mut collected_contents = Vec::new();
+        for item in &mut self.floating_items {
+            if item.collected {
+                continue;
+            }
+            // Item is 16x16 at (x_px, y_px)
+            let item_left = i32::from(item.x_px);
+            let item_right = item_left + 16;
+            let item_top = i32::from(item.y_px);
+            let item_bottom = item_top + 16;
+
+            let overlap_x = player_left < item_right && player_right > item_left;
+            let overlap_y = player_top < item_bottom && player_y_px > item_top;
+
+            if overlap_x && overlap_y {
+                item.collected = true;
+                collected_contents.push(item.content);
+            }
+        }
+        for content in collected_contents {
+            self.apply_prize_content(content);
         }
     }
 
