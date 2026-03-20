@@ -394,7 +394,7 @@ pub fn verify_tas(
     let oracle_dir = run_dir.join("oracle");
     std::fs::create_dir_all(&oracle_dir)?;
     let oracle =
-        crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
+        crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir, None)?;
 
     // Per-frame CRC comparison (fast divergence detection)
     let native_crcs: Vec<u32> = native_trace.iter().map(|f| f.authoritative_crc32()).collect();
@@ -630,7 +630,7 @@ fn probe_tas(
     let oracle_dir = run_dir.join("oracle");
     std::fs::create_dir_all(&oracle_dir)?;
     let oracle =
-        crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
+        crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir, None)?;
 
     // Compare
     let state_diffs = crate::sweep::compare_sweep_states(&native_states, &oracle.states);
@@ -720,7 +720,7 @@ pub fn bisect_tas(
     let env = crate::oracle::ensure_oracles(repo_root)?;
     let oracle_dir = run_dir.join("oracle");
     std::fs::create_dir_all(&oracle_dir)?;
-    let oracle = crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
+    let oracle = crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir, None)?;
 
     if !oracle.frame_crcs.is_empty() {
         match crate::sweep::find_first_crc_mismatch(&native_crcs, &oracle.frame_crcs) {

@@ -204,24 +204,30 @@ pub fn run_jgenesis_capture(
 }
 
 /// Run the jgenesis oracle using a JSON scenario file (DynamicScenario).
+///
+/// When `skip_frames_before` is `Some(N)`, the oracle still runs from frame 0
+/// but only captures PNGs and state from frame N onwards. CRC computation
+/// runs for all frames regardless, keeping the `frame_crcs` array complete.
 pub fn run_jgenesis_capture_dynamic(
     env: &OracleEnvironment,
     rom_path: &Path,
     scenario_file: &Path,
     out_dir: &Path,
+    skip_frames_before: Option<usize>,
 ) -> Result<OracleManifest> {
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
-    let stdout = capture_stdout(
-        Command::new(&env.jgenesis_helper_bin)
-            .arg("--rom")
-            .arg(rom_path)
-            .arg("--out-dir")
-            .arg(out_dir)
-            .arg("--scenario-file")
-            .arg(scenario_file),
-        None,
-    )?;
+    let mut cmd = Command::new(&env.jgenesis_helper_bin);
+    cmd.arg("--rom")
+        .arg(rom_path)
+        .arg("--out-dir")
+        .arg(out_dir)
+        .arg("--scenario-file")
+        .arg(scenario_file);
+    if let Some(skip) = skip_frames_before {
+        cmd.arg("--skip-frames-before").arg(skip.to_string());
+    }
+    let stdout = capture_stdout(&mut cmd, None)?;
     serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
 }
 

@@ -460,7 +460,7 @@ fn sweep_single_level(
 
             let oracle_dir = level_dir.join("oracle");
             fs::create_dir_all(&oracle_dir)?;
-            let oracle = run_jgenesis_capture_dynamic(env, rom_path, &scenario_file, &oracle_dir)?;
+            let oracle = run_jgenesis_capture_dynamic(env, rom_path, &scenario_file, &oracle_dir, None)?;
             let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
             oracle
         }
@@ -1128,7 +1128,7 @@ fn warm_oracle_cache(
                         let oracle_dir = tmp.join("oracle");
                         fs::create_dir_all(&oracle_dir).ok();
 
-                        match run_jgenesis_capture_dynamic(&env, &rom, &scenario_file, &oracle_dir)
+                        match run_jgenesis_capture_dynamic(&env, &rom, &scenario_file, &oracle_dir, None)
                         {
                             Ok(oracle) => {
                                 let _ = store_oracle_cache(&cache_key, &root, &oracle, &oracle_dir);

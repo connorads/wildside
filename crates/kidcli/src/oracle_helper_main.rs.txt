@@ -318,6 +318,7 @@ fn main() -> Result<()> {
     let mut scenario_slug = None;
     let mut scenario_file = None;
     let mut mode = OutputMode::Capture;
+    let mut skip_frames_before: Option<usize> = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -326,6 +327,7 @@ fn main() -> Result<()> {
             "--scenario" => scenario_slug = args.next(),
             "--scenario-file" => scenario_file = args.next().map(PathBuf::from),
             "--mode" => mode = parse_mode(&args.next().context("missing --mode value")?)?,
+            "--skip-frames-before" => skip_frames_before = args.next().and_then(|s| s.parse().ok()),
             other => return Err(anyhow!("unknown arg {other}")),
         }
     }
@@ -341,7 +343,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -394,7 +396,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -426,23 +428,26 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Resul
                 while checkpoint_index < resolved.checkpoints.len()
                     && resolved.checkpoints[checkpoint_index].frame_index == frame_index
                 {
-                    let checkpoint = resolved.checkpoints[checkpoint_index];
-                    let png_path = out_dir.join(format!(
-                        "{:04}_{}.png",
-                        checkpoint.frame_index, checkpoint.label
-                    ));
-                    write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
-                    rendered_frames.push(OracleFrame {
-                        label: checkpoint.label.to_string(),
-                        frame_index: checkpoint.frame_index,
-                        sha1: sha1_hex(&renderer.rgb),
-                        png_path,
-                    });
-                    captured_states.push(capture_state(
-                        &mut emulator,
-                        checkpoint.label,
-                        checkpoint.frame_index,
-                    ));
+                    let should_capture = skip_frames_before.is_none_or(|skip| frame_index >= skip);
+                    if should_capture {
+                        let checkpoint = resolved.checkpoints[checkpoint_index];
+                        let png_path = out_dir.join(format!(
+                            "{:04}_{}.png",
+                            checkpoint.frame_index, checkpoint.label
+                        ));
+                        write_png(&png_path, renderer.width, renderer.height, &renderer.rgb)?;
+                        rendered_frames.push(OracleFrame {
+                            label: checkpoint.label.to_string(),
+                            frame_index: checkpoint.frame_index,
+                            sha1: sha1_hex(&renderer.rgb),
+                            png_path,
+                        });
+                        captured_states.push(capture_state(
+                            &mut emulator,
+                            checkpoint.label,
+                            checkpoint.frame_index,
+                        ));
+                    }
                     checkpoint_index += 1;
                 }
                 // Per-frame CRC of authoritative RAM state
