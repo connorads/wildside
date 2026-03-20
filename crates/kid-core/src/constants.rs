@@ -94,6 +94,9 @@ pub(crate) const PLAYER_LEFT_WALL_EXTENT: i32 = PLAYER_HALF_WIDTH + 1;
 pub(crate) const PLAYER_CONTACT_HALF_WIDTH: i64 = 4;
 pub(crate) const GROUND_SNAP_TOLERANCE_FP: u32 = 0x0006_0000;
 pub(crate) const JUMP_BUFFER_FRAMES: u8 = 6;
+/// Post-ledge-snap pull-up animation: 7 anim frames × 3 VBlanks = 21 frames.
+/// ASM: stru_8BB4 at kid.asm:10014, driven by Hibernate_UntilAnimFinished.
+pub(crate) const LEDGE_SNAP_PULLUP_FRAMES: u8 = 21;
 pub(crate) const SLOPE_AIR_SNAP_TOLERANCE_FP: u32 = 0x0003_0000;
 
 // === Slope physics ===

@@ -14,6 +14,7 @@ impl PlayerState {
             jump_buffer_frames: 0,
             right_wall_sticky: false,
             left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
         }
     }
 }
@@ -33,6 +34,7 @@ impl OpeningSliceState {
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
                 left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -84,6 +86,7 @@ impl OpeningSliceState {
                 jump_buffer_frames: 0,
                 right_wall_sticky: false,
                 left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
             },
             camera: CameraState {
                 x_pos: pose.camera_x_pos,
@@ -148,6 +151,19 @@ impl OpeningSliceState {
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
+            return;
+        }
+        // ASM pull-up animation (stru_8BB4): Hibernate_UntilAnimFinished
+        // loops for 21 frames after ledge snap, suppressing all physics.
+        // Camera follow resumes on the final frame (ASM exits animation,
+        // transitions to Standingstill, then main loop runs camera follow).
+        if self.player.ledge_snap_cooldown > 0 {
+            self.player.ledge_snap_cooldown -= 1;
+            if self.player.ledge_snap_cooldown > 0 {
+                return;
+            }
+            // Last cooldown frame: physics still suppressed but camera catches up.
+            self.update_camera_follow(y_look_offset);
             return;
         }
         let mut block_grid = block_grid;
@@ -425,6 +441,7 @@ impl OpeningSliceState {
         // single-frame edge. Clear the buffer on ledge snap to prevent a
         // spurious jump on the next grounded frame.
         self.player.jump_buffer_frames = 0;
+        self.player.ledge_snap_cooldown = LEDGE_SNAP_PULLUP_FRAMES;
         self.terrain.floor_y_pos = floor_y_fp;
         self.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
         true

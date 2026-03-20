@@ -707,6 +707,10 @@ pub(crate) struct PlayerState {
     pub(crate) jump_buffer_frames: u8,
     pub(crate) right_wall_sticky: bool,
     pub(crate) left_wall_sticky: bool,
+    /// Post-ledge-snap pull-up animation cooldown: suppresses all physics for N
+    /// frames. ASM: stru_8BB4 = 7 anim frames × 3 VBlanks = 21 frames, driven
+    /// by Hibernate_UntilAnimFinished (kid.asm:1982).
+    pub(crate) ledge_snap_cooldown: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
