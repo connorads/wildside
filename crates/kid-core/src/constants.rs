@@ -185,9 +185,6 @@ pub(crate) const CREDITS_DISPLAY_FRAMES: usize = 200;
 pub(crate) const CREDITS_SCREEN_COUNT: usize = 7; // congratulations + 6 credits screens
 /// Total credits duration per screen.
 pub(crate) const CREDITS_SCREEN_TOTAL: usize = CREDITS_SCROLL_FRAMES + CREDITS_DISPLAY_FRAMES;
-/// Ending music track (ASM: bgm_Ending = 5). Used by native_player audio.
-pub const ENDING_MUSIC_TRACK: u8 = 5;
-
 // === Projectiles ===
 
 /// Maximum active projectiles (original limits to 2 arrows, we allow a few more
