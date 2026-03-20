@@ -16,6 +16,7 @@ pub fn run_tas_diff(
     only_divergent: bool,
     include_advisory: bool,
     include_physics_trace: bool,
+    visual: bool,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -197,6 +198,85 @@ pub fn run_tas_diff(
     println!(
         "summary: {match_count} match, {diverge_count} diverge (frames {start}..{end})"
     );
+
+    // Visual diff: generate 3-panel composite PNGs at divergent frames
+    if visual && diverge_count > 0 {
+        let visual_dir = repo_root
+            .join(".cache/tas-diff")
+            .join(&scenario.slug)
+            .join("visual");
+        std::fs::create_dir_all(&visual_dir)?;
+
+        // Collect divergent frame indices
+        let divergent_frames: Vec<usize> = (start..end)
+            .filter(|f| {
+                let label = format!("frame_{f}");
+                diff_by_checkpoint
+                    .get(label.as_str())
+                    .is_some_and(|d| !d.is_empty())
+            })
+            .collect();
+
+        println!("generating visual diffs for {} frames...", divergent_frames.len());
+
+        // Build oracle PNG index: frame_index → png_path
+        let oracle_png_index: std::collections::HashMap<usize, &std::path::Path> = oracle
+            .frames
+            .iter()
+            .map(|f| (f.frame_index, f.png_path.as_path()))
+            .collect();
+
+        // Render native frames for divergent frames
+        let checkpoints: Vec<crate::scenarios::GameplayCheckpoint> = divergent_frames
+            .iter()
+            .map(|&f| {
+                let label: &'static str = Box::leak(format!("frame_{f}").into_boxed_str());
+                crate::scenarios::GameplayCheckpoint {
+                    label,
+                    frame_index: f,
+                }
+            })
+            .collect();
+
+        let warp_level = scenario.warp_to_level.unwrap_or(0);
+        let native_rendered =
+            crate::native_player::render_gameplay_frame_evidence_for_level(
+                manifest,
+                &native_trace,
+                &checkpoints,
+                warp_level,
+            )?;
+
+        let mut saved = 0usize;
+        for (label, frame_idx, w, h, native_rgb) in &native_rendered {
+            let oracle_png_path = match oracle_png_index.get(frame_idx) {
+                Some(p) => *p,
+                None => continue,
+            };
+            let oracle_img = image::open(oracle_png_path)
+                .with_context(|| format!("failed to open oracle PNG: {}", oracle_png_path.display()))?
+                .to_rgb8();
+            let oracle_rgb = oracle_img.as_raw();
+
+            let (cw, ch, composite) = crate::diff::generate_diff_composite(
+                native_rgb,
+                oracle_rgb,
+                *w as u32,
+                *h as u32,
+            );
+            let out_path = visual_dir.join(format!("{label}.png"));
+            image::save_buffer(
+                &out_path,
+                &composite,
+                cw,
+                ch,
+                image::ColorType::Rgb8,
+            )
+            .with_context(|| format!("failed to write {}", out_path.display()))?;
+            saved += 1;
+        }
+        println!("saved {saved} visual diffs to {}", visual_dir.display());
+    }
 
     Ok(())
 }

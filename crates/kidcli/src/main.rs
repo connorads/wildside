@@ -496,6 +496,9 @@ enum Commands {
         /// Show PhysicsTrace sub-step values at divergent frames
         #[arg(long, default_value_t = false)]
         include_physics_trace: bool,
+        /// Generate 3-panel visual diff PNGs at divergent frames
+        #[arg(long, default_value_t = false)]
+        visual: bool,
     },
     /// Import a BK2 TAS recording as a DynamicScenario JSON.
     ImportTas {
@@ -1208,6 +1211,7 @@ fn main() -> Result<()> {
             only_divergent,
             include_advisory,
             include_physics_trace,
+            visual,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1223,6 +1227,7 @@ fn main() -> Result<()> {
                 only_divergent,
                 include_advisory,
                 include_physics_trace,
+                visual,
             )?;
         }
         Commands::ImportTas {
