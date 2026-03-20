@@ -1902,6 +1902,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.step(
@@ -4662,6 +4663,7 @@ fn headbutt_prize_block_changes_to_empty() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -4713,6 +4715,7 @@ fn headbutt_metal_block_does_not_clear() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -4768,6 +4771,7 @@ fn headbutt_smash_block_changes_to_empty() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -4819,6 +4823,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -4871,6 +4876,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None);
@@ -4927,6 +4933,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_wall_collision(Some(&grid));
@@ -4977,6 +4984,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_wall_collision(Some(&grid));
@@ -5027,6 +5035,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_wall_collision(Some(&grid));
@@ -5088,6 +5097,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), true, false);
@@ -5135,6 +5145,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false);
@@ -5179,6 +5190,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false);
@@ -7986,6 +7998,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false);
@@ -8033,6 +8046,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     // No floor under player → should leave ground and reset terrain type
@@ -8089,6 +8103,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     }
 }
 
@@ -8333,6 +8348,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     assert!(runtime.block_state.evanescent_blocks.is_empty());
@@ -8384,6 +8400,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     runtime.step_evanescent_blocks(&slice);
@@ -8444,6 +8461,7 @@ fn evanescent_block_clears_after_timer_expires() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     // Trigger + first tick
@@ -8513,6 +8531,7 @@ fn evanescent_block_with_skin_delay() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     let airborne_slice = OpeningSliceState {
@@ -8702,6 +8721,7 @@ fn evanescent_block_not_triggered_twice() {
         smash_block_hit: None,
         teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
     };
 
     // Trigger twice while standing

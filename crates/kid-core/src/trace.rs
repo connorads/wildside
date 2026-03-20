@@ -151,6 +151,7 @@ impl NativeRuntime {
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,
             sound_test_play_pending: self.sound_test_play_pending,
+            physics_trace: self.opening_slice.and_then(|s| s.physics_trace),
         }
     }
 

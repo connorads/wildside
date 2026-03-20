@@ -102,6 +102,21 @@ pub fn run_script_with_physics_order(
     run_script_with_runtime(&mut runtime, script, frame_count)
 }
 
+/// Run a scripted scenario with physics tracing enabled (for TAS debugging).
+pub fn run_script_with_trace(
+    assets: AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+    warp_to_level: Option<u8>,
+) -> Vec<NativeTraceFrame> {
+    let mut runtime = NativeRuntime::with_generated_level_layout(assets);
+    runtime.set_trace_physics(true);
+    if let Some(level_id) = warp_to_level {
+        runtime.boot_to_level(LevelId(level_id));
+    }
+    run_script_with_runtime(&mut runtime, script, frame_count)
+}
+
 fn run_script_with_runtime(
     runtime: &mut NativeRuntime,
     script: &[u8],

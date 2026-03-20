@@ -14,6 +14,53 @@ pub enum PhysicsOrder {
     PositionFirst,
 }
 
+/// Sub-frame physics trace: captures intermediate values at each sub-step
+/// within `step_with_order` for transparent debugging of physics divergences.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PhysicsTrace {
+    // Pre/post horizontal motion
+    pub pre_horizontal: (u32, i32),
+    pub post_horizontal: (u32, i32),
+    pub horizontal_step_applied: bool,
+
+    // Pre/post vertical motion
+    pub pre_vertical: (u32, i32),
+    pub post_vertical: (u32, i32),
+
+    // Gravity specifics
+    pub pre_gravity_y_vel: i32,
+    pub post_gravity_y_vel: i32,
+    pub gravity_applied: bool,
+    pub ascending_and_b_held: bool,
+
+    // Collision results
+    pub wall_hit: bool,
+    pub wall_snap_x: Option<u32>,
+    pub ceiling_hit: bool,
+    pub floor_hit: bool,
+    pub floor_y_px: Option<i32>,
+    pub landing_path: Option<LandingPath>,
+    pub on_ground_before: bool,
+    pub on_ground_after: bool,
+
+    // Jump
+    pub jump_initiated: bool,
+    pub jump_y_vel: Option<i32>,
+
+    // Final state
+    pub final_pos: (u32, u32),
+    pub final_vel: (i32, i32),
+}
+
+/// Which ASM floor landing path was taken.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LandingPath {
+    /// ASM loc_AAF8: `move.w d7,y_pos(a3)` — keeps sub-pixel.
+    PreserveSubPixel,
+    /// ASM loc_AB22: `clr.w $20(a3)` — zeroes sub-pixel.
+    ZeroSubPixel,
+}
+
 pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
 pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
 
@@ -362,6 +409,9 @@ pub struct NativeTraceFrame {
     pub blocks_hit_this_frame: u8,
     /// Sound test: play was requested this frame (A/C pressed).
     pub sound_test_play_pending: bool,
+    /// Sub-frame physics trace (populated when `trace_physics` is enabled).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub physics_trace: Option<PhysicsTrace>,
 }
 
 impl NativeTraceFrame {
@@ -930,6 +980,8 @@ pub(crate) struct OpeningSliceState {
     /// Pre-gravity y_vel snapshot for floor landing sub-pixel logic.
     /// ASM tests y_vel before sub_B168 (gravity); native applies gravity first.
     pub(crate) pre_gravity_y_vel: i32,
+    /// Sub-frame physics trace (populated when `trace_physics` is enabled).
+    pub(crate) physics_trace: Option<PhysicsTrace>,
 }
 
 #[cfg(test)]

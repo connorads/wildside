@@ -53,6 +53,7 @@ impl OpeningSliceState {
             smash_block_hit: None,
             teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
         }
     }
 
@@ -103,6 +104,7 @@ impl OpeningSliceState {
             smash_block_hit: None,
             teleporter_contact: None,
             pre_gravity_y_vel: 0,
+            physics_trace: None,
         }
     }
 
@@ -152,17 +154,53 @@ impl OpeningSliceState {
 
         match physics_order {
             PhysicsOrder::GravityFirst => {
+                let on_ground_before = self.player.on_ground;
+                if let Some(ref mut t) = self.physics_trace {
+                    t.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
+                    t.on_ground_before = on_ground_before;
+                }
+
                 // Current native order: horizontal, vertical (gravity+position), collisions
                 let horizontal_step_applied =
                     self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
+
+                if let Some(ref mut t) = self.physics_trace {
+                    t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
+                    t.horizontal_step_applied = horizontal_step_applied;
+                    t.pre_vertical = (self.player.y_pos, self.player.y_velocity);
+                    t.pre_gravity_y_vel = self.player.y_velocity;
+                }
+
                 // Save pre-gravity y_vel for floor landing sub-pixel logic (ASM tests
                 // y_vel in Character_CheckCollision, before sub_B168 applies gravity).
                 let pre_gravity_y_vel = self.player.y_velocity;
                 self.update_vertical_motion(input, jump_pressed, form, custom_gravity);
                 self.pre_gravity_y_vel = pre_gravity_y_vel;
+
+                if let Some(ref mut t) = self.physics_trace {
+                    t.post_gravity_y_vel = self.player.y_velocity;
+                    t.gravity_applied =
+                        self.player.y_velocity != pre_gravity_y_vel || !self.player.on_ground;
+                    t.ascending_and_b_held = pre_gravity_y_vel < 0 && input.b;
+                    t.post_vertical = (self.player.y_pos, self.player.y_velocity);
+                    // Detect jump initiation: y_vel went negative from non-negative
+                    if pre_gravity_y_vel >= 0 && self.player.y_velocity < 0 {
+                        t.jump_initiated = true;
+                        t.jump_y_vel = Some(self.player.y_velocity);
+                    }
+                }
+
+                let pre_collision_x = self.player.x_pos;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_wall_collision(Some(grid));
+                    if self.player.x_pos != pre_collision_x
+                        && let Some(ref mut t) = self.physics_trace
+                    {
+                        t.wall_hit = true;
+                        t.wall_snap_x = Some(self.player.x_pos);
+                    }
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                        self.finalise_trace();
                         self.update_camera_follow(y_look_offset);
                         return;
                     }
@@ -176,17 +214,31 @@ impl OpeningSliceState {
                 }
             }
             PhysicsOrder::PositionFirst => {
+                if let Some(ref mut t) = self.physics_trace {
+                    t.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
+                    t.on_ground_before = self.player.on_ground;
+                }
                 // ASM order: horizontal motion + position, apply y_pos from y_velocity
                 // (without gravity first), collisions, then gravity
                 let horizontal_step_applied =
                     self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
+                if let Some(ref mut t) = self.physics_trace {
+                    t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
+                    t.horizontal_step_applied = horizontal_step_applied;
+                    t.pre_vertical = (self.player.y_pos, self.player.y_velocity);
+                    t.pre_gravity_y_vel = self.player.y_velocity;
+                }
                 // Apply vertical position from current y_velocity (before gravity)
                 self.apply_vertical_position_only(input, jump_pressed, form);
                 // In PositionFirst, y_vel at collision time is pre-gravity (matches ASM).
                 self.pre_gravity_y_vel = self.player.y_velocity;
+                if let Some(ref mut t) = self.physics_trace {
+                    t.post_vertical = (self.player.y_pos, self.player.y_velocity);
+                }
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_wall_collision(Some(grid));
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                        self.finalise_trace();
                         self.update_camera_follow(y_look_offset);
                         return;
                     }
@@ -199,14 +251,43 @@ impl OpeningSliceState {
                     self.apply_immediate_slope_recontact(input, form, collision, grid);
                 }
                 // Apply gravity after collisions (ASM sub_B168 runs after collision checks)
+                let pre_post_grav_vel = self.player.y_velocity;
                 if !self.player.on_ground && !custom_gravity {
                     let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
                     self.player.y_velocity =
                         physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
+                    if let Some(ref mut t) = self.physics_trace {
+                        t.post_gravity_y_vel = self.player.y_velocity;
+                        t.gravity_applied = true;
+                        t.ascending_and_b_held = ascending_and_b_held;
+                    }
+                } else if let Some(ref mut t) = self.physics_trace {
+                    t.post_gravity_y_vel = pre_post_grav_vel;
                 }
             }
         }
+        self.finalise_trace();
         self.update_camera_follow(y_look_offset);
+    }
+
+    /// Record final state into the physics trace and detect floor landing.
+    fn finalise_trace(&mut self) {
+        if let Some(ref mut t) = self.physics_trace {
+            t.on_ground_after = self.player.on_ground;
+            t.final_pos = (self.player.x_pos, self.player.y_pos);
+            t.final_vel = (self.player.x_velocity, self.player.y_velocity);
+            // Detect floor landing: transitioned from airborne to grounded
+            if !t.on_ground_before && t.on_ground_after {
+                t.floor_hit = true;
+                t.floor_y_px = Some((self.terrain.floor_y_pos >> 16) as i32);
+                // Determine which ASM landing path was taken
+                t.landing_path = Some(if self.pre_gravity_y_vel >= 0 {
+                    LandingPath::PreserveSubPixel
+                } else {
+                    LandingPath::ZeroSubPixel
+                });
+            }
+        }
     }
 
     pub(crate) fn try_snap_wall_sticky_ledge(

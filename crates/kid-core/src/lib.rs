@@ -24,7 +24,7 @@ use kid_data::{
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
-pub use scenario::{run_script, run_script_with_physics_order, run_script_with_warp};
+pub use scenario::{run_script, run_script_with_physics_order, run_script_with_trace, run_script_with_warp};
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 use std::fs;
 #[cfg(test)]
@@ -116,6 +116,8 @@ pub struct NativeRuntime {
     player_slots: [PlayerSlot; 2],
     /// Physics sub-step ordering (default: GravityFirst = current native order).
     physics_order: PhysicsOrder,
+    /// When true, populate `PhysicsTrace` on each frame for sub-step debugging.
+    trace_physics: bool,
 }
 
 impl NativeRuntime {
@@ -176,6 +178,7 @@ impl NativeRuntime {
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
             physics_order: PhysicsOrder::default(),
+            trace_physics: false,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -196,6 +199,11 @@ impl NativeRuntime {
     /// Override the physics sub-step ordering (for sweep comparison experiments).
     pub fn set_physics_order(&mut self, order: PhysicsOrder) {
         self.physics_order = order;
+    }
+
+    /// Enable sub-frame physics tracing for TAS debugging.
+    pub fn set_trace_physics(&mut self, enabled: bool) {
+        self.trace_physics = enabled;
     }
 
     /// Set the block collision grid for the current level.
@@ -374,6 +382,13 @@ impl NativeRuntime {
         // floor collision zeroes y_velocity so the stomp check would always fail.
         let pre_physics_y_velocity = slice.player.y_velocity;
         let pre_physics_y_pos = slice.player.y_pos;
+
+        // Initialise physics trace for this frame if tracing is enabled.
+        slice.physics_trace = if self.trace_physics {
+            Some(PhysicsTrace::default())
+        } else {
+            None
+        };
 
         // Helmet abilities that override normal gravity
         let custom_gravity = self.helmet.skycutter_on_board
