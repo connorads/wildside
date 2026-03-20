@@ -5,6 +5,7 @@
 /kid_built.bin
 /kid.h
 *.log
+hypothesis_log.jsonl
 kc.md
 /.ralph-tui/
 /.ralph/
