@@ -460,6 +460,7 @@ impl NativeRuntime {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.player.right_wall_sticky = false;
             slice.player.left_wall_sticky = false;
+            slice.player.wall_cling_direction = None;
         }
         if self.progression.current_form != PlayerForm::TheKid {
             self.queue_form_change(PlayerForm::TheKid);

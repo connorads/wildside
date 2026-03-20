@@ -711,6 +711,11 @@ pub(crate) struct PlayerState {
     /// frames. ASM: stru_8BB4 = 7 anim frames × 3 VBlanks = 21 frames, driven
     /// by Hibernate_UntilAnimFinished (kid.asm:1982).
     pub(crate) ledge_snap_cooldown: u8,
+    /// ASM $FFFFFA72: wall side during wall-cling. Suppresses h_accel (sub_B084)
+    /// while active. Set on airborne wall hit (loc_A8DE), cleared on landing,
+    /// pressing away, or damage. Some(Right) = wall on right ($FFFFFA72=0),
+    /// Some(Left) = wall on left ($FFFFFA72=0xFF).
+    pub(crate) wall_cling_direction: Option<Direction>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

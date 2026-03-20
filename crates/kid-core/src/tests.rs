@@ -1889,6 +1889,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4651,6 +4652,7 @@ fn headbutt_prize_block_changes_to_empty() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4704,6 +4706,7 @@ fn headbutt_metal_block_does_not_clear() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4761,6 +4764,7 @@ fn headbutt_smash_block_changes_to_empty() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4814,6 +4818,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4868,6 +4873,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4926,6 +4932,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -4966,9 +4973,9 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
 
     let mut slice = OpeningSliceState {
         player: PlayerState {
-            x_pos: (26 << 16) + 0x0000_4000,
+            x_pos: 27 << 16,
             y_pos: 56 << 16,
-            x_velocity: 0x0000_4000,
+            x_velocity: 0x0001_0000,
             y_velocity: 0,
             facing: Direction::Right,
             on_ground: false,
@@ -4978,6 +4985,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -5032,6 +5040,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -5095,6 +5104,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -5144,6 +5154,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -5190,6 +5201,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -5335,6 +5347,7 @@ fn falling_straight_onto_enemy_is_stomp() {
         right_wall_sticky: false,
         left_wall_sticky: false,
         ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
     };
     let enemy = NativeObjectSnapshot {
         kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -5372,6 +5385,7 @@ fn mini_hopping_skull_graze_does_not_damage() {
         right_wall_sticky: false,
         left_wall_sticky: false,
         ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
     };
     let enemy = NativeObjectSnapshot {
         kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -8001,6 +8015,7 @@ fn floor_collision_sets_terrain_type_from_block() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8050,6 +8065,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8108,6 +8124,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8354,6 +8371,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8407,6 +8425,7 @@ fn evanescent_block_not_triggered_when_airborne() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8469,6 +8488,7 @@ fn evanescent_block_clears_after_timer_expires() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8540,6 +8560,7 @@ fn evanescent_block_with_skin_delay() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -8731,6 +8752,7 @@ fn evanescent_block_not_triggered_twice() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState { x_pos: 0, y_pos: 0 },
         terrain: TerrainState {
@@ -10816,6 +10838,7 @@ fn demo_bootstrap_first_visible_gameplay_frame_advances_camera_only() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState {
             x_pos: 0,
@@ -10885,6 +10908,7 @@ fn demo_bootstrap_keeps_hidden_system_object_through_last_grounded_frame() {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         },
         camera: CameraState {
             x_pos: 0,

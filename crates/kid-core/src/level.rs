@@ -639,6 +639,7 @@ impl NativeRuntime {
                 right_wall_sticky: false,
                 left_wall_sticky: false,
                 ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
             });
         };
 
@@ -670,6 +671,7 @@ impl NativeRuntime {
                 right_wall_sticky: false,
                 left_wall_sticky: false,
                 ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
             });
         }
 
@@ -691,6 +693,7 @@ impl NativeRuntime {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         })
     }
 
@@ -786,6 +789,7 @@ impl NativeRuntime {
                 right_wall_sticky: false,
                 left_wall_sticky: false,
                 ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
             });
         }
         let resume_entry_elapsed = elapsed.saturating_sub(TITLE_TO_LEVEL_FRAMES);
@@ -806,6 +810,7 @@ impl NativeRuntime {
                 right_wall_sticky: false,
                 left_wall_sticky: false,
                 ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
             });
         }
         None

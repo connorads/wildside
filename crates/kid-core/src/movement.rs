@@ -15,6 +15,7 @@ impl PlayerState {
             right_wall_sticky: false,
             left_wall_sticky: false,
             ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
         }
     }
 }
@@ -35,6 +36,7 @@ impl OpeningSliceState {
                 right_wall_sticky: false,
                 left_wall_sticky: false,
                 ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
             },
             camera: CameraState {
                 x_pos: 0,
@@ -87,6 +89,7 @@ impl OpeningSliceState {
                 right_wall_sticky: false,
                 left_wall_sticky: false,
                 ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
             },
             camera: CameraState {
                 x_pos: pose.camera_x_pos,
@@ -294,9 +297,24 @@ impl OpeningSliceState {
                     t.on_ground_before = on_ground_before;
                 }
 
-                // Step 1: sub_B084 — horizontal velocity only (no x_pos update)
-                let horizontal_step_applied =
-                    self.update_horizontal_velocity_only(input, jump_pressed, form, block_grid.as_deref());
+                // ASM loc_AA9C: pressing away from wall exits wall-cling.
+                if let Some(dir) = self.player.wall_cling_direction {
+                    let pressing_away = match dir {
+                        Direction::Right => input.left,
+                        Direction::Left => input.right,
+                    };
+                    if pressing_away {
+                        self.player.wall_cling_direction = None;
+                    }
+                }
+
+                // Step 1: sub_B084 — horizontal velocity only (no x_pos update).
+                // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
+                let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
+                    false
+                } else {
+                    self.update_horizontal_velocity_only(input, jump_pressed, form, block_grid.as_deref())
+                };
 
                 if let Some(ref mut t) = self.physics_trace {
                     // Record post-horizontal with unchanged x_pos (vel-only update)
@@ -437,6 +455,7 @@ impl OpeningSliceState {
         self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;
+        self.player.wall_cling_direction = None;
         // ASM has no jump buffer — the VBlank interrupt's Ctrl_1_Press is a
         // single-frame edge. Clear the buffer on ledge snap to prevent a
         // spurious jump on the next grounded frame.
@@ -892,9 +911,9 @@ impl OpeningSliceState {
         // ASM sub_8F26 tile-boundary guard (kid.asm:10335-10341): skip wall probe
         // if pixel displacement doesn't cross a 16px tile boundary. Without this,
         // a false probe hit zeroes sub-pixel via x_pos = clamped_center << 16.
-        // Suppressed when wall_sticky is set (player just hit a wall — ASM's
-        // loc_AA22 wall-cling prevents acceleration in this case, but native
-        // doesn't implement the cling yet so we must re-probe).
+        // Suppressed when wall_sticky is set (first frame after wall hit needs
+        // re-probe even though x_vel=0; subsequent wall-cling frames also have
+        // x_vel=0 so the early return at the top of this function handles them).
         let wall_stuck = (moving_right && self.player.right_wall_sticky)
             || (moving_left && self.player.left_wall_sticky);
         if !wall_stuck {
@@ -905,14 +924,16 @@ impl OpeningSliceState {
                 let displacement = new_px - old_px;
                 let right_edge = old_px + PLAYER_HALF_WIDTH;
                 let distance_to_tile = (-(right_edge + 1)) & 0xF;
-                if distance_to_tile > 0 && displacement <= distance_to_tile {
+                // ASM: cmp.w d0,d4 / ble (skip when displacement <= distance).
+                // Includes distance=0 case (player at tile boundary, no crossing).
+                if displacement <= distance_to_tile {
                     return;
                 }
             } else {
                 let displacement = old_px - new_px;
                 let left_edge = old_px - PLAYER_HALF_WIDTH;
                 let distance_to_tile = left_edge & 0xF;
-                if distance_to_tile > 0 && displacement <= distance_to_tile {
+                if displacement <= distance_to_tile {
                     return;
                 }
             }
@@ -999,6 +1020,15 @@ impl OpeningSliceState {
             self.player.x_velocity = 0;
             self.player.right_wall_sticky = moving_right && !self.player.on_ground;
             self.player.left_wall_sticky = moving_left && !self.player.on_ground;
+            // ASM loc_A8DE: enter wall-cling on airborne wall hit. Suppresses
+            // sub_B084 (h_accel) in subsequent frames until landing or press-away.
+            if !self.player.on_ground {
+                self.player.wall_cling_direction = Some(if moving_right {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                });
+            }
         } else {
             self.player.right_wall_sticky = false;
             self.player.left_wall_sticky = false;
@@ -1256,6 +1286,7 @@ impl OpeningSliceState {
                     } else {
                         self.player.on_ground = true;
                         self.player.y_velocity = 0;
+                        self.player.wall_cling_direction = None;
                     }
                     // Teleporter blocks warp player on contact
                     if probe.cell.has_block
@@ -1335,6 +1366,7 @@ impl OpeningSliceState {
         self.player.y_pos = floor_y_fp;
         self.player.on_ground = true;
         self.player.y_velocity = 0;
+        self.player.wall_cling_direction = None;
         self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
     }
 
