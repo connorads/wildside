@@ -255,6 +255,12 @@ impl NativeRuntime {
                     self.apply_demo_bootstrap_initial_settle();
                 }
                 Some(frame)
+                    if frame > demo::DEMO_BOOTSTRAP_INIT_FRAME
+                        && frame < demo::DEMO_BOOTSTRAP_GROUNDED_FRAME =>
+                {
+                    self.apply_demo_bootstrap_freefall(frame);
+                }
+                Some(frame)
                     if (demo::DEMO_BOOTSTRAP_GROUNDED_FRAME
                         ..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
                         .contains(&frame) =>

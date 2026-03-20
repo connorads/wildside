@@ -89,10 +89,28 @@ impl NativeRuntime {
             return;
         };
         // Load_InGame leaves the demo player one pixel above the later
-        // grounded hand-off pose, then the hidden bootstrap drops that pixel
-        // and advances camera follow once before the grounded hold begins.
+        // grounded hand-off pose, then the hidden bootstrap drops that pixel.
+        // on_ground=false starts the freefall phase (frames 67-69) where
+        // gravity-trajectory position updates happen without touching y_vel.
         slice.player.y_pos = slice.player.y_pos.saturating_add(0x0001_0000);
         slice.player.on_ground = false;
+        slice.player.y_velocity = 0;
+        slice.update_camera_follow(0);
+    }
+
+    /// During frames between initial_settle and grounded_hold, the ASM's demo
+    /// bootstrap applies gravity-trajectory position updates without touching
+    /// the kid object's y_vel field. The kid object is hibernating — sub_B168
+    /// (gravity) and sub_A4EE (position) don't run. Instead, the boot code
+    /// directly adjusts y_pos with accumulated gravity: Δy = frame * 0x4000.
+    pub(crate) fn apply_demo_bootstrap_freefall(&mut self, frame_counter: u16) {
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        let freefall_frame = u32::from(frame_counter - demo::DEMO_BOOTSTRAP_INIT_FRAME);
+        let shadow_vel = freefall_frame * 0x4000;
+        slice.player.y_pos = slice.player.y_pos.wrapping_add(shadow_vel);
+        // y_vel stays 0 — the kid object's velocity field is not used
         slice.player.y_velocity = 0;
         slice.update_camera_follow(0);
     }
