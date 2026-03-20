@@ -2370,6 +2370,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
+            physics_trace: None,
             })
             .collect();
         let diffs = check_walk_right_assertions(&trace, &scenario);
@@ -2448,6 +2449,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
+            physics_trace: None,
             })
             .collect();
 
@@ -2539,6 +2541,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
+            physics_trace: None,
             })
             .collect();
 
@@ -2726,6 +2729,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            physics_trace: None,
         };
 
         let old = vec![make_frame(0)];
@@ -2804,6 +2808,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            physics_trace: None,
         };
 
         let old = vec![frame.clone()];

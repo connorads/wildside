@@ -20,6 +20,7 @@ mod release_gate;
 mod scenarios;
 mod sweep;
 mod tas;
+mod tas_diff;
 mod tui_debugger;
 mod verify;
 
@@ -471,6 +472,29 @@ enum Commands {
         /// Binary-search for the first divergent frame within the range
         #[arg(long, default_value_t = false)]
         bisect: bool,
+    },
+    /// Side-by-side native vs oracle comparison for TAS debugging.
+    TasDiff {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON
+        #[arg(long)]
+        scenario: PathBuf,
+        #[arg(long)]
+        frame_start: Option<usize>,
+        #[arg(long)]
+        frame_end: Option<usize>,
+        /// Only show frames with divergences
+        #[arg(long, default_value_t = false)]
+        only_divergent: bool,
+        /// Include advisory field diffs in output
+        #[arg(long, default_value_t = false)]
+        include_advisory: bool,
+        /// Show PhysicsTrace sub-step values at divergent frames
+        #[arg(long, default_value_t = false)]
+        include_physics_trace: bool,
     },
     /// Import a BK2 TAS recording as a DynamicScenario JSON.
     ImportTas {
@@ -1157,6 +1181,32 @@ fn main() -> Result<()> {
                     checkpoint_interval,
                 )?;
             }
+        }
+        Commands::TasDiff {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+            only_divergent,
+            include_advisory,
+            include_physics_trace,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            tas_diff::run_tas_diff(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                &scenario,
+                frame_start,
+                frame_end,
+                only_divergent,
+                include_advisory,
+                include_physics_trace,
+            )?;
         }
         Commands::ImportTas {
             bk2,
@@ -2128,6 +2178,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            physics_trace: None,
             options_cursor: None,
             two_player: false,
         };
