@@ -1652,8 +1652,12 @@ fn jump_pressed_from_right_wall_sticky_catches_adjacent_ledge() {
     assert!(slice.try_snap_wall_sticky_ledge(true, &grid));
 
     assert_eq!(slice.player.x_pos, 68 << 16);
-    assert_eq!(slice.player.y_pos, 655 << 16);
+    // Wall-sticky ledge snap preserves sub-pixel from the player's trajectory,
+    // matching the ASM's move.w behaviour (sets pixel, keeps low word intact).
+    assert_eq!(slice.player.y_pos, (655 << 16) | 0x0000_E6E0);
     assert!(slice.player.on_ground);
+    // ASM has no jump buffer — ledge snap clears it to prevent spurious jumps.
+    assert_eq!(slice.player.jump_buffer_frames, 0);
 }
 
 #[test]

@@ -201,7 +201,10 @@ impl OpeningSliceState {
                     }
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
                         self.finalise_trace();
-                        self.update_camera_follow(y_look_offset);
+                        // ASM camera follow runs after all physics sub-steps. On the
+                        // ledge-snap frame, the camera follow sees the pre-snap
+                        // position — skip the follow here and let the next frame
+                        // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
                     self.apply_ceiling_collision(Some(grid), block_list);
@@ -239,7 +242,10 @@ impl OpeningSliceState {
                     self.apply_wall_collision(Some(grid));
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
                         self.finalise_trace();
-                        self.update_camera_follow(y_look_offset);
+                        // ASM camera follow runs after all physics sub-steps. On the
+                        // ledge-snap frame, the camera follow sees the pre-snap
+                        // position — skip the follow here and let the next frame
+                        // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
                     self.apply_ceiling_collision(Some(grid), block_list);
@@ -321,7 +327,10 @@ impl OpeningSliceState {
                     }
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
                         self.finalise_trace();
-                        self.update_camera_follow(y_look_offset);
+                        // ASM camera follow runs after all physics sub-steps. On the
+                        // ledge-snap frame, the camera follow sees the pre-snap
+                        // position — skip the follow here and let the next frame
+                        // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
                     self.apply_ceiling_collision(Some(grid), block_list);
@@ -403,13 +412,19 @@ impl OpeningSliceState {
 
         let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
         self.player.x_pos = (snap_x_px.max(0) as u32) << 16;
-        self.player.y_pos = floor_y_fp;
+        // Preserve sub-pixel from current position: ASM's ledge snap uses
+        // move.w to set the pixel part, leaving the low word (sub-pixel) intact.
+        self.player.y_pos = (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
         self.player.x_velocity = 0;
         self.player.y_velocity = 0;
         self.player.on_ground = true;
         self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;
+        // ASM has no jump buffer — the VBlank interrupt's Ctrl_1_Press is a
+        // single-frame edge. Clear the buffer on ledge snap to prevent a
+        // spurious jump on the next grounded frame.
+        self.player.jump_buffer_frames = 0;
         self.terrain.floor_y_pos = floor_y_fp;
         self.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
         true
