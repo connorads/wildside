@@ -1,12 +1,13 @@
 use super::*;
 
-/// Cache key for oracle runs: `(rom_sha1, script_sha1)`.
-/// Oracle output is deterministic for a given ROM + input script, so we
-/// cache results and only re-run when either changes.
+/// Cache key for oracle runs: `(oracle_name, rom_sha1, script_sha1)`.
+/// Oracle output is deterministic for a given backend + ROM + input script,
+/// so we cache results and only re-run when any component changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OracleCacheKey {
     pub(crate) rom_sha1: String,
     pub(crate) script_sha1: String,
+    pub(crate) oracle_name: String,
 }
 
 impl OracleCacheKey {
@@ -15,23 +16,30 @@ impl OracleCacheKey {
         Self {
             rom_sha1: sha1_hex(rom_bytes),
             script_sha1: sha1_hex(script),
+            oracle_name: "jgenesis".to_string(),
         }
     }
 
     /// Build a cache key from a DynamicScenario. Includes `warp_to_level`
     /// in the hash so that different target levels produce distinct keys,
     /// even when the post-warp script is identical.
-    pub(crate) fn from_scenario(rom_bytes: &[u8], scenario: &scenarios::DynamicScenario) -> Self {
+    pub(crate) fn from_scenario(
+        rom_bytes: &[u8],
+        scenario: &scenarios::DynamicScenario,
+        oracle_name: &str,
+    ) -> Self {
         let scenario_json = serde_json::to_vec(scenario).unwrap_or_default();
         Self {
             rom_sha1: sha1_hex(rom_bytes),
             script_sha1: sha1_hex(&scenario_json),
+            oracle_name: oracle_name.to_string(),
         }
     }
 
     pub(crate) fn cache_dir(&self, repo_root: &Path) -> PathBuf {
         repo_root
             .join(".cache/oracle-cache")
+            .join(&self.oracle_name)
             .join(&self.rom_sha1)
             .join(&self.script_sha1)
     }

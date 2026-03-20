@@ -2,7 +2,7 @@ use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite};
 use native_player::render_gameplay_frame_evidence_for_level;
-use oracle::run_jgenesis_capture_dynamic;
+use oracle::{JgenesisBackend, OracleBackend, run_jgenesis_capture_dynamic};
 use rayon::prelude::*;
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, idle_level_scenario, prize_block_scenario,
@@ -319,6 +319,7 @@ pub(crate) fn run_sweep_with_options(
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
 
     let env = ensure_oracles(repo_root)?;
+    let backend: Box<dyn OracleBackend> = Box::new(JgenesisBackend { env: env.clone() });
 
     // Warm-cache-only: populate oracle cache in parallel, skip native runs.
     if options.warm_cache_only {
@@ -344,7 +345,7 @@ pub(crate) fn run_sweep_with_options(
         for &level_id in levels {
             println!("sweep level {level_id:#04x}...");
             let result = sweep_single_level(
-                repo_root, rom_path, &rom_bytes, manifest, &env, &run_dir, level_id, tier,
+                repo_root, rom_path, &rom_bytes, manifest, &*backend, &run_dir, level_id, tier,
             );
             let (r, failed) = finalise_level_result(level_id, tier, result);
             print_level_result(&r);
@@ -369,7 +370,7 @@ pub(crate) fn run_sweep_with_options(
             .map(|&level_id| {
                 println!("sweep level {level_id:#04x}...");
                 let result = sweep_single_level(
-                    repo_root, rom_path, &rom_bytes, manifest, &env, &run_dir, level_id, tier,
+                    repo_root, rom_path, &rom_bytes, manifest, &*backend, &run_dir, level_id, tier,
                 );
                 (level_id, result)
             })
@@ -475,7 +476,7 @@ fn sweep_single_level(
     rom_path: &Path,
     rom_bytes: &[u8],
     manifest: &AssetManifest,
-    env: &OracleEnvironment,
+    backend: &dyn OracleBackend,
     run_dir: &Path,
     level_id: u8,
     requested_tier: SweepTier,
@@ -497,7 +498,7 @@ fn sweep_single_level(
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
 
     // Run oracle (with caching)
-    let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario);
+    let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario, backend.name());
     let oracle = match load_cached_oracle(&cache_key, repo_root) {
         Some(cached) => cached,
         None => {
@@ -508,7 +509,7 @@ fn sweep_single_level(
 
             let oracle_dir = level_dir.join("oracle");
             fs::create_dir_all(&oracle_dir)?;
-            let oracle = run_jgenesis_capture_dynamic(env, rom_path, &scenario_file, &oracle_dir, None)?;
+            let oracle = backend.run_scenario(rom_path, &scenario_file, &oracle_dir, None)?;
             let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
             oracle
         }
@@ -1143,7 +1144,7 @@ fn warm_oracle_cache(
             .iter()
             .map(|&level_id| {
                 let scenario = idle_level_scenario(level_id, None);
-                let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario);
+                let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario, "jgenesis");
 
                 // Already cached?
                 if load_cached_oracle(&cache_key, repo_root).is_some() {

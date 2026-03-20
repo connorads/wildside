@@ -12,6 +12,39 @@ const JGENESIS_URL: &str = "https://github.com/jsgroth/jgenesis";
 const JGENESIS_COMMIT: &str = "8e5ed096d90ef08060813fc157222fe466b967d2";
 const HELPER_TEMPLATE: &str = include_str!("oracle_helper_main.rs.txt");
 
+/// Abstraction over emulator backends for oracle comparison.
+pub(crate) trait OracleBackend: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn run_scenario(
+        &self,
+        rom_path: &Path,
+        scenario_file: &Path,
+        out_dir: &Path,
+        skip_frames_before: Option<usize>,
+    ) -> Result<OracleManifest>;
+}
+
+/// jgenesis-based oracle backend (default).
+pub(crate) struct JgenesisBackend {
+    pub(crate) env: OracleEnvironment,
+}
+
+impl OracleBackend for JgenesisBackend {
+    fn name(&self) -> &'static str {
+        "jgenesis"
+    }
+
+    fn run_scenario(
+        &self,
+        rom_path: &Path,
+        scenario_file: &Path,
+        out_dir: &Path,
+        skip_frames_before: Option<usize>,
+    ) -> Result<OracleManifest> {
+        run_jgenesis_capture_dynamic(&self.env, rom_path, scenario_file, out_dir, skip_frames_before)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct OracleEnvironment {
     pub jgenesis_helper_bin: PathBuf,
