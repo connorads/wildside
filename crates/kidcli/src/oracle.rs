@@ -1,6 +1,7 @@
 use crate::scenarios::Scenario;
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,6 +12,14 @@ const BLASTEM_COMMIT: &str = "277e4a62668597d4f59cadda1cbafb844f981d45";
 const JGENESIS_URL: &str = "https://github.com/jsgroth/jgenesis";
 const JGENESIS_COMMIT: &str = "8e5ed096d90ef08060813fc157222fe466b967d2";
 const HELPER_TEMPLATE: &str = include_str!("oracle_helper_main.rs.txt");
+
+/// Extra options for oracle runs beyond the base scenario.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct OracleRunOptions {
+    pub(crate) skip_frames_before: Option<usize>,
+    pub(crate) memory_watches: Option<String>,
+    pub(crate) wram_dump_frames: Option<String>,
+}
 
 /// Abstraction over emulator backends for oracle comparison.
 pub(crate) trait OracleBackend: Send + Sync {
@@ -61,6 +70,8 @@ pub struct OracleManifest {
     pub states: Vec<OracleState>,
     #[serde(default)]
     pub frame_crcs: Vec<u32>,
+    #[serde(default)]
+    pub memory_watches: Vec<HashMap<String, i64>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
@@ -259,6 +270,36 @@ pub fn run_jgenesis_capture_dynamic(
         .arg(scenario_file);
     if let Some(skip) = skip_frames_before {
         cmd.arg("--skip-frames-before").arg(skip.to_string());
+    }
+    let stdout = capture_stdout(&mut cmd, None)?;
+    serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
+}
+
+/// Run the jgenesis oracle with full options including memory watches and WRAM dumps.
+pub fn run_jgenesis_capture_dynamic_with_options(
+    env: &OracleEnvironment,
+    rom_path: &Path,
+    scenario_file: &Path,
+    out_dir: &Path,
+    options: &OracleRunOptions,
+) -> Result<OracleManifest> {
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+    let mut cmd = Command::new(&env.jgenesis_helper_bin);
+    cmd.arg("--rom")
+        .arg(rom_path)
+        .arg("--out-dir")
+        .arg(out_dir)
+        .arg("--scenario-file")
+        .arg(scenario_file);
+    if let Some(skip) = options.skip_frames_before {
+        cmd.arg("--skip-frames-before").arg(skip.to_string());
+    }
+    if let Some(ref watches) = options.memory_watches {
+        cmd.arg("--memory-watches").arg(watches);
+    }
+    if let Some(ref frames) = options.wram_dump_frames {
+        cmd.arg("--wram-dump-frames").arg(frames);
     }
     let stdout = capture_stdout(&mut cmd, None)?;
     serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")

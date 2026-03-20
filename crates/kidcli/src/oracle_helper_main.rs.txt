@@ -72,6 +72,63 @@ struct ResolvedScenario {
     warp_to_level: Option<u8>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum WatchType {
+    U8,
+    U16,
+    U32,
+    I32,
+}
+
+#[derive(Debug, Clone)]
+struct MemoryWatch {
+    address: usize,
+    watch_type: WatchType,
+    label: String,
+}
+
+fn parse_memory_watches(spec: &str) -> Result<Vec<MemoryWatch>> {
+    if spec.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut watches = Vec::new();
+    for item in spec.split(',') {
+        let (addr_str, type_str) = item.split_once(':').ok_or_else(|| {
+            anyhow!("memory watch must be ADDRESS:TYPE, got {item}")
+        })?;
+        let address = usize::from_str_radix(addr_str.trim_start_matches("0x").trim_start_matches("0X"), 16)
+            .with_context(|| format!("invalid address in memory watch: {addr_str}"))?;
+        let watch_type = match type_str.to_ascii_lowercase().as_str() {
+            "u8" => WatchType::U8,
+            "u16" => WatchType::U16,
+            "u32" => WatchType::U32,
+            "i32" => WatchType::I32,
+            other => return Err(anyhow!("unknown watch type {other}; use u8/u16/u32/i32")),
+        };
+        let label = format!("{addr_str}:{type_str}");
+        watches.push(MemoryWatch { address, watch_type, label });
+    }
+    Ok(watches)
+}
+
+fn read_watch_value(work_ram: &[u8], watch: &MemoryWatch) -> i64 {
+    match watch.watch_type {
+        WatchType::U8 => i64::from(read_wram_u8(work_ram, watch.address)),
+        WatchType::U16 => i64::from(read_wram_u16(work_ram, watch.address)),
+        WatchType::U32 => i64::from(read_wram_u32(work_ram, watch.address)),
+        WatchType::I32 => i64::from(read_wram_i32(work_ram, watch.address)),
+    }
+}
+
+fn parse_frame_list(spec: &str) -> Result<Vec<usize>> {
+    if spec.is_empty() {
+        return Ok(Vec::new());
+    }
+    spec.split(',')
+        .map(|s| s.trim().parse::<usize>().with_context(|| format!("invalid frame number: {s}")))
+        .collect()
+}
+
 #[derive(Debug, Serialize)]
 struct OracleManifest {
     sample_rate: u32,
@@ -79,7 +136,11 @@ struct OracleManifest {
     frames: Vec<OracleFrame>,
     states: Vec<OracleState>,
     frame_crcs: Vec<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    memory_watches: Vec<HashMap<String, i64>>,
 }
+
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize)]
 struct OracleEnemyLayoutTraceManifest {
@@ -319,6 +380,8 @@ fn main() -> Result<()> {
     let mut scenario_file = None;
     let mut mode = OutputMode::Capture;
     let mut skip_frames_before: Option<usize> = None;
+    let mut memory_watches_spec = String::new();
+    let mut wram_dump_frames_spec = String::new();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -328,6 +391,8 @@ fn main() -> Result<()> {
             "--scenario-file" => scenario_file = args.next().map(PathBuf::from),
             "--mode" => mode = parse_mode(&args.next().context("missing --mode value")?)?,
             "--skip-frames-before" => skip_frames_before = args.next().and_then(|s| s.parse().ok()),
+            "--memory-watches" => memory_watches_spec = args.next().unwrap_or_default(),
+            "--wram-dump-frames" => wram_dump_frames_spec = args.next().unwrap_or_default(),
             other => return Err(anyhow!("unknown arg {other}")),
         }
     }
@@ -338,12 +403,14 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
     let resolved = resolve_scenario(scenario_slug.as_deref(), scenario_file.as_deref())?;
+    let memory_watches = parse_memory_watches(&memory_watches_spec)?;
+    let wram_dump_frames = parse_frame_list(&wram_dump_frames_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -396,7 +463,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize]) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -407,6 +474,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut rendered_frames = Vec::new();
     let mut captured_states = Vec::new();
     let mut frame_crcs: Vec<u32> = Vec::with_capacity(resolved.frame_count);
+    let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
     if let Some(target_level) = resolved.warp_to_level {
@@ -470,6 +538,23 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                     crc_hasher.update(&read_wram_u8(&work_ram, CURRENT_PLAYER_ADDR).to_le_bytes());
                     crc_hasher.update(&read_wram_u16(&work_ram, PLAYER_1_LEVEL_ID_ADDR).to_le_bytes());
                     frame_crcs.push(crc_hasher.finalize());
+
+                    // Memory watches: read requested addresses from WRAM
+                    if !memory_watches.is_empty() {
+                        let mut watch_map = HashMap::new();
+                        watch_map.insert("frame".to_string(), frame_index as i64);
+                        for watch in memory_watches {
+                            watch_map.insert(watch.label.clone(), read_watch_value(&work_ram, watch));
+                        }
+                        all_memory_watches.push(watch_map);
+                    }
+
+                    // WRAM dump: write full 64KB to file at requested frames
+                    if wram_dump_frames.contains(&frame_index) {
+                        let dump_path = out_dir.join(format!("wram_frame_{frame_index}.bin"));
+                        fs::write(&dump_path, &work_ram)
+                            .with_context(|| format!("failed to write {}", dump_path.display()))?;
+                    }
                 }
                 frame_index += 1;
                 break;
@@ -485,6 +570,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         frames: rendered_frames,
         states: captured_states,
         frame_crcs,
+        memory_watches: all_memory_watches,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())

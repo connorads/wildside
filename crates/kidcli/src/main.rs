@@ -14,6 +14,7 @@ mod inspect;
 mod native_player;
 mod oracle;
 mod player;
+mod ram_diff;
 mod recording;
 mod release_gate;
 mod scenarios;
@@ -517,6 +518,38 @@ enum Commands {
         /// Only run up to this frame
         #[arg(long)]
         frame_end: Option<usize>,
+    },
+    /// Probe oracle RAM at arbitrary addresses across a frame range.
+    OracleProbe {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON
+        #[arg(long)]
+        scenario: PathBuf,
+        /// First frame to include in output
+        #[arg(long)]
+        frame_start: Option<usize>,
+        /// Last frame to include in output
+        #[arg(long)]
+        frame_end: Option<usize>,
+        /// Memory watches: ADDRESS:TYPE pairs (e.g. 0xFF24FE:u32,0xFF2502:i32)
+        #[arg(long)]
+        watches: Option<String>,
+        /// Frames at which to dump full 64KB WRAM (e.g. 954,955,956)
+        #[arg(long)]
+        wram_dump_frames: Option<String>,
+    },
+    /// Diff two WRAM dump files byte-by-byte, highlighting changed addresses.
+    RamDiff {
+        /// First WRAM dump file
+        file_a: PathBuf,
+        /// Second WRAM dump file
+        file_b: PathBuf,
+        /// Cross-reference known RAM addresses from variables.asm
+        #[arg(long, default_value_t = false)]
+        annotate: bool,
     },
 }
 
@@ -1224,6 +1257,119 @@ fn main() -> Result<()> {
 
             let debugger = tui_debugger::TuiDebugger::new(native_trace, &oracle);
             debugger.run()?;
+        }
+        Commands::OracleProbe {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+            watches,
+            wram_dump_frames,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let _manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+
+            // Load and optionally slice the scenario
+            let raw_json = fs::read_to_string(&scenario)
+                .with_context(|| format!("failed to read {}", scenario.display()))?;
+            let mut dyn_scenario: scenarios::DynamicScenario = serde_json::from_str(&raw_json)?;
+
+            // Override frame_count if frame_end is specified
+            if let Some(end) = frame_end {
+                dyn_scenario.frame_count = end + 1;
+            }
+
+            // Generate checkpoints for every frame in the range
+            let start = frame_start.unwrap_or(0);
+            let end = frame_end.unwrap_or(dyn_scenario.frame_count.saturating_sub(1));
+            dyn_scenario.checkpoints = (start..=end)
+                .map(|f| scenarios::DynamicCheckpoint {
+                    label: format!("f{f}"),
+                    frame_index: f,
+                })
+                .collect();
+
+            // Write the sliced scenario
+            let run_dir = repo_root.join(".cache/oracle-probe");
+            fs::create_dir_all(&run_dir)?;
+            let scenario_file = run_dir.join("scenario.json");
+            fs::write(
+                &scenario_file,
+                serde_json::to_vec_pretty(&dyn_scenario)?,
+            )?;
+
+            // Run oracle with memory watches
+            let env = crate::oracle::ensure_oracles(&repo_root)?;
+            let oracle_dir = run_dir.join("oracle");
+            fs::create_dir_all(&oracle_dir)?;
+
+            let options = crate::oracle::OracleRunOptions {
+                skip_frames_before: frame_start,
+                memory_watches: watches.clone(),
+                wram_dump_frames: wram_dump_frames.clone(),
+            };
+            let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(
+                &env,
+                &rom_path,
+                &scenario_file,
+                &oracle_dir,
+                &options,
+            )?;
+
+            // Output memory watches as CSV
+            if !oracle_manifest.memory_watches.is_empty() {
+                // Collect all column names (excluding "frame")
+                let mut columns: Vec<String> = Vec::new();
+                for watch_map in &oracle_manifest.memory_watches {
+                    for key in watch_map.keys() {
+                        if key != "frame" && !columns.contains(key) {
+                            columns.push(key.clone());
+                        }
+                    }
+                }
+                columns.sort();
+
+                // Print header
+                print!("frame");
+                for col in &columns {
+                    print!(",{col}");
+                }
+                println!();
+
+                // Print rows
+                for watch_map in &oracle_manifest.memory_watches {
+                    let frame = watch_map.get("frame").copied().unwrap_or(-1);
+                    print!("{frame}");
+                    for col in &columns {
+                        let val = watch_map.get(col).copied().unwrap_or(0);
+                        print!(",0x{val:X}");
+                    }
+                    println!();
+                }
+            }
+
+            // Report WRAM dumps
+            if wram_dump_frames.is_some() {
+                eprintln!("WRAM dumps written to {}", oracle_dir.display());
+            }
+
+            // Also output checkpoint states for the range
+            let state_count = oracle_manifest.states.len();
+            eprintln!(
+                "Oracle probe complete: {} state checkpoints, {} watch rows",
+                state_count,
+                oracle_manifest.memory_watches.len()
+            );
+        }
+        Commands::RamDiff {
+            file_a,
+            file_b,
+            annotate,
+        } => {
+            ram_diff::run_ram_diff(&file_a, &file_b, annotate)?;
         }
     }
     Ok(())
