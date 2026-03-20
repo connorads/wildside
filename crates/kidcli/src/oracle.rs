@@ -26,6 +26,8 @@ pub struct OracleManifest {
     pub audio_path: PathBuf,
     pub frames: Vec<OracleFrame>,
     pub states: Vec<OracleState>,
+    #[serde(default)]
+    pub frame_crcs: Vec<u32>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
@@ -252,7 +254,7 @@ fn write_helper_project(helper_dir: &Path, repo_root: &Path, jgenesis_dir: &Path
         .with_context(|| format!("failed to create {}", src_dir.display()))?;
 
     let cargo_toml = format!(
-        "[package]\nname = \"kid-jgenesis-oracle\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n[dependencies]\nanyhow = \"1\"\nbincode = \"2\"\ngenesis-config = {{ path = {:?} }}\ngenesis-core = {{ path = {:?} }}\nhound = \"3.5.1\"\nimage = {{ version = \"0.25.8\", default-features = false, features = [\"png\"] }}\njgenesis-common = {{ path = {:?} }}\nkid-core = {{ path = {:?} }}\nserde = {{ version = \"1\", features = [\"derive\"] }}\nserde_json = \"1\"\nsha1 = \"0.10.6\"\n",
+        "[package]\nname = \"kid-jgenesis-oracle\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n[dependencies]\nanyhow = \"1\"\nbincode = \"2\"\ncrc32fast = \"1.4\"\ngenesis-config = {{ path = {:?} }}\ngenesis-core = {{ path = {:?} }}\nhound = \"3.5.1\"\nimage = {{ version = \"0.25.8\", default-features = false, features = [\"png\"] }}\njgenesis-common = {{ path = {:?} }}\nkid-core = {{ path = {:?} }}\nserde = {{ version = \"1\", features = [\"derive\"] }}\nserde_json = \"1\"\nsha1 = \"0.10.6\"\n",
         jgenesis_dir.join("config/genesis-config"),
         jgenesis_dir.join("backend/genesis-core"),
         jgenesis_dir.join("common/jgenesis-common"),

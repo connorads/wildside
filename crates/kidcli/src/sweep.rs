@@ -588,6 +588,17 @@ fn summarise_results(results: &[LevelSweepResult]) -> DivergenceSummary {
     summary
 }
 
+/// Compare per-frame CRC arrays, returning the index of the first mismatch.
+pub(crate) fn find_first_crc_mismatch(
+    native_crcs: &[u32],
+    oracle_crcs: &[u32],
+) -> Option<usize> {
+    native_crcs
+        .iter()
+        .zip(oracle_crcs.iter())
+        .position(|(n, o)| n != o)
+}
+
 /// Extract NativeTraceFrame fields at checkpoint frame indices, returning
 /// OracleState-compatible structs for comparison.
 pub(crate) fn extract_checkpoint_states(

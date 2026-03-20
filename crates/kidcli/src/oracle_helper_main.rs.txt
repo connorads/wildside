@@ -78,6 +78,7 @@ struct OracleManifest {
     audio_path: PathBuf,
     frames: Vec<OracleFrame>,
     states: Vec<OracleState>,
+    frame_crcs: Vec<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -403,6 +404,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Resul
     let mut frame_index = 0usize;
     let mut rendered_frames = Vec::new();
     let mut captured_states = Vec::new();
+    let mut frame_crcs: Vec<u32> = Vec::with_capacity(resolved.frame_count);
 
     // Pre-warp: boot to level 0, then advance to target level.
     if let Some(target_level) = resolved.warp_to_level {
@@ -443,6 +445,27 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Resul
                     ));
                     checkpoint_index += 1;
                 }
+                // Per-frame CRC of authoritative RAM state
+                {
+                    let work_ram = capture_memory(&mut emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
+                    let mut crc_hasher = crc32fast::Hasher::new();
+                    crc_hasher.update(&read_wram_u16(&work_ram, GAME_MODE_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u16(&work_ram, CURRENT_LEVEL_ID_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u32(&work_ram, CAMERA_X_POS_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u32(&work_ram, CAMERA_Y_POS_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u32(&work_ram, KID_X_POS_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u32(&work_ram, KID_Y_POS_ADDR).to_le_bytes());
+                    // Player velocity from first GFX object slot
+                    crc_hasher.update(&read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_X_VEL_OFFSET).to_le_bytes());
+                    crc_hasher.update(&read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_Y_VEL_OFFSET).to_le_bytes());
+                    crc_hasher.update(&read_wram_u16(&work_ram, CURRENT_HELMET_ID_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u32(&work_ram, SCORE_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u16(&work_ram, NUMBER_DIAMONDS_ADDR).to_le_bytes());
+                    crc_hasher.update(&[read_wram_u8(&work_ram, DIAMOND_POWER_ACTIVE_ADDR)]);
+                    crc_hasher.update(&read_wram_u8(&work_ram, CURRENT_PLAYER_ADDR).to_le_bytes());
+                    crc_hasher.update(&read_wram_u16(&work_ram, PLAYER_1_LEVEL_ID_ADDR).to_le_bytes());
+                    frame_crcs.push(crc_hasher.finalize());
+                }
                 frame_index += 1;
                 break;
             }
@@ -456,6 +479,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario) -> Resul
         audio_path,
         frames: rendered_frames,
         states: captured_states,
+        frame_crcs,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
     Ok(())

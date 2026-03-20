@@ -396,6 +396,16 @@ pub fn verify_tas(
     let oracle =
         crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
 
+    // Per-frame CRC comparison (fast divergence detection)
+    let native_crcs: Vec<u32> = native_trace.iter().map(|f| f.authoritative_crc32()).collect();
+    if !oracle.frame_crcs.is_empty() {
+        if let Some(first_mismatch) = crate::sweep::find_first_crc_mismatch(&native_crcs, &oracle.frame_crcs) {
+            println!("  CRC divergence at frame {first_mismatch}");
+        } else {
+            println!("  CRC: all {} frames match", native_crcs.len().min(oracle.frame_crcs.len()));
+        }
+    }
+
     // Compare
     let state_diffs = crate::sweep::compare_sweep_states(&native_states, &oracle.states);
     let empty_set: std::collections::HashSet<&str> = std::collections::HashSet::new();
@@ -679,6 +689,66 @@ pub fn bisect_tas(
         "bisect-tas: {} (frames {start}..{end})",
         scenario.slug
     );
+
+    // Fast path: use per-frame CRC arrays if oracle supports them
+    println!("  computing native CRCs ({end} frames)...");
+    let native_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &scenario.script[..end.min(scenario.script.len())],
+        end,
+        scenario.warp_to_level,
+    );
+    let native_crcs: Vec<u32> = native_trace.iter().map(|f| f.authoritative_crc32()).collect();
+
+    // Run oracle for full CRC arrays
+    println!("  running oracle for CRC comparison ({end} frames)...");
+    let crc_checkpoints = vec![DynamicCheckpoint {
+        label: format!("frame_{}", end.saturating_sub(1)),
+        frame_index: end.saturating_sub(1),
+    }];
+    let crc_scenario = DynamicScenario {
+        slug: scenario.slug.clone(),
+        script: scenario.script[..end.min(scenario.script.len())].to_vec(),
+        frame_count: end,
+        checkpoints: crc_checkpoints,
+        warp_to_level: scenario.warp_to_level,
+    };
+    let run_dir = repo_root.join(".cache/tas-verify").join(&scenario.slug).join("bisect");
+    std::fs::create_dir_all(&run_dir)?;
+    let scenario_file = run_dir.join("scenario.json");
+    std::fs::write(&scenario_file, serde_json::to_vec_pretty(&crc_scenario)?)?;
+    let env = crate::oracle::ensure_oracles(repo_root)?;
+    let oracle_dir = run_dir.join("oracle");
+    std::fs::create_dir_all(&oracle_dir)?;
+    let oracle = crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
+
+    if !oracle.frame_crcs.is_empty() {
+        match crate::sweep::find_first_crc_mismatch(&native_crcs, &oracle.frame_crcs) {
+            Some(frame_idx) => {
+                println!();
+                println!("  RESULT: first CRC divergence at frame {frame_idx}");
+                // Get the native and oracle state at that frame for details
+                if let Some(native_frame) = native_trace.get(frame_idx) {
+                    println!("    native: mode={:#06x} level={:02x} kid=({:#010x},{:#010x}) vel=({:?},{:?})",
+                        native_frame.game_mode_value,
+                        native_frame.current_level.0,
+                        native_frame.kid_x_pos.unwrap_or(0),
+                        native_frame.kid_y_pos.unwrap_or(0),
+                        native_frame.kid_x_velocity,
+                        native_frame.kid_y_velocity,
+                    );
+                }
+                return Ok(());
+            }
+            None => {
+                println!("  PASS: all {} frames match by CRC", native_crcs.len().min(oracle.frame_crcs.len()));
+                return Ok(());
+            }
+        }
+    }
+
+    // Fallback: legacy binary search if oracle doesn't provide CRCs
+    println!("  oracle has no CRC data, falling back to checkpoint bisection...");
 
     // Phase 1: coarse scan with interval=50
     let coarse_interval = 50;

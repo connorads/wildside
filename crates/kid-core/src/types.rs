@@ -323,6 +323,29 @@ pub struct NativeTraceFrame {
     pub sound_test_play_pending: bool,
 }
 
+impl NativeTraceFrame {
+    /// CRC32 of authoritative fields — used for fast divergence detection.
+    /// Excludes advisory fields (number_objects, number_hitpoints, number_lives, murder_wall_x).
+    pub fn authoritative_crc32(&self) -> u32 {
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&self.game_mode_value.to_le_bytes());
+        hasher.update(&(self.current_level.0 as u16).to_le_bytes());
+        hasher.update(&self.camera_x_pos.to_le_bytes());
+        hasher.update(&self.camera_y_pos.to_le_bytes());
+        hasher.update(&self.kid_x_pos.unwrap_or(0).to_le_bytes());
+        hasher.update(&self.kid_y_pos.unwrap_or(0).to_le_bytes());
+        hasher.update(&self.kid_x_velocity.unwrap_or(0).to_le_bytes());
+        hasher.update(&self.kid_y_velocity.unwrap_or(0).to_le_bytes());
+        hasher.update(&self.current_helmet_id.to_le_bytes());
+        hasher.update(&self.score.to_le_bytes());
+        hasher.update(&self.diamond_count.to_le_bytes());
+        hasher.update(&[self.diamond_power_active as u8]);
+        hasher.update(&self.current_player.to_le_bytes());
+        hasher.update(&(self.player_1_level_id.0 as u16).to_le_bytes());
+        hasher.finalize()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeObjectSnapshot {
     pub kind: NativeObjectKind,
