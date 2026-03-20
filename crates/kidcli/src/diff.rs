@@ -17,6 +17,14 @@ pub(crate) fn frame_mae(native: &[u8], oracle: &[u8]) -> f32 {
     sum as f32 / native.len() as f32
 }
 
+/// Count the number of pixels that differ between two RGB buffers.
+pub(crate) fn pixel_mismatch_count(a: &[u8], b: &[u8]) -> usize {
+    a.chunks_exact(3)
+        .zip(b.chunks_exact(3))
+        .filter(|(pa, pb)| pa != pb)
+        .count()
+}
+
 /// Generate a 3-panel composite RGB image: [native | oracle | amplified_diff].
 ///
 /// `w` and `h` are the dimensions of each individual frame.
@@ -112,6 +120,27 @@ pub(crate) fn annotate_diff(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pixel_mismatch_identical_is_zero() {
+        let frame = vec![128u8; 320 * 224 * 3];
+        assert_eq!(pixel_mismatch_count(&frame, &frame), 0);
+    }
+
+    #[test]
+    fn pixel_mismatch_all_different() {
+        let black = vec![0u8; 12]; // 4 pixels
+        let white = vec![255u8; 12];
+        assert_eq!(pixel_mismatch_count(&black, &white), 4);
+    }
+
+    #[test]
+    fn pixel_mismatch_partial() {
+        // 3 pixels: first matches, second differs in R, third differs in all
+        let a = vec![10, 20, 30, 40, 50, 60, 70, 80, 90];
+        let b = vec![10, 20, 30, 41, 50, 60, 0, 0, 0];
+        assert_eq!(pixel_mismatch_count(&a, &b), 2);
+    }
 
     #[test]
     fn mae_identical_frames_is_zero() {

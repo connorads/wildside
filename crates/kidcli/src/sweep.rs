@@ -1,6 +1,6 @@
 use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
-use diff::{annotate_diff, frame_mae, generate_diff_composite};
+use diff::{annotate_diff, frame_mae, generate_diff_composite, pixel_mismatch_count};
 use native_player::render_gameplay_frame_evidence_for_level;
 use oracle::{JgenesisBackend, OracleBackend, run_jgenesis_capture_dynamic};
 use rayon::prelude::*;
@@ -95,6 +95,8 @@ pub(crate) struct LevelSweepResult {
     pub(crate) passed: bool,
     pub(crate) state_diffs: Vec<StateDiff>,
     pub(crate) mae: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) pixel_mismatches: Option<usize>,
     pub(crate) diff_images: Vec<String>,
     pub(crate) error: Option<String>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
@@ -216,6 +218,7 @@ fn finalise_level_result(
                 passed: false,
                 state_diffs: Vec::new(),
                 mae: None,
+                pixel_mismatches: None,
                 diff_images: Vec::new(),
                 error: Some(format!("{e:#}")),
                 divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
@@ -240,6 +243,10 @@ fn print_level_result(r: &LevelSweepResult) {
         "FAIL"
     };
     let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
+    let px_str = r
+        .pixel_mismatches
+        .map(|v| format!(" px_diff={v}"))
+        .unwrap_or_default();
     let blocking_diffs = r.divergence_summary.authoritative
         + r.divergence_summary.accumulation
         + r.divergence_summary.rng;
@@ -255,7 +262,10 @@ fn print_level_result(r: &LevelSweepResult) {
         (b, 0, o) => format!(" ({b} blocking diffs, {o} oracle limitations)"),
         (b, a, o) => format!(" ({b} blocking diffs, {a} advisory, {o} oracle limitations)"),
     };
-    println!("  level {:#04x}: {status}{mae_str}{diff_count}", r.level_id);
+    println!(
+        "  level {:#04x}: {status}{mae_str}{px_str}{diff_count}",
+        r.level_id
+    );
 }
 
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
@@ -527,6 +537,7 @@ fn sweep_single_level(
             passed: false,
             state_diffs: Vec::new(),
             mae: None,
+            pixel_mismatches: None,
             diff_images: Vec::new(),
             error: Some(format!(
                 "oracle warp broken: game_mode={:#06x}",
@@ -578,11 +589,12 @@ fn sweep_single_level(
     };
 
     let mut mae_val = None;
+    let mut pixel_mismatches_val = None;
     let mut diff_images = Vec::new();
 
     if effective_tier == SweepTier::Frames || effective_tier == SweepTier::Full {
         // Capture native frames at checkpoints and compare with oracle PNGs
-        if let Some(best_mae) = compare_checkpoint_frames(
+        let (best_mae, best_pixel_mismatches) = compare_checkpoint_frames(
             manifest,
             &native_trace,
             &scenario,
@@ -590,9 +602,9 @@ fn sweep_single_level(
             &level_dir,
             level_id,
             &oracle_paused_checkpoints,
-        )? {
-            mae_val = Some(best_mae);
-        }
+        )?;
+        mae_val = best_mae;
+        pixel_mismatches_val = best_pixel_mismatches;
 
         // Collect diff image paths
         for entry in fs::read_dir(&level_dir)? {
@@ -604,6 +616,8 @@ fn sweep_single_level(
         }
     }
 
+    // Goal: 0 MAE (pixel-perfect). Current threshold kept at 32 for compatibility
+    // with oracle-pause artefacts. Use pixel_mismatches for strict comparison.
     let passed = state_passed && mae_val.is_none_or(|v| v < 32.0);
 
     Ok(LevelSweepResult {
@@ -613,6 +627,7 @@ fn sweep_single_level(
         passed,
         state_diffs,
         mae: mae_val,
+        pixel_mismatches: pixel_mismatches_val,
         diff_images,
         error: None,
         divergence_summary,
@@ -906,7 +921,7 @@ pub(crate) fn compare_sweep_states(
 }
 
 /// Capture native frames at checkpoint indices and compare against oracle PNGs.
-/// Returns the worst (maximum) MAE across checkpoints.
+/// Returns (worst MAE, worst pixel mismatch count) across checkpoints.
 fn compare_checkpoint_frames(
     manifest: &AssetManifest,
     native_trace: &[NativeTraceFrame],
@@ -915,8 +930,9 @@ fn compare_checkpoint_frames(
     level_dir: &Path,
     level_id: u8,
     oracle_paused_checkpoints: &std::collections::HashSet<&str>,
-) -> Result<Option<f32>> {
+) -> Result<(Option<f32>, Option<usize>)> {
     let mut worst_mae: Option<f32> = None;
+    let mut worst_pixel_mismatches: Option<usize> = None;
 
     // Convert DynamicCheckpoints to GameplayCheckpoints for the renderer.
     let gameplay_checkpoints: Vec<scenarios::GameplayCheckpoint> = scenario
@@ -961,8 +977,18 @@ fn compare_checkpoint_frames(
         let (_label, _frame_idx, w, h, native_rgb) = native_evidence;
         let oracle_rgb = load_png_rgb(&oracle_frame.png_path)?;
         let mae = frame_mae(native_rgb, &oracle_rgb);
+        let mismatched_pixels = pixel_mismatch_count(native_rgb, &oracle_rgb);
 
         worst_mae = Some(worst_mae.map_or(mae, |w: f32| w.max(mae)));
+        worst_pixel_mismatches =
+            Some(worst_pixel_mismatches.map_or(mismatched_pixels, |w| w.max(mismatched_pixels)));
+
+        if mismatched_pixels > 0 {
+            eprintln!(
+                "  {}: {mismatched_pixels} mismatched pixels (MAE={mae:.1})",
+                oracle_frame.label
+            );
+        }
 
         // Generate diff composite
         let (cw, ch, mut composite) =
@@ -993,7 +1019,7 @@ fn compare_checkpoint_frames(
         .with_context(|| format!("failed to write {}", native_path.display()))?;
     }
 
-    Ok(worst_mae)
+    Ok((worst_mae, worst_pixel_mismatches))
 }
 
 /// Deep diagnosis of a single level: run with Frames tier, print findings.
@@ -1660,6 +1686,7 @@ pub(crate) fn golden_diff(
                 })
                 .collect(),
             mae: None,
+            pixel_mismatches: None,
             diff_images: Vec::new(),
             error: None,
             divergence_summary: if passed {
@@ -1801,6 +1828,7 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
                     passed: false,
                     state_diffs: Vec::new(),
                     mae: None,
+                    pixel_mismatches: None,
                     diff_images: Vec::new(),
                     error: Some(format!("{e:#}")),
                     divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
@@ -1875,6 +1903,7 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result
         passed,
         state_diffs: all_diffs,
         mae: None,
+        pixel_mismatches: None,
         diff_images: Vec::new(),
         error: None,
         divergence_summary: if passed {
@@ -2500,6 +2529,7 @@ mod tests {
             passed: false,
             state_diffs: Vec::new(),
             mae: None,
+            pixel_mismatches: None,
             diff_images: Vec::new(),
             error: None,
             divergence_summary: DivergenceSummary {
@@ -2523,6 +2553,7 @@ mod tests {
             passed: false,
             state_diffs: Vec::new(),
             mae: Some(42.0),
+            pixel_mismatches: None,
             diff_images: Vec::new(),
             error: None,
             divergence_summary: DivergenceSummary {
