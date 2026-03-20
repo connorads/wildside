@@ -77,6 +77,8 @@ Use sources in this order:
   - use `doc/sound.txt`, `.cache/references/gems`, and `.cache/references/gemsplay`
 - Unknown Mega Drive hardware effect
   - use Kid asm first, then Sega Retro hardware docs
+- Frame-level divergence debugging (TAS or sweep)
+  - follow `docs/source-port/debug-playbook.md` — probe before reading ASM
 
 ## First commands
 
