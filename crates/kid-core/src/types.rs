@@ -246,6 +246,35 @@ impl FrameInput {
             start: mask & (1 << 7) != 0,
         }
     }
+
+    pub fn to_mask(&self) -> u8 {
+        let mut mask = 0u8;
+        if self.up {
+            mask |= 1 << 0;
+        }
+        if self.down {
+            mask |= 1 << 1;
+        }
+        if self.left {
+            mask |= 1 << 2;
+        }
+        if self.right {
+            mask |= 1 << 3;
+        }
+        if self.b {
+            mask |= 1 << 4;
+        }
+        if self.c {
+            mask |= 1 << 5;
+        }
+        if self.a {
+            mask |= 1 << 6;
+        }
+        if self.start {
+            mask |= 1 << 7;
+        }
+        mask
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -878,4 +907,41 @@ pub(crate) struct OpeningSliceState {
     pub(crate) smash_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).
     pub(crate) teleporter_contact: Option<(u16, u16)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frame_input_mask_round_trip_all_values() {
+        for mask in 0..=u8::MAX {
+            let input = FrameInput::from_mask(mask);
+            assert_eq!(
+                input.to_mask(),
+                mask,
+                "round-trip failed for mask 0x{mask:02X}"
+            );
+        }
+    }
+
+    #[test]
+    fn frame_input_to_mask_specific_buttons() {
+        let input = FrameInput {
+            up: true,
+            down: false,
+            left: true,
+            right: false,
+            b: false,
+            c: true,
+            a: false,
+            start: true,
+        };
+        assert_eq!(input.to_mask(), 0b1010_0101);
+    }
+
+    #[test]
+    fn frame_input_to_mask_empty() {
+        assert_eq!(FrameInput::default().to_mask(), 0);
+    }
 }
