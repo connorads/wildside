@@ -496,7 +496,7 @@ fn respawn_floor_snap_prefers_spawn_support_above_lower_hazards() {
     let slice = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
 
     assert_eq!(slice.player.x_pos, 0x0010_0000);
-    assert_eq!(slice.player.y_pos, 0x001F_0000);
+    assert_eq!(slice.player.y_pos, 0x001F_4000);
     assert!(slice.player.on_ground);
     assert!(!slice.player.on_spikes);
 
@@ -933,7 +933,7 @@ fn progress_two_transitions_skip_cheat_matches_early_transition_timeline() {
     assert_eq!(frame_900.camera_x_pos, 0x00BF_0000);
     assert_eq!(frame_900.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
     assert_eq!(frame_900.kid_x_pos, Some(0x0169_0000));
-    assert_eq!(frame_900.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+    assert_eq!(frame_900.kid_y_pos, Some(0x010F_4000));
 
     let frame_901 = frames.get(&901).expect("frame 901 should be captured");
     assert_eq!(frame_901.game_mode, GameMode::LevelTransition);
@@ -1309,7 +1309,7 @@ fn solid_block_grid_grounds_one_pixel_above_cell_top() {
         runtime.step_frame(FrameInput::default());
         let trace = runtime.trace_frame();
         if trace.kid_on_ground == Some(true) {
-            assert_eq!(trace.kid_y_pos, Some(0x010F_0000));
+            assert_eq!(trace.kid_y_pos, Some(0x010F_4000));
             break;
         }
     }
@@ -1407,7 +1407,7 @@ fn moves_camera_when_holding_right_in_game() {
     // Camera should have scrolled right from physics-driven movement
     assert!(trace.camera_x_pos > 0, "camera should have moved right");
     // Player should be on ground at grounded Y
-    assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+    assert_eq!(trace.kid_y_pos, Some(0x010F_4000));
     // Player should be ahead of camera (to the right)
     assert!(trace.kid_x_pos.is_some_and(|x| x > trace.camera_x_pos));
     // Opening hit should have reduced HP (right + full HP + camera past threshold)
@@ -1928,7 +1928,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
     );
 
     assert!(slice.player.on_ground);
-    assert_eq!(slice.player.y_pos, 143u32 << 16);
+    assert_eq!(slice.player.y_pos, 0x008F_C400);
 
     slice.step(
         OPENING_SCROLL_START_FRAME,
@@ -1946,7 +1946,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
     );
 
     assert!(slice.player.on_ground);
-    assert_eq!(slice.player.y_pos, 143u32 << 16);
+    assert_eq!(slice.player.y_pos, 0x008F_C400);
 }
 
 #[test]
@@ -5168,7 +5168,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
     slice.apply_floor_collision(Some(&grid), false, false);
 
     assert!(slice.player.on_ground);
-    assert_eq!(slice.player.y_pos, 63 << 16);
+    assert_eq!(slice.player.y_pos, 0x003F_4000);
 }
 
 #[test]
@@ -10758,7 +10758,7 @@ fn demo_bootstrap_holds_spawn_pose_then_freefalls_before_grounded_hold() {
         .opening_slice
         .expect("demo bootstrap should create an opening slice");
     assert_eq!(opening_slice.player.y_pos, 0x00DF_0000);
-    assert_eq!(opening_slice.terrain.floor_y_pos, 0x00EF_0000);
+    assert_eq!(opening_slice.terrain.floor_y_pos, 0x00EF_8000);
 
     runtime.opening_slice = Some(opening_slice);
     let held = runtime.trace_frame();
@@ -10775,7 +10775,7 @@ fn demo_bootstrap_holds_spawn_pose_then_freefalls_before_grounded_hold() {
     let freefall = runtime.step_frame(FrameInput::default());
     assert_eq!(freefall.boot_phase_elapsed, Some(67));
     assert!(freefall.kid_y_pos.expect("freefall y") > bootstrap_init.kid_y_pos.expect("settle y"));
-    assert_eq!(freefall.kid_y_velocity, Some(0x0000_4000));
+    assert_eq!(freefall.kid_y_velocity, Some(0));
     assert_eq!(freefall.kid_on_ground, Some(false));
     assert_eq!(freefall.number_objects, 5);
     assert_eq!(freefall.number_gfx_objects, 4);
@@ -10843,7 +10843,7 @@ fn demo_bootstrap_first_visible_gameplay_frame_advances_camera_only() {
     let freefall = runtime.step_frame(FrameInput::default());
     assert_eq!(freefall.boot_phase_elapsed, Some(67));
     assert_eq!(freefall.kid_y_pos, Some(0x02DE_4000));
-    assert_eq!(freefall.kid_y_velocity, Some(0x0000_4000));
+    assert_eq!(freefall.kid_y_velocity, Some(0));
     assert_eq!(freefall.kid_on_ground, Some(false));
     assert_eq!(freefall.number_objects, 5);
     assert_eq!(freefall.number_gfx_objects, 4);
