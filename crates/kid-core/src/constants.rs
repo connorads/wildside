@@ -6,6 +6,10 @@ pub(crate) const INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES: usize = 80;
 pub(crate) const INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES: usize = 100;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
+/// Title attract-lock: 2 frames shorter than TITLE_TO_LEVEL_FRAMES because the
+/// 2-frame intro→title deferral shifts enter_title_screen() later while the
+/// oracle's Pal_FadeOut + setup duration stays absolute.
+pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
 // The native playtest host should open on the first fully settled Level 1 frame,
 // past the long entry animation where the kid drifts into place.
 pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;

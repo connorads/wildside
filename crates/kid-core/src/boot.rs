@@ -6,7 +6,7 @@ impl NativeRuntime {
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
         self.title_screen_ready_frame = self.frame_index.max(TITLE_SCREEN_READY_GLOBAL_FRAME);
-        self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_TO_LEVEL_FRAMES);
+        self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
         self.title_menu_active = false;
     }
 
@@ -355,16 +355,39 @@ impl NativeRuntime {
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
                 *elapsed += 1;
-                if *elapsed >= SEGA_SCREEN_FRAMES || start_pressed {
+                if *elapsed >= SEGA_SCREEN_FRAMES {
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,
                         elapsed: 0,
+                        pending_title_skip: 0,
                     };
+                } else if start_pressed {
+                    // Defer transition to next frame: the original game's sega
+                    // screen detects Start AFTER VBlank (in its WaitForVint
+                    // loop), so the mode change isn't visible until the next
+                    // frame's state capture.
+                    *elapsed = SEGA_SCREEN_FRAMES - 1;
                 }
             }
             // ASM has 5 intro sequences (Load_IntroSequence1-5) plus
             // Load_IntroSequence6 (title screen). Each loads unique VDP art.
-            BootState::IntroSequence { segment, elapsed } => {
+            BootState::IntroSequence {
+                segment,
+                elapsed,
+                pending_title_skip,
+            } => {
+                // Deferred title skip: the original game's intro objects
+                // read Ctrl_1_Pressed (set by VBlank interrupt), causing a
+                // 2-frame delay between Start press and visible mode change.
+                if *pending_title_skip > 0 {
+                    *pending_title_skip -= 1;
+                    if *pending_title_skip == 0 {
+                        self.enter_title_screen();
+                        return;
+                    }
+                    *elapsed += 1;
+                    return;
+                }
                 *elapsed += 1;
                 let segment_frames = if *segment == 0 {
                     INTRO_FIRST_SEGMENT_FRAMES
@@ -377,8 +400,16 @@ impl NativeRuntime {
                     && ((*segment == 0 && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
                         || *segment >= 3);
                 if start_jumps_to_title {
-                    self.enter_title_screen();
-                } else if start_advances_segment || *elapsed >= segment_frames {
+                    *pending_title_skip = 2;
+                } else if start_advances_segment {
+                    if *segment >= 4 {
+                        *pending_title_skip = 2;
+                    } else {
+                        *segment += 1;
+                        *elapsed = 0;
+                    }
+                } else if *elapsed >= segment_frames {
+                    // Natural timeout: advance immediately (no deferral)
                     if *segment >= 4 {
                         self.enter_title_screen();
                     } else {

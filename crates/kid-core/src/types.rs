@@ -517,6 +517,12 @@ pub(crate) enum BootState {
     IntroSequence {
         segment: usize,
         elapsed: usize,
+        /// Countdown for deferred Start→title skip. The original game's
+        /// intro objects read Ctrl_1_Pressed (set by VBlank interrupt),
+        /// giving a 2-frame delay between button press and visible state
+        /// change: 1 frame for VBlank interrupt → game code, 1 frame for
+        /// jmp loc_6E2 → Pal_FadeOut → next FrameRendered.
+        pending_title_skip: u8,
     },
     TitleScreen {
         cursor: u8,
