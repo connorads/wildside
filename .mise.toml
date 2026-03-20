@@ -119,3 +119,23 @@ description = "Import a BK2 TAS recording as a DynamicScenario JSON"
 [tasks.verify-tas]
 run = "cargo run --release -p kidcli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
 description = "Verify a TAS scenario against the oracle (native vs emulator)"
+
+[tasks.verify-tas-frontier]
+run = """
+set -e
+FRONTIER=tests/tas_frontier.json
+if [ ! -f "$FRONTIER" ]; then echo "missing $FRONTIER"; exit 1; fi
+FAIL=0
+for slug in $(jq -r '.recordings | keys[]' "$FRONTIER"); do
+  scenario=$(jq -r ".recordings[\"$slug\"].scenario" "$FRONTIER")
+  frame=$(jq -r ".recordings[\"$slug\"].frontier_frame" "$FRONTIER")
+  echo "checking $slug up to frame $frame..."
+  if ! cargo run --release -q -p kidcli -- verify-tas --scenario "$scenario" --frame-end "$frame"; then
+    echo "FAIL: $slug regressed before frame $frame"
+    FAIL=1
+  fi
+done
+if [ "$FAIL" -eq 1 ]; then echo "TAS frontier regression detected"; exit 1; fi
+echo "TAS frontier: all recordings pass"
+"""
+description = "Verify no TAS regression before current frontier frame"
