@@ -826,6 +826,7 @@ pub(crate) fn native_state_to_oracle_state(state: &CapturedState) -> OracleState
         currently_transforming: None,
         rng_offset: None,
         level_special_effects: None,
+        cpu_registers: None,
     }
 }
 

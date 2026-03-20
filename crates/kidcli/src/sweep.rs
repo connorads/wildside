@@ -757,6 +757,7 @@ pub(crate) fn extract_checkpoint_states(
                 currently_transforming: None, // native doesn't track this separately
                 rng_offset: None, // native uses different RNG system
                 level_special_effects: None, // native doesn't track this separately
+                cpu_registers: None,
             })
         })
         .collect()
@@ -2245,6 +2246,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            cpu_registers: None,
         }];
         let mut oracle = native.clone();
         oracle[0].game_mode = 0x0020;
@@ -2290,6 +2292,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            cpu_registers: None,
         }];
         let oracle = native.clone();
 
@@ -2603,6 +2606,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            cpu_registers: None,
         }];
         let mut oracle = native.clone();
         oracle[0].camera_x_pos = 0x0110_0000;

@@ -209,6 +209,15 @@ struct OracleVisibleEnemyLayout {
     y_pos: u32,
 }
 
+/// M68K CPU register snapshot.
+#[derive(Debug, Serialize)]
+struct CpuRegisters {
+    pc: u32,
+    data_registers: [u32; 8],
+    address_registers: [u32; 7],
+    status_register: u16,
+}
+
 #[derive(Debug, Serialize)]
 struct OracleState {
     label: String,
@@ -261,6 +270,8 @@ struct OracleState {
     rng_offset: Option<u16>,
     #[serde(default)]
     level_special_effects: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cpu_registers: Option<CpuRegisters>,
 }
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
@@ -382,6 +393,7 @@ fn main() -> Result<()> {
     let mut skip_frames_before: Option<usize> = None;
     let mut memory_watches_spec = String::new();
     let mut wram_dump_frames_spec = String::new();
+    let mut capture_cpu_state = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -393,6 +405,7 @@ fn main() -> Result<()> {
             "--skip-frames-before" => skip_frames_before = args.next().and_then(|s| s.parse().ok()),
             "--memory-watches" => memory_watches_spec = args.next().unwrap_or_default(),
             "--wram-dump-frames" => wram_dump_frames_spec = args.next().unwrap_or_default(),
+            "--capture-cpu-state" => capture_cpu_state = true,
             other => return Err(anyhow!("unknown arg {other}")),
         }
     }
@@ -410,7 +423,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, capture_cpu_state)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -463,7 +476,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize]) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], capture_cpu_state: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -514,6 +527,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             &mut emulator,
                             checkpoint.label,
                             checkpoint.frame_index,
+                            capture_cpu_state,
                         ));
                     }
                     checkpoint_index += 1;
@@ -808,7 +822,19 @@ fn capture_state(
     emulator: &mut GenesisEmulator,
     label: &str,
     frame_index: usize,
+    capture_cpu_state: bool,
 ) -> OracleState {
+    let cpu_regs = if capture_cpu_state {
+        let debug = emulator.debug();
+        Some(CpuRegisters {
+            pc: debug.m68k_pc(),
+            data_registers: debug.m68k_data_registers(),
+            address_registers: debug.m68k_address_registers(),
+            status_register: debug.m68k_status_register(),
+        })
+    } else {
+        None
+    };
     let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
@@ -859,6 +885,7 @@ fn capture_state(
         currently_transforming: Some(read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0),
         rng_offset: Some(read_wram_u16(&work_ram, RNG_OFFSET_ADDR)),
         level_special_effects: Some(read_wram_u16(&work_ram, LEVEL_SPECIAL_EFFECTS_ADDR)),
+        cpu_registers: cpu_regs,
     }
 }
 

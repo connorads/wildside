@@ -569,8 +569,11 @@ enum Commands {
         /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
         #[arg(long)]
         when: Vec<String>,
+        /// Capture M68K CPU registers (PC, D0-D7, A0-A6, SR) at each checkpoint
+        #[arg(long, default_value_t = false)]
+        capture_cpu_state: bool,
     },
-    /// Compare sweep results between two physics orderings (GravityFirst vs PositionFirst).
+    /// Compare sweep results between three physics orderings.
     SweepCompare {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -1344,6 +1347,7 @@ fn main() -> Result<()> {
             watches,
             wram_dump_frames,
             when,
+            capture_cpu_state,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1388,6 +1392,7 @@ fn main() -> Result<()> {
                 skip_frames_before: frame_start,
                 memory_watches: watches.clone(),
                 wram_dump_frames: wram_dump_frames.clone(),
+                capture_cpu_state,
             };
             let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(
                 &env,
@@ -1459,6 +1464,45 @@ fn main() -> Result<()> {
                 state_count,
                 oracle_manifest.memory_watches.len()
             );
+
+            // Display CPU registers if captured
+            if capture_cpu_state {
+                for state in &oracle_manifest.states {
+                    if let Some(ref regs) = state.cpu_registers {
+                        println!(
+                            "frame {:>5}  PC={:#010x}  SR={:#06x}",
+                            state.frame_index, regs.pc, regs.status_register
+                        );
+                        println!(
+                            "  D0-D3: {:#010x} {:#010x} {:#010x} {:#010x}",
+                            regs.data_registers[0],
+                            regs.data_registers[1],
+                            regs.data_registers[2],
+                            regs.data_registers[3]
+                        );
+                        println!(
+                            "  D4-D7: {:#010x} {:#010x} {:#010x} {:#010x}",
+                            regs.data_registers[4],
+                            regs.data_registers[5],
+                            regs.data_registers[6],
+                            regs.data_registers[7]
+                        );
+                        println!(
+                            "  A0-A3: {:#010x} {:#010x} {:#010x} {:#010x}",
+                            regs.address_registers[0],
+                            regs.address_registers[1],
+                            regs.address_registers[2],
+                            regs.address_registers[3]
+                        );
+                        println!(
+                            "  A4-A6: {:#010x} {:#010x} {:#010x}",
+                            regs.address_registers[4],
+                            regs.address_registers[5],
+                            regs.address_registers[6]
+                        );
+                    }
+                }
+            }
         }
         Commands::SweepCompare {
             rom,
@@ -2203,6 +2247,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            cpu_registers: None,
         }
     }
 

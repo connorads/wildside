@@ -19,6 +19,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) skip_frames_before: Option<usize>,
     pub(crate) memory_watches: Option<String>,
     pub(crate) wram_dump_frames: Option<String>,
+    pub(crate) capture_cpu_state: bool,
 }
 
 /// Abstraction over emulator backends for oracle comparison.
@@ -141,6 +142,15 @@ pub struct OracleVisibleEnemyLayout {
     pub y_pos: u32,
 }
 
+/// M68K CPU register snapshot for sub-routine-level comparison.
+#[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
+pub struct OracleCpuRegisters {
+    pub pc: u32,
+    pub data_registers: [u32; 8],
+    pub address_registers: [u32; 7],
+    pub status_register: u16,
+}
+
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
 pub struct OracleState {
     pub label: String,
@@ -194,6 +204,8 @@ pub struct OracleState {
     pub rng_offset: Option<u16>,
     #[serde(default)]
     pub level_special_effects: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_registers: Option<OracleCpuRegisters>,
 }
 
 pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
@@ -203,6 +215,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
 
     let jgenesis_dir = oracle_root.join("jgenesis");
     checkout_repo(&jgenesis_dir, JGENESIS_URL, JGENESIS_COMMIT)?;
+    patch_jgenesis_cpu_registers(&jgenesis_dir)?;
 
     let helper_dir = oracle_root.join("jgenesis-helper");
     write_helper_project(&helper_dir, repo_root, &jgenesis_dir)?;
@@ -301,6 +314,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     if let Some(ref frames) = options.wram_dump_frames {
         cmd.arg("--wram-dump-frames").arg(frames);
     }
+    if options.capture_cpu_state {
+        cmd.arg("--capture-cpu-state");
+    }
     let stdout = capture_stdout(&mut cmd, None)?;
     serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
 }
@@ -358,6 +374,55 @@ fn maybe_build_blastem(dir: &Path) -> Result<Option<PathBuf>> {
     } else {
         Ok(None)
     }
+}
+
+/// Patch jgenesis to expose M68K CPU registers through the debug API.
+/// Idempotent: skips if the patch marker is already present.
+fn patch_jgenesis_cpu_registers(jgenesis_dir: &Path) -> Result<()> {
+    let debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
+    let contents = fs::read_to_string(&debug_rs)
+        .with_context(|| format!("failed to read {}", debug_rs.display()))?;
+
+    // Idempotency: skip if already patched
+    if contents.contains("m68k_pc") {
+        return Ok(());
+    }
+
+    let patch = r#"
+    /// M68K program counter.
+    #[must_use]
+    pub fn m68k_pc(&self) -> u32 {
+        self.0.m68k.pc()
+    }
+
+    /// M68K data registers D0–D7.
+    #[must_use]
+    pub fn m68k_data_registers(&self) -> [u32; 8] {
+        self.0.m68k.data_registers()
+    }
+
+    /// M68K address registers A0–A6.
+    #[must_use]
+    pub fn m68k_address_registers(&self) -> [u32; 7] {
+        self.0.m68k.address_registers()
+    }
+
+    /// M68K status register (condition codes, interrupt mask, supervisor flag).
+    #[must_use]
+    pub fn m68k_status_register(&self) -> u16 {
+        self.0.m68k.status_register()
+    }
+"#;
+
+    // Insert before the final closing brace of impl<'emu> GenesisDebugView
+    let patched = if let Some(pos) = contents.rfind('}') {
+        format!("{}{}{}", &contents[..pos], patch, &contents[pos..])
+    } else {
+        return Err(anyhow!("could not find closing brace in debug.rs"));
+    };
+
+    fs::write(&debug_rs, patched)
+        .with_context(|| format!("failed to write patched {}", debug_rs.display()))
 }
 
 fn checkout_repo(dir: &Path, url: &str, commit: &str) -> Result<()> {

@@ -661,6 +661,7 @@ pub(crate) fn native_trace_to_oracle_state(
         currently_transforming: None,
         rng_offset: None,
         level_special_effects: None,
+        cpu_registers: None,
     }
 }
 
