@@ -10,6 +10,7 @@ mod capture;
 mod cheats;
 mod compare;
 mod diff;
+mod hypothesis;
 mod inspect;
 mod native_player;
 mod oracle;
@@ -591,6 +592,15 @@ enum Commands {
         /// Cross-reference known RAM addresses from variables.asm
         #[arg(long, default_value_t = false)]
         annotate: bool,
+    },
+    /// Test a hypothesis TOML file: run oracle, evaluate assertions, log result.
+    TestHypothesis {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to hypothesis TOML file
+        hypothesis: PathBuf,
     },
 }
 
@@ -1476,6 +1486,17 @@ fn main() -> Result<()> {
             annotate,
         } => {
             ram_diff::run_ram_diff(&file_a, &file_b, annotate)?;
+        }
+        Commands::TestHypothesis {
+            rom,
+            dir,
+            hypothesis,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            hypothesis::test_hypothesis(&repo_root, &rom_path, &manifest, &hypothesis)?;
         }
     }
     Ok(())

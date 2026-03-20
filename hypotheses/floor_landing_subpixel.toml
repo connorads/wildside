@@ -1,0 +1,22 @@
+[hypothesis]
+name = "floor_landing_preserves_subpixel_when_falling"
+description = """
+When kid lands on floor with y_vel >= 0 (falling), sub-pixel should be
+preserved in ASM (loc_AAF8: move.w d7,y_pos preserves low word).
+However sub_902A also zeroes sub-pixel (clr.w $20) when floor-snapping.
+Need to determine which path the oracle takes at frame 955."""
+scenario = "kc_any_percent_2024"
+frame_range = [954, 956]
+
+[oracle]
+watches = ["0xFF24FE:u32", "0xFF2502:i32", "0xFF2500:u16"]
+# 0xFF24FE = kid_y_pos (full 32-bit), 0xFF2502 = kid_y_vel, 0xFF2500 = kid_y_pos sub-pixel word
+
+[assertions]
+# Oracle y_pos at frame 955 should have non-zero sub-pixel
+oracle_955_subpixel = "0xFF2500_u16[955] != 0"
+
+[comparison]
+native_field = "kid_y_pos"
+oracle_address = "0xFF24FE"
+frame = 955
