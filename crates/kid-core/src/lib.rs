@@ -24,7 +24,7 @@ use kid_data::{
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
-pub use scenario::{run_script, run_script_with_warp};
+pub use scenario::{run_script, run_script_with_physics_order, run_script_with_warp};
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 use std::fs;
 #[cfg(test)]
@@ -114,6 +114,8 @@ pub struct NativeRuntime {
     current_player_index: u8,
     /// Per-player persistent state slots.
     player_slots: [PlayerSlot; 2],
+    /// Physics sub-step ordering (default: GravityFirst = current native order).
+    physics_order: PhysicsOrder,
 }
 
 impl NativeRuntime {
@@ -173,6 +175,7 @@ impl NativeRuntime {
             two_player: false,
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
+            physics_order: PhysicsOrder::default(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -188,6 +191,11 @@ impl NativeRuntime {
 
     pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
         Self::new(assets)
+    }
+
+    /// Override the physics sub-step ordering (for sweep comparison experiments).
+    pub fn set_physics_order(&mut self, order: PhysicsOrder) {
+        self.physics_order = order;
     }
 
     /// Set the block collision grid for the current level.
@@ -372,7 +380,7 @@ impl NativeRuntime {
             || self.helmet.cyclone_flying
             || self.helmet.iron_knight_climbing
             || self.helmet.micromax_stuck;
-        slice.step(
+        slice.step_with_order(
             effective_elapsed,
             input,
             jump_pressed,
@@ -381,6 +389,7 @@ impl NativeRuntime {
             self.block_list.as_ref(),
             custom_gravity,
             self.y_look_offset,
+            self.physics_order,
         );
         let spawn_support_snapped = (self.skip_entry_animation || self.demo_gameplay_active())
             && self

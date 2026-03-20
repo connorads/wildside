@@ -2059,6 +2059,95 @@ fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
         .count()
 }
 
+/// Run the sweep with both physics orderings and compare results.
+pub(crate) fn run_sweep_compare(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    levels: &[u8],
+    _tier: SweepTier,
+) -> Result<()> {
+    use kid_core::PhysicsOrder;
+
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+
+    let env = ensure_oracles(repo_root)?;
+    let backend: Box<dyn OracleBackend> = Box::new(JgenesisBackend { env: env.clone() });
+
+    println!(
+        "{:<8} {:<30} {:<16} {:<16} {:<10}",
+        "level", "name", "current_diffs", "swapped_diffs", "verdict"
+    );
+    println!("{}", "-".repeat(80));
+
+    let empty_set = std::collections::HashSet::new();
+
+    for &level_id in levels {
+        let scenario = idle_level_scenario(level_id, None);
+        let level_dir = repo_root
+            .join(".cache/sweep-compare")
+            .join(format!("{level_id:02x}"));
+        fs::create_dir_all(&level_dir)?;
+
+        // Run oracle once (shared between both orderings)
+        let cache_key = OracleCacheKey::from_scenario(&rom_bytes, &scenario, backend.name());
+        let oracle = match load_cached_oracle(&cache_key, repo_root) {
+            Some(cached) => cached,
+            None => {
+                let scenario_file = level_dir.join("scenario.json");
+                fs::write(&scenario_file, serde_json::to_vec_pretty(&scenario)?)?;
+                let oracle_dir = level_dir.join("oracle");
+                fs::create_dir_all(&oracle_dir)?;
+                let oracle = backend.run_scenario(rom_path, &scenario_file, &oracle_dir, None)?;
+                let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
+                oracle
+            }
+        };
+
+        // Run native with GravityFirst (current)
+        let current_trace = kid_core::run_script_with_physics_order(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+            PhysicsOrder::GravityFirst,
+        );
+        let current_states = extract_checkpoint_states(&current_trace, &scenario.checkpoints);
+        let current_diffs_vec = compare_sweep_states(&current_states, &oracle.states);
+        let current_auth = summarise_state_diffs(&current_diffs_vec, &empty_set, &empty_set)
+            .authoritative;
+
+        // Run native with PositionFirst (ASM order)
+        let swapped_trace = kid_core::run_script_with_physics_order(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+            PhysicsOrder::PositionFirst,
+        );
+        let swapped_states = extract_checkpoint_states(&swapped_trace, &scenario.checkpoints);
+        let swapped_diffs_vec = compare_sweep_states(&swapped_states, &oracle.states);
+        let swapped_auth = summarise_state_diffs(&swapped_diffs_vec, &empty_set, &empty_set)
+            .authoritative;
+
+        let verdict = if swapped_auth < current_auth {
+            "BETTER"
+        } else if swapped_auth > current_auth {
+            "WORSE"
+        } else {
+            "same"
+        };
+
+        let slug = format!("idle_level_{level_id:02x}");
+        println!(
+            "0x{level_id:02X}    {slug:<30} {current_auth:<16} {swapped_auth:<16} {verdict}"
+        );
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

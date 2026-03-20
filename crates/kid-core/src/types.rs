@@ -2,6 +2,18 @@ use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
 use serde::{Deserialize, Serialize};
 
+/// Controls the order of physics sub-steps within each frame.
+/// Used for data-driven comparison of native vs ASM execution order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PhysicsOrder {
+    /// Current native order: gravity (update_vertical_motion) before collisions.
+    #[default]
+    GravityFirst,
+    /// ASM order: position update first (sub_7ACC), then collisions, then gravity (sub_B168).
+    /// In this mode, y_pos is updated from y_velocity BEFORE gravity modifies y_velocity.
+    PositionFirst,
+}
+
 pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
 pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
 

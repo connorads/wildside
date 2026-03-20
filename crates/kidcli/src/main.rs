@@ -541,6 +541,19 @@ enum Commands {
         #[arg(long)]
         wram_dump_frames: Option<String>,
     },
+    /// Compare sweep results between two physics orderings (GravityFirst vs PositionFirst).
+    SweepCompare {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Level range: "0-104", "0,5,10", or "0-10"
+        #[arg(long, default_value = "0-68")]
+        levels: String,
+        /// Collection tier
+        #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
+        tier: sweep::SweepTier,
+    },
     /// Diff two WRAM dump files byte-by-byte, highlighting changed addresses.
     RamDiff {
         /// First WRAM dump file
@@ -1363,6 +1376,26 @@ fn main() -> Result<()> {
                 state_count,
                 oracle_manifest.memory_watches.len()
             );
+        }
+        Commands::SweepCompare {
+            rom,
+            dir,
+            levels,
+            tier,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let level_ids = sweep::parse_level_range(&levels)?;
+
+            sweep::run_sweep_compare(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                &level_ids,
+                tier,
+            )?;
         }
         Commands::RamDiff {
             file_a,
