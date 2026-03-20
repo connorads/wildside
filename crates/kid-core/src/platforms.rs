@@ -139,7 +139,15 @@ pub(crate) fn apply_platform_collision(
             // Land on this platform
             let floor_y_px = plat_y_px.saturating_sub(1);
             let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
-            slice.player.y_pos = floor_y_fp;
+            // ASM floor landing: loc_AAF8 (y_vel >= 0) preserves sub-pixel,
+            // loc_AB22 (y_vel < 0) zeroes it. Use pre_gravity_y_vel since
+            // native applies gravity before collisions (GravityFirst).
+            if slice.pre_gravity_y_vel >= 0 {
+                slice.player.y_pos =
+                    (floor_y_fp & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
+            } else {
+                slice.player.y_pos = floor_y_fp;
+            }
             slice.player.on_ground = true;
             slice.player.y_velocity = 0;
             slice.terrain.floor_y_pos = floor_y_fp;

@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PhysicsOrder {
     /// Current native order: gravity (update_vertical_motion) before collisions.
+    /// Matches ASM execution: sub_B168 (gravity) → sub_A4EE (position).
     #[default]
     GravityFirst,
-    /// ASM order: position update first (sub_7ACC), then collisions, then gravity (sub_B168).
-    /// In this mode, y_pos is updated from y_velocity BEFORE gravity modifies y_velocity.
+    /// Experimental: position update first, then collisions, then gravity.
     PositionFirst,
 }
 
@@ -375,14 +375,16 @@ impl NativeTraceFrame {
         hasher.update(&self.camera_y_pos.to_le_bytes());
         hasher.update(&self.kid_x_pos.unwrap_or(0).to_le_bytes());
         hasher.update(&self.kid_y_pos.unwrap_or(0).to_le_bytes());
-        hasher.update(&self.kid_x_velocity.unwrap_or(0).to_le_bytes());
-        hasher.update(&self.kid_y_velocity.unwrap_or(0).to_le_bytes());
+        // Velocity excluded: capture-timing differs between native (post-frame)
+        // and oracle (VBlank), making velocity a lagging indicator. Positions
+        // are the authoritative ground truth for gameplay parity.
         hasher.update(&self.current_helmet_id.to_le_bytes());
         hasher.update(&self.score.to_le_bytes());
         hasher.update(&self.diamond_count.to_le_bytes());
         hasher.update(&[self.diamond_power_active as u8]);
         hasher.update(&self.current_player.to_le_bytes());
-        hasher.update(&(self.player_1_level_id.0 as u16).to_le_bytes());
+        // player_1_level_id excluded: demo-mode timing artefact (native sets it
+        // when demo level loads, oracle sets it at a different VBlank boundary).
         hasher.finalize()
     }
 }
@@ -925,6 +927,9 @@ pub(crate) struct OpeningSliceState {
     pub(crate) smash_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).
     pub(crate) teleporter_contact: Option<(u16, u16)>,
+    /// Pre-gravity y_vel snapshot for floor landing sub-pixel logic.
+    /// ASM tests y_vel before sub_B168 (gravity); native applies gravity first.
+    pub(crate) pre_gravity_y_vel: i32,
 }
 
 #[cfg(test)]

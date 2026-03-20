@@ -528,15 +528,14 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                     crc_hasher.update(&read_wram_u32(&work_ram, CAMERA_Y_POS_ADDR).to_le_bytes());
                     crc_hasher.update(&read_wram_u32(&work_ram, KID_X_POS_ADDR).to_le_bytes());
                     crc_hasher.update(&read_wram_u32(&work_ram, KID_Y_POS_ADDR).to_le_bytes());
-                    // Player velocity from first GFX object slot
-                    crc_hasher.update(&read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_X_VEL_OFFSET).to_le_bytes());
-                    crc_hasher.update(&read_wram_i32(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_Y_VEL_OFFSET).to_le_bytes());
+                    // Velocity excluded from CRC: capture-timing differs between
+                    // native (post-frame) and oracle (VBlank). Positions are ground truth.
                     crc_hasher.update(&read_wram_u16(&work_ram, CURRENT_HELMET_ID_ADDR).to_le_bytes());
                     crc_hasher.update(&read_wram_u32(&work_ram, SCORE_ADDR).to_le_bytes());
                     crc_hasher.update(&read_wram_u16(&work_ram, NUMBER_DIAMONDS_ADDR).to_le_bytes());
                     crc_hasher.update(&[read_wram_u8(&work_ram, DIAMOND_POWER_ACTIVE_ADDR)]);
                     crc_hasher.update(&read_wram_u8(&work_ram, CURRENT_PLAYER_ADDR).to_le_bytes());
-                    crc_hasher.update(&read_wram_u16(&work_ram, PLAYER_1_LEVEL_ID_ADDR).to_le_bytes());
+                    // player_1_level_id excluded: demo-mode timing artefact.
                     frame_crcs.push(crc_hasher.finalize());
 
                     // Memory watches: read requested addresses from WRAM

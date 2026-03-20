@@ -52,6 +52,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             smash_block_hit: None,
             teleporter_contact: None,
+            pre_gravity_y_vel: 0,
         }
     }
 
@@ -101,6 +102,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             smash_block_hit: None,
             teleporter_contact: None,
+            pre_gravity_y_vel: 0,
         }
     }
 
@@ -153,7 +155,11 @@ impl OpeningSliceState {
                 // Current native order: horizontal, vertical (gravity+position), collisions
                 let horizontal_step_applied =
                     self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
+                // Save pre-gravity y_vel for floor landing sub-pixel logic (ASM tests
+                // y_vel in Character_CheckCollision, before sub_B168 applies gravity).
+                let pre_gravity_y_vel = self.player.y_velocity;
                 self.update_vertical_motion(input, jump_pressed, form, custom_gravity);
+                self.pre_gravity_y_vel = pre_gravity_y_vel;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_wall_collision(Some(grid));
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
@@ -176,6 +182,8 @@ impl OpeningSliceState {
                     self.update_horizontal_motion(input, jump_pressed, form, block_grid.as_deref());
                 // Apply vertical position from current y_velocity (before gravity)
                 self.apply_vertical_position_only(input, jump_pressed, form);
+                // In PositionFirst, y_vel at collision time is pre-gravity (matches ASM).
+                self.pre_gravity_y_vel = self.player.y_velocity;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_wall_collision(Some(grid));
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
@@ -866,7 +874,17 @@ impl OpeningSliceState {
                             i64::from(self.player.x_pos) - i64::from(self.player.x_velocity);
                         self.player.x_pos = landing_x.clamp(0, i64::from(u32::MAX)) as u32;
                     }
-                    self.player.y_pos = floor_y_fp;
+                    // ASM floor landing: `tst.l y_vel(a3)` in Character_CheckCollision
+                    // (before sub_B168 gravity). loc_AAF8 (y_vel >= 0) preserves sub-pixel
+                    // via `move.w d7,y_pos(a3)`. loc_AB22 (y_vel < 0) zeroes it via
+                    // `clr.w $20(a3)`. Use pre_gravity_y_vel since native applies gravity
+                    // before collisions (GravityFirst), but ASM tests before gravity.
+                    if self.pre_gravity_y_vel >= 0 {
+                        self.player.y_pos =
+                            (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
+                    } else {
+                        self.player.y_pos = floor_y_fp;
+                    }
                     // Mushroom blocks bounce the player back up
                     if probe.cell.block_type == terrain::BlockType::Mushroom {
                         self.player.y_velocity =

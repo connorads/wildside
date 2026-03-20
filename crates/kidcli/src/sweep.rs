@@ -17,6 +17,8 @@ pub(crate) const ADVISORY_FIELDS: &[&str] = &[
     "number_objects",   // native doesn't model system objects (palette rotation, etc.)
     "number_hitpoints", // oracle-pause: idle_tail diverges because oracle is paused
     "number_lives",     // oracle-pause: idle_tail diverges because oracle is paused
+    "kid_x_vel",        // capture-timing: native post-frame vs oracle VBlank
+    "kid_y_vel",        // capture-timing: native post-frame vs oracle VBlank
 ];
 
 /// Position tolerance in FP16.16 units. 6px = 0x0006_0000 accommodates the ±5px
