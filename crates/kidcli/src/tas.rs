@@ -564,6 +564,240 @@ fn merge_transition_checkpoints(
     scenario.checkpoints.dedup_by_key(|cp| cp.frame_index);
 }
 
+/// Result of a single verify-tas probe: either clean or divergent at a specific checkpoint.
+struct ProbeResult {
+    /// Frame index of the first authoritative divergence, if any.
+    first_auth_frame: Option<usize>,
+    /// Field name + values for the first authoritative divergence.
+    first_auth_detail: Option<(String, String, String)>,
+}
+
+/// Run native + oracle for a scenario slice, return the first authoritative divergence frame.
+/// This is the inner loop used by both `verify_tas` and `bisect_tas`.
+fn probe_tas(
+    repo_root: &std::path::Path,
+    rom_path: &std::path::Path,
+    manifest: &kid_data::AssetManifest,
+    scenario: &DynamicScenario,
+    _start: usize,
+    end: usize,
+    checkpoints: &[DynamicCheckpoint],
+) -> Result<ProbeResult> {
+    // Build a sliced scenario for this probe
+    let probe_scenario = DynamicScenario {
+        slug: scenario.slug.clone(),
+        script: scenario.script[..end.min(scenario.script.len())].to_vec(),
+        frame_count: end,
+        checkpoints: checkpoints.to_vec(),
+        warp_to_level: scenario.warp_to_level,
+    };
+
+    // Run native
+    let native_trace = kid_core::run_script_with_warp(
+        manifest.clone(),
+        &probe_scenario.script,
+        probe_scenario.frame_count,
+        probe_scenario.warp_to_level,
+    );
+
+    let native_states =
+        crate::sweep::extract_checkpoint_states(&native_trace, &probe_scenario.checkpoints);
+
+    // Write scenario JSON for oracle
+    let run_dir = repo_root
+        .join(".cache/tas-verify")
+        .join(&probe_scenario.slug)
+        .join("bisect");
+    std::fs::create_dir_all(&run_dir)?;
+    let scenario_file = run_dir.join("scenario.json");
+    std::fs::write(
+        &scenario_file,
+        serde_json::to_vec_pretty(&probe_scenario)?,
+    )?;
+
+    // Run oracle
+    let env = crate::oracle::ensure_oracles(repo_root)?;
+    let oracle_dir = run_dir.join("oracle");
+    std::fs::create_dir_all(&oracle_dir)?;
+    let oracle =
+        crate::oracle::run_jgenesis_capture_dynamic(&env, rom_path, &scenario_file, &oracle_dir)?;
+
+    // Compare
+    let state_diffs = crate::sweep::compare_sweep_states(&native_states, &oracle.states);
+    let first_auth = state_diffs
+        .iter()
+        .find(|d| !crate::sweep::ADVISORY_FIELDS.contains(&d.field.as_str()));
+
+    match first_auth {
+        Some(diff) => {
+            // Parse frame index from checkpoint label "frame_NNN"
+            let frame = diff
+                .checkpoint
+                .strip_prefix("frame_")
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
+            Ok(ProbeResult {
+                first_auth_frame: Some(frame),
+                first_auth_detail: Some((
+                    diff.field.clone(),
+                    diff.native_value.clone(),
+                    diff.oracle_value.clone(),
+                )),
+            })
+        }
+        None => Ok(ProbeResult {
+            first_auth_frame: None,
+            first_auth_detail: None,
+        }),
+    }
+}
+
+/// Binary-search for the first frame with an authoritative divergence.
+///
+/// Strategy:
+/// 1. Coarse scan with checkpoint-interval=50 to find the first divergent region
+/// 2. Binary search within that region using per-frame checkpoints
+pub fn bisect_tas(
+    repo_root: &std::path::Path,
+    rom_path: &std::path::Path,
+    manifest: &kid_data::AssetManifest,
+    scenario_path: &std::path::Path,
+    frame_start: Option<usize>,
+    frame_end: Option<usize>,
+) -> Result<()> {
+    let scenario_json = std::fs::read_to_string(scenario_path)
+        .with_context(|| format!("failed to read {}", scenario_path.display()))?;
+    let scenario: DynamicScenario =
+        serde_json::from_str(&scenario_json).context("invalid scenario JSON")?;
+
+    let start = frame_start.unwrap_or(0);
+    let end = frame_end
+        .unwrap_or(scenario.frame_count)
+        .min(scenario.frame_count);
+
+    println!(
+        "bisect-tas: {} (frames {start}..{end})",
+        scenario.slug
+    );
+
+    // Phase 1: coarse scan with interval=50
+    let coarse_interval = 50;
+    let coarse_checkpoints = generate_checkpoints(start, end, coarse_interval);
+    println!(
+        "  phase 1: coarse scan ({} checkpoints, interval={coarse_interval})",
+        coarse_checkpoints.len()
+    );
+
+    let coarse = probe_tas(
+        repo_root,
+        rom_path,
+        manifest,
+        &scenario,
+        start,
+        end,
+        &coarse_checkpoints,
+    )?;
+
+    let first_coarse_frame = match coarse.first_auth_frame {
+        Some(f) => f,
+        None => {
+            println!("  PASS: no authoritative divergences in frames {start}..{end}");
+            return Ok(());
+        }
+    };
+
+    // Find the checkpoint before the divergent one
+    let prev_checkpoint = coarse_checkpoints
+        .iter()
+        .rev()
+        .find(|cp| cp.frame_index < first_coarse_frame)
+        .map(|cp| cp.frame_index)
+        .unwrap_or(start);
+
+    println!(
+        "  phase 1 result: first divergence at checkpoint frame_{first_coarse_frame}, searching {prev_checkpoint}..{first_coarse_frame}"
+    );
+
+    // Phase 2: binary search within [prev_checkpoint, first_coarse_frame]
+    let mut lo = prev_checkpoint;
+    let mut hi = first_coarse_frame;
+    let mut best_frame = first_coarse_frame;
+    let mut best_detail = coarse.first_auth_detail;
+
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        // We need at least 2 distinct frames to check; if mid == lo, we're done
+        if mid == lo {
+            break;
+        }
+
+        // Probe with a single checkpoint at mid
+        let checkpoints = vec![DynamicCheckpoint {
+            label: format!("frame_{mid}"),
+            frame_index: mid,
+        }];
+        println!("  bisect: probing frame {mid} (range {lo}..{hi})");
+
+        let result = probe_tas(
+            repo_root,
+            rom_path,
+            manifest,
+            &scenario,
+            start,
+            // Must run up to at least mid+1 so the checkpoint is reachable
+            mid + 1,
+            &checkpoints,
+        )?;
+
+        match result.first_auth_frame {
+            Some(f) => {
+                // Divergence at or before mid — search lower half
+                best_frame = f;
+                best_detail = result.first_auth_detail;
+                hi = mid;
+            }
+            None => {
+                // Clean at mid — search upper half
+                lo = mid + 1;
+            }
+        }
+    }
+
+    // Final verification: check frame lo with per-frame granularity
+    // (lo might be the exact divergence frame)
+    if lo == hi && lo != best_frame {
+        let checkpoints = vec![DynamicCheckpoint {
+            label: format!("frame_{lo}"),
+            frame_index: lo,
+        }];
+        let result = probe_tas(
+            repo_root,
+            rom_path,
+            manifest,
+            &scenario,
+            start,
+            lo + 1,
+            &checkpoints,
+        )?;
+        if let Some(f) = result.first_auth_frame {
+            best_frame = f;
+            best_detail = result.first_auth_detail;
+        }
+    }
+
+    println!();
+    if let Some((field, native_val, oracle_val)) = best_detail {
+        println!("  RESULT: first authoritative divergence at frame {best_frame}");
+        println!("    field: {field}");
+        println!("    native: {native_val}");
+        println!("    oracle: {oracle_val}");
+    } else {
+        println!("  RESULT: first authoritative divergence at frame {best_frame}");
+    }
+
+    Ok(())
+}
+
 fn generate_checkpoints(start: usize, end: usize, interval: usize) -> Vec<DynamicCheckpoint> {
     let mut checkpoints = Vec::new();
     checkpoints.push(DynamicCheckpoint {

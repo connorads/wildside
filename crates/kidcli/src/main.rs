@@ -466,6 +466,9 @@ enum Commands {
         /// Override checkpoint interval (regenerates checkpoints within the slice)
         #[arg(long)]
         checkpoint_interval: Option<usize>,
+        /// Binary-search for the first divergent frame within the range
+        #[arg(long, default_value_t = false)]
+        bisect: bool,
     },
     /// Import a BK2 TAS recording as a DynamicScenario JSON.
     ImportTas {
@@ -1068,20 +1071,32 @@ fn main() -> Result<()> {
             frame_start,
             frame_end,
             checkpoint_interval,
+            bisect,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            tas::verify_tas(
-                &repo_root,
-                &rom_path,
-                &manifest,
-                &scenario,
-                frame_start,
-                frame_end,
-                checkpoint_interval,
-            )?;
+            if bisect {
+                tas::bisect_tas(
+                    &repo_root,
+                    &rom_path,
+                    &manifest,
+                    &scenario,
+                    frame_start,
+                    frame_end,
+                )?;
+            } else {
+                tas::verify_tas(
+                    &repo_root,
+                    &rom_path,
+                    &manifest,
+                    &scenario,
+                    frame_start,
+                    frame_end,
+                    checkpoint_interval,
+                )?;
+            }
         }
         Commands::ImportTas {
             bk2,

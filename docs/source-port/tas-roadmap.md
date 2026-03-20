@@ -1,0 +1,71 @@
+# TAS Verification Parity Roadmap
+
+Progressive milestones for verifying the native engine against TAS recordings via oracle comparison.
+
+## Recordings
+
+| Recording | Frames | Duration | Status |
+|-----------|--------|----------|--------|
+| `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
+| `kc_any_percent_2024` | 4916 | ~82s | frontier: frame 955 (kid_y_pos on level 0x1B demo) |
+| `any-percent-published` | 37759 | ~10.5min | boot slice only |
+
+## Milestones
+
+| # | Target | Frames | Phase | Status |
+|---|--------|--------|-------|--------|
+| M1 | First 1000 frames | 0-1000 | boot -> title -> demo play (0x1B) | [ ] |
+| M2 | Through title to level entry | 0-2000 | demo end -> title -> Start -> Level 1 | [ ] |
+| M3 | First level traversal | 0-3000 | Level 1 gameplay: enemies, platforms, blocks | [ ] |
+| M4 | First level transition | 0-4000 | Level 1 complete -> transition -> Level 2 | [ ] |
+| M5 | Full kc_any_percent_2024 | 0-4916 | multiple levels, warps, pause | [ ] |
+| M6 | any-percent-published first level | 0-3000 | different TAS, different route | [ ] |
+| M7 | any-percent-published half run | 0-19000 | ~10 levels, bosses, forms | [ ] |
+| M8 | Full any-percent-published | 0-37759 | boot to credits | [ ] |
+
+## Frontier log
+
+| Date | Recording | Frontier frame | Blocker | Fix |
+|------|-----------|---------------|---------|-----|
+| 2025-03-19 | kc_any_percent_2024 | 955 | camera_y_pos | wall-sticky ledge snap + floor snap commits |
+| 2026-03-20 | kc_any_percent_2024 | 955 | kid_y_pos (0x028f0000 vs 0x028fe6e0) on level 0x1B demo | sub-pixel Y physics diff at demo frame ~90 |
+
+## Known issues by milestone
+
+| Issue | Backlog | Expected milestone |
+|-------|---------|-------------------|
+| Demo camera settling | active | M1 |
+| Floor-snap settling (4 levels) | #037 | M2-M4 |
+| 14 enemy behaviour gaps | phase4 | M3-M7 |
+| 6 RNG DEVIATIONs | research-map | M5-M7 |
+| Shooter timer DEVIATION | #065 | M3-M5 |
+| Mushroom bounce DEVIATION | #066 | M3-M7 |
+
+## Infrastructure
+
+| Improvement | Milestone | Status |
+|-------------|-----------|--------|
+| `--bisect` flag for `verify-tas` | M1 | [x] |
+| CI TAS gate | M4 | [ ] |
+| TAS frontier tracking | M2 | [ ] |
+| Framewise CRC checksumming | M7 | [ ] |
+| Regression snapshots from TAS | M3 | [ ] |
+
+## Verification commands
+
+```bash
+# Re-verify current frontier
+cargo run --release -p kidcli -- verify-tas \
+  --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
+  --frame-end 1000 --checkpoint-interval 50
+
+# Bisect to find first divergence
+cargo run --release -p kidcli -- verify-tas \
+  --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
+  --frame-end 2000 --bisect
+
+# Narrow to exact frame
+cargo run --release -p kidcli -- verify-tas \
+  --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
+  --frame-start 900 --frame-end 960 --checkpoint-interval 1
+```
