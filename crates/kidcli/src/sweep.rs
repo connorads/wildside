@@ -3,6 +3,7 @@ use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite};
 use native_player::render_gameplay_frame_evidence_for_level;
 use oracle::run_jgenesis_capture_dynamic;
+use rayon::prelude::*;
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, idle_level_scenario, prize_block_scenario,
     stomp_enemy_scenario, walk_right_scenario,
@@ -186,6 +187,68 @@ fn is_oracle_limitation_only(result: &LevelSweepResult) -> bool {
         && result.mae.is_none_or(|mae| mae < 32.0)
 }
 
+/// Convert a raw `sweep_single_level` result into a finalised `LevelSweepResult`,
+/// returning `(result, is_failure)` for fast-fail counting.
+fn finalise_level_result(
+    level_id: u8,
+    tier: SweepTier,
+    result: Result<LevelSweepResult>,
+) -> (LevelSweepResult, bool) {
+    match result {
+        Ok(r) => {
+            let failed = !r.passed && !is_oracle_limitation_only(&r);
+            (r, failed)
+        }
+        Err(e) => {
+            let r = LevelSweepResult {
+                level_id,
+                slug: format!("idle_level_{level_id:02x}"),
+                tier,
+                passed: false,
+                state_diffs: Vec::new(),
+                mae: None,
+                diff_images: Vec::new(),
+                error: Some(format!("{e:#}")),
+                divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
+            };
+            (r, true)
+        }
+    }
+}
+
+/// Print the status line for a completed level sweep result.
+fn print_level_result(r: &LevelSweepResult) {
+    if let Some(ref err) = r.error {
+        println!("  level {:#04x}: ERROR: {err}", r.level_id);
+        return;
+    }
+    let oracle_limitation_only = is_oracle_limitation_only(r);
+    let status = if r.passed {
+        "PASS"
+    } else if oracle_limitation_only {
+        "ORACLE LIMITATION"
+    } else {
+        "FAIL"
+    };
+    let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
+    let blocking_diffs = r.divergence_summary.authoritative
+        + r.divergence_summary.accumulation
+        + r.divergence_summary.rng;
+    let advisory_diffs = r.divergence_summary.advisory;
+    let oracle_limitations = r.divergence_summary.oracle_limitation;
+    let diff_count = match (blocking_diffs, advisory_diffs, oracle_limitations) {
+        (0, 0, 0) => String::new(),
+        (0, 0, o) => format!(" ({o} oracle limitations)"),
+        (0, a, 0) => format!(" ({a} advisory diffs)"),
+        (b, 0, 0) => format!(" ({b} blocking diffs)"),
+        (b, a, 0) => format!(" ({b} blocking diffs, {a} advisory)"),
+        (0, a, o) => format!(" ({a} advisory diffs, {o} oracle limitations)"),
+        (b, 0, o) => format!(" ({b} blocking diffs, {o} oracle limitations)"),
+        (b, a, o) => format!(" ({b} blocking diffs, {a} advisory, {o} oracle limitations)"),
+    };
+    println!("  level {:#04x}: {status}{mae_str}{diff_count}", r.level_id);
+}
+
 /// Parse a level range spec like "0-104", "0,5,10", or "0-10".
 /// Invalid BCD level IDs (0x0A-0x0F, 0x1A-0x1F, etc.) are filtered out.
 pub(crate) fn parse_level_range(spec: &str) -> Result<Vec<u8>> {
@@ -264,74 +327,53 @@ pub(crate) fn run_sweep_with_options(
     #[cfg(unix)]
     std::os::unix::fs::symlink(&run_dir, &latest_link).ok();
 
-    let mut results = Vec::with_capacity(levels.len());
-    let mut failure_count: usize = 0;
+    let results = if options.max_failures > 0 {
+        // Sequential with fast-fail
+        let mut results = Vec::with_capacity(levels.len());
+        let mut failure_count: usize = 0;
 
-    for &level_id in levels {
-        println!("sweep level {level_id:#04x}...");
-        let result = sweep_single_level(
-            repo_root, rom_path, &rom_bytes, manifest, &env, &run_dir, level_id, tier,
-        );
-        match result {
-            Ok(r) => {
-                let oracle_limitation_only = is_oracle_limitation_only(&r);
-                let status = if r.passed {
-                    "PASS"
-                } else if oracle_limitation_only {
-                    "ORACLE LIMITATION"
-                } else {
-                    "FAIL"
-                };
-                let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
-                let blocking_diffs = r.divergence_summary.authoritative
-                    + r.divergence_summary.accumulation
-                    + r.divergence_summary.rng;
-                let advisory_diffs = r.divergence_summary.advisory;
-                let oracle_limitations = r.divergence_summary.oracle_limitation;
-                let diff_count = match (blocking_diffs, advisory_diffs, oracle_limitations) {
-                    (0, 0, 0) => String::new(),
-                    (0, 0, o) => format!(" ({o} oracle limitations)"),
-                    (0, a, 0) => format!(" ({a} advisory diffs)"),
-                    (b, 0, 0) => format!(" ({b} blocking diffs)"),
-                    (b, a, 0) => format!(" ({b} blocking diffs, {a} advisory)"),
-                    (0, a, o) => format!(" ({a} advisory diffs, {o} oracle limitations)"),
-                    (b, 0, o) => format!(" ({b} blocking diffs, {o} oracle limitations)"),
-                    (b, a, o) => {
-                        format!(" ({b} blocking diffs, {a} advisory, {o} oracle limitations)")
-                    }
-                };
-                println!("  {status}{mae_str}{diff_count}");
-                if !r.passed && !oracle_limitation_only {
-                    failure_count += 1;
-                }
-                results.push(r);
-            }
-            Err(e) => {
-                println!("  ERROR: {e:#}");
-                failure_count += 1;
-                results.push(LevelSweepResult {
-                    level_id,
-                    slug: format!("idle_level_{level_id:02x}"),
-                    tier,
-                    passed: false,
-                    state_diffs: Vec::new(),
-                    mae: None,
-                    diff_images: Vec::new(),
-                    error: Some(format!("{e:#}")),
-                    divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
-                });
-            }
-        }
-
-        // Fast-fail: stop after max_failures
-        if options.max_failures > 0 && failure_count >= options.max_failures {
-            println!(
-                "\nfast-fail: stopping after {failure_count} failure(s) (--max-failures {})",
-                options.max_failures
+        for &level_id in levels {
+            println!("sweep level {level_id:#04x}...");
+            let result = sweep_single_level(
+                repo_root, rom_path, &rom_bytes, manifest, &env, &run_dir, level_id, tier,
             );
-            break;
+            let (r, failed) = finalise_level_result(level_id, tier, result);
+            print_level_result(&r);
+            if failed {
+                failure_count += 1;
+            }
+            results.push(r);
+
+            if failure_count >= options.max_failures {
+                println!(
+                    "\nfast-fail: stopping after {failure_count} failure(s) (--max-failures {})",
+                    options.max_failures
+                );
+                break;
+            }
         }
-    }
+        results
+    } else {
+        // Parallel execution — run all levels concurrently via rayon
+        let parallel_results: Vec<(u8, Result<LevelSweepResult>)> = levels
+            .par_iter()
+            .map(|&level_id| {
+                println!("sweep level {level_id:#04x}...");
+                let result = sweep_single_level(
+                    repo_root, rom_path, &rom_bytes, manifest, &env, &run_dir, level_id, tier,
+                );
+                (level_id, result)
+            })
+            .collect();
+
+        let mut results = Vec::with_capacity(parallel_results.len());
+        for (level_id, result) in parallel_results {
+            let (r, _failed) = finalise_level_result(level_id, tier, result);
+            print_level_result(&r);
+            results.push(r);
+        }
+        results
+    };
 
     let passed = results.iter().filter(|r| r.passed).count();
     let failed = results

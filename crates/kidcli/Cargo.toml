@@ -15,6 +15,7 @@ kid-data = { path = "../kid-data" }
 kid-md = { path = "../kid-md" }
 kid-render = { path = "../kid-render" }
 kid-rom = { path = "../kid-rom" }
+rayon.workspace = true
 sdl2 = { version = "0.38.0", features = ["bundled"] }
 serde.workspace = true
 serde_json.workspace = true
