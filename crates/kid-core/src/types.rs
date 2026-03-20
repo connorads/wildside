@@ -12,6 +12,13 @@ pub enum PhysicsOrder {
     GravityFirst,
     /// Experimental: position update first, then collisions, then gravity.
     PositionFirst,
+    /// ASM-faithful separation: velocity updates (sub_B084, sub_B168) are
+    /// separate from position updates (sub_A4EE, sub_902A).
+    /// 1. update_horizontal_velocity_only()  — sub_B084: x_vel only
+    /// 2. apply_jump_and_gravity_vel_only()  — sub_B168: y_vel only
+    /// 3. apply_velocity_to_position()       — sub_A4EE: x_pos += x_vel, y_pos += y_vel
+    /// 4. wall/ceiling/floor collision        — sub_902A + sub_8F26
+    AsmFaithful,
 }
 
 /// Sub-frame physics trace: captures intermediate values at each sub-step

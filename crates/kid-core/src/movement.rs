@@ -265,6 +265,74 @@ impl OpeningSliceState {
                     t.post_gravity_y_vel = pre_post_grav_vel;
                 }
             }
+            PhysicsOrder::AsmFaithful => {
+                let on_ground_before = self.player.on_ground;
+                if let Some(ref mut t) = self.physics_trace {
+                    t.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
+                    t.on_ground_before = on_ground_before;
+                }
+
+                // Step 1: sub_B084 — horizontal velocity only (no x_pos update)
+                let horizontal_step_applied =
+                    self.update_horizontal_velocity_only(input, jump_pressed, form, block_grid.as_deref());
+
+                if let Some(ref mut t) = self.physics_trace {
+                    // Record post-horizontal with unchanged x_pos (vel-only update)
+                    t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
+                    t.horizontal_step_applied = horizontal_step_applied;
+                    t.pre_vertical = (self.player.y_pos, self.player.y_velocity);
+                    t.pre_gravity_y_vel = self.player.y_velocity;
+                }
+
+                // Step 2: sub_B168 — jump initiation + gravity (velocity only)
+                let pre_gravity_y_vel = self.player.y_velocity;
+                self.apply_jump_and_gravity_vel_only(input, jump_pressed, form, custom_gravity);
+                // In AsmFaithful, gravity runs before position, so pre_gravity_y_vel
+                // is the velocity before gravity was applied (same as GravityFirst).
+                self.pre_gravity_y_vel = pre_gravity_y_vel;
+
+                if let Some(ref mut t) = self.physics_trace {
+                    t.post_gravity_y_vel = self.player.y_velocity;
+                    t.gravity_applied =
+                        self.player.y_velocity != pre_gravity_y_vel || !self.player.on_ground;
+                    t.ascending_and_b_held = pre_gravity_y_vel < 0 && input.b;
+                    if pre_gravity_y_vel >= 0 && self.player.y_velocity < 0 {
+                        t.jump_initiated = true;
+                        t.jump_y_vel = Some(self.player.y_velocity);
+                    }
+                }
+
+                // Step 3: sub_A4EE — apply velocity to position
+                self.apply_velocity_to_position();
+
+                if let Some(ref mut t) = self.physics_trace {
+                    t.post_vertical = (self.player.y_pos, self.player.y_velocity);
+                }
+
+                // Step 4: sub_902A + sub_8F26 — collisions
+                let pre_collision_x = self.player.x_pos;
+                let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
+                    self.apply_wall_collision(Some(grid));
+                    if self.player.x_pos != pre_collision_x
+                        && let Some(ref mut t) = self.physics_trace
+                    {
+                        t.wall_hit = true;
+                        t.wall_snap_x = Some(self.player.x_pos);
+                    }
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                        self.finalise_trace();
+                        self.update_camera_follow(y_look_offset);
+                        return;
+                    }
+                    self.apply_ceiling_collision(Some(grid), block_list);
+                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
+                } else {
+                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed)
+                };
+                if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
+                    self.apply_immediate_slope_recontact(input, form, collision, grid);
+                }
+            }
         }
         self.finalise_trace();
         self.update_camera_follow(y_look_offset);
@@ -379,6 +447,159 @@ impl OpeningSliceState {
         self.player.on_ground = self.player.y_pos >= self.terrain.floor_y_pos;
         self.camera.x_pos = 0;
         self.player.x_pos = OPENING_ENTRY_KID_X_POS;
+    }
+
+    /// Horizontal velocity update only (sub_B084 equivalent).
+    /// Updates x_vel and facing but does NOT apply x_pos += x_vel.
+    /// Returns (horizontal_step_applied, jump_suppressed_by_buffer).
+    pub(crate) fn update_horizontal_velocity_only(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        block_grid: Option<&terrain::BlockGrid>,
+    ) -> bool {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
+            self.player.jump_buffer_frames = 0;
+        }
+        let grounded_slope = self
+            .grounded_slope_collision(block_grid)
+            .filter(|_| self.player.on_ground);
+        if self.player.on_ground
+            && self.player.y_velocity >= 0
+            && self.player.jump_buffer_frames > 0
+        {
+            return false;
+        }
+        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+            if let Some(collision) = grounded_slope {
+                let h_input = HorizontalInput {
+                    left: input.left,
+                    right: input.right,
+                    run: input.a,
+                };
+                let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    collision,
+                    form,
+                    self.terrain.floor_terrain_type,
+                );
+                self.player.x_velocity = new_vel;
+                self.player.facing = new_facing;
+            }
+            return false;
+        }
+
+        let near_floor =
+            self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
+        if !self.player.on_ground && jump_pressed && self.player.y_velocity >= 0 && near_floor {
+            return false;
+        }
+
+        let h_input = HorizontalInput {
+            left: input.left,
+            right: input.right,
+            run: input.a,
+        };
+        let (new_vel, new_facing) = if self.player.on_ground {
+            if let Some(collision) = grounded_slope {
+                update_level_one_slope_ground_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    collision,
+                    form,
+                    self.terrain.floor_terrain_type,
+                )
+            } else {
+                physics::update_horizontal_velocity(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                    form.ground_speed_table(self.terrain.floor_terrain_type),
+                )
+            }
+        } else if self.player.just_jumped {
+            (self.player.x_velocity, self.player.facing)
+        } else {
+            let jump_profile = physics::JUMP_AIR_PROFILES[usize::from(form.helmet_id())];
+            physics::update_jump_horizontal_velocity(
+                self.player.x_velocity,
+                self.player.facing,
+                h_input,
+                jump_profile,
+            )
+        };
+        self.player.x_velocity = new_vel;
+        self.player.facing = new_facing;
+        true
+    }
+
+    /// Jump initiation + gravity on y_vel only (sub_B168 equivalent).
+    /// Does NOT update x_pos or y_pos — only velocity fields.
+    pub(crate) fn apply_jump_and_gravity_vel_only(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        custom_gravity: bool,
+    ) {
+        // Jump initiation
+        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+            let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
+            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            self.player.x_velocity = new_x_vel;
+            self.player.y_velocity = y_vel;
+            self.player.on_ground = false;
+            self.player.just_jumped = false;
+            self.player.jump_buffer_frames = 0;
+            return;
+        }
+
+        // Jump buffer initiation
+        if self.player.on_ground
+            && self.player.y_velocity >= 0
+            && self.player.jump_buffer_frames > 0
+        {
+            let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
+            let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
+            self.player.x_velocity = new_x_vel;
+            self.player.y_velocity = y_vel;
+            self.player.on_ground = false;
+            self.player.just_jumped = false;
+            self.player.jump_buffer_frames = 0;
+            return;
+        }
+
+        // Airborne: apply gravity to y_vel only
+        if !self.player.on_ground {
+            if jump_pressed {
+                self.player.jump_buffer_frames = JUMP_BUFFER_FRAMES;
+            } else if self.player.jump_buffer_frames > 0 {
+                self.player.jump_buffer_frames -= 1;
+            }
+            if self.player.just_jumped {
+                self.player.just_jumped = false;
+            } else if !custom_gravity {
+                let ascending_and_b_held = self.player.y_velocity < 0 && input.b;
+                self.player.y_velocity =
+                    physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
+            }
+        } else {
+            self.player.y_velocity = 0;
+            self.player.just_jumped = false;
+        }
+    }
+
+    /// Apply velocity to position (sub_A4EE equivalent).
+    /// x_pos += x_vel, y_pos += y_vel.
+    pub(crate) fn apply_velocity_to_position(&mut self) {
+        let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+        self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+        let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
+        self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
     }
 
     /// Physics-driven horizontal movement using speed tables.

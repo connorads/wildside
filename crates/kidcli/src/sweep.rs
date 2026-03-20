@@ -2078,10 +2078,10 @@ pub(crate) fn run_sweep_compare(
     let backend: Box<dyn OracleBackend> = Box::new(JgenesisBackend { env: env.clone() });
 
     println!(
-        "{:<8} {:<30} {:<16} {:<16} {:<10}",
-        "level", "name", "current_diffs", "swapped_diffs", "verdict"
+        "{:<8} {:<30} {:<16} {:<16} {:<16} {:<10}",
+        "level", "name", "gravity_first", "pos_first", "asm_faithful", "verdict"
     );
-    println!("{}", "-".repeat(80));
+    println!("{}", "-".repeat(96));
 
     let empty_set = std::collections::HashSet::new();
 
@@ -2120,30 +2120,45 @@ pub(crate) fn run_sweep_compare(
         let current_auth = summarise_state_diffs(&current_diffs_vec, &empty_set, &empty_set)
             .authoritative;
 
-        // Run native with PositionFirst (ASM order)
-        let swapped_trace = kid_core::run_script_with_physics_order(
+        // Run native with PositionFirst
+        let pos_first_trace = kid_core::run_script_with_physics_order(
             manifest.clone(),
             &scenario.script,
             scenario.frame_count,
             scenario.warp_to_level,
             PhysicsOrder::PositionFirst,
         );
-        let swapped_states = extract_checkpoint_states(&swapped_trace, &scenario.checkpoints);
-        let swapped_diffs_vec = compare_sweep_states(&swapped_states, &oracle.states);
-        let swapped_auth = summarise_state_diffs(&swapped_diffs_vec, &empty_set, &empty_set)
+        let pos_first_states = extract_checkpoint_states(&pos_first_trace, &scenario.checkpoints);
+        let pos_first_diffs_vec = compare_sweep_states(&pos_first_states, &oracle.states);
+        let pos_first_auth = summarise_state_diffs(&pos_first_diffs_vec, &empty_set, &empty_set)
             .authoritative;
 
-        let verdict = if swapped_auth < current_auth {
-            "BETTER"
-        } else if swapped_auth > current_auth {
-            "WORSE"
+        // Run native with AsmFaithful
+        let asm_trace = kid_core::run_script_with_physics_order(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+            PhysicsOrder::AsmFaithful,
+        );
+        let asm_states = extract_checkpoint_states(&asm_trace, &scenario.checkpoints);
+        let asm_diffs_vec = compare_sweep_states(&asm_states, &oracle.states);
+        let asm_auth = summarise_state_diffs(&asm_diffs_vec, &empty_set, &empty_set)
+            .authoritative;
+
+        let verdict = if asm_auth < current_auth && asm_auth <= pos_first_auth {
+            "ASM_BEST"
+        } else if pos_first_auth < current_auth && pos_first_auth < asm_auth {
+            "POS_BEST"
+        } else if current_auth <= pos_first_auth && current_auth <= asm_auth {
+            if current_auth == 0 { "PERFECT" } else { "GRAV_BEST" }
         } else {
             "same"
         };
 
         let slug = format!("idle_level_{level_id:02x}");
         println!(
-            "0x{level_id:02X}    {slug:<30} {current_auth:<16} {swapped_auth:<16} {verdict}"
+            "0x{level_id:02X}    {slug:<30} {current_auth:<16} {pos_first_auth:<16} {asm_auth:<16} {verdict}"
         );
     }
 
