@@ -165,6 +165,21 @@ struct SweepHistoryEntry {
     report_path: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct LevelSweepTelemetry {
+    commit: String,
+    timestamp: String,
+    level: String,
+    tier: SweepTier,
+    authoritative: usize,
+    advisory: usize,
+    accumulation: usize,
+    rng: usize,
+    oracle_limitation: usize,
+    fields: Vec<String>,
+    passed: bool,
+}
+
 /// Kid Chameleon level IDs are BCD-encoded: 0x00-0x09, 0x10-0x19, …, 0x60-0x68.
 /// Returns true if `id` is a valid BCD level ID.
 fn is_valid_level_id(id: u8) -> bool {
@@ -390,6 +405,45 @@ pub(crate) fn run_sweep_with_options(
         errors,
         divergence_summary,
     };
+
+    // Emit per-level telemetry to JSONL
+    let commit_hash = std::process::Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let telemetry_path = repo_root.join(".cache/metrics/sweep-telemetry.jsonl");
+    if let Ok(mut telemetry_file) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&telemetry_path)
+    {
+        use std::io::Write;
+        for result in &report.levels {
+            let mut fields: Vec<String> =
+                result.state_diffs.iter().map(|d| d.field.clone()).collect();
+            fields.sort_unstable();
+            fields.dedup();
+            let entry = LevelSweepTelemetry {
+                commit: commit_hash.clone(),
+                timestamp: report.timestamp.clone(),
+                level: format!("{:#04x}", result.level_id),
+                tier,
+                authoritative: result.divergence_summary.authoritative,
+                advisory: result.divergence_summary.advisory,
+                accumulation: result.divergence_summary.accumulation,
+                rng: result.divergence_summary.rng,
+                oracle_limitation: result.divergence_summary.oracle_limitation,
+                fields,
+                passed: result.passed,
+            };
+            if let Ok(line) = serde_json::to_string(&entry) {
+                let _ = writeln!(telemetry_file, "{line}");
+            }
+        }
+    }
 
     // Write report JSON
     let report_path = run_dir.join("report.json");
