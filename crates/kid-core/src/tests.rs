@@ -10956,6 +10956,11 @@ fn determinism_same_scenario_produces_identical_traces() {
     let trace2 = run_script_with_warp(manifest, &script, 120, Some(0));
 
     assert_eq!(trace1.len(), trace2.len(), "trace lengths differ");
+
+    let crcs1: Vec<u32> = trace1.iter().map(|f| f.authoritative_crc32()).collect();
+    let crcs2: Vec<u32> = trace2.iter().map(|f| f.authoritative_crc32()).collect();
+    assert_eq!(crcs1, crcs2, "determinism violation: CRC arrays differ");
+
     for (i, (a, b)) in trace1.iter().zip(trace2.iter()).enumerate() {
         assert_eq!(a.kid_x_pos, b.kid_x_pos, "frame {i}: kid_x_pos differs");
         assert_eq!(a.kid_y_pos, b.kid_y_pos, "frame {i}: kid_y_pos differs");
@@ -10997,6 +11002,14 @@ fn determinism_active_gameplay_identical_traces() {
     let trace2 = run_script_with_warp(manifest, &script, 180, Some(0));
 
     assert_eq!(trace1.len(), trace2.len());
+
+    let crcs1: Vec<u32> = trace1.iter().map(|f| f.authoritative_crc32()).collect();
+    let crcs2: Vec<u32> = trace2.iter().map(|f| f.authoritative_crc32()).collect();
+    assert_eq!(
+        crcs1, crcs2,
+        "determinism violation: CRC arrays differ on active gameplay"
+    );
+
     for (i, (a, b)) in trace1.iter().zip(trace2.iter()).enumerate() {
         assert_eq!(a.kid_x_pos, b.kid_x_pos, "frame {i}: kid_x_pos differs");
         assert_eq!(a.kid_y_pos, b.kid_y_pos, "frame {i}: kid_y_pos differs");
