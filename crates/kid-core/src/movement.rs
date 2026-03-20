@@ -889,6 +889,35 @@ impl OpeningSliceState {
             self.player.left_wall_sticky = false;
         }
 
+        // ASM sub_8F26 tile-boundary guard (kid.asm:10335-10341): skip wall probe
+        // if pixel displacement doesn't cross a 16px tile boundary. Without this,
+        // a false probe hit zeroes sub-pixel via x_pos = clamped_center << 16.
+        // Suppressed when wall_sticky is set (player just hit a wall — ASM's
+        // loc_AA22 wall-cling prevents acceleration in this case, but native
+        // doesn't implement the cling yet so we must re-probe).
+        let wall_stuck = (moving_right && self.player.right_wall_sticky)
+            || (moving_left && self.player.left_wall_sticky);
+        if !wall_stuck {
+            let old_x_pos = self.player.x_pos.wrapping_sub(self.player.x_velocity as u32);
+            let old_px = (old_x_pos >> 16) as i32;
+            let new_px = (self.player.x_pos >> 16) as i32;
+            if moving_right {
+                let displacement = new_px - old_px;
+                let right_edge = old_px + PLAYER_HALF_WIDTH;
+                let distance_to_tile = (-(right_edge + 1)) & 0xF;
+                if distance_to_tile > 0 && displacement <= distance_to_tile {
+                    return;
+                }
+            } else {
+                let displacement = old_px - new_px;
+                let left_edge = old_px - PLAYER_HALF_WIDTH;
+                let distance_to_tile = left_edge & 0xF;
+                if distance_to_tile > 0 && displacement <= distance_to_tile {
+                    return;
+                }
+            }
+        }
+
         let mut probe = terrain::probe_wall(
             grid,
             x_px,

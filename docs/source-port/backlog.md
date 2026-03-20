@@ -77,6 +77,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 068 | [-] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | DEVIATION — visual only: ASM animates sprite with shared lift coroutine |
 | 069 | [x] | P2 | fidelity | TAS boot slice desync: native consumed early boot/title Start presses on the wrong frames | First 250-frame boot slices of 3 imported TAS recordings show 0 authoritative diffs |
 | 070 | [x] | P1 | fidelity | TAS frame 956: post-ledge-snap movement state suppression | 21-frame pull-up animation cooldown (stru_8BB4), frontier now 986 |
+| 074 | [x] | P1 | fidelity | TAS frame 986: sub-pixel X drift from false wall probe | Tile-boundary guard (sub_8F26), frontier now 987 |
+| 075 | [ ] | P1 | fidelity | TAS frame 987: wall-cling h_accel suppression (loc_AA22) + wall_sticky persistence | Needs dedicated wall_cling state machine; ASM skips sub_B084 after airborne wall hit |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DEFERRED — not needed for current blocker, PhysicsOrder::AsmFaithful Phase 1 done |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |

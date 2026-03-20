@@ -5018,7 +5018,9 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
 
     let mut slice = OpeningSliceState {
         player: PlayerState {
-            x_pos: 26 << 16,
+            // Start 1px closer to wall so tile-boundary guard doesn't skip the
+            // initial approach (ASM sub_8F26: distance_to_tile=0 at right_edge=31).
+            x_pos: 27 << 16,
             y_pos: 48 << 16,
             x_velocity: 0x0001_0000,
             y_velocity: 0,
