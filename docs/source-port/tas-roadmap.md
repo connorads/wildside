@@ -8,7 +8,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
 | `kc_any_percent_2024` | 4916 | ~82s | frontier: frame 955 (kid_y_pos on level 0x1B demo) |
-| `any-percent-published` | 37759 | ~10.5min | boot slice only |
+| `any-percent-published` | 37759 | ~10.5min | frontier: frame 958 (same root cause as kc_any_percent_2024) |
 
 ## Milestones
 
@@ -28,7 +28,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
 | 2025-03-19 | kc_any_percent_2024 | 955 | camera_y_pos | wall-sticky ledge snap + floor snap commits |
-| 2026-03-20 | kc_any_percent_2024 | 955 | kid_y_pos (0x028f0000 vs 0x028fe6e0) on level 0x1B demo | sub-pixel Y physics diff at demo frame ~90 |
+| 2026-03-20 | kc_any_percent_2024 | 955 | kid_y_pos native=0x028f0000 (pixel-aligned) vs oracle=0x028fe6e0 (sub-pixel) | Exact frame 955: native grounded/jumping, oracle sub-pixel Y. Same root cause for any-percent-published at f958. Demo input verified matching (R+B+A from DEMO_INPUT_DATA_2[27]). Single-frame divergence suggests floor collision or gravity difference on level 0x1B terrain. |
 
 ## Known issues by milestone
 
