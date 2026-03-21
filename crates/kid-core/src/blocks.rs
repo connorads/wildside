@@ -398,12 +398,16 @@ impl NativeRuntime {
     /// box overlap from the object system.
     pub(crate) fn collect_floating_items(&mut self, slice: &mut OpeningSliceState) {
         use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
+        const PLAYER_PRIZE_PICKUP_HEIGHT: i32 = (PLAYER_HEIGHT + 1) / 2;
 
         let player_x_px = (slice.player.x_pos >> 16) as i32;
         let player_y_px = (slice.player.y_pos >> 16) as i32;
         let player_left = player_x_px - PLAYER_HALF_WIDTH;
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
-        let player_top = player_y_px - PLAYER_HEIGHT;
+        // Oracle demo 0x1B keeps the falling Cyclone helmet non-collectible
+        // until it overlaps Kid's lower body. Using the full 31px sprite body
+        // collects helmets five frames early and starts Kid_Transform too soon.
+        let player_top = player_y_px - PLAYER_PRIZE_PICKUP_HEIGHT;
 
         let mut collected_contents = Vec::new();
         for item in &mut self.floating_items {

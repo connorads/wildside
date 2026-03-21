@@ -337,43 +337,43 @@ impl NativeRuntime {
         self.previous_input.b && !self.prior_input.b
     }
 
+    fn apply_form_width_overlap_fixup(&mut self, slice: &mut OpeningSliceState) {
+        if self.progression.form_width_delta == 0 {
+            return;
+        }
+        let Some(grid) = self.block_grid.as_ref() else {
+            self.progression.form_width_delta = 0;
+            return;
+        };
+
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let new_half = self.progression.current_form.half_width();
+
+        // Probe left edge (x - half_width)
+        let left_edge = x_px - new_half;
+        let left_probe = terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, false);
+        if left_probe.hit {
+            // Push right: align to tile boundary + half_width
+            let aligned = (left_edge & !0xF) + 16 + new_half;
+            slice.player.x_pos = (aligned as u32) << 16;
+        } else {
+            // Probe right edge (x + half_width)
+            let right_edge = x_px + new_half;
+            let right_probe = terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, true);
+            if right_probe.hit {
+                // Push left: ASM formula (right_edge & 0xFFF0) - 1 - half_width
+                let aligned = (right_edge & !0xF) - 1 - new_half;
+                slice.player.x_pos = (aligned as u32) << 16;
+            }
+        }
+
+        self.progression.form_width_delta = 0;
+    }
+
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         if !self.step_lifecycle(input) {
             return;
-        }
-
-        // ASM sub_7B30 (kid.asm:8230): before Kid_Transform, checks if the
-        // new helmet's wider hitbox overlaps walls. Probes left edge then right
-        // edge with the new half-width. If right wall hit: x_pos = (right_edge
-        // & 0xFFF0) - 1 - half_width. If left wall hit: x_pos = (left_edge &
-        // 0xFFF0) + 16 + half_width.
-        if self.progression.form_width_delta != 0 {
-            if let (Some(slice), Some(grid)) = (&mut self.opening_slice, &self.block_grid) {
-                let x_px = (slice.player.x_pos >> 16) as i32;
-                let y_px = (slice.player.y_pos >> 16) as i32;
-                let new_half = self.progression.current_form.half_width();
-
-                // Probe left edge (x - half_width)
-                let left_edge = x_px - new_half;
-                let left_probe =
-                    terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, false);
-                if left_probe.hit {
-                    // Push right: align to tile boundary + half_width
-                    let aligned = (left_edge & !0xF) + 16 + new_half;
-                    slice.player.x_pos = (aligned as u32) << 16;
-                } else {
-                    // Probe right edge (x + half_width)
-                    let right_edge = x_px + new_half;
-                    let right_probe =
-                        terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, true);
-                    if right_probe.hit {
-                        // Push left: ASM formula (right_edge & 0xFFF0) - 1 - half_width
-                        let aligned = (right_edge & !0xF) - 1 - new_half;
-                        slice.player.x_pos = (aligned as u32) << 16;
-                    }
-                }
-            }
-            self.progression.form_width_delta = 0;
         }
 
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
@@ -396,6 +396,11 @@ impl NativeRuntime {
                 OpeningSliceState::new(bounds)
             }
         });
+        // ASM sub_7B30 (kid.asm:8230): before Kid_Transform, checks if the
+        // new helmet's wider hitbox overlaps walls and immediately pushes the
+        // player clear. This can come from a transform resolved last frame or
+        // from a floating helmet prize collected later in this frame.
+        self.apply_form_width_overlap_fixup(&mut slice);
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;
@@ -539,6 +544,13 @@ impl NativeRuntime {
 
         self.process_block_effects(&mut slice);
         self.collect_floating_items(&mut slice);
+        if self.progression.pending_form.is_some() {
+            // Oracle demo 0x1B enters Kid_Transform on the same frame that the
+            // floating Cyclone prize is touched, so the traced helmet id and the
+            // 2px wall-separation push are already visible at frame end.
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(&mut slice);
+        }
         if self.resolve_frame_hazards(&mut slice, input, pre_physics_y_velocity, pre_physics_y_pos)
         {
             return;

@@ -3079,6 +3079,49 @@ fn restored_prize_ceiling_frame_is_inert_for_collision_and_dispatch() {
 }
 
 #[test]
+fn floating_helmet_prize_above_lower_body_does_not_collect() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.floating_items.push(FloatingItem {
+        x_pos: 72 << 16,
+        y_pos: i64::from(623 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        content: terrain::PrizeContent::Cyclone,
+        collected: false,
+    });
+    let mut slice = make_airborne_slice(74, 655);
+
+    runtime.collect_floating_items(&mut slice);
+
+    assert!(
+        !runtime.floating_items[0].collected,
+        "helmet prize should stay uncollected until it overlaps Kid's lower body"
+    );
+    assert_eq!(runtime.progression.pending_form, None);
+}
+
+#[test]
+fn floating_helmet_prize_entering_lower_body_collects() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.floating_items.push(FloatingItem {
+        x_pos: 72 << 16,
+        y_pos: i64::from(624 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        content: terrain::PrizeContent::Cyclone,
+        collected: false,
+    });
+    let mut slice = make_airborne_slice(74, 655);
+
+    runtime.collect_floating_items(&mut slice);
+
+    assert!(runtime.floating_items[0].collected);
+    assert_eq!(runtime.progression.pending_form, Some(PlayerForm::Cyclone));
+}
+
+#[test]
 fn smash_block_headbutt_does_not_grant_diamond() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_blocks());
@@ -11391,6 +11434,62 @@ fn demo_transform_entry_freezes_buffer_before_flash_frames_start() {
     } else {
         panic!("expected DemoPlay after queued transform frame");
     }
+}
+
+fn cached_any_percent_demo_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("repo root");
+    let manifest_path = repo_root
+        .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+    let scenario_path = repo_root.join(".cache/tas-imports/kc_any_percent_2024/scenario.json");
+    let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+    let scenario_raw = fs::read_to_string(scenario_path).expect("read TAS scenario");
+    let scenario_json: serde_json::Value =
+        serde_json::from_str(&scenario_raw).expect("parse TAS scenario");
+    let script: Vec<u8> = scenario_json["script"]
+        .as_array()
+        .expect("script array")
+        .iter()
+        .map(|value| value.as_u64().expect("script byte") as u8)
+        .collect();
+
+    let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+    runtime.set_trace_physics(false);
+    (runtime, script)
+}
+
+#[test]
+fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1055 = None;
+    let mut frame_1056 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_057) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_055 {
+            frame_1055 = Some((
+                trace.current_helmet_id,
+                trace.kid_x_pos,
+                trace.form_change_flash_frames,
+            ));
+        }
+        if frame_index == 1_056 {
+            frame_1056 = Some((
+                trace.current_helmet_id,
+                trace.kid_x_pos,
+                trace.form_change_flash_frames,
+            ));
+            break;
+        }
+    }
+
+    assert_eq!(frame_1055, Some((0, Some(74 << 16), 0)));
+    assert_eq!(
+        frame_1056,
+        Some((PlayerForm::Cyclone.helmet_id(), Some(72 << 16), 73))
+    );
 }
 
 /// Determinism: running the same scenario twice must produce identical traces.
