@@ -450,6 +450,7 @@ impl OpeningSliceState {
                 // ASM runs sub_902A (vertical) before sub_8F26 (horizontal), so floor
                 // probes see old x_pos. This is critical at ledge edges: with old x_pos
                 // the probe still finds ground, preventing a 1-frame-early fall.
+                let pre_vertical_y_px = (self.player.y_pos >> 16) as i32;
                 self.apply_y_velocity_to_position();
 
                 if let Some(ref mut t) = self.physics_trace {
@@ -490,6 +491,13 @@ impl OpeningSliceState {
                         grid,
                         collision_hw,
                     );
+                }
+                if let Some(grid) = block_grid.as_deref()
+                    && self.try_release_wall_cling_overhang(form, grid, pre_vertical_y_px)
+                {
+                    self.finalise_trace();
+                    self.update_camera_follow(y_look_offset);
+                    return;
                 }
 
                 // Step 4: sub_8F26 — apply x_pos += x_vel, then wall collision.
@@ -551,6 +559,143 @@ impl OpeningSliceState {
             direction == Direction::Right,
         )
         .hit
+    }
+
+    fn is_jump_corner_solid(cell: terrain::Cell) -> bool {
+        matches!(
+            cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
+    }
+
+    fn try_jump_corner_nudge_upward(
+        &mut self,
+        input: FrameInput,
+        form: PlayerForm,
+        grid: &terrain::BlockGrid,
+        collision_hw: i32,
+    ) -> bool {
+        if self.player.on_ground || self.player.x_velocity != 0 || self.player.y_velocity >= 0 {
+            return false;
+        }
+        let Some(direction) = Self::held_horizontal_direction(input) else {
+            return false;
+        };
+        if direction != self.player.facing {
+            return false;
+        }
+
+        let probe_offset = match direction {
+            Direction::Left => -(collision_hw + 1),
+            Direction::Right => collision_hw + 1,
+        };
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let probe_col = ((x_px + probe_offset) >> 4).max(0) as u16;
+        let foot_row = (y_px >> 4).max(0) as i32;
+
+        let foot_cell = grid.cell_at(probe_col, foot_row as u16);
+        if Self::is_jump_corner_solid(foot_cell) {
+            return false;
+        }
+
+        let support_cell = grid.cell_at(probe_col, foot_row.saturating_add(1) as u16);
+        if !Self::is_jump_corner_solid(support_cell) {
+            return false;
+        }
+
+        let upper_solid_row = if matches!(form, PlayerForm::Micromax | PlayerForm::Juggernaut) {
+            foot_row.saturating_sub(1)
+        } else {
+            let upper_clear = grid.cell_at(probe_col, foot_row.saturating_sub(1) as u16);
+            if Self::is_jump_corner_solid(upper_clear) {
+                return false;
+            }
+            foot_row.saturating_sub(2)
+        };
+        let upper_solid = grid.cell_at(probe_col, upper_solid_row as u16);
+        if !Self::is_jump_corner_solid(upper_solid) {
+            return false;
+        }
+
+        let nudged_x_px = match direction {
+            Direction::Left => x_px.saturating_sub(1),
+            Direction::Right => x_px.saturating_add(1),
+        };
+        let aligned_y_px = (y_px & !0xF) + 0xF;
+        // ASM loc_AB22 / add.w x_pos(a3): nudge the pixel part only, preserving
+        // any existing X sub-pixel while the upward corner carry clears Y sub-pixel.
+        self.player.x_pos = ((nudged_x_px.max(0) as u32) << 16) | (self.player.x_pos & 0xFFFF);
+        self.player.y_pos = (aligned_y_px.max(0) as u32) << 16;
+        self.player.y_velocity = 0;
+        true
+    }
+
+    fn try_release_wall_cling_overhang(
+        &mut self,
+        form: PlayerForm,
+        grid: &terrain::BlockGrid,
+        pre_vertical_y_px: i32,
+    ) -> bool {
+        let Some(direction) = self.player.wall_cling_direction else {
+            return false;
+        };
+        let sticky_active = match direction {
+            Direction::Right => self.player.right_wall_sticky,
+            Direction::Left => self.player.left_wall_sticky,
+        };
+        if !sticky_active || self.player.y_velocity >= 0 {
+            return false;
+        }
+
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let upward_displacement = pre_vertical_y_px - y_px;
+        let distance_to_tile = (-(y_px + 1)) & 0xF;
+        if upward_displacement <= distance_to_tile {
+            return false;
+        }
+
+        // ASM jump wall-cling state keeps suppressing h_accel until the first
+        // upward tile-row crossing where the overhang has actually cleared.
+        // On that release frame, the sticky wall hold contributes a 1px x-pos
+        // shimmy and clears the cling state, which is exactly the demo-1
+        // frame-2723 frontier behaviour.
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let moving_right = direction == Direction::Right;
+        if terrain::probe_wall(
+            grid,
+            x_px,
+            y_px,
+            form.half_width(),
+            PLAYER_HEIGHT,
+            moving_right,
+        )
+        .hit
+        {
+            return false;
+        }
+        if terrain::probe_wall_top_edge(
+            grid,
+            x_px,
+            y_px,
+            form.half_width(),
+            PLAYER_HEIGHT,
+            moving_right,
+        )
+        .hit
+        {
+            return false;
+        }
+
+        match direction {
+            Direction::Right => self.player.x_pos = self.player.x_pos.wrapping_add(0x0001_0000),
+            Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
+        }
+        self.player.x_velocity = 0;
+        self.player.wall_cling_direction = None;
+        self.player.right_wall_sticky = false;
+        self.player.left_wall_sticky = false;
+        true
     }
 
     /// Record final state into the physics trace and detect floor landing.

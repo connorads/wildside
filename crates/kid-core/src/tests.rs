@@ -11655,6 +11655,42 @@ fn demo_1_post_landing_hold_preserves_standingstill_through_frame_2714() {
 }
 
 #[test]
+fn demo_1_wall_cling_snap_releases_into_run_on_frame_2723() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_726) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (2_723..=2_725).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_2723 = frames
+        .get(&2_723)
+        .unwrap_or_else(|| panic!("frame 2723 should be captured"));
+    assert_eq!(
+        frame_2723.kid_x_pos,
+        Some(0x011B_0000),
+        "demo 1 should shimmy 1px off the wall-cling on frame 2723",
+    );
+
+    let frame_2724 = frames
+        .get(&2_724)
+        .unwrap_or_else(|| panic!("frame 2724 should be captured"));
+    assert_eq!(
+        frame_2724.kid_x_pos,
+        Some(0x011B_4080),
+        "the grounded release should hand off into the oracle-backed run arc on frame 2724",
+    );
+
+    let frame_2725 = frames
+        .get(&2_725)
+        .unwrap_or_else(|| panic!("frame 2725 should be captured"));
+    assert_eq!(frame_2725.kid_x_pos, Some(0x011B_C180));
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
