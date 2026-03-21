@@ -11691,6 +11691,42 @@ fn demo_1_wall_cling_snap_releases_into_run_on_frame_2723() {
 }
 
 #[test]
+fn demo_1_left_wall_snap_lands_flush_on_frame_2773() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_776) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (2_772..=2_775).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_2772 = frames
+        .get(&2_772)
+        .unwrap_or_else(|| panic!("frame 2772 should be captured"));
+    assert_eq!(frame_2772.kid_x_pos, Some(0x0135_5000));
+
+    let frame_2773 = frames
+        .get(&2_773)
+        .unwrap_or_else(|| panic!("frame 2773 should be captured"));
+    assert_eq!(
+        frame_2773.kid_x_pos,
+        Some(0x0135_0000),
+        "demo 1 should snap flush to the left wall on frame 2773",
+    );
+
+    let frame_2774 = frames
+        .get(&2_774)
+        .unwrap_or_else(|| panic!("frame 2774 should be captured"));
+    assert_eq!(
+        frame_2774.kid_x_pos,
+        Some(0x0135_0000),
+        "after the flush snap, the next held-input frame should stay pinned at the wall",
+    );
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;

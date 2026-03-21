@@ -1319,7 +1319,12 @@ impl OpeningSliceState {
             let clamped_center = if moving_right {
                 probe.wall_x_px - (collision_hw + 1)
             } else {
-                probe.wall_x_px + (collision_hw + 1)
+                // Leftward wall probes test the current left edge pixel
+                // (`center_x - half_width`), so the flush non-colliding centre
+                // sits exactly `half_width` pixels to the right of the wall
+                // surface. The extra `+1` belongs only to the moving-right path,
+                // which probes one pixel beyond the right edge.
+                probe.wall_x_px + collision_hw
             };
             if moving_right && x_px < clamped_center {
                 self.player.right_wall_sticky = false;
