@@ -522,8 +522,10 @@ impl NativeRuntime {
                 || self.helmet.cyclone_flying
                 || self.helmet.iron_knight_climbing
                 || self.helmet.micromax_stuck;
-            let allow_asm_faithful_solid_touch_snap =
-                !(self.demo_gameplay_active() && self.current_level == LevelId(demo::DEMO_2_LEVEL));
+            // Demo playback keeps a hidden shadow arc with one last airborne
+            // sub-half-pixel gap before landing. Letting AsmFaithful collapse
+            // that gap lands frame 2625 of demo 1 one frame early.
+            let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
             slice.step_with_order(
                 effective_elapsed,
                 input,

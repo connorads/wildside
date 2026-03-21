@@ -11589,6 +11589,38 @@ fn demo_1_bootstrap_holds_pose_and_input_until_frame_2571() {
 }
 
 #[test]
+fn demo_1_handoff_stays_airborne_until_frame_2626() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_627) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (2_624..=2_626).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_2624 = frames.get(&2_624).expect("frame 2624 should be captured");
+    assert_eq!(frame_2624.kid_x_pos, Some(0x0059_E500));
+    assert_eq!(frame_2624.kid_y_pos, Some(0x0139_C000));
+    assert_eq!(frame_2624.kid_on_ground, Some(false));
+
+    let frame_2625 = frames.get(&2_625).expect("frame 2625 should be captured");
+    assert_eq!(frame_2625.kid_x_pos, Some(0x005C_7700));
+    assert_eq!(frame_2625.kid_y_pos, Some(0x013F_4000));
+    assert_eq!(
+        frame_2625.kid_on_ground,
+        Some(false),
+        "demo playback should preserve the remaining sub-half-pixel gap on frame 2625",
+    );
+
+    let frame_2626 = frames.get(&2_626).expect("frame 2626 should be captured");
+    assert_eq!(frame_2626.kid_x_pos, Some(0x005C_7700));
+    assert_eq!(frame_2626.kid_y_pos, Some(0x013F_0000));
+    assert_eq!(frame_2626.kid_on_ground, Some(true));
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
