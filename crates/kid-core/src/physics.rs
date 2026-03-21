@@ -499,16 +499,19 @@ fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
 fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
     if run {
         // loc_9BCE: running left
-        if vel <= 0 {
+        // ASM: `tst.l d0; bpl.s loc_9BE8` — vel=0 is "not moving left" (bpl
+        // tests N flag; 0 clears N), so stopped uses the strong_brake path.
+        if vel < 0 {
             let abs_vel = vel.saturating_neg();
             let next_abs = (abs_vel + table.run_accel).min(table.max_run_speed);
             -next_abs
         } else {
-            // Moving right while holding left+run: strong_brake ($18)
+            // Moving right OR stopped while holding left+run: strong_brake ($18)
             vel - table.strong_brake
         }
-    } else if vel <= 0 {
-        // Walking left, moving left
+    } else if vel < 0 {
+        // Walking left, already moving left
+        // ASM: `tst.l d0; bpl.s loc_9BC8` — vel=0 uses strong_brake path.
         let abs_vel = vel.saturating_neg();
         if abs_vel > table.max_run_speed {
             -table.max_run_speed
@@ -525,7 +528,7 @@ fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
             }
         }
     } else {
-        // Walking left, but moving right: strong_brake ($18)
+        // Walking left, but moving right OR stopped: strong_brake ($18)
         vel - table.strong_brake
     }
 }

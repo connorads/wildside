@@ -314,17 +314,23 @@ impl NativeRuntime {
         };
         let byte = data.get(data_index).copied().unwrap_or(0);
         let demo_input = demo::decode_demo_byte(byte);
-        // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
-        if let BootState::DemoPlay {
-            frame_counter,
-            data_index,
-            ..
-        } = &mut self.boot_state
-        {
-            let playback_frame = *frame_counter - demo::DEMO_GAMEPLAY_START_FRAME;
-            *frame_counter += 1;
-            if playback_frame % 2 == 1 {
-                *data_index += 1;
+        // ASM demo input (loc_C22) freezes during Kid_Transform: the coroutine's
+        // Hibernate loop doesn't call the demo input handler, so the frame counter
+        // and data pointer stay frozen until the transform completes. Match this by
+        // skipping advancement when form_change_flash_frames > 0.
+        if self.progression.form_change_flash_frames == 0 {
+            // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
+            if let BootState::DemoPlay {
+                frame_counter,
+                data_index,
+                ..
+            } = &mut self.boot_state
+            {
+                let playback_frame = *frame_counter - demo::DEMO_GAMEPLAY_START_FRAME;
+                *frame_counter += 1;
+                if playback_frame % 2 == 1 {
+                    *data_index += 1;
+                }
             }
         }
         Some(demo_input)
