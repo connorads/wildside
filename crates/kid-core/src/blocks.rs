@@ -106,7 +106,6 @@ impl NativeRuntime {
     /// the tile and create the prize object.
     pub(crate) fn step_deferred_ceiling_clears(&mut self) {
         if let Some(grid) = &mut self.block_grid {
-            let mut spawned_items = Vec::new();
             self.block_state
                 .deferred_ceiling_clears
                 .retain_mut(|entry| match entry.phase {
@@ -120,6 +119,22 @@ impl NativeRuntime {
                         true
                     }
                     DeferredPrizeBlockPhase::Restored => {
+                        entry.phase = DeferredPrizeBlockPhase::PendingClear;
+                        true
+                    }
+                    DeferredPrizeBlockPhase::PendingClear => true,
+                });
+        }
+    }
+
+    pub(crate) fn finish_deferred_ceiling_clears(&mut self) {
+        if let Some(grid) = &mut self.block_grid {
+            let mut spawned_items = Vec::new();
+            self.block_state
+                .deferred_ceiling_clears
+                .retain_mut(|entry| match entry.phase {
+                    DeferredPrizeBlockPhase::Deleted | DeferredPrizeBlockPhase::Restored => true,
+                    DeferredPrizeBlockPhase::PendingClear => {
                         grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
                         spawned_items.push(FloatingItem {
                             x_pos: (u32::from(entry.col) * 16 + 8) << 16,

@@ -481,11 +481,11 @@ impl NativeRuntime {
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
         if self.progression.form_change_flash_frames == 0 {
-            let restored_prize_ceiling_cells: Vec<(u16, u16)> = self
+            let deferred_prize_ceiling_cells: Vec<(u16, u16)> = self
                 .block_state
                 .deferred_ceiling_clears
                 .iter()
-                .filter(|entry| entry.phase == DeferredPrizeBlockPhase::Restored)
+                .filter(|entry| entry.phase != DeferredPrizeBlockPhase::Deleted)
                 .map(|entry| (entry.col, entry.row))
                 .collect();
             // Helmet abilities that override normal gravity
@@ -503,12 +503,13 @@ impl NativeRuntime {
                 custom_gravity,
                 self.y_look_offset,
                 self.physics_order,
-                &restored_prize_ceiling_cells,
+                &deferred_prize_ceiling_cells,
             );
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
             // runs AFTER physics so flight takes effect next frame.
             self.step_cyclone_activation(&slice, input);
         }
+        self.finish_deferred_ceiling_clears();
         let spawn_support_snapped = (self.skip_entry_animation || self.demo_gameplay_active())
             && self
                 .block_grid

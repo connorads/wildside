@@ -348,11 +348,11 @@ impl NativeRuntime {
         // the camera-handoff frame is first consumed on the hidden settle frame.
         let byte = data.get(data_index).copied().unwrap_or(0);
         let demo_input = demo::decode_demo_byte(byte);
-        // ASM demo input (loc_C22) freezes during Kid_Transform: the coroutine's
-        // Hibernate loop doesn't call the demo input handler, so the frame counter
-        // and data pointer stay frozen until the transform completes. The first
-        // transform frame is already queued via pending_form before flash_frames
-        // becomes non-zero, so freeze on either signal.
+        // ASM demo input (loc_C22) freezes once the queued transform frame
+        // hands control to Kid_Transform. The pending_form frame itself still
+        // consumes the previously buffered byte, then the coroutine hibernates
+        // until flash frames begin. Transform-exit parity is restored
+        // separately in update_demo_transform_parity().
         if self.progression.pending_form.is_none() && self.progression.form_change_flash_frames == 0
         {
             self.demo_buffered_input = Some(demo_input);

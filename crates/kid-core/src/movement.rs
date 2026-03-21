@@ -154,7 +154,7 @@ impl OpeningSliceState {
         custom_gravity: bool,
         y_look_offset: i16,
         physics_order: PhysicsOrder,
-        restored_prize_ceiling_cells: &[(u16, u16)],
+        deferred_prize_ceiling_cells: &[(u16, u16)],
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -239,7 +239,7 @@ impl OpeningSliceState {
                         block_list,
                         form,
                         collision_hw,
-                        restored_prize_ceiling_cells,
+                        deferred_prize_ceiling_cells,
                     );
                     self.apply_floor_collision(
                         Some(grid),
@@ -304,7 +304,7 @@ impl OpeningSliceState {
                         block_list,
                         form,
                         collision_hw,
-                        restored_prize_ceiling_cells,
+                        deferred_prize_ceiling_cells,
                     );
                     self.apply_floor_collision(
                         Some(grid),
@@ -457,7 +457,7 @@ impl OpeningSliceState {
                         block_list,
                         form,
                         collision_hw,
-                        restored_prize_ceiling_cells,
+                        deferred_prize_ceiling_cells,
                     );
                     self.apply_floor_collision(
                         Some(grid),
@@ -1158,7 +1158,7 @@ impl OpeningSliceState {
         block_list: Option<&terrain::BlockList>,
         form: PlayerForm,
         collision_hw: i32,
-        restored_prize_ceiling_cells: &[(u16, u16)],
+        deferred_prize_ceiling_cells: &[(u16, u16)],
     ) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
@@ -1189,17 +1189,14 @@ impl OpeningSliceState {
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
 
         if probe.hit {
-            let restored_prize_cell = restored_prize_ceiling_cells
+            let deferred_prize_ceiling_cell = deferred_prize_ceiling_cells
                 .iter()
                 .any(|&(col, row)| col == probe.cell_x && row == probe.cell_y);
-            if restored_prize_cell {
-                // Oracle probe sees the transient E1xx restore in level RAM,
-                // but Kid no longer collides with it on the next frame.
-                return;
-            }
             // Hidden block reveal: headbutting a hidden block from below
             // changes it to solid, making the block visible and functional.
-            if probe.cell.collision == terrain::CollisionKind::HiddenBlock {
+            if !deferred_prize_ceiling_cell
+                && probe.cell.collision == terrain::CollisionKind::HiddenBlock
+            {
                 // Change collision from HiddenBlock(2) to Solid(6),
                 // preserving the block type and skin.
                 let block_flag: u8 = if probe.cell.has_block { 0x80 } else { 0 };
@@ -1230,7 +1227,10 @@ impl OpeningSliceState {
             }
 
             // Prize/smash/lift block headbutt: hitting from below.
-            if probe.cell.collision == terrain::CollisionKind::Solid && probe.cell.has_block {
+            if !deferred_prize_ceiling_cell
+                && probe.cell.collision == terrain::CollisionKind::Solid
+                && probe.cell.has_block
+            {
                 match probe.cell.block_type {
                     terrain::BlockType::Prize => {
                         let content = block_list

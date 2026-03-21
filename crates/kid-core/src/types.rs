@@ -968,6 +968,7 @@ pub(crate) struct EvanescentEntry {
 pub(crate) enum DeferredPrizeBlockPhase {
     Deleted,
     Restored,
+    PendingClear,
 }
 
 /// ASM sub_1007A prize-block lifecycle: after a headbutt the block stays Solid

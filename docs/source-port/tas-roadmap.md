@@ -7,7 +7,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | frontier: frame 1396 (post-prize-hit ceiling latch on level 0x1B demo) |
+| `kc_any_percent_2024` | 4916 | ~82s | frontier: frame 1405 (floating prize collection timing on level 0x1B demo) |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -28,6 +28,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
 | 2025-03-19 | kc_any_percent_2024 | 955 | camera_y_pos | wall-sticky ledge snap + floor snap commits |
+| 2026-03-21 | kc_any_percent_2024 | 1405 | Post-latch floating prize collection awards `score=500` / `number_diamonds=1` one frame before oracle on demo level `0x1B` | Restored prize cells now stay collision-solid through the clear frame's physics step, then clear/spawn at frame end. Re-ran `cargo test -p kid-core demo_transform -- --nocapture`, `cargo test -p kid-core prize_block_lifecycle_spawns_item_only_after_bounce_completion -- --nocapture`, `cargo test -p kid-core demo_prize_ceiling_restore_still_latches_on_frame_1396 -- --nocapture`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1138 --frame-end 1160 --checkpoint-interval 1`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1360 --frame-end 1425 --checkpoint-interval 1` to confirm the transform window stays clean and the frontier advances to frame 1405. |
 | 2026-03-21 | kc_any_percent_2024 | 1396 | Transform-exit demo parity fix moved the first remaining authoritative diffs to `camera_y_pos` and `kid_y_pos` at frame 1396 during the post-prize-hit ceiling sequence on demo level `0x1B` | Re-ran `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1138 --frame-end 1160 --checkpoint-interval 1` to confirm the transform window is clean, then `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1360 --frame-end 1425 --checkpoint-interval 1` to capture the new frontier at frame 1396. |
 | 2026-03-20 | kc_any_percent_2024 | 955 | kid_y_pos native=0x028f0000 (pixel-aligned) vs oracle=0x028fe6e0 (sub-pixel) | Exact frame 955: native grounded/jumping, oracle sub-pixel Y. Same root cause for any-percent-published at f958. Demo input verified matching (R+B+A from DEMO_INPUT_DATA_2[27]). Single-frame divergence suggests floor collision or gravity difference on level 0x1B terrain. |
 | 2026-03-20 | kc_any_percent_2024 | 902 | kid_y_vel: native starts falling, oracle stays grounded | Boot timing fix: deferred sega screen (1f) and intro→title (2f) transitions to match oracle VBlank timing. New blocker: at kid=(0x00200000,0x02de4000) on level 0x1B demo, native drops off ground while oracle stays grounded. Kid idle, no input — pure ground-check logic difference. |

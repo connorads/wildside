@@ -3013,7 +3013,7 @@ fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
 }
 
 #[test]
-fn restored_prize_ceiling_frame_is_inert_for_collision_and_dispatch() {
+fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
     let mut grid = grid_with_blocks();
 
     let mut slice = OpeningSliceState {
@@ -3064,8 +3064,13 @@ fn restored_prize_ceiling_frame_is_inert_for_collision_and_dispatch() {
     );
 
     assert_eq!(
-        slice.player.y_velocity, -0x0011_0000,
-        "restored frame should no longer block upward motion"
+        slice.player.y_velocity, 0,
+        "restored frame should still block upward motion"
+    );
+    assert_eq!(
+        slice.player.y_pos,
+        79 << 16,
+        "restored frame should still snap the player below the ceiling"
     );
     assert!(
         slice.prize_block_hit.is_none(),
@@ -11533,10 +11538,7 @@ fn demo_inputs_match_oracle_controls_after_transform_exit() {
         if !(1_138..=1_152).contains(&frame_index) {
             continue;
         }
-        let buffered_mask = runtime
-            .demo_buffered_input
-            .unwrap_or_default()
-            .to_mask();
+        let buffered_mask = runtime.demo_buffered_input.unwrap_or_default().to_mask();
         observed_masks.push((frame_index, buffered_mask));
     }
 
@@ -11560,6 +11562,35 @@ fn demo_inputs_match_oracle_controls_after_transform_exit() {
             (1152, 0x48),
         ],
         "native demo input stream drifted from the oracle-held demo controls"
+    );
+}
+
+#[test]
+fn demo_prize_ceiling_restore_still_latches_on_frame_1396() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1396 = None;
+    let mut frame_1397 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_398) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_396 {
+            frame_1396 = Some((trace.kid_y_pos, trace.camera_y_pos, trace.kid_y_velocity));
+        }
+        if frame_index == 1_397 {
+            frame_1397 = Some((trace.kid_y_pos, trace.camera_y_pos, trace.kid_y_velocity));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1396,
+        Some((Some(0x010F_0000), 0x0073_0000, Some(0))),
+        "the transient prize-cell restore should still hold Kid on frame 1396"
+    );
+    assert_eq!(
+        frame_1397,
+        Some((Some(0x010F_0000), 0x0073_0000, Some(0))),
+        "the latch should persist through the clear frame before the next arc begins"
     );
 }
 
