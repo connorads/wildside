@@ -170,6 +170,10 @@ impl OpeningSliceState {
             return;
         }
         let mut block_grid = block_grid;
+        // ASM sub_914A uses FA78 (per-form half-width from unk_B408) for all
+        // collision probes. Thread the form's half-width through to collision
+        // functions instead of the constant PLAYER_HALF_WIDTH.
+        let collision_hw = form.half_width();
 
         match physics_order {
             PhysicsOrder::GravityFirst => {
@@ -211,14 +215,14 @@ impl OpeningSliceState {
 
                 let pre_collision_x = self.player.x_pos;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_wall_collision(Some(grid));
+                    self.apply_wall_collision(Some(grid), collision_hw);
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
                     {
                         t.wall_hit = true;
                         t.wall_snap_x = Some(self.player.x_pos);
                     }
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -226,13 +230,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
+                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
+                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
                 } else {
-                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed)
+                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
                 };
                 if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
-                    self.apply_immediate_slope_recontact(input, form, collision, grid);
+                    self.apply_immediate_slope_recontact(input, form, collision, grid, collision_hw);
                 }
             }
             PhysicsOrder::PositionFirst => {
@@ -258,8 +262,8 @@ impl OpeningSliceState {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_wall_collision(Some(grid));
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                    self.apply_wall_collision(Some(grid), collision_hw);
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -267,13 +271,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
+                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
+                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
                 } else {
-                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed)
+                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
                 };
                 if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
-                    self.apply_immediate_slope_recontact(input, form, collision, grid);
+                    self.apply_immediate_slope_recontact(input, form, collision, grid, collision_hw);
                 }
                 // Apply gravity after collisions (ASM sub_B168 runs after collision checks)
                 let pre_post_grav_vel = self.player.y_velocity;
@@ -352,14 +356,14 @@ impl OpeningSliceState {
                 // Step 4: sub_902A + sub_8F26 — collisions
                 let pre_collision_x = self.player.x_pos;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_wall_collision(Some(grid));
+                    self.apply_wall_collision(Some(grid), collision_hw);
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
                     {
                         t.wall_hit = true;
                         t.wall_snap_x = Some(self.player.x_pos);
                     }
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid) {
+                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -367,13 +371,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed)
+                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
+                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
                 } else {
-                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed)
+                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
                 };
                 if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
-                    self.apply_immediate_slope_recontact(input, form, collision, grid);
+                    self.apply_immediate_slope_recontact(input, form, collision, grid, collision_hw);
                 }
             }
         }
@@ -405,6 +409,7 @@ impl OpeningSliceState {
         &mut self,
         jump_pressed: bool,
         grid: &terrain::BlockGrid,
+        collision_hw: i32,
     ) -> bool {
         if !jump_pressed || self.player.on_ground || self.player.y_velocity >= 0 {
             return false;
@@ -413,13 +418,13 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         let (probe, snap_x_px) = if self.player.right_wall_sticky {
-            let probe = terrain::probe_floor(grid, x_px + PLAYER_HALF_WIDTH + 1, y_px);
+            let probe = terrain::probe_floor(grid, x_px + collision_hw + 1, y_px);
             let support_left_px = i32::from(probe.cell_x) * 16;
-            (probe, support_left_px + PLAYER_HALF_WIDTH - 1)
+            (probe, support_left_px + collision_hw - 1)
         } else if self.player.left_wall_sticky {
-            let probe = terrain::probe_floor(grid, x_px - PLAYER_HALF_WIDTH - 1, y_px);
+            let probe = terrain::probe_floor(grid, x_px - collision_hw - 1, y_px);
             let support_right_px = (i32::from(probe.cell_x) + 1) * 16 - 1;
-            (probe, support_right_px - PLAYER_HALF_WIDTH + 1)
+            (probe, support_right_px - collision_hw + 1)
         } else {
             return false;
         };
@@ -883,7 +888,7 @@ impl OpeningSliceState {
         }
     }
 
-    pub(crate) fn apply_wall_collision(&mut self, block_grid: Option<&terrain::BlockGrid>) {
+    pub(crate) fn apply_wall_collision(&mut self, block_grid: Option<&terrain::BlockGrid>, collision_hw: i32) {
         let Some(grid) = block_grid else {
             self.player.right_wall_sticky = false;
             self.player.left_wall_sticky = false;
@@ -922,7 +927,7 @@ impl OpeningSliceState {
             let new_px = (self.player.x_pos >> 16) as i32;
             if moving_right {
                 let displacement = new_px - old_px;
-                let right_edge = old_px + PLAYER_HALF_WIDTH;
+                let right_edge = old_px + collision_hw;
                 let distance_to_tile = (-(right_edge + 1)) & 0xF;
                 // ASM: cmp.w d0,d4 / ble (skip when displacement <= distance).
                 // Includes distance=0 case (player at tile boundary, no crossing).
@@ -931,7 +936,7 @@ impl OpeningSliceState {
                 }
             } else {
                 let displacement = old_px - new_px;
-                let left_edge = old_px - PLAYER_HALF_WIDTH;
+                let left_edge = old_px - collision_hw;
                 let distance_to_tile = left_edge & 0xF;
                 if displacement <= distance_to_tile {
                     return;
@@ -943,7 +948,7 @@ impl OpeningSliceState {
             grid,
             x_px,
             y_px,
-            PLAYER_HALF_WIDTH,
+            collision_hw,
             PLAYER_HEIGHT,
             moving_right,
         );
@@ -953,7 +958,7 @@ impl OpeningSliceState {
                 grid,
                 x_px,
                 y_px,
-                PLAYER_HALF_WIDTH,
+                collision_hw,
                 PLAYER_HEIGHT,
                 moving_right,
             );
@@ -968,7 +973,7 @@ impl OpeningSliceState {
                 grid,
                 x_px,
                 y_px,
-                PLAYER_HALF_WIDTH,
+                collision_hw,
                 PLAYER_HEIGHT,
                 true,
             );
@@ -988,7 +993,7 @@ impl OpeningSliceState {
                 grid,
                 x_px,
                 y_px,
-                PLAYER_HALF_WIDTH,
+                collision_hw,
                 PLAYER_HEIGHT,
                 false,
             );
@@ -1004,9 +1009,9 @@ impl OpeningSliceState {
 
         if probe.hit {
             let clamped_center = if moving_right {
-                probe.wall_x_px - PLAYER_RIGHT_WALL_EXTENT
+                probe.wall_x_px - (collision_hw + 1)
             } else {
-                probe.wall_x_px + PLAYER_LEFT_WALL_EXTENT
+                probe.wall_x_px + (collision_hw + 1)
             };
             if moving_right && x_px < clamped_center {
                 self.player.right_wall_sticky = false;
@@ -1039,6 +1044,7 @@ impl OpeningSliceState {
         &mut self,
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
+        collision_hw: i32,
     ) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
@@ -1048,7 +1054,7 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
 
-        let probe = terrain::probe_ceiling(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT);
+        let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, PLAYER_HEIGHT);
 
         if probe.hit {
             // Hidden block reveal: headbutting a hidden block from below
@@ -1152,14 +1158,15 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         horizontal_step_applied: bool,
         allow_upward_slope_snap: bool,
+        collision_hw: i32,
     ) -> Option<terrain::CollisionKind> {
         if let Some(grid) = block_grid {
             let was_on_ground = self.player.on_ground;
             let x_px = (self.player.x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
-            let left_edge_probe = terrain::probe_floor(grid, x_px - PLAYER_HALF_WIDTH, y_px);
-            let right_edge_probe = terrain::probe_floor(grid, x_px + PLAYER_HALF_WIDTH, y_px);
-            let mut probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+            let left_edge_probe = terrain::probe_floor(grid, x_px - collision_hw, y_px);
+            let right_edge_probe = terrain::probe_floor(grid, x_px + collision_hw, y_px);
+            let mut probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
             if was_on_ground
                 && matches!(
                     probe.cell.collision,
@@ -1334,6 +1341,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         collision: terrain::CollisionKind,
         grid: &terrain::BlockGrid,
+        collision_hw: i32,
     ) {
         let h_input = HorizontalInput {
             left: input.left,
@@ -1355,7 +1363,7 @@ impl OpeningSliceState {
 
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
-        let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+        let probe = terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
         let floor_y_px = match probe.cell.collision {
             terrain::CollisionKind::Solid
             | terrain::CollisionKind::HiddenBlock

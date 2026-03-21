@@ -1625,7 +1625,7 @@ fn airborne_landing_prefers_center_slope_before_edge_solid() {
     slice.player.y_velocity = 0x0001_0000;
     slice.player.on_ground = false;
 
-    slice.apply_floor_collision(Some(&grid), false, false);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
 
     assert_eq!(slice.player.y_pos, 27 << 16);
     assert!(slice.player.on_ground);
@@ -1649,7 +1649,7 @@ fn jump_pressed_from_right_wall_sticky_catches_adjacent_ledge() {
     slice.player.on_ground = false;
     slice.player.right_wall_sticky = true;
 
-    assert!(slice.try_snap_wall_sticky_ledge(true, &grid));
+    assert!(slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH));
 
     assert_eq!(slice.player.x_pos, 68 << 16);
     // Wall-sticky ledge snap preserves sub-pixel from the player's trajectory,
@@ -4682,7 +4682,7 @@ fn headbutt_prize_block_changes_to_empty() {
             physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
     // Prize block should now be empty
     let cell_after = grid.cell_at(2, 2);
@@ -4736,7 +4736,7 @@ fn headbutt_metal_block_does_not_clear() {
             physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
     // Metal block remains unchanged
     let cell_after = grid.cell_at(3, 2);
@@ -4794,7 +4794,7 @@ fn headbutt_smash_block_changes_to_empty() {
             physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
     // Smash block should now be empty
     let cell_after = grid.cell_at(4, 2);
@@ -4848,13 +4848,13 @@ fn cleared_smash_block_no_longer_blocks_movement() {
             physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
     assert!(!grid.cell_at(4, 2).has_block);
 
     // Second jump through the now-empty cell: no ceiling hit
     slice.player.y_pos = 63 << 16;
     slice.player.y_velocity = -0x0002_0000;
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
     // Velocity should remain negative (no ceiling hit)
     assert!(slice.player.y_velocity < 0);
@@ -4903,13 +4903,13 @@ fn cleared_prize_block_no_longer_blocks_movement() {
             physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
     assert!(!grid.cell_at(2, 2).has_block);
 
     // Second jump through the now-empty cell: no ceiling hit
     slice.player.y_pos = 63 << 16;
     slice.player.y_velocity = -0x0002_0000;
-    slice.apply_ceiling_collision(Some(&mut grid), None);
+    slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
     // Velocity should remain negative (no ceiling hit)
     assert!(slice.player.y_velocity < 0);
@@ -4962,7 +4962,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
             physics_trace: None,
     };
 
-    slice.apply_wall_collision(Some(&grid));
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
 
     assert_eq!(slice.player.x_pos, 42 << 16);
     assert_eq!(slice.player.x_velocity, 0);
@@ -5015,7 +5015,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
             physics_trace: None,
     };
 
-    slice.apply_wall_collision(Some(&grid));
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
     assert_eq!(slice.player.x_pos, 26 << 16);
     assert_eq!(slice.player.x_velocity, 0);
     assert!(slice.player.right_wall_sticky);
@@ -5070,14 +5070,14 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
             physics_trace: None,
     };
 
-    slice.apply_wall_collision(Some(&grid));
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
     assert_eq!(slice.player.x_pos, 26 << 16);
     assert_eq!(slice.player.x_velocity, 0);
     assert!(slice.player.right_wall_sticky);
 
     slice.player.y_pos = 56 << 16;
     slice.player.x_velocity = 0x0000_4000;
-    slice.apply_wall_collision(Some(&grid));
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
     assert_eq!(slice.player.x_pos, 26 << 16);
     assert_eq!(slice.player.x_velocity, 0);
     assert!(slice.player.right_wall_sticky);
@@ -5085,7 +5085,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
     slice.player.y_pos = 64 << 16;
     slice.player.x_velocity = 0x0000_4000;
     slice.player.x_pos = (26 << 16) + 0x0000_4000;
-    slice.apply_wall_collision(Some(&grid));
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
     assert_eq!(slice.player.x_pos, 27 << 16);
     assert_eq!(slice.player.x_velocity, 0);
     assert!(!slice.player.right_wall_sticky);
@@ -5134,7 +5134,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
             physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), true, false);
+    slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH);
 
     assert_eq!(slice.player.x_pos, previous_x_pos);
     assert_eq!(slice.player.y_pos, 63 << 16);
@@ -5184,7 +5184,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
             physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), false, false);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
 
     assert!(slice.player.on_ground);
     assert_eq!(slice.player.y_pos, 0x003F_4000);
@@ -5231,7 +5231,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
             physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), false, false);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
 
     assert!(!slice.player.on_ground);
     assert_eq!(slice.player.y_pos, (63 << 16) + 0x0000_8000);
@@ -8045,7 +8045,7 @@ fn floor_collision_sets_terrain_type_from_block() {
             physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), false, false);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
     assert!(slice.player.on_ground);
     assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Ice);
 }
@@ -8096,7 +8096,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
     };
 
     // No floor under player → should leave ground and reset terrain type
-    slice.apply_floor_collision(Some(&grid), false, false);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
     assert!(!slice.player.on_ground);
     assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Normal);
 }
@@ -9787,7 +9787,7 @@ fn mushroom_block_bounces_player_on_landing() {
     // Place player at y=63 (just above floor at y=64, within snap range)
     slice.player.y_pos = 0x003F_0000;
 
-    slice.apply_floor_collision(Some(&grid), false, false);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
 
     assert!(
         !slice.player.on_ground,

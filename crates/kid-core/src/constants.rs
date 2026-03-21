@@ -89,8 +89,6 @@ pub(crate) const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 // Position is at feet, so hitbox extends half_width either side and height above.
 pub(crate) const PLAYER_HALF_WIDTH: i32 = 5;
 pub(crate) const PLAYER_HEIGHT: i32 = 31;
-pub(crate) const PLAYER_RIGHT_WALL_EXTENT: i32 = PLAYER_HALF_WIDTH + 1;
-pub(crate) const PLAYER_LEFT_WALL_EXTENT: i32 = PLAYER_HALF_WIDTH + 1;
 pub(crate) const PLAYER_CONTACT_HALF_WIDTH: i64 = 4;
 pub(crate) const GROUND_SNAP_TOLERANCE_FP: u32 = 0x0006_0000;
 pub(crate) const JUMP_BUFFER_FRAMES: u8 = 6;

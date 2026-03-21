@@ -154,7 +154,8 @@ impl NativeRuntime {
         };
         let x_px = (slice.player.x_pos >> 16) as i32;
         let y_px = (slice.player.y_pos >> 16) as i32;
-        let support_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, PLAYER_HALF_WIDTH);
+        let hw = self.progression.current_form.half_width();
+        let support_probe = terrain::probe_floor_hitbox(grid, x_px, y_px, hw);
         if support_probe.on_ground || support_probe.cell.is_solid_floor() {
             return false;
         }
@@ -163,7 +164,7 @@ impl NativeRuntime {
         // after the bootstrap hold, then regular physics resumes once the
         // recorded jump lifts off from that pinned floor.
         slice.update_horizontal_motion(input, false, self.progression.current_form, Some(grid));
-        slice.apply_wall_collision(Some(grid));
+        slice.apply_wall_collision(Some(grid), hw);
         slice.player.y_pos = slice.terrain.floor_y_pos;
         slice.player.y_velocity = 0;
         slice.player.on_ground = true;

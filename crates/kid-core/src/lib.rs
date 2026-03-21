@@ -426,6 +426,7 @@ impl NativeRuntime {
             None
         };
 
+
         // ASM Kid_Transform runs as a coroutine: during the transform animation,
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
