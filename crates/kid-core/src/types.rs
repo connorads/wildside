@@ -261,6 +261,15 @@ impl PlayerForm {
         }
     }
 
+    /// Ceiling-collision height from ASM sub_902A/sub_DAA6.
+    /// Most forms use a 31px head probe; Juggernaut and Micromax use 15px.
+    pub(crate) fn ceiling_probe_height(self) -> i32 {
+        match self {
+            Self::Juggernaut | Self::Micromax => 15,
+            _ => 31,
+        }
+    }
+
     pub fn max_hitpoints(self) -> u16 {
         match self {
             Self::TheKid => 2,

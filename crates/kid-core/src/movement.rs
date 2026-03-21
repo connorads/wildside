@@ -232,8 +232,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
+                    self.apply_ceiling_collision(Some(grid), block_list, form, collision_hw);
+                    self.apply_floor_collision(
+                        Some(grid),
+                        horizontal_step_applied,
+                        !jump_pressed,
+                        collision_hw,
+                    )
                 } else {
                     self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
                 };
@@ -273,8 +278,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
+                    self.apply_ceiling_collision(Some(grid), block_list, form, collision_hw);
+                    self.apply_floor_collision(
+                        Some(grid),
+                        horizontal_step_applied,
+                        !jump_pressed,
+                        collision_hw,
+                    )
                 } else {
                     self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
                 };
@@ -400,8 +410,13 @@ impl OpeningSliceState {
                 }
 
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
+                    self.apply_ceiling_collision(Some(grid), block_list, form, collision_hw);
+                    self.apply_floor_collision(
+                        Some(grid),
+                        horizontal_step_applied,
+                        !jump_pressed,
+                        collision_hw,
+                    )
                 } else {
                     self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
                 };
@@ -1091,6 +1106,7 @@ impl OpeningSliceState {
         &mut self,
         block_grid: Option<&mut terrain::BlockGrid>,
         block_list: Option<&terrain::BlockList>,
+        form: PlayerForm,
         collision_hw: i32,
     ) {
         let Some(grid) = block_grid else { return };
@@ -1098,10 +1114,28 @@ impl OpeningSliceState {
             return;
         }
 
+        // ASM sub_902A upward path only probes the ceiling if the current
+        // movement actually crosses the next tile boundary above the head.
+        // Without this guard, we keep re-hitting the same ceiling tile every
+        // frame while still near it, producing a false multi-frame latch.
+        let collision_height = form.ceiling_probe_height();
+        let old_y_pos = self
+            .player
+            .y_pos
+            .wrapping_sub(self.player.y_velocity as u32);
+        let old_y_px = (old_y_pos >> 16) as i32;
+        let new_y_px = (self.player.y_pos >> 16) as i32;
+        let upward_displacement = old_y_px - new_y_px;
+        let top_edge_old = old_y_px - collision_height;
+        let distance_to_tile = top_edge_old & 0xF;
+        if upward_displacement <= distance_to_tile {
+            return;
+        }
+
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
 
-        let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, PLAYER_HEIGHT);
+        let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
 
         if probe.hit {
             // Hidden block reveal: headbutting a hidden block from below
@@ -1161,7 +1195,7 @@ impl OpeningSliceState {
                         // adjacent Smash blocks are cleared on the same frame.
                         // probe_ceiling returns on the first hit, missing the
                         // other edge. Clear adjacent Smash blocks now.
-                        let top_y = y_px - PLAYER_HEIGHT;
+                        let top_y = y_px - collision_height;
                         let tile_row = (top_y / 16).max(0) as u16;
                         for &edge_x in &[x_px - collision_hw, x_px + collision_hw] {
                             let col = (edge_x / 16).max(0) as u16;
@@ -1220,7 +1254,7 @@ impl OpeningSliceState {
             }
 
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
-            let new_y = probe.ceiling_y_px + PLAYER_HEIGHT;
+            let new_y = probe.ceiling_y_px + collision_height;
             self.player.y_pos = (new_y.max(0) as u32) << 16;
             // ASM sub_902A ceiling path (loc_908C): clr.l y_vel(a3) then
             // clr.w $20(a3) (zero sub-pixel). y_pos is already pixel-aligned
