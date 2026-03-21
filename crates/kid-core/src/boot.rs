@@ -160,6 +160,29 @@ impl NativeRuntime {
             return false;
         }
 
+        // ASM sub_B43A floor check: scan cells at (y_pos + 1) / 16 across the
+        // player's width. If any Solid/Spikes cell found, floor still exists
+        // (edge case the hitbox probe missed). If no floor at all, this is a
+        // real walkoff — let normal AsmFaithful physics handle it (loc_B5F6).
+        let probe_row = (((y_px + 1) >> 4).max(0)) as u16;
+        let left_col = (((x_px - hw) >> 4).max(0)) as u16;
+        let right_col = (((x_px + hw) >> 4).max(0).min(grid.width_cells as i32 - 1)) as u16;
+        let mut b43a_has_floor = false;
+        for col in left_col..=right_col {
+            let cell = grid.cell_at(col, probe_row);
+            if matches!(
+                cell.collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            ) {
+                b43a_has_floor = true;
+                break;
+            }
+        }
+        if !b43a_has_floor {
+            // Real walkoff: let AsmFaithful physics handle via step_with_order.
+            return false;
+        }
+
         // Demo playback keeps the actor grounded on an invisible hand-off path
         // after the bootstrap hold, then regular physics resumes once the
         // recorded jump lifts off from that pinned floor.
