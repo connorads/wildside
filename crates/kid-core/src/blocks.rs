@@ -425,6 +425,7 @@ impl NativeRuntime {
         let player_top = player_y_px - PLAYER_PRIZE_PICKUP_HEIGHT;
 
         let mut collected_contents = Vec::new();
+        let mut collected_prize_diamonds = 0usize;
         for item in &mut self.floating_items {
             if item.collected || item.spawn_delay > 0 {
                 continue;
@@ -450,8 +451,15 @@ impl NativeRuntime {
 
             if overlap_x && overlap_y {
                 item.collected = true;
-                collected_contents.push(item.content);
+                if item.content == terrain::PrizeContent::Diamond {
+                    collected_prize_diamonds += 1;
+                } else {
+                    collected_contents.push(item.content);
+                }
             }
+        }
+        for _ in 0..collected_prize_diamonds {
+            self.queue_prize_diamond_award();
         }
         for content in collected_contents {
             self.apply_prize_content(content);

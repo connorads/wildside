@@ -11614,6 +11614,52 @@ fn demo_diamond_prize_is_not_collected_on_frame_1405() {
     );
 }
 
+#[test]
+fn demo_diamond_prize_stays_uncollected_on_frame_1406() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1406 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_407) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_406 {
+            frame_1406 = Some((
+                trace.kid_y_pos,
+                trace.camera_y_pos,
+                trace.score,
+                trace.diamond_count,
+                trace.floating_items.len(),
+            ));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1406,
+        Some((Some(0x00FF_0000), 0x006A_0000, 0, 0, 1)),
+        "oracle frame 1406 still keeps Kid on the arc and the prize uncollected"
+    );
+}
+
+#[test]
+fn demo_prize_diamond_awards_on_frame_1438_without_score() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1438 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_439) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_438 {
+            frame_1438 = Some((trace.score, trace.diamond_count));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1438,
+        Some((0, 1)),
+        "oracle frame 1438 increments the prize diamond count without adding score"
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

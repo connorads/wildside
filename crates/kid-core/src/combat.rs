@@ -18,6 +18,8 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
 }
 
 impl NativeRuntime {
+    const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 32;
+
     pub(crate) fn spawn_enemy_death_effect(&mut self, family: EnemyFamily, x_pos: u32, y_pos: u32) {
         let remaining = if matches!(family, EnemyFamily::HeadyMetal) {
             HEADYMETAL_DEATH_EFFECT_FRAMES
@@ -248,6 +250,33 @@ impl NativeRuntime {
         self.add_score(500);
         if self.progression.diamond_count.is_multiple_of(50) {
             self.add_life();
+        }
+    }
+
+    fn award_prize_diamond(&mut self) {
+        if self.progression.diamond_count >= 99 {
+            return;
+        }
+        self.level_prize_collected = true;
+        self.progression.diamond_count += 1;
+    }
+
+    pub(crate) fn queue_prize_diamond_award(&mut self) {
+        self.pending_prize_diamond_awards
+            .push(Self::PRIZE_DIAMOND_AWARD_DELAY_FRAMES);
+    }
+
+    pub(crate) fn step_pending_prize_diamond_awards(&mut self) {
+        let mut awards_to_apply = 0usize;
+        for delay in &mut self.pending_prize_diamond_awards {
+            *delay = delay.saturating_sub(1);
+            if *delay == 0 {
+                awards_to_apply += 1;
+            }
+        }
+        self.pending_prize_diamond_awards.retain(|delay| *delay > 0);
+        for _ in 0..awards_to_apply {
+            self.award_prize_diamond();
         }
     }
 

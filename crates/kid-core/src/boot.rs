@@ -9,6 +9,7 @@ impl NativeRuntime {
         self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
         self.title_menu_active = false;
         self.demo_buffered_input = None;
+        self.pending_prize_diamond_awards.clear();
     }
 
     pub(crate) fn title_screen_ready(&self) -> bool {
@@ -49,6 +50,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.projectiles.clear();
+        self.pending_prize_diamond_awards.clear();
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
@@ -74,6 +76,7 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);

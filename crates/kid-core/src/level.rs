@@ -54,6 +54,7 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(next_level, 0);
         self.init_weather(next_level);
@@ -98,6 +99,7 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
+        self.pending_prize_diamond_awards.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
@@ -132,6 +134,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.ghost_groups.clear();
+        self.pending_prize_diamond_awards.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
@@ -200,6 +203,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.ghost_groups.clear();
+        self.pending_prize_diamond_awards.clear();
         self.init_murder_wall(level_id, 0);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;

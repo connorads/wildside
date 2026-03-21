@@ -77,6 +77,9 @@ pub struct NativeRuntime {
     block_destroy_effects: Vec<BlockDestroyEffect>,
     /// Floating prize items rising from blocks.
     floating_items: Vec<FloatingItem>,
+    /// Prize diamonds award their count later via PrizeDiamondCollected_Init,
+    /// not on the touch frame.
+    pending_prize_diamond_awards: Vec<u8>,
     /// Enemy death particle effects.
     enemy_death_effects: Vec<EnemyDeathEffect>,
     /// Set each frame if a stomp occurred.
@@ -168,6 +171,7 @@ impl NativeRuntime {
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
             floating_items: Vec::new(),
+            pending_prize_diamond_awards: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
@@ -248,6 +252,7 @@ impl NativeRuntime {
         }
 
         self.refresh_active_roster();
+        self.step_pending_prize_diamond_awards();
         let gameplay_slice_active = matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
@@ -510,7 +515,14 @@ impl NativeRuntime {
             self.step_cyclone_activation(&slice, input);
         }
         self.finish_deferred_ceiling_clears();
-        let spawn_support_snapped = (self.skip_entry_animation || self.demo_gameplay_active())
+        // Wide spawn-support settling is a bootstrap/respawn helper, not
+        // general demo gameplay logic. Keeping it live after the hidden demo
+        // settle finishes yanks Kid down onto nearby support during later arcs,
+        // which in turn makes the frame-1406 diamond collectible too early.
+        let demo_bootstrap_support_active = self
+            .demo_startup_frame()
+            .is_some_and(|frame| frame <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+        let spawn_support_snapped = (self.skip_entry_animation || demo_bootstrap_support_active)
             && self
                 .block_grid
                 .as_ref()
