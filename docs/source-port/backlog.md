@@ -96,7 +96,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 090 | [x] | P2 | fidelity | TAS frame 1755: AsmFaithful solid-floor touch snap lands one frame early on demo 0x1B | Restricted the sub-half-pixel solid-floor touch snap to the non-AsmFaithful landing paths, added `asm_faithful_solid_floor_snap_waits_for_contact_row` + `demo_solid_floor_landing_waits_until_frame_1756`, and verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1748 --frame-end 1762 --checkpoint-interval 1` is CRC-clean. Frontier 1755→1772. |
 | 091 | [x] | P2 | fidelity | TAS frame 1772: demo 0x1B returns to title one frame early | Demo Start abort now follows the ASM hibernating object timing (`loc_119D8`): frame 1772 arms the abort, frame 1773 still stays in `mode=0x0010`, frame 1774 flips to title. Verified with the targeted demo abort tests in `kid-core` plus `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1768 --frame-end 1780 --checkpoint-interval 1` (frontier now 1774). |
 | 092 | [x] | P2 | fidelity | TAS frame 1774: first title frames keep the live demo snapshot after demo 0x1B abort | Demo abort now preserves the paused gameplay snapshot under `mode=0x002c`, matching oracle `kid/camera` through frame 1801. Verified with `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`, `cargo test -p kid-core demo_title_return_keeps_live_snapshot_on_first_title_frames -- --nocapture`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1860 --checkpoint-interval 1`. Frontier 1774→1802. |
-| 093 | [ ] | P2 | fidelity | TAS frame 1802: title return blanks Kid before camera/helmet reset on demo 0x1B | Re-run `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1`; oracle zeroes `kid_x_pos/kid_y_pos` at frames 1802-1805, then also zeroes `camera`, `number_diamonds`, and `current_helmet_id` at 1806 while native still exposes the preserved demo snapshot. |
+| 093 | [x] | P2 | fidelity | TAS frame 1802: title return blanks Kid before camera/helmet reset on demo 0x1B | Split the demo-abort title handoff into 2 phases: full live snapshot through frame 1801, Kid hidden on frames 1802-1805, then camera/form/diamond state cleared on frame 1806. Added `demo_title_return_blanks_kid_on_frame_1802_before_camera_reset` and `demo_title_return_clears_camera_and_progression_on_frame_1806`; verified with `cargo test -p kid-core demo_title_return -- --nocapture`, `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 2000 --bisect`. Frontier 1802→1832. |
+| 094 | [ ] | P2 | fidelity | TAS frame 1832: title pose appears while oracle still keeps Kid hidden after demo 0x1B abort | Re-run `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1828 --frame-end 1838 --checkpoint-interval 1`; oracle is still `mode=$002C`, `title_ready=false`, `kid_x_pos=0`, `kid_y_pos=0` through frame 1837 while title objects repopulate (`number_objects` 3→5). Native starts exposing the standard title pose at frame 1832. |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -298,6 +299,32 @@ to lock down frames 1774 and 1779.
 New frontier: frame 1802. Oracle blanks Kid for frames 1802-1805, then also
 zeros camera/helmet/diamond state at frame 1806. That second phase is tracked
 in #093.
+
+### 093 — Demo abort title handoff blanks Kid before camera reset (FIXED)
+Oracle traces show a second demo-abort title phase after the live snapshot:
+Kid disappears on frames 1802-1805, but camera/form/diamond state stays frozen
+until frame 1806, when the remaining title rebuild clears it.
+
+Native used one boolean (`preserve_demo_title_snapshot`) for the entire handoff,
+so it either preserved everything or nothing. That kept Kid visible too long and
+also let the normal title pose appear as soon as the snapshot logic stopped.
+
+Fix: split the handoff into two phases. `trace.rs` now only reuses the live
+demo player/object snapshot for the first 28 title frames, while `boot.rs`
+keeps the camera/form snapshot alive until frame 1806 and only then resets the
+runtime back to clean title-screen state. `finish_demo_title_return` also
+delays `title_screen_ready_frame` on the demo-return path so Kid stays hidden
+while the title objects rebuild.
+
+Verification:
+- `cargo test -p kid-core demo_title_return -- --nocapture`
+- `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`
+- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1`
+- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 2000 --bisect`
+
+New frontier: frame 1832. Oracle still keeps Kid hidden while the title object
+counts rise from 3 to 5, but native starts exposing the standard title pose.
+Tracked in #094.
 
 Attempted approaches that didn't work:
 - pending_form.is_some() check: over-freezes (73 vs 72 frames), regression to 1129

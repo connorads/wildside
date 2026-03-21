@@ -6,6 +6,11 @@ impl NativeRuntime {
             && self.preserve_demo_title_snapshot
     }
 
+    fn title_uses_full_demo_snapshot(&self) -> bool {
+        self.title_uses_demo_snapshot()
+            && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES
+    }
+
     pub fn trace_frame(&self) -> NativeTraceFrame {
         let game_mode = self.game_mode();
         let boot_phase = self.boot_phase_label().map(str::to_owned);
@@ -187,7 +192,7 @@ impl NativeRuntime {
         }
         match self.boot_state {
             BootState::SegaScreen { .. } | BootState::IntroSequence { .. } => None,
-            BootState::TitleScreen { .. } if self.title_uses_demo_snapshot() => {
+            BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
                 self.opening_slice.map(|slice| slice.player)
             }
             BootState::TitleScreen { .. }
@@ -261,7 +266,7 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_active_objects();
         }
-        if self.title_uses_demo_snapshot() {
+        if self.title_uses_full_demo_snapshot() {
             let mut objects = Vec::new();
             if let Some(player_state) = self.current_player_state() {
                 objects.push(NativeObjectSnapshot {

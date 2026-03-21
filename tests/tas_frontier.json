@@ -8,7 +8,7 @@
     },
     "kc_any_percent_2024": {
       "scenario": ".cache/tas-imports/kc_any_percent_2024/scenario.json",
-      "frontier_frame": 1802,
+      "frontier_frame": 1832,
       "total_frames": 4916,
       "status": "frontier"
     }

@@ -11779,6 +11779,113 @@ fn demo_title_return_keeps_live_snapshot_on_first_title_frames() {
 }
 
 #[test]
+fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1801 = None;
+    let mut frame_1802 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_803) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_801 {
+            frame_1801 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+                trace.current_helmet_id,
+                trace.diamond_count,
+            ));
+        }
+        if frame_index == 1_802 {
+            frame_1802 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+                trace.current_helmet_id,
+                trace.diamond_count,
+            ));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1801,
+        Some((
+            Some(0x0186_8E00),
+            Some(0x00CF_0000),
+            0x00EA_0000,
+            0x002C_0000,
+            PlayerForm::Cyclone.helmet_id(),
+            1,
+        )),
+        "frame 1801 should still expose the preserved live demo snapshot"
+    );
+    assert_eq!(
+        frame_1802,
+        Some((
+            None,
+            None,
+            0x00EA_0000,
+            0x002C_0000,
+            PlayerForm::Cyclone.helmet_id(),
+            1,
+        )),
+        "oracle blanks Kid first, but keeps camera and progression for a few more title frames"
+    );
+}
+
+#[test]
+fn demo_title_return_clears_camera_and_progression_on_frame_1806() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1805 = None;
+    let mut frame_1806 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_807) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_805 {
+            frame_1805 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+                trace.current_helmet_id,
+                trace.diamond_count,
+            ));
+        }
+        if frame_index == 1_806 {
+            frame_1806 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+                trace.current_helmet_id,
+                trace.diamond_count,
+            ));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1805,
+        Some((
+            None,
+            None,
+            0x00EA_0000,
+            0x002C_0000,
+            PlayerForm::Cyclone.helmet_id(),
+            1,
+        )),
+        "Kid should already be blanked while the title hand-off still preserves camera/form state"
+    );
+    assert_eq!(
+        frame_1806,
+        Some((None, None, 0, 0, PlayerForm::TheKid.helmet_id(), 0)),
+        "oracle drops the remaining camera/form snapshot four frames after Kid is blanked"
+    );
+}
+
+#[test]
 fn demo_diamond_prize_is_not_collected_on_frame_1405() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

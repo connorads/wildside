@@ -65,6 +65,10 @@ impl NativeRuntime {
     fn finish_demo_title_return(&mut self, input: FrameInput) {
         self.enter_title_screen();
         self.current_level = LevelId(0);
+        // Demo abort returns to an inert title rebuild path rather than the
+        // already-ready cold-boot title state. Oracle traces keep Kid hidden
+        // until that attract-lock window elapses.
+        self.title_screen_ready_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
         self.paused = true;
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
@@ -72,6 +76,36 @@ impl NativeRuntime {
         self.prior_input = input;
         self.previous_input = input;
         self.frame_index += 1;
+    }
+
+    fn finish_demo_title_snapshot_handoff(&mut self) {
+        self.preserve_demo_title_snapshot = false;
+        self.opening_slice = None;
+        self.active_enemies.clear();
+        self.active_enemy_roster.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.projectiles.clear();
+        self.pending_prize_diamond_awards.clear();
+        self.enemy_death_effects.clear();
+        self.block_bounces.clear();
+        self.block_destroy_effects.clear();
+        self.floating_items.clear();
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.progression.form_change_flash_frames = 0;
+        self.progression.form_width_delta = 0;
+        self.progression.invulnerable_frames = 0;
+        self.progression.diamond_power_frames = 0;
+        self.progression.diamond_count = 0;
+        self.paused = false;
+        self.pause_toggle_pending = false;
+        self.player_lifecycle = PlayerLifecycle::Alive;
+        self.level_damage_taken = false;
+        self.level_prize_collected = false;
+        self.clocks_collected = 0;
+        self.y_look_offset = 0;
     }
 
     pub(crate) fn begin_demo_gameplay(&mut self, level_id: LevelId) {
@@ -536,6 +570,11 @@ impl NativeRuntime {
                     }
                 }
                 self.title_screen_elapsed_frames += 1;
+                if self.preserve_demo_title_snapshot
+                    && self.title_screen_elapsed_frames >= DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES
+                {
+                    self.finish_demo_title_snapshot_handoff();
+                }
             }
             BootState::OptionsMenu { cursor } => {
                 let b_pressed = input.b && !self.prior_input.b;

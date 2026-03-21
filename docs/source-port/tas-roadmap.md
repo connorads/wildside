@@ -7,7 +7,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | clean through frame 1801; next authoritative frontier is frame 1802 |
+| `kc_any_percent_2024` | 4916 | ~82s | clean through frame 1831; next authoritative frontier is frame 1832 |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -27,6 +27,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-21 | kc_any_percent_2024 | 1832 | Demo-abort title return still exposes the normal title pose while oracle keeps Kid hidden during the later title rebuild | Split the demo-abort title handoff into a full live snapshot (through frame 1801) followed by a camera/form-only snapshot (through frame 1805), then cleared the remaining title-return state on frame 1806. Added `demo_title_return_blanks_kid_on_frame_1802_before_camera_reset` and `demo_title_return_clears_camera_and_progression_on_frame_1806`, re-ran `cargo test -p kid-core demo_title_return -- --nocapture` plus `demo_start_abort_stays_in_demo_until_frame_1774`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1` is CRC-clean apart from advisory object counts, then re-bisected to move the frontier from 1802 to 1832. |
 | 2026-03-21 | kc_any_percent_2024 | 1802 | Demo-abort title mode was reusing the cold-boot title pose instead of the paused live demo snapshot | Preserved the paused demo gameplay snapshot on the title-return path so `mode=$002C` reuses the live Kid/camera state through frame 1801, matching oracle after the frame-1772 abort fix. Added `demo_title_return_keeps_live_snapshot_on_first_title_frames`, re-ran the targeted abort tests, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1` and `--frame-start 1772 --frame-end 1860 --checkpoint-interval 1`, then re-bisected to move the frontier from 1774 to 1802. |
 | 2026-03-21 | kc_any_percent_2024 | 1772 | Demo `0x1B` returns to the title screen one frame early after the frame-1755 landing window | Kept sub-half-pixel solid-floor touch snap out of the `AsmFaithful` landing path, so `sub_902A` no longer collapses frame 1755 into an early landing. Added `asm_faithful_solid_floor_snap_waits_for_contact_row` and `demo_solid_floor_landing_waits_until_frame_1756`, re-ran the nearby floor-snap tests, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1748 --frame-end 1762 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs, then re-bisected to move the frontier from 1755 to 1772. |
 | 2026-03-21 | kc_any_percent_2024 | >1500 | Previous frame-1406 demo 0x1B blocker resolved; next authoritative mismatch not yet triaged past the verified window | Restricted wide spawn-support settling to the demo bootstrap window so the post-latch arc no longer snaps onto support, then queued prize-diamond awards through a 32-frame `PrizeDiamondCollected_Init` delay instead of rewarding on contact. Added `demo_diamond_prize_stays_uncollected_on_frame_1406` and `demo_prize_diamond_awards_on_frame_1438_without_score`, re-ran the nearby demo prize tests, and verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1390 --frame-end 1500 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs. |
@@ -66,7 +67,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 # Re-verify current frontier
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-end 1801 --checkpoint-interval 50
+  --frame-end 1831 --checkpoint-interval 50
 
 # Bisect to find first divergence
 cargo run --release -p kidcli -- verify-tas \
@@ -76,5 +77,5 @@ cargo run --release -p kidcli -- verify-tas \
 # Narrow to exact frame
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 1798 --frame-end 1808 --checkpoint-interval 1
+  --frame-start 1828 --frame-end 1838 --checkpoint-interval 1
 ```
