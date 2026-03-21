@@ -173,21 +173,26 @@ impl NativeRuntime {
             return;
         }
 
-        // Accumulate gravity decay
+        // ASM uses `addi.w` which wraps on M68K 16-bit word arithmetic.
+        // Must use wrapping_add, not saturating_add — the wrap behaviour is
+        // load-bearing when the accumulator gets very negative.
         self.helmet.cyclone_y_accel = self
             .helmet
             .cyclone_y_accel
-            .saturating_add(CYCLONE_ACCEL_GRAVITY);
+            .wrapping_add(CYCLONE_ACCEL_GRAVITY);
 
         // ASM: `bclr #Button_C,(Ctrl_Pressed)` — thrust on C rising edge only,
         // not while held. Uses previous_input for proper 1-frame edge detection
         // (prior_input is 2 frames back due to gameplay_input asymmetry).
         let c_newly_pressed = input.c && !self.previous_input.c;
         if c_newly_pressed {
+            // ASM `subi.w` wraps: e.g. 0xAA00 - 0x3000 = 0x7A00 (negative →
+            // positive wrap). This is intentional — the wrap produces a sudden
+            // downward push that's part of the flight feel.
             self.helmet.cyclone_y_accel = self
                 .helmet
                 .cyclone_y_accel
-                .saturating_sub(CYCLONE_ACCEL_THRUST);
+                .wrapping_sub(CYCLONE_ACCEL_THRUST);
             if self.helmet.cyclone_y_accel < CYCLONE_ACCEL_MIN {
                 self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN;
             }

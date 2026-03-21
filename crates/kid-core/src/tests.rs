@@ -9432,9 +9432,13 @@ fn cyclone_velocity_clamped_to_max_fall() {
 fn cyclone_velocity_clamped_to_max_rise() {
     let mut rt = cyclone_runtime();
     rt.helmet.cyclone_flying = true;
-    rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN; // max upward thrust
-    // C newly pressed (previous had no C) → thrust applied
-    rt.previous_input = FrameInput::default();
+    // Start with moderately negative accel that stays negative after thrust
+    rt.helmet.cyclone_y_accel = -0x1000_i16;
+    // C NOT newly pressed → no thrust, decay path
+    rt.previous_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
     let mut slice = airborne_slice();
     slice.player.y_velocity = CYCLONE_MAX_RISE_VEL; // already at max rise
 
@@ -9444,6 +9448,8 @@ fn cyclone_velocity_clamped_to_max_rise() {
     };
     rt.step_cyclone_flight(&mut slice, input);
 
+    // Decay path: accel = -0x1000 + 0x400 = -0xC00. Not > MAX_DESCENT, so no cap.
+    // y_vel = -0x30000 + (-0xC00) = -0x30C00, clamped to -0x30000
     assert_eq!(slice.player.y_velocity, CYCLONE_MAX_RISE_VEL);
 }
 
