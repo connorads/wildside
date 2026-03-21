@@ -11309,6 +11309,90 @@ fn demo_byte_bit7_stripped() {
     assert!(!input.start, "bit 7 should be stripped");
 }
 
+#[test]
+fn demo_camera_handoff_primes_buffer_for_the_hidden_settle_frame() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_GAMEPLAY_START_FRAME - 1,
+        data_index: 118,
+        use_demo_2: true,
+    };
+
+    let handoff_input = runtime
+        .step_demo_input(FrameInput::default())
+        .expect("demo playback should continue");
+    assert_eq!(
+        handoff_input,
+        FrameInput::default(),
+        "camera hand-off still uses default input on the current frame",
+    );
+    assert_eq!(
+        runtime.demo_buffered_input,
+        Some(demo::decode_demo_byte(demo::DEMO_INPUT_DATA_2[118])),
+        "ReadJoypad should prime the next frame's controller state",
+    );
+
+    let hidden_settle_input = runtime
+        .step_demo_input(FrameInput::default())
+        .expect("demo playback should continue");
+    assert_eq!(
+        hidden_settle_input,
+        demo::decode_demo_byte(demo::DEMO_INPUT_DATA_2[118]),
+        "the hidden settle frame should consume the primed byte",
+    );
+    if let BootState::DemoPlay { data_index, .. } = runtime.boot_state {
+        assert_eq!(data_index, 119, "the second read should advance to the next byte");
+    } else {
+        panic!("expected DemoPlay after hidden settle");
+    }
+}
+
+#[test]
+fn demo_transform_entry_freezes_buffer_before_flash_frames_start() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_GAMEPLAY_START_FRAME + 10,
+        data_index: 118,
+        use_demo_2: true,
+    };
+    runtime.demo_buffered_input = Some(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    runtime.progression.pending_form = Some(PlayerForm::Cyclone);
+
+    let output = runtime
+        .step_demo_input(FrameInput::default())
+        .expect("demo playback should continue");
+    assert_eq!(
+        output,
+        FrameInput {
+            right: true,
+            ..FrameInput::default()
+        },
+        "the queued transform frame should keep using the previously buffered byte",
+    );
+    assert_eq!(
+        runtime.demo_buffered_input,
+        Some(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        }),
+        "ReadJoypad should stay frozen until the transform coroutine starts",
+    );
+    if let BootState::DemoPlay {
+        frame_counter,
+        data_index,
+        ..
+    } = runtime.boot_state
+    {
+        assert_eq!(frame_counter, demo::DEMO_GAMEPLAY_START_FRAME + 10);
+        assert_eq!(data_index, 118);
+    } else {
+        panic!("expected DemoPlay after queued transform frame");
+    }
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

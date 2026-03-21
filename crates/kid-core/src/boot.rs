@@ -8,6 +8,7 @@ impl NativeRuntime {
         self.title_screen_ready_frame = self.frame_index.max(TITLE_SCREEN_READY_GLOBAL_FRAME);
         self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
         self.title_menu_active = false;
+        self.demo_buffered_input = None;
     }
 
     pub(crate) fn title_screen_ready(&self) -> bool {
@@ -52,7 +53,7 @@ impl NativeRuntime {
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
-        self.demo_transform_active = false;
+        self.demo_buffered_input = None;
         self.reload_block_grid_for_level(self.current_level);
     }
 
@@ -325,25 +326,36 @@ impl NativeRuntime {
         if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME && self.opening_slice.is_none() {
             self.begin_demo_gameplay(level_id);
         }
-        if frame_counter < demo::DEMO_GAMEPLAY_START_FRAME {
+        if frame_counter + 1 < demo::DEMO_GAMEPLAY_START_FRAME {
             if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
                 *frame_counter += 1;
             }
             return Some(FrameInput::default());
         }
-        // Read demo byte and decode into input
+
         let data = if use_demo_2 {
             &demo::DEMO_INPUT_DATA_2[..]
         } else {
             &demo::DEMO_INPUT_DATA_1[..]
         };
+        let output_input = if frame_counter >= demo::DEMO_GAMEPLAY_START_FRAME {
+            self.demo_buffered_input.unwrap_or_default()
+        } else {
+            FrameInput::default()
+        };
+        // Read demo byte and decode into input for the NEXT frame. ASM loc_C22
+        // runs after object/gameplay logic, so the controller state fetched on
+        // the camera-handoff frame is first consumed on the hidden settle frame.
         let byte = data.get(data_index).copied().unwrap_or(0);
         let demo_input = demo::decode_demo_byte(byte);
         // ASM demo input (loc_C22) freezes during Kid_Transform: the coroutine's
         // Hibernate loop doesn't call the demo input handler, so the frame counter
-        // and data pointer stay frozen until the transform completes. Match this by
-        // skipping advancement when form_change_flash_frames > 0.
-        if self.progression.form_change_flash_frames == 0 {
+        // and data pointer stay frozen until the transform completes. The first
+        // transform frame is already queued via pending_form before flash_frames
+        // becomes non-zero, so freeze on either signal.
+        if self.progression.pending_form.is_none() && self.progression.form_change_flash_frames == 0
+        {
+            self.demo_buffered_input = Some(demo_input);
             // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
             if let BootState::DemoPlay {
                 frame_counter,
@@ -351,14 +363,14 @@ impl NativeRuntime {
                 ..
             } = &mut self.boot_state
             {
-                let playback_frame = *frame_counter - demo::DEMO_GAMEPLAY_START_FRAME;
+                let playback_frame = *frame_counter - (demo::DEMO_GAMEPLAY_START_FRAME - 1);
                 *frame_counter += 1;
                 if playback_frame % 2 == 1 {
                     *data_index += 1;
                 }
             }
         }
-        Some(demo_input)
+        Some(output_input)
     }
 
     /// Process Start button presses: pause/unpause, level skip, demo trigger.
