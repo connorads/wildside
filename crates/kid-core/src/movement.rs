@@ -720,27 +720,46 @@ impl OpeningSliceState {
         grid: &terrain::BlockGrid,
         collision_hw: i32,
     ) -> bool {
-        if !jump_pressed || self.player.on_ground || self.player.y_velocity >= 0 {
+        let jump_requested = jump_pressed || self.player.jump_buffer_frames > 0;
+        if !jump_requested || self.player.on_ground {
             return false;
         }
 
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
-        let (probe, snap_x_px) = if self.player.right_wall_sticky {
-            let probe = terrain::probe_floor(grid, x_px + collision_hw + 1, y_px);
+        let (probe_x_px, direct_probe, snap_x_px) = if self.player.right_wall_sticky {
+            let probe_x_px = x_px + collision_hw + 1;
+            let probe = terrain::probe_floor(grid, probe_x_px, y_px);
             let support_left_px = i32::from(probe.cell_x) * 16;
-            (probe, support_left_px + collision_hw - 1)
+            (probe_x_px, probe, support_left_px + collision_hw - 1)
         } else if self.player.left_wall_sticky {
-            let probe = terrain::probe_floor(grid, x_px - collision_hw - 1, y_px);
+            let probe_x_px = x_px - collision_hw - 1;
+            let probe = terrain::probe_floor(grid, probe_x_px, y_px);
             let support_right_px = (i32::from(probe.cell_x) + 1) * 16 - 1;
-            (probe, support_right_px - collision_hw + 1)
+            (probe_x_px, probe, support_right_px - collision_hw + 1)
         } else {
             return false;
         };
 
-        if !probe.cell.is_solid_floor() {
+        let probe = if direct_probe.cell.is_solid_floor() {
+            direct_probe
+        } else if self.player.y_velocity >= 0 && self.player.jump_buffer_frames > 0 {
+            // ASM pull-up path (loc_ABA4) searches downward from roughly 20px
+            // above the current feet position and snaps onto the first solid
+            // ledge it finds while the wall-cling jump request is still live.
+            let search_start_y_px = y_px.saturating_sub(0x14) & !0xF;
+            let Some(surface_y_px) = terrain::find_floor_below(grid, probe_x_px, search_start_y_px)
+            else {
+                return false;
+            };
+            let scanned_probe = terrain::probe_floor(grid, probe_x_px, surface_y_px);
+            if !scanned_probe.cell.is_solid_floor() {
+                return false;
+            }
+            scanned_probe
+        } else {
             return false;
-        }
+        };
 
         let (floor_y_px, contact_y_px) = match probe.cell.collision {
             terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes => {
@@ -752,9 +771,14 @@ impl OpeningSliceState {
             | terrain::CollisionKind::Empty => (probe.floor_y_px, probe.floor_y_px),
         };
         let contact_y_fp = (contact_y_px.max(0) as u32) << 16;
-        if self.player.y_pos < contact_y_fp
-            || self.player.y_pos > contact_y_fp.saturating_add(15u32 << 16)
-        {
+        let valid_contact_window = if self.player.y_velocity < 0 {
+            self.player.y_pos >= contact_y_fp
+                && self.player.y_pos <= contact_y_fp.saturating_add(15u32 << 16)
+        } else {
+            self.player.y_pos >= contact_y_fp
+                && self.player.y_pos <= contact_y_fp.saturating_add(18u32 << 16)
+        };
+        if !valid_contact_window {
             return false;
         }
 

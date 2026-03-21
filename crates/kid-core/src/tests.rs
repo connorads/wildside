@@ -11727,6 +11727,41 @@ fn demo_1_left_wall_snap_lands_flush_on_frame_2773() {
 }
 
 #[test]
+fn demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_2831 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_832) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 2_831 {
+            frame_2831 = Some(trace);
+        }
+    }
+
+    let frame_2831 = frame_2831.unwrap_or_else(|| panic!("frame 2831 should be captured"));
+    assert_eq!(
+        frame_2831.kid_x_pos,
+        Some(0x0144_0000),
+        "demo 1 should pull up onto the prize-block top on frame 2831",
+    );
+    assert_eq!(
+        frame_2831.kid_y_pos,
+        Some(0x013F_8000),
+        "demo 1 should preserve the oracle-backed pull-up sub-pixel on frame 2831",
+    );
+    assert_eq!(
+        frame_2831.kid_y_velocity,
+        Some(0),
+        "the pull-up landing should clear vertical speed on frame 2831",
+    );
+    assert_eq!(
+        frame_2831.kid_on_ground,
+        Some(true),
+        "the buffered pull-up should leave Kid grounded on frame 2831",
+    );
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
