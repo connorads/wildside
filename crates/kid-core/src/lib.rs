@@ -106,6 +106,11 @@ pub struct NativeRuntime {
     /// False during the initial title attract wait where only Start matters.
     /// True once the Start press arms the real interactive title menu.
     title_menu_active: bool,
+    /// True while form_change_flash_frames > 0 during DemoPlay. When the
+    /// transform ends (flash_frames → 0), the demo counter is decremented
+    /// to restore byte-advancement parity shifted by the extra counter
+    /// increment on the first transform frame.
+    demo_transform_active: bool,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Two-player alternating mode enabled.
@@ -173,6 +178,7 @@ impl NativeRuntime {
             title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
             title_menu_arm_frame: 0,
             title_menu_active: false,
+            demo_transform_active: false,
             demo_toggle: false,
             two_player: false,
             current_player_index: 0,
@@ -332,6 +338,27 @@ impl NativeRuntime {
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         if !self.step_lifecycle(input) {
             return;
+        }
+
+        // Demo parity correction: step_demo_input runs before step_lifecycle
+        // and sees form_change_flash_frames=0 on the first transform frame,
+        // so it increments the counter. This extra increment aligns data_index
+        // with the oracle (compensating for the 1-frame late start), but shifts
+        // the advancement parity. Track transform state and restore parity when
+        // the transform ends by decrementing the counter once.
+        if matches!(self.boot_state, BootState::DemoPlay { .. }) {
+            if self.progression.form_change_flash_frames > 0
+                && !self.demo_transform_active
+            {
+                self.demo_transform_active = true;
+            } else if self.progression.form_change_flash_frames == 0
+                && self.demo_transform_active
+            {
+                self.demo_transform_active = false;
+                if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
+                    *frame_counter -= 1;
+                }
+            }
         }
 
         // ASM sub_7B30 (kid.asm:8230): before Kid_Transform, checks if the

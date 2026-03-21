@@ -85,6 +85,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 079 | [x] | P1 | fidelity | TAS frame 1144: per-form collision half-width (FA78/unk_B408) | ASM sub_914A uses FA78 (per-form from unk_B408) for floor/wall/ceiling probes; native used fixed PLAYER_HALF_WIDTH=5. Cyclone (hw=7) walked off ledge 1 frame early due to narrower floor probe. Threaded form.half_width() through all collision functions; frontier now 1145 |
 | 080 | [x] | P1 | fidelity | AsmFaithful Phase 2: sub_902A before sub_8F26 position split | ASM floor collision (sub_902A) runs before horizontal (sub_8F26), seeing old x_pos. Split apply_velocity_to_position into y-then-x with collision between. Made AsmFaithful the default PhysicsOrder. Remaining frame 1145 divergence: walking coroutine floor-ahead check (sub_ADB8) |
 | 081 | [x] | P2 | fidelity | Walking floor-ahead check (sub_B43A) | ASM walking coroutine (loc_8BF0) calls sub_B43A before physics: scans cells at (y+1)/16 across player width for Solid/Spikes. No floor → loc_B5F6: y_pos += 1px, skip vel/pos updates. Two fixes: (1) movement.rs pre-physics sub_B43A check in AsmFaithful path, (2) boot.rs demo grounded-run handler now defers walkoff to normal physics. Frontier 1145→1147 |
+| 082 | [x] | P2 | fidelity | TAS frame 1147: demo byte boundary parity shift after transform | On the first Kid_Transform frame, step_demo_input sees form_change_flash_frames=0 (set later by step_lifecycle) and advances counter+data_index. The data_index advance is correct (aligns with oracle's 1-frame-ahead pointer), but the counter advance shifts the byte-advancement parity for all subsequent frames. Fix: after step_lifecycle detects transform end (flash_frames→0), decrement counter by 1 to restore parity. Frontier 1147→1170 |
+| 083 | [ ] | P2 | fidelity | TAS frame 1170: demo byte boundary systematic 1-frame offset | Systematic: native starts reading demo bytes 1 frame after oracle (frame 901 vs 900). Each byte consumed for 2 frames, boundaries shifted by 1. First detectable at frame 1170 (0x4000 y_pos sub-pixel divergence). Root cause: ASM ReadJoypad (loc_C22) runs after Execute_Objects, creating a 1-frame pipeline delay that native's step_demo_input (before physics) doesn't replicate. Full fix requires VBlank pipeline restructuring. |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -231,3 +233,34 @@ Verification:
 - `kid_chameleon_short_demo` first 250 frames: 0 authoritative diffs
 - `kc_any_percent_2024` first 250 frames: 0 authoritative diffs
 - `any-percent-published` first 250 frames: 0 authoritative diffs
+
+### 082 — Demo byte boundary parity shift after transform (FIXED)
+On the first Kid_Transform frame, step_demo_input sees form_change_flash_frames=0
+(step_lifecycle hasn't set it yet) and advances both counter and data_index. The
+data_index advance is correct — it aligns native's data_index with the oracle's
+pointer (compensating for the 1-frame late demo start). But the counter advance
+shifts the byte-advancement parity for all subsequent frames.
+
+The inverted parity (`playback_frame % 2 == 1` vs oracle's even counter) compensates
+for the 1-frame late start during normal play. The extra counter increment on the
+first transform frame disrupts this compensation, causing byte boundaries to land
+on the wrong frame of each 2-frame window.
+
+Fix: after step_lifecycle (inside refresh_opening_slice), detect when
+form_change_flash_frames transitions from >0 to 0 (transform end) and decrement the
+counter by 1 to restore the pre-transform parity. Uses `demo_transform_active` bool
+to track whether a transform is in progress.
+
+Attempted approaches that didn't work:
+- pending_form.is_some() check: over-freezes (73 vs 72 frames), regression to 1129
+- Full deferred pipeline (move step_demo_input after physics): changes byte for ALL frames
+  due to 1-frame delay, regression to 921
+- Rollback counter+data_index on first transform frame: data_index rollback misaligns
+  with oracle (oracle's pointer is 1 ahead due to earlier start), regression to 1129
+- Frozen input override (save pre-transform byte for first post-transform physics):
+  correct in theory but native already has the right byte via the "compensating"
+  data_index advance; freezing gives the WRONG byte, regression to 1129
+
+Key insight: the extra data_index advance on K+1 is a happy accident that aligns
+native's data_index with the oracle's. Only the PARITY needs correcting, not the
+data_index itself.
