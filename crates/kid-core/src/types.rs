@@ -6,18 +6,18 @@ use serde::{Deserialize, Serialize};
 /// Used for data-driven comparison of native vs ASM execution order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PhysicsOrder {
-    /// Current native order: gravity (update_vertical_motion) before collisions.
-    /// Matches ASM execution: sub_B168 (gravity) → sub_A4EE (position).
-    #[default]
+    /// Legacy native order: gravity (update_vertical_motion) before collisions.
     GravityFirst,
     /// Experimental: position update first, then collisions, then gravity.
     PositionFirst,
-    /// ASM-faithful separation: velocity updates (sub_B084, sub_B168) are
-    /// separate from position updates (sub_A4EE, sub_902A).
+    /// ASM-faithful separation matching the exact sub-step order:
+    #[default]
     /// 1. update_horizontal_velocity_only()  — sub_B084: x_vel only
     /// 2. apply_jump_and_gravity_vel_only()  — sub_B168: y_vel only
-    /// 3. apply_velocity_to_position()       — sub_A4EE: x_pos += x_vel, y_pos += y_vel
-    /// 4. wall/ceiling/floor collision        — sub_902A + sub_8F26
+    /// 3. apply_y_velocity_to_position()     — y_pos += y_vel
+    /// 4. ceiling + floor collision           — sub_902A (old x_pos, new y_pos)
+    /// 5. apply_x_velocity_to_position()     — x_pos += x_vel
+    /// 6. wall collision                      — sub_8F26 (new x_pos)
     AsmFaithful,
 }
 

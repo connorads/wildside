@@ -346,16 +346,31 @@ impl OpeningSliceState {
                     }
                 }
 
-                // Step 3: sub_A4EE — apply velocity to position
-                self.apply_velocity_to_position();
+                // Step 3: sub_902A — apply y_pos += y_vel, then floor/ceiling collision.
+                // ASM runs sub_902A (vertical) before sub_8F26 (horizontal), so floor
+                // probes see old x_pos. This is critical at ledge edges: with old x_pos
+                // the probe still finds ground, preventing a 1-frame-early fall.
+                self.apply_y_velocity_to_position();
 
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
 
-                // Step 4: sub_902A + sub_8F26 — collisions
-                let pre_collision_x = self.player.x_pos;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
+                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
+                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
+                } else {
+                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
+                };
+                if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
+                    self.apply_immediate_slope_recontact(input, form, collision, grid, collision_hw);
+                }
+
+                // Step 4: sub_8F26 — apply x_pos += x_vel, then wall collision.
+                self.apply_x_velocity_to_position();
+
+                let pre_collision_x = self.player.x_pos;
+                if let Some(grid) = block_grid.as_deref_mut() {
                     self.apply_wall_collision(Some(grid), collision_hw);
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
@@ -365,19 +380,8 @@ impl OpeningSliceState {
                     }
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
                         self.finalise_trace();
-                        // ASM camera follow runs after all physics sub-steps. On the
-                        // ledge-snap frame, the camera follow sees the pre-snap
-                        // position — skip the follow here and let the next frame
-                        // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list, collision_hw);
-                    self.apply_floor_collision(Some(grid), horizontal_step_applied, !jump_pressed, collision_hw)
-                } else {
-                    self.apply_floor_collision(None, horizontal_step_applied, !jump_pressed, collision_hw)
-                };
-                if let (Some(grid), Some(collision)) = (block_grid.as_deref(), airborne_slope_recontact) {
-                    self.apply_immediate_slope_recontact(input, form, collision, grid, collision_hw);
                 }
             }
         }
@@ -649,13 +653,17 @@ impl OpeningSliceState {
         }
     }
 
-    /// Apply velocity to position (sub_A4EE equivalent).
-    /// x_pos += x_vel, y_pos += y_vel.
-    pub(crate) fn apply_velocity_to_position(&mut self) {
-        let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
-        self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+    /// Apply y_vel to y_pos only. ASM sub_902A applies vertical position
+    /// before sub_8F26 applies horizontal, so floor probes see old x_pos.
+    fn apply_y_velocity_to_position(&mut self) {
         let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
         self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+    }
+
+    /// Apply x_vel to x_pos only. ASM sub_8F26 runs after sub_902A.
+    fn apply_x_velocity_to_position(&mut self) {
+        let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
+        self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
     }
 
     /// Physics-driven horizontal movement using speed tables.
