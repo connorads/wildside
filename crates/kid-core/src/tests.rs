@@ -11523,6 +11523,46 @@ fn demo_transform_exit_rewinds_frame_counter_for_byte_parity() {
     );
 }
 
+#[test]
+fn demo_inputs_match_oracle_controls_after_transform_exit() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut observed_masks = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_153) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if !(1_138..=1_152).contains(&frame_index) {
+            continue;
+        }
+        let buffered_mask = runtime
+            .demo_buffered_input
+            .unwrap_or_default()
+            .to_mask();
+        observed_masks.push((frame_index, buffered_mask));
+    }
+
+    assert_eq!(
+        observed_masks,
+        vec![
+            (1138, 0x44),
+            (1139, 0x44),
+            (1140, 0x44),
+            (1141, 0x44),
+            (1142, 0x44),
+            (1143, 0x44),
+            (1144, 0x44),
+            (1145, 0x44),
+            (1146, 0x41),
+            (1147, 0x41),
+            (1148, 0x40),
+            (1149, 0x40),
+            (1150, 0x48),
+            (1151, 0x48),
+            (1152, 0x48),
+        ],
+        "native demo input stream drifted from the oracle-held demo controls"
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

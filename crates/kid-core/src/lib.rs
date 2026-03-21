@@ -342,15 +342,30 @@ impl NativeRuntime {
     }
 
     fn update_demo_transform_parity(&mut self) {
-        let transform_active = self.progression.pending_form.is_some()
-            || self.progression.form_change_flash_frames > 0;
-        if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
+        let transform_active = self.progression.form_change_flash_frames > 0;
+        if let BootState::DemoPlay {
+            frame_counter,
+            data_index,
+            use_demo_2,
+            ..
+        } = &mut self.boot_state
+        {
             if self.demo_transform_active && !transform_active {
                 // During Kid_Transform, step_demo_input freezes frame_counter.
                 // When the coroutine exits, native would otherwise resume one
                 // frame too far ahead, flipping the 2-frame byte parity for the
-                // rest of the demo playback.
+                // rest of the demo playback. The first transform frame still
+                // consumes one ReadJoypad byte before the coroutine freeze, so
+                // restore that skipped byte advance when the transform exits.
                 *frame_counter = frame_counter.saturating_sub(1);
+                *data_index += 1;
+                let data = if *use_demo_2 {
+                    &demo::DEMO_INPUT_DATA_2[..]
+                } else {
+                    &demo::DEMO_INPUT_DATA_1[..]
+                };
+                let byte = data.get(*data_index).copied().unwrap_or(0);
+                self.demo_buffered_input = Some(demo::decode_demo_byte(byte));
             }
             self.demo_transform_active = transform_active;
         } else {
