@@ -11356,13 +11356,20 @@ fn demo_aborts_on_start_press() {
     }
     assert!(matches!(runtime.boot_state, BootState::DemoPlay { .. }));
     // Press Start to abort
-    runtime.step_frame(FrameInput {
+    let first_abort_frame = runtime.step_frame(FrameInput {
         start: true,
         ..FrameInput::default()
     });
+    assert_eq!(
+        first_abort_frame.game_mode,
+        GameMode::DemoPlay,
+        "Start should arm the demo-abort coroutine before the title screen appears"
+    );
+    runtime.step_frame(FrameInput::default());
+    runtime.step_frame(FrameInput::default());
     assert!(
         matches!(runtime.boot_state, BootState::TitleScreen { .. }),
-        "Start should return to TitleScreen"
+        "title should appear two frames after Start wakes the demo object"
     );
 }
 
@@ -11673,6 +11680,49 @@ fn demo_solid_floor_landing_waits_until_frame_1756() {
         frame_1756,
         Some((Some(0x0186_8E00), Some(0x00CF_0000), true)),
         "landing should happen on frame 1756, preserving the oracle x position"
+    );
+}
+
+#[test]
+fn demo_start_abort_stays_in_demo_until_frame_1774() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1772 = None;
+    let mut frame_1773 = None;
+    let mut frame_1774 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_775) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        let snapshot = (
+            trace.game_mode,
+            runtime.current_level,
+            matches!(runtime.boot_state, BootState::DemoPlay { .. }),
+        );
+        if frame_index == 1_772 {
+            frame_1772 = Some(snapshot);
+        }
+        if frame_index == 1_773 {
+            frame_1773 = Some(snapshot);
+        }
+        if frame_index == 1_774 {
+            frame_1774 = Some(snapshot);
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1772,
+        Some((GameMode::DemoPlay, LevelId(0x1B), true)),
+        "the real Start press on frame 1772 should only arm the demo abort coroutine"
+    );
+    assert_eq!(
+        frame_1773,
+        Some((GameMode::DemoPlay, LevelId(0x1B), true)),
+        "the demo object should still be hibernating one frame after Start is pressed"
+    );
+    assert_eq!(
+        frame_1774,
+        Some((GameMode::TitleScreen, LevelId(0x00), false)),
+        "the title return should become visible on frame 1774 after the coroutine wake-up"
     );
 }
 

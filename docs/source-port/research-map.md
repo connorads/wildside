@@ -84,9 +84,10 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
 - **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
 
-### Gameplay fidelity (2 open backlog items)
+### Gameplay fidelity (3 open backlog items)
 - **#037** [~] Floor-snap settling diffs on 4 levels — residuals are now small but real. Current focused sweeps show: 0x52 (`camera_y` +2px, `kid_y` +2.25px), 0x29 (`camera_x`/`kid_x` +5px), and 0x24/0x51 (`camera_y` +1px). `0x02` is now clean apart from advisory lives. Root cause remains the init-time spawn-support shortcut versus the original frame-step settling.
 - **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
+- **#092** [ ] TAS frame 1774 title handoff after demo 0x1B — #091 fixed the Start-abort timing, so the frontier moved forward from frame 1772 to frame 1774. Native and oracle now both enter title mode on frame 1774, but oracle keeps the live demo pose/camera/object roster for that first title frame while native snaps straight to the title pose.
 
 ### Game flow verification (not yet investigated)
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.

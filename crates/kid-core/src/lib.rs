@@ -115,6 +115,10 @@ pub struct NativeRuntime {
     /// the byte fetched this frame becomes the controller state for the next
     /// frame.
     demo_buffered_input: Option<FrameInput>,
+    /// Demo Start abort uses a hibernating object coroutine (`loc_119D8`):
+    /// the live Start press arms the return, then title only becomes visible
+    /// two frames later when that object wakes and flips Game_Mode.
+    pending_demo_title_return: u8,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Tracks whether demo playback is currently inside Kid_Transform so the
@@ -187,6 +191,7 @@ impl NativeRuntime {
             title_menu_arm_frame: 0,
             title_menu_active: false,
             demo_buffered_input: None,
+            pending_demo_title_return: 0,
             demo_toggle: false,
             demo_transform_active: false,
             two_player: false,

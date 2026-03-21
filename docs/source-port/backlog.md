@@ -94,7 +94,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 088 | [x] | P2 | fidelity | TAS frame 1405: floating prize collection timing after ceiling latch | Diamond pickup bounds now match the smaller visible sprite, so frame 1405 stays mid-flight (`score=0`, `number_diamonds=0`) with the prize still present. Frontier 1405→1406. |
 | 089 | [x] | P2 | fidelity | TAS frame 1406: post-latch diamond collection + next arc timing on demo 0x1B | Restricted wide spawn-support settling to the demo bootstrap window and queued prize-diamond awards through a 32-frame `PrizeDiamondCollected_Init` delay instead of rewarding on contact. Added `demo_diamond_prize_stays_uncollected_on_frame_1406` and `demo_prize_diamond_awards_on_frame_1438_without_score`; re-ran the nearby demo prize tests plus `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1390 --frame-end 1500 --checkpoint-interval 1`, which is now CRC-clean with 0 authoritative diffs through frame 1500. |
 | 090 | [x] | P2 | fidelity | TAS frame 1755: AsmFaithful solid-floor touch snap lands one frame early on demo 0x1B | Restricted the sub-half-pixel solid-floor touch snap to the non-AsmFaithful landing paths, added `asm_faithful_solid_floor_snap_waits_for_contact_row` + `demo_solid_floor_landing_waits_until_frame_1756`, and verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1748 --frame-end 1762 --checkpoint-interval 1` is CRC-clean. Frontier 1755→1772. |
-| 091 | [ ] | P2 | fidelity | TAS frame 1772: demo 0x1B returns to title one frame early | Re-run `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1768 --frame-end 1780 --checkpoint-interval 1`; native enters `mode=0x002c` title screen at frame 1772 while oracle stays in `mode=0x0010` demo play. |
+| 091 | [x] | P2 | fidelity | TAS frame 1772: demo 0x1B returns to title one frame early | Demo Start abort now follows the ASM hibernating object timing (`loc_119D8`): frame 1772 arms the abort, frame 1773 still stays in `mode=0x0010`, frame 1774 flips to title. Verified with the targeted demo abort tests in `kid-core` plus `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1768 --frame-end 1780 --checkpoint-interval 1` (frontier now 1774). |
+| 092 | [ ] | P2 | fidelity | TAS frame 1774: first title frame still uses live demo pose/objects in demo 0x1B | Re-run `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1`; game mode now matches at frame 1774, but oracle title keeps `kid=(0x01868e00,0x00cf0000)`, `camera=(0x00ea0000,0x002c0000)`, and `number_objects=13` on that first title frame while native snaps straight to the title pose. |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -258,6 +259,26 @@ Fix: after step_lifecycle (inside refresh_opening_slice), detect when
 form_change_flash_frames transitions from >0 to 0 (transform end) and decrement the
 counter by 1 to restore the pre-transform parity. Uses `demo_transform_active` bool
 to track whether a transform is in progress.
+
+### 091 — Demo Start abort timing (FIXED)
+The imported Any% TAS presses real Start on global frame 1772 while demo 0x1B is
+still running. Native was handling that input immediately inside `step_demo_input`,
+returning to title on the same frame. ASM `loc_119D8` does not do that: it clears
+`Ctrl_Pressed`, hibernates for one frame, then checks `Ctrl_1_Pressed` on wake-up.
+That makes the visible title transition land two frames after the live Start press.
+
+Fix: add a dedicated deferred demo-title-return countdown in `NativeRuntime`.
+Frame 1772 now arms the abort, frame 1773 still stays in `DemoPlay`, and frame 1774
+finally calls the title-return cleanup and clears `Current_LevelID` to 0.
+
+Verification:
+- `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`
+- `cargo test -p kid-core demo_aborts_on_start_press -- --nocapture`
+- `cargo test -p kid-core demo_auto_ends_after_max_frames -- --nocapture`
+- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1768 --frame-end 1780 --checkpoint-interval 1`
+
+Remaining frontier: frame 1774 title-mode handoff still snaps to the title pose one
+frame earlier than oracle. Tracked in #092.
 
 Attempted approaches that didn't work:
 - pending_form.is_some() check: over-freezes (73 vs 72 frames), regression to 1129

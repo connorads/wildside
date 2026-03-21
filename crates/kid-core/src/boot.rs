@@ -9,6 +9,7 @@ impl NativeRuntime {
         self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
         self.title_menu_active = false;
         self.demo_buffered_input = None;
+        self.pending_demo_title_return = 0;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -56,7 +57,22 @@ impl NativeRuntime {
         self.progression.pending_form = None;
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
         self.demo_buffered_input = None;
+        self.pending_demo_title_return = 0;
         self.reload_block_grid_for_level(self.current_level);
+    }
+
+    fn finish_demo_title_return(&mut self, input: FrameInput) {
+        self.enter_title_screen();
+        self.current_level = LevelId(0);
+        self.opening_slice = None;
+        self.active_enemies.clear();
+        self.active_enemy_roster.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.player_lifecycle = PlayerLifecycle::Alive;
+        self.prior_input = input;
+        self.previous_input = input;
+        self.frame_index += 1;
     }
 
     pub(crate) fn begin_demo_gameplay(&mut self, level_id: LevelId) {
@@ -293,32 +309,23 @@ impl NativeRuntime {
             return Some(input);
         };
 
-        // Start button aborts demo → return to title
-        if input.start && !self.previous_input.start {
-            self.enter_title_screen();
-            self.opening_slice = None;
-            self.active_enemies.clear();
-            self.active_enemy_roster.clear();
-            self.active_platforms.clear();
-            self.active_platform_roster.clear();
-            self.player_lifecycle = PlayerLifecycle::Alive;
-            self.prior_input = input;
-            self.previous_input = input;
-            self.frame_index += 1;
-            return None;
+        if self.pending_demo_title_return > 0 {
+            self.pending_demo_title_return -= 1;
+            if self.pending_demo_title_return == 0 {
+                self.finish_demo_title_return(input);
+                return None;
+            }
+        }
+
+        // ASM loc_119D8 clears Ctrl_Pressed, hibernates, then checks Start on
+        // wake-up. The visible title transition therefore lands two frames
+        // after the live Start press instead of immediately.
+        if input.start && !self.previous_input.start && self.pending_demo_title_return == 0 {
+            self.pending_demo_title_return = 2;
         }
         // Auto-end after DEMO_MAX_FRAMES
         if frame_counter >= demo::DEMO_MAX_FRAMES {
-            self.enter_title_screen();
-            self.opening_slice = None;
-            self.active_enemies.clear();
-            self.active_enemy_roster.clear();
-            self.active_platforms.clear();
-            self.active_platform_roster.clear();
-            self.player_lifecycle = PlayerLifecycle::Alive;
-            self.prior_input = FrameInput::default();
-            self.previous_input = FrameInput::default();
-            self.frame_index += 1;
+            self.finish_demo_title_return(FrameInput::default());
             return None;
         }
         let level_id = Self::demo_level_id(use_demo_2);
