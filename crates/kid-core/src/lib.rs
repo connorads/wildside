@@ -498,6 +498,8 @@ impl NativeRuntime {
                 || self.helmet.cyclone_flying
                 || self.helmet.iron_knight_climbing
                 || self.helmet.micromax_stuck;
+            let allow_asm_faithful_solid_touch_snap =
+                !(self.demo_gameplay_active() && self.current_level == LevelId(demo::DEMO_2_LEVEL));
             slice.step_with_order(
                 effective_elapsed,
                 input,
@@ -508,6 +510,7 @@ impl NativeRuntime {
                 custom_gravity,
                 self.y_look_offset,
                 self.physics_order,
+                allow_asm_faithful_solid_touch_snap,
                 &deferred_prize_ceiling_cells,
             );
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press

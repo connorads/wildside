@@ -7,7 +7,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | clean through frame 1500; next authoritative frontier is beyond the current verified window |
+| `kc_any_percent_2024` | 4916 | ~82s | clean through frame 1771; next authoritative frontier is frame 1772 |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -27,6 +27,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-21 | kc_any_percent_2024 | 1772 | Demo `0x1B` returns to the title screen one frame early after the frame-1755 landing window | Kept sub-half-pixel solid-floor touch snap out of the `AsmFaithful` landing path, so `sub_902A` no longer collapses frame 1755 into an early landing. Added `asm_faithful_solid_floor_snap_waits_for_contact_row` and `demo_solid_floor_landing_waits_until_frame_1756`, re-ran the nearby floor-snap tests, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1748 --frame-end 1762 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs, then re-bisected to move the frontier from 1755 to 1772. |
 | 2026-03-21 | kc_any_percent_2024 | >1500 | Previous frame-1406 demo 0x1B blocker resolved; next authoritative mismatch not yet triaged past the verified window | Restricted wide spawn-support settling to the demo bootstrap window so the post-latch arc no longer snaps onto support, then queued prize-diamond awards through a 32-frame `PrizeDiamondCollected_Init` delay instead of rewarding on contact. Added `demo_diamond_prize_stays_uncollected_on_frame_1406` and `demo_prize_diamond_awards_on_frame_1438_without_score`, re-ran the nearby demo prize tests, and verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1390 --frame-end 1500 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs. |
 | 2025-03-19 | kc_any_percent_2024 | 955 | camera_y_pos | wall-sticky ledge snap + floor snap commits |
 | 2026-03-21 | kc_any_percent_2024 | 1406 | Post-latch diamond collection/motion still advances one frame early on demo level `0x1B` | Shrunk the diamond pickup bounds to the smaller visible sprite instead of the full 16px box. Added `demo_diamond_prize_is_not_collected_on_frame_1405`, re-ran `cargo test -p kid-core demo_diamond_prize_is_not_collected_on_frame_1405 -- --nocapture`, `cargo test -p kid-core demo_cyclone_pickup_enters_transform_on_frame_1056 -- --nocapture`, `cargo test -p kid-core floating_helmet_prize_above_lower_body_does_not_collect -- --nocapture`, `cargo test -p kid-core floating_helmet_prize_entering_lower_body_collects -- --nocapture`, `cargo test -p kid-core prize_block_lifecycle_spawns_item_only_after_bounce_completion -- --nocapture`, `cargo test -p kid-core demo_prize_ceiling_restore_still_latches_on_frame_1396 -- --nocapture`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1360 --frame-end 1425 --checkpoint-interval 1` to move the frontier from 1405 to 1406. |
@@ -64,7 +65,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 # Re-verify current frontier
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-end 1500 --checkpoint-interval 50
+  --frame-end 1771 --checkpoint-interval 50
 
 # Bisect to find first divergence
 cargo run --release -p kidcli -- verify-tas \
@@ -74,5 +75,5 @@ cargo run --release -p kidcli -- verify-tas \
 # Narrow to exact frame
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 1390 --frame-end 1425 --checkpoint-interval 1
+  --frame-start 1768 --frame-end 1780 --checkpoint-interval 1
 ```

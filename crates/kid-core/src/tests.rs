@@ -1625,7 +1625,7 @@ fn airborne_landing_prefers_center_slope_before_edge_solid() {
     slice.player.y_velocity = 0x0001_0000;
     slice.player.on_ground = false;
 
-    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
 
     assert_eq!(slice.player.y_pos, 27 << 16);
     assert!(slice.player.on_ground);
@@ -5431,7 +5431,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH, true);
 
     assert_eq!(slice.player.x_pos, previous_x_pos);
     assert_eq!(slice.player.y_pos, 63 << 16);
@@ -5482,7 +5482,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
 
     assert!(slice.player.on_ground);
     assert_eq!(slice.player.y_pos, 0x003F_0000);
@@ -5530,10 +5530,58 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
 
     assert!(!slice.player.on_ground);
     assert_eq!(slice.player.y_pos, (63 << 16) + 0x0000_8000);
+}
+
+#[test]
+fn asm_faithful_solid_floor_snap_waits_for_contact_row() {
+    let grid = grid_with_floor_at_row(4);
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            x_pos: 100 << 16,
+            y_pos: (63 << 16) + 0x0000_4000,
+            x_velocity: 0,
+            y_velocity: 0x0000_4000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 0,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+        ceiling_prize_clear: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
+    };
+
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, false);
+
+    assert!(!slice.player.on_ground);
+    assert_eq!(slice.player.y_pos, (63 << 16) + 0x0000_4000);
 }
 
 // --- US-011: Stomp-kill enemies ---
@@ -8345,7 +8393,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         physics_trace: None,
     };
 
-    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
     assert!(slice.player.on_ground);
     assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Ice);
 }
@@ -8397,7 +8445,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
     };
 
     // No floor under player → should leave ground and reset terrain type
-    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
     assert!(!slice.player.on_ground);
     assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Normal);
 }
@@ -10096,7 +10144,7 @@ fn mushroom_block_bounces_player_on_landing() {
     // Place player at y=63 (just above floor at y=64, within snap range)
     slice.player.y_pos = 0x003F_0000;
 
-    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
 
     assert!(
         !slice.player.on_ground,
@@ -11591,6 +11639,40 @@ fn demo_prize_ceiling_restore_still_latches_on_frame_1396() {
         frame_1397,
         Some((Some(0x010F_0000), 0x0073_0000, Some(0))),
         "the latch should persist through the clear frame before the next arc begins"
+    );
+}
+
+#[test]
+fn demo_solid_floor_landing_waits_until_frame_1756() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1755 = None;
+    let mut frame_1756 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_757) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        let on_ground = runtime
+            .opening_slice
+            .as_ref()
+            .map(|slice| slice.player.on_ground)
+            .unwrap_or(false);
+        if frame_index == 1_755 {
+            frame_1755 = Some((trace.kid_x_pos, trace.kid_y_pos, on_ground));
+        }
+        if frame_index == 1_756 {
+            frame_1756 = Some((trace.kid_x_pos, trace.kid_y_pos, on_ground));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1755,
+        Some((Some(0x0186_8E00), Some(0x00CF_4E00), false)),
+        "AsmFaithful demo playback should keep the sub-half-pixel gap airborne on frame 1755"
+    );
+    assert_eq!(
+        frame_1756,
+        Some((Some(0x0186_8E00), Some(0x00CF_0000), true)),
+        "landing should happen on frame 1756, preserving the oracle x position"
     );
 }
 

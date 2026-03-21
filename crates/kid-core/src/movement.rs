@@ -138,6 +138,7 @@ impl OpeningSliceState {
             custom_gravity,
             y_look_offset,
             PhysicsOrder::GravityFirst,
+            true,
             &[],
         );
     }
@@ -154,6 +155,7 @@ impl OpeningSliceState {
         custom_gravity: bool,
         y_look_offset: i16,
         physics_order: PhysicsOrder,
+        allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16)],
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
@@ -246,6 +248,7 @@ impl OpeningSliceState {
                         horizontal_step_applied,
                         !jump_pressed,
                         collision_hw,
+                        true,
                     )
                 } else {
                     self.apply_floor_collision(
@@ -253,6 +256,7 @@ impl OpeningSliceState {
                         horizontal_step_applied,
                         !jump_pressed,
                         collision_hw,
+                        true,
                     )
                 };
                 if let (Some(grid), Some(collision)) =
@@ -311,6 +315,7 @@ impl OpeningSliceState {
                         horizontal_step_applied,
                         !jump_pressed,
                         collision_hw,
+                        true,
                     )
                 } else {
                     self.apply_floor_collision(
@@ -318,6 +323,7 @@ impl OpeningSliceState {
                         horizontal_step_applied,
                         !jump_pressed,
                         collision_hw,
+                        true,
                     )
                 };
                 if let (Some(grid), Some(collision)) =
@@ -464,6 +470,7 @@ impl OpeningSliceState {
                         horizontal_step_applied,
                         !jump_pressed,
                         collision_hw,
+                        allow_asm_faithful_solid_touch_snap,
                     )
                 } else {
                     self.apply_floor_collision(
@@ -471,6 +478,7 @@ impl OpeningSliceState {
                         horizontal_step_applied,
                         !jump_pressed,
                         collision_hw,
+                        allow_asm_faithful_solid_touch_snap,
                     )
                 };
                 if let (Some(grid), Some(collision)) =
@@ -1326,6 +1334,7 @@ impl OpeningSliceState {
         horizontal_step_applied: bool,
         allow_upward_slope_snap: bool,
         collision_hw: i32,
+        allow_solid_touch_snap: bool,
     ) -> Option<terrain::CollisionKind> {
         if let Some(grid) = block_grid {
             let was_on_ground = self.player.on_ground;
@@ -1418,8 +1427,13 @@ impl OpeningSliceState {
                     | terrain::CollisionKind::Spikes
                     | terrain::CollisionKind::HiddenBlock
                     | terrain::CollisionKind::Empty => {
-                        let within_solid_touch_snap =
-                            self.player.y_pos.abs_diff(floor_y_fp) < 0x0000_8000;
+                        // ORIGINAL_QUIRK: ASM sub_902A only lands after the
+                        // falling step reaches the solid contact row. The
+                        // AsmFaithful path must not collapse a remaining
+                        // sub-half-pixel gap into an early landing.
+                        let within_solid_touch_snap = allow_solid_touch_snap
+                            && !was_on_ground
+                            && self.player.y_pos.abs_diff(floor_y_fp) < 0x0000_8000;
                         self.player.y_velocity >= 0
                             && (self.player.y_pos >= contact_y_fp
                                 || within_solid_touch_snap
