@@ -4290,6 +4290,26 @@ fn dragon_walking_stops_to_breathe_then_turns_from_a_wall() {
 }
 
 #[test]
+fn dragon_walking_keeps_grounded_support_while_centre_is_still_on_the_lip() {
+    let grid = grid_with_platform(17, 0, 2);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 23 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Right;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
+
+    assert!(enemy.on_ground, "dragon should stay grounded while its centre still has support");
+    assert_eq!(
+        enemy.x_pos,
+        (23 << 16) + 0x8000,
+        "dragon should advance by its half-pixel walk step"
+    );
+    assert_eq!(enemy.y_pos, 272 << 16, "lip support should keep the grounded floor height");
+    assert_eq!(enemy.y_velocity, 0, "grounded lip handling should not enter the fall arc");
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
@@ -5762,6 +5782,44 @@ fn mini_hopping_skull_graze_does_not_damage() {
     assert_eq!(
         classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
         EnemyContactResult::None
+    );
+}
+
+#[test]
+fn walking_dragon_landing_frame_registers_as_stomp() {
+    let player = PlayerState {
+        x_pos: 0x01B4_1700,
+        y_pos: 0x0188_3300,
+        x_velocity: 0,
+        y_velocity: 0x0008_0000,
+        facing: Direction::Right,
+        on_ground: false,
+        on_spikes: false,
+        just_jumped: false,
+        jump_buffer_frames: 0,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
+    };
+    let enemy = NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x0D },
+        x_pos: 0x01C2_8000,
+        y_pos: 0x01B0_0000,
+        layout_index: Some(0),
+        x_velocity: Some(0),
+        y_velocity: Some(0),
+        facing: Some(Direction::Right),
+        on_ground: Some(true),
+        hit_points: Some(2),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+    };
+
+    assert_eq!(
+        classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
+        EnemyContactResult::Stomp
     );
 }
 
@@ -11766,7 +11824,7 @@ fn demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831() {
 }
 
 #[test]
-#[ignore = "TAS frontier: frame 2938 walking-dragon lip handling still diverges"]
+#[ignore = "TAS frontier: enemy-top collision still resolves after physics"]
 fn demo_1_lands_on_the_walking_dragon_on_frame_2938() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_2938 = None;

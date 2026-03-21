@@ -843,9 +843,10 @@ pub(crate) fn activate_enemies(
             continue;
         }
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
-        // Dragon Flying uses hit_points_plus_one as script variant selector (ASM $46(a5)),
-        // not as HP. All other families treat it as enemy_level for HP scaling.
-        let enemy_level = object.hit_points_plus_one.saturating_sub(1) as u8;
+        // ASM init routines copy the layout word at offset +2 straight into
+        // enemy_level(a3). Dragon Flying is the exception: it reuses the same
+        // layout word as a script variant selector instead of HP scaling.
+        let enemy_level = object.hit_points_plus_one as u8;
         let spawn_y = spawn_y_pos(family, object_y);
         // Dragon Flying: variant from layout, anchor Y from spawn position (ASM $44(a5)).
         let dragon_variant = if matches!(family, EnemyFamily::Dragon) {
@@ -1865,12 +1866,7 @@ pub(crate) fn hopper_should_reverse(
     if wall.hit {
         return true;
     }
-    let look_ahead_x = if moving_right {
-        cx + ENEMY_PROBE_HALF_WIDTH
-    } else {
-        cx - ENEMY_PROBE_HALF_WIDTH
-    };
-    !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
+    false
 }
 
 /// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
@@ -2876,6 +2872,45 @@ enum DragonWalkingWalkStep {
     StartedAirborne,
 }
 
+fn dragon_walking_floor_support(
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+) -> terrain::FloorProbe {
+    terrain::probe_floor_hitbox(grid, center_x_px, foot_y_px, ENEMY_PROBE_HALF_WIDTH)
+}
+
+fn dragon_walking_probe_wall(
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    moving_right: bool,
+) -> terrain::WallProbe {
+    let wall_center_x = if moving_right {
+        center_x_px
+    } else {
+        center_x_px - 1
+    };
+    terrain::probe_wall(
+        grid,
+        wall_center_x,
+        foot_y_px,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    )
+}
+
+fn dragon_walking_wall_snap_x(wall_x_px: i32, moving_right: bool) -> u32 {
+    let wall_fp = (wall_x_px as u32) << 16;
+    let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+    if moving_right {
+        wall_fp.saturating_sub(edge_fp)
+    } else {
+        wall_fp + edge_fp + (1 << 16)
+    }
+}
+
 fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) -> bool {
     let Some(grid) = block_grid else {
         return false;
@@ -2886,23 +2921,11 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
     let next_x = (enemy.x_pos as i64 + i64::from(x_velocity)) as u32;
     let cx = (next_x >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
-    let wall = terrain::probe_wall(
-        grid,
-        cx,
-        cy,
-        ENEMY_PROBE_HALF_WIDTH,
-        ENEMY_PROBE_HEIGHT,
-        moving_right,
-    );
+    let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
     if wall.hit {
         return true;
     }
-    let look_ahead_x = if moving_right {
-        cx + ENEMY_PROBE_HALF_WIDTH
-    } else {
-        cx - ENEMY_PROBE_HALF_WIDTH
-    };
-    !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
+    !dragon_walking_floor_support(grid, cx, cy).on_ground
 }
 
 fn step_dragon_walking_walk(
@@ -2923,33 +2946,18 @@ fn step_dragon_walking_walk(
     let next_x = (enemy.x_pos as i64 + i64::from(x_velocity)) as u32;
     let cx = (next_x >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
-    let wall = terrain::probe_wall(
-        grid,
-        cx,
-        cy,
-        ENEMY_PROBE_HALF_WIDTH,
-        ENEMY_PROBE_HEIGHT,
-        moving_right,
-    );
+    let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
     if wall.hit {
-        let wall_fp = (wall.wall_x_px as u32) << 16;
-        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
-        enemy.x_pos = if moving_right {
-            wall_fp.saturating_sub(edge_fp)
-        } else {
-            wall_fp + edge_fp
-        };
+        // Leftward wall turns in the Lion/Dragon shared ASM stop with the
+        // sprite flush to the wall surface instead of one pixel inside it.
+        enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
         return DragonWalkingWalkStep::Blocked;
     }
 
-    let look_ahead_x = if moving_right {
-        cx + ENEMY_PROBE_HALF_WIDTH
-    } else {
-        cx - ENEMY_PROBE_HALF_WIDTH
-    };
-    if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
+    let floor = dragon_walking_floor_support(grid, cx, cy);
+    if !floor.on_ground {
         enemy.on_ground = false;
         enemy.x_velocity = x_velocity;
         enemy.y_velocity = 0;
@@ -2960,13 +2968,8 @@ fn step_dragon_walking_walk(
     enemy.x_pos = next_x;
     enemy.x_velocity = x_velocity;
     enemy.y_velocity = 0;
-    let floor = terrain::probe_floor(grid, (enemy.x_pos >> 16) as i32, cy);
-    if floor.on_ground {
-        enemy.y_pos = (floor.floor_y_px as u32) << 16;
-        enemy.on_ground = true;
-    } else {
-        enemy.on_ground = false;
-    }
+    enemy.y_pos = (floor.floor_y_px as u32) << 16;
+    enemy.on_ground = true;
     DragonWalkingWalkStep::Walked
 }
 
@@ -2985,22 +2988,9 @@ fn step_dragon_walking_airborne(
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
-    let wall = terrain::probe_wall(
-        grid,
-        cx,
-        cy,
-        ENEMY_PROBE_HALF_WIDTH,
-        ENEMY_PROBE_HEIGHT,
-        moving_right,
-    );
+    let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
     if wall.hit {
-        let wall_fp = (wall.wall_x_px as u32) << 16;
-        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
-        if moving_right {
-            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
-        } else {
-            enemy.x_pos = wall_fp + edge_fp;
-        }
+        enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
         enemy.x_velocity = 0;
     }
 

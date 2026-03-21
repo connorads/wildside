@@ -627,6 +627,47 @@ pub(crate) enum EnemyContactResult {
     Damage,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct EnemyContactBounds {
+    left_px: i64,
+    right_px: i64,
+    top_px: i64,
+    bottom_px: i64,
+}
+
+fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    match enemy.kind {
+        NativeObjectKind::Enemy { object_type: 0x0D } => {
+            // Oracle frame 2938 uses sprite offset $0544, whose collision table
+            // entry is `dc.w -$13,$21,-$2B,$29`: a wide top-heavy box anchored
+            // near the dragon's feet, not the generic centred 16x16 fallback.
+            let (left_px, right_px) = match enemy.facing {
+                Some(Direction::Right) => (19, 14),
+                Some(Direction::Left) => (14, 19),
+                None => (19, 19),
+            };
+            EnemyContactBounds {
+                left_px,
+                right_px,
+                top_px: 43,
+                bottom_px: 2,
+            }
+        }
+        NativeObjectKind::Enemy { object_type: 0x1C } => EnemyContactBounds {
+            left_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
+            right_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
+            top_px: ENEMY_CONTACT_HALF_HEIGHT,
+            bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
+        },
+        _ => EnemyContactBounds {
+            left_px: ENEMY_CONTACT_HALF_WIDTH,
+            right_px: ENEMY_CONTACT_HALF_WIDTH,
+            top_px: ENEMY_CONTACT_HALF_HEIGHT,
+            bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
+        },
+    }
+}
+
 /// Classify contact between player and enemy as stomp, damage, or no contact.
 ///
 /// Stomp: player is falling (y_velocity > 0) and the player's feet are at or
@@ -647,14 +688,11 @@ pub(crate) fn classify_enemy_contact(
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
-    let enemy_half_width = match enemy.kind {
-        NativeObjectKind::Enemy { object_type: 0x1C } => MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
-        _ => ENEMY_CONTACT_HALF_WIDTH,
-    };
-    let e_left = ex - (enemy_half_width << 16);
-    let e_right = ex + (enemy_half_width << 16);
-    let e_top = ey - (ENEMY_CONTACT_HALF_HEIGHT << 16);
-    let e_bottom = ey + (ENEMY_CONTACT_HALF_HEIGHT << 16);
+    let bounds = enemy_contact_bounds(enemy);
+    let e_left = ex - (bounds.left_px << 16);
+    let e_right = ex + (bounds.right_px << 16);
+    let e_top = ey - (bounds.top_px << 16);
+    let e_bottom = ey + (bounds.bottom_px << 16);
 
     // Check AABB overlap first
     if !(p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top) {
