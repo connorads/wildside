@@ -4299,14 +4299,24 @@ fn dragon_walking_keeps_grounded_support_while_centre_is_still_on_the_lip() {
 
     step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
 
-    assert!(enemy.on_ground, "dragon should stay grounded while its centre still has support");
+    assert!(
+        enemy.on_ground,
+        "dragon should stay grounded while its centre still has support"
+    );
     assert_eq!(
         enemy.x_pos,
         (23 << 16) + 0x8000,
         "dragon should advance by its half-pixel walk step"
     );
-    assert_eq!(enemy.y_pos, 272 << 16, "lip support should keep the grounded floor height");
-    assert_eq!(enemy.y_velocity, 0, "grounded lip handling should not enter the fall arc");
+    assert_eq!(
+        enemy.y_pos,
+        272 << 16,
+        "lip support should keep the grounded floor height"
+    );
+    assert_eq!(
+        enemy.y_velocity, 0,
+        "grounded lip handling should not enter the fall arc"
+    );
 }
 
 #[test]
@@ -5671,6 +5681,7 @@ fn stomp_bounces_player_upward() {
 
     setup_stomp_scenario(&mut runtime, true);
     runtime.step_frame(FrameInput::default());
+    runtime.step_frame(FrameInput::default());
 
     if let Some(ref slice) = runtime.opening_slice {
         assert!(
@@ -5824,6 +5835,44 @@ fn walking_dragon_landing_frame_registers_as_stomp() {
 }
 
 #[test]
+fn walking_dragon_pre_landing_frame_has_not_reached_contact_threshold() {
+    let player = PlayerState {
+        x_pos: 0x01B2_3D00,
+        y_pos: 0x018C_1300,
+        x_velocity: 0x0002_9300,
+        y_velocity: 0x0008_0000,
+        facing: Direction::Right,
+        on_ground: false,
+        on_spikes: false,
+        just_jumped: false,
+        jump_buffer_frames: 0,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
+    };
+    let enemy = NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x0D },
+        x_pos: 0x01C1_8000,
+        y_pos: 0x01B0_0000,
+        layout_index: Some(0),
+        x_velocity: Some(0),
+        y_velocity: Some(0),
+        facing: Some(Direction::Right),
+        on_ground: Some(true),
+        hit_points: Some(2),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+    };
+
+    assert_eq!(
+        classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
+        EnemyContactResult::None
+    );
+}
+
+#[test]
 fn stomp_works_during_invulnerability() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
@@ -5960,12 +6009,29 @@ fn manifest_with_tough_skull() -> AssetManifest {
         enemy.objects[0] = kid_data::EnemyLayoutObject {
             object_type: 0x1C, // MiniHoppingSkull
             flags: 0,
-            hit_points_plus_one: 3, // 2 HP
+            hit_points_plus_one: 2, // 2 HP
             x: 0x0120,
             y: 0x00E0,
         };
     }
     m
+}
+
+fn setup_stomp_against_first_active_enemy(runtime: &mut NativeRuntime) {
+    let (enemy_x_pos, enemy_y_pos) = runtime
+        .active_enemies
+        .first()
+        .map(|enemy| (enemy.x_pos, enemy.y_pos))
+        .unwrap_or_else(|| panic!("expected an active enemy"));
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = enemy_x_pos;
+        slice.player.y_pos = enemy_y_pos.saturating_sub(0x0008_0000);
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+    }
 }
 
 #[test]
@@ -5987,14 +6053,7 @@ fn two_hp_enemy_survives_first_stomp() {
     assert!(enemies_before > 0, "skull should be active");
 
     // First stomp
-    if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 0x0120_0000;
-        slice.player.y_pos = 0x00D8_0000;
-        slice.player.y_velocity = 0x0002_0000;
-        slice.player.on_ground = false;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
-    }
+    setup_stomp_against_first_active_enemy(&mut runtime);
     runtime.step_frame(FrameInput::default());
 
     assert_eq!(
@@ -6030,14 +6089,7 @@ fn two_hp_enemy_dies_on_second_stomp() {
     let enemies_before = runtime.active_enemies.len();
 
     // First stomp
-    if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 0x0120_0000;
-        slice.player.y_pos = 0x00D8_0000;
-        slice.player.y_velocity = 0x0002_0000;
-        slice.player.on_ground = false;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
-    }
+    setup_stomp_against_first_active_enemy(&mut runtime);
     runtime.step_frame(FrameInput::default());
     assert_eq!(
         runtime.active_enemies.len(),
@@ -6045,20 +6097,35 @@ fn two_hp_enemy_dies_on_second_stomp() {
         "survives first stomp"
     );
 
-    // Second stomp
-    if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 0x0120_0000;
-        slice.player.y_pos = 0x00D8_0000;
-        slice.player.y_velocity = 0x0002_0000;
-        slice.player.on_ground = false;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
-    }
+    // The bounce now resolves on the next frame, so consume it before setting
+    // up the second stomp attempt.
     runtime.step_frame(FrameInput::default());
 
+    // HP-2 MiniHoppingSkulls relaunch upward after a non-lethal stomp, and
+    // the enemy stays stomp-immune while it is still rising.
+    let mut found_stompable_window = false;
+    for _ in 0..32 {
+        let enemy = runtime
+            .active_enemies
+            .first()
+            .unwrap_or_else(|| panic!("skull should remain active before the second stomp"));
+        if enemy.on_ground || enemy.y_velocity >= 0 {
+            found_stompable_window = true;
+            break;
+        }
+        runtime.step_frame(FrameInput::default());
+    }
+    assert!(
+        found_stompable_window,
+        "expected the damaged skull to leave its rising immunity window"
+    );
+
+    // Second stomp
+    setup_stomp_against_first_active_enemy(&mut runtime);
+    runtime.step_frame(FrameInput::default());
     assert!(
         runtime.active_enemies.len() < enemies_before,
-        "2-HP enemy should die on second stomp"
+        "2-HP enemy should die on the second stomp frame"
     );
 }
 
@@ -6078,14 +6145,8 @@ fn stomp_always_bounces_even_on_surviving_enemy() {
     runtime.step_frame(FrameInput::default());
 
     // Stomp the 2-HP enemy
-    if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 0x0120_0000;
-        slice.player.y_pos = 0x00D8_0000;
-        slice.player.y_velocity = 0x0002_0000;
-        slice.player.on_ground = false;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
-    }
+    setup_stomp_against_first_active_enemy(&mut runtime);
+    runtime.step_frame(FrameInput::default());
     runtime.step_frame(FrameInput::default());
 
     let slice = runtime.opening_slice.unwrap();
@@ -7395,7 +7456,15 @@ fn boss_fires_projectiles_when_stomped() {
         .collect();
     let pre_y_vel = slice.player.y_velocity;
     let pre_y_pos = slice.player.y_pos;
-    let stomped = runtime.process_stomps(&mut slice, pre_y_vel, pre_y_pos);
+    let frame_start_x_pos = slice.player.x_pos;
+    let frame_start_y_pos = slice.player.y_pos;
+    let stomped = runtime.process_stomps(
+        &mut slice,
+        pre_y_vel,
+        pre_y_pos,
+        frame_start_x_pos,
+        frame_start_y_pos,
+    );
     assert!(stomped, "should register a stomp");
     assert_eq!(
         runtime.projectiles.len(),
@@ -7471,7 +7540,15 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
 
     let pre_y_velocity = slice.player.y_velocity;
     let pre_y_pos = slice.player.y_pos;
-    let stomped = runtime.process_stomps(&mut slice, pre_y_velocity, pre_y_pos);
+    let frame_start_x_pos = slice.player.x_pos;
+    let frame_start_y_pos = slice.player.y_pos;
+    let stomped = runtime.process_stomps(
+        &mut slice,
+        pre_y_velocity,
+        pre_y_pos,
+        frame_start_x_pos,
+        frame_start_y_pos,
+    );
     assert!(stomped, "should register a stomp kill");
     assert!(runtime.active_enemies.is_empty(), "boss should be removed");
     assert_eq!(runtime.enemy_death_effects.len(), 1);
@@ -11824,7 +11901,6 @@ fn demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831() {
 }
 
 #[test]
-#[ignore = "TAS frontier: enemy-top collision still resolves after physics"]
 fn demo_1_lands_on_the_walking_dragon_on_frame_2938() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_2938 = None;

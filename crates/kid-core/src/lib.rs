@@ -84,6 +84,9 @@ pub struct NativeRuntime {
     enemy_death_effects: Vec<EnemyDeathEffect>,
     /// Set each frame if a stomp occurred.
     stomped_this_frame: bool,
+    /// `kidabove` collisions resolve on the next frame, not immediately on the
+    /// overlap frame.
+    pending_stomp_bounce: Option<PendingStompBounce>,
     /// Count of blocks hit by headbutt this frame.
     blocks_hit_this_frame: u8,
     /// Sound test play pending (consumed each frame).
@@ -143,6 +146,12 @@ pub struct NativeRuntime {
     trace_physics: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PendingStompBounce {
+    anchor_x_pos: u32,
+    anchor_y_pos: u32,
+}
+
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
         let mut runtime = Self {
@@ -185,6 +194,7 @@ impl NativeRuntime {
             pending_prize_diamond_awards: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
+            pending_stomp_bounce: None,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
             level_timer: LevelTimer::new(),
@@ -295,8 +305,9 @@ impl NativeRuntime {
                 self.gameplay_jump_pressed()
             };
             let demo_use_demo_2 = self.demo_uses_second_recording();
-            let demo_gameplay_start =
-                demo_use_demo_2.map(demo::gameplay_start_frame).unwrap_or(demo::DEMO_GAMEPLAY_START_FRAME);
+            let demo_gameplay_start = demo_use_demo_2
+                .map(demo::gameplay_start_frame)
+                .unwrap_or(demo::DEMO_GAMEPLAY_START_FRAME);
             match self.demo_startup_frame() {
                 Some(frame)
                     if demo_use_demo_2 == Some(false)
@@ -467,7 +478,9 @@ impl NativeRuntime {
         // new helmet's wider hitbox overlaps walls and immediately pushes the
         // player clear. This can come from a transform resolved last frame or
         // from a floating helmet prize collected later in this frame.
+        self.stomped_this_frame = false;
         self.apply_form_width_overlap_fixup(&mut slice);
+        self.apply_pending_stomp_bounce(&mut slice);
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;
@@ -475,7 +488,6 @@ impl NativeRuntime {
         slice.smash_block_hit = None;
         slice.teleporter_contact = None;
         slice.ceiling_prize_clear = None;
-        self.stomped_this_frame = false;
         self.blocks_hit_this_frame = 0;
         self.sound_test_play_pending = false;
         // Tick visual effects
@@ -493,6 +505,8 @@ impl NativeRuntime {
         self.step_berzerker_charge(&slice);
         self.step_juggernaut_skull(&slice, input);
         self.step_micromax_stick(&mut slice, input);
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
 
         // Capture pre-physics velocity for stomp detection: after physics,
         // floor collision zeroes y_velocity so the stomp check would always fail.
@@ -631,8 +645,14 @@ impl NativeRuntime {
             self.resolve_pending_form_change();
             self.apply_form_width_overlap_fixup(&mut slice);
         }
-        if self.resolve_frame_hazards(&mut slice, input, pre_physics_y_velocity, pre_physics_y_pos)
-        {
+        if self.resolve_frame_hazards(
+            &mut slice,
+            input,
+            pre_physics_y_velocity,
+            pre_physics_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        ) {
             return;
         }
         self.opening_slice = Some(slice);

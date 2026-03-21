@@ -20,6 +20,27 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
 impl NativeRuntime {
     const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 32;
 
+    pub(crate) fn apply_pending_stomp_bounce(&mut self, slice: &mut OpeningSliceState) {
+        let Some(pending) = self.pending_stomp_bounce.take() else {
+            return;
+        };
+
+        let current_x_velocity = slice.player.x_velocity;
+        slice.player.x_pos =
+            (pending.anchor_x_pos & 0xFFFF_0000) | (slice.player.x_pos & 0x0000_FFFF);
+        slice.player.y_pos =
+            (pending.anchor_y_pos & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
+        slice.player.y_velocity = STOMP_BOUNCE_VELOCITY;
+        let rewound_x = i64::from(slice.player.x_pos) - i64::from(current_x_velocity);
+        slice.player.x_pos = rewound_x.clamp(0, i64::from(u32::MAX)) as u32;
+        slice.player.x_velocity = slice
+            .player
+            .x_velocity
+            .saturating_add(current_x_velocity >> 1);
+        slice.player.on_ground = false;
+        self.stomped_this_frame = true;
+    }
+
     pub(crate) fn spawn_enemy_death_effect(&mut self, family: EnemyFamily, x_pos: u32, y_pos: u32) {
         let remaining = if matches!(family, EnemyFamily::HeadyMetal) {
             HEADYMETAL_DEATH_EFFECT_FRAMES
@@ -59,6 +80,8 @@ impl NativeRuntime {
         slice: &mut OpeningSliceState,
         pre_physics_y_velocity: i32,
         pre_physics_y_pos: u32,
+        frame_start_x_pos: u32,
+        frame_start_y_pos: u32,
     ) -> bool {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
             return false;
@@ -145,8 +168,6 @@ impl NativeRuntime {
             }
         }
 
-        self.stomped_this_frame = true;
-
         // Remove dead enemies, spawn death effects, and award points
         for &idx in kill_indices.iter().rev() {
             let enemy = &self.active_enemies[idx];
@@ -169,9 +190,10 @@ impl NativeRuntime {
             .map(ActiveEnemy::snapshot)
             .collect();
 
-        // Bounce the player upward
-        slice.player.y_velocity = STOMP_BOUNCE_VELOCITY;
-        slice.player.on_ground = false;
+        self.pending_stomp_bounce = Some(PendingStompBounce {
+            anchor_x_pos: frame_start_x_pos,
+            anchor_y_pos: frame_start_y_pos,
+        });
         true
     }
 
@@ -668,6 +690,13 @@ fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     }
 }
 
+fn enemy_contact_min_overlap_fp(enemy: &NativeObjectSnapshot) -> i64 {
+    match enemy.kind {
+        NativeObjectKind::Enemy { object_type: 0x0D } => 0x0008_0000,
+        _ => ENEMY_CONTACT_MIN_OVERLAP_FP,
+    }
+}
+
 /// Classify contact between player and enemy as stomp, damage, or no contact.
 ///
 /// Stomp: player is falling (y_velocity > 0) and the player's feet are at or
@@ -699,7 +728,7 @@ pub(crate) fn classify_enemy_contact(
         return EnemyContactResult::None;
     }
     let x_overlap = p_right.min(e_right) - p_left.max(e_left);
-    if x_overlap < ENEMY_CONTACT_MIN_OVERLAP_FP {
+    if x_overlap < enemy_contact_min_overlap_fp(enemy) {
         return EnemyContactResult::None;
     }
 
@@ -754,6 +783,8 @@ impl NativeRuntime {
         input: FrameInput,
         pre_physics_y_velocity: i32,
         pre_physics_y_pos: u32,
+        frame_start_x_pos: u32,
+        frame_start_y_pos: u32,
     ) -> bool {
         // Level timer: tick down and kill the player on expiry
         if self.level_timer.tick() {
@@ -821,7 +852,13 @@ impl NativeRuntime {
         }
 
         // Stomp check: kill enemies by landing on them from above
-        if self.process_stomps(slice, pre_physics_y_velocity, pre_physics_y_pos) {
+        if self.process_stomps(
+            slice,
+            pre_physics_y_velocity,
+            pre_physics_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        ) {
             self.opening_slice = Some(*slice);
             return true;
         }
@@ -835,7 +872,9 @@ impl NativeRuntime {
         self.collect_diamonds(slice);
 
         // Contact damage with knockback
-        if let Some(enemy_x) = self.find_contact_damage_source(slice) {
+        if !self.stomped_this_frame
+            && let Some(enemy_x) = self.find_contact_damage_source(slice)
+        {
             self.apply_damage_with_knockback(slice, enemy_x);
             self.opening_slice = Some(*slice);
             return true;

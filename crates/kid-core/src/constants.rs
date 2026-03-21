@@ -124,7 +124,9 @@ pub(crate) const KID_SLOPE_RUN_DOWNHILL_ACCEL_FP: i32 = 0x0000_4000;
 
 // Stomp bounce: ~60% of a standstill jump (Kid jump_height 0x42, factor 0x100).
 // Full jump y_vel = -(0x42 * 0x100) << 4 = -0x420_000. 60% ≈ -0x270_000.
-pub(crate) const STOMP_BOUNCE_VELOCITY: i32 = -0x0027_0000;
+// ASM Jump_On_Enemy restores Kid to the prior frame's anchor and starts the
+// next frame with a fixed -4 px bounce (`move.l #$FFFC0000,d7`).
+pub(crate) const STOMP_BOUNCE_VELOCITY: i32 = -0x0004_0000;
 // Frames an enemy flashes white after taking a non-lethal stomp.
 pub(crate) const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
 
