@@ -11938,6 +11938,48 @@ fn demo_1_lands_on_the_walking_dragon_on_frame_2938() {
 }
 
 #[test]
+fn demo_1_keeps_the_oracle_backed_stomp_drift_on_frame_2994() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_2994 = None;
+    let mut frame_3001 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_002) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 2_994 {
+            frame_2994 = Some(trace.clone());
+        }
+        if frame_index == 3_001 {
+            frame_3001 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_2994 = frame_2994.unwrap_or_else(|| panic!("frame 2994 should be captured"));
+    assert_eq!(
+        frame_2994.kid_x_pos,
+        Some(0x026B_0000),
+        "demo 1 should preserve the post-dragon-stomp horizontal carry on frame 2994",
+    );
+    assert_eq!(
+        frame_2994.kid_y_pos,
+        Some(0x019F_5300),
+        "frame 2994 should stay on the oracle-backed vertical path after the stomp",
+    );
+
+    let frame_3001 = frame_3001.unwrap_or_else(|| panic!("frame 3001 should be captured"));
+    assert_eq!(
+        frame_3001.kid_x_pos,
+        Some(0x026E_8C00),
+        "the carried drift should still line up with the oracle by frame 3001",
+    );
+    assert_eq!(
+        frame_3001.camera_x_pos,
+        0x01C8_0000,
+        "camera follow should recover once the carried drift lines the player back up",
+    );
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;

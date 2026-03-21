@@ -499,6 +499,13 @@ impl OpeningSliceState {
                     self.update_camera_follow(y_look_offset);
                     return;
                 }
+                if let Some(grid) = block_grid.as_deref()
+                    && self.try_release_descending_wall_cling_into_run(input, form, grid)
+                {
+                    self.finalise_trace();
+                    self.update_camera_follow(y_look_offset);
+                    return;
+                }
 
                 // Step 4: sub_8F26 — apply x_pos += x_vel, then wall collision.
                 self.apply_x_velocity_to_position();
@@ -662,6 +669,68 @@ impl OpeningSliceState {
         // frame-2723 frontier behaviour.
         let x_px = (self.player.x_pos >> 16) as i32;
         let moving_right = direction == Direction::Right;
+        if terrain::probe_wall(
+            grid,
+            x_px,
+            y_px,
+            form.half_width(),
+            PLAYER_HEIGHT,
+            moving_right,
+        )
+        .hit
+        {
+            return false;
+        }
+        if terrain::probe_wall_top_edge(
+            grid,
+            x_px,
+            y_px,
+            form.half_width(),
+            PLAYER_HEIGHT,
+            moving_right,
+        )
+        .hit
+        {
+            return false;
+        }
+
+        match direction {
+            Direction::Right => self.player.x_pos = self.player.x_pos.wrapping_add(0x0001_0000),
+            Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
+        }
+        self.player.x_velocity = 0;
+        self.player.wall_cling_direction = None;
+        self.player.right_wall_sticky = false;
+        self.player.left_wall_sticky = false;
+        true
+    }
+
+    fn try_release_descending_wall_cling_into_run(
+        &mut self,
+        input: FrameInput,
+        form: PlayerForm,
+        grid: &terrain::BlockGrid,
+    ) -> bool {
+        let Some(direction) = self.player.wall_cling_direction else {
+            return false;
+        };
+        let sticky_active = match direction {
+            Direction::Right => self.player.right_wall_sticky,
+            Direction::Left => self.player.left_wall_sticky,
+        };
+        if !sticky_active || self.player.on_ground || self.player.y_velocity < 0 {
+            return false;
+        }
+        if Self::held_horizontal_direction(input) != Some(direction) {
+            return false;
+        }
+
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        let moving_right = direction == Direction::Right;
+        // ASM loc_AA9C/loc_AD34: while descending in wall-cling, holding back
+        // into the wall exits cling with a 1px shimmy once the wall/top-edge
+        // probes both clear, so the next frame can re-enter jump air-accel.
         if terrain::probe_wall(
             grid,
             x_px,
@@ -1264,8 +1333,8 @@ impl OpeningSliceState {
         // if pixel displacement doesn't cross a 16px tile boundary. Without this,
         // a false probe hit zeroes sub-pixel via x_pos = clamped_center << 16.
         // Suppressed when wall_sticky is set (first frame after wall hit needs
-        // re-probe even though x_vel=0; subsequent wall-cling frames also have
-        // x_vel=0 so the early return at the top of this function handles them).
+        // re-probe even though x_vel=0; subsequent wall-cling frames with
+        // x_vel=0 are handled earlier in the jump loop).
         let wall_stuck = (moving_right && self.player.right_wall_sticky)
             || (moving_left && self.player.left_wall_sticky);
         if !wall_stuck {
