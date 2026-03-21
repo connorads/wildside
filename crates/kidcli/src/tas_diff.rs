@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
+use crate::oracle::OracleState;
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::sweep::{ADVISORY_FIELDS, compare_sweep_states, extract_checkpoint_states};
 
@@ -192,12 +193,20 @@ pub fn run_tas_diff(
                 }
             }
         }
+
+        let oracle_state = checkpoint_state(&oracle.states, &label);
+        if auth_count > 0 || native_object_debug_relevant(native_trace.get(frame_idx), oracle_state) {
+            println!("  --- object roster ---");
+            println!(
+                "  native: {}",
+                native_object_debug(native_trace.get(frame_idx))
+            );
+            println!("  oracle: {}", oracle_object_debug(oracle_state));
+        }
     }
 
     println!();
-    println!(
-        "summary: {match_count} match, {diverge_count} diverge (frames {start}..{end})"
-    );
+    println!("summary: {match_count} match, {diverge_count} diverge (frames {start}..{end})");
 
     // Visual diff: generate 3-panel composite PNGs at divergent frames
     if visual && diverge_count > 0 {
@@ -279,4 +288,88 @@ pub fn run_tas_diff(
     }
 
     Ok(())
+}
+
+fn checkpoint_state<'a>(states: &'a [OracleState], label: &str) -> Option<&'a OracleState> {
+    states.iter().find(|state| state.label == label)
+}
+
+fn native_object_debug_relevant(
+    native_frame: Option<&kid_core::NativeTraceFrame>,
+    oracle_state: Option<&OracleState>,
+) -> bool {
+    native_frame.is_some_and(|frame| {
+        !frame.active_objects.is_empty()
+            || !frame.block_bounces.is_empty()
+            || !frame.block_destroy_effects.is_empty()
+            || !frame.floating_items.is_empty()
+    }) || oracle_state.is_some_and(|state| !state.active_enemies.is_empty())
+}
+
+fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> String {
+    let Some(frame) = native_frame else {
+        return "-".to_owned();
+    };
+
+    let mut entries = Vec::new();
+    for object in &frame.active_objects {
+        match object.kind {
+            kid_core::NativeObjectKind::Player => {}
+            kid_core::NativeObjectKind::Enemy { object_type } => entries.push(format!(
+                "enemy_{object_type:02X}@{:#010x},{:#010x}",
+                object.x_pos, object.y_pos
+            )),
+            kid_core::NativeObjectKind::Platform { kind, subtype } => entries.push(format!(
+                "platform_{kind:02X}:{subtype:02X}@{:#010x},{:#010x}",
+                object.x_pos, object.y_pos
+            )),
+        }
+    }
+    for &(cell_x, cell_y, remaining) in &frame.block_bounces {
+        entries.push(format!("block_bounce@{cell_x:02X},{cell_y:02X} rem={remaining}"));
+    }
+    for &(x_px, y_px, remaining, content_id) in &frame.floating_items {
+        entries.push(format!(
+            "floating_item#{content_id:02X}@{x_px:03},{y_px:03} rem={remaining}"
+        ));
+    }
+    for &(x_px, y_px, remaining) in &frame.block_destroy_effects {
+        entries.push(format!("block_fx@{x_px:03},{y_px:03} rem={remaining}"));
+    }
+
+    summarize_entries(entries)
+}
+
+fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
+    let Some(state) = oracle_state else {
+        return "-".to_owned();
+    };
+    let entries = state
+        .active_enemies
+        .iter()
+        .map(|object| {
+            format!(
+                "0x{:02X}@{:#010x},{:#010x} vel={:#010x},{:#010x}",
+                object.object_type,
+                object.x_pos,
+                object.y_pos,
+                object.x_velocity as u32,
+                object.y_velocity as u32
+            )
+        })
+        .collect();
+    summarize_entries(entries)
+}
+
+fn summarize_entries(entries: Vec<String>) -> String {
+    if entries.is_empty() {
+        return "-".to_owned();
+    }
+    const LIMIT: usize = 6;
+    if entries.len() <= LIMIT {
+        return entries.join("; ");
+    }
+    let extra = entries.len() - LIMIT;
+    let shown = entries.into_iter().take(LIMIT).collect::<Vec<_>>();
+    format!("{}; +{extra} more", shown.join("; "))
 }
