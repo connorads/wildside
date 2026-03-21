@@ -7,7 +7,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | first 2000 frames CRC-clean; next authoritative frontier is past frame 2000 |
+| `kc_any_percent_2024` | 4916 | ~82s | first 2624 frames CRC-clean; next authoritative frontier is frame 2625 |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -15,8 +15,8 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | # | Target | Frames | Phase | Status |
 |---|--------|--------|-------|--------|
 | M1 | First 1000 frames | 0-1000 | boot -> title -> demo play (0x1B) | [x] |
-| M2 | Through title to level entry | 0-2000 | demo end -> title -> Start -> Level 1 | [ ] |
-| M3 | First level traversal | 0-3000 | Level 1 gameplay: enemies, platforms, blocks | [ ] |
+| M2 | Through title to level entry | 0-2000 | demo end -> title -> Start -> Level 1 | [x] |
+| M3 | First level traversal | 0-3000 | Level 1 gameplay: enemies, platforms, blocks | [~] |
 | M4 | First level transition | 0-4000 | Level 1 complete -> transition -> Level 2 | [ ] |
 | M5 | Full kc_any_percent_2024 | 0-4916 | multiple levels, warps, pause | [ ] |
 | M6 | any-percent-published first level | 0-3000 | different TAS, different route | [ ] |
@@ -27,6 +27,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-21 | kc_any_percent_2024 | 2625 | Demo 1 (Knights Isle) reused the demo 2 bootstrap/input profile after the second attract-mode title loop | Split demo startup timing by recording: added a demo 1 hidden-camera trace profile, delayed gameplay/input exposure to startup frame 72, held the bootstrap pose instead of running the demo 2 settle/freefall path, and deferred demo 1 enemy warm-up. Added `demo_1_bootstrap_keeps_camera_hidden_through_frame_2537` plus `demo_1_bootstrap_holds_pose_and_input_until_frame_2571`, re-ran the targeted demo bootstrap tests, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2524 --frame-end 2580 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs, then re-bisected with `--frame-end 3000 --bisect` to move the frontier from 2529 to 2625. |
 | 2026-03-21 | kc_any_percent_2024 | >2000 | Demo-return title mode reused the generic title pose after the frame-1806 handoff, even though oracle keeps Kid hidden until frame 1924 | Added a demo-return-specific hidden-Kid window after the snapshot handoff, leaving the generic title-ready/object-count path intact. Added `demo_title_return_keeps_kid_hidden_until_frame_1924`, re-ran `cargo test -p kid-core demo_title_return -- --nocapture` plus `demo_start_abort_stays_in_demo_until_frame_1774`, verified `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1828 --frame-end 1927 --checkpoint-interval 1` stays at 0 authoritative diffs, passed `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 2000 --bisect`, and re-ran `mise run verify-slice-fast`. |
 | 2026-03-21 | kc_any_percent_2024 | 1832 | Demo-abort title return still exposes the normal title pose while oracle keeps Kid hidden during the later title rebuild | Split the demo-abort title handoff into a full live snapshot (through frame 1801) followed by a camera/form-only snapshot (through frame 1805), then cleared the remaining title-return state on frame 1806. Added `demo_title_return_blanks_kid_on_frame_1802_before_camera_reset` and `demo_title_return_clears_camera_and_progression_on_frame_1806`, re-ran `cargo test -p kid-core demo_title_return -- --nocapture` plus `demo_start_abort_stays_in_demo_until_frame_1774`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1` is CRC-clean apart from advisory object counts, then re-bisected to move the frontier from 1802 to 1832. |
 | 2026-03-21 | kc_any_percent_2024 | 1802 | Demo-abort title mode was reusing the cold-boot title pose instead of the paused live demo snapshot | Preserved the paused demo gameplay snapshot on the title-return path so `mode=$002C` reuses the live Kid/camera state through frame 1801, matching oracle after the frame-1772 abort fix. Added `demo_title_return_keeps_live_snapshot_on_first_title_frames`, re-ran the targeted abort tests, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1` and `--frame-start 1772 --frame-end 1860 --checkpoint-interval 1`, then re-bisected to move the frontier from 1774 to 1802. |

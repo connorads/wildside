@@ -87,7 +87,7 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 ### Gameplay fidelity (3 open backlog items)
 - **#037** [~] Floor-snap settling diffs on 4 levels — residuals are now small but real. Current focused sweeps show: 0x52 (`camera_y` +2px, `kid_y` +2.25px), 0x29 (`camera_x`/`kid_x` +5px), and 0x24/0x51 (`camera_y` +1px). `0x02` is now clean apart from advisory lives. Root cause remains the init-time spawn-support shortcut versus the original frame-step settling.
 - **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
-- **#093** [ ] TAS frame 1802 title return blanks Kid before camera/helmet reset on demo 0x1B — #092 fixed the paused live-snapshot handoff through frame 1801. Oracle then zeroes `kid_x_pos/kid_y_pos` for frames 1802-1805, and at frame 1806 also zeroes the camera while clearing helmet/diamond state. Native still holds the preserved demo snapshot across that second title-return phase.
+- **#095** [ ] TAS frame 2625 early Knights Isle traversal drift after the demo 1 startup handoff — #095 fixed the shared demo bootstrap profile through frame 2624, but the first live `0x15` traversal steps still diverge at frame 2625 (`kid_x_pos=0x0059e500` native vs `0x005c7700` oracle, `kid_y_pos=0x013f0000` native vs `0x013f4000` oracle). Advisory dragon-roster timing still differs before that point.
 
 ### Game flow verification (not yet investigated)
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.

@@ -98,6 +98,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 092 | [x] | P2 | fidelity | TAS frame 1774: first title frames keep the live demo snapshot after demo 0x1B abort | Demo abort now preserves the paused gameplay snapshot under `mode=0x002c`, matching oracle `kid/camera` through frame 1801. Verified with `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`, `cargo test -p kid-core demo_title_return_keeps_live_snapshot_on_first_title_frames -- --nocapture`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1860 --checkpoint-interval 1`. Frontier 1774→1802. |
 | 093 | [x] | P2 | fidelity | TAS frame 1802: title return blanks Kid before camera/helmet reset on demo 0x1B | Split the demo-abort title handoff into 2 phases: full live snapshot through frame 1801, Kid hidden on frames 1802-1805, then camera/form/diamond state cleared on frame 1806. Added `demo_title_return_blanks_kid_on_frame_1802_before_camera_reset` and `demo_title_return_clears_camera_and_progression_on_frame_1806`; verified with `cargo test -p kid-core demo_title_return -- --nocapture`, `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 2000 --bisect`. Frontier 1802→1832. |
 | 094 | [x] | P2 | fidelity | TAS frame 1832: title pose appears while oracle still keeps Kid hidden after demo 0x1B abort | Demo-return title mode now keeps Kid hidden until frame 1924 while leaving the rebuilt title object counts alone. Added `demo_title_return_keeps_kid_hidden_until_frame_1924`; verified with `cargo test -p kid-core demo_title_return -- --nocapture`, `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`, `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1828 --frame-end 1927 --checkpoint-interval 1` (0 authoritative, 5 advisory), `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 2000 --bisect` (PASS: all 2000 frames match by CRC), and `mise run verify-slice-fast`. Frontier 1832→>2000. |
+| 095 | [x] | P2 | fidelity | TAS frame 2529: demo 0x15 startup reused the demo 0x1B bootstrap profile | Split demo startup timing by recording: Knights Isle now keeps its hidden camera/profile through frame 2537, delays demo input/gameplay exposure to frame 2544, and holds the bootstrap pose until the oracle-backed handoff is complete. Added `demo_1_bootstrap_keeps_camera_hidden_through_frame_2537` and `demo_1_bootstrap_holds_pose_and_input_until_frame_2571`; verified with the targeted demo bootstrap tests, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2524 --frame-end 2580 --checkpoint-interval 1` (CRC-clean, 0 authoritative), and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 3000 --bisect`. Frontier 2529→2625. |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -349,6 +350,38 @@ Verification:
 
 New frontier: past frame 2000. The first 2000 TAS frames are now CRC-clean; the
 next authoritative mismatch has not yet been re-bisected beyond that point.
+
+### 095 — Demo 1 startup profile on Knights Isle (FIXED)
+Once the second attract-mode demo switched to level `0x15`, native kept
+reusing the demo `0x1B` bootstrap profile: the hidden camera preload used
+Skydragon values (`0x0228_0000`/`0x02A0_0000`), demo input became live too
+early, and the visible bootstrap pose/freefall sequence started seven frames
+before the oracle.
+
+Oracle-backed TAS traces show a different startup shape for Knights Isle:
+camera stays hidden through frames 2529-2530, settles to `0x00E0_0000` with a
+one-frame wrapped negative quirk at 2532, keeps Kid hidden through frame 2537,
+then exposes a longer fixed-pose bootstrap before regular motion resumes.
+
+Fix: key demo startup off the selected recording instead of one shared profile.
+Demo 1 now:
+- keeps its hidden-camera trace profile through frame 2537
+- delays demo input/gameplay exposure from startup frame 65 to 72
+- holds the bootstrap pose while camera follow converges, instead of running
+  the demo 2 settle/freefall path
+- defers demo enemy warm-up until the later Knights Isle handoff
+
+Verification:
+- `cargo test -p kid-core demo_1_bootstrap -- --nocapture`
+- `cargo test -p kid-core demo_bootstrap_holds_spawn_pose_then_freefalls_before_grounded_hold -- --nocapture`
+- `cargo test -p kid-core demo_bootstrap_first_visible_gameplay_frame_advances_camera_only -- --nocapture`
+- `cargo test -p kid-core demo_camera_handoff_primes_buffer_for_the_hidden_settle_frame -- --nocapture`
+- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2524 --frame-end 2580 --checkpoint-interval 1`
+- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-end 3000 --bisect`
+
+New frontier: frame 2625. Advisory dragon-roster timing still differs earlier,
+but the next authoritative mismatch is now Kid position (`kid_x_pos`,
+`kid_y_pos`) during the first live Knights Isle traversal steps.
 
 Attempted approaches that didn't work:
 - pending_form.is_some() check: over-freezes (73 vs 72 frames), regression to 1129

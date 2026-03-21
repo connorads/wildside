@@ -11524,6 +11524,71 @@ fn cached_any_percent_demo_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
 }
 
 #[test]
+fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_538) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (2_529..=2_537).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_2529 = frames.get(&2_529).expect("frame 2529 should be captured");
+    assert_eq!(frame_2529.current_level, LevelId(0x15));
+    assert_eq!(frame_2529.camera_y_pos, 0);
+    assert_eq!(frame_2529.kid_x_pos, None);
+    assert_eq!(frame_2529.kid_y_pos, None);
+
+    let frame_2530 = frames.get(&2_530).expect("frame 2530 should be captured");
+    assert_eq!(frame_2530.camera_y_pos, 0);
+
+    let frame_2531 = frames.get(&2_531).expect("frame 2531 should be captured");
+    assert_eq!(frame_2531.camera_y_pos, 0x00E0_0000);
+    assert_eq!(frame_2531.kid_x_pos, None);
+    assert_eq!(frame_2531.kid_y_pos, None);
+
+    let frame_2532 = frames.get(&2_532).expect("frame 2532 should be captured");
+    assert_eq!(frame_2532.camera_y_pos, 0xFF20_0000);
+
+    let frame_2537 = frames.get(&2_537).expect("frame 2537 should be captured");
+    assert_eq!(frame_2537.camera_y_pos, 0x00E0_0000);
+    assert_eq!(frame_2537.kid_x_pos, None);
+    assert_eq!(frame_2537.kid_y_pos, None);
+}
+
+#[test]
+fn demo_1_bootstrap_holds_pose_and_input_until_frame_2571() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_578) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if [2_544usize, 2_553, 2_571, 2_577].contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_2544 = frames.get(&2_544).expect("frame 2544 should be captured");
+    assert_eq!(frame_2544.camera_y_pos, 0x00D8_0000);
+    assert_eq!(frame_2544.kid_x_pos, Some(0x0010_0000));
+    assert_eq!(frame_2544.kid_y_pos, Some(0x00FF_0000));
+
+    let frame_2553 = frames.get(&2_553).expect("frame 2553 should be captured");
+    assert_eq!(frame_2553.camera_y_pos, 0x0091_0000);
+    assert_eq!(frame_2553.kid_x_pos, Some(0x0010_0000));
+    assert_eq!(frame_2553.kid_y_pos, Some(0x00FF_0000));
+
+    let frame_2571 = frames.get(&2_571).expect("frame 2571 should be captured");
+    assert_eq!(frame_2571.camera_y_pos, 0x0064_0000);
+    assert_eq!(frame_2571.kid_x_pos, Some(0x0010_0000));
+
+    let frame_2577 = frames.get(&2_577).expect("frame 2577 should be captured");
+    assert_eq!(frame_2577.kid_x_pos, Some(0x0010_1000));
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;

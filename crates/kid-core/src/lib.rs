@@ -294,8 +294,18 @@ impl NativeRuntime {
             } else {
                 self.gameplay_jump_pressed()
             };
+            let demo_use_demo_2 = self.demo_uses_second_recording();
+            let demo_gameplay_start =
+                demo_use_demo_2.map(demo::gameplay_start_frame).unwrap_or(demo::DEMO_GAMEPLAY_START_FRAME);
             match self.demo_startup_frame() {
-                Some(frame) if frame == demo::DEMO_GAMEPLAY_START_FRAME => {
+                Some(frame)
+                    if demo_use_demo_2 == Some(false)
+                        && (demo_gameplay_start..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+                            .contains(&frame) =>
+                {
+                    self.apply_demo_1_bootstrap_pose_hold();
+                }
+                Some(frame) if frame == demo_gameplay_start => {
                     self.apply_demo_bootstrap_camera_handoff();
                 }
                 Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {

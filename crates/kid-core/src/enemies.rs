@@ -3810,7 +3810,11 @@ pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) 
 impl NativeRuntime {
     fn enemy_loading_enabled(&self) -> bool {
         !matches!(self.boot_state, BootState::DemoPlay { .. })
-            || self.current_level == LevelId(demo::DEMO_1_LEVEL)
+            || (self.current_level == LevelId(demo::DEMO_1_LEVEL)
+                && self
+                    .demo_startup_frame()
+                    .zip(self.demo_uses_second_recording())
+                    .is_some_and(|(frame, use_demo_2)| frame >= demo::enemy_warmup_frame(use_demo_2)))
     }
 
     pub(crate) fn refresh_active_roster(&mut self) {

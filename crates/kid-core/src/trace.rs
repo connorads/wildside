@@ -196,6 +196,7 @@ impl NativeRuntime {
         if self.level_skip_resume_hold {
             return self.level_skip_resume_player_state();
         }
+        let demo_use_demo_2 = self.demo_uses_second_recording();
         match self.boot_state {
             BootState::SegaScreen { .. } | BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
@@ -214,7 +215,8 @@ impl NativeRuntime {
                 Some(PlayerState::title_pose())
             }
             BootState::DemoPlay { frame_counter, .. }
-                if frame_counter < demo::DEMO_GAMEPLAY_START_FRAME =>
+                if demo_use_demo_2
+                    .is_some_and(|use_demo_2| frame_counter < demo::gameplay_start_frame(use_demo_2)) =>
             {
                 None
             }
@@ -242,10 +244,19 @@ impl NativeRuntime {
                 .map(|slice| slice.camera)
                 .unwrap_or_default();
         }
-        if let Some(frame_counter) = self.demo_startup_frame()
-            && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
+        if let Some((frame_counter, use_demo_2)) =
+            self.demo_startup_frame().zip(self.demo_uses_second_recording())
+            && frame_counter < demo::gameplay_start_frame(use_demo_2)
         {
-            let camera_y_pos = if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
+            let camera_y_pos = if !use_demo_2 {
+                if let Some(camera_y_pos) = demo::demo_1_hidden_camera_y(frame_counter) {
+                    camera_y_pos
+                } else {
+                    self.opening_slice
+                        .map(|slice| slice.camera.y_pos)
+                        .unwrap_or_default()
+                }
+            } else if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
                 0x0228_0000
             } else if frame_counter >= demo::DEMO_CAMERA_HOLD_START_FRAME {
                 0x02A0_0000
@@ -295,8 +306,9 @@ impl NativeRuntime {
             objects.extend(self.active_platform_roster.iter().cloned());
             return objects;
         }
-        if let Some(frame_counter) = self.demo_startup_frame()
-            && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
+        if let Some((frame_counter, use_demo_2)) =
+            self.demo_startup_frame().zip(self.demo_uses_second_recording())
+            && frame_counter < demo::gameplay_start_frame(use_demo_2)
         {
             return Vec::new();
         }
@@ -342,12 +354,13 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_object_counts();
         }
-        if let Some(frame_counter) = self.demo_startup_frame()
+        if let Some((frame_counter, use_demo_2)) =
+            self.demo_startup_frame().zip(self.demo_uses_second_recording())
             && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
-            } else if frame_counter >= demo::DEMO_GAMEPLAY_START_FRAME {
+            } else if frame_counter >= demo::gameplay_start_frame(use_demo_2) {
                 (5, 4)
             } else if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME {
                 (5, 2)

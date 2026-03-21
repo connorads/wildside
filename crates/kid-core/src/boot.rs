@@ -26,9 +26,17 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn demo_uses_second_recording(&self) -> Option<bool> {
+        match self.boot_state {
+            BootState::DemoPlay { use_demo_2, .. } => Some(use_demo_2),
+            _ => None,
+        }
+    }
+
     pub(crate) fn demo_gameplay_active(&self) -> bool {
         self.demo_startup_frame()
-            .is_some_and(|frame| frame >= demo::DEMO_GAMEPLAY_START_FRAME)
+            .zip(self.demo_uses_second_recording())
+            .is_some_and(|(frame, use_demo_2)| frame >= demo::gameplay_start_frame(use_demo_2))
     }
 
     pub(crate) fn demo_level_id(use_demo_2: bool) -> LevelId {
@@ -265,6 +273,16 @@ impl NativeRuntime {
         slice.update_camera_follow(0);
     }
 
+    pub(crate) fn apply_demo_1_bootstrap_pose_hold(&mut self) {
+        let Some(slice) = self.opening_slice.as_mut() else {
+            return;
+        };
+        // Knights Isle demo startup exposes the respawn pose unchanged while
+        // only the camera converges during the hidden warm-up window.
+        slice.player.y_velocity = 0;
+        slice.update_camera_follow(0);
+    }
+
     pub(crate) fn try_snap_demo_bootstrap_floor(&self, slice: &mut OpeningSliceState) -> bool {
         let Some(frame_counter) = self.demo_startup_frame() else {
             return false;
@@ -369,7 +387,8 @@ impl NativeRuntime {
         if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME && self.opening_slice.is_none() {
             self.begin_demo_gameplay(level_id);
         }
-        if frame_counter + 1 < demo::DEMO_GAMEPLAY_START_FRAME {
+        let gameplay_start_frame = demo::gameplay_start_frame(use_demo_2);
+        if frame_counter + 1 < gameplay_start_frame {
             if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
                 *frame_counter += 1;
             }
@@ -381,7 +400,7 @@ impl NativeRuntime {
         } else {
             &demo::DEMO_INPUT_DATA_1[..]
         };
-        let output_input = if frame_counter >= demo::DEMO_GAMEPLAY_START_FRAME {
+        let output_input = if frame_counter >= gameplay_start_frame {
             self.demo_buffered_input.unwrap_or_default()
         } else {
             FrameInput::default()
@@ -406,7 +425,7 @@ impl NativeRuntime {
                 ..
             } = &mut self.boot_state
             {
-                let playback_frame = *frame_counter - (demo::DEMO_GAMEPLAY_START_FRAME - 1);
+                let playback_frame = *frame_counter - (gameplay_start_frame - 1);
                 *frame_counter += 1;
                 if playback_frame % 2 == 1 {
                     *data_index += 1;

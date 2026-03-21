@@ -101,6 +101,9 @@ pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 pub(crate) const DEMO_OBJECT_WARMUP_FRAME: u16 = 64;
 /// First demo startup frame where gameplay, physics, and recorded inputs apply.
 pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
+/// Demo 1 (Knights Isle) keeps the player hidden and inert seven frames longer
+/// than demo 2 before exposing gameplay state in RAM.
+pub(crate) const DEMO_1_GAMEPLAY_START_FRAME: u16 = 72;
 /// Hidden bootstrap frame where the player drops the missing spawn pixel before
 /// the grounded hand-off begins.
 pub(crate) const DEMO_BOOTSTRAP_INIT_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 1;
@@ -111,6 +114,33 @@ pub(crate) const DEMO_BOOTSTRAP_GROUNDED_FRAME: u16 = DEMO_BOOTSTRAP_INIT_FRAME 
 /// first visible demo bootstrap frames, even after regular gameplay physics
 /// takes over from the hidden settle path.
 pub(crate) const DEMO_OBJECT_BOOTSTRAP_END_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 16;
+
+pub(crate) fn gameplay_start_frame(use_demo_2: bool) -> u16 {
+    if use_demo_2 {
+        DEMO_GAMEPLAY_START_FRAME
+    } else {
+        DEMO_1_GAMEPLAY_START_FRAME
+    }
+}
+
+pub(crate) fn enemy_warmup_frame(use_demo_2: bool) -> u16 {
+    if use_demo_2 {
+        DEMO_GAMEPLAY_START_FRAME
+    } else {
+        DEMO_1_GAMEPLAY_START_FRAME + 1
+    }
+}
+
+pub(crate) fn demo_1_hidden_camera_y(frame_counter: u16) -> Option<u32> {
+    match frame_counter {
+        57 | 58 => Some(0),
+        59 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 => Some(0x00E0_0000),
+        // ORIGINAL_QUIRK: demo 1 briefly exposes a wrapped negative camera Y
+        // one frame before the hidden Knight's Isle bootstrap settles.
+        60 => Some(0xFF20_0000),
+        _ => None,
+    }
+}
 
 /// Decode a demo data byte into a FrameInput.
 /// Bit 7 (Start) is stripped — the real Start button state is applied separately.
