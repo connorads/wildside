@@ -11,6 +11,7 @@ impl NativeRuntime {
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
         self.preserve_demo_title_snapshot = false;
+        self.hide_demo_return_title_player = false;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -72,6 +73,7 @@ impl NativeRuntime {
         self.paused = true;
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
+        self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.prior_input = input;
         self.previous_input = input;

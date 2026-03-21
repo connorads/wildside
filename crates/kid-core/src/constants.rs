@@ -31,6 +31,10 @@ pub(crate) const TITLE_KID_Y_POS: u32 = 0x008C_0000;
 // few frames later when the title objects fully take over.
 pub(crate) const DEMO_TITLE_FULL_SNAPSHOT_FRAMES: usize = 28;
 pub(crate) const DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES: usize = 32;
+// After the partial handoff, the title objects rebuild for much longer before
+// the standard title pose returns. Oracle TAS traces keep Kid hidden through
+// local title frame 149 and only expose the pose again on frame 150.
+pub(crate) const DEMO_TITLE_PLAYER_HIDDEN_FRAMES: usize = 150;
 // Oracle-backed TAS traces show the title screen reaches a "ready" state only
 // once the overall boot timeline has progressed far enough. Synthetic
 // bootstrap scripts reach title much later and are ready immediately on entry,

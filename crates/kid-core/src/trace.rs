@@ -11,6 +11,12 @@ impl NativeRuntime {
             && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES
     }
 
+    fn title_hides_demo_return_player(&self) -> bool {
+        matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.hide_demo_return_title_player
+            && self.title_screen_elapsed_frames < DEMO_TITLE_PLAYER_HIDDEN_FRAMES
+    }
+
     pub fn trace_frame(&self) -> NativeTraceFrame {
         let game_mode = self.game_mode();
         let boot_phase = self.boot_phase_label().map(str::to_owned);
@@ -195,6 +201,7 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
                 self.opening_slice.map(|slice| slice.player)
             }
+            BootState::TitleScreen { .. } if self.title_hides_demo_return_player() => None,
             BootState::TitleScreen { .. }
             | BootState::OptionsMenu { .. }
             | BootState::SoundTest { .. } => {

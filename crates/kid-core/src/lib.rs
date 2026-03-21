@@ -123,6 +123,9 @@ pub struct NativeRuntime {
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
     preserve_demo_title_snapshot: bool,
+    /// After the live snapshot is fully cleared, oracle traces still keep Kid
+    /// hidden for a longer title-object rebuild window on the demo-return path.
+    hide_demo_return_title_player: bool,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Tracks whether demo playback is currently inside Kid_Transform so the
@@ -197,6 +200,7 @@ impl NativeRuntime {
             demo_buffered_input: None,
             pending_demo_title_return: 0,
             preserve_demo_title_snapshot: false,
+            hide_demo_return_title_player: false,
             demo_toggle: false,
             demo_transform_active: false,
             two_player: false,

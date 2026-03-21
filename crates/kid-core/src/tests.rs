@@ -11886,6 +11886,45 @@ fn demo_title_return_clears_camera_and_progression_on_frame_1806() {
 }
 
 #[test]
+fn demo_title_return_keeps_kid_hidden_until_frame_1924() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1923 = None;
+    let mut frame_1924 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_925) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_923 {
+            frame_1923 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.title_screen_ready,
+                trace.number_objects,
+            ));
+        }
+        if frame_index == 1_924 {
+            frame_1924 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.title_screen_ready,
+                trace.number_objects,
+            ));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1923,
+        Some((None, None, true, 4)),
+        "the title objects are already rebuilt, but oracle still keeps Kid hidden on frame 1923"
+    );
+    assert_eq!(
+        frame_1924,
+        Some((Some(TITLE_KID_X_POS), Some(TITLE_KID_Y_POS), true, 4)),
+        "the standard title pose should only return once the longer demo-return rebuild window ends"
+    );
+}
+
+#[test]
 fn demo_diamond_prize_is_not_collected_on_frame_1405() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;
