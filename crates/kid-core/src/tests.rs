@@ -4220,7 +4220,8 @@ fn dragon_flyer_fire_breath_cone_triggers_descent() {
 #[test]
 fn dragon_walking_fires_breath_in_facing_direction() {
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
-    enemy.wait_timer = 0;
+    enemy.on_ground = true;
+    enemy.wait_timer = 1;
     enemy.facing = Direction::Right;
     let mut projectiles = Vec::new();
     step_dragon_walking(&mut enemy, None, &mut projectiles, None);
@@ -4240,10 +4241,12 @@ fn dragon_walking_fires_breath_in_facing_direction() {
 #[test]
 fn dragon_walking_fires_breath_left_when_facing_left() {
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
-    enemy.wait_timer = 0;
+    enemy.on_ground = true;
+    enemy.wait_timer = 1;
     enemy.facing = Direction::Left;
     let mut projectiles = Vec::new();
     step_dragon_walking(&mut enemy, None, &mut projectiles, None);
+    assert_eq!(projectiles.len(), 1);
     assert!(
         projectiles[0].x_velocity < 0,
         "breath fires left when facing left"
@@ -4252,10 +4255,11 @@ fn dragon_walking_fires_breath_left_when_facing_left() {
 
 #[test]
 fn dragon_walking_stops_to_breathe_then_turns_from_a_wall() {
-    let grid = grid_with_wall(17, 0, 20, 2);
+    let grid = grid_with_wall(17, 0, 20, 1);
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
     enemy.facing = Direction::Left;
-    enemy.wait_timer = 0;
+    enemy.wait_timer = 1;
     enemy.dragon_script_cmd = 0;
     let mut projectiles = Vec::new();
 
@@ -4270,7 +4274,7 @@ fn dragon_walking_stops_to_breathe_then_turns_from_a_wall() {
         "dragon should enter breath hold"
     );
 
-    for _ in 0..(DRAGON_WALKING_BREATH_HOLD_FRAMES + DRAGON_WALKING_RECOVER_FRAMES + 8) {
+    for _ in 0..(DRAGON_WALKING_BREATH_HOLD_FRAMES + 8) {
         step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(60 << 16));
     }
 
@@ -11758,6 +11762,44 @@ fn demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831() {
         frame_2831.kid_on_ground,
         Some(true),
         "the buffered pull-up should leave Kid grounded on frame 2831",
+    );
+}
+
+#[test]
+#[ignore = "TAS frontier: frame 2938 walking-dragon lip handling still diverges"]
+fn demo_1_lands_on_the_walking_dragon_on_frame_2938() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_2938 = None;
+    let mut dragon_positions = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_939) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 2_938 {
+            frame_2938 = Some(trace);
+            dragon_positions = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                .map(|enemy| (enemy.x_pos, enemy.y_pos))
+                .collect();
+            break;
+        }
+    }
+
+    let frame_2938 = frame_2938.unwrap_or_else(|| panic!("frame 2938 should be captured"));
+    assert_eq!(
+        frame_2938.kid_x_pos,
+        Some(0x01B4_1700),
+        "demo 1 should have the oracle-backed X position when landing on the dragon",
+    );
+    assert_eq!(
+        frame_2938.kid_y_pos,
+        Some(0x0188_3300),
+        "demo 1 should have the oracle-backed Y position when landing on the dragon",
+    );
+    assert!(
+        dragon_positions.contains(&(0x01C2_8000, 0x01B0_0000)),
+        "expected the landing dragon at (0x01C28000, 0x01B00000), got {dragon_positions:#x?}",
     );
 }
 

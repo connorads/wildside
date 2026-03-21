@@ -421,8 +421,6 @@ pub(crate) enum EnemyArchetype {
 }
 
 pub(crate) const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
-pub(crate) const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
-pub(crate) const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
 
 // --- Dragon Flying script interpreter (Dragon_Flying.asm) ---
 
@@ -898,7 +896,11 @@ pub(crate) fn activate_enemies(
                 facing: spawn_facing(family, head_x, player_x),
                 on_ground: matches!(family.archetype(), EnemyArchetype::Pacer),
                 hit_points,
-                grounded_frames: 0,
+                grounded_frames: if matches!(family, EnemyFamily::DragonWalking) {
+                    1
+                } else {
+                    0
+                },
                 damage_flash_frames: 0,
                 palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
                 wait_timer: spawn_wait_timer(family),
@@ -2860,12 +2862,19 @@ pub(crate) const DRAGON_WALKING_BREATH_INITIAL: u16 = 300;
 pub(crate) const DRAGON_WALKING_BREATH_RESET: u16 = 500;
 pub(crate) const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
 pub(crate) const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
-pub(crate) const DRAGON_WALKING_BREATH_HOLD_FRAMES: u16 = 70;
-pub(crate) const DRAGON_WALKING_RECOVER_FRAMES: u16 = 5;
+pub(crate) const DRAGON_WALKING_BREATH_HOLD_FRAMES: u16 = 68;
+pub(crate) const DRAGON_WALKING_RECOVER_FRAMES: u16 = 0;
 pub(crate) const DRAGON_WALKING_BREATH_OFFSET_PX: i32 = 0x1C;
+pub(crate) const DRAGON_WALKING_GRAVITY: i32 = 0x4000;
 const DRAGON_WALKING_PHASE_WALK: u8 = 0;
 const DRAGON_WALKING_PHASE_BREATH: u8 = 1;
 const DRAGON_WALKING_PHASE_RECOVER: u8 = 2;
+
+enum DragonWalkingWalkStep {
+    Walked,
+    Blocked,
+    StartedAirborne,
+}
 
 fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) -> bool {
     let Some(grid) = block_grid else {
@@ -2899,13 +2908,13 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
 fn step_dragon_walking_walk(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
-) -> bool {
+) -> DragonWalkingWalkStep {
     let Some(grid) = block_grid else {
         let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         enemy.y_velocity = 0;
         enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-        return false;
+        return DragonWalkingWalkStep::Walked;
     };
 
     let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
@@ -2932,7 +2941,7 @@ fn step_dragon_walking_walk(
         };
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
-        return true;
+        return DragonWalkingWalkStep::Blocked;
     }
 
     let look_ahead_x = if moving_right {
@@ -2941,15 +2950,73 @@ fn step_dragon_walking_walk(
         cx - ENEMY_PROBE_HALF_WIDTH
     };
     if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
-        enemy.x_velocity = 0;
+        enemy.on_ground = false;
+        enemy.x_velocity = x_velocity;
         enemy.y_velocity = 0;
-        return true;
+        enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
+        return DragonWalkingWalkStep::StartedAirborne;
     }
 
     enemy.x_pos = next_x;
     enemy.x_velocity = x_velocity;
     enemy.y_velocity = 0;
-    false
+    let floor = terrain::probe_floor(grid, (enemy.x_pos >> 16) as i32, cy);
+    if floor.on_ground {
+        enemy.y_pos = (floor.floor_y_px as u32) << 16;
+        enemy.on_ground = true;
+    } else {
+        enemy.on_ground = false;
+    }
+    DragonWalkingWalkStep::Walked
+}
+
+fn step_dragon_walking_airborne(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let Some(grid) = block_grid else {
+        enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+        return;
+    };
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let moving_right = enemy.x_velocity >= 0;
+    let wall = terrain::probe_wall(
+        grid,
+        cx,
+        cy,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+        moving_right,
+    );
+    if wall.hit {
+        let wall_fp = (wall.wall_x_px as u32) << 16;
+        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+        if moving_right {
+            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+        } else {
+            enemy.x_pos = wall_fp + edge_fp;
+        }
+        enemy.x_velocity = 0;
+    }
+
+    let floor = terrain::probe_floor(grid, (enemy.x_pos >> 16) as i32, cy);
+    if floor.on_ground {
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
+            enemy.y_pos = floor_y_fp;
+            enemy.y_velocity = 0;
+            enemy.x_velocity = 0;
+            enemy.on_ground = true;
+            return;
+        }
+    }
+
+    enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
 }
 
 /// Fire breath for a walking dragon (called after step_pacer handles movement).
@@ -2957,15 +3024,73 @@ pub(crate) fn step_dragon_walking(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
     projectiles: &mut Vec<EnemyProjectile>,
-    player_x_pos: Option<u32>,
+    _player_x_pos: Option<u32>,
 ) {
+    if enemy.grounded_frames > 0 {
+        enemy.grounded_frames -= 1;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        return;
+    }
+
+    if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK && enemy.wait_timer > 0 {
+        enemy.wait_timer -= 1;
+        if enemy.wait_timer == 0 {
+            let x_vel = match enemy.facing {
+                Direction::Right => DRAGON_WALKING_BREATH_SPEED,
+                Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
+            };
+            let x_offset = match enemy.facing {
+                Direction::Right => DRAGON_WALKING_BREATH_OFFSET_PX,
+                Direction::Left => -DRAGON_WALKING_BREATH_OFFSET_PX,
+            };
+            projectiles.push(EnemyProjectile {
+                x_pos: (enemy.x_pos as i64 + ((i64::from(x_offset)) << 16)) as u32,
+                y_pos: enemy.y_pos,
+                x_velocity: x_vel,
+                y_velocity: 0,
+                lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+                gravity: 0,
+                friendly: false,
+                homing_accel: 0,
+                speed_cap: 0,
+                wall_bounce: false,
+            });
+            enemy.wait_timer = DRAGON_WALKING_BREATH_RESET;
+            enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
+            enemy.dragon_phase_frames = DRAGON_WALKING_BREATH_HOLD_FRAMES;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            return;
+        }
+    }
+
+    if !enemy.on_ground {
+        step_dragon_walking_airborne(enemy, block_grid);
+        return;
+    }
+
     let blocked = if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK {
-        step_dragon_walking_walk(enemy, block_grid)
+        match step_dragon_walking_walk(enemy, block_grid) {
+            DragonWalkingWalkStep::Walked => false,
+            DragonWalkingWalkStep::Blocked => true,
+            DragonWalkingWalkStep::StartedAirborne => {
+                step_dragon_walking_airborne(enemy, block_grid);
+                return;
+            }
+        }
     } else {
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
         dragon_walking_blocked(enemy, block_grid)
     };
+
+    if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK && blocked {
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        return;
+    }
 
     match enemy.dragon_script_cmd {
         DRAGON_WALKING_PHASE_BREATH => {
@@ -2982,47 +3107,10 @@ pub(crate) fn step_dragon_walking(
                 enemy.dragon_phase_frames -= 1;
                 return;
             }
-            if let Some(facing) = player_relative_direction(enemy.x_pos, player_x_pos) {
-                enemy.facing = facing;
-            } else if blocked {
-                reverse_enemy_direction(enemy);
-            }
             enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
         }
         _ => {}
     }
-
-    if enemy.wait_timer > 0 {
-        enemy.wait_timer -= 1;
-        return;
-    }
-
-    // Fire breath in facing direction
-    let x_vel = match enemy.facing {
-        Direction::Right => DRAGON_WALKING_BREATH_SPEED,
-        Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
-    };
-    let x_offset = match enemy.facing {
-        Direction::Right => DRAGON_WALKING_BREATH_OFFSET_PX,
-        Direction::Left => -DRAGON_WALKING_BREATH_OFFSET_PX,
-    };
-    projectiles.push(EnemyProjectile {
-        x_pos: (enemy.x_pos as i64 + ((i64::from(x_offset)) << 16)) as u32,
-        y_pos: enemy.y_pos,
-        x_velocity: x_vel,
-        y_velocity: 0,
-        lifetime: DRAGON_WALKING_BREATH_LIFETIME,
-        gravity: 0,
-        friendly: false,
-        homing_accel: 0,
-        speed_cap: 0,
-        wall_bounce: false,
-    });
-    enemy.wait_timer = DRAGON_WALKING_BREATH_RESET;
-    enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
-    enemy.dragon_phase_frames = DRAGON_WALKING_BREATH_HOLD_FRAMES;
-    enemy.x_velocity = 0;
-    enemy.y_velocity = 0;
 }
 
 // --- Drips constants (Drips.asm) ---
@@ -3588,14 +3676,8 @@ pub(crate) fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
     }
 }
 
-pub(crate) fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
-    match family {
-        EnemyFamily::Dragon => object_y.saturating_add(DRAGON_SPAWN_Y_OFFSET_PX) << 16,
-        EnemyFamily::DragonWalking => {
-            object_y.saturating_add(DRAGON_WALKING_SPAWN_Y_OFFSET_PX) << 16
-        }
-        _ => object_y << 16,
-    }
+pub(crate) fn spawn_y_pos(_family: EnemyFamily, object_y: u32) -> u32 {
+    object_y << 16
 }
 
 pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
