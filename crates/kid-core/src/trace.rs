@@ -140,7 +140,11 @@ impl NativeRuntime {
             floating_items: self
                 .floating_items
                 .iter()
-                .map(|f| (f.x_px, f.y_px, f.remaining, f.content.to_id()))
+                .map(|f| {
+                    let x_px = (f.x_pos >> 16) as u16;
+                    let y_px = (f.y_pos >> 16) as u16;
+                    (x_px, y_px, f.remaining as u8, f.content.to_id())
+                })
                 .collect(),
             enemy_death_effects: self
                 .enemy_death_effects

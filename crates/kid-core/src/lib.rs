@@ -334,6 +334,42 @@ impl NativeRuntime {
             return;
         }
 
+        // ASM sub_7B30 (kid.asm:8230): before Kid_Transform, checks if the
+        // new helmet's wider hitbox overlaps walls. Probes left edge then right
+        // edge with the new half-width. If right wall hit: x_pos = (right_edge
+        // & 0xFFF0) - 1 - half_width. If left wall hit: x_pos = (left_edge &
+        // 0xFFF0) + 16 + half_width.
+        if self.progression.form_width_delta != 0 {
+            if let (Some(slice), Some(grid)) =
+                (&mut self.opening_slice, &self.block_grid)
+            {
+                let x_px = (slice.player.x_pos >> 16) as i32;
+                let y_px = (slice.player.y_pos >> 16) as i32;
+                let new_half = self.progression.current_form.half_width();
+
+                // Probe left edge (x - half_width)
+                let left_edge = x_px - new_half;
+                let left_probe =
+                    terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, false);
+                if left_probe.hit {
+                    // Push right: align to tile boundary + half_width
+                    let aligned = (left_edge & !0xF) + 16 + new_half;
+                    slice.player.x_pos = (aligned as u32) << 16;
+                } else {
+                    // Probe right edge (x + half_width)
+                    let right_edge = x_px + new_half;
+                    let right_probe =
+                        terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, true);
+                    if right_probe.hit {
+                        // Push left: ASM formula (right_edge & 0xFFF0) - 1 - half_width
+                        let aligned = (right_edge & !0xF) - 1 - new_half;
+                        slice.player.x_pos = (aligned as u32) << 16;
+                    }
+                }
+            }
+            self.progression.form_width_delta = 0;
+        }
+
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
         // When skip_entry_animation is set (after level-skip warp), pretend
         // the level has been running long enough to bypass the entry animation.
@@ -390,22 +426,27 @@ impl NativeRuntime {
             None
         };
 
-        // Helmet abilities that override normal gravity
-        let custom_gravity = self.helmet.skycutter_on_board
-            || self.helmet.cyclone_flying
-            || self.helmet.iron_knight_climbing
-            || self.helmet.micromax_stuck;
-        slice.step_with_order(
-            effective_elapsed,
-            input,
-            jump_pressed,
-            self.progression.current_form,
-            self.block_grid.as_mut(),
-            self.block_list.as_ref(),
-            custom_gravity,
-            self.y_look_offset,
-            self.physics_order,
-        );
+        // ASM Kid_Transform runs as a coroutine: during the transform animation,
+        // the player object is in the transform state and normal movement/physics
+        // don't run. Suppress physics while form_change_flash_frames > 0.
+        if self.progression.form_change_flash_frames == 0 {
+            // Helmet abilities that override normal gravity
+            let custom_gravity = self.helmet.skycutter_on_board
+                || self.helmet.cyclone_flying
+                || self.helmet.iron_knight_climbing
+                || self.helmet.micromax_stuck;
+            slice.step_with_order(
+                effective_elapsed,
+                input,
+                jump_pressed,
+                self.progression.current_form,
+                self.block_grid.as_mut(),
+                self.block_list.as_ref(),
+                custom_gravity,
+                self.y_look_offset,
+                self.physics_order,
+            );
+        }
         let spawn_support_snapped = (self.skip_entry_animation || self.demo_gameplay_active())
             && self
                 .block_grid

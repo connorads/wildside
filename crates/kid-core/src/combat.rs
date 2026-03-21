@@ -421,13 +421,22 @@ impl NativeRuntime {
         let old_form = self.progression.current_form;
         self.progression.current_form = form;
         self.progression.number_hitpoints = form.max_hitpoints();
+        // ASM Kid_Transform calls sub_B41C which sets per-helmet half-width.
+        // During Hibernate frames, the GFX collision system resolves any overlap
+        // between the new wider hitbox and adjacent walls by pushing x_pos.
+        let width_delta = form.half_width() - old_form.half_width();
+        if width_delta != 0 {
+            self.progression.form_width_delta = width_delta;
+        }
         // Per-helmet transform duration from ASM Kid_Transform tables
         // (kid.asm:8369-8607, stru_7EFA..stru_808A). Two phases:
         // Phase 1 (reverse old helmet) + Phase 2 (forward new helmet).
         // TheKid has no table, so only one phase runs.
         let old_frames = transform_anim_frames(old_form);
         let new_frames = transform_anim_frames(form);
-        self.progression.form_change_flash_frames = (old_frames + new_frames) as u8;
+        // +1 for the Kid_Transform entry frame (sub_7C1C palette save +
+        // condition checks + initial Hibernate) before the animation loop starts.
+        self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
         // ASM zeroes velocity at end of transform (kid.asm:8599-8600)
         if let Some(ref mut slice) = self.opening_slice {
             slice.player.x_velocity = 0;

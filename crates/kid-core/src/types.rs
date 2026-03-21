@@ -142,6 +142,10 @@ pub(crate) struct PlayerProgression {
     pub(crate) form_change_flash_frames: u8,
     pub(crate) diamond_count: u16,
     pub(crate) score: u32,
+    /// Pending half-width change from form transform.
+    /// ASM: during Kid_Transform, the new half-width is set via sub_B41C,
+    /// and the Hibernate frame resolves any wall overlap. Non-zero = need fixup.
+    pub(crate) form_width_delta: i32,
     /// Diamond Power active: grants invulnerability and clears nearby enemies.
     pub(crate) diamond_power_frames: u16,
     /// Which Diamond Power type is currently active (determines behaviour).
@@ -162,6 +166,7 @@ impl Default for PlayerProgression {
             score: 0,
             diamond_power_frames: 0,
             diamond_power_type: super::helmets::DiamondPowerType::None,
+            form_width_delta: 0,
         }
     }
 }
@@ -233,6 +238,23 @@ impl PlayerForm {
             Self::Berzerker => 7,
             Self::Maniaxe => 8,
             Self::Micromax => 9,
+        }
+    }
+
+    /// Per-form collision half-width from ASM unk_B408 table (kid.asm:14307).
+    /// Used by sub_8F26 (wall collision) and GfxObjects_Collision.
+    pub(crate) fn half_width(self) -> i32 {
+        match self {
+            Self::TheKid => 5,
+            Self::Skycutter => 10,
+            Self::Juggernaut => 23,
+            Self::Cyclone
+            | Self::RedStealth
+            | Self::Eyeclops
+            | Self::IronKnight
+            | Self::Berzerker
+            | Self::Maniaxe
+            | Self::Micromax => 7,
         }
     }
 
@@ -487,14 +509,26 @@ pub(crate) struct BlockDestroyEffect {
     pub(crate) remaining: u8,
 }
 
+/// A floating prize item spawned from a prize block hit.
+/// ASM: sub_1007A runs a bounce animation (~49 frames), then spawns
+/// Prize_Init → PrizeDiamond_Init (kid.asm:21604-21679).
+/// Item spawns at block center, falls downward with accumulating velocity,
+/// collected on GfxObjects_Collision contact with player.
 #[derive(Debug, Clone)]
 pub(crate) struct FloatingItem {
-    pub(crate) x_px: u16,
-    pub(crate) y_px: u16,
-    pub(crate) remaining: u8,
+    /// FP16.16 X position (initialized to block_center_x << 16).
+    pub(crate) x_pos: u32,
+    /// FP16.16 Y position (initialized to block_y << 16).
+    pub(crate) y_pos: i64,
+    /// FP16.16 Y velocity (accumulates by +$1388 per frame = downward).
+    pub(crate) y_velocity: i32,
+    /// Frames remaining (ASM: 500 = $1F4). Only counts down once active.
+    pub(crate) remaining: u16,
+    /// Delay frames before the item becomes active (bounce animation duration).
+    /// ASM: sub_1007A wiggles the block for ~49 frames before spawning the item.
+    pub(crate) spawn_delay: u16,
     pub(crate) content: terrain::PrizeContent,
     /// Whether the player has collected this item by touching it.
-    /// ASM spawns prize items as objects — the player must contact them.
     pub(crate) collected: bool,
 }
 

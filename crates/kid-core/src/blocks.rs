@@ -264,10 +264,17 @@ impl NativeRuntime {
         // Prize block item spawning: spawn floating visual + debris then apply prize
         if let Some((content, x_px, y_px)) = slice.prize_block_hit {
             self.blocks_hit_this_frame += 1;
+            // ASM: sub_1007A runs a bounce animation (31 wiggle frames +
+            // Hibernate_UntilAnimFinished + object allocation overhead = ~39 frames),
+            // then spawns Prize_Init at block center (x + 8, y).
+            // Velocity starts at 0, accumulates +$1388/frame (downward).
+            // Lifetime = 500 frames ($1F4).
             self.floating_items.push(FloatingItem {
-                x_px,
-                y_px,
-                remaining: 30,
+                x_pos: u32::from(x_px + 8) << 16,
+                y_pos: i64::from(y_px) << 16,
+                y_velocity: 0,
+                remaining: 500,
+                spawn_delay: 39,
                 content,
                 collected: false,
             });
@@ -353,6 +360,10 @@ impl NativeRuntime {
     /// ASM spawns prize items as separate objects — the player must physically
     /// touch them. The native previously applied prizes immediately at block-hit
     /// time, causing spurious form changes.
+    /// Check player overlap with floating prize items and collect on contact.
+    /// ASM uses GfxObjects_Collision (collision_type field) to detect player
+    /// contact each frame. The collision check uses the standard sprite bounding
+    /// box overlap from the object system.
     pub(crate) fn collect_floating_items(&mut self, slice: &mut OpeningSliceState) {
         use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
 
@@ -362,17 +373,18 @@ impl NativeRuntime {
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
         let player_top = player_y_px - PLAYER_HEIGHT;
 
-        // Collect contents to apply after the loop to avoid double-borrow
         let mut collected_contents = Vec::new();
         for item in &mut self.floating_items {
-            if item.collected {
+            if item.collected || item.spawn_delay > 0 {
                 continue;
             }
-            // Item is 16x16 at (x_px, y_px)
-            let item_left = i32::from(item.x_px);
-            let item_right = item_left + 16;
-            let item_top = i32::from(item.y_px);
-            let item_bottom = item_top + 16;
+            // Item sprite is ~16x16 centred on x_pos, extending downward from y_pos
+            let item_x_px = (item.x_pos >> 16) as i32;
+            let item_y_px = (item.y_pos >> 16) as i32;
+            let item_left = item_x_px - 8;
+            let item_right = item_x_px + 8;
+            let item_top = item_y_px;
+            let item_bottom = item_y_px + 16;
 
             let overlap_x = player_left < item_right && player_right > item_left;
             let overlap_y = player_top < item_bottom && player_y_px > item_top;
@@ -399,11 +411,19 @@ impl NativeRuntime {
         self.block_destroy_effects.retain(|e| e.remaining > 0);
 
         for f in &mut self.floating_items {
+            if f.spawn_delay > 0 {
+                f.spawn_delay -= 1;
+                continue;
+            }
             f.remaining = f.remaining.saturating_sub(1);
-            // Rise upward: 1 pixel per frame
-            f.y_px = f.y_px.saturating_sub(1);
+            // ASM: velocity accumulates +$1388/frame (downward), applied to position.
+            // PrizeDiamond_Init (kid.asm:21640): addi.l #$1388,d1
+            // Then: move.l y_pos(a3),d2; add.l d1,d2; move.l d2,y_pos(a3)
+            f.y_velocity = f.y_velocity.saturating_add(0x1388);
+            f.y_pos += i64::from(f.y_velocity);
         }
-        self.floating_items.retain(|f| f.remaining > 0);
+        self.floating_items
+            .retain(|f| (f.spawn_delay > 0 || f.remaining > 0) && !f.collected);
 
         for e in &mut self.enemy_death_effects {
             e.remaining = e.remaining.saturating_sub(1);
