@@ -52,6 +52,7 @@ impl NativeRuntime {
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.demo_transform_active = false;
         self.reload_block_grid_for_level(self.current_level);
     }
 

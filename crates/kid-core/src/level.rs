@@ -502,13 +502,9 @@ impl NativeRuntime {
             return false;
         }
 
-        // ASM floor landing: preserve sub-pixel when pre-gravity y_vel >= 0.
-        if slice.pre_gravity_y_vel >= 0 {
-            slice.player.y_pos =
-                (floor_y_fp & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
-        } else {
-            slice.player.y_pos = floor_y_fp;
-        }
+        // Level settling is always a new landing (on_ground check at line 477
+        // returns early if already grounded), so clear sub-pixel per sub_902A.
+        slice.player.y_pos = floor_y_fp & 0xFFFF_0000;
         slice.player.y_velocity = 0;
         slice.player.on_ground = true;
         slice.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;

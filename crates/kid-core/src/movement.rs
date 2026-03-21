@@ -440,12 +440,8 @@ impl OpeningSliceState {
             if !t.on_ground_before && t.on_ground_after {
                 t.floor_hit = true;
                 t.floor_y_px = Some((self.terrain.floor_y_pos >> 16) as i32);
-                // Determine which ASM landing path was taken
-                t.landing_path = Some(if self.pre_gravity_y_vel >= 0 {
-                    LandingPath::PreserveSubPixel
-                } else {
-                    LandingPath::ZeroSubPixel
-                });
+                // sub_902A clears sub-pixel on new landings (clr.w $20(a3))
+                t.landing_path = Some(LandingPath::ZeroSubPixel);
             }
         }
     }
@@ -1326,16 +1322,19 @@ impl OpeningSliceState {
                             i64::from(self.player.x_pos) - i64::from(self.player.x_velocity);
                         self.player.x_pos = landing_x.clamp(0, i64::from(u32::MAX)) as u32;
                     }
-                    // ASM floor landing: `tst.l y_vel(a3)` in Character_CheckCollision
-                    // (before sub_B168 gravity). loc_AAF8 (y_vel >= 0) preserves sub-pixel
-                    // via `move.w d7,y_pos(a3)`. loc_AB22 (y_vel < 0) zeroes it via
-                    // `clr.w $20(a3)`. Use pre_gravity_y_vel since native applies gravity
-                    // before collisions (GravityFirst), but ASM tests before gravity.
-                    if self.pre_gravity_y_vel >= 0 {
-                        self.player.y_pos =
-                            (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
+                    // ASM sub_902A floor collision (kid.asm:10461-10462):
+                    // When falling through a floor tile, sub_902A snaps y_pos
+                    // and does `clr.w $20(a3)` (clears sub-pixel). But when
+                    // already on the ground (y_vel=0, no tile crossing), sub_902A
+                    // exits early via loc_913A without touching y_pos. So we
+                    // only clear sub-pixel on actual landings (airborne→grounded).
+                    if !was_on_ground {
+                        // New landing: clear sub-pixel (sub_902A clr.w $20(a3))
+                        self.player.y_pos = floor_y_fp & 0xFFFF_0000;
                     } else {
-                        self.player.y_pos = floor_y_fp;
+                        // Already grounded: preserve sub-pixel (sub_902A exits early)
+                        self.player.y_pos = (floor_y_fp & 0xFFFF_0000)
+                            | (self.player.y_pos & 0x0000_FFFF);
                     }
                     // Mushroom blocks bounce the player back up
                     if probe.cell.block_type == terrain::BlockType::Mushroom {

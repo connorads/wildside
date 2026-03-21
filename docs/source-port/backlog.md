@@ -86,7 +86,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 080 | [x] | P1 | fidelity | AsmFaithful Phase 2: sub_902A before sub_8F26 position split | ASM floor collision (sub_902A) runs before horizontal (sub_8F26), seeing old x_pos. Split apply_velocity_to_position into y-then-x with collision between. Made AsmFaithful the default PhysicsOrder. Remaining frame 1145 divergence: walking coroutine floor-ahead check (sub_ADB8) |
 | 081 | [x] | P2 | fidelity | Walking floor-ahead check (sub_B43A) | ASM walking coroutine (loc_8BF0) calls sub_B43A before physics: scans cells at (y+1)/16 across player width for Solid/Spikes. No floor → loc_B5F6: y_pos += 1px, skip vel/pos updates. Two fixes: (1) movement.rs pre-physics sub_B43A check in AsmFaithful path, (2) boot.rs demo grounded-run handler now defers walkoff to normal physics. Frontier 1145→1147 |
 | 082 | [x] | P2 | fidelity | TAS frame 1147: demo byte boundary parity shift after transform | On the first Kid_Transform frame, step_demo_input sees form_change_flash_frames=0 (set later by step_lifecycle) and advances counter+data_index. The data_index advance is correct (aligns with oracle's 1-frame-ahead pointer), but the counter advance shifts the byte-advancement parity for all subsequent frames. Fix: after step_lifecycle detects transform end (flash_frames→0), decrement counter by 1 to restore parity. Frontier 1147→1170 |
-| 083 | [ ] | P2 | fidelity | TAS frame 1170: demo byte boundary systematic 1-frame offset | Systematic: native starts reading demo bytes 1 frame after oracle (frame 901 vs 900). Each byte consumed for 2 frames, boundaries shifted by 1. First detectable at frame 1170 (0x4000 y_pos sub-pixel divergence). Root cause: ASM ReadJoypad (loc_C22) runs after Execute_Objects, creating a 1-frame pipeline delay that native's step_demo_input (before physics) doesn't replicate. Full fix requires VBlank pipeline restructuring. |
+| 083 | [x] | P2 | fidelity | TAS frame 1170: sub_902A floor landing sub-pixel clearing | ASM sub_902A (kid.asm:10462) always does `clr.w $20(a3)` on new floor landings (airborne→grounded), zeroing the sub-pixel. Native was preserving sub-pixel from the accumulated position on all floor landings. Fix: clear sub-pixel on new landings (`!was_on_ground`), preserve when already grounded (sub_902A exits early via loc_913A when y_vel=0). Original #083 demo byte offset theory was wrong — parity `% 2 == 1` is algebraically identical to `% 2 == 0` with +1 offset. Frontier 1170→1209 |
+| 084 | [ ] | P2 | fidelity | TAS frame 1209: y_pos 0x1900 sub-pixel divergence during jump ascent | Native y=0x029a9000, oracle y=0x029aa900 (diff=0x1900). Occurs during ascending jump (y_vel negative, half_grav transitioning from true→false). Likely half-gravity frame count mismatch or demo byte boundary affecting B button held state. |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -264,3 +265,38 @@ Attempted approaches that didn't work:
 Key insight: the extra data_index advance on K+1 is a happy accident that aligns
 native's data_index with the oracle's. Only the PARITY needs correcting, not the
 data_index itself.
+
+### 083 — Demo byte boundary systematic offset (INVESTIGATED)
+ASM VBlank pipeline: MainGameLoop → mode handler → Execute_Objects → player
+processing → ReadJoypad (loc_C22 demo path). ReadJoypad runs AFTER game logic,
+so byte read on frame N is used by game logic on frame N+1. V_Int handler is
+minimal (just increments counter + sets done flag), does NOT read joypads.
+
+Oracle probe confirmed: at frame 915, oracle counter (post-ReadJoypad) = 16,
+native playback_frame = 14. Oracle counter is consistently 1 ahead of native pf.
+Data pointer advances align when using parity `% 2 == 0` (matching oracle's
+even-d7 advance pattern).
+
+Attempted pipeline buffer approach:
+1. Added `demo_buffered_input: Option<FrameInput>` — return previous frame's byte
+2. Changed advancement parity from `% 2 == 1` to `% 2 == 0`
+3. Transform compensation: `fc += 1`, `di += 1` at transform end
+
+Result: produces IDENTICAL frontier (frame 1170) with identical position/velocity.
+The buffer+parity change is mathematically equivalent to the old code: both have a
+net 1-frame offset, just manifested at different parity phases. Changing parity
+shifts which frames see the boundary mismatch, but the underlying 1-frame late
+start means one boundary per byte pair will always be off.
+
+Why simple compensations fail: native starts demo byte consumption 1 frame after
+oracle (confirmed by probe). Adding a pipeline buffer delays usage by 1 frame
+(matching ASM's read-after-use), but the late start means the read itself is on
+the wrong frame. The parity change fixes the data_index alignment but the buffer
+delay cancels out, leaving the same net offset. Any combination of (buffer ×
+parity × transform_correction) that produces correct post-transform alignment
+also produces the same pre-transform byte boundary behaviour as the old code.
+
+True fix requires: making native start demo byte consumption on the same frame
+as the oracle (i.e., fixing the 1-frame start offset), likely by restructuring
+how BootState::DemoPlay initialises the counter relative to the ASM's first
+ReadJoypad call in demo mode.
