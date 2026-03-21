@@ -10,6 +10,7 @@ impl NativeRuntime {
         self.title_menu_active = false;
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
+        self.preserve_demo_title_snapshot = false;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -64,11 +65,9 @@ impl NativeRuntime {
     fn finish_demo_title_return(&mut self, input: FrameInput) {
         self.enter_title_screen();
         self.current_level = LevelId(0);
-        self.opening_slice = None;
-        self.active_enemies.clear();
-        self.active_enemy_roster.clear();
-        self.active_platforms.clear();
-        self.active_platform_roster.clear();
+        self.paused = true;
+        self.pause_toggle_pending = false;
+        self.preserve_demo_title_snapshot = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.prior_input = input;
         self.previous_input = input;
@@ -143,7 +142,10 @@ impl NativeRuntime {
         // Oracle-backed demo traces keep the player on a short grounded
         // bootstrap hold after a 3-frame free-fall hand-off from the hidden
         // settle. Camera follow keeps converging during the hold.
-        slice.player.y_pos = slice.player.y_pos.saturating_sub(slice.player.y_pos & 0x0000_FFFF);
+        slice.player.y_pos = slice
+            .player
+            .y_pos
+            .saturating_sub(slice.player.y_pos & 0x0000_FFFF);
         slice.player.y_velocity = 0;
         slice.player.on_ground = true;
         slice.player.on_spikes = false;
@@ -227,10 +229,7 @@ impl NativeRuntime {
         slice.update_camera_follow(0);
     }
 
-    pub(crate) fn try_snap_demo_bootstrap_floor(
-        &self,
-        slice: &mut OpeningSliceState,
-    ) -> bool {
+    pub(crate) fn try_snap_demo_bootstrap_floor(&self, slice: &mut OpeningSliceState) -> bool {
         let Some(frame_counter) = self.demo_startup_frame() else {
             return false;
         };
@@ -282,9 +281,7 @@ impl NativeRuntime {
             BootState::IntroSequence { elapsed, .. } => Some(elapsed),
             BootState::TitleScreen { .. }
             | BootState::OptionsMenu { .. }
-            | BootState::SoundTest { .. } => {
-                Some(self.title_screen_elapsed_frames)
-            }
+            | BootState::SoundTest { .. } => Some(self.title_screen_elapsed_frames),
             BootState::StartingLevel { remaining_frames } => {
                 Some(TITLE_TO_LEVEL_FRAMES.saturating_sub(remaining_frames))
             }

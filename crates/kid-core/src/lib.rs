@@ -119,6 +119,10 @@ pub struct NativeRuntime {
     /// the live Start press arms the return, then title only becomes visible
     /// two frames later when that object wakes and flips Game_Mode.
     pending_demo_title_return: u8,
+    /// Demo abort returns to title without rebuilding Kid/camera RAM
+    /// immediately; oracle traces keep exposing the live gameplay snapshot
+    /// under title mode until later title objects take over.
+    preserve_demo_title_snapshot: bool,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Tracks whether demo playback is currently inside Kid_Transform so the
@@ -192,6 +196,7 @@ impl NativeRuntime {
             title_menu_active: false,
             demo_buffered_input: None,
             pending_demo_title_return: 0,
+            preserve_demo_title_snapshot: false,
             demo_toggle: false,
             demo_transform_active: false,
             two_player: false,

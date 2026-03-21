@@ -11727,6 +11727,58 @@ fn demo_start_abort_stays_in_demo_until_frame_1774() {
 }
 
 #[test]
+fn demo_title_return_keeps_live_snapshot_on_first_title_frames() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1774 = None;
+    let mut frame_1779 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_780) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_774 {
+            frame_1774 = Some((
+                trace.game_mode,
+                trace.current_level,
+                trace.paused,
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+            ));
+        }
+        if frame_index == 1_779 {
+            frame_1779 = Some((
+                trace.game_mode,
+                trace.current_level,
+                trace.paused,
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+            ));
+            break;
+        }
+    }
+
+    let expected = Some((
+        GameMode::TitleScreen,
+        LevelId(0x00),
+        true,
+        Some(0x0186_8E00),
+        Some(0x00CF_0000),
+        0x00EA_0000,
+        0x002C_0000,
+    ));
+    assert_eq!(
+        frame_1774, expected,
+        "the first title frame after demo abort should still expose the live demo snapshot"
+    );
+    assert_eq!(
+        frame_1779, expected,
+        "the live demo snapshot should stay frozen across the early post-abort title frames"
+    );
+}
+
+#[test]
 fn demo_diamond_prize_is_not_collected_on_frame_1405() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

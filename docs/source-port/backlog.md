@@ -95,7 +95,8 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 089 | [x] | P2 | fidelity | TAS frame 1406: post-latch diamond collection + next arc timing on demo 0x1B | Restricted wide spawn-support settling to the demo bootstrap window and queued prize-diamond awards through a 32-frame `PrizeDiamondCollected_Init` delay instead of rewarding on contact. Added `demo_diamond_prize_stays_uncollected_on_frame_1406` and `demo_prize_diamond_awards_on_frame_1438_without_score`; re-ran the nearby demo prize tests plus `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1390 --frame-end 1500 --checkpoint-interval 1`, which is now CRC-clean with 0 authoritative diffs through frame 1500. |
 | 090 | [x] | P2 | fidelity | TAS frame 1755: AsmFaithful solid-floor touch snap lands one frame early on demo 0x1B | Restricted the sub-half-pixel solid-floor touch snap to the non-AsmFaithful landing paths, added `asm_faithful_solid_floor_snap_waits_for_contact_row` + `demo_solid_floor_landing_waits_until_frame_1756`, and verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1748 --frame-end 1762 --checkpoint-interval 1` is CRC-clean. Frontier 1755→1772. |
 | 091 | [x] | P2 | fidelity | TAS frame 1772: demo 0x1B returns to title one frame early | Demo Start abort now follows the ASM hibernating object timing (`loc_119D8`): frame 1772 arms the abort, frame 1773 still stays in `mode=0x0010`, frame 1774 flips to title. Verified with the targeted demo abort tests in `kid-core` plus `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1768 --frame-end 1780 --checkpoint-interval 1` (frontier now 1774). |
-| 092 | [ ] | P2 | fidelity | TAS frame 1774: first title frame still uses live demo pose/objects in demo 0x1B | Re-run `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1`; game mode now matches at frame 1774, but oracle title keeps `kid=(0x01868e00,0x00cf0000)`, `camera=(0x00ea0000,0x002c0000)`, and `number_objects=13` on that first title frame while native snaps straight to the title pose. |
+| 092 | [x] | P2 | fidelity | TAS frame 1774: first title frames keep the live demo snapshot after demo 0x1B abort | Demo abort now preserves the paused gameplay snapshot under `mode=0x002c`, matching oracle `kid/camera` through frame 1801. Verified with `cargo test -p kid-core demo_start_abort_stays_in_demo_until_frame_1774 -- --nocapture`, `cargo test -p kid-core demo_title_return_keeps_live_snapshot_on_first_title_frames -- --nocapture`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1780 --checkpoint-interval 1`, and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1772 --frame-end 1860 --checkpoint-interval 1`. Frontier 1774→1802. |
+| 093 | [ ] | P2 | fidelity | TAS frame 1802: title return blanks Kid before camera/helmet reset on demo 0x1B | Re-run `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1798 --frame-end 1808 --checkpoint-interval 1`; oracle zeroes `kid_x_pos/kid_y_pos` at frames 1802-1805, then also zeroes `camera`, `number_diamonds`, and `current_helmet_id` at 1806 while native still exposes the preserved demo snapshot. |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -279,6 +280,24 @@ Verification:
 
 Remaining frontier: frame 1774 title-mode handoff still snaps to the title pose one
 frame earlier than oracle. Tracked in #092.
+
+### 092 — Demo abort title handoff preserves live snapshot (FIXED)
+ASM `loc_119D8` only flips `Game_Mode`/`Current_LevelID` and returns through
+`loc_6E2`; it does not immediately rebuild the title-screen Kid/camera RAM. The
+oracle therefore spends the first post-abort title phase with `mode=$002C` and
+`level=0`, but still exposes the paused demo snapshot for Kid and camera.
+
+Native was clearing `opening_slice` and reusing the cold-boot title pose as soon
+as the abort countdown expired, which skipped that paused handoff phase.
+
+Fix: preserve the demo gameplay snapshot on the title-return path, mark the
+runtime paused, and let trace output reuse the preserved Kid/camera snapshot
+while title mode is active. Added `demo_title_return_keeps_live_snapshot_on_first_title_frames`
+to lock down frames 1774 and 1779.
+
+New frontier: frame 1802. Oracle blanks Kid for frames 1802-1805, then also
+zeros camera/helmet/diamond state at frame 1806. That second phase is tracked
+in #093.
 
 Attempted approaches that didn't work:
 - pending_form.is_some() check: over-freezes (73 vs 72 frames), regression to 1129

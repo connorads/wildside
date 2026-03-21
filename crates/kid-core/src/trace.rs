@@ -1,6 +1,11 @@
 use super::*;
 
 impl NativeRuntime {
+    fn title_uses_demo_snapshot(&self) -> bool {
+        matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.preserve_demo_title_snapshot
+    }
+
     pub fn trace_frame(&self) -> NativeTraceFrame {
         let game_mode = self.game_mode();
         let boot_phase = self.boot_phase_label().map(str::to_owned);
@@ -182,6 +187,9 @@ impl NativeRuntime {
         }
         match self.boot_state {
             BootState::SegaScreen { .. } | BootState::IntroSequence { .. } => None,
+            BootState::TitleScreen { .. } if self.title_uses_demo_snapshot() => {
+                self.opening_slice.map(|slice| slice.player)
+            }
             BootState::TitleScreen { .. }
             | BootState::OptionsMenu { .. }
             | BootState::SoundTest { .. } => {
@@ -216,13 +224,18 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_camera_state();
         }
+        if self.title_uses_demo_snapshot() {
+            return self
+                .opening_slice
+                .map(|slice| slice.camera)
+                .unwrap_or_default();
+        }
         if let Some(frame_counter) = self.demo_startup_frame()
             && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
         {
             let camera_y_pos = if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
                 0x0228_0000
-            } else if frame_counter >= demo::DEMO_CAMERA_HOLD_START_FRAME
-            {
+            } else if frame_counter >= demo::DEMO_CAMERA_HOLD_START_FRAME {
                 0x02A0_0000
             } else {
                 0
@@ -247,6 +260,28 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_active_objects();
+        }
+        if self.title_uses_demo_snapshot() {
+            let mut objects = Vec::new();
+            if let Some(player_state) = self.current_player_state() {
+                objects.push(NativeObjectSnapshot {
+                    kind: NativeObjectKind::Player,
+                    x_pos: player_state.x_pos,
+                    y_pos: player_state.y_pos,
+                    layout_index: None,
+                    x_velocity: None,
+                    y_velocity: None,
+                    facing: None,
+                    on_ground: None,
+                    hit_points: None,
+                    damage_flash: false,
+                    palette_variant: 0,
+                    stationary: false,
+                });
+            }
+            objects.extend(self.active_enemy_roster.iter().cloned());
+            objects.extend(self.active_platform_roster.iter().cloned());
+            return objects;
         }
         if let Some(frame_counter) = self.demo_startup_frame()
             && frame_counter < demo::DEMO_GAMEPLAY_START_FRAME
