@@ -7,7 +7,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | first 2937 frames CRC-clean; next authoritative frontier is frame 2938 |
+| `kc_any_percent_2024` | 4916 | ~82s | first 2937 frames CRC-clean; current live mismatch window starts at frame 2938 (advisory dragon-landing velocity/object timing) |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -27,6 +27,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-21 | kc_any_percent_2024 | 2938 | Live verifier re-check shows the Knights Isle dragon-landing window is no longer authoritative: frames 2936-2941 still drift on advisory `kid_x_vel`, `kid_y_vel`, and `number_objects`, but CRC stays clean through frame 2942 | Re-ran `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2936 --frame-end 2942 --checkpoint-interval 1` plus `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2936 --frame-end 2941` to capture the current state, and updated `tests/tas_frontier.json` from the stale 1832 entry to frame 2938 so the checked-in frontier metadata matches the live run. |
 | 2026-03-21 | kc_any_percent_2024 | 2938 | Demo 1 (Knights Isle) kept the wall-sticky pull-up simplified to a narrow upward-only snap, so the buffered jump request on frame 2831 never climbed onto the prize block and native kept falling | Extended `try_snap_wall_sticky_ledge` with an ASM-style pull-up fallback: buffered wall-cling jumps can now scan down to the first solid ledge surface, keep the pull-up sub-pixel, and clear into the 21-frame cooldown. Added `demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831`, re-ran `cargo test -p kid-core demo_1_buffered_wall_sticky_pullup_lands_on_frame_2831 -- --nocapture`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2828 --frame-end 2850 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs, then re-bisected with `--frame-start 2690 --frame-end 4000 --bisect` to move the frontier from 2831 to 2938. |
 | 2026-03-21 | kc_any_percent_2024 | 2831 | Demo 1 (Knights Isle) grounded left-wall collision reused the moving-right `+1` clearance, so frame 2773 snapped Kid 1px too far off the wall (`0x01360000` instead of `0x01350000`) | Fixed the moving-left wall clamp to use the wall surface plus `half_width`, added `demo_1_left_wall_snap_lands_flush_on_frame_2773`, re-ran `cargo test -p kid-core demo_1_left_wall_snap_lands_flush_on_frame_2773 -- --nocapture` plus `cargo test -p kid-core demo_1_ -- --nocapture`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2768 --frame-end 2790 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs, then re-bisected with `--frame-start 2690 --frame-end 4000 --bisect` to move the frontier from 2773 to 2831. |
 | 2026-03-21 | kc_any_percent_2024 | 2773 | Demo 1 (Knights Isle) kept the right-wall cling state alive one frame after the overhang cleared, so frame 2723 missed the oracle’s 1px sticky-release shimmy into the run arc | Added an AsmFaithful overhang-release path that clears wall cling on the first upward tile-row crossing after the overhang clears, plus `demo_1_wall_cling_snap_releases_into_run_on_frame_2723`. Re-ran `cargo test -p kid-core demo_1_ -- --nocapture`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 2718 --frame-end 2760 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs, then re-bisected with `--frame-start 2690 --frame-end 4000 --bisect` to move the frontier from 2723 to 2773. |
@@ -71,18 +72,18 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 ## Verification commands
 
 ```bash
-# Re-verify current frontier
+# Re-check the live dragon-landing window
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-end 1831 --checkpoint-interval 50
+  --frame-start 2936 --frame-end 2942 --checkpoint-interval 1
 
 # Bisect to find first divergence
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
   --frame-end 2000 --bisect
 
-# Narrow to exact frame
-cargo run --release -p kidcli -- verify-tas \
+# Show the advisory object-roster/velocity drift around the landing
+cargo run --release -p kidcli -- tas-diff \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 1828 --frame-end 1838 --checkpoint-interval 1
+  --frame-start 2936 --frame-end 2941
 ```
