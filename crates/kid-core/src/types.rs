@@ -87,8 +87,9 @@ pub(crate) struct BlockInteractionState {
     pub(crate) lift_platforms: Vec<LiftPlatform>,
     /// Global shooter block fire timer: fires every 22 frames.
     pub(crate) shooter_block_timer: u16,
-    /// Prize blocks headbutted from below: ASM sub_1007A keeps the cell Solid
-    /// (0x6F) during a ~32-frame bounce animation, then clears to Empty.
+    /// Prize blocks headbutted from below: ASM sub_1007A owns the full
+    /// lifecycle — keep the cell Solid (0x6F), run the bounce coroutine,
+    /// then clear the tile and spawn the prize object.
     pub(crate) deferred_ceiling_clears: Vec<DeferredCeilingClear>,
 }
 
@@ -522,8 +523,8 @@ pub(crate) struct BlockDestroyEffect {
 }
 
 /// A floating prize item spawned from a prize block hit.
-/// ASM: sub_1007A runs a bounce animation (~49 frames), then spawns
-/// Prize_Init → PrizeDiamond_Init (kid.asm:21604-21679).
+/// ASM: sub_1007A runs the block-bounce coroutine, then spawns
+/// Prize_Init -> PrizeDiamond_Init (kid.asm:21604-21679).
 /// Item spawns at block center, falls downward with accumulating velocity,
 /// collected on GfxObjects_Collision contact with player.
 #[derive(Debug, Clone)]
@@ -536,8 +537,9 @@ pub(crate) struct FloatingItem {
     pub(crate) y_velocity: i32,
     /// Frames remaining (ASM: 500 = $1F4). Only counts down once active.
     pub(crate) remaining: u16,
-    /// Delay frames before the item becomes active (bounce animation duration).
-    /// ASM: sub_1007A wiggles the block for ~49 frames before spawning the item.
+    /// Delay frames before the item becomes active after object creation.
+    /// Oracle-backed TAS probing for demo 0x1B shows the spawned prize object
+    /// is already active on its first native frame, so this remains `0`.
     pub(crate) spawn_delay: u16,
     pub(crate) content: terrain::PrizeContent,
     /// Whether the player has collected this item by touching it.
@@ -962,13 +964,23 @@ pub(crate) struct EvanescentEntry {
     pub(crate) timer: i16,
 }
 
-/// ASM sub_1007A deferred ceiling clear: Prize block headbutted from below
-/// stays Solid (0x6F) for ~32 frames during the bounce animation, then clears.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeferredPrizeBlockPhase {
+    Deleted,
+    Restored,
+}
+
+/// ASM sub_1007A prize-block lifecycle: after a headbutt the block stays Solid
+/// (0x6F), then briefly restores the original prize cell, then clears and
+/// creates the prize object.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DeferredCeilingClear {
     pub(crate) col: u16,
     pub(crate) row: u16,
-    pub(crate) remaining: u16,
+    pub(crate) content: terrain::PrizeContent,
+    pub(crate) restore_cell: terrain::Cell,
+    pub(crate) deleted_frames_remaining: u16,
+    pub(crate) phase: DeferredPrizeBlockPhase,
 }
 
 /// Runtime state for a ghost block group that cycles solid/vanished.
@@ -1051,8 +1063,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) smash_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).
     pub(crate) teleporter_contact: Option<(u16, u16)>,
-    /// Prize block ceiling hit: queue deferred clear (col, row) after ~32 frames.
-    pub(crate) ceiling_prize_clear: Option<(u16, u16)>,
+    /// Prize block ceiling hit: queue the sub_1007A lifecycle for this cell.
+    pub(crate) ceiling_prize_clear: Option<(u16, u16, terrain::Cell)>,
     /// Pre-gravity y_vel snapshot for floor landing sub-pixel logic.
     /// ASM tests y_vel before sub_B168 (gravity); native applies gravity first.
     pub(crate) pre_gravity_y_vel: i32,

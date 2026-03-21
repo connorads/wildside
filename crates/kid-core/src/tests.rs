@@ -1910,8 +1910,8 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.step(
@@ -2924,8 +2924,8 @@ fn prize_block_headbutt_grants_diamond() {
     // head ≈ 71.25 - 31 = 40.25 → row 2. Prize block hit!
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 40 << 16; // col 2 centre
-        slice.player.y_pos = 73 << 16;
-        slice.player.y_velocity = -0x0002_0000; // moving upward
+        slice.player.y_pos = 80 << 16;
+        slice.player.y_velocity = -0x0011_0000; // crosses the guarded ceiling probe
         slice.player.on_ground = false;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
@@ -2933,16 +2933,79 @@ fn prize_block_headbutt_grants_diamond() {
 
     runtime.step_frame(FrameInput::default());
 
-    // ASM spawns prize items as separate objects — the player must contact
-    // the floating item to collect it. At block-hit time the diamond isn't
-    // granted immediately; only a floating item is spawned.
+    // ASM sub_1007A owns the prize-block lifecycle. At block-hit time the
+    // diamond isn't granted and the prize object does not exist yet; the block
+    // just queues its bounce coroutine.
     assert_eq!(
         runtime.progression.diamond_count, diamonds_before,
         "diamond should NOT be granted immediately at block-hit time (deferred to floating item contact)"
     );
     assert!(
-        !runtime.floating_items.is_empty(),
-        "a floating item should be spawned when the prize block is headbutted"
+        runtime.floating_items.is_empty(),
+        "the prize object should not spawn until the block bounce lifecycle completes"
+    );
+    assert_eq!(runtime.block_state.deferred_ceiling_clears.len(), 1);
+    let pending = runtime.block_state.deferred_ceiling_clears[0];
+    assert_eq!(pending.col, 2);
+    assert_eq!(pending.row, 2);
+    assert_eq!(pending.content, terrain::PrizeContent::Diamond);
+    assert_eq!(pending.restore_cell, terrain::Cell::from_be_bytes(0xE1, 0x01));
+    assert_eq!(
+        pending.deleted_frames_remaining,
+        NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES
+    );
+    assert_eq!(pending.phase, DeferredPrizeBlockPhase::Deleted);
+}
+
+#[test]
+fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_blocks());
+    start_level(&mut runtime);
+    for _ in 0..260 {
+        runtime.step_frame(FrameInput::default());
+    }
+
+    let diamonds_before = runtime.progression.diamond_count;
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+    }
+
+    runtime.step_frame(FrameInput::default());
+
+    for _ in 0..=NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES {
+        runtime.step_frame(FrameInput::default());
+    }
+
+    let restored_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
+    assert_eq!(restored_cell.collision, terrain::CollisionKind::Solid);
+    assert!(restored_cell.has_block);
+    assert!(
+        runtime.floating_items.is_empty(),
+        "the prize object should not exist during the one-frame restore state"
+    );
+
+    runtime.step_frame(FrameInput::default());
+
+    let cleared_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
+    assert_eq!(cleared_cell.collision, terrain::CollisionKind::Empty);
+    assert_eq!(runtime.floating_items.len(), 1);
+    assert_eq!(
+        runtime.floating_items[0].spawn_delay,
+        NativeRuntime::PRIZE_ITEM_INITIAL_DORMANT_FRAMES
+    );
+    assert_eq!(runtime.progression.diamond_count, diamonds_before);
+
+    runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        runtime.progression.diamond_count, diamonds_before,
+        "the spawned prize object should not auto-collect on its spawn frame"
     );
 }
 
@@ -4648,9 +4711,9 @@ fn headbutt_prize_block_changes_to_empty() {
     let mut slice = OpeningSliceState {
         player: PlayerState {
             x_pos: 40 << 16, // col 2 centre
-            y_pos: 63 << 16, // feet at y=63, head at y=32 (row 2)
+            y_pos: 63 << 16, // head ends in row 2 after the synthetic step
             x_velocity: 0,
-            y_velocity: -0x0002_0000, // moving upward
+            y_velocity: -0x0011_0000, // old head starts one row higher, so the guard probes row 2
             facing: Direction::Right,
             on_ground: false,
             on_spikes: false,
@@ -4680,8 +4743,8 @@ fn headbutt_prize_block_changes_to_empty() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
@@ -4759,7 +4822,7 @@ fn headbutt_metal_block_does_not_clear() {
             x_pos: 56 << 16, // col 3 centre (56px)
             y_pos: 63 << 16,
             x_velocity: 0,
-            y_velocity: -0x0002_0000,
+            y_velocity: -0x0011_0000,
             facing: Direction::Right,
             on_ground: false,
             on_spikes: false,
@@ -4789,8 +4852,8 @@ fn headbutt_metal_block_does_not_clear() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
@@ -4816,9 +4879,9 @@ fn headbutt_smash_block_changes_to_empty() {
     let mut slice = OpeningSliceState {
         player: PlayerState {
             x_pos: 72 << 16, // col 4 centre
-            y_pos: 63 << 16, // feet at y=63, head at y=32 (row 2)
+            y_pos: 63 << 16, // head ends in row 2 after the synthetic step
             x_velocity: 0,
-            y_velocity: -0x0002_0000,
+            y_velocity: -0x0011_0000,
             facing: Direction::Right,
             on_ground: false,
             on_spikes: false,
@@ -4848,8 +4911,8 @@ fn headbutt_smash_block_changes_to_empty() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
@@ -4873,7 +4936,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
             x_pos: 72 << 16,
             y_pos: 63 << 16,
             x_velocity: 0,
-            y_velocity: -0x0002_0000,
+            y_velocity: -0x0011_0000,
             facing: Direction::Right,
             on_ground: false,
             on_spikes: false,
@@ -4903,8 +4966,8 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
@@ -4912,7 +4975,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
 
     // Second jump through the now-empty cell: no ceiling hit
     slice.player.y_pos = 63 << 16;
-    slice.player.y_velocity = -0x0002_0000;
+    slice.player.y_velocity = -0x0011_0000;
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
 
     // Velocity should remain negative (no ceiling hit)
@@ -4929,7 +4992,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
             x_pos: 40 << 16,
             y_pos: 63 << 16,
             x_velocity: 0,
-            y_velocity: -0x0002_0000,
+            y_velocity: -0x0011_0000,
             facing: Direction::Right,
             on_ground: false,
             on_spikes: false,
@@ -4959,8 +5022,8 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
@@ -4969,7 +5032,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
     // ASM sub_1007A: cell stays Solid (0x6F) after Prize dispatch.
     // Second pass still hits the structural ceiling — velocity is zeroed.
     slice.player.y_pos = 63 << 16;
-    slice.player.y_velocity = -0x0002_0000;
+    slice.player.y_velocity = -0x0011_0000;
     slice.prize_block_hit = None;
     slice.ceiling_prize_clear = None;
     slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
@@ -5024,8 +5087,8 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -5078,8 +5141,8 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -5134,8 +5197,8 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -5199,8 +5262,8 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH);
@@ -5250,8 +5313,8 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
@@ -5298,8 +5361,8 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
@@ -8113,8 +8176,8 @@ fn floor_collision_sets_terrain_type_from_block() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH);
@@ -8164,8 +8227,8 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     // No floor under player → should leave ground and reset terrain type
@@ -8224,8 +8287,8 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     }
 }
 
@@ -8472,8 +8535,8 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     assert!(runtime.block_state.evanescent_blocks.is_empty());
@@ -8527,8 +8590,8 @@ fn evanescent_block_not_triggered_when_airborne() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     runtime.step_evanescent_blocks(&slice);
@@ -8591,8 +8654,8 @@ fn evanescent_block_clears_after_timer_expires() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     // Trigger + first tick
@@ -8664,8 +8727,8 @@ fn evanescent_block_with_skin_delay() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     let airborne_slice = OpeningSliceState {
@@ -8857,8 +8920,8 @@ fn evanescent_block_not_triggered_twice() {
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
-            pre_gravity_y_vel: 0,
-            physics_trace: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
     };
 
     // Trigger twice while standing
@@ -10961,7 +11024,8 @@ fn demo_bootstrap_first_visible_gameplay_frame_advances_camera_only() {
     assert_eq!(freefall.number_gfx_objects, 4);
 
     let mut grounded_handoff = freefall;
-    while grounded_handoff.boot_phase_elapsed != Some(demo::DEMO_BOOTSTRAP_GROUNDED_FRAME as usize) {
+    while grounded_handoff.boot_phase_elapsed != Some(demo::DEMO_BOOTSTRAP_GROUNDED_FRAME as usize)
+    {
         grounded_handoff = runtime.step_frame(FrameInput::default());
     }
     assert_eq!(grounded_handoff.kid_y_velocity, Some(0));

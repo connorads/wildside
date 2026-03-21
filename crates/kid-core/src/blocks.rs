@@ -1,6 +1,15 @@
 use super::*;
 
 impl NativeRuntime {
+    // Oracle-backed sub_1007A timing for demo 0x1B:
+    // hit frame N:      write 0x6F
+    // frames N+1..N+32: keep 0x6F during the bounce coroutine
+    // frame N+33:       restore original prize cell (E1xx)
+    // frame N+34:       clear cell and spawn prize object
+    pub(crate) const PRIZE_BLOCK_DELETED_FRAMES: u16 = 32;
+    // PrizeDiamond_Init starts moving on the frame after object creation, so a
+    // newly spawned native floating item should be active immediately.
+    pub(crate) const PRIZE_ITEM_INITIAL_DORMANT_FRAMES: u16 = 0;
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
@@ -92,19 +101,45 @@ impl NativeRuntime {
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
 
-    /// Tick deferred ceiling clears: Prize blocks headbutted from below stay
-    /// Solid (0x6F) during sub_1007A's ~32-frame bounce animation, then clear.
+    /// Tick prize-block bounce lifecycles. The oracle shows a three-step
+    /// sequence: hold 0x6F, briefly restore the original prize cell, then clear
+    /// the tile and create the prize object.
     pub(crate) fn step_deferred_ceiling_clears(&mut self) {
         if let Some(grid) = &mut self.block_grid {
-            self.block_state.deferred_ceiling_clears.retain_mut(|entry| {
-                if entry.remaining == 0 {
-                        grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
-                    false
-                } else {
-                    entry.remaining -= 1;
-                    true
-                }
-            });
+            let mut spawned_items = Vec::new();
+            self.block_state
+                .deferred_ceiling_clears
+                .retain_mut(|entry| {
+                    match entry.phase {
+                        DeferredPrizeBlockPhase::Deleted => {
+                            if entry.deleted_frames_remaining == 0 {
+                                grid.set_cell_at(entry.col, entry.row, entry.restore_cell);
+                                entry.phase = DeferredPrizeBlockPhase::Restored;
+                            } else {
+                                entry.deleted_frames_remaining -= 1;
+                            }
+                            true
+                        }
+                        DeferredPrizeBlockPhase::Restored => {
+                            grid.set_cell_at(
+                                entry.col,
+                                entry.row,
+                                terrain::Cell::from_be_bytes(0, 0),
+                            );
+                            spawned_items.push(FloatingItem {
+                                x_pos: (u32::from(entry.col) * 16 + 8) << 16,
+                                y_pos: i64::from(u32::from(entry.row) * 16) << 16,
+                                y_velocity: 0,
+                                remaining: 500,
+                                spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
+                                content: entry.content,
+                                collected: false,
+                            });
+                            false
+                        }
+                    }
+                });
+            self.floating_items.extend(spawned_items);
         }
     }
 
@@ -277,23 +312,10 @@ impl NativeRuntime {
     /// Process block hit effects from the current frame's slice (prizes, bounces,
     /// lifts, drills, teleporter warps).
     pub(crate) fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {
-        // Prize block item spawning: spawn floating visual + debris then apply prize
-        if let Some((content, x_px, y_px)) = slice.prize_block_hit {
+        // Prize block hit: spawn the immediate debris effect. The actual prize
+        // object is created later by the queued sub_1007A lifecycle.
+        if let Some((_content, x_px, y_px)) = slice.prize_block_hit {
             self.blocks_hit_this_frame += 1;
-            // ASM: sub_1007A runs a bounce animation (31 wiggle frames +
-            // Hibernate_UntilAnimFinished + object allocation overhead = ~39 frames),
-            // then spawns Prize_Init at block center (x + 8, y).
-            // Velocity starts at 0, accumulates +$1388/frame (downward).
-            // Lifetime = 500 frames ($1F4).
-            self.floating_items.push(FloatingItem {
-                x_pos: u32::from(x_px + 8) << 16,
-                y_pos: i64::from(y_px) << 16,
-                y_velocity: 0,
-                remaining: 500,
-                spawn_delay: 39,
-                content,
-                collected: false,
-            });
             self.block_destroy_effects.push(BlockDestroyEffect {
                 x_px,
                 y_px,

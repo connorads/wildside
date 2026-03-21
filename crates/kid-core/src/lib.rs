@@ -24,7 +24,9 @@ use kid_data::{
 };
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
-pub use scenario::{run_script, run_script_with_physics_order, run_script_with_trace, run_script_with_warp};
+pub use scenario::{
+    run_script, run_script_with_physics_order, run_script_with_trace, run_script_with_warp,
+};
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 use std::fs;
 #[cfg(test)]
@@ -246,7 +248,8 @@ impl NativeRuntime {
         let gameplay_slice_active = matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
-        ) || (self.demo_gameplay_active() && self.opening_slice.is_some());
+        ) || (self.demo_gameplay_active()
+            && self.opening_slice.is_some());
         // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
         if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
             && gameplay_slice_active
@@ -347,13 +350,9 @@ impl NativeRuntime {
         // the advancement parity. Track transform state and restore parity when
         // the transform ends by decrementing the counter once.
         if matches!(self.boot_state, BootState::DemoPlay { .. }) {
-            if self.progression.form_change_flash_frames > 0
-                && !self.demo_transform_active
-            {
+            if self.progression.form_change_flash_frames > 0 && !self.demo_transform_active {
                 self.demo_transform_active = true;
-            } else if self.progression.form_change_flash_frames == 0
-                && self.demo_transform_active
-            {
+            } else if self.progression.form_change_flash_frames == 0 && self.demo_transform_active {
                 self.demo_transform_active = false;
                 if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
                     *frame_counter -= 1;
@@ -367,9 +366,7 @@ impl NativeRuntime {
         // & 0xFFF0) - 1 - half_width. If left wall hit: x_pos = (left_edge &
         // 0xFFF0) + 16 + half_width.
         if self.progression.form_width_delta != 0 {
-            if let (Some(slice), Some(grid)) =
-                (&mut self.opening_slice, &self.block_grid)
-            {
+            if let (Some(slice), Some(grid)) = (&mut self.opening_slice, &self.block_grid) {
                 let x_px = (slice.player.x_pos >> 16) as i32;
                 let y_px = (slice.player.y_pos >> 16) as i32;
                 let new_half = self.progression.current_form.half_width();
@@ -408,17 +405,15 @@ impl NativeRuntime {
             level_elapsed
         };
         let bounds = self.level_bounds(self.current_level);
-        let mut slice = self
-            .opening_slice
-            .unwrap_or_else(|| {
-                if matches!(self.boot_state, BootState::DemoPlay { .. })
-                    && self.current_level != LevelId(0)
-                {
-                    self.level_respawn_slice(self.current_level)
-                } else {
-                    OpeningSliceState::new(bounds)
-                }
-            });
+        let mut slice = self.opening_slice.unwrap_or_else(|| {
+            if matches!(self.boot_state, BootState::DemoPlay { .. })
+                && self.current_level != LevelId(0)
+            {
+                self.level_respawn_slice(self.current_level)
+            } else {
+                OpeningSliceState::new(bounds)
+            }
+        });
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;
@@ -453,7 +448,6 @@ impl NativeRuntime {
         } else {
             None
         };
-
 
         // ASM Kid_Transform runs as a coroutine: during the transform animation,
         // the player object is in the transform state and normal movement/physics
@@ -528,29 +522,29 @@ impl NativeRuntime {
         // Shooter blocks: fire projectiles periodically
         self.step_shooter_blocks(&slice);
 
-        // Deferred ceiling clears: Prize blocks headbutted from below stay
-        // Solid for ~32 frames (ASM sub_1007A bounce animation), then clear.
+        // Prize blocks headbutted from below stay structural until the queued
+        // sub_1007A-style bounce lifecycle completes.
         self.step_deferred_ceiling_clears();
 
         // Weather: hail spawns falling projectiles, lava geysers erupt
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
 
-        // Queue deferred ceiling clears from Prize blocks headbutted from below.
-        // ASM sub_1007A: cell stays Solid (0x6F) for 32 frames, then clears.
-        if let Some((col, row)) = slice.ceiling_prize_clear {
-            // sub_1007A runs on frame N+1: writes 0x6F, then bounce animation
-            // (31 Hibernate frames) + Hibernate_UntilAnimFinished + sub_11530.
-            // Oracle data: cell 0x6F for frames N+1..N+32, clears N+33.
-            // step_deferred runs AFTER physics, so remaining=33 means the cell
-            // is cleared after physics on frame N+34 — player passes through
-            // on frame N+35, matching oracle timing.
+        // Queue the full prize-block lifecycle from a headbutt. The tile stays
+        // Solid (0x6F) until the coroutine completes, then the same state
+        // record clears the tile and spawns the prize object.
+        if let Some((col, row, restore_cell)) = slice.ceiling_prize_clear
+            && let Some((content, _, _)) = slice.prize_block_hit
+        {
             self.block_state
                 .deferred_ceiling_clears
                 .push(DeferredCeilingClear {
                     col,
                     row,
-                    remaining: 33,
+                    content,
+                    restore_cell,
+                    deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
+                    phase: DeferredPrizeBlockPhase::Deleted,
                 });
         }
 
