@@ -7,7 +7,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | frontier: frame 1402 (prize-block ceiling lifecycle on level 0x1B demo) |
+| `kc_any_percent_2024` | 4916 | ~82s | frontier: frame 1398 (post-prize-hit ceiling latch on level 0x1B demo) |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -28,7 +28,7 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
 | 2025-03-19 | kc_any_percent_2024 | 955 | camera_y_pos | wall-sticky ledge snap + floor snap commits |
-| 2026-03-21 | kc_any_percent_2024 | 1402 | Prize-block ceiling lifecycle after `sub_1007A`: native still splits tile clear and prize spawn into guessed timers; oracle stays pinned under the ceiling with authoritative parity through frame 1401, then diverges on score/diamond/object timing at frame 1402 | #086 advanced the frontier to frame 1402 by preserving the `0x6F` structural ceiling during the bounce window. The next blocker is to model the full `sub_1007A` lifecycle more faithfully, including the post-bounce clear/spawn timing and the remaining ceiling-hit position semantics. |
+| 2026-03-21 | kc_any_percent_2024 | 1398 | Narrow re-verification shows the first authoritative diffs are already `camera_y_pos` and `kid_y_pos` at frame 1398 during the post-prize-hit ceiling sequence on demo level `0x1B`; the later frame 1401 `score`/`number_diamonds` drift is downstream | The recorded 1402 frontier was stale. Re-ran `cargo run --release -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 1396 --frame-end 1403 --checkpoint-interval 1` and updated the tracker to the real blocker before doing more engine work. |
 | 2026-03-20 | kc_any_percent_2024 | 955 | kid_y_pos native=0x028f0000 (pixel-aligned) vs oracle=0x028fe6e0 (sub-pixel) | Exact frame 955: native grounded/jumping, oracle sub-pixel Y. Same root cause for any-percent-published at f958. Demo input verified matching (R+B+A from DEMO_INPUT_DATA_2[27]). Single-frame divergence suggests floor collision or gravity difference on level 0x1B terrain. |
 | 2026-03-20 | kc_any_percent_2024 | 902 | kid_y_vel: native starts falling, oracle stays grounded | Boot timing fix: deferred sega screen (1f) and intro→title (2f) transitions to match oracle VBlank timing. New blocker: at kid=(0x00200000,0x02de4000) on level 0x1B demo, native drops off ground while oracle stays grounded. Kid idle, no input — pure ground-check logic difference. |
 | 2026-03-20 | kc_any_percent_2024 | 955 | kid_y_pos sub-pixel: native=0x028f0000 oracle=0x028fe6e0 | Demo freefall fix: shadow gravity (Δy=frame×0x4000) without y_vel for frames 67-69. Frontier advanced 902→955. Next blocker: ASM physics order (position-first-then-gravity) differs from native (gravity-first-then-position), causing sub-pixel accumulation divergence over jump arcs. Two ASM floor landing paths: loc_AAF8 preserves sub-pixel (move.w), loc_AB22 zeroes it (clr.w $20). |
