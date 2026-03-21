@@ -11,10 +11,11 @@ fn known_addresses() -> BTreeMap<usize, &'static str> {
         (0x24FC, "kid_x_pos (lo)"),
         (0x24FE, "kid_y_pos (hi)"),
         (0x2500, "kid_y_pos (lo)"),
-        (0x2502, "kid_x_vel (hi)"),
-        (0x2504, "kid_x_vel (lo)"),
-        (0x2506, "kid_y_vel (hi)"),
-        (0x2508, "kid_y_vel (lo)"),
+        // ram_layout.txt: FF2506 long Kid X speed, FF250A long Kid Y speed.
+        (0x2506, "kid_x_vel (hi)"),
+        (0x2508, "kid_x_vel (lo)"),
+        (0x250A, "kid_y_vel (hi)"),
+        (0x250C, "kid_y_vel (lo)"),
         (0xF81C, "camera_x_pos (hi)"),
         (0xF81E, "camera_x_pos (lo)"),
         (0xF820, "camera_y_pos (hi)"),
@@ -46,10 +47,10 @@ fn known_addresses() -> BTreeMap<usize, &'static str> {
 
 /// Diff two WRAM dump files byte-by-byte and print changed addresses.
 pub(crate) fn run_ram_diff(path_a: &Path, path_b: &Path, annotate: bool) -> Result<()> {
-    let data_a = fs::read(path_a)
-        .with_context(|| format!("failed to read {}", path_a.display()))?;
-    let data_b = fs::read(path_b)
-        .with_context(|| format!("failed to read {}", path_b.display()))?;
+    let data_a =
+        fs::read(path_a).with_context(|| format!("failed to read {}", path_a.display()))?;
+    let data_b =
+        fs::read(path_b).with_context(|| format!("failed to read {}", path_b.display()))?;
 
     if data_a.len() != data_b.len() {
         bail!(
@@ -66,19 +67,35 @@ pub(crate) fn run_ram_diff(path_a: &Path, path_b: &Path, annotate: bool) -> Resu
     };
 
     let mut diff_count = 0usize;
-    println!("{:<10} {:<12} {:<12} {}", "offset", "old", "new", "annotation");
+    println!(
+        "{:<10} {:<12} {:<12} {}",
+        "offset", "old", "new", "annotation"
+    );
     println!("{}", "-".repeat(60));
 
     for (offset, (a, b)) in data_a.iter().zip(data_b.iter()).enumerate() {
         if a != b {
             let annotation = annotations.get(&offset).unwrap_or(&"");
-            println!(
-                "0x{offset:04X}    0x{a:02X}        0x{b:02X}        {annotation}"
-            );
+            println!("0x{offset:04X}    0x{a:02X}        0x{b:02X}        {annotation}");
             diff_count += 1;
         }
     }
 
     println!("\n{diff_count} bytes differ out of {} total", data_a.len());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::known_addresses;
+
+    #[test]
+    fn annotates_kid_velocity_words_at_the_documented_offsets() {
+        let addresses = known_addresses();
+
+        assert_eq!(addresses.get(&0x2506), Some(&"kid_x_vel (hi)"));
+        assert_eq!(addresses.get(&0x2508), Some(&"kid_x_vel (lo)"));
+        assert_eq!(addresses.get(&0x250A), Some(&"kid_y_vel (hi)"));
+        assert_eq!(addresses.get(&0x250C), Some(&"kid_y_vel (lo)"));
+    }
 }
