@@ -9317,31 +9317,31 @@ fn cyclone_runtime() -> NativeRuntime {
 #[test]
 fn cyclone_c_press_activates_flight_when_airborne() {
     let mut rt = cyclone_runtime();
-    let mut slice = airborne_slice();
+    let slice = airborne_slice();
     let input = FrameInput {
         c: true,
         ..FrameInput::default()
     };
 
-    rt.step_cyclone_flight(&mut slice, input);
+    // ASM kid_flip: activation runs after physics via step_cyclone_activation
+    rt.step_cyclone_activation(&slice, input);
 
     assert!(rt.helmet.cyclone_flying);
-    // Initial accel ($2000) + gravity ($400) - thrust ($3000) = -$C00
-    let expected: i16 = CYCLONE_ACCEL_INITIAL + CYCLONE_ACCEL_GRAVITY - CYCLONE_ACCEL_THRUST;
-    assert_eq!(rt.helmet.cyclone_y_accel, expected);
+    assert_eq!(rt.helmet.cyclone_y_accel, CYCLONE_ACCEL_INITIAL);
 }
 
 #[test]
 fn cyclone_c_press_does_not_activate_on_ground() {
     let mut rt = cyclone_runtime();
-    let mut slice = airborne_slice();
-    slice.player.on_ground = true;
+    let slice = airborne_slice();
+    let mut grounded_slice = slice;
+    grounded_slice.player.on_ground = true;
     let input = FrameInput {
         c: true,
         ..FrameInput::default()
     };
 
-    rt.step_cyclone_flight(&mut slice, input);
+    rt.step_cyclone_activation(&grounded_slice, input);
 
     assert!(!rt.helmet.cyclone_flying);
 }
@@ -9377,14 +9377,12 @@ fn cyclone_gravity_increases_acceleration() {
 }
 
 #[test]
-fn cyclone_c_held_provides_thrust() {
+fn cyclone_c_newly_pressed_provides_thrust() {
     let mut rt = cyclone_runtime();
     rt.helmet.cyclone_flying = true;
     rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL; // $2000
-    rt.prior_input = FrameInput {
-        c: true,
-        ..FrameInput::default()
-    };
+    // previous_input.c = false → C is newly pressed (rising edge)
+    rt.previous_input = FrameInput::default();
     let mut slice = airborne_slice();
     slice.player.y_velocity = 0;
 
@@ -9399,7 +9397,7 @@ fn cyclone_c_held_provides_thrust() {
     assert_eq!(rt.helmet.cyclone_y_accel, expected_accel);
     assert!(
         slice.player.y_velocity < 0,
-        "should gain upward velocity with C held"
+        "should gain upward velocity with C newly pressed"
     );
 }
 
@@ -9435,10 +9433,8 @@ fn cyclone_velocity_clamped_to_max_rise() {
     let mut rt = cyclone_runtime();
     rt.helmet.cyclone_flying = true;
     rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN; // max upward thrust
-    rt.prior_input = FrameInput {
-        c: true,
-        ..FrameInput::default()
-    };
+    // C newly pressed (previous had no C) → thrust applied
+    rt.previous_input = FrameInput::default();
     let mut slice = airborne_slice();
     slice.player.y_velocity = CYCLONE_MAX_RISE_VEL; // already at max rise
 

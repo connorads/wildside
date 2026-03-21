@@ -150,18 +150,17 @@ impl NativeRuntime {
     /// (gravity). Holding C subtracts $3000 (thrust). The accumulator is added
     /// to y_velocity each frame, with velocity clamped to [-$30000, $28000].
     /// Landing clears the flying flag.
+    /// ASM sub_B168 (loc_B214): when Cyclone_flying is already set, replace
+    /// normal gravity with the flight accumulator. The thrust check uses
+    /// `bclr #Button_C,(Ctrl_Pressed)` — a rising-edge test that consumes the
+    /// C press bit so kid_flip won't see it. Native equivalent: check
+    /// `previous_input` for 1-frame edge detection (not `prior_input` which
+    /// has a 2-frame gap).
     pub(crate) fn step_cyclone_flight(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Cyclone {
             self.helmet.cyclone_flying = false;
             self.helmet.cyclone_y_accel = 0;
             return;
-        }
-
-        // C rising edge activates flight when airborne
-        let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && !slice.player.on_ground {
-            self.helmet.cyclone_flying = true;
-            self.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
         }
 
         // Landing clears flight
@@ -174,14 +173,17 @@ impl NativeRuntime {
             return;
         }
 
-        // Accumulate gravity
+        // Accumulate gravity decay
         self.helmet.cyclone_y_accel = self
             .helmet
             .cyclone_y_accel
             .saturating_add(CYCLONE_ACCEL_GRAVITY);
 
-        // C held: apply upward thrust
-        if input.c {
+        // ASM: `bclr #Button_C,(Ctrl_Pressed)` — thrust on C rising edge only,
+        // not while held. Uses previous_input for proper 1-frame edge detection
+        // (prior_input is 2 frames back due to gameplay_input asymmetry).
+        let c_newly_pressed = input.c && !self.previous_input.c;
+        if c_newly_pressed {
             self.helmet.cyclone_y_accel = self
                 .helmet
                 .cyclone_y_accel
@@ -204,6 +206,26 @@ impl NativeRuntime {
             .player
             .y_velocity
             .clamp(CYCLONE_MAX_RISE_VEL, CYCLONE_MAX_FALL_VEL);
+    }
+
+    /// ASM kid_flip (loc_ACB0): C rising edge activates flight when airborne.
+    /// Runs AFTER physics, so flight takes effect on the next frame. Uses
+    /// `bclr #Button_C,(Ctrl_Pressed)` which is consumed by sub_B168 when
+    /// already flying — so only activates when cyclone_flying is false.
+    pub(crate) fn step_cyclone_activation(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Cyclone {
+            return;
+        }
+        // Only activate when not already flying (ASM: sub_B168 consumes C
+        // pressed bit via bclr when flying, so kid_flip never sees it).
+        if self.helmet.cyclone_flying {
+            return;
+        }
+        let c_pressed = input.c && !self.previous_input.c;
+        if c_pressed && !slice.player.on_ground {
+            self.helmet.cyclone_flying = true;
+            self.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
+        }
     }
 
     /// IronKnight wall climb: C press while airborne attaches to adjacent wall,

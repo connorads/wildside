@@ -474,6 +474,9 @@ impl NativeRuntime {
                 self.y_look_offset,
                 self.physics_order,
             );
+            // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
+            // runs AFTER physics so flight takes effect next frame.
+            self.step_cyclone_activation(&slice, input);
         }
         let spawn_support_snapped = (self.skip_entry_animation || self.demo_gameplay_active())
             && self
