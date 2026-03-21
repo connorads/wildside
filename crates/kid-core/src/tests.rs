@@ -1909,6 +1909,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -4678,16 +4679,17 @@ fn headbutt_prize_block_changes_to_empty() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
 
     slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
-    // Prize block should now be empty
+    // Prize block should be neutralised: Solid/no-block (ASM sub_1007A writes $6F)
     let cell_after = grid.cell_at(2, 2);
     assert!(!cell_after.has_block);
-    assert_eq!(cell_after.collision, terrain::CollisionKind::Empty);
+    assert_eq!(cell_after.collision, terrain::CollisionKind::Solid);
 
     // ASM sub_902A zeroes y_vel on ceiling hit (clr.l y_vel)
     assert_eq!(slice.player.y_velocity, 0);
@@ -4732,6 +4734,7 @@ fn headbutt_metal_block_does_not_clear() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -4790,6 +4793,7 @@ fn headbutt_smash_block_changes_to_empty() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -4844,6 +4848,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -4899,6 +4904,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -4906,13 +4912,18 @@ fn cleared_prize_block_no_longer_blocks_movement() {
     slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
     assert!(!grid.cell_at(2, 2).has_block);
 
-    // Second jump through the now-empty cell: no ceiling hit
+    // ASM sub_1007A: cell stays Solid (0x6F) after Prize dispatch.
+    // Second pass still hits the structural ceiling — velocity is zeroed.
     slice.player.y_pos = 63 << 16;
     slice.player.y_velocity = -0x0002_0000;
+    slice.prize_block_hit = None;
+    slice.ceiling_prize_clear = None;
     slice.apply_ceiling_collision(Some(&mut grid), None, PLAYER_HALF_WIDTH);
 
-    // Velocity should remain negative (no ceiling hit)
-    assert!(slice.player.y_velocity < 0);
+    // Ceiling is still Solid (no block), so velocity is still zeroed
+    assert_eq!(slice.player.y_velocity, 0);
+    // But no prize is dispatched (has_block is false)
+    assert!(slice.prize_block_hit.is_none());
 }
 
 #[test]
@@ -4958,6 +4969,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -5011,6 +5023,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -5066,6 +5079,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -5130,6 +5144,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -5180,6 +5195,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -5227,6 +5243,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8041,6 +8058,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8091,6 +8109,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8150,6 +8169,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     }
@@ -8397,6 +8417,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8451,6 +8472,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8514,6 +8536,7 @@ fn evanescent_block_clears_after_timer_expires() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8586,6 +8609,7 @@ fn evanescent_block_with_skin_delay() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };
@@ -8778,6 +8802,7 @@ fn evanescent_block_not_triggered_twice() {
         metal_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
+        ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
     };

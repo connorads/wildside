@@ -87,6 +87,9 @@ pub(crate) struct BlockInteractionState {
     pub(crate) lift_platforms: Vec<LiftPlatform>,
     /// Global shooter block fire timer: fires every 22 frames.
     pub(crate) shooter_block_timer: u16,
+    /// Prize blocks headbutted from below: ASM sub_1007A keeps the cell Solid
+    /// (0x6F) during a ~32-frame bounce animation, then clears to Empty.
+    pub(crate) deferred_ceiling_clears: Vec<DeferredCeilingClear>,
 }
 
 /// Weather system state for the current level.
@@ -950,6 +953,15 @@ pub(crate) struct EvanescentEntry {
     pub(crate) timer: i16,
 }
 
+/// ASM sub_1007A deferred ceiling clear: Prize block headbutted from below
+/// stays Solid (0x6F) for ~32 frames during the bounce animation, then clears.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct DeferredCeilingClear {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) remaining: u16,
+}
+
 /// Runtime state for a ghost block group that cycles solid/vanished.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GhostGroup {
@@ -1030,6 +1042,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) smash_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).
     pub(crate) teleporter_contact: Option<(u16, u16)>,
+    /// Prize block ceiling hit: queue deferred clear (col, row) after ~32 frames.
+    pub(crate) ceiling_prize_clear: Option<(u16, u16)>,
     /// Pre-gravity y_vel snapshot for floor landing sub-pixel logic.
     /// ASM tests y_vel before sub_B168 (gravity); native applies gravity first.
     pub(crate) pre_gravity_y_vel: i32,

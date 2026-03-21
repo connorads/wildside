@@ -56,6 +56,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             smash_block_hit: None,
             teleporter_contact: None,
+            ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
         }
@@ -109,6 +110,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             smash_block_hit: None,
             teleporter_contact: None,
+            ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
         }
@@ -1124,16 +1126,16 @@ impl OpeningSliceState {
                     let block_x_px = probe.cell_x * 16;
                     let block_y_px = probe.cell_y * 16;
                     self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                    // Clear the now-revealed prize block
+                    // ASM sub_1007A: keep cell Solid, clear has_block
                     grid.set_cell_at(
                         probe.cell_x,
                         probe.cell_y,
-                        terrain::Cell::from_be_bytes(0, 0),
+                        terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
                     );
                 }
             }
 
-            // Prize/smash/lift block headbutt: hitting from below
+            // Prize/smash/lift block headbutt: hitting from below.
             if probe.cell.collision == terrain::CollisionKind::Solid && probe.cell.has_block {
                 match probe.cell.block_type {
                     terrain::BlockType::Prize => {
@@ -1143,16 +1145,47 @@ impl OpeningSliceState {
                         let block_x_px = probe.cell_x * 16;
                         let block_y_px = probe.cell_y * 16;
                         self.prize_block_hit = Some((content, block_x_px, block_y_px));
+                        // ASM sub_1007A writes $6F to the cell: Solid collision,
+                        // has_block=false, block_type=Deleted. The tile stays solid
+                        // as structural ceiling for ~32 frames (bounce animation),
+                        // then clears. Without this, Cyclone flight near a Prize
+                        // ceiling clears the tile to Empty immediately, letting
+                        // the player fly through.
                         grid.set_cell_at(
                             probe.cell_x,
                             probe.cell_y,
-                            terrain::Cell::from_be_bytes(0, 0),
+                            terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
                         );
+                        self.ceiling_prize_clear = Some((probe.cell_x, probe.cell_y));
+                        // ASM sub_914A scans ALL tiles across player width, so
+                        // adjacent Smash blocks are cleared on the same frame.
+                        // probe_ceiling returns on the first hit, missing the
+                        // other edge. Clear adjacent Smash blocks now.
+                        let top_y = y_px - PLAYER_HEIGHT;
+                        let tile_row = (top_y / 16).max(0) as u16;
+                        for &edge_x in &[x_px - collision_hw, x_px + collision_hw] {
+                            let col = (edge_x / 16).max(0) as u16;
+                            if col == probe.cell_x && tile_row == probe.cell_y {
+                                continue;
+                            }
+                            let cell = grid.cell_at(col, tile_row);
+                            if cell.collision == terrain::CollisionKind::Solid
+                                && cell.has_block
+                                && cell.block_type == terrain::BlockType::Smash
+                            {
+                                grid.set_cell_at(
+                                    col,
+                                    tile_row,
+                                    terrain::Cell::from_be_bytes(0, 0),
+                                );
+                            }
+                        }
                     }
                     terrain::BlockType::Smash => {
                         let block_x_px = probe.cell_x * 16;
                         let block_y_px = probe.cell_y * 16;
                         self.smash_block_hit = Some((block_x_px, block_y_px));
+                        // ASM j_Block_LoadSmashBits clears Smash blocks immediately
                         grid.set_cell_at(
                             probe.cell_x,
                             probe.cell_y,
@@ -1170,7 +1203,6 @@ impl OpeningSliceState {
                         );
                     }
                     terrain::BlockType::Drill => {
-                        // Drill block fires a downward projectile when headbutted
                         let drill_x_fp = (u32::from(probe.cell_x) * 16 + 8) << 16;
                         let drill_y_fp = (u32::from(probe.cell_y) * 16 + 16) << 16;
                         self.drill_projectile_hit = Some((drill_x_fp, drill_y_fp));

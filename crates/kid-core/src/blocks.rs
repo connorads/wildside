@@ -92,6 +92,22 @@ impl NativeRuntime {
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
 
+    /// Tick deferred ceiling clears: Prize blocks headbutted from below stay
+    /// Solid (0x6F) during sub_1007A's ~32-frame bounce animation, then clear.
+    pub(crate) fn step_deferred_ceiling_clears(&mut self) {
+        if let Some(grid) = &mut self.block_grid {
+            self.block_state.deferred_ceiling_clears.retain_mut(|entry| {
+                if entry.remaining == 0 {
+                        grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
+                    false
+                } else {
+                    entry.remaining -= 1;
+                    true
+                }
+            });
+        }
+    }
+
     pub(crate) fn step_shooter_blocks(&mut self, slice: &OpeningSliceState) {
         let Some(grid) = &self.block_grid else {
             return;

@@ -425,6 +425,7 @@ impl NativeRuntime {
         slice.metal_block_hit = None;
         slice.smash_block_hit = None;
         slice.teleporter_contact = None;
+        slice.ceiling_prize_clear = None;
         self.stomped_this_frame = false;
         self.blocks_hit_this_frame = 0;
         self.sound_test_play_pending = false;
@@ -527,9 +528,31 @@ impl NativeRuntime {
         // Shooter blocks: fire projectiles periodically
         self.step_shooter_blocks(&slice);
 
+        // Deferred ceiling clears: Prize blocks headbutted from below stay
+        // Solid for ~32 frames (ASM sub_1007A bounce animation), then clear.
+        self.step_deferred_ceiling_clears();
+
         // Weather: hail spawns falling projectiles, lava geysers erupt
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
+
+        // Queue deferred ceiling clears from Prize blocks headbutted from below.
+        // ASM sub_1007A: cell stays Solid (0x6F) for 32 frames, then clears.
+        if let Some((col, row)) = slice.ceiling_prize_clear {
+            // sub_1007A runs on frame N+1: writes 0x6F, then bounce animation
+            // (31 Hibernate frames) + Hibernate_UntilAnimFinished + sub_11530.
+            // Oracle data: cell 0x6F for frames N+1..N+32, clears N+33.
+            // step_deferred runs AFTER physics, so remaining=33 means the cell
+            // is cleared after physics on frame N+34 — player passes through
+            // on frame N+35, matching oracle timing.
+            self.block_state
+                .deferred_ceiling_clears
+                .push(DeferredCeilingClear {
+                    col,
+                    row,
+                    remaining: 33,
+                });
+        }
 
         self.process_block_effects(&mut slice);
         self.collect_floating_items(&mut slice);
