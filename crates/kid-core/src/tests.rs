@@ -11384,7 +11384,10 @@ fn demo_camera_handoff_primes_buffer_for_the_hidden_settle_frame() {
         "the hidden settle frame should consume the primed byte",
     );
     if let BootState::DemoPlay { data_index, .. } = runtime.boot_state {
-        assert_eq!(data_index, 119, "the second read should advance to the next byte");
+        assert_eq!(
+            data_index, 119,
+            "the second read should advance to the next byte"
+        );
     } else {
         panic!("expected DemoPlay after hidden settle");
     }
@@ -11489,6 +11492,34 @@ fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     assert_eq!(
         frame_1056,
         Some((PlayerForm::Cyclone.helmet_id(), Some(72 << 16), 73))
+    );
+}
+
+#[test]
+fn demo_transform_exit_rewinds_frame_counter_for_byte_parity() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut previous_flash_frames = 0u8;
+    let mut previous_demo_counter = None;
+    let mut observed_rewind = None;
+
+    for mask in script.iter().copied().take(1_200) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        let demo_counter = match runtime.boot_state {
+            BootState::DemoPlay { frame_counter, .. } => Some(frame_counter),
+            _ => None,
+        };
+        if previous_flash_frames == 1 && trace.form_change_flash_frames == 0 {
+            observed_rewind = previous_demo_counter.zip(demo_counter);
+            break;
+        }
+        previous_flash_frames = trace.form_change_flash_frames;
+        previous_demo_counter = demo_counter;
+    }
+
+    assert_eq!(
+        observed_rewind,
+        Some((221, 220)),
+        "transform exit should rewind the frozen demo counter by one frame"
     );
 }
 

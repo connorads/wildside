@@ -114,6 +114,9 @@ pub struct NativeRuntime {
     demo_buffered_input: Option<FrameInput>,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
+    /// Tracks whether demo playback is currently inside Kid_Transform so the
+    /// post-transform demo counter parity can be restored on the exit frame.
+    demo_transform_active: bool,
     /// Two-player alternating mode enabled.
     two_player: bool,
     /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
@@ -181,6 +184,7 @@ impl NativeRuntime {
             title_menu_active: false,
             demo_buffered_input: None,
             demo_toggle: false,
+            demo_transform_active: false,
             two_player: false,
             current_player_index: 0,
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
@@ -337,6 +341,23 @@ impl NativeRuntime {
         self.previous_input.b && !self.prior_input.b
     }
 
+    fn update_demo_transform_parity(&mut self) {
+        let transform_active = self.progression.pending_form.is_some()
+            || self.progression.form_change_flash_frames > 0;
+        if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
+            if self.demo_transform_active && !transform_active {
+                // During Kid_Transform, step_demo_input freezes frame_counter.
+                // When the coroutine exits, native would otherwise resume one
+                // frame too far ahead, flipping the 2-frame byte parity for the
+                // rest of the demo playback.
+                *frame_counter = frame_counter.saturating_sub(1);
+            }
+            self.demo_transform_active = transform_active;
+        } else {
+            self.demo_transform_active = false;
+        }
+    }
+
     fn apply_form_width_overlap_fixup(&mut self, slice: &mut OpeningSliceState) {
         if self.progression.form_width_delta == 0 {
             return;
@@ -373,8 +394,10 @@ impl NativeRuntime {
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         if !self.step_lifecycle(input) {
+            self.demo_transform_active = false;
             return;
         }
+        self.update_demo_transform_parity();
 
         let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
         // When skip_entry_animation is set (after level-skip warp), pretend
