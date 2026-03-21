@@ -2,6 +2,8 @@ use super::*;
 
 /// Per-helmet transform animation frame counts from ASM Kid_Transform tables
 /// (kid.asm:8678-8812, stru_7EFA..stru_808A). TheKid (helmet 0) has no table.
+/// These counts sum the first `anim_frame` field only; the second field is sprite/meta
+/// data, not extra duration.
 fn transform_anim_frames(form: PlayerForm) -> u16 {
     match form {
         PlayerForm::TheKid => 0,
@@ -10,7 +12,7 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
         PlayerForm::RedStealth => 54, // stru_7F5A
         PlayerForm::Eyeclops => 93,   // stru_7F90
         PlayerForm::Juggernaut => 33, // stru_7FCA
-        PlayerForm::IronKnight => 96, // stru_7FF8
+        PlayerForm::IronKnight => 81, // stru_7FF8
         PlayerForm::Berzerker => 51,  // stru_803A
         PlayerForm::Maniaxe => 45,    // stru_8064
         PlayerForm::Micromax => 59,   // stru_808A

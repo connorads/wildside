@@ -11980,6 +11980,54 @@ fn demo_1_keeps_the_oracle_backed_stomp_drift_on_frame_2994() {
 }
 
 #[test]
+fn demo_1_reenters_walking_from_standingstill_on_frame_3252() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_259) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (3_251..=3_258).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_3251 = frames
+        .get(&3_251)
+        .unwrap_or_else(|| panic!("frame 3251 should be captured"));
+    assert_eq!(
+        frame_3251.kid_x_pos,
+        Some(0x027D_0000),
+        "demo 1 should still be standing still on frame 3251",
+    );
+    assert_eq!(frame_3251.kid_x_velocity, Some(0));
+
+    let frame_3252 = frames
+        .get(&3_252)
+        .unwrap_or_else(|| panic!("frame 3252 should be captured"));
+    assert_eq!(
+        frame_3252.kid_x_pos,
+        Some(0x027D_1000),
+        "demo 1 should restart the oracle-backed walk acceleration on frame 3252",
+    );
+    assert_eq!(
+        frame_3252.kid_x_velocity,
+        Some(0x0000_1000),
+        "frame 3252 should take the first +0x1000 walking step",
+    );
+    assert_eq!(frame_3252.kid_on_ground, Some(true));
+
+    let frame_3258 = frames
+        .get(&3_258)
+        .unwrap_or_else(|| panic!("frame 3258 should be captured"));
+    assert_eq!(
+        frame_3258.kid_x_pos,
+        Some(0x027E_C000),
+        "the resumed walk should stay aligned with the oracle through frame 3258",
+    );
+    assert_eq!(frame_3258.kid_x_velocity, Some(0x0000_7000));
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
