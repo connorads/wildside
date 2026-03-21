@@ -429,13 +429,21 @@ impl NativeRuntime {
             if item.collected || item.spawn_delay > 0 {
                 continue;
             }
-            // Item sprite is ~16x16 centred on x_pos, extending downward from y_pos
+            // Floating items use a small contact box around the visible pickup
+            // sprite rather than the whole 16x16 cell. Diamonds render as a
+            // slightly smaller shape than helmet prizes and otherwise collect a
+            // frame early in the demo 0x1B post-latch arc.
             let item_x_px = (item.x_pos >> 16) as i32;
             let item_y_px = (item.y_pos >> 16) as i32;
             let item_left = item_x_px - 8;
             let item_right = item_x_px + 8;
             let item_top = item_y_px;
-            let item_bottom = item_y_px + 16;
+            let item_bottom = item_y_px
+                + if item.content == terrain::PrizeContent::Diamond {
+                    15
+                } else {
+                    16
+                };
 
             let overlap_x = player_left < item_right && player_right > item_left;
             let overlap_y = player_top < item_bottom && player_y_px > item_top;

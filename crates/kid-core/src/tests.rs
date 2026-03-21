@@ -11594,6 +11594,26 @@ fn demo_prize_ceiling_restore_still_latches_on_frame_1396() {
     );
 }
 
+#[test]
+fn demo_diamond_prize_is_not_collected_on_frame_1405() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1405 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_406) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_405 {
+            frame_1405 = Some((trace.score, trace.diamond_count, trace.floating_items.len()));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1405,
+        Some((0, 0, 1)),
+        "oracle frame 1405 is still mid-flight: the spawned diamond should exist but remain uncollected"
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]
