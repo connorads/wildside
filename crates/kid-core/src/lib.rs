@@ -426,6 +426,9 @@ impl NativeRuntime {
         self.sound_test_play_pending = false;
         // Tick visual effects
         self.step_visual_effects();
+        // Prize blocks headbutted from below update their queued sub_1007A
+        // lifecycle before movement, so the clear frame is collision-visible.
+        self.step_deferred_ceiling_clears();
         // Step helmet abilities BEFORE physics
         self.step_skycutter_flipboard(&mut slice, input);
         self.step_cyclone_flight(&mut slice, input);
@@ -453,6 +456,13 @@ impl NativeRuntime {
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
         if self.progression.form_change_flash_frames == 0 {
+            let restored_prize_ceiling_cells: Vec<(u16, u16)> = self
+                .block_state
+                .deferred_ceiling_clears
+                .iter()
+                .filter(|entry| entry.phase == DeferredPrizeBlockPhase::Restored)
+                .map(|entry| (entry.col, entry.row))
+                .collect();
             // Helmet abilities that override normal gravity
             let custom_gravity = self.helmet.skycutter_on_board
                 || self.helmet.cyclone_flying
@@ -468,6 +478,7 @@ impl NativeRuntime {
                 custom_gravity,
                 self.y_look_offset,
                 self.physics_order,
+                &restored_prize_ceiling_cells,
             );
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
             // runs AFTER physics so flight takes effect next frame.
@@ -521,10 +532,6 @@ impl NativeRuntime {
 
         // Shooter blocks: fire projectiles periodically
         self.step_shooter_blocks(&slice);
-
-        // Prize blocks headbutted from below stay structural until the queued
-        // sub_1007A-style bounce lifecycle completes.
-        self.step_deferred_ceiling_clears();
 
         // Weather: hail spawns falling projectiles, lava geysers erupt
         self.step_weather(&slice);

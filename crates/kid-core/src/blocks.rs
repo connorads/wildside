@@ -109,34 +109,28 @@ impl NativeRuntime {
             let mut spawned_items = Vec::new();
             self.block_state
                 .deferred_ceiling_clears
-                .retain_mut(|entry| {
-                    match entry.phase {
-                        DeferredPrizeBlockPhase::Deleted => {
-                            if entry.deleted_frames_remaining == 0 {
-                                grid.set_cell_at(entry.col, entry.row, entry.restore_cell);
-                                entry.phase = DeferredPrizeBlockPhase::Restored;
-                            } else {
-                                entry.deleted_frames_remaining -= 1;
-                            }
-                            true
+                .retain_mut(|entry| match entry.phase {
+                    DeferredPrizeBlockPhase::Deleted => {
+                        if entry.deleted_frames_remaining == 0 {
+                            grid.set_cell_at(entry.col, entry.row, entry.restore_cell);
+                            entry.phase = DeferredPrizeBlockPhase::Restored;
+                        } else {
+                            entry.deleted_frames_remaining -= 1;
                         }
-                        DeferredPrizeBlockPhase::Restored => {
-                            grid.set_cell_at(
-                                entry.col,
-                                entry.row,
-                                terrain::Cell::from_be_bytes(0, 0),
-                            );
-                            spawned_items.push(FloatingItem {
-                                x_pos: (u32::from(entry.col) * 16 + 8) << 16,
-                                y_pos: i64::from(u32::from(entry.row) * 16) << 16,
-                                y_velocity: 0,
-                                remaining: 500,
-                                spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
-                                content: entry.content,
-                                collected: false,
-                            });
-                            false
-                        }
+                        true
+                    }
+                    DeferredPrizeBlockPhase::Restored => {
+                        grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
+                        spawned_items.push(FloatingItem {
+                            x_pos: (u32::from(entry.col) * 16 + 8) << 16,
+                            y_pos: i64::from(u32::from(entry.row) * 16) << 16,
+                            y_velocity: 0,
+                            remaining: 500,
+                            spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
+                            content: entry.content,
+                            collected: false,
+                        });
+                        false
                     }
                 });
             self.floating_items.extend(spawned_items);

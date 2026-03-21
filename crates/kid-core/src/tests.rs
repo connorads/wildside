@@ -2949,7 +2949,10 @@ fn prize_block_headbutt_grants_diamond() {
     assert_eq!(pending.col, 2);
     assert_eq!(pending.row, 2);
     assert_eq!(pending.content, terrain::PrizeContent::Diamond);
-    assert_eq!(pending.restore_cell, terrain::Cell::from_be_bytes(0xE1, 0x01));
+    assert_eq!(
+        pending.restore_cell,
+        terrain::Cell::from_be_bytes(0xE1, 0x01)
+    );
     assert_eq!(
         pending.deleted_frames_remaining,
         NativeRuntime::PRIZE_BLOCK_DELETED_FRAMES
@@ -3007,6 +3010,72 @@ fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
         runtime.progression.diamond_count, diamonds_before,
         "the spawned prize object should not auto-collect on its spawn frame"
     );
+}
+
+#[test]
+fn restored_prize_ceiling_frame_is_inert_for_collision_and_dispatch() {
+    let mut grid = grid_with_blocks();
+
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            x_pos: 40 << 16,
+            y_pos: 63 << 16,
+            x_velocity: 0,
+            y_velocity: -0x0011_0000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 64 << 16,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+        ceiling_prize_clear: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
+    };
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[(2, 2)],
+    );
+
+    assert_eq!(
+        slice.player.y_velocity, -0x0011_0000,
+        "restored frame should no longer block upward motion"
+    );
+    assert!(
+        slice.prize_block_hit.is_none(),
+        "restored frame must not dispatch a new prize"
+    );
+    assert!(
+        slice.ceiling_prize_clear.is_none(),
+        "restored frame must not restart the deferred clear lifecycle"
+    );
+    assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE1, 0x01));
 }
 
 #[test]
@@ -4747,7 +4816,13 @@ fn headbutt_prize_block_changes_to_empty() {
         physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
 
     // Prize block should be neutralised: Solid/no-block (ASM sub_1007A writes $6F)
     let cell_after = grid.cell_at(2, 2);
@@ -4801,7 +4876,13 @@ fn ceiling_collision_skips_when_upward_motion_stays_within_same_tile() {
         physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
 
     let cell_after = grid.cell_at(2, 2);
     assert!(
@@ -4856,7 +4937,13 @@ fn headbutt_metal_block_does_not_clear() {
         physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
 
     // Metal block remains unchanged
     let cell_after = grid.cell_at(3, 2);
@@ -4915,7 +5002,13 @@ fn headbutt_smash_block_changes_to_empty() {
         physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
 
     // Smash block should now be empty
     let cell_after = grid.cell_at(4, 2);
@@ -4970,13 +5063,25 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
     assert!(!grid.cell_at(4, 2).has_block);
 
     // Second jump through the now-empty cell: no ceiling hit
     slice.player.y_pos = 63 << 16;
     slice.player.y_velocity = -0x0011_0000;
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
 
     // Velocity should remain negative (no ceiling hit)
     assert!(slice.player.y_velocity < 0);
@@ -5026,7 +5131,13 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         physics_trace: None,
     };
 
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
     assert!(!grid.cell_at(2, 2).has_block);
 
     // ASM sub_1007A: cell stays Solid (0x6F) after Prize dispatch.
@@ -5035,7 +5146,13 @@ fn cleared_prize_block_no_longer_blocks_movement() {
     slice.player.y_velocity = -0x0011_0000;
     slice.prize_block_hit = None;
     slice.ceiling_prize_clear = None;
-    slice.apply_ceiling_collision(Some(&mut grid), None, PlayerForm::TheKid, PLAYER_HALF_WIDTH);
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
 
     // Ceiling is still Solid (no block), so velocity is still zeroed
     assert_eq!(slice.player.y_velocity, 0);

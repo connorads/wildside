@@ -138,6 +138,7 @@ impl OpeningSliceState {
             custom_gravity,
             y_look_offset,
             PhysicsOrder::GravityFirst,
+            &[],
         );
     }
 
@@ -153,6 +154,7 @@ impl OpeningSliceState {
         custom_gravity: bool,
         y_look_offset: i16,
         physics_order: PhysicsOrder,
+        restored_prize_ceiling_cells: &[(u16, u16)],
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -232,7 +234,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list, form, collision_hw);
+                    self.apply_ceiling_collision(
+                        Some(grid),
+                        block_list,
+                        form,
+                        collision_hw,
+                        restored_prize_ceiling_cells,
+                    );
                     self.apply_floor_collision(
                         Some(grid),
                         horizontal_step_applied,
@@ -291,7 +299,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(Some(grid), block_list, form, collision_hw);
+                    self.apply_ceiling_collision(
+                        Some(grid),
+                        block_list,
+                        form,
+                        collision_hw,
+                        restored_prize_ceiling_cells,
+                    );
                     self.apply_floor_collision(
                         Some(grid),
                         horizontal_step_applied,
@@ -438,7 +452,13 @@ impl OpeningSliceState {
                 }
 
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_ceiling_collision(Some(grid), block_list, form, collision_hw);
+                    self.apply_ceiling_collision(
+                        Some(grid),
+                        block_list,
+                        form,
+                        collision_hw,
+                        restored_prize_ceiling_cells,
+                    );
                     self.apply_floor_collision(
                         Some(grid),
                         horizontal_step_applied,
@@ -1138,6 +1158,7 @@ impl OpeningSliceState {
         block_list: Option<&terrain::BlockList>,
         form: PlayerForm,
         collision_hw: i32,
+        restored_prize_ceiling_cells: &[(u16, u16)],
     ) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
@@ -1168,6 +1189,14 @@ impl OpeningSliceState {
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
 
         if probe.hit {
+            let restored_prize_cell = restored_prize_ceiling_cells
+                .iter()
+                .any(|&(col, row)| col == probe.cell_x && row == probe.cell_y);
+            if restored_prize_cell {
+                // Oracle probe sees the transient E1xx restore in level RAM,
+                // but Kid no longer collides with it on the next frame.
+                return;
+            }
             // Hidden block reveal: headbutting a hidden block from below
             // changes it to solid, making the block visible and functional.
             if probe.cell.collision == terrain::CollisionKind::HiddenBlock {
