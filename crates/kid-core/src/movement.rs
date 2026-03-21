@@ -176,6 +176,7 @@ impl OpeningSliceState {
             return;
         }
         let mut block_grid = block_grid;
+        let on_ground_before = self.player.on_ground;
         // ASM sub_914A uses FA78 (per-form half-width from unk_B408) for all
         // collision probes. Thread the form's half-width through to collision
         // functions instead of the constant PLAYER_HALF_WIDTH.
@@ -183,7 +184,6 @@ impl OpeningSliceState {
 
         match physics_order {
             PhysicsOrder::GravityFirst => {
-                let on_ground_before = self.player.on_ground;
                 if let Some(ref mut t) = self.physics_trace {
                     t.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
                     t.on_ground_before = on_ground_before;
@@ -353,7 +353,6 @@ impl OpeningSliceState {
                 }
             }
             PhysicsOrder::AsmFaithful => {
-                let on_ground_before = self.player.on_ground;
                 if let Some(ref mut t) = self.physics_trace {
                     t.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
                     t.on_ground_before = on_ground_before;
@@ -516,6 +515,44 @@ impl OpeningSliceState {
         self.update_camera_follow(y_look_offset);
     }
 
+    fn held_horizontal_direction(input: FrameInput) -> Option<Direction> {
+        match (input.left, input.right) {
+            (true, false) => Some(Direction::Left),
+            (false, true) => Some(Direction::Right),
+            _ => None,
+        }
+    }
+
+    fn should_hold_standing_still(
+        &mut self,
+        input: FrameInput,
+        block_grid: Option<&terrain::BlockGrid>,
+        collision_hw: i32,
+    ) -> bool {
+        if !self.player.on_ground || self.player.x_velocity != 0 {
+            return false;
+        }
+        let Some(direction) = Self::held_horizontal_direction(input) else {
+            return false;
+        };
+        let Some(grid) = block_grid else {
+            return false;
+        };
+
+        self.player.facing = direction;
+        let x_px = (self.player.x_pos >> 16) as i32;
+        let y_px = (self.player.y_pos >> 16) as i32;
+        terrain::probe_wall(
+            grid,
+            x_px,
+            y_px,
+            collision_hw,
+            PLAYER_HEIGHT,
+            direction == Direction::Right,
+        )
+        .hit
+    }
+
     /// Record final state into the physics trace and detect floor landing.
     fn finalise_trace(&mut self) {
         if let Some(ref mut t) = self.physics_trace {
@@ -642,6 +679,9 @@ impl OpeningSliceState {
         form: PlayerForm,
         block_grid: Option<&terrain::BlockGrid>,
     ) -> bool {
+        if self.should_hold_standing_still(input, block_grid, form.half_width()) {
+            return false;
+        }
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
         }
@@ -798,6 +838,9 @@ impl OpeningSliceState {
         form: PlayerForm,
         block_grid: Option<&terrain::BlockGrid>,
     ) -> bool {
+        if self.should_hold_standing_still(input, block_grid, form.half_width()) {
+            return false;
+        }
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
         }

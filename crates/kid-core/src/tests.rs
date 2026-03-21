@@ -11621,6 +11621,40 @@ fn demo_1_handoff_stays_airborne_until_frame_2626() {
 }
 
 #[test]
+fn demo_1_post_landing_hold_preserves_standingstill_through_frame_2714() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_715) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (2_697..=2_714).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    for frame_index in 2_697..=2_714 {
+        let frame = frames
+            .get(&frame_index)
+            .unwrap_or_else(|| panic!("frame {frame_index} should be captured"));
+        assert_eq!(
+            frame.kid_x_pos,
+            Some(0x011A_0000),
+            "demo playback should hold Kid at the landing tile through frame {frame_index}",
+        );
+        assert_eq!(
+            frame.kid_x_velocity,
+            Some(0),
+            "standingstill should keep horizontal speed at zero on frame {frame_index}",
+        );
+        assert_eq!(
+            frame.kid_on_ground,
+            Some(true),
+            "Kid should remain grounded during the post-landing standingstill hold on frame {frame_index}",
+        );
+    }
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
