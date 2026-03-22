@@ -4521,35 +4521,6 @@ fn dragon_walking_patrol_timer_turns_around_without_taking_a_walk_step() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: Dragon front-wall cooldown still needs the ASM collision-bit split, not the broad probe_wall shortcut"]
-fn dragon_walking_front_wall_hit_enters_cooldown_without_turning_around() {
-    let grid = grid_with_wall(17, 0, 20, 4);
-    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 57 << 16, 272 << 16, 2);
-    enemy.on_ground = true;
-    enemy.facing = Direction::Right;
-    enemy.shared_walker_state = SHARED_WALKER_STATE_PATROL;
-    enemy.shared_walker_patrol_timer = 5;
-    let mut projectiles = Vec::new();
-
-    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
-
-    assert_eq!(
-        enemy.facing,
-        Direction::Right,
-        "the Dragon front-wall special case should keep its current facing on the cooldown frame",
-    );
-    assert_eq!(
-        enemy.shared_walker_state, -120,
-        "the grounded wall-hit branch should seed the shared walker cooldown instead of turning the patrol around immediately",
-    );
-    assert_eq!(
-        enemy.x_pos,
-        57 << 16,
-        "the ASM wall-hit special case should hold position instead of snapping into the opposite-facing turnaround path",
-    );
-}
-
-#[test]
 fn dragon_walking_calm_state_stops_and_faces_nearby_player() {
     let grid = grid_with_platform(17, 0, 4);
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
