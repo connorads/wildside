@@ -12253,10 +12253,27 @@ fn demo_auto_ends_after_max_frames() {
         width_pixels: 640,
         height_pixels: 448,
     }));
-    runtime.step_frame(FrameInput::default());
+    let threshold_frame = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        threshold_frame.game_mode,
+        GameMode::DemoPlay,
+        "the timeout compare runs after gameplay, so the threshold frame should still trace as demo playback",
+    );
+    assert!(matches!(runtime.boot_state, BootState::DemoPlay { .. }));
+
+    let handoff_frame = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        handoff_frame.game_mode,
+        GameMode::SegaScreen,
+        "the next frame should expose the ROM's non-paused mode-0 handoff",
+    );
+    assert!(
+        !handoff_frame.paused,
+        "auto-timeout handoff should stay unpaused"
+    );
     assert!(
         matches!(runtime.boot_state, BootState::TitleScreen { .. }),
-        "should return to TitleScreen after max demo frames"
+        "the handoff should reuse title rebuild state after max demo frames"
     );
 }
 
@@ -12281,10 +12298,23 @@ fn demo_2_auto_end_waits_for_the_oracle_backed_timeout_counter() {
     );
     assert!(matches!(runtime.boot_state, BootState::DemoPlay { .. }));
 
-    runtime.step_frame(FrameInput::default());
+    let threshold_frame = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        threshold_frame.game_mode,
+        GameMode::DemoPlay,
+        "the threshold frame should still trace as demo playback before the next-frame handoff becomes visible",
+    );
+
+    let handoff_frame = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        handoff_frame.game_mode,
+        GameMode::SegaScreen,
+        "demo 2 should enter the non-paused mode-0 handoff on the frame after the timeout threshold",
+    );
+    assert!(!handoff_frame.paused);
     assert!(
         matches!(runtime.boot_state, BootState::TitleScreen { .. }),
-        "demo 2 should return to title on the next frame once the delayed timeout counter reaches DEMO_MAX_FRAMES",
+        "demo 2 should move into the title rebuild state once the delayed timeout counter reaches DEMO_MAX_FRAMES",
     );
 }
 
@@ -12305,6 +12335,38 @@ fn published_tas_demo_2_stays_in_gameplay_on_frame_4905() {
         frame_4905,
         Some((GameMode::DemoPlay, LevelId(0x1B), false)),
         "the published Skydragon Castle demo should still be in live gameplay on frame 4905",
+    );
+}
+
+#[test]
+fn published_tas_demo_2_uses_the_mode_0_timeout_handoff_on_frame_4967() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_4966 = None;
+    let mut frame_4967 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(4_968) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            4_966 => {
+                frame_4966 = Some((trace.game_mode, trace.current_level, trace.paused));
+            }
+            4_967 => {
+                frame_4967 = Some((trace.game_mode, trace.current_level, trace.paused));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_4966,
+        Some((GameMode::DemoPlay, LevelId(0x1B), false)),
+        "the published Skydragon Castle demo should still trace as live gameplay on frame 4966",
+    );
+    assert_eq!(
+        frame_4967,
+        Some((GameMode::SegaScreen, LevelId(0x00), false)),
+        "the next frame should take the ROM timeout handoff instead of the paused title helper",
     );
 }
 

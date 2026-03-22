@@ -3,10 +3,10 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-4966-demo-timeout-branch",
+    "slug": "any-percent-published-frame-4966-demo-timeout-live-snapshot",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "demo level 0x1B timeout handoff after the published timeout-counter fix",
+    "area": "demo level 0x1B timeout live snapshot after the mode-0 handoff fix",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
     "frontier_frame": 4966,
@@ -18,19 +18,20 @@
         "reason": "Frames 4898..4965 are authoritative-clean apart from advisory `number_objects`: after subtracting the oracle-backed 61-frame demo-2 timeout offset, native now stays in gameplay through frame 4965 even though the object roster still differs."
       }
     ],
-    "current_blocker": "The frame-4905 timeout-counter blocker is fixed. The next live blocker in `any-percent-published` is frame 4966, where native now times out on the correct frame but still jumps straight into paused title state while oracle remains in gameplay for one more frame and then enters the ROM's non-paused timeout handoff.",
+    "current_blocker": "The paused-title timeout branch is fixed. The next live blocker in `any-percent-published` is still frame 4966, where native now stays in gameplay for the threshold frame and enters the ROM's non-paused mode-0 handoff on frame 4967, but it preserves Kid at `x=0x02489600` while oracle freezes the handoff snapshot at `x=0x02487A00`; the same handoff later clears camera/progression too early on frame 4998.",
     "authoritative_diffs": [
-      "First live authoritative mismatch now lands at frame 4966 in `any-percent-published`: native reports `game_mode=0x002c`, `current_level_id=0x0000`, and `game_paused=true` while oracle still reports `game_mode=0x0010`, `current_level_id=0x001b`, and `game_paused=false`.",
-      "Frame 4967 proves the remaining bug is the timeout branch, not the timeout counter: oracle has moved into `game_mode=0x0000` with the demo level already cleared, while native stays in the paused-title helper state `0x002c`."
+      "First live authoritative mismatch still lands at frame 4966 in `any-percent-published`, but the mode branch now matches: native and oracle both stay in demo through frame 4966 and both enter the non-paused `game_mode=0x0000` handoff on frame 4967; the remaining live diff is `kid_x_pos`, with native at `0x02489600` and oracle frozen at `0x02487A00`.",
+      "Frames 4967..4993 keep the timeout handoff branch authoritative-clean apart from that frozen `kid_x_pos` snapshot drift: native holds the same `+0x1C00` X lead while oracle keeps the earlier handoff pose.",
+      "Frame 4998 is the next distinct blocker in the same handoff: native has already cleared camera/progression to title defaults (`camera_x_pos=0`, `camera_y_pos=0`, `current_helmet_id=0`, `number_diamonds=0`) while oracle still exposes `camera_x_pos=0x01A50000`, `camera_y_pos=0x002C0000`, `current_helmet_id=2`, and `number_diamonds=10`."
     ],
     "advisory_diffs": [
-      "The old frame-4905 blocker is resolved: `published_tas_demo_2_stays_in_gameplay_on_frame_4905` now passes, `verify-tas --frame-start 4898 --frame-end 4980 --checkpoint-interval 1` stays authoritative-clean through frame 4965, and `verify-tas --frame-start 3000 --frame-end 12000 --bisect` now lands at frame 4966.",
-      "Frames 4898..4965 of `any-percent-published` only differ on advisory `number_objects` while Kid state and the demo timeout gate still match.",
-      "The transition checkpoint after frame 4966 still carries advisory roster drift, but the first causal mismatch is now the wrong `game_mode` branch taken after the timeout compare succeeds."
+      "The old timeout-branch blocker is resolved: `demo_auto_ends_after_max_frames`, `demo_2_auto_end_waits_for_the_oracle_backed_timeout_counter`, `published_tas_demo_2_stays_in_gameplay_on_frame_4905`, and `published_tas_demo_2_uses_the_mode_0_timeout_handoff_on_frame_4967` now pass, and `tas-diff --frame-start 4898 --frame-end 5010 --include-advisory` no longer shows `game_mode`, `current_level_id`, or `game_paused` mismatches in the handoff window.",
+      "Frames 4898..4965 of `any-percent-published` still differ only on advisory `number_objects` while Kid state and the demo timeout gate match.",
+      "Frame 4966 also carries advisory `kid_x_vel` drift (`native=0x00001C00`, `oracle=0x00000000`) and the long handoff tail keeps advisory roster-count noise, but the first causal mismatch is now the preserved snapshot position rather than the timeout branch itself."
     ],
     "current_hypothesis": {
-      "name": "Demo 2 timeout still reuses the manual Start-abort title path",
-      "reason": "Oracle probes show the ROM timeout counter at `$FFFFFBC2` is only `0x03B5` on frame 4905, so subtracting the 61-frame offset fixes the early compare. The remaining frame-4966/4967 mismatch matches the code shape in `kid.asm`: the auto-timeout path writes `Game_Mode=0x0000`, while the manual Start-abort path goes straight to `0x002c`. Native still calls `finish_demo_title_return()` for both cases, so it is taking the wrong branch after the compare succeeds."
+      "name": "The auto-timeout handoff still freezes the preserved demo snapshot one sub-step too late",
+      "reason": "The mode-branch split now matches the ROM shape from `kid.asm`: the threshold frame stays in demo and the next frame reports `game_mode=0x0000` without pausing. The remaining `kid_x_pos` drift is exactly `0x1C00`, matching native's last carried X step / advisory `kid_x_vel` on frame 4966, which suggests the auto-timeout handoff should capture an earlier frozen gameplay snapshot than the manual title-return helper. The later frame-4998 camera/progression mismatch suggests the auto-timeout path also needs its own partial-snapshot clear timing rather than reusing the manual-return window."
     },
     "rejected_hypotheses": [
       {
@@ -44,19 +45,24 @@
       {
         "name": "Advisory object-count drift is itself the first causal blocker",
         "reason": "Frames 4898..4965 already differ on `number_objects`, but the authoritative break does not start until frame 4966 when native takes the wrong post-timeout `game_mode` branch."
+      },
+      {
+        "name": "The first remaining blocker was still the timeout branch or pause state",
+        "reason": "After splitting the auto-timeout path from `finish_demo_title_return()`, the handoff window no longer diverges on `game_mode`, `current_level_id`, or `game_paused`; the first authoritative diff is now the preserved `kid_x_pos` snapshot on frame 4966."
       }
     ],
     "required_next_evidence": [
-      "Trace the native auto-timeout writes between frames 4966 and 4967 and split them from the manual `Start`-abort helper if the ROM does not share the same state transition.",
-      "Match the ROM timeout branch's `Game_Mode=0x0000` / level-clear sequencing before touching any remaining title-ready or object-roster drift.",
-      "Re-check the frame-4966..4972 window once the timeout branch matches; the lingering `number_objects` diffs before frame 4966 remain advisory."
+      "Trace which snapshot the ROM preserves for the auto-timeout handoff on frame 4966: native is carrying the final `+0x1C00` X step while oracle freezes the earlier `0x02487A00` pose.",
+      "Separate the auto-timeout partial-snapshot clear timing from the manual Start-abort helper around frames 4994..4998 if the ROM keeps camera/progression live longer on the mode-0 branch.",
+      "Re-check the frame-4966..5005 window once the snapshot/freeze timing matches; the lingering `number_objects` diffs before frame 4966 remain advisory."
     ],
     "verification_commands": [
       "cargo test -p kid-core demo_auto_ends_after_max_frames -- --nocapture",
       "cargo test -p kid-core demo_2_auto_end_waits_for_the_oracle_backed_timeout_counter -- --nocapture",
       "cargo test -p kid-core published_tas_demo_2_stays_in_gameplay_on_frame_4905 -- --nocapture",
+      "cargo test -p kid-core published_tas_demo_2_uses_the_mode_0_timeout_handoff_on_frame_4967 -- --nocapture",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 4898 --frame-end 4980 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 4898 --frame-end 4980 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 4898 --frame-end 5010 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"

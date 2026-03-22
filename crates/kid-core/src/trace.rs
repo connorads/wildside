@@ -384,6 +384,11 @@ impl NativeRuntime {
     }
 
     pub fn game_mode(&self) -> GameMode {
+        if matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.demo_auto_timeout_handoff_active
+        {
+            return GameMode::SegaScreen;
+        }
         match self.boot_state {
             BootState::SegaScreen { .. } => GameMode::SegaScreen,
             BootState::IntroSequence { segment: 0, .. } => GameMode::IntroSequence1,

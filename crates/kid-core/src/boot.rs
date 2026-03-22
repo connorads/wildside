@@ -17,6 +17,8 @@ impl NativeRuntime {
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
         self.demo_title_return_after_frame = false;
+        self.demo_auto_timeout_return_pending = false;
+        self.demo_auto_timeout_handoff_active = false;
         self.preserve_demo_title_snapshot = false;
         self.hide_demo_return_title_player = false;
         self.pending_prize_diamond_awards.clear();
@@ -84,6 +86,8 @@ impl NativeRuntime {
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
         self.demo_title_return_after_frame = false;
+        self.demo_auto_timeout_return_pending = false;
+        self.demo_auto_timeout_handoff_active = false;
         self.reload_block_grid_for_level(self.current_level);
     }
 
@@ -101,6 +105,17 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.prior_input = input;
         self.previous_input = input;
+    }
+
+    pub(crate) fn finish_demo_auto_timeout_return(&mut self) {
+        self.enter_title_screen();
+        self.current_level = LevelId(0);
+        self.paused = false;
+        self.pause_toggle_pending = false;
+        self.demo_auto_timeout_handoff_active = true;
+        self.preserve_demo_title_snapshot = true;
+        self.hide_demo_return_title_player = true;
+        self.player_lifecycle = PlayerLifecycle::Alive;
     }
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
@@ -390,9 +405,8 @@ impl NativeRuntime {
         }
         // Auto-end after DEMO_MAX_FRAMES
         if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
-            self.finish_demo_title_return(FrameInput::default());
-            self.frame_index += 1;
-            return None;
+            self.demo_auto_timeout_return_pending = true;
+            return Some(input);
         }
         let level_id = Self::demo_level_id(use_demo_2);
         if frame_counter == demo::DEMO_LEVEL_SWITCH_FRAME {

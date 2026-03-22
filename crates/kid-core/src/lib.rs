@@ -125,6 +125,12 @@ pub struct NativeRuntime {
     /// Once the wake-up lands, preserve the current frame's updated gameplay
     /// slice under title mode instead of freezing the previous frame.
     demo_title_return_after_frame: bool,
+    /// Demo auto-timeout runs in ReadJoypad after the current gameplay frame,
+    /// so the hand-off should not become visible until the next native step.
+    demo_auto_timeout_return_pending: bool,
+    /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
+    /// paused title helper used by manual Start aborts.
+    demo_auto_timeout_handoff_active: bool,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
@@ -213,6 +219,8 @@ impl NativeRuntime {
             demo_buffered_input: None,
             pending_demo_title_return: 0,
             demo_title_return_after_frame: false,
+            demo_auto_timeout_return_pending: false,
+            demo_auto_timeout_handoff_active: false,
             preserve_demo_title_snapshot: false,
             hide_demo_return_title_player: false,
             demo_toggle: false,
@@ -262,6 +270,10 @@ impl NativeRuntime {
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let raw_input = input;
+        if self.demo_auto_timeout_return_pending {
+            self.demo_auto_timeout_return_pending = false;
+            self.finish_demo_auto_timeout_return();
+        }
         let Some(input) = self.step_demo_input(input) else {
             return self.trace_frame();
         };
