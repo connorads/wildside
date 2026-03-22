@@ -3,40 +3,50 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-6906-title-auto-demo-handoff-lags-by-one-frame",
+    "slug": "any-percent-published-frame-6966-demo-1-hidden-camera-wrap-is-32px-too-low",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "demo level 0x1B post-timeout title idle handoff back into demo playback",
+    "area": "post-timeout demo 1 startup hidden camera warm-up after the fixed 6945 Start-abort window",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 6906,
-    "authoritative_clean_through": 6905,
+    "frontier_frame": 6966,
+    "authoritative_clean_through": 6965,
     "pre_divergence_windows": [
       {
-        "frame_start": 6900,
-        "frame_end": 6905,
-        "reason": "Frames 6900..6905 are authoritative-clean: after the timeout-restart-specific hidden-title window fix, native matches oracle through the last settled title frames before the next one-frame title/demo handoff mismatch."
+        "frame_start": 6960,
+        "frame_end": 6965,
+        "reason": "Frames 6960..6965 are authoritative-clean apart from advisory object-count drift: after suppressing the queued Start abort, native matches oracle through the hidden demo 1 warm-up until the single wrapped camera-Y blip on frame 6966."
       }
     ],
-    "current_blocker": "The timeout-restart title rebuild now restores the standard title pose on the correct frame, but the next live blocker in `any-percent-published` is frame 6906: native still reports `game_mode=0x002C` with the settled title pose at `kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000` while oracle has already resumed `game_mode=0x0010`. Frame 6907 matches again, so the remaining bug is a one-frame late title->demo handoff.",
+    "current_blocker": "The queued frame-6943 Start abort is fixed, but the next live blocker in `any-percent-published` is frame 6966: native exposes `camera_y_pos=0xFF200000` during the hidden demo 1 warm-up while oracle uses `camera_y_pos=0xFF000000`. All other authoritative fields match through frame 6965.",
     "authoritative_diffs": [
       "The old frame-5994 blocker is gone: `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994` plus `tas-diff --frame-start 5988 --frame-end 6000 --include-advisory` now keep frames 5994..6000 authoritative-clean.",
       "The old frame-6033 blocker is gone: `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209` plus `tas-diff --frame-start 6028 --frame-end 6040 --include-advisory` now keep frames 6033..6040 authoritative-clean.",
       "Frames 6206..6208 are now authoritative-clean apart from advisory `number_objects`: after the timeout restart-specific intro-sequence-3 override, native matches oracle's late `game_mode=0x001C` window through the last pre-title frame.",
       "The old frame-6209 blocker is gone: `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames` plus `tas-diff --frame-start 6206 --frame-end 6245 --include-advisory` now keep frames 6209..6244 authoritative-clean while oracle's intro-sequence-3 pose carry-over and the follow-up hidden window are matched.",
       "The old frame-6358 blocker is gone: the timeout-restart path now uses its own 149-frame post-carry-over hide window, `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358` passes, and `tas-diff --frame-start 6354 --frame-end 6364 --include-advisory` is fully authoritative-clean.",
-      "First live authoritative mismatch now lands at frame 6906 in `any-percent-published`: `tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` shows frames 6900..6905 match, frame 6906 keeps native in `game_mode=0x002C` while oracle is already in `game_mode=0x0010`, and frame 6907 already matches again."
+      "The old frame-6906 blocker is gone: `published_tas_demo_2_resumes_demo_play_on_frame_6906` plus the timeout-restart-specific one-frame attract-lock shrink make `tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` fully authoritative-clean.",
+      "The old frame-6945 blocker is gone: `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap` plus the timeout-restart-specific manual-abort gate keep `tas-diff --frame-start 6940 --frame-end 6952 --include-advisory` fully authoritative-clean.",
+      "First live authoritative mismatch now lands at frame 6966 in `any-percent-published`: `tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` shows frames 6960..6965 match apart from advisory object counts, then native exposes a one-frame `camera_y_pos=0xFF200000` while oracle uses `0xFF000000`."
     ],
     "advisory_diffs": [
-      "Frames 6028..6905 of `any-percent-published` now differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame windows are authoritative-clean through frame 6905.",
-      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, intro-sequence-2 duration, first intro-sequence-3 visible-pose fix, late intro-sequence-3 duration fix, first-title-frame carry-over fix, and first standard-title-pose return fix are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`, `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994`, `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209`, `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames`, and `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358`.",
-      "Frames 6209..6240 keep advisory `number_objects` noise because oracle still reports the intro-sequence-3 gfx-object roster while native keeps the title roster stubbed; frames 6241..6905 keep the usual title object-count drift even though Kid/camera parity is restored."
+      "Frames 6028..6965 of `any-percent-published` now differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise even though the live frame windows are authoritative-clean through frame 6965.",
+      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, intro-sequence-2 duration, first intro-sequence-3 visible-pose fix, late intro-sequence-3 duration fix, first-title-frame carry-over fix, first standard-title-pose return fix, fixed frame-6906 demo handoff, and fixed frame-6945 queued-Start abort are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`, `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994`, `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209`, `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames`, `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358`, `published_tas_demo_2_resumes_demo_play_on_frame_6906`, and `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap`.",
+      "Frames 6209..6240 keep advisory `number_objects` noise because oracle still reports the intro-sequence-3 gfx-object roster while native keeps the title roster stubbed; frames 6241..6974 keep the usual title or early-demo object-count drift even though Kid/camera parity is restored apart from frame 6966."
     ],
     "current_hypothesis": {
-      "name": "The timeout-restart title idle counter hands control back to demo playback one frame late",
-      "reason": "`verify-tas --frame-start 3000 --frame-end 12000 --bisect` now moves the frontier to frame 6906, and `tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` shows a single-frame authoritative mismatch: native is still in `game_mode=0x002C` with the settled title pose on 6906, oracle is already back in `game_mode=0x0010`, and 6907 already matches again. That points to a one-frame lag in the title idle/demo auto-start handoff rather than another pose or hide-window bug."
+      "name": "The hard-coded demo 1 hidden-camera quirk for startup frame 60 is 32px too low",
+      "reason": "`verify-tas --frame-start 3000 --frame-end 12000 --bisect` now moves the frontier to frame 6966, `tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` shows the only authoritative difference is `camera_y_pos native=0xFF200000 oracle=0xFF000000` on frame 6966, and `trace.rs` sources that pre-gameplay camera directly from `demo::demo_1_hidden_camera_y(frame_counter)`, where `demo.rs` currently hard-codes frame `60 => 0xFF200000`."
     },
     "rejected_hypotheses": [
+      {
+        "name": "The timeout-restart title idle counter hands control back to demo playback one frame late",
+        "reason": "That was the real frame-6906 blocker. Shortening only the timeout-restart title lock by one frame makes `published_tas_demo_2_resumes_demo_play_on_frame_6906` pass, turns `tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` fully green, and moves the first live mismatch out to frame 6945."
+      },
+      {
+        "name": "A raw imported Start press at frame 6943 is still arming the manual demo-abort helper immediately after the auto-demo restart",
+        "reason": "That was the real frame-6945 blocker. Suppressing manual demo aborts only for timeout-restart demo playback until live gameplay starts makes `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap` pass, turns `tas-diff --frame-start 6940 --frame-end 6952 --include-advisory` fully green, and moves the first live mismatch out to frame 6966."
+      },
       {
         "name": "The timeout-restart hidden-title window expires one frame too late after the intro-sequence-3 carry-over",
         "reason": "That was the real frame-6358 blocker. Giving the timeout-restart path its own 149-frame hidden-title window makes `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358` pass, turns `tas-diff --frame-start 6354 --frame-end 6364 --include-advisory` fully green, and moves the first live mismatch out to frame 6906."
@@ -91,45 +101,48 @@
       }
     ],
     "required_next_evidence": [
-      "Capture a narrower oracle-backed probe around frames 6904..6908 for `Game_Mode`, Kid position, and any title/demo transition bookkeeping to confirm whether the auto-demo handoff lands exactly on frame 6906 or 6907.",
-      "Re-read the title idle / demo auto-start path after the timeout-restart title rebuild to explain why oracle leaves `game_mode=0x002C` one frame earlier than native.",
-      "Add a focused regression around frame 6906 that records the first frame after the timeout-restart title rebuild where gameplay resumes."
+      "Capture a narrower oracle-backed probe around frames 6965..6967 for `camera_y_pos`, `Current_LevelID`, and the hidden demo 1 startup counter so the one-frame wrapped camera blip is explicit.",
+      "Re-read the Kid demo-bootstrap camera choreography around `Load_DemoPlay` / `Load_InGame` to confirm whether the frame-60 wrap should be `0xFF000000` or whether another hidden startup frame is still offset.",
+      "Add a focused regression around frame 6966 that proves the restarted demo 1 warm-up uses the oracle-backed wrapped camera Y before the hidden settle resumes."
     ],
     "verification_commands": [
       "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
       "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6354 --frame-end 6364 --include-advisory",
       "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6900 --frame-end 6912 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6960 --frame-end 6974 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Fix the one-frame late timeout-restart title to demo handoff",
-      "summary": "Use the live 6906 frontier to remove the last one-frame lag where native still reports title mode after oracle has already resumed demo playback.",
+      "title": "Fix the frame-6966 hidden demo 1 camera wrap during the timeout-restart warm-up",
+      "summary": "Use the live 6966 frontier to align the restarted demo 1 pre-gameplay camera quirk with oracle instead of exposing `0xFF200000` for one frame during the hidden warm-up.",
       "sources": [
         "docs/source-port/frontier-state.yaml",
         "docs/source-port/backlog.md",
         "docs/source-port/tas-roadmap.md",
-        "crates/kid-core/src/boot.rs",
+        "crates/kid-core/src/demo.rs",
         "crates/kid-core/src/trace.rs",
         "crates/kid-core/src/tests.rs"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/boot.rs",
+        "crates/kid-core/src/demo.rs",
         "crates/kid-core/src/trace.rs",
         "crates/kid-core/src/tests.rs"
       ],
       "commands": [
         "mise run frontier-status",
-        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6900 --frame-end 6912 --include-advisory",
+        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory",
+        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6960 --frame-end 6974 --include-advisory",
         "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
         "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
         "mise run verify-slice-fast"
       ],
       "done_criteria": [
-        "The timeout-restart title->demo handoff no longer leaves native in title mode on frame 6906.",
-        "`tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` is authoritative-clean through the first resumed demo frame.",
-        "The focused regression suite records the first oracle-backed gameplay-resume frame after the timeout-restart title rebuild."
+        "Frame 6966 no longer exposes the wrong wrapped demo 1 camera Y during the timeout-restart warm-up.",
+        "`tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` is authoritative-clean apart from the existing advisory object-count drift.",
+        "The focused regression suite records the oracle-backed hidden camera pose for the restarted demo 1 warm-up."
       ]
     }
   },
@@ -151,8 +164,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6354 --frame-end 6364 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6900 --frame-end 6912 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6960 --frame-end 6974 --include-advisory",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

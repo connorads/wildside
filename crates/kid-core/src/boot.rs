@@ -27,6 +27,7 @@ impl NativeRuntime {
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
         self.hide_demo_return_title_player = false;
+        self.ignore_demo_start_abort_until_gameplay = false;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -87,6 +88,7 @@ impl NativeRuntime {
     }
 
     fn begin_demo_play(&mut self, use_demo_2: bool) {
+        let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         self.boot_state = BootState::DemoPlay {
             frame_counter: 0,
             data_index: 0,
@@ -114,6 +116,9 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
+        self.timeout_restart_title_intro_sequence_3_pose = false;
+        self.hide_demo_return_title_player = false;
+        self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
         self.reload_block_grid_for_level(self.current_level);
     }
 
@@ -156,6 +161,12 @@ impl NativeRuntime {
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_3_pose = true;
+        // Oracle frame 6906 shows the timeout-restart rebuild handing straight
+        // back into demo playback one frame earlier than the cold-boot title
+        // lock. Keep the shared title choreography, but shorten only this
+        // timeout-restart attract window by one frame so the $280 title idle
+        // countdown reaches demo mode on the correct frame.
+        self.title_menu_arm_frame = self.title_menu_arm_frame.saturating_sub(1);
     }
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
@@ -437,10 +448,22 @@ impl NativeRuntime {
             }
         }
 
+        let gameplay_start_frame = demo::gameplay_start_frame(use_demo_2);
+        if self.ignore_demo_start_abort_until_gameplay && frame_counter >= gameplay_start_frame {
+            self.ignore_demo_start_abort_until_gameplay = false;
+        }
         // ASM loc_119D8 clears Ctrl_Pressed, hibernates, then checks Start on
-        // wake-up. The visible title transition therefore lands two frames
-        // after the live Start press instead of immediately.
-        if input.start && !self.previous_input.start && self.pending_demo_title_return == 0 {
+        // wake-up. The timeout-restart title rebuild feeds a queued Start bit
+        // into the first restarted demo frames, but oracle ignores that input
+        // until demo gameplay is live again. Keep manual demo aborts active
+        // everywhere else, including cold-boot demo starts.
+        let manual_abort_locked =
+            self.ignore_demo_start_abort_until_gameplay && frame_counter < gameplay_start_frame;
+        if input.start
+            && !self.previous_input.start
+            && self.pending_demo_title_return == 0
+            && !manual_abort_locked
+        {
             self.pending_demo_title_return = 2;
         }
         // Auto-end after DEMO_MAX_FRAMES
@@ -457,7 +480,6 @@ impl NativeRuntime {
         if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME && self.opening_slice.is_none() {
             self.begin_demo_gameplay(level_id);
         }
-        let gameplay_start_frame = demo::gameplay_start_frame(use_demo_2);
         if frame_counter + 1 < gameplay_start_frame {
             if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
                 *frame_counter += 1;

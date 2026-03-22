@@ -159,6 +159,9 @@ pub struct NativeRuntime {
     /// After the live snapshot is fully cleared, oracle traces still keep Kid
     /// hidden for a longer title-object rebuild window on the demo-return path.
     hide_demo_return_title_player: bool,
+    /// Timeout-restart demo playback ignores queued manual Start aborts until
+    /// the restarted attract demo reaches its live gameplay hand-off.
+    ignore_demo_start_abort_until_gameplay: bool,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Tracks whether demo playback is currently inside Kid_Transform so the
@@ -250,6 +253,7 @@ impl NativeRuntime {
             preserve_demo_title_snapshot: false,
             timeout_restart_title_intro_sequence_3_pose: false,
             hide_demo_return_title_player: false,
+            ignore_demo_start_abort_until_gameplay: false,
             demo_toggle: false,
             demo_transform_active: false,
             two_player: false,

@@ -12846,6 +12846,118 @@ fn published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358() {
 }
 
 #[test]
+fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_6905 = None;
+    let mut frame_6906 = None;
+    let mut frame_6907 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(6_908) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            6_905 => {
+                frame_6905 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            6_906 => {
+                frame_6906 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            6_907 => {
+                frame_6907 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_6905,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 6905 should still be the last settled timeout-restart title frame",
+    );
+    assert_eq!(
+        frame_6906,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 6906 should flip back into demo playback without moving Kid off the standard title pose yet",
+    );
+    assert_eq!(
+        frame_6907,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "the following frame should stay in demo playback while the title-pose bootstrap continues",
+    );
+}
+
+#[test]
+fn published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_6943 = None;
+    let mut frame_6945 = None;
+    let mut frame_6947 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(6_948) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            6_943 => {
+                frame_6943 = Some((trace.game_mode, trace.current_level, trace.paused));
+            }
+            6_945 => {
+                frame_6945 = Some((trace.game_mode, trace.current_level, trace.paused));
+            }
+            6_947 => {
+                frame_6947 = Some((trace.game_mode, trace.current_level, trace.paused));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_6943,
+        Some((GameMode::DemoPlay, LevelId(0x15), false)),
+        "the queued Start frame should still trace as live demo playback on demo 1",
+    );
+    assert_eq!(
+        frame_6945,
+        Some((GameMode::DemoPlay, LevelId(0x15), false)),
+        "two frames later the timeout-restarted demo should still ignore that queued Start bit",
+    );
+    assert_eq!(
+        frame_6947,
+        Some((GameMode::DemoPlay, LevelId(0x15), false)),
+        "later queued inputs in the same bootstrap window should keep the restarted demo alive",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);
