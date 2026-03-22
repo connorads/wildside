@@ -2,6 +2,10 @@
 
 Progressive milestones for verifying the native engine against TAS recordings via oracle comparison.
 
+Live bootstrap note: `docs/source-port/frontier-state.yaml` is the compact source of
+truth for the active frontier, rejected hypotheses, and next verification commands.
+Run `mise run frontier-status` before using this roadmap as wider historical context.
+
 ## Recordings
 
 | Recording | Frames | Duration | Status |
@@ -81,25 +85,28 @@ Progressive milestones for verifying the native engine against TAS recordings vi
 |-------------|-----------|--------|
 | `--bisect` flag for `verify-tas` | M1 | [x] |
 | CI TAS gate | M4 | [ ] |
-| TAS frontier tracking | M2 | [~] |
+| TAS frontier tracking (`frontier-state.yaml` + `mise run frontier-status`) | M2 | [x] |
 | Framewise CRC checksumming | M7 | [ ] |
 | Regression snapshots from TAS | M3 | [ ] |
 
 ## Verification commands
 
 ```bash
+# Print the live frontier summary first
+mise run frontier-status
+
 # Re-check the live dragon-landing window
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 2936 --frame-end 2942 --checkpoint-interval 1
+  --frame-start 3368 --frame-end 3405 --checkpoint-interval 1
 
 # Bisect to find first divergence
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-end 2000 --bisect
+  --frame-start 3200 --frame-end 4000 --bisect
 
-# Show the advisory object-roster/velocity drift around the landing
+# Show the advisory object-roster/velocity drift around the live walker window
 cargo run --release -p kidcli -- tas-diff \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 2936 --frame-end 2941
+  --frame-start 3368 --frame-end 3400 --include-advisory
 ```

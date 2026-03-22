@@ -53,6 +53,8 @@
 
 ## Methodology
 
+- `docs/source-port/frontier-state.yaml`
+  - compact machine-readable source of truth for the live frontier, rejected hypotheses, and exact next verification commands
 - `docs/source-port/methodology.md`
   - investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol
   - metamorphic relations, mutation testing, divergence classification, fidelity metrics

@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "updated_at": "2026-03-22",
+  "scope": "source-port",
+  "active_frontier": {
+    "slug": "kc_any_percent_2024-frame-3400-shared-walker",
+    "recording": "kc_any_percent_2024",
+    "scenario": ".cache/tas-imports/kc_any_percent_2024/scenario.json",
+    "area": "Knights Isle shared Dragon/Lion grounded walker",
+    "status": "active",
+    "frontier_frame": 3400,
+    "authoritative_clean_through": 3399,
+    "pre_divergence_windows": [
+      {
+        "frame_start": 3374,
+        "frame_end": 3384,
+        "reason": "The second right-side dragon stays in patrol and takes timer turnaround while oracle still holds it on the right-facing tile."
+      },
+      {
+        "frame_start": 3399,
+        "frame_end": 3400,
+        "reason": "Kid and camera are still authoritative, but the walking-dragon roster is already wrong."
+      }
+    ],
+    "current_blocker": "The missing behaviour is earlier than the visible stomp break: DragonWalking is not taking the shared walker from patrol state 0x000A into the calm/alert ladder before patrol expiry owns layout #04 at frame 3384.",
+    "authoritative_diffs": [
+      "First live authoritative mismatch lands at frame 3400 in demo 0x15 during the second Knights Isle stomp setup."
+    ],
+    "advisory_diffs": [
+      "The 3124..3140 re-check is CRC-clean with only advisory diffs.",
+      "Frame 3399 zero-velocity and frame 3384 hold-tile probes are green, but the roster history is still wrong."
+    ],
+    "current_hypothesis": {
+      "name": "Earlier patrol-to-alert entry is missing",
+      "reason": "The right-side walkers are still in plain patrol at frame 3374, so later turnaround and hold logic cannot be the entry point. The next fix has to explain the earlier write that moves DragonWalking into the shared 0 -> 1/2 alert ladder before frame 3384."
+    },
+    "rejected_hypotheses": [
+      {
+        "name": "Retention-only fix",
+        "reason": "Keeping DragonWalking retained inside level bounds did not move the failing frame-3399 warm-state at all."
+      },
+      {
+        "name": "Dragon front-wall cooldown / $42 = $FF88 path",
+        "reason": "Dragon initialises object_meta = 0x0D, so the Goat-only loc_3E406/loc_3E5BA wall-hit cooldown branch is not reachable for DragonWalking."
+      },
+      {
+        "name": "Frame-3126 missing patrol-to-alert entry",
+        "reason": "The lower walker was clipping a spike shoulder. Treating Spikes as a blocking side wall fixed the 3126 turn-in-place case and kept 3124..3140 CRC-clean."
+      },
+      {
+        "name": "Transform timing is the remaining blocker",
+        "reason": "Full gameplay hibernation during Kid_Transform fixed the load-bearing frame-3170 drift and cleared the old frame-3384 hold probe, but frame 3399 still fails."
+      }
+    ],
+    "required_next_evidence": [
+      "Trace the ASM writes that move DragonWalking from patrol 0x000A into the shared calm/alert ladder before frame 3384.",
+      "Capture a wider tas-diff slice across frames 3368..3400 with shared walker internals visible for layouts #00 and #04.",
+      "Keep any new probe focused on the earlier state transition, not another patrol-expiry tweak."
+    ],
+    "verification_commands": [
+      "cargo test -p kid-core demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384 -- --nocapture",
+      "cargo test -p kid-core demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399 -- --nocapture",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3368 --frame-end 3400 --include-advisory",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3200 --frame-end 4000 --bisect",
+      "mise run verify-slice-fast"
+    ]
+  },
+  "stuck_policy": {
+    "probe_only_commit_threshold": 2,
+    "rule": "After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before landing another gameplay patch.",
+    "acceptable_next_moves": [
+      "Add or extend kidcli / native trace output for the hidden state under investigation.",
+      "Introduce a narrower oracle-backed probe that isolates an earlier state transition.",
+      "Re-read the exact ASM routine for the proven write site, then update this frontier state with the result."
+    ]
+  },
+  "bootstrap": {
+    "read_first": [
+      "docs/source-port/frontier-state.yaml",
+      "docs/source-port/backlog.md",
+      "docs/source-port/tas-roadmap.md"
+    ],
+    "commands": [
+      "mise run frontier-status",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3368 --frame-end 3400 --include-advisory"
+    ],
+    "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."
+  }
+}

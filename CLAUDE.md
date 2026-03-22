@@ -26,6 +26,7 @@ Use sources in this order:
 - `.cache/references/gemsplay`
 
 4. Local skills and repo docs
+- `docs/source-port/frontier-state.yaml`
 - `.agents/skills/as-assembler/SKILL.md`
 - `docs/source-port/methodology.md`
 - `docs/source-port/reference-index.md`
@@ -104,6 +105,7 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 ## Iteration workflow
 
 Canonical bug/feature backlog: `docs/source-port/backlog.md`
+Compact live frontier state: `docs/source-port/frontier-state.yaml`
 
 ### Principles (bsnes methodology)
 - Fix behaviours at engine level, never level-specific overrides
@@ -114,23 +116,28 @@ Canonical bug/feature backlog: `docs/source-port/backlog.md`
 - Cross-reference sources — check disassembly AND oracle; if they agree, proceed. If they disagree, investigate further
 - Preserve original quirks explicitly — mark with `// ORIGINAL_QUIRK:`. If behaviour looks wrong but oracle confirms it, the original game has that behaviour
 - Advisory vs authoritative — advisory divergences are expected and masked in sweep. Authoritative divergences (position, velocity, state, lifecycle) are always bugs
+- Reject dead ends once — record them in `frontier-state.yaml` so the next session does not retry them from memory or roadmap prose
 
 ### Session protocol
-1. Read `docs/source-port/backlog.md`; pick the highest-priority open item
-2. Mark `[~]` when starting work
-3. Investigate (structured):
+1. Run `mise run frontier-status` and read `docs/source-port/frontier-state.yaml` before scanning wider prose
+2. If there is an active frontier, continue that work unless a higher-priority backlog item now blocks it
+3. Read `docs/source-port/backlog.md`; pick the highest-priority open item only if no active frontier supersedes it
+4. Mark `[~]` when starting work
+5. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug
    b. Classify: timing, collision, state machine, rendering, or audio?
    c. Trace oracle: run same scenario against oracle, capture state checkpoints
    d. Read disassembly: find the relevant ASM routine (use source precedence)
    e. Cross-reference: compare native logic to both ASM and oracle data
    f. Write a probe scenario if one doesn't exist for this behaviour
-4. Fix: implement in focused commit(s)
-5. Verify visually: capture frames, Read PNGs, compare before/after
-6. Verify mechanically: `mise run verify-slice-fast` must pass
-7. Mark `[x]` in backlog (same commit as the fix)
-8. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
-9. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
+6. After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before another gameplay patch
+7. Fix: implement in focused commit(s)
+8. Verify visually: capture frames, Read PNGs, compare before/after
+9. Verify mechanically: `mise run verify-slice-fast` must pass
+10. Update `docs/source-port/frontier-state.yaml` whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes
+11. Mark `[x]` in backlog (same commit as the fix)
+12. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
+13. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
 
 ## Visual debugging
 

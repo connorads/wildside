@@ -2,6 +2,15 @@
 
 Anti-loop protocol for debugging frame-level divergences between native and oracle.
 
+Bootstrap first:
+
+```bash
+mise run frontier-status
+```
+
+This prints the live frontier, rejected hypotheses, and the exact next probe window so
+you do not restart from stale roadmap prose.
+
 ## Step 1: Find the divergence frame
 
 ```bash
@@ -58,9 +67,11 @@ Shows which levels improve/regress if physics sub-step order is swapped.
 
 ## Anti-patterns
 
+- **Skipping frontier bootstrap** — run `mise run frontier-status` before reading broad backlog/roadmap prose
 - **Manual frame counter tweaking** — use `--bisect` instead of guessing
 - **Hypothesis without data** — always probe before reading ASM
 - **>30 min without running a probe** — stop and build measurement tooling
 - **Fear of breaking sweep** — use `sweep-compare` to preview impact
 - **Circular ASM reading** — if you've read the same routine 3 times without
   new data, you need a new probe, not another re-read
+- **Probe-only churn** — after 2 consecutive probe/docs-only commits on the same frontier, add instrumentation or narrow the scenario before another gameplay patch

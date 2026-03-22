@@ -139,3 +139,7 @@ if [ "$FAIL" -eq 1 ]; then echo "TAS frontier regression detected"; exit 1; fi
 echo "TAS frontier: all recordings pass"
 """
 description = "Verify no TAS regression before current frontier frame"
+
+[tasks.frontier-status]
+run = "python3 scripts/frontier_status.py"
+description = "Print the live source-port frontier, rejected hypotheses, and next verification commands"
