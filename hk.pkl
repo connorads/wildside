@@ -23,6 +23,7 @@ hooks {
                 exclude = binary_excludes
             }
             ["check-merge-conflict"] = (Builtins.check_merge_conflict) {}
+            ["cargo-fmt"] = (Builtins.cargo_fmt) {}
             ["kid-core-timing-regressions"] {
                 glob = List("crates/kid-core/**/*.rs")
                 check = "scripts/quiet-on-success.sh cargo test -q -p kid-core timing_regression_"
