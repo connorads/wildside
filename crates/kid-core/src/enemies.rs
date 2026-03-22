@@ -821,13 +821,25 @@ pub(crate) fn activate_enemies(
     window: ActivationWindow,
     camera_x_px: u32,
     camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
     player_x: u32,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
     // around longer; the Level 1 Dragon continues drifting after its layout
     // anchor scrolls behind the camera.
-    active.retain(|enemy| enemy_should_remain_active(enemy, &view, window));
+    let active_enemy_count = active.len();
+    active.retain(|enemy| {
+        enemy_should_remain_active(
+            enemy,
+            &view,
+            window,
+            camera_x_px,
+            camera_y_px,
+            level_bounds,
+            active_enemy_count,
+        )
+    });
 
     // Activate new enemies that entered the window.
     for (index, object) in view.objects.iter().enumerate() {
@@ -1747,6 +1759,10 @@ pub(crate) fn enemy_should_remain_active(
     enemy: &ActiveEnemy,
     view: &EnemyLayoutView<'_>,
     window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+    active_enemy_count: usize,
 ) -> bool {
     if enemy.segment_index != view.segment_index {
         return false;
@@ -1764,8 +1780,48 @@ pub(crate) fn enemy_should_remain_active(
             FLYER_RETENTION_X_PADDING,
             FLYER_RETENTION_Y_PADDING,
         ),
+        EnemyArchetype::Pacer if matches!(enemy.family, EnemyFamily::DragonWalking) => {
+            dragon_walking_should_remain_active(
+                enemy,
+                camera_x_px,
+                camera_y_px,
+                level_bounds,
+                active_enemy_count,
+            )
+        }
         _ => window.contains(u32::from(object.x), u32::from(object.y)),
     }
+}
+
+fn dragon_walking_should_remain_active(
+    enemy: &ActiveEnemy,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+    active_enemy_count: usize,
+) -> bool {
+    let x_pos = (enemy.x_pos as i32) >> 16;
+    let y_pos = (enemy.y_pos as i32) >> 16;
+    let level_x_max = i32::from(level_bounds.width_pixels) + 0x20;
+    let level_y_max = i32::from(level_bounds.height_pixels) + 0x20;
+    if x_pos <= -0x20 || y_pos <= -0x20 || x_pos > level_x_max || y_pos > level_y_max {
+        return false;
+    }
+    if active_enemy_count <= 10 {
+        return true;
+    }
+
+    let (left_margin, right_margin, top_margin, bottom_margin) = if active_enemy_count <= 20 {
+        (0x1A4, 0x2E4, 0x1A4, 0x284)
+    } else {
+        (0x104, 0x244, 0x104, 0x1E4)
+    };
+    let relative_x = x_pos - camera_x_px as i32;
+    let relative_y = y_pos - camera_y_px as i32;
+    relative_x >= -left_margin
+        && relative_x <= right_margin
+        && relative_y >= -top_margin
+        && relative_y <= bottom_margin
 }
 
 pub(crate) fn step_hopper(
@@ -3008,7 +3064,6 @@ fn step_dragon_walking_airborne(
 
     enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
 }
-
 /// Fire breath for a walking dragon (called after step_pacer handles movement).
 pub(crate) fn step_dragon_walking(
     enemy: &mut ActiveEnemy,
@@ -3924,6 +3979,7 @@ impl NativeRuntime {
         let window = ActivationWindow::from_camera(slice.camera);
         let camera_x_px = slice.camera.x_pos >> 16;
         let camera_y_px = slice.camera.y_pos >> 16;
+        let level_bounds = self.level_bounds(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
         if let Some(enemy_layout) = enemy_layout.as_ref() {
@@ -3934,6 +3990,7 @@ impl NativeRuntime {
                     window,
                     camera_x_px,
                     camera_y_px,
+                    level_bounds,
                     slice.player.x_pos,
                 );
                 step_active_enemies(

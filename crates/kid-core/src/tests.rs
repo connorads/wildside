@@ -3853,7 +3853,18 @@ fn dragon_spawn_uses_traced_offset_and_drift() {
     };
     let mut active = Vec::new();
 
-    activate_enemies(&mut active, &layout, window, 0, 0, 0);
+    activate_enemies(
+        &mut active,
+        &layout,
+        window,
+        0,
+        0,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
+        0,
+    );
 
     let dragon = active.first().expect("dragon should activate");
     assert_eq!(dragon.family, EnemyFamily::Dragon);
@@ -4015,6 +4026,10 @@ fn dragon_flyer_stays_active_after_spawn_point_scrolls_behind_camera() {
         }),
         0,
         OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
         0,
     );
     assert_eq!(
@@ -4041,7 +4056,18 @@ fn dragon_flyer_stays_active_after_spawn_point_scrolls_behind_camera() {
         "dragon position should remain inside the retention window"
     );
     assert!(
-        enemy_should_remain_active(&active[0], &move_end_view, move_end_window),
+        enemy_should_remain_active(
+            &active[0],
+            &move_end_view,
+            move_end_window,
+            move_end_window.x_min,
+            move_end_window.y_min,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            active.len(),
+        ),
         "dragon should still satisfy the retention window after drifting off the spawn point"
     );
     activate_enemies(
@@ -4050,6 +4076,10 @@ fn dragon_flyer_stays_active_after_spawn_point_scrolls_behind_camera() {
         move_end_window,
         429,
         OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
         0,
     );
 
@@ -4057,6 +4087,111 @@ fn dragon_flyer_stays_active_after_spawn_point_scrolls_behind_camera() {
         active.len(),
         1,
         "dragon should remain alive after its spawn point scrolls behind the camera"
+    );
+}
+
+#[test]
+fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
+    let layout = EnemyLayout {
+        axis_uses_y_position: false,
+        unknown_prefix: 0,
+        enemy_type_slots: vec![],
+        unknown_word: 0,
+        header_byte: 0,
+        object_count: 1,
+        objects: vec![kid_data::EnemyLayoutObject {
+            object_type: 0x0D,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x: 336,
+            y: 432,
+        }],
+        segments: vec![],
+    };
+    let mut active = vec![ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        family: EnemyFamily::DragonWalking,
+        x_pos: 0x020B_0000,
+        y_pos: 0x01C0_0000,
+        x_velocity: 0,
+        y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Right,
+        on_ground: true,
+        hit_points: 2,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: DRAGON_WALKING_BREATH_INITIAL,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        walk_speed_override: 0,
+    }];
+    let camera = CameraState {
+        x_pos: 715u32 << 16,
+        y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+    };
+    let window = ActivationWindow::from_camera(camera);
+    let view = enemy_layout_view(&layout, 715, OPENING_GROUNDED_CAMERA_Y_FP >> 16);
+    let level_bounds = physics::LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+
+    assert!(
+        !window.contains(
+            u32::from(layout.objects[0].x),
+            u32::from(layout.objects[0].y),
+        ),
+        "spawn point should be outside the activation window"
+    );
+    assert!(
+        enemy_should_remain_active(
+            &active[0],
+            &view,
+            window,
+            715,
+            OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+            level_bounds,
+            6,
+        ),
+        "walking dragon should keep its live position even after the spawn point leaves view"
+    );
+
+    activate_enemies(
+        &mut active,
+        &layout,
+        window,
+        715,
+        OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        level_bounds,
+        0,
+    );
+
+    assert_eq!(
+        active.len(),
+        1,
+        "walking dragon should remain active after its spawn point scrolls behind the camera"
     );
 }
 
@@ -4140,6 +4275,10 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         }),
         429,
         OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
         0,
     );
 
@@ -7595,7 +7734,18 @@ fn multi_head_boss_spawns_three_heads() {
         y_max: 600,
     };
     let mut active = Vec::new();
-    activate_enemies(&mut active, &layout, window, 0, 0, 200 << 16);
+    activate_enemies(
+        &mut active,
+        &layout,
+        window,
+        0,
+        0,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
+        200 << 16,
+    );
     assert_eq!(active.len(), 3, "Shishkaboss should spawn 3 heads");
     assert_eq!(active[0].boss_head_index, 0);
     assert_eq!(active[1].boss_head_index, 1);
@@ -7628,7 +7778,18 @@ fn multi_head_boss_spawns_three_heads() {
         segments: vec![],
     };
     let mut active2 = Vec::new();
-    activate_enemies(&mut active2, &layout2, window, 0, 0, 200 << 16);
+    activate_enemies(
+        &mut active2,
+        &layout2,
+        window,
+        0,
+        0,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
+        200 << 16,
+    );
     assert_eq!(active2.len(), 1);
     assert_eq!(active2[0].boss_head_index, BOSS_HEAD_NONE);
 }
