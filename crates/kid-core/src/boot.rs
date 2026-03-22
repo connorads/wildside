@@ -18,6 +18,7 @@ impl NativeRuntime {
         self.pending_demo_title_return = 0;
         self.demo_title_return_after_frame = false;
         self.demo_auto_timeout_return_pending = false;
+        self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
         self.preserve_demo_title_snapshot = false;
         self.hide_demo_return_title_player = false;
@@ -64,6 +65,22 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn demo_title_full_snapshot_frames(&self) -> usize {
+        if self.demo_auto_timeout_handoff_active {
+            DEMO_AUTO_TIMEOUT_FULL_SNAPSHOT_FRAMES
+        } else {
+            DEMO_TITLE_FULL_SNAPSHOT_FRAMES
+        }
+    }
+
+    pub(crate) fn demo_title_partial_snapshot_frames(&self) -> usize {
+        if self.demo_auto_timeout_handoff_active {
+            DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES
+        } else {
+            DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES
+        }
+    }
+
     fn begin_demo_play(&mut self, use_demo_2: bool) {
         self.boot_state = BootState::DemoPlay {
             frame_counter: 0,
@@ -87,6 +104,7 @@ impl NativeRuntime {
         self.pending_demo_title_return = 0;
         self.demo_title_return_after_frame = false;
         self.demo_auto_timeout_return_pending = false;
+        self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
         self.reload_block_grid_for_level(self.current_level);
     }
@@ -112,6 +130,7 @@ impl NativeRuntime {
         self.current_level = LevelId(0);
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = true;
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
@@ -406,6 +425,7 @@ impl NativeRuntime {
         // Auto-end after DEMO_MAX_FRAMES
         if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
             self.demo_auto_timeout_return_pending = true;
+            self.demo_auto_timeout_freeze_gameplay_frame = true;
             return Some(input);
         }
         let level_id = Self::demo_level_id(use_demo_2);
@@ -621,7 +641,7 @@ impl NativeRuntime {
                 }
                 self.title_screen_elapsed_frames += 1;
                 if self.preserve_demo_title_snapshot
-                    && self.title_screen_elapsed_frames >= DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES
+                    && self.title_screen_elapsed_frames >= self.demo_title_partial_snapshot_frames()
                 {
                     self.finish_demo_title_snapshot_handoff();
                 }

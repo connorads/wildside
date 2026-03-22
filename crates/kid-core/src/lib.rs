@@ -128,6 +128,10 @@ pub struct NativeRuntime {
     /// Demo auto-timeout runs in ReadJoypad after the current gameplay frame,
     /// so the hand-off should not become visible until the next native step.
     demo_auto_timeout_return_pending: bool,
+    /// When the ROM timeout counter trips, the current trace frame already
+    /// exposes the frozen gameplay snapshot rather than another live physics
+    /// step. Skip the remaining per-frame gameplay work once for that frame.
+    demo_auto_timeout_freeze_gameplay_frame: bool,
     /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
     /// paused title helper used by manual Start aborts.
     demo_auto_timeout_handoff_active: bool,
@@ -220,6 +224,7 @@ impl NativeRuntime {
             pending_demo_title_return: 0,
             demo_title_return_after_frame: false,
             demo_auto_timeout_return_pending: false,
+            demo_auto_timeout_freeze_gameplay_frame: false,
             demo_auto_timeout_handoff_active: false,
             preserve_demo_title_snapshot: false,
             hide_demo_return_title_player: false,
@@ -280,6 +285,7 @@ impl NativeRuntime {
         self.maybe_begin_pending_level_skip();
         self.maybe_begin_pending_level_skip_resume();
         self.maybe_finish_level_skip_resume();
+        let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
         let start_pressed = input.start && !self.previous_input.start;
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
@@ -292,69 +298,72 @@ impl NativeRuntime {
             self.begin_demo_gameplay(NativeRuntime::demo_level_id(use_demo_2));
         }
 
-        self.refresh_active_roster();
-        self.step_pending_prize_diamond_awards();
         let gameplay_slice_active = matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
         ) || (self.demo_gameplay_active()
             && self.opening_slice.is_some());
-        // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
-        if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
-            && gameplay_slice_active
-            && !self.paused
-        {
-            self.step_diamond_power(input);
-        }
-        if gameplay_slice_active {
-            let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
-                && self
-                    .demo_startup_frame()
-                    .is_some_and(|frame| frame > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
-            let gameplay_input = if demo_live_input {
-                input
-            } else {
-                self.gameplay_input(input)
-            };
-            let jump_pressed = if demo_live_input {
-                input.b && !self.previous_input.b
-            } else {
-                self.gameplay_jump_pressed()
-            };
-            let demo_use_demo_2 = self.demo_uses_second_recording();
-            let demo_gameplay_start = demo_use_demo_2
-                .map(demo::gameplay_start_frame)
-                .unwrap_or(demo::DEMO_GAMEPLAY_START_FRAME);
-            match self.demo_startup_frame() {
-                Some(frame)
-                    if demo_use_demo_2 == Some(false)
-                        && (demo_gameplay_start..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+        if !freeze_demo_auto_timeout_snapshot {
+            self.refresh_active_roster();
+            self.step_pending_prize_diamond_awards();
+            // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
+            if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+                && gameplay_slice_active
+                && !self.paused
+            {
+                self.step_diamond_power(input);
+            }
+            if gameplay_slice_active {
+                let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
+                    && self
+                        .demo_startup_frame()
+                        .is_some_and(|frame| frame > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+                let gameplay_input = if demo_live_input {
+                    input
+                } else {
+                    self.gameplay_input(input)
+                };
+                let jump_pressed = if demo_live_input {
+                    input.b && !self.previous_input.b
+                } else {
+                    self.gameplay_jump_pressed()
+                };
+                let demo_use_demo_2 = self.demo_uses_second_recording();
+                let demo_gameplay_start = demo_use_demo_2
+                    .map(demo::gameplay_start_frame)
+                    .unwrap_or(demo::DEMO_GAMEPLAY_START_FRAME);
+                match self.demo_startup_frame() {
+                    Some(frame)
+                        if demo_use_demo_2 == Some(false)
+                            && (demo_gameplay_start..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+                                .contains(&frame) =>
+                    {
+                        self.apply_demo_1_bootstrap_pose_hold();
+                    }
+                    Some(frame) if frame == demo_gameplay_start => {
+                        self.apply_demo_bootstrap_camera_handoff();
+                    }
+                    Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
+                        self.apply_demo_bootstrap_initial_settle();
+                    }
+                    Some(frame)
+                        if frame > demo::DEMO_BOOTSTRAP_INIT_FRAME
+                            && frame < demo::DEMO_BOOTSTRAP_GROUNDED_FRAME =>
+                    {
+                        self.apply_demo_bootstrap_freefall(frame);
+                    }
+                    Some(frame)
+                        if (demo::DEMO_BOOTSTRAP_GROUNDED_FRAME
+                            ..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
                             .contains(&frame) =>
-                {
-                    self.apply_demo_1_bootstrap_pose_hold();
-                }
-                Some(frame) if frame == demo_gameplay_start => {
-                    self.apply_demo_bootstrap_camera_handoff();
-                }
-                Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
-                    self.apply_demo_bootstrap_initial_settle();
-                }
-                Some(frame)
-                    if frame > demo::DEMO_BOOTSTRAP_INIT_FRAME
-                        && frame < demo::DEMO_BOOTSTRAP_GROUNDED_FRAME =>
-                {
-                    self.apply_demo_bootstrap_freefall(frame);
-                }
-                Some(frame)
-                    if (demo::DEMO_BOOTSTRAP_GROUNDED_FRAME
-                        ..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
-                        .contains(&frame) =>
-                {
-                    self.apply_demo_bootstrap_grounded_hold();
-                }
-                _ => {
-                    if !self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed) {
-                        self.refresh_opening_slice(gameplay_input, jump_pressed);
+                    {
+                        self.apply_demo_bootstrap_grounded_hold();
+                    }
+                    _ => {
+                        if !self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed)
+                        {
+                            self.refresh_opening_slice(gameplay_input, jump_pressed);
+                        }
                     }
                 }
             }
@@ -368,6 +377,7 @@ impl NativeRuntime {
         }
 
         let trace = self.trace_frame();
+        self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.prior_input = self.previous_input;
         self.previous_input = input;
         if matches!(self.boot_state, BootState::LevelSkipHold)

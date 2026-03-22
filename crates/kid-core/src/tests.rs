@@ -12371,6 +12371,145 @@ fn published_tas_demo_2_uses_the_mode_0_timeout_handoff_on_frame_4967() {
 }
 
 #[test]
+fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_4966 = None;
+    let mut frame_4967 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(4_968) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            4_966 => {
+                frame_4966 = Some((trace.kid_x_pos, trace.kid_x_velocity));
+            }
+            4_967 => {
+                frame_4967 = Some((trace.kid_x_pos, trace.kid_x_velocity));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_4966,
+        Some((Some(0x0248_7A00), Some(0))),
+        "the timeout threshold frame should freeze the prior live demo pose instead of carrying the final +0x1C00 step",
+    );
+    assert_eq!(
+        frame_4967,
+        Some((Some(0x0248_7A00), Some(0))),
+        "the first mode-0 handoff frame should preserve the same frozen timeout snapshot",
+    );
+}
+
+#[test]
+fn published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_4994 = None;
+    let mut frame_4995 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(4_996) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            4_994 => {
+                frame_4994 = Some((
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.current_helmet_id,
+                    trace.diamond_count,
+                ));
+            }
+            4_995 => {
+                frame_4995 = Some((
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.current_helmet_id,
+                    trace.diamond_count,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_4994,
+        Some((
+            Some(0x0248_7A00),
+            Some(0x00CF_0000),
+            0x01A5_0000,
+            0x002C_0000,
+            PlayerForm::Cyclone.helmet_id(),
+            10,
+        )),
+        "the auto-timeout handoff should still expose the frozen demo Kid pose on frame 4994",
+    );
+    assert_eq!(
+        frame_4995,
+        Some((
+            None,
+            None,
+            0x01A5_0000,
+            0x002C_0000,
+            PlayerForm::Cyclone.helmet_id(),
+            10,
+        )),
+        "Kid should blank one frame later while camera and progression stay preserved",
+    );
+}
+
+#[test]
+fn published_tas_demo_2_clears_camera_and_progression_on_frame_4999() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_4998 = None;
+    let mut frame_4999 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(5_000) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            4_998 => {
+                frame_4998 = Some((
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.current_helmet_id,
+                    trace.diamond_count,
+                ));
+            }
+            4_999 => {
+                frame_4999 = Some((
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.current_helmet_id,
+                    trace.diamond_count,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_4998,
+        Some((
+            0x01A5_0000,
+            0x002C_0000,
+            PlayerForm::Cyclone.helmet_id(),
+            10
+        )),
+        "the auto-timeout handoff should still preserve camera and progression on frame 4998",
+    );
+    assert_eq!(
+        frame_4999,
+        Some((0, 0, PlayerForm::TheKid.helmet_id(), 0)),
+        "camera and progression should only clear on the following title frame",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);

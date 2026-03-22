@@ -55,7 +55,7 @@ impl NativeRuntime {
 
     fn title_uses_full_demo_snapshot(&self) -> bool {
         self.title_uses_demo_snapshot()
-            && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES
+            && self.title_screen_elapsed_frames < self.demo_title_full_snapshot_frames()
     }
 
     fn title_hides_demo_return_player(&self) -> bool {

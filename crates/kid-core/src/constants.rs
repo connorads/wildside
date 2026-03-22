@@ -31,6 +31,11 @@ pub(crate) const TITLE_KID_Y_POS: u32 = 0x008C_0000;
 // few frames later when the title objects fully take over.
 pub(crate) const DEMO_TITLE_FULL_SNAPSHOT_FRAMES: usize = 28;
 pub(crate) const DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES: usize = 32;
+// The ROM auto-timeout branch keeps the frozen gameplay snapshot alive one
+// title frame longer than the manual Start-abort helper before Kid blanks,
+// then clears camera/progression one frame later as well.
+pub(crate) const DEMO_AUTO_TIMEOUT_FULL_SNAPSHOT_FRAMES: usize = 29;
+pub(crate) const DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES: usize = 33;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.
