@@ -194,6 +194,9 @@ pub struct NativeRuntime {
     /// Debug snapshot of stomp eligibility immediately after physics and before
     /// any post-motion consumer can move Kid again.
     last_kid_frame_same_frame_stomp_probe: Option<KidSameFrameStompProbe>,
+    /// Debug snapshot of the Iron Knight wall-attach gate at the pre-physics
+    /// consumer boundary.
+    last_kid_frame_iron_knight_attach_probe: Option<KidIronKnightAttachProbe>,
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
@@ -288,6 +291,7 @@ impl NativeRuntime {
             last_kid_frame_pre_physics_mutators: Vec::new(),
             last_kid_frame_collision_handoff_probe: None,
             last_kid_frame_same_frame_stomp_probe: None,
+            last_kid_frame_iron_knight_attach_probe: None,
             last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -337,6 +341,7 @@ impl NativeRuntime {
         self.last_kid_frame_pre_physics_mutators.clear();
         self.last_kid_frame_collision_handoff_probe = None;
         self.last_kid_frame_same_frame_stomp_probe = None;
+        self.last_kid_frame_iron_knight_attach_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
@@ -508,6 +513,52 @@ impl NativeRuntime {
             post_physics_y_velocity: slice.player.y_velocity,
             anchor_x_pos: frame_start_x_pos,
             anchor_y_pos: frame_start_y_pos,
+        });
+    }
+
+    fn note_kid_iron_knight_attach_probe(
+        &mut self,
+        input: FrameInput,
+        player_before: PlayerState,
+        climbing_before: bool,
+        player_after: PlayerState,
+    ) {
+        if self.progression.current_form != PlayerForm::IronKnight {
+            self.last_kid_frame_iron_knight_attach_probe = None;
+            return;
+        }
+
+        let c_pressed = input.c && !self.prior_input.c;
+        let wall_probe = self.block_grid.as_ref().map(|grid| {
+            terrain::probe_wall(
+                grid,
+                (player_before.x_pos >> 16) as i32,
+                (player_before.y_pos >> 16) as i32,
+                self.progression.current_form.half_width(),
+                PLAYER_HEIGHT,
+                player_before.facing == Direction::Right,
+            )
+        });
+        let candidate = c_pressed
+            && !player_before.on_ground
+            && !climbing_before
+            && wall_probe.is_some_and(|probe| probe.hit);
+        let climbing_after = self.helmet.iron_knight_climbing;
+        let attach_triggered = !climbing_before
+            && climbing_after
+            && player_after.y_velocity == IRON_KNIGHT_ATTACH_Y_VEL;
+
+        self.last_kid_frame_iron_knight_attach_probe = Some(KidIronKnightAttachProbe {
+            c_pressed,
+            on_ground_before: player_before.on_ground,
+            facing: Some(player_before.facing),
+            climbing_before,
+            climbing_after,
+            y_velocity_before: player_before.y_velocity,
+            y_velocity_after: player_after.y_velocity,
+            wall_probe,
+            candidate,
+            attach_triggered,
         });
     }
 
@@ -788,7 +839,14 @@ impl NativeRuntime {
             slice.player,
         );
         let player_before_iron_knight_climb = slice.player;
+        let iron_knight_climbing_before = self.helmet.iron_knight_climbing;
         self.step_iron_knight_climb(&mut slice, input);
+        self.note_kid_iron_knight_attach_probe(
+            input,
+            player_before_iron_knight_climb,
+            iron_knight_climbing_before,
+            slice.player,
+        );
         self.note_kid_pre_physics_mutator(
             KidFramePrePhysicsMutator::IronKnightClimb,
             player_before_iron_knight_climb,

@@ -316,6 +316,20 @@ pub(crate) struct KidSameFrameStompProbe {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidIronKnightAttachProbe {
+    pub(crate) c_pressed: bool,
+    pub(crate) on_ground_before: bool,
+    pub(crate) facing: Option<Direction>,
+    pub(crate) climbing_before: bool,
+    pub(crate) climbing_after: bool,
+    pub(crate) y_velocity_before: i32,
+    pub(crate) y_velocity_after: i32,
+    pub(crate) wall_probe: Option<terrain::WallProbe>,
+    pub(crate) candidate: bool,
+    pub(crate) attach_triggered: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidGroundedReleaseVelocityBranch {
     JumpPressed,
     JumpBuffered,

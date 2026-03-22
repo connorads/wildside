@@ -5021,6 +5021,53 @@ fn trace_frame_reports_kid_same_frame_stomp_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_iron_knight_attach_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.last_kid_frame_iron_knight_attach_probe = Some(KidIronKnightAttachProbe {
+        c_pressed: true,
+        on_ground_before: false,
+        facing: Some(Direction::Right),
+        climbing_before: false,
+        climbing_after: true,
+        y_velocity_before: 0,
+        y_velocity_after: IRON_KNIGHT_ATTACH_Y_VEL,
+        wall_probe: Some(terrain::WallProbe {
+            hit: true,
+            wall_x_px: 160,
+            cell: terrain::Cell::from_be_bytes(0x60, 0),
+            cell_x: 10,
+            cell_y: 1,
+        }),
+        candidate: true,
+        attach_triggered: true,
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_iron_knight_attach_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit Iron Knight attach diagnostics"));
+
+    assert!(
+        probe_debug.contains("c_press=1/ground=0/climbing=0=>1/facing=right"),
+        "the Iron Knight attach probe should expose the raw C-edge, grounded gate, climb transition, and facing",
+    );
+    assert!(
+        probe_debug.contains("y_vel=0x00000000->0xffffc000"),
+        "the Iron Knight attach probe should report the native attach y-velocity injection window",
+    );
+    assert!(
+        probe_debug.contains("wall=hit=1/x=160/cell=10,1 collision=solid block=None has_block=0"),
+        "the Iron Knight attach probe should report the forward wall contact that gates attachment",
+    );
+    assert!(
+        probe_debug.contains("candidate=1/attach=1"),
+        "the Iron Knight attach probe should distinguish a viable attach candidate from an actual attach",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_iron_knight_block_breaker_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -14380,6 +14427,54 @@ fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
         assert!(
             probe_debug.contains("anchor=0x03a80000,0x01bf0000"),
             "frame {frame_index} should preserve the ROM-style saved anchor that a same-frame stomp bounce would need",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_iron_knight_attach_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_iron_knight_attach_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit Iron Knight attach diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("c_press=1/ground=1/climbing=0=>0/facing=right"),
+            "frame {frame_index} should show the live window does carry a raw C-edge, but Kid stays grounded so the Iron Knight attach consumer never transitions into climb",
+        );
+        assert!(
+            probe_debug.contains("y_vel=0x00000000->0x00000000"),
+            "frame {frame_index} should keep the native attach injector flat instead of taking the oracle's -0x4000 step",
+        );
+        assert!(
+            probe_debug
+                .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+            "frame {frame_index} should preserve the adjacent wall contact at the Iron Knight attach boundary",
+        );
+        assert!(
+            probe_debug.contains("candidate=0/attach=0"),
+            "frame {frame_index} should prove the exact native attach path is cold on both frontier frames",
         );
     }
 }

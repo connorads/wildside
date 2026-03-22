@@ -122,6 +122,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed same-frame stomp-contact diagnostic or if it starts driving the eventual stomp-timing fix."
     },
     {
+      "key": "kid_iron_knight_attach_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Focused Iron Knight wall-attach gate at the pre-physics consumer boundary for frames 7968..7969: raw C-edge, grounded/climbing state, forward wall contact, and whether the native handler injected the ROM-matching `-0x4000` attach velocity.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed Iron Knight attach candidate or attach-trigger diagnostic."
+    },
+    {
       "key": "kid_grounded_release_probe",
       "scope": "frame",
       "status": "exploratory",

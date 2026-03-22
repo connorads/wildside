@@ -150,6 +150,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_same_frame_stomp_probe_debug() {
             gameplay_debug_fields.insert("kid_same_frame_stomp_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_iron_knight_attach_probe_debug() {
+            gameplay_debug_fields.insert("kid_iron_knight_attach_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
@@ -543,6 +546,31 @@ impl NativeRuntime {
             probe.post_physics_y_velocity as u32,
             probe.anchor_x_pos,
             probe.anchor_y_pos,
+        ))
+    }
+
+    fn kid_iron_knight_attach_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_iron_knight_attach_probe?;
+
+        Some(format!(
+            "c_press={}/ground={}/climbing={}=>{}/facing={}/y_vel={:#010x}->{:#010x}/wall={}/candidate={}/attach={}",
+            u8::from(probe.c_pressed),
+            u8::from(probe.on_ground_before),
+            u8::from(probe.climbing_before),
+            u8::from(probe.climbing_after),
+            direction_debug_label(probe.facing),
+            probe.y_velocity_before as u32,
+            probe.y_velocity_after as u32,
+            wall_probe_debug_summary(probe.wall_probe),
+            u8::from(probe.candidate),
+            u8::from(probe.attach_triggered),
         ))
     }
 
