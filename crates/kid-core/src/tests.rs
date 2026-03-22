@@ -12260,6 +12260,62 @@ fn demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400 subproblem: the fourth dragon should enter the shared airborne walker path on frame 3124"]
+fn demo_1_fourth_dragon_starts_falling_on_frame_3124() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragons_3123 = None;
+    let mut dragons_3124 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_125) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_123 {
+            let mut dragons: Vec<_> = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                .map(|enemy| {
+                    (enemy.layout_index, enemy.x_pos, enemy.y_pos, enemy.on_ground)
+                })
+                .collect();
+            dragons.sort_unstable_by_key(|dragon| dragon.0);
+            dragons_3123 = Some(dragons);
+        }
+        if frame_index == 3_124 {
+            let mut dragons: Vec<_> = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                .map(|enemy| {
+                    (
+                        enemy.layout_index,
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                        enemy.on_ground,
+                    )
+                })
+                .collect();
+            dragons.sort_unstable_by_key(|dragon| dragon.0);
+            dragons_3124 = Some(dragons);
+            break;
+        }
+    }
+
+    let dragons_3123 = dragons_3123.unwrap_or_else(|| panic!("frame 3123 should be captured"));
+    assert!(
+        dragons_3123.contains(&(1, 0x03C0_0000, 0x0260_0000, false)),
+        "oracle-backed dragon #1 should already be active at its spawn ledge on frame 3123"
+    );
+
+    let dragons_3124 = dragons_3124.unwrap_or_else(|| panic!("frame 3124 should be captured"));
+    assert!(
+        dragons_3124.contains(&(1, 0x03BF_8000, 0x0261_0000, -0x0000_8000, 0x0000_4000, false)),
+        "frame 3124 should enter the shared airborne walker step immediately from the spawn ledge"
+    );
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
