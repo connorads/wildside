@@ -495,15 +495,43 @@ impl NativeRuntime {
             ),
             _ => String::from("none"),
         };
+        let terrain_provenance =
+            match (probe.support_col, probe.probe_row, self.block_grid.as_ref()) {
+                (Some(col), Some(row), Some(current_grid)) => {
+                    let current_cell = current_grid.cell_at(col, row);
+                    let baseline = if self.block_grid_source == BlockGridSource::Generated {
+                        self.load_block_grid_for_level(self.current_level)
+                            .map(|grid| grid.cell_at(col, row))
+                    } else {
+                        None
+                    };
+                    match baseline {
+                        Some(baseline_cell) => format!(
+                            "/terrain=grid={}/current[{}]/baseline[{}]/same={}",
+                            block_grid_source_debug_label(self.block_grid_source),
+                            terrain_cell_debug_summary(current_cell),
+                            terrain_cell_debug_summary(baseline_cell),
+                            u8::from(current_cell == baseline_cell),
+                        ),
+                        None => format!(
+                            "/terrain=grid={}/current[{}]",
+                            block_grid_source_debug_label(self.block_grid_source),
+                            terrain_cell_debug_summary(current_cell),
+                        ),
+                    }
+                }
+                _ => String::new(),
+            };
 
         Some(format!(
-            "ground={}/held={}/scan={}/support={}/release={}/post={}",
+            "ground={}/held={}/scan={}/support={}/release={}/post={}{}",
             u8::from(probe.on_ground_before),
             held,
             scan,
             support,
             u8::from(probe.release_triggered),
             self.last_kid_frame_post_motion_mutator.as_debug_label(),
+            terrain_provenance,
         ))
     }
 
@@ -941,6 +969,23 @@ fn block_type_debug_label(block_type: terrain::BlockType) -> &'static str {
         terrain::BlockType::Deleted => "Deleted",
         terrain::BlockType::None => "None",
     }
+}
+
+fn block_grid_source_debug_label(source: BlockGridSource) -> &'static str {
+    match source {
+        BlockGridSource::None => "none",
+        BlockGridSource::Manual => "manual",
+        BlockGridSource::Generated => "generated",
+    }
+}
+
+fn terrain_cell_debug_summary(cell: terrain::Cell) -> String {
+    format!(
+        "{},{},skin=0x{:02X}",
+        collision_kind_debug_label(cell.collision),
+        block_type_debug_label(cell.block_type),
+        cell.skin,
+    )
 }
 
 fn player_lifecycle_debug_label(lifecycle: PlayerLifecycle) -> &'static str {

@@ -14081,6 +14081,12 @@ fn published_tas_frames_7968_7969_report_kid_grounded_release_probe() {
             "frame {frame_index} should keep the solid terrain support that blocks native release",
         );
         assert!(
+            probe_debug.contains(
+                "terrain=grid=generated/current[solid,None,skin=0x82]/baseline[solid,None,skin=0x82]/same=1"
+            ),
+            "frame {frame_index} should prove the supporting terrain cell still matches the generated level-layout tile",
+        );
+        assert!(
             probe_debug.contains("release=0"),
             "frame {frame_index} should show the AsmFaithful release gate never fired in native",
         );
