@@ -3,35 +3,35 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-5584-timeout-restart-intro-sequence-2-ends-too-early",
+    "slug": "any-percent-published-frame-5994-timeout-restart-intro-sequence-3-keeps-kid-hidden",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "demo level 0x1B auto-timeout intro sequence 2 duration after the intro-sequence-1 coroutine fix",
+    "area": "demo level 0x1B auto-timeout intro sequence 3 first visible Kid pose after the intro-sequence-2 duration fix",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 5584,
-    "authoritative_clean_through": 5583,
+    "frontier_frame": 5994,
+    "authoritative_clean_through": 5993,
     "pre_divergence_windows": [
       {
-        "frame_start": 5298,
-        "frame_end": 5583,
-        "reason": "Frames 5298..5583 are authoritative-clean apart from advisory `number_objects`: the timeout restart now keeps intro sequence 1 alive through oracle's frame-5504 transition, matches intro sequence 2 through frame 5583, and the first remaining live authoritative diff only appears once native leaves intro sequence 2 early on frame 5584."
+        "frame_start": 5578,
+        "frame_end": 5993,
+        "reason": "Frames 5578..5993 are authoritative-clean apart from advisory `number_objects`: the timeout restart now keeps intro sequence 2 alive through oracle's frame-5953 `game_mode=0x001C` transition, matches intro sequence 3 through frame 5993, and the first remaining live authoritative diff only appears once oracle exposes the intro-sequence-3 Kid pose on frame 5994."
       }
     ],
-    "current_blocker": "The timeout restart now reaches intro sequence 2. The next live blocker in `any-percent-published` is frame 5584, where native flips from `game_mode=0x0018` to `0x001C` (intro sequence 3) while oracle is still in `game_mode=0x0018`; Kid remains hidden on both sides and object-count drift stays advisory.",
+    "current_blocker": "The timeout restart now reaches intro sequence 3 on the correct frame. The next live blocker in `any-percent-published` is frame 5994, where `game_mode=0x001C` still matches but native keeps Kid absent (`kid_x_pos=0`, `kid_y_pos=0`) while oracle exposes the intro-sequence-3 Kid pose at `kid_x_pos=0x00600000`, `kid_y_pos=0x00D00000`; object-count drift remains advisory.",
     "authoritative_diffs": [
-      "The old frame-5303 blocker is gone: `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504` plus `tas-diff --frame-start 5298 --frame-end 5310 --include-advisory` now keep intro sequence 1 authoritative-clean through the old frontier.",
-      "Frames 5504..5583 are now authoritative-clean apart from advisory `number_objects`: after the timeout restart hits oracle's frame-5504 `game_mode=0x0018` transition, native matches intro sequence 2 through frame 5583.",
-      "First live authoritative mismatch now lands at frame 5584 in `any-percent-published`: native switches to `game_mode=0x001C`, but oracle is still in `game_mode=0x0018`."
+      "The old frame-5584 blocker is gone: `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953` plus `tas-diff --frame-start 5578 --frame-end 5590 --include-advisory` now keep intro sequence 2 authoritative-clean through the old frontier.",
+      "Frames 5948..5955 are now authoritative-clean apart from advisory `number_objects`: after the timeout restart hits oracle's frame-5953 `game_mode=0x001C` transition, native matches intro sequence 3 through frame 5993.",
+      "First live authoritative mismatch now lands at frame 5994 in `any-percent-published`: `game_mode` still matches, but native keeps Kid hidden while oracle exposes the intro-sequence-3 Kid anchor."
     ],
     "advisory_diffs": [
-      "Frames 5298..5583 of `any-percent-published` differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame window is CRC-clean through frame 5583.",
-      "The timeout live-snapshot, hidden-Kid, mode-0 exit, and intro-sequence-1 duration fixes are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, and `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`.",
-      "Frames 5504..5583 keep only advisory `number_objects` noise: oracle still reports two visible objects during intro sequence 2 while native keeps zero visible objects."
+      "Frames 5578..5993 of `any-percent-published` differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame window is CRC-clean through frame 5993.",
+      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, and intro-sequence-2 duration fixes are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, and `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`.",
+      "Frames 5948..5999 keep only advisory `number_objects` noise: oracle reports the intro-sequence-3 object roster while native still keeps zero visible objects."
     ],
     "current_hypothesis": {
-      "name": "The timeout restart reaches intro sequence 2, but still uses the generic 80-frame segment timer instead of the ROM object coroutine",
-      "reason": "After the intro-sequence-1 fix, native cleanly matches oracle `game_mode=0x0018` through frame 5583 and then flips to `0x001C` exactly when the generic `INTRO_SEGMENT_FRAMES=80` window expires. The ROM `Load_IntroSequence2 -> loc_1B9D0 -> loc_1B9F4` path is another object-backed coroutine, so the restart likely needs a sequence-2-specific duration instead of the shared segment timer."
+      "name": "The timeout restart now reaches intro sequence 3, but still omits the ROM's early `loc_1B96A`-driven visible Kid/object pose",
+      "reason": "After the intro-sequence-2 duration fix, native matches oracle `game_mode=0x001C` through frame 5993, but `tas-diff --frame-start 5988 --frame-end 6000 --include-advisory` shows the first live authoritative diffs on `kid_x_pos`/`kid_y_pos` at frame 5994 while oracle also exposes several `lp=0x01b96a` objects. That suggests the next blocker is the intro-sequence-3 object/pose choreography rather than another segment-duration mismatch."
     },
     "rejected_hypotheses": [
       {
@@ -65,21 +65,24 @@
       {
         "name": "The timeout restart only needed the mode-0 handoff fix; intro sequence 1 could still use the cold-boot 160-frame timer",
         "reason": "Replacing the generic intro-sequence-1 timer with the oracle-backed timeout-restart override plus `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504` moves the frontier from 5303 to 5584 and leaves frames 5298..5583 authoritative-clean apart from advisory object-count drift."
+      },
+      {
+        "name": "The timeout restart could still reuse the shared 80-frame segment timer for intro sequence 2",
+        "reason": "Oracle `Game_Mode` probes show intro sequence 2 starts on frame 5504 and does not reach `0x001C` until frame 5953. Adding the restart-specific 449-frame override plus `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953` moves the frontier from 5584 to 5994 and leaves frames 5578..5993 authoritative-clean apart from advisory object-count drift."
       }
     ],
     "required_next_evidence": [
-      "Measure the exact intro-sequence-2 duration from frame 5504 to oracle's later `game_mode=0x001C` transition, and compare it with native's shared `INTRO_SEGMENT_FRAMES=80` timer.",
-      "Re-read `Load_IntroSequence2`, `loc_1B9D0`, and `loc_1B9F4` in the disassembly, including the `Hibernate_Object #$3C` prelude plus the `d0=$149` object loop, to map the object-backed countdown onto native state.",
-      "Add a narrower oracle-backed probe around frames 5578..5590 that captures the live intro-sequence-2 timing before changing the restart state machine again."
+      "Re-read `sub_1B93E`, `loc_1B96A`, and the `IntroText3` / related intro-sequence-3 object setup in the disassembly to map when Kid should appear at `x=0x00600000`, `y=0x00D00000`.",
+      "Capture a narrower oracle-backed probe around frames 5988..6000 for `Game_Mode`, Kid position, and the intro-sequence-3 object roster before changing the visible-pose logic.",
+      "Add a focused regression or probe around frame 5994 that records the first visible intro-sequence-3 Kid/object state, not just the `game_mode` transition."
     ],
     "verification_commands": [
       "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5298 --frame-end 5310 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5298 --frame-end 5310 --include-advisory",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5498 --frame-end 5508 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5498 --frame-end 5508 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5578 --frame-end 5590 --checkpoint-interval 1",
       "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5578 --frame-end 5590 --include-advisory",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5948 --frame-end 5956 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5948 --frame-end 5956 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5988 --frame-end 6000 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
@@ -103,9 +106,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5298 --frame-end 5310 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5298 --frame-end 5310 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5578 --frame-end 5590 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5988 --frame-end 6000 --include-advisory",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

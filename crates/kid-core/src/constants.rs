@@ -44,6 +44,10 @@ pub(crate) const DEMO_AUTO_TIMEOUT_MODE_0_FRAMES: usize = 177;
 // sequence 1 alive through frame 5503 and only expose `game_mode=0x0018` on
 // frame 5504, so this restart path cannot reuse the cold-boot 160-frame timer.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
+// Oracle-backed Game_Mode probes keep the timeout-restart copy of intro
+// sequence 2 alive through frame 5952 and only expose `game_mode=0x001C` on
+// frame 5953, so this restart path cannot reuse the shared 80-frame timer.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

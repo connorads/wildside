@@ -12616,6 +12616,47 @@ fn published_tas_demo_2_holds_intro_sequence_1_until_frame_5504() {
 }
 
 #[test]
+fn published_tas_demo_2_holds_intro_sequence_2_until_frame_5953() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_5584 = None;
+    let mut frame_5952 = None;
+    let mut frame_5953 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(5_954) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            5_584 => {
+                frame_5584 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            5_952 => {
+                frame_5952 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            5_953 => {
+                frame_5953 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_5584,
+        Some((GameMode::IntroSequence2, None, None)),
+        "the old frame-5584 frontier should stay inside intro sequence 2",
+    );
+    assert_eq!(
+        frame_5952,
+        Some((GameMode::IntroSequence2, None, None)),
+        "the timeout restart should keep intro sequence 2 alive through frame 5952",
+    );
+    assert_eq!(
+        frame_5953,
+        Some((GameMode::IntroSequence3, None, None)),
+        "the timeout restart should only advance into intro sequence 3 on frame 5953",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);
