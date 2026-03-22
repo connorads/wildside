@@ -131,6 +131,10 @@ pub(crate) const KID_SLOPE_RUN_DOWNHILL_ACCEL_FP: i32 = 0x0000_4000;
 pub(crate) const STOMP_BOUNCE_VELOCITY: i32 = -0x0004_0000;
 // Frames an enemy flashes white after taking a non-lethal stomp.
 pub(crate) const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
+// DragonWalking hibernates after a surviving stomp instead of resuming patrol
+// on the next frame. The active TAS frontier keeps layout #02 parked from frame
+// 2939 through 2962 before the right-facing patrol resumes on 2963.
+pub(crate) const DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES: u8 = 24;
 
 // === Evanescent blocks ===
 

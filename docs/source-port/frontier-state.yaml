@@ -6,51 +6,40 @@
     "slug": "kc_any_percent_2024-frame-3400-shared-walker",
     "recording": "kc_any_percent_2024",
     "scenario": ".cache/tas-imports/kc_any_percent_2024/scenario.json",
-    "area": "Knights Isle shared Dragon/Lion grounded walker",
+    "area": "Knights Isle second dragon stomp setup",
     "status": "active",
-    "recommended_frontier_kind": "enemy",
+    "recommended_frontier_kind": "gameplay",
     "frontier_frame": 3400,
     "authoritative_clean_through": 3399,
     "pre_divergence_windows": [
       {
-        "frame_start": 3048,
-        "frame_end": 3049,
-        "reason": "Layout #02 is already 12px ahead on the wrong upper lane by frame 3048, then starts an early airborne drop on frame 3049 while oracle stays grounded at y=0x01B00000."
+        "frame_start": 2938,
+        "frame_end": 2963,
+        "reason": "The surviving lower DragonWalking enemy now stays parked on the oracle-backed stomp tile through frame 2962, then cleanly resumes patrol on frame 2963."
       },
       {
-        "frame_start": 3049,
-        "frame_end": 3060,
-        "reason": "The lower dragon leaves the upper lane too early, falls through the shared walker handoff, and lands 16px low at y=0x01C00000 on frame 3060."
-      },
-      {
-        "frame_start": 3169,
-        "frame_end": 3170,
-        "reason": "The frame-3206 lower-dragon probe is just the Kid_Transform hibernate window preserving the already-bad transform-entry state from the earlier frame-3048/frame-3049 upper-lane drop."
-      },
-      {
-        "frame_start": 3391,
-        "frame_end": 3392,
-        "reason": "The lower shared walker (layout #02) should still be walking left at frame 3392, but native flips right and resets the patrol cadence one frame too early."
-      },
-      {
-        "frame_start": 3392,
+        "frame_start": 3399,
         "frame_end": 3400,
-        "reason": "Kid and camera are still authoritative after the early lower-dragon turnaround, but the walking-dragon roster history is already wrong before the stomp."
+        "reason": "Frame 3399 still matches the oracle-backed pre-stomp arc, but frame 3400 keeps Kid on the old airborne ballistic path instead of snapping into the grounded second-dragon setup."
+      },
+      {
+        "frame_start": 3400,
+        "frame_end": 3401,
+        "reason": "Native still reports no terrain, wall, ceiling, platform, or stomp event on the live frame, while oracle has already resolved Kid onto the grounded setup path."
       }
     ],
-    "current_blocker": "The old frame-3170 transform-entry theory is now stale on the current tree. A narrower lower-dragon trace shows layout #02 is already 12px ahead on the wrong upper lane by frame 3048, starts an early airborne drop on frame 3049, then lands 16px low at y=0x01C00000 on frame 3060 before Kid_Transform later freezes that bad state on frame 3170. New shared-walker terrain probes now show why the drop starts: on frame 3048 native steps to next_x=455 and only the left edge still sees upper-lane support (`cell 27,27`, `floor_y=432`), while the centre and right probes have already moved to gap cell `28,28` with no ground.",
+    "current_blocker": "DragonWalking now holds the first stomp's surviving lower dragon on the oracle-backed tile through frame 2962, which keeps the old 3048/3170/3206 lower-dragon probes green on the current tree. The first live blocker is back at frame 3400: frame 3399 still matches the oracle-backed pre-stomp arc, but frame 3400 leaves Kid airborne with no terrain, wall, ceiling, platform, or stomp event in native while oracle has already snapped into the grounded second-dragon setup.",
     "authoritative_diffs": [
       "First live authoritative mismatch lands at frame 3400 in demo 0x15 during the second Knights Isle stomp setup."
     ],
     "advisory_diffs": [
       "The 3124..3140 re-check is CRC-clean with only advisory diffs.",
-      "Frame 3399 zero-velocity and frame 3384 hold-tile probes are green, but the roster history is still wrong.",
-      "The frame-3206 lower-dragon probe is now understood as a hibernated copy of frame 3170, not a fresh shared-walker transition.",
-      "A new frame-3048/frame-3049 probe shows the lower dragon leaves the upper lane before transform entry; the later frame-3170/frame-3206 window is only preserving that earlier mistake."
+      "The post-stomp lower-dragon hold now stays on the oracle-backed tile through frame 2962 and resumes patrol on frame 2963.",
+      "The old lower-dragon probes at frames 3048, 3170, 3206, and 3384 are green on the current tree; the live mismatch is now Kid state on frame 3400 rather than shared-walker roster drift before it."
     ],
     "current_hypothesis": {
-      "name": "Lower shared walker drops off the upper lane before the transform freeze window",
-      "reason": "A narrower probe shows native layout #02 is already at x=0x01C78000 on frame 3048 while oracle keeps the same dragon at x=0x01BB8000, and native starts an airborne drop on frame 3049 while oracle stays grounded at y=0x01B00000. New terrain-probe instrumentation shows the grounded walker advances to next_x=455 on frame 3048 and already classifies the centre/right of the hitbox as unsupported gap (`cell 28,28`) even though the left edge still sees the upper lane (`cell 27,27`, `floor_y=432`). The later frame-3060 lower-floor landing and frame-3170/frame-3206 hold/freeze window are downstream copies of that earlier shared walker ledge/handoff mistake."
+      "name": "Kid misses a gfx-object collision snap into the second dragon setup",
+      "reason": "Frame 3399 still matches the oracle-backed pre-stomp arc with no input, but on frame 3400 native keeps integrating the airborne trajectory and reports no terrain/platform support while the DragonWalking roster itself remains oracle-backed. That points away from another shared-walker timing bug and toward missing player-vs-object collision handling on the stationary dragon setup, likely around the `GfxObjects_CollisionKid` / `colid_kidbelow` path rather than level terrain."
     },
     "rejected_hypotheses": [
       {
@@ -76,27 +65,33 @@
       {
         "name": "Frame-3170 transform entry is still the first actionable lower-dragon break",
         "reason": "A new lower-dragon probe now shows the bad state is already visible on frame 3048 and the early airborne drop begins on frame 3049, so the transform-entry window only preserves an older mistake."
+      },
+      {
+        "name": "The surviving lower dragon still resumes patrol too early after the first stomp",
+        "reason": "DragonWalking now arms a 24-frame hurt hibernate after a surviving stomp, and the checked-in regression keeps layout #02 parked on the oracle-backed tile through frame 2962 before patrol resumes on frame 2963."
       }
     ],
     "required_next_evidence": [
-      "Compare the new frame-3048 terrain-probe trace against `sub_36972`/`sub_36A58` to decide whether DragonWalking should keep upper-lane support when only the trailing edge still stands on the tile.",
-      "Carry the same probe fields through the frame-3060 landing window so the lower-floor snap can be tied back to the earlier support classification rather than treated as a fresh break.",
-      "Keep the next gameplay fix focused on the lower dragon's earlier ledge/airborne handoff before transform entry, not the already-proven frame-3392 turnaround symptom or the now-green frame-3384 right-side hold tile."
+      "Trace the oracle-backed frame-3400 snap against `GfxObjects_CollisionKid` and the player-side `colid_kidbelow` consumers to see which object collision path should ground Kid with no terrain support.",
+      "Capture the frame-3399/frame-3400 object-collision state for the second dragon setup so native can prove whether DragonWalking should behave like a temporary support surface on that setup frame.",
+      "Keep the next gameplay fix focused on Kid's frame-3400 object collision or landing resolution, not on re-opening the already-green lower-dragon shared-walker probes."
     ],
     "verification_commands": [
+      "cargo test -p kid-core demo_1_lands_on_the_walking_dragon_on_frame_2938 -- --nocapture",
+      "cargo test -p kid-core demo_1_lower_dragon_holds_the_post_stomp_tile_through_frame_2962 -- --nocapture",
+      "cargo test -p kid-core demo_1_keeps_the_oracle_backed_stomp_drift_on_frame_2994 -- --nocapture",
+      "cargo test -p kid-core demo_1_reenters_walking_from_standingstill_on_frame_3252 -- --nocapture",
+      "cargo test -p kid-core demo_1_reaches_the_last_oracle_backed_pre_stomp_arc_on_frame_3399 -- --nocapture",
+      "cargo test -p kid-core demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_lower_dragon_stays_grounded_on_the_upper_lane_through_frame_3049 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_transform_freeze_preserves_lower_dragon_state_through_frame_3206 -- --nocapture",
       "cargo test -p kid-core demo_1_lower_dragon_does_not_enter_transform_freeze_twelve_pixels_ahead_on_frame_3170 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_lower_dragon_does_not_freeze_twelve_pixels_ahead_on_frame_3206 -- --ignored --nocapture",
-      "cargo test -p kid-core demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384 -- --nocapture",
       "cargo test -p kid-core demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399 -- --nocapture",
-      "cargo test -p kid-core dragon_walking_snapshot_reports_shared_walker_debug_fields -- --nocapture",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3048 --frame-end 3060 --include-advisory --frontier-kind enemy --show-object-roster-on-match",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3164 --frame-end 3171 --include-advisory --frontier-kind enemy --show-object-roster-on-match",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3382 --frame-end 3399 --include-advisory --frontier-kind enemy",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3398 --frame-end 3405 --include-advisory --frontier-kind enemy --show-object-roster-on-match",
       "mise run audit-debug-fields",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3200 --frame-end 4000 --bisect --frontier-kind enemy",
       "mise run verify-slice-fast"
     ]
   },
@@ -118,8 +113,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3200 --frame-end 4000 --bisect --frontier-kind enemy",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3382 --frame-end 3399 --include-advisory --frontier-kind enemy",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3398 --frame-end 3405 --include-advisory --frontier-kind enemy --show-object-roster-on-match",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

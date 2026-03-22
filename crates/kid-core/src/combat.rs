@@ -124,6 +124,16 @@ impl NativeRuntime {
                     kill_indices.push(roster_idx);
                 } else {
                     enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                        // The stomp resolves after the landing frame. Give the
+                        // hurt hibernate a one-frame arm so DragonWalking still
+                        // reaches the oracle-backed frame-2938 contact tile
+                        // before freezing from frame 2939 onward.
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
+                        enemy.grounded_frames = DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                    }
                     // Bosses retaliate with projectiles when damaged
                     if matches!(
                         enemy.family,
