@@ -4146,6 +4146,11 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: spawn_shared_walker_state(EnemyFamily::DragonWalking),
+        shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(EnemyFamily::DragonWalking),
+        shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
+            EnemyFamily::DragonWalking,
+        ),
     }];
     let camera = CameraState {
         x_pos: 715u32 << 16,
@@ -4264,6 +4269,11 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: spawn_shared_walker_state(EnemyFamily::DragonWalking),
+        shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(EnemyFamily::DragonWalking),
+        shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
+            EnemyFamily::DragonWalking,
+        ),
     }];
 
     activate_enemies(
@@ -4459,6 +4469,57 @@ fn dragon_walking_keeps_grounded_support_while_centre_is_still_on_the_lip() {
 }
 
 #[test]
+fn dragon_walking_grounded_patrol_moves_without_populating_x_velocity() {
+    let grid = grid_with_platform(17, 0, 4);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 23 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Right;
+    enemy.shared_walker_state = SHARED_WALKER_STATE_PATROL;
+    enemy.shared_walker_patrol_timer = 5;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
+
+    assert_eq!(
+        enemy.x_pos,
+        (23 << 16) + 0x8000,
+        "grounded patrol should still advance by the traced half-pixel step",
+    );
+    assert_eq!(
+        enemy.x_velocity, 0,
+        "shared grounded walker movement uses the patrol step, not x_vel, in the ASM path",
+    );
+}
+
+#[test]
+fn dragon_walking_calm_state_stops_and_faces_nearby_player() {
+    let grid = grid_with_platform(17, 0, 4);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Left;
+    enemy.shared_walker_state = 0;
+    enemy.shared_walker_patrol_timer = 5;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(72 << 16));
+
+    assert_eq!(
+        enemy.x_pos,
+        40 << 16,
+        "the calm grounded state should idle immediately instead of taking another walk step",
+    );
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "the shared walker should face Kid before leaving the calm state",
+    );
+    assert_eq!(
+        enemy.shared_walker_state, SHARED_WALKER_STATE_FACE_RIGHT,
+        "the grounded calm state should enter the right-facing alert branch",
+    );
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
@@ -4515,6 +4576,9 @@ fn hopper_lands_on_terrain_before_launching() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
 
     let mut grounded_skull = None;
@@ -4579,6 +4643,9 @@ fn hopper_launches_into_an_air_arc() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
 
     let mut grounded_skull = None;
@@ -4695,6 +4762,9 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     step_active_enemies(
         std::slice::from_mut(&mut enemy),
@@ -4769,6 +4839,9 @@ fn hopper_targets_player_direction_before_launch() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
 
     for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -4843,6 +4916,9 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
 
     for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -6446,6 +6522,9 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: spawn_shared_walker_state(family),
+        shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+        shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
     }
 }
 
@@ -6606,6 +6685,9 @@ fn cloud_flies_horizontally() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let x_before = enemy.x_pos;
     step_cloud(&mut enemy, None);
@@ -6660,6 +6742,9 @@ fn cloud_reverses_at_wall() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     // Run until it hits the wall and reverses
     let mut reversed = false;
@@ -6742,6 +6827,9 @@ fn fireball_gravity_scales_with_hp() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     assert_eq!(bouncer_gravity(&make(1)), 0x1000);
     assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -6832,6 +6920,9 @@ fn sphere_applies_gravity() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     step_bouncer(&mut enemy, None);
     assert_eq!(
@@ -6885,6 +6976,9 @@ fn sphere_bounces_off_floor() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     // Run until it bounces (y_velocity becomes negative)
     let mut bounced = false;
@@ -6944,6 +7038,9 @@ fn sphere_bounces_off_wall() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let mut bounced = false;
     for _ in 0..50 {
@@ -7007,6 +7104,9 @@ fn emo_rock_hovers_above_player_then_drops() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
 
     // During hover: tracks player x, hovers above player y
@@ -7073,6 +7173,9 @@ fn emo_rock_lands_and_walks() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
 
     // Step until it lands
@@ -7209,6 +7312,9 @@ fn archer_faces_player_direction() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let mut projs = Vec::new();
     let player_x = Some(200u32 << 16);
@@ -7257,6 +7363,9 @@ fn archer_fires_arrow_when_timer_expires() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let mut projs = Vec::new();
     let player_x = Some(200u32 << 16);
@@ -7353,6 +7462,9 @@ fn tank_fires_bullet_after_timer_expires() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let mut projs = Vec::new();
     step_tank_fire(&mut enemy, &mut projs);
@@ -7405,6 +7517,9 @@ fn tank_does_not_fire_while_timer_active() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let mut projs = Vec::new();
     step_tank_fire(&mut enemy, &mut projs);
@@ -7471,6 +7586,9 @@ fn tracker_chases_player_rightward() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let px = Some(200u32 << 16);
     let py = Some(100u32 << 16);
@@ -7522,6 +7640,9 @@ fn tracker_chases_player_leftward() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let px = Some(100u32 << 16);
     let py = Some(100u32 << 16);
@@ -7576,6 +7697,9 @@ fn boss_fires_projectiles_when_stomped() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     runtime.active_enemies = vec![boss];
     runtime.projectiles.clear();
@@ -7662,6 +7786,9 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     runtime.active_enemies = vec![boss];
     runtime.projectiles.clear();
@@ -7836,6 +7963,9 @@ fn ufo_beam_fires_when_player_below() {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
     };
     let mut projectiles = Vec::new();
 
@@ -10580,6 +10710,9 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
+        shared_walker_state: spawn_shared_walker_state(family),
+        shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+        shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
     }
 }
 
@@ -12134,8 +12267,7 @@ fn demo_1_keeps_the_oracle_backed_stomp_drift_on_frame_2994() {
         "the carried drift should still line up with the oracle by frame 3001",
     );
     assert_eq!(
-        frame_3001.camera_x_pos,
-        0x01C8_0000,
+        frame_3001.camera_x_pos, 0x01C8_0000,
         "camera follow should recover once the carried drift lines the player back up",
     );
 }
@@ -12244,6 +12376,46 @@ fn demo_1_reaches_the_last_oracle_backed_pre_stomp_arc_on_frame_3399() {
 }
 
 #[test]
+fn demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragons_3399 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_400) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_399 {
+            let mut dragons: Vec<_> = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                .map(|enemy| {
+                    (
+                        enemy.layout_index,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                        enemy.on_ground,
+                    )
+                })
+                .collect();
+            dragons.sort_unstable_by_key(|dragon| dragon.0);
+            dragons_3399 = Some(dragons);
+            break;
+        }
+    }
+
+    let dragons_3399 = dragons_3399.unwrap_or_else(|| panic!("frame 3399 should be captured"));
+    assert_eq!(
+        dragons_3399,
+        vec![
+            (0, 0, 0, true),
+            (1, 0, 0, true),
+            (2, 0, 0, true),
+            (4, 0, 0, true),
+        ],
+        "frame 3399 should keep the grounded walking dragons on the oracle-backed zero-velocity path even though the position/facing frontier remains open",
+    );
+}
+
+#[test]
 #[ignore = "TAS frontier 3400: pre-stomp walking-dragon parity still open"]
 fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
@@ -12322,8 +12494,7 @@ fn demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400() {
         "frame 3400 should already be grounded on the oracle-backed dragon path",
     );
     assert_eq!(
-        frame_3400.camera_x_pos,
-        0x02CF_0000,
+        frame_3400.camera_x_pos, 0x02CF_0000,
         "camera follow should still match the oracle-backed second dragon setup on frame 3400",
     );
 }
@@ -12342,7 +12513,12 @@ fn demo_1_fourth_dragon_stays_active_and_enters_airborne_path_by_frame_3124() {
                 .iter()
                 .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
                 .map(|enemy| {
-                    (enemy.layout_index, enemy.x_pos, enemy.y_pos, enemy.on_ground)
+                    (
+                        enemy.layout_index,
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.on_ground,
+                    )
                 })
                 .collect();
             dragons.sort_unstable_by_key(|dragon| dragon.0);
@@ -12378,7 +12554,14 @@ fn demo_1_fourth_dragon_stays_active_and_enters_airborne_path_by_frame_3124() {
 
     let dragons_3124 = dragons_3124.unwrap_or_else(|| panic!("frame 3124 should be captured"));
     assert!(
-        dragons_3124.contains(&(1, 0x03BF_8000, 0x0261_0000, -0x0000_8000, 0x0000_4000, false)),
+        dragons_3124.contains(&(
+            1,
+            0x03BF_8000,
+            0x0261_0000,
+            -0x0000_8000,
+            0x0000_4000,
+            false
+        )),
         "frame 3124 should enter the oracle-backed airborne walker path from the spawn ledge",
     );
 }

@@ -405,6 +405,12 @@ pub(crate) struct ActiveEnemy {
     /// Walk speed override from tracking callback ($50(a5)). When non-zero, step_pacer
     /// uses this instead of pacer_walk_speed(). Set by Scorpion tracking (Scorpion.asm loc_3DD7E).
     pub(crate) walk_speed_override: i32,
+    /// Shared Dragon/Lion grounded-state word ($42(a3)).
+    pub(crate) shared_walker_state: i16,
+    /// Shared Dragon/Lion patrol cadence countdown ($54(a5)).
+    pub(crate) shared_walker_patrol_timer: u16,
+    /// Dragon alternates the next patrol cadence reload between $32 and $12C via $6E(a5).
+    pub(crate) shared_walker_patrol_short_next: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -942,6 +948,9 @@ pub(crate) fn activate_enemies(
                 },
                 scorpion_tracking_lock: false,
                 walk_speed_override: 0,
+                shared_walker_state: spawn_shared_walker_state(family),
+                shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+                shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
             });
         }
     }
@@ -2918,14 +2927,78 @@ pub(crate) const DRAGON_WALKING_BREATH_HOLD_FRAMES: u16 = 68;
 pub(crate) const DRAGON_WALKING_RECOVER_FRAMES: u16 = 0;
 pub(crate) const DRAGON_WALKING_BREATH_OFFSET_PX: i32 = 0x1C;
 pub(crate) const DRAGON_WALKING_GRAVITY: i32 = 0x4000;
+pub(crate) const SHARED_WALKER_STATE_PATROL: i16 = 10;
+pub(crate) const SHARED_WALKER_STATE_FACE_RIGHT: i16 = 1;
+pub(crate) const SHARED_WALKER_STATE_FACE_LEFT: i16 = 2;
+const SHARED_WALKER_STATE_COOLDOWN: i16 = -120;
+const SHARED_WALKER_DETECT_RANGE: i32 = 0x60;
+const SHARED_WALKER_RELEASE_RANGE: i32 = 0x70;
+const DRAGON_WALKING_PATROL_SHORT_FRAMES: u16 = 0x32;
+const DRAGON_WALKING_PATROL_LONG_FRAMES: u16 = 0x12C;
 const DRAGON_WALKING_PHASE_WALK: u8 = 0;
 const DRAGON_WALKING_PHASE_BREATH: u8 = 1;
 const DRAGON_WALKING_PHASE_RECOVER: u8 = 2;
 
 enum DragonWalkingWalkStep {
     Walked,
-    Blocked,
+    Idled,
     StartedAirborne,
+}
+
+pub(crate) fn spawn_shared_walker_state(family: EnemyFamily) -> i16 {
+    match family {
+        EnemyFamily::DragonWalking | EnemyFamily::Lion => SHARED_WALKER_STATE_PATROL,
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_shared_walker_patrol_timer(family: EnemyFamily) -> u16 {
+    match family {
+        EnemyFamily::DragonWalking => DRAGON_WALKING_PATROL_LONG_FRAMES,
+        EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_shared_walker_patrol_short_next(family: EnemyFamily) -> bool {
+    matches!(family, EnemyFamily::DragonWalking)
+}
+
+fn shared_walker_turnaround(enemy: &mut ActiveEnemy) {
+    reverse_enemy_direction(enemy);
+    if enemy.shared_walker_state > 0 && enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL {
+        enemy.shared_walker_state = SHARED_WALKER_STATE_COOLDOWN;
+    }
+}
+
+fn shared_walker_should_tick_patrol(enemy: &ActiveEnemy) -> bool {
+    enemy.shared_walker_state <= 0 || enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL
+}
+
+fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
+    if !shared_walker_should_tick_patrol(enemy) || enemy.shared_walker_patrol_timer == 0 {
+        return false;
+    }
+
+    enemy.shared_walker_patrol_timer -= 1;
+    if enemy.shared_walker_patrol_timer != 0 {
+        return false;
+    }
+
+    enemy.shared_walker_patrol_timer = match enemy.family {
+        EnemyFamily::DragonWalking => {
+            let next = if enemy.shared_walker_patrol_short_next {
+                DRAGON_WALKING_PATROL_SHORT_FRAMES
+            } else {
+                DRAGON_WALKING_PATROL_LONG_FRAMES
+            };
+            enemy.shared_walker_patrol_short_next = !enemy.shared_walker_patrol_short_next;
+            next
+        }
+        EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
+        _ => 0,
+    };
+    true
 }
 
 fn dragon_walking_floor_support(
@@ -2987,52 +3060,82 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
 fn step_dragon_walking_walk(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
 ) -> DragonWalkingWalkStep {
-    let Some(grid) = block_grid else {
-        let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
-        enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
-        enemy.y_velocity = 0;
-        enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
-        return DragonWalkingWalkStep::Walked;
-    };
-
     let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
-    let x_velocity = horizontal_velocity(enemy.facing, walk_speed);
-    let moving_right = x_velocity >= 0;
-    let next_x = (enemy.x_pos as i64 + i64::from(x_velocity)) as u32;
-    let cx = (next_x >> 16) as i32;
-    let cy = (enemy.y_pos >> 16) as i32;
-    let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
-    if wall.hit {
-        // Leftward wall turns in the Lion/Dragon shared ASM stop with the
-        // sprite flush to the wall surface instead of one pixel inside it.
-        enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
+    let walk_delta = horizontal_velocity(enemy.facing, walk_speed);
+    let moving_right = walk_delta >= 0;
+
+    if shared_walker_tick_patrol(enemy) {
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
-        return DragonWalkingWalkStep::Blocked;
+        return DragonWalkingWalkStep::Idled;
     }
 
-    let floor = dragon_walking_floor_support(grid, cx, cy);
-    if !floor.on_ground {
-        enemy.on_ground = false;
-        enemy.x_velocity = x_velocity;
-        enemy.y_velocity = 0;
-        enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
-        return DragonWalkingWalkStep::StartedAirborne;
+    let current_y_px = (enemy.y_pos >> 16) as i32;
+
+    if let Some(grid) = block_grid {
+        let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+        let cx = (next_x >> 16) as i32;
+        let wall = dragon_walking_probe_wall(grid, cx, current_y_px, moving_right);
+        if wall.hit {
+            enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            shared_walker_turnaround(enemy);
+            return DragonWalkingWalkStep::Idled;
+        }
+
+        let floor = dragon_walking_floor_support(grid, cx, current_y_px);
+        if !floor.on_ground {
+            enemy.on_ground = false;
+            enemy.x_velocity = walk_delta;
+            enemy.y_velocity = 0;
+            enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
+            return DragonWalkingWalkStep::StartedAirborne;
+        }
+
+        enemy.y_pos = (floor.floor_y_px as u32) << 16;
+        enemy.on_ground = true;
     }
 
-    enemy.x_pos = next_x;
-    enemy.x_velocity = x_velocity;
+    if enemy.shared_walker_state < 0 {
+        enemy.shared_walker_state += 1;
+    } else if enemy.shared_walker_state == 0 {
+        if let Some(player_x_pos) = player_x_pos {
+            let dx = ((player_x_pos as i64 - enemy.x_pos as i64) >> 16) as i32;
+            if dx.abs() <= SHARED_WALKER_DETECT_RANGE {
+                if dx >= 0 {
+                    enemy.facing = Direction::Right;
+                    enemy.shared_walker_state = SHARED_WALKER_STATE_FACE_RIGHT;
+                } else {
+                    enemy.facing = Direction::Left;
+                    enemy.shared_walker_state = SHARED_WALKER_STATE_FACE_LEFT;
+                }
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                return DragonWalkingWalkStep::Idled;
+            }
+        }
+    } else if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
+        && let Some(player_x_pos) = player_x_pos
+    {
+        let dx = ((player_x_pos as i64 - enemy.x_pos as i64) >> 16) as i32;
+        if dx.abs() > SHARED_WALKER_RELEASE_RANGE {
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            shared_walker_turnaround(enemy);
+            return DragonWalkingWalkStep::Idled;
+        }
+    }
+
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+    enemy.x_velocity = 0;
     enemy.y_velocity = 0;
-    enemy.y_pos = (floor.floor_y_px as u32) << 16;
-    enemy.on_ground = true;
     DragonWalkingWalkStep::Walked
 }
 
-fn step_dragon_walking_airborne(
-    enemy: &mut ActiveEnemy,
-    block_grid: Option<&terrain::BlockGrid>,
-) {
+fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
@@ -3058,6 +3161,9 @@ fn step_dragon_walking_airborne(
             enemy.y_velocity = 0;
             enemy.x_velocity = 0;
             enemy.on_ground = true;
+            if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL {
+                enemy.shared_walker_state = SHARED_WALKER_STATE_COOLDOWN;
+            }
             return;
         }
     }
@@ -3069,7 +3175,7 @@ pub(crate) fn step_dragon_walking(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
     projectiles: &mut Vec<EnemyProjectile>,
-    _player_x_pos: Option<u32>,
+    player_x_pos: Option<u32>,
 ) {
     if enemy.grounded_frames > 0 {
         enemy.grounded_frames -= 1;
@@ -3116,9 +3222,9 @@ pub(crate) fn step_dragon_walking(
     }
 
     let blocked = if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK {
-        match step_dragon_walking_walk(enemy, block_grid) {
+        match step_dragon_walking_walk(enemy, block_grid, player_x_pos) {
             DragonWalkingWalkStep::Walked => false,
-            DragonWalkingWalkStep::Blocked => true,
+            DragonWalkingWalkStep::Idled => false,
             DragonWalkingWalkStep::StartedAirborne => {
                 step_dragon_walking_airborne(enemy, block_grid);
                 return;
@@ -3941,7 +4047,9 @@ impl NativeRuntime {
                 && self
                     .demo_startup_frame()
                     .zip(self.demo_uses_second_recording())
-                    .is_some_and(|(frame, use_demo_2)| frame >= demo::enemy_warmup_frame(use_demo_2)))
+                    .is_some_and(|(frame, use_demo_2)| {
+                        frame >= demo::enemy_warmup_frame(use_demo_2)
+                    }))
     }
 
     pub(crate) fn refresh_active_roster(&mut self) {
