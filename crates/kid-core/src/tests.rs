@@ -12256,9 +12256,18 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
                 .active_enemies
                 .iter()
                 .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
-                .map(|enemy| (enemy.x_pos, enemy.y_pos))
+                .map(|enemy| {
+                    (
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                        enemy.facing,
+                        enemy.on_ground,
+                    )
+                })
                 .collect();
-            dragons.sort_unstable();
+            dragons.sort_unstable_by_key(|dragon| dragon.0);
             dragons_3399 = Some(dragons);
             break;
         }
@@ -12268,12 +12277,12 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
     assert_eq!(
         dragons_3399,
         vec![
-            (0x01ED_0000, 0x01C0_0000),
-            (0x0327_0000, 0x0270_0000),
-            (0x035E_8000, 0x0270_0000),
-            (0x0367_0000, 0x01C0_0000),
+            (0x01ED_0000, 0x01C0_0000, 0, 0, Direction::Left, true),
+            (0x0327_0000, 0x0270_0000, 0, 0, Direction::Right, true),
+            (0x035E_8000, 0x0270_0000, 0, 0, Direction::Left, true),
+            (0x0367_0000, 0x01C0_0000, 0, 0, Direction::Right, true),
         ],
-        "frame 3399 should already keep the oracle-backed walking-dragon warm-state before Kid diverges on frame 3400",
+        "frame 3399 should already keep the oracle-backed walking-dragon warm-state, including the shared grounded idle before Kid diverges on frame 3400",
     );
 }
 
