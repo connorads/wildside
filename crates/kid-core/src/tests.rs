@@ -4128,8 +4128,6 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4248,8 +4246,6 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         dragon_phase: DragonFlyingState::Hovering,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4501,8 +4497,6 @@ fn hopper_lands_on_terrain_before_launching() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4567,8 +4561,6 @@ fn hopper_launches_into_an_air_arc() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4685,8 +4677,6 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4761,8 +4751,6 @@ fn hopper_targets_player_direction_before_launch() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4837,8 +4825,6 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6442,8 +6428,6 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: spawn_dragon_patrol_cadence(family),
-        dragon_patrol_timer: spawn_dragon_patrol_timer(family),
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6463,49 +6447,6 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
     }
-}
-
-#[test]
-fn dragon_walking_patrol_timer_alternates_300_and_50_frame_turns() {
-    let mut dragon = make_pacer(EnemyFamily::DragonWalking, 1, 96, 96);
-    dragon.facing = Direction::Right;
-    dragon.dragon_patrol_timer = 1;
-
-    step_dragon_walking(&mut dragon, None, &mut Vec::new(), None);
-
-    assert_eq!(
-        dragon.facing,
-        Direction::Left,
-        "the first expired patrol timer should flip the walking dragon",
-    );
-    assert_eq!(
-        dragon.dragon_patrol_cadence,
-        0x012C_0032,
-        "the shared cadence word should swap into the short-turn phase after the first patrol flip",
-    );
-    assert_eq!(
-        dragon.dragon_patrol_timer, 0x0032,
-        "the first patrol flip should reload the ASM-backed 50-frame short turn timer",
-    );
-
-    dragon.dragon_patrol_timer = 1;
-    step_dragon_walking(&mut dragon, None, &mut Vec::new(), None);
-
-    assert_eq!(
-        dragon.facing,
-        Direction::Right,
-        "the next expired patrol timer should flip the dragon back the other way",
-    );
-    assert_eq!(
-        dragon.dragon_patrol_cadence,
-        DRAGON_WALKING_PATROL_CADENCE,
-        "the cadence word should swap back to the original 300/50 ordering after the short turn",
-    );
-    assert_eq!(
-        dragon.dragon_patrol_timer,
-        DRAGON_WALKING_PATROL_INITIAL,
-        "the short-turn expiration should restore the ASM-backed 300-frame patrol timer",
-    );
 }
 
 #[test]
@@ -6647,8 +6588,6 @@ fn cloud_flies_horizontally() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6703,8 +6642,6 @@ fn cloud_reverses_at_wall() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6787,8 +6724,6 @@ fn fireball_gravity_scales_with_hp() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6879,8 +6814,6 @@ fn sphere_applies_gravity() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6934,8 +6867,6 @@ fn sphere_bounces_off_floor() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6995,8 +6926,6 @@ fn sphere_bounces_off_wall() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7060,8 +6989,6 @@ fn emo_rock_hovers_above_player_then_drops() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7128,8 +7055,6 @@ fn emo_rock_lands_and_walks() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7266,8 +7191,6 @@ fn archer_faces_player_direction() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7316,8 +7239,6 @@ fn archer_fires_arrow_when_timer_expires() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7414,8 +7335,6 @@ fn tank_fires_bullet_after_timer_expires() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7468,8 +7387,6 @@ fn tank_does_not_fire_while_timer_active() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7536,8 +7453,6 @@ fn tracker_chases_player_rightward() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7589,8 +7504,6 @@ fn tracker_chases_player_leftward() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7645,8 +7558,6 @@ fn boss_fires_projectiles_when_stomped() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7733,8 +7644,6 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7909,8 +7818,6 @@ fn ufo_beam_fires_when_player_below() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: 0,
-        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -10655,8 +10562,6 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
-        dragon_patrol_cadence: spawn_dragon_patrol_cadence(family),
-        dragon_patrol_timer: spawn_dragon_patrol_timer(family),
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,

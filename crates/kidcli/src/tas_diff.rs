@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::oracle::OracleState;
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
-use crate::sweep::{ADVISORY_FIELDS, compare_sweep_states, extract_checkpoint_states};
+use crate::sweep::{compare_sweep_states, extract_checkpoint_states, ADVISORY_FIELDS};
 
 /// Run native and oracle side-by-side, print per-frame divergences.
 #[allow(clippy::too_many_arguments)]
@@ -39,10 +39,7 @@ pub fn run_tas_diff(
         })
         .collect();
 
-    println!(
-        "tas-diff: {} (frames {start}..{end})",
-        scenario.slug
-    );
+    println!("tas-diff: {} (frames {start}..{end})", scenario.slug);
 
     // Run native (with physics trace if requested)
     println!("  running native ({end} frames)...");
@@ -119,7 +116,9 @@ pub fn run_tas_diff(
         let adv_count = diffs.len() - auth_count;
 
         if auth_count > 0 {
-            println!("frame {frame_idx}: \x1b[31mDIVERGE\x1b[0m ({auth_count} authoritative, {adv_count} advisory)");
+            println!(
+                "frame {frame_idx}: \x1b[31mDIVERGE\x1b[0m ({auth_count} authoritative, {adv_count} advisory)"
+            );
         } else {
             println!("frame {frame_idx}: \x1b[33mADVISORY\x1b[0m ({adv_count} advisory)");
         }
@@ -163,10 +162,7 @@ pub fn run_tas_diff(
                         pt.ascending_and_b_held
                     );
                     if pt.jump_initiated {
-                        println!(
-                            "  jump:   yv={:#010x}",
-                            pt.jump_y_vel.unwrap_or(0) as u32
-                        );
+                        println!("  jump:   yv={:#010x}", pt.jump_y_vel.unwrap_or(0) as u32);
                     }
                     if pt.floor_hit {
                         println!(
@@ -176,10 +172,7 @@ pub fn run_tas_diff(
                         );
                     }
                     if pt.wall_hit {
-                        println!(
-                            "  wall:   snap_x={:#010x}",
-                            pt.wall_snap_x.unwrap_or(0)
-                        );
+                        println!("  wall:   snap_x={:#010x}", pt.wall_snap_x.unwrap_or(0));
                     }
                     println!(
                         "  final:  ({:#010x},{:#010x}) vel=({:#010x},{:#010x}) ground={}→{}",
@@ -195,7 +188,8 @@ pub fn run_tas_diff(
         }
 
         let oracle_state = checkpoint_state(&oracle.states, &label);
-        if auth_count > 0 || native_object_debug_relevant(native_trace.get(frame_idx), oracle_state) {
+        if auth_count > 0 || native_object_debug_relevant(native_trace.get(frame_idx), oracle_state)
+        {
             println!("  --- object roster ---");
             println!(
                 "  native: {}",
@@ -226,7 +220,10 @@ pub fn run_tas_diff(
             })
             .collect();
 
-        println!("generating visual diffs for {} frames...", divergent_frames.len());
+        println!(
+            "generating visual diffs for {} frames...",
+            divergent_frames.len()
+        );
 
         // Build oracle PNG index: frame_index → png_path
         let oracle_png_index: std::collections::HashMap<usize, &std::path::Path> = oracle
@@ -248,13 +245,12 @@ pub fn run_tas_diff(
             .collect();
 
         let warp_level = scenario.warp_to_level.unwrap_or(0);
-        let native_rendered =
-            crate::native_player::render_gameplay_frame_evidence_for_level(
-                manifest,
-                &native_trace,
-                &checkpoints,
-                warp_level,
-            )?;
+        let native_rendered = crate::native_player::render_gameplay_frame_evidence_for_level(
+            manifest,
+            &native_trace,
+            &checkpoints,
+            warp_level,
+        )?;
 
         let mut saved = 0usize;
         for (label, frame_idx, w, h, native_rgb) in &native_rendered {
@@ -263,25 +259,17 @@ pub fn run_tas_diff(
                 None => continue,
             };
             let oracle_img = image::open(oracle_png_path)
-                .with_context(|| format!("failed to open oracle PNG: {}", oracle_png_path.display()))?
+                .with_context(|| {
+                    format!("failed to open oracle PNG: {}", oracle_png_path.display())
+                })?
                 .to_rgb8();
             let oracle_rgb = oracle_img.as_raw();
 
-            let (cw, ch, composite) = crate::diff::generate_diff_composite(
-                native_rgb,
-                oracle_rgb,
-                *w as u32,
-                *h as u32,
-            );
+            let (cw, ch, composite) =
+                crate::diff::generate_diff_composite(native_rgb, oracle_rgb, *w as u32, *h as u32);
             let out_path = visual_dir.join(format!("{label}.png"));
-            image::save_buffer(
-                &out_path,
-                &composite,
-                cw,
-                ch,
-                image::ColorType::Rgb8,
-            )
-            .with_context(|| format!("failed to write {}", out_path.display()))?;
+            image::save_buffer(&out_path, &composite, cw, ch, image::ColorType::Rgb8)
+                .with_context(|| format!("failed to write {}", out_path.display()))?;
             saved += 1;
         }
         println!("saved {saved} visual diffs to {}", visual_dir.display());
@@ -315,10 +303,9 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
     for object in &frame.active_objects {
         match object.kind {
             kid_core::NativeObjectKind::Player => {}
-            kid_core::NativeObjectKind::Enemy { object_type } => entries.push(format!(
-                "enemy_{object_type:02X}@{:#010x},{:#010x}",
-                object.x_pos, object.y_pos
-            )),
+            kid_core::NativeObjectKind::Enemy { object_type } => {
+                entries.push(format_native_enemy_debug(object_type, object))
+            }
             kid_core::NativeObjectKind::Platform { kind, subtype } => entries.push(format!(
                 "platform_{kind:02X}:{subtype:02X}@{:#010x},{:#010x}",
                 object.x_pos, object.y_pos
@@ -326,7 +313,9 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
         }
     }
     for &(cell_x, cell_y, remaining) in &frame.block_bounces {
-        entries.push(format!("block_bounce@{cell_x:02X},{cell_y:02X} rem={remaining}"));
+        entries.push(format!(
+            "block_bounce@{cell_x:02X},{cell_y:02X} rem={remaining}"
+        ));
     }
     for &(x_px, y_px, remaining, content_id) in &frame.floating_items {
         entries.push(format!(
@@ -347,18 +336,58 @@ fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
     let entries = state
         .active_enemies
         .iter()
-        .map(|object| {
-            format!(
-                "0x{:02X}@{:#010x},{:#010x} vel={:#010x},{:#010x}",
-                object.object_type,
-                object.x_pos,
-                object.y_pos,
-                object.x_velocity as u32,
-                object.y_velocity as u32
-            )
-        })
+        .map(format_oracle_enemy_debug)
         .collect();
     summarize_entries(entries)
+}
+
+fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSnapshot) -> String {
+    let layout = object
+        .layout_index
+        .map(|index| format!("#{index:02}"))
+        .unwrap_or_default();
+    let velocity = match (object.x_velocity, object.y_velocity) {
+        (Some(x_velocity), Some(y_velocity)) => {
+            format!(
+                " vel={:#010x},{:#010x}",
+                x_velocity as u32, y_velocity as u32
+            )
+        }
+        _ => String::new(),
+    };
+    let facing = object
+        .facing
+        .map(|facing| format!(" face={facing:?}"))
+        .unwrap_or_default();
+    let on_ground = object
+        .on_ground
+        .map(|on_ground| format!(" ground={}", u8::from(on_ground)))
+        .unwrap_or_default();
+    let hit_points = object
+        .hit_points
+        .map(|hit_points| format!(" hp={hit_points}"))
+        .unwrap_or_default();
+    let stationary = if object.stationary {
+        " stationary=1"
+    } else {
+        ""
+    };
+    format!(
+        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}",
+        object.x_pos, object.y_pos
+    )
+}
+
+fn format_oracle_enemy_debug(object: &crate::oracle::OracleEnemyState) -> String {
+    format!(
+        "0x{:02X}@{:#010x},{:#010x} vel={:#010x},{:#010x} face={:?}",
+        object.object_type,
+        object.x_pos,
+        object.y_pos,
+        object.x_velocity as u32,
+        object.y_velocity as u32,
+        object.facing
+    )
 }
 
 fn summarize_entries(entries: Vec<String>) -> String {
@@ -372,4 +401,53 @@ fn summarize_entries(entries: Vec<String>) -> String {
     let extra = entries.len() - LIMIT;
     let shown = entries.into_iter().take(LIMIT).collect::<Vec<_>>();
     format!("{}; +{extra} more", shown.join("; "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_native_enemy_debug, format_oracle_enemy_debug};
+    use kid_core::{physics::Direction, NativeObjectKind, NativeObjectSnapshot};
+
+    #[test]
+    fn native_enemy_debug_includes_layout_motion_and_ground_state() {
+        let debug = format_native_enemy_debug(
+            0x0D,
+            &NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0D },
+                x_pos: 0x035E_8000,
+                y_pos: 0x0270_0000,
+                layout_index: Some(4),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(Direction::Left),
+                on_ground: Some(true),
+                hit_points: Some(2),
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+            },
+        );
+
+        assert_eq!(
+            debug,
+            "enemy_0D#04@0x035e8000,0x02700000 vel=0x00000000,0x00000000 face=Left ground=1 hp=2",
+        );
+    }
+
+    #[test]
+    fn oracle_enemy_debug_includes_velocity_and_facing() {
+        let debug = format_oracle_enemy_debug(&crate::oracle::OracleEnemyState {
+            object_type: 0x0D,
+            x_pos: 0x0367_0000,
+            y_pos: 0x01C0_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: crate::oracle::EnemyFacing::Right,
+        });
+
+        assert_eq!(
+            debug,
+            "0x0D@0x03670000,0x01c00000 vel=0x00000000,0x00000000 face=Right",
+        );
+    }
 }
