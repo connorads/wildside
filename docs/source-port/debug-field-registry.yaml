@@ -106,6 +106,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed pre-physics handoff or handler-attribution diagnostic."
     },
     {
+      "key": "kid_collision_handoff_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Native carry-style state visible before pre-physics consumption: lifecycle, prior post-motion mutator, and queued stomp/form/level-skip or player wall-cling/jump-buffer state for the frame-7969 Knights Isle lift-off frontier.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed native collision-handoff or carry-state diagnostic ahead of normal physics."
+    },
+    {
       "key": "kid_grounded_release_probe",
       "scope": "frame",
       "status": "exploratory",

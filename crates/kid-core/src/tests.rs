@@ -4957,6 +4957,39 @@ fn trace_frame_reports_kid_grounded_release_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_collision_handoff_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.last_kid_frame_collision_handoff_probe = Some(KidCollisionHandoffProbe {
+        player_lifecycle: PlayerLifecycle::Alive,
+        previous_post_motion_mutator: KidFramePostMotionMutator::None,
+        pending_stomp_bounce: false,
+        pending_form: None,
+        pending_level_skip: None,
+        on_ground_before: true,
+        jump_buffer_frames: 0,
+        wall_cling_direction: None,
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_collision_handoff_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid collision-handoff diagnostics"));
+
+    assert!(
+        probe_debug.contains("lifecycle=alive/prev_post=none"),
+        "the collision-handoff probe should report the carried gameplay lifecycle and prior post-motion mutator",
+    );
+    assert!(
+        probe_debug.contains(
+            "pending_stomp=0/pending_form=none/pending_level_skip=none/ground=1/jump_buffer=0/wall_cling=none"
+        ),
+        "the collision-handoff probe should expose the native carry-style state before pre-physics consumption",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -14112,6 +14145,47 @@ fn published_tas_frames_7968_7969_report_kid_grounded_release_probe() {
         assert!(
             probe_debug.contains("post=none"),
             "frame {frame_index} should show no later post-motion support handoff changed Kid",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_collision_handoff_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_collision_handoff_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit kid collision-handoff diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("lifecycle=alive/prev_post=none"),
+            "frame {frame_index} should show no prior native post-motion consumer feeding the next pre-motion handoff",
+        );
+        assert!(
+            probe_debug.contains(
+                "pending_stomp=0/pending_form=none/pending_level_skip=none/ground=1/jump_buffer=0/wall_cling=none"
+            ),
+            "frame {frame_index} should prove native enters the lift-off window with no carried stomp, pending form, level-skip, jump-buffer, or wall-cling handoff queued before physics",
         );
     }
 }

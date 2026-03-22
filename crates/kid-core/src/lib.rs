@@ -181,12 +181,16 @@ pub struct NativeRuntime {
     last_kid_frame_motion_branch: KidFrameMotionBranch,
     /// Debug label for the first post-motion system that moved or consumed Kid.
     last_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
+    /// Debug label for the prior frame's first post-motion system that touched Kid.
+    previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
     /// Debug snapshot of Kid before any pre-physics mutator runs this frame.
     last_kid_frame_pre_physics_start: Option<PlayerState>,
     /// Debug snapshot of Kid immediately before `step_with_order(...)`.
     last_kid_frame_pre_physics_before_physics: Option<PlayerState>,
     /// Ordered list of pre-physics handlers that changed Kid state this frame.
     last_kid_frame_pre_physics_mutators: Vec<KidFramePrePhysicsMutator>,
+    /// Debug snapshot of native carry-style state before pre-physics consumption.
+    last_kid_frame_collision_handoff_probe: Option<KidCollisionHandoffProbe>,
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
@@ -275,9 +279,11 @@ impl NativeRuntime {
             trace_physics: false,
             last_kid_frame_motion_branch: KidFrameMotionBranch::default(),
             last_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
+            previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
             last_kid_frame_pre_physics_start: None,
             last_kid_frame_pre_physics_before_physics: None,
             last_kid_frame_pre_physics_mutators: Vec::new(),
+            last_kid_frame_collision_handoff_probe: None,
             last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -319,11 +325,13 @@ impl NativeRuntime {
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let raw_input = input;
+        self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
         self.last_kid_frame_pre_physics_start = None;
         self.last_kid_frame_pre_physics_before_physics = None;
         self.last_kid_frame_pre_physics_mutators.clear();
+        self.last_kid_frame_collision_handoff_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
@@ -458,6 +466,19 @@ impl NativeRuntime {
         self.last_kid_frame_pre_physics_start = Some(player);
         self.last_kid_frame_pre_physics_before_physics = Some(player);
         self.last_kid_frame_pre_physics_mutators.clear();
+    }
+
+    fn begin_kid_collision_handoff_probe(&mut self, player: PlayerState) {
+        self.last_kid_frame_collision_handoff_probe = Some(KidCollisionHandoffProbe {
+            player_lifecycle: self.player_lifecycle,
+            previous_post_motion_mutator: self.previous_kid_frame_post_motion_mutator,
+            pending_stomp_bounce: self.pending_stomp_bounce.is_some(),
+            pending_form: self.progression.pending_form,
+            pending_level_skip: self.pending_level_skip,
+            on_ground_before: player.on_ground,
+            jump_buffer_frames: player.jump_buffer_frames,
+            wall_cling_direction: player.wall_cling_direction,
+        });
     }
 
     fn kid_pre_physics_probe_state_changed(before: PlayerState, after: PlayerState) -> bool {
@@ -683,6 +704,7 @@ impl NativeRuntime {
         // player clear. This can come from a transform resolved last frame or
         // from a floating helmet prize collected later in this frame.
         self.stomped_this_frame = false;
+        self.begin_kid_collision_handoff_probe(slice.player);
         self.begin_kid_pre_physics_probe(slice.player);
         let player_before_form_width_overlap_fixup = slice.player;
         self.apply_form_width_overlap_fixup(&mut slice);

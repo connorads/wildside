@@ -144,6 +144,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_gameplay_path_probe_debug() {
             gameplay_debug_fields.insert("kid_gameplay_path_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_collision_handoff_probe_debug() {
+            gameplay_debug_fields.insert("kid_collision_handoff_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
@@ -464,6 +467,42 @@ impl NativeRuntime {
             u8::from(before_physics.on_ground),
             first_mutator,
             mutators,
+        ))
+    }
+
+    fn kid_collision_handoff_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_collision_handoff_probe?;
+        let pending_form = probe
+            .pending_form
+            .map(|form| format!("{:#06x}", form.helmet_id()))
+            .unwrap_or_else(|| String::from("none"));
+        let pending_level_skip = probe
+            .pending_level_skip
+            .map(|level| format!("{:#04x}", level.0))
+            .unwrap_or_else(|| String::from("none"));
+        let wall_cling = match probe.wall_cling_direction {
+            Some(Direction::Left) => "left",
+            Some(Direction::Right) => "right",
+            None => "none",
+        };
+
+        Some(format!(
+            "lifecycle={}/prev_post={}/pending_stomp={}/pending_form={}/pending_level_skip={}/ground={}/jump_buffer={}/wall_cling={}",
+            player_lifecycle_debug_label(probe.player_lifecycle),
+            probe.previous_post_motion_mutator.as_debug_label(),
+            u8::from(probe.pending_stomp_bounce),
+            pending_form,
+            pending_level_skip,
+            u8::from(probe.on_ground_before),
+            probe.jump_buffer_frames,
+            wall_cling,
         ))
     }
 

@@ -185,6 +185,33 @@ pub(crate) struct KidGroundedReleaseProbe {
     pub(crate) release_triggered: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidCollisionHandoffProbe {
+    pub(crate) player_lifecycle: PlayerLifecycle,
+    pub(crate) previous_post_motion_mutator: KidFramePostMotionMutator,
+    pub(crate) pending_stomp_bounce: bool,
+    pub(crate) pending_form: Option<PlayerForm>,
+    pub(crate) pending_level_skip: Option<LevelId>,
+    pub(crate) on_ground_before: bool,
+    pub(crate) jump_buffer_frames: u8,
+    pub(crate) wall_cling_direction: Option<Direction>,
+}
+
+impl Default for KidCollisionHandoffProbe {
+    fn default() -> Self {
+        Self {
+            player_lifecycle: PlayerLifecycle::Alive,
+            previous_post_motion_mutator: KidFramePostMotionMutator::None,
+            pending_stomp_bounce: false,
+            pending_form: None,
+            pending_level_skip: None,
+            on_ground_before: false,
+            jump_buffer_frames: 0,
+            wall_cling_direction: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidGroundedReleaseVelocityBranch {
     JumpPressed,
