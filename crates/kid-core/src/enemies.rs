@@ -411,6 +411,10 @@ pub(crate) struct ActiveEnemy {
     pub(crate) shared_walker_patrol_timer: u16,
     /// Dragon alternates the next patrol cadence reload between $32 and $12C via $6E(a5).
     pub(crate) shared_walker_patrol_short_next: bool,
+    /// Frontier-only trace label for the last shared-walker branch taken.
+    pub(crate) shared_walker_debug_branch: Option<&'static str>,
+    /// Signed horizontal distance to Kid when the grounded shared walker last evaluated him.
+    pub(crate) shared_walker_dx_to_kid_px: Option<i16>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -661,6 +665,18 @@ impl ActiveEnemy {
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.wait_timer);
         let mut debug_fields = std::collections::BTreeMap::new();
         debug_fields.insert("segment_index".into(), self.segment_index.to_string());
+        if matches!(self.family, EnemyFamily::DragonWalking) {
+            debug_fields.insert("grounded_frames".into(), self.grounded_frames.to_string());
+            if let Some(branch) = self.shared_walker_debug_branch {
+                debug_fields.insert("shared_walker_branch".into(), branch.into());
+            }
+            if let Some(dx_to_kid_px) = self.shared_walker_dx_to_kid_px {
+                debug_fields.insert(
+                    "shared_walker_dx_to_kid_px".into(),
+                    dx_to_kid_px.to_string(),
+                );
+            }
+        }
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -977,6 +993,8 @@ pub(crate) fn activate_enemies(
                 shared_walker_state: spawn_shared_walker_state(family),
                 shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
                 shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
+                shared_walker_debug_branch: None,
+                shared_walker_dx_to_kid_px: None,
             });
         }
     }
@@ -3144,6 +3162,7 @@ fn step_dragon_walking_walk(
         reverse_enemy_direction(enemy);
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
+        enemy.shared_walker_debug_branch = Some("patrol_timer_turn");
         return DragonWalkingWalkStep::Idled;
     }
 
@@ -3158,6 +3177,7 @@ fn step_dragon_walking_walk(
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             shared_walker_turnaround(enemy);
+            enemy.shared_walker_debug_branch = Some("patrol_wall_turn");
             return DragonWalkingWalkStep::Idled;
         }
 
@@ -3167,6 +3187,7 @@ fn step_dragon_walking_walk(
             enemy.x_velocity = walk_delta;
             enemy.y_velocity = 0;
             enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
+            enemy.shared_walker_debug_branch = Some("patrol_airborne_start");
             return DragonWalkingWalkStep::StartedAirborne;
         }
 
@@ -3179,6 +3200,8 @@ fn step_dragon_walking_walk(
     } else if enemy.shared_walker_state == 0 {
         if let Some(player_x_pos) = player_x_pos {
             let dx = ((player_x_pos as i64 - enemy.x_pos as i64) >> 16) as i32;
+            enemy.shared_walker_dx_to_kid_px =
+                Some(dx.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16);
             if dx.abs() <= SHARED_WALKER_DETECT_RANGE {
                 if dx >= 0 {
                     enemy.facing = Direction::Right;
@@ -3189,6 +3212,7 @@ fn step_dragon_walking_walk(
                 }
                 enemy.x_velocity = 0;
                 enemy.y_velocity = 0;
+                enemy.shared_walker_debug_branch = Some("calm_face_kid");
                 return DragonWalkingWalkStep::Idled;
             }
         }
@@ -3196,10 +3220,13 @@ fn step_dragon_walking_walk(
         && let Some(player_x_pos) = player_x_pos
     {
         let dx = ((player_x_pos as i64 - enemy.x_pos as i64) >> 16) as i32;
+        enemy.shared_walker_dx_to_kid_px =
+            Some(dx.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16);
         if dx.abs() > SHARED_WALKER_RELEASE_RANGE {
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             shared_walker_turnaround(enemy);
+            enemy.shared_walker_debug_branch = Some("alert_release_turn");
             return DragonWalkingWalkStep::Idled;
         }
     }
@@ -3207,6 +3234,16 @@ fn step_dragon_walking_walk(
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
     enemy.x_velocity = 0;
     enemy.y_velocity = 0;
+    enemy.shared_walker_debug_branch = Some(
+        if enemy.shared_walker_state > 0 && enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
+        {
+            "alert_hold"
+        } else if enemy.shared_walker_state < 0 {
+            "cooldown_walk"
+        } else {
+            "patrol_walk"
+        },
+    );
     DragonWalkingWalkStep::Walked
 }
 
@@ -3216,6 +3253,7 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
 
     let Some(grid) = block_grid else {
         enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+        enemy.shared_walker_debug_branch = Some("airborne_fall");
         return;
     };
 
@@ -3226,6 +3264,7 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
     if wall.hit {
         enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
         enemy.x_velocity = 0;
+        enemy.shared_walker_debug_branch = Some("airborne_wall_snap");
     }
 
     let floor = terrain::probe_floor(grid, (enemy.x_pos >> 16) as i32, cy);
@@ -3238,12 +3277,16 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
             enemy.on_ground = true;
             if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL {
                 enemy.shared_walker_state = SHARED_WALKER_STATE_COOLDOWN;
+                enemy.shared_walker_debug_branch = Some("airborne_land_cooldown");
+            } else {
+                enemy.shared_walker_debug_branch = Some("airborne_land_patrol");
             }
             return;
         }
     }
 
     enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+    enemy.shared_walker_debug_branch = Some("airborne_fall");
 }
 /// Fire breath for a walking dragon (called after step_pacer handles movement).
 pub(crate) fn step_dragon_walking(
@@ -3252,10 +3295,14 @@ pub(crate) fn step_dragon_walking(
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: Option<u32>,
 ) {
+    enemy.shared_walker_debug_branch = None;
+    enemy.shared_walker_dx_to_kid_px = None;
+
     if enemy.grounded_frames > 0 {
         enemy.grounded_frames -= 1;
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
+        enemy.shared_walker_debug_branch = Some("grounded_spawn_freeze");
         return;
     }
 

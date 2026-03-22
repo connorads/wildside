@@ -41,6 +41,30 @@
       "first_added_commit": "55f70f0",
       "intended_meaning": "Boolean debug alias for oracle pause state when inspecting non-gameplay windows.",
       "promotion_trigger": "Promote if pause-state parity needs to be asserted routinely."
+    },
+    {
+      "key": "grounded_frames",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "DragonWalking grounded freeze countdown used to spot spawn or landing idle windows.",
+      "promotion_trigger": "Promote if parity logic or checked-in regressions depend on the freeze countdown directly."
+    },
+    {
+      "key": "shared_walker_branch",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "Last DragonWalking shared-walker branch label emitted for TAS frontier tracing.",
+      "promotion_trigger": "Promote if multiple frontiers or regression assertions depend on the branch identity."
+    },
+    {
+      "key": "shared_walker_dx_to_kid_px",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "Signed DragonWalking horizontal distance to Kid, captured when calm/alert logic evaluates its detect and release windows.",
+      "promotion_trigger": "Promote if shared-walker range logic needs repeated parity checks or typed thresholds."
     }
   ]
 }

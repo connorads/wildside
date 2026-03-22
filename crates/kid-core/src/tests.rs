@@ -4151,6 +4151,8 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
             EnemyFamily::DragonWalking,
         ),
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     }];
     let camera = CameraState {
         x_pos: 715u32 << 16,
@@ -4274,6 +4276,8 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
             EnemyFamily::DragonWalking,
         ),
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     }];
 
     activate_enemies(
@@ -4576,6 +4580,45 @@ fn dragon_walking_alert_state_holds_position_while_player_stays_in_range() {
 }
 
 #[test]
+fn dragon_walking_snapshot_reports_shared_walker_debug_fields() {
+    let grid = grid_with_platform(17, 0, 4);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Left;
+    enemy.shared_walker_state = 0;
+    enemy.shared_walker_patrol_timer = 5;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(72 << 16));
+
+    let snapshot = enemy.snapshot();
+    assert_eq!(
+        snapshot
+            .debug_fields
+            .get("grounded_frames")
+            .map(String::as_str),
+        Some("0"),
+        "DragonWalking snapshots should expose grounded_frames for frontier tracing",
+    );
+    assert_eq!(
+        snapshot
+            .debug_fields
+            .get("shared_walker_branch")
+            .map(String::as_str),
+        Some("calm_face_kid"),
+        "the snapshot should record which shared-walker branch idled this frame",
+    );
+    assert_eq!(
+        snapshot
+            .debug_fields
+            .get("shared_walker_dx_to_kid_px")
+            .map(String::as_str),
+        Some("32"),
+        "the snapshot should expose the signed Kid distance used by the calm/alert threshold",
+    );
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
@@ -4635,6 +4678,8 @@ fn hopper_lands_on_terrain_before_launching() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
 
     let mut grounded_skull = None;
@@ -4702,6 +4747,8 @@ fn hopper_launches_into_an_air_arc() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
 
     let mut grounded_skull = None;
@@ -4821,6 +4868,8 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     step_active_enemies(
         std::slice::from_mut(&mut enemy),
@@ -4898,6 +4947,8 @@ fn hopper_targets_player_direction_before_launch() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
 
     for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -4975,6 +5026,8 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
 
     for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -6605,6 +6658,8 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     }
 }
 
@@ -6768,6 +6823,8 @@ fn cloud_flies_horizontally() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let x_before = enemy.x_pos;
     step_cloud(&mut enemy, None);
@@ -6825,6 +6882,8 @@ fn cloud_reverses_at_wall() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     // Run until it hits the wall and reverses
     let mut reversed = false;
@@ -6910,6 +6969,8 @@ fn fireball_gravity_scales_with_hp() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     assert_eq!(bouncer_gravity(&make(1)), 0x1000);
     assert_eq!(bouncer_gravity(&make(2)), 0x2000);
@@ -7003,6 +7064,8 @@ fn sphere_applies_gravity() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     step_bouncer(&mut enemy, None);
     assert_eq!(
@@ -7059,6 +7122,8 @@ fn sphere_bounces_off_floor() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     // Run until it bounces (y_velocity becomes negative)
     let mut bounced = false;
@@ -7121,6 +7186,8 @@ fn sphere_bounces_off_wall() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let mut bounced = false;
     for _ in 0..50 {
@@ -7187,6 +7254,8 @@ fn emo_rock_hovers_above_player_then_drops() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
 
     // During hover: tracks player x, hovers above player y
@@ -7256,6 +7325,8 @@ fn emo_rock_lands_and_walks() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
 
     // Step until it lands
@@ -7395,6 +7466,8 @@ fn archer_faces_player_direction() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let mut projs = Vec::new();
     let player_x = Some(200u32 << 16);
@@ -7446,6 +7519,8 @@ fn archer_fires_arrow_when_timer_expires() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let mut projs = Vec::new();
     let player_x = Some(200u32 << 16);
@@ -7545,6 +7620,8 @@ fn tank_fires_bullet_after_timer_expires() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let mut projs = Vec::new();
     step_tank_fire(&mut enemy, &mut projs);
@@ -7600,6 +7677,8 @@ fn tank_does_not_fire_while_timer_active() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let mut projs = Vec::new();
     step_tank_fire(&mut enemy, &mut projs);
@@ -7669,6 +7748,8 @@ fn tracker_chases_player_rightward() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let px = Some(200u32 << 16);
     let py = Some(100u32 << 16);
@@ -7723,6 +7804,8 @@ fn tracker_chases_player_leftward() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let px = Some(100u32 << 16);
     let py = Some(100u32 << 16);
@@ -7780,6 +7863,8 @@ fn boss_fires_projectiles_when_stomped() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     runtime.active_enemies = vec![boss];
     runtime.projectiles.clear();
@@ -7869,6 +7954,8 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     runtime.active_enemies = vec![boss];
     runtime.projectiles.clear();
@@ -8046,6 +8133,8 @@ fn ufo_beam_fires_when_player_below() {
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
         shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     };
     let mut projectiles = Vec::new();
 
@@ -10793,6 +10882,8 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
     }
 }
 
