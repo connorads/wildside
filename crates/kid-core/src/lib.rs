@@ -177,6 +177,10 @@ pub struct NativeRuntime {
     physics_order: PhysicsOrder,
     /// When true, populate `PhysicsTrace` on each frame for sub-step debugging.
     trace_physics: bool,
+    /// Debug label for the gameplay branch that last controlled Kid this frame.
+    last_kid_frame_motion_branch: KidFrameMotionBranch,
+    /// Debug label for the first post-motion system that moved or consumed Kid.
+    last_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -261,6 +265,8 @@ impl NativeRuntime {
             player_slots: [PlayerSlot::default(), PlayerSlot::default()],
             physics_order: PhysicsOrder::default(),
             trace_physics: false,
+            last_kid_frame_motion_branch: KidFrameMotionBranch::default(),
+            last_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -301,6 +307,8 @@ impl NativeRuntime {
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let raw_input = input;
+        self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
+        self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
             self.finish_demo_auto_timeout_return();
@@ -364,18 +372,26 @@ impl NativeRuntime {
                             && (demo_gameplay_start..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
                                 .contains(&frame) =>
                     {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapPoseHold;
                         self.apply_demo_1_bootstrap_pose_hold();
                     }
                     Some(frame) if frame == demo_gameplay_start => {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapCameraHandoff;
                         self.apply_demo_bootstrap_camera_handoff();
                     }
                     Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapInitialSettle;
                         self.apply_demo_bootstrap_initial_settle();
                     }
                     Some(frame)
                         if frame > demo::DEMO_BOOTSTRAP_INIT_FRAME
                             && frame < demo::DEMO_BOOTSTRAP_GROUNDED_FRAME =>
                     {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapFreefall;
                         self.apply_demo_bootstrap_freefall(frame);
                     }
                     Some(frame)
@@ -383,16 +399,23 @@ impl NativeRuntime {
                             ..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
                             .contains(&frame) =>
                     {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapGroundedHold;
                         self.apply_demo_bootstrap_grounded_hold();
                     }
                     _ => {
-                        if !self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed)
+                        if self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed)
                         {
+                            self.last_kid_frame_motion_branch =
+                                KidFrameMotionBranch::DemoBootstrapGroundedRun;
+                        } else {
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
                         }
                     }
                 }
             }
+        } else {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::DemoAutoTimeoutFrozen;
         }
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
@@ -555,6 +578,7 @@ impl NativeRuntime {
         // that hibernates gameplay objects. Keep the previous slice/roster
         // stable until the transform flash countdown finishes.
         if self.gameplay_hibernating_for_transform() {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::TransformHibernating;
             self.opening_slice = Some(slice);
             return;
         }
@@ -592,6 +616,7 @@ impl NativeRuntime {
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
         if self.progression.form_change_flash_frames == 0 {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
             let deferred_prize_ceiling_cells: Vec<(u16, u16)> = self
                 .block_state
                 .deferred_ceiling_clears
@@ -664,7 +689,13 @@ impl NativeRuntime {
         }
 
         // Platform collision: player can stand on top of platforms
+        let player_before_platform_collision = slice.player;
         apply_platform_collision(&mut slice, &self.active_platforms);
+        if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
+            && slice.player != player_before_platform_collision
+        {
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PlatformCollision;
+        }
 
         // Evanescent blocks: trigger when player stands on one, tick timers,
         // and clear expired blocks from the grid.
@@ -677,7 +708,13 @@ impl NativeRuntime {
         self.apply_shifting_blocks(&slice);
 
         // Lift platforms: step movement and collision
+        let player_before_lift_platforms = slice.player;
         self.step_lift_platforms(&mut slice);
+        if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
+            && slice.player != player_before_lift_platforms
+        {
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LiftPlatform;
+        }
 
         // Shooter blocks: fire projectiles periodically
         self.step_shooter_blocks(&slice);

@@ -69,6 +69,78 @@ pub enum LandingPath {
     ZeroSubPixel,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidFrameMotionBranch {
+    #[default]
+    None,
+    DemoAutoTimeoutFrozen,
+    DemoBootstrapPoseHold,
+    DemoBootstrapCameraHandoff,
+    DemoBootstrapInitialSettle,
+    DemoBootstrapFreefall,
+    DemoBootstrapGroundedHold,
+    DemoBootstrapGroundedRun,
+    TransformHibernating,
+    NormalPhysics,
+}
+
+impl KidFrameMotionBranch {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::DemoAutoTimeoutFrozen => "demo_auto_timeout_frozen",
+            Self::DemoBootstrapPoseHold => "demo_bootstrap_pose_hold",
+            Self::DemoBootstrapCameraHandoff => "demo_bootstrap_camera_handoff",
+            Self::DemoBootstrapInitialSettle => "demo_bootstrap_initial_settle",
+            Self::DemoBootstrapFreefall => "demo_bootstrap_freefall",
+            Self::DemoBootstrapGroundedHold => "demo_bootstrap_grounded_hold",
+            Self::DemoBootstrapGroundedRun => "demo_bootstrap_grounded_run",
+            Self::TransformHibernating => "transform_hibernating",
+            Self::NormalPhysics => "normal_physics",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidFramePostMotionMutator {
+    #[default]
+    None,
+    PlatformCollision,
+    LiftPlatform,
+    LevelTimerDeath,
+    PitDeath,
+    SpikeDeath,
+    ProjectileDamage,
+    MurderWallDamage,
+    Teleporter,
+    FlagTouch,
+    StompBounce,
+    ContactDamage,
+    LevelOneOpeningHit,
+    LevelOneLateHazard,
+}
+
+impl KidFramePostMotionMutator {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::PlatformCollision => "platform_collision",
+            Self::LiftPlatform => "lift_platform",
+            Self::LevelTimerDeath => "level_timer_death",
+            Self::PitDeath => "pit_death",
+            Self::SpikeDeath => "spike_death",
+            Self::ProjectileDamage => "projectile_damage",
+            Self::MurderWallDamage => "murder_wall_damage",
+            Self::Teleporter => "teleporter",
+            Self::FlagTouch => "flag_touch",
+            Self::StompBounce => "stomp_bounce",
+            Self::ContactDamage => "contact_damage",
+            Self::LevelOneOpeningHit => "level_one_opening_hit",
+            Self::LevelOneLateHazard => "level_one_late_hazard",
+        }
+    }
+}
+
 pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
 pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
 

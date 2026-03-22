@@ -141,6 +141,9 @@ impl NativeRuntime {
         {
             gameplay_debug_fields.insert("kid_goal_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_gameplay_path_probe_debug() {
+            gameplay_debug_fields.insert("kid_gameplay_path_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -399,6 +402,23 @@ impl NativeRuntime {
             header.flag_y,
             dx_px,
             dy_px,
+        ))
+    }
+
+    fn kid_gameplay_path_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        Some(format!(
+            "lifecycle={}/motion={}/post={}/paused={}",
+            player_lifecycle_debug_label(self.player_lifecycle),
+            self.last_kid_frame_motion_branch.as_debug_label(),
+            self.last_kid_frame_post_motion_mutator.as_debug_label(),
+            u8::from(self.paused),
         ))
     }
 

@@ -90,6 +90,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed goal-touch or player-lifecycle diagnostic."
     },
     {
+      "key": "kid_gameplay_path_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Native gameplay-path branch plus the first post-motion mutator that touched Kid, used to prove whether frame-7968..7969 is still running normal movement or an external handoff.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed gameplay-path or post-motion handoff diagnostic."
+    },
+    {
       "key": "kid_collision_type",
       "scope": "frame",
       "status": "exploratory",

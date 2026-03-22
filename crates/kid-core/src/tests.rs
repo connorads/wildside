@@ -4841,6 +4841,35 @@ fn trace_frame_reports_kid_goal_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_gameplay_path_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    let bounds = runtime.level_bounds(LevelId(0));
+    runtime.opening_slice = Some(OpeningSliceState::respawn(bounds));
+    runtime.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+    runtime.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PlatformCollision;
+
+    let trace = runtime.trace_frame();
+    let path_debug = trace
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid gameplay-path diagnostics"));
+
+    assert!(
+        path_debug.contains("lifecycle=alive"),
+        "the gameplay-path probe should expose the current player lifecycle",
+    );
+    assert!(
+        path_debug.contains("motion=normal_physics"),
+        "the gameplay-path probe should report the motion branch that controlled Kid this frame",
+    );
+    assert!(
+        path_debug.contains("post=platform_collision"),
+        "the gameplay-path probe should report the first post-motion mutator that moved Kid",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -13858,6 +13887,39 @@ fn published_tas_frame_7969_reports_kid_goal_probe() {
     assert!(
         !frame_7969.level_complete,
         "the frame-7969 trace should not already be in LevelComplete",
+    );
+}
+
+#[test]
+fn published_tas_frame_7968_reports_kid_gameplay_path_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_969) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let path_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit kid gameplay-path diagnostics"));
+
+    assert!(
+        path_debug.contains("lifecycle=alive"),
+        "the frame-7968 diagnostics should show Kid is still on the live gameplay lifecycle path",
+    );
+    assert!(
+        path_debug.contains("motion=normal_physics"),
+        "the frame-7968 diagnostics should prove native is still taking the normal gameplay motion path",
+    );
+    assert!(
+        path_debug.contains("post=none"),
+        "the frame-7968 diagnostics should prove no post-physics handoff moved Kid on the native side",
     );
 }
 

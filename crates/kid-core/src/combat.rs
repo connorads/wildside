@@ -893,6 +893,7 @@ impl NativeRuntime {
             self.opening_slice = Some(*slice);
             self.progression.number_hitpoints = 0;
             self.begin_death_windup();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelTimerDeath;
             return true;
         }
 
@@ -901,6 +902,7 @@ impl NativeRuntime {
             self.opening_slice = Some(*slice);
             self.progression.number_hitpoints = 0;
             self.begin_death_windup();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PitDeath;
             return true;
         }
 
@@ -909,6 +911,7 @@ impl NativeRuntime {
             self.opening_slice = Some(*slice);
             self.progression.number_hitpoints = 0;
             self.begin_death_windup();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::SpikeDeath;
             return true;
         }
 
@@ -917,6 +920,7 @@ impl NativeRuntime {
         if self.projectile_hits_player(slice) {
             self.opening_slice = Some(*slice);
             self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;
             return true;
         }
 
@@ -925,6 +929,7 @@ impl NativeRuntime {
         if self.murder_wall_kills_player(slice) && self.progression.invulnerable_frames == 0 {
             self.apply_damage();
             self.opening_slice = Some(*slice);
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::MurderWallDamage;
             return true;
         }
 
@@ -940,6 +945,7 @@ impl NativeRuntime {
             } else {
                 self.pending_level_skip = Some(LevelId(dest_map));
             }
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::Teleporter;
             return true;
         }
 
@@ -950,6 +956,7 @@ impl NativeRuntime {
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames: LEVEL_COMPLETE_PAUSE_FRAMES,
             };
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::FlagTouch;
             return true;
         }
 
@@ -962,6 +969,7 @@ impl NativeRuntime {
             frame_start_y_pos,
         ) {
             self.opening_slice = Some(*slice);
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::StompBounce;
             return true;
         }
 
@@ -979,12 +987,14 @@ impl NativeRuntime {
         {
             self.apply_damage_with_knockback(slice, enemy_x);
             self.opening_slice = Some(*slice);
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
             return true;
         }
 
         if self.should_apply_level_one_opening_hit(slice, input) {
             self.opening_slice = Some(*slice);
             self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelOneOpeningHit;
             return true;
         }
         if self.should_apply_level_one_late_hazard(slice) {
@@ -992,6 +1002,7 @@ impl NativeRuntime {
             slice.camera.y_pos = 0;
             self.opening_slice = Some(*slice);
             self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelOneLateHazard;
             return true;
         }
 
