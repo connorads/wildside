@@ -4128,6 +4128,8 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4246,6 +4248,8 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         dragon_phase: DragonFlyingState::Hovering,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4497,6 +4501,8 @@ fn hopper_lands_on_terrain_before_launching() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4561,6 +4567,8 @@ fn hopper_launches_into_an_air_arc() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4677,6 +4685,8 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4751,6 +4761,8 @@ fn hopper_targets_player_direction_before_launch() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -4825,6 +4837,8 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6428,6 +6442,8 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: spawn_dragon_patrol_cadence(family),
+        dragon_patrol_timer: spawn_dragon_patrol_timer(family),
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6447,6 +6463,49 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         scorpion_tracking_lock: false,
         walk_speed_override: 0,
     }
+}
+
+#[test]
+fn dragon_walking_patrol_timer_alternates_300_and_50_frame_turns() {
+    let mut dragon = make_pacer(EnemyFamily::DragonWalking, 1, 96, 96);
+    dragon.facing = Direction::Right;
+    dragon.dragon_patrol_timer = 1;
+
+    step_dragon_walking(&mut dragon, None, &mut Vec::new(), None);
+
+    assert_eq!(
+        dragon.facing,
+        Direction::Left,
+        "the first expired patrol timer should flip the walking dragon",
+    );
+    assert_eq!(
+        dragon.dragon_patrol_cadence,
+        0x012C_0032,
+        "the shared cadence word should swap into the short-turn phase after the first patrol flip",
+    );
+    assert_eq!(
+        dragon.dragon_patrol_timer, 0x0032,
+        "the first patrol flip should reload the ASM-backed 50-frame short turn timer",
+    );
+
+    dragon.dragon_patrol_timer = 1;
+    step_dragon_walking(&mut dragon, None, &mut Vec::new(), None);
+
+    assert_eq!(
+        dragon.facing,
+        Direction::Right,
+        "the next expired patrol timer should flip the dragon back the other way",
+    );
+    assert_eq!(
+        dragon.dragon_patrol_cadence,
+        DRAGON_WALKING_PATROL_CADENCE,
+        "the cadence word should swap back to the original 300/50 ordering after the short turn",
+    );
+    assert_eq!(
+        dragon.dragon_patrol_timer,
+        DRAGON_WALKING_PATROL_INITIAL,
+        "the short-turn expiration should restore the ASM-backed 300-frame patrol timer",
+    );
 }
 
 #[test]
@@ -6588,6 +6647,8 @@ fn cloud_flies_horizontally() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6642,6 +6703,8 @@ fn cloud_reverses_at_wall() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6724,6 +6787,8 @@ fn fireball_gravity_scales_with_hp() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6814,6 +6879,8 @@ fn sphere_applies_gravity() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6867,6 +6934,8 @@ fn sphere_bounces_off_floor() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6926,6 +6995,8 @@ fn sphere_bounces_off_wall() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -6989,6 +7060,8 @@ fn emo_rock_hovers_above_player_then_drops() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7055,6 +7128,8 @@ fn emo_rock_lands_and_walks() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7191,6 +7266,8 @@ fn archer_faces_player_direction() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7239,6 +7316,8 @@ fn archer_fires_arrow_when_timer_expires() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7335,6 +7414,8 @@ fn tank_fires_bullet_after_timer_expires() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7387,6 +7468,8 @@ fn tank_does_not_fire_while_timer_active() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7453,6 +7536,8 @@ fn tracker_chases_player_rightward() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7504,6 +7589,8 @@ fn tracker_chases_player_leftward() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7558,6 +7645,8 @@ fn boss_fires_projectiles_when_stomped() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7644,6 +7733,8 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -7818,6 +7909,8 @@ fn ufo_beam_fires_when_player_below() {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: 0,
+        dragon_patrol_timer: 0,
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -10562,6 +10655,8 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
         dragon_script_variant: 0,
+        dragon_patrol_cadence: spawn_dragon_patrol_cadence(family),
+        dragon_patrol_timer: spawn_dragon_patrol_timer(family),
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -12214,6 +12309,66 @@ fn demo_1_loads_the_second_knights_isle_dragon_by_frame_3400() {
         dragon_layout_indices,
         vec![0, 1, 2, 4],
         "frame 3400 should keep all four Knights Isle walking dragons active inside the ASM-backed loader window",
+    );
+}
+
+#[test]
+fn demo_1_reaches_the_last_oracle_backed_pre_stomp_arc_on_frame_3399() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_3399 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_400) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_399 {
+            frame_3399 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_3399 = frame_3399.unwrap_or_else(|| panic!("frame 3399 should be captured"));
+    assert_eq!(
+        frame_3399.kid_x_pos,
+        Some(0x037E_F100),
+        "demo 1 should keep the oracle-backed pre-stomp X position through frame 3399",
+    );
+    assert_eq!(
+        frame_3399.kid_y_pos,
+        Some(0x01A1_C000),
+        "demo 1 should keep the oracle-backed pre-stomp Y position through frame 3399",
+    );
+}
+
+#[test]
+#[ignore = "TAS frontier 3400: pre-stomp walking-dragon parity still open"]
+fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragons_3399 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_400) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_399 {
+            let mut dragons: Vec<_> = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                .map(|enemy| (enemy.x_pos, enemy.y_pos))
+                .collect();
+            dragons.sort_unstable();
+            dragons_3399 = Some(dragons);
+            break;
+        }
+    }
+
+    let dragons_3399 = dragons_3399.unwrap_or_else(|| panic!("frame 3399 should be captured"));
+    assert_eq!(
+        dragons_3399,
+        vec![
+            (0x01ED_0000, 0x01C0_0000),
+            (0x0327_0000, 0x0270_0000),
+            (0x035E_8000, 0x0270_0000),
+            (0x0367_0000, 0x01C0_0000),
+        ],
+        "frame 3399 should already keep the oracle-backed walking-dragon warm-state before Kid diverges on frame 3400",
     );
 }
 

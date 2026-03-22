@@ -376,6 +376,11 @@ pub(crate) struct ActiveEnemy {
     pub(crate) dragon_phase_frames: u16,
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
     pub(crate) dragon_script_variant: u8,
+    /// Dragon/Lion shared grounded walker cadence ($6E(a5)): alternates 300f/50f
+    /// patrol turns for walking dragons.
+    pub(crate) dragon_patrol_cadence: u32,
+    /// Dragon/Lion shared grounded walker timer ($54(a5)).
+    pub(crate) dragon_patrol_timer: u16,
     /// Dragon Flying: current command index within the script.
     pub(crate) dragon_script_cmd: u8,
     /// Dragon Flying: anchor Y position (FP16.16) — initial spawn Y to return to.
@@ -920,6 +925,8 @@ pub(crate) fn activate_enemies(
                 dragon_phase: spawn_dragon_phase(family),
                 dragon_phase_frames: 0,
                 dragon_script_variant: dragon_variant,
+                dragon_patrol_cadence: spawn_dragon_patrol_cadence(family),
+                dragon_patrol_timer: spawn_dragon_patrol_timer(family),
                 dragon_script_cmd: 0,
                 dragon_anchor_y: head_y,
                 dragon_descent_index: 0,
@@ -2912,6 +2919,8 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
 // From ASM Dragon.asm: initial cooldown $12C (300f, line 95), reset after breath $1F4 (500f, line 194).
 pub(crate) const DRAGON_WALKING_BREATH_INITIAL: u16 = 300;
 pub(crate) const DRAGON_WALKING_BREATH_RESET: u16 = 500;
+pub(crate) const DRAGON_WALKING_PATROL_INITIAL: u16 = 0x012C;
+pub(crate) const DRAGON_WALKING_PATROL_CADENCE: u32 = 0x0032_012C;
 pub(crate) const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
 pub(crate) const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
 pub(crate) const DRAGON_WALKING_BREATH_HOLD_FRAMES: u16 = 68;
@@ -3064,6 +3073,23 @@ fn step_dragon_walking_airborne(
 
     enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
 }
+
+fn step_dragon_walking_patrol_turn(enemy: &mut ActiveEnemy) -> bool {
+    if enemy.dragon_patrol_timer == 0 {
+        return false;
+    }
+    enemy.dragon_patrol_timer -= 1;
+    if enemy.dragon_patrol_timer != 0 {
+        return false;
+    }
+
+    enemy.dragon_patrol_cadence = enemy.dragon_patrol_cadence.rotate_left(16);
+    enemy.dragon_patrol_timer = enemy.dragon_patrol_cadence as u16;
+    reverse_enemy_direction(enemy);
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    true
+}
 /// Fire breath for a walking dragon (called after step_pacer handles movement).
 pub(crate) fn step_dragon_walking(
     enemy: &mut ActiveEnemy,
@@ -3112,6 +3138,12 @@ pub(crate) fn step_dragon_walking(
 
     if !enemy.on_ground {
         step_dragon_walking_airborne(enemy, block_grid);
+        return;
+    }
+
+    if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+        && step_dragon_walking_patrol_turn(enemy)
+    {
         return;
     }
 
@@ -3857,6 +3889,20 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         | EnemyFamily::Shishkaboss
         | EnemyFamily::BoomerangBosses
         | EnemyFamily::BagelBrothers => BOSS_FIRE_INTERVAL,
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_dragon_patrol_cadence(family: EnemyFamily) -> u32 {
+    match family {
+        EnemyFamily::DragonWalking => DRAGON_WALKING_PATROL_CADENCE,
+        _ => 0,
+    }
+}
+
+pub(crate) fn spawn_dragon_patrol_timer(family: EnemyFamily) -> u16 {
+    match family {
+        EnemyFamily::DragonWalking => DRAGON_WALKING_PATROL_INITIAL,
         _ => 0,
     }
 }
