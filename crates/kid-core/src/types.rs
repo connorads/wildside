@@ -167,6 +167,19 @@ impl KidFramePrePhysicsMutator {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidGroundedReleaseProbe {
+    pub(crate) on_ground_before: bool,
+    pub(crate) held_direction: Option<Direction>,
+    pub(crate) probe_row: Option<u16>,
+    pub(crate) left_col: Option<u16>,
+    pub(crate) right_col: Option<u16>,
+    pub(crate) support_col: Option<u16>,
+    pub(crate) support_collision: Option<terrain::CollisionKind>,
+    pub(crate) support_block_type: Option<terrain::BlockType>,
+    pub(crate) release_triggered: bool,
+}
+
 pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
 pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
 

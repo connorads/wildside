@@ -187,6 +187,8 @@ pub struct NativeRuntime {
     last_kid_frame_pre_physics_before_physics: Option<PlayerState>,
     /// Ordered list of pre-physics handlers that changed Kid state this frame.
     last_kid_frame_pre_physics_mutators: Vec<KidFramePrePhysicsMutator>,
+    /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
+    last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -276,6 +278,7 @@ impl NativeRuntime {
             last_kid_frame_pre_physics_start: None,
             last_kid_frame_pre_physics_before_physics: None,
             last_kid_frame_pre_physics_mutators: Vec::new(),
+            last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -321,6 +324,7 @@ impl NativeRuntime {
         self.last_kid_frame_pre_physics_start = None;
         self.last_kid_frame_pre_physics_before_physics = None;
         self.last_kid_frame_pre_physics_mutators.clear();
+        self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
             self.finish_demo_auto_timeout_return();
@@ -474,6 +478,63 @@ impl NativeRuntime {
         if Self::kid_pre_physics_probe_state_changed(before, after) {
             self.last_kid_frame_pre_physics_mutators.push(mutator);
         }
+    }
+
+    fn begin_kid_grounded_release_probe(&mut self, player: PlayerState, input: FrameInput) {
+        if self.physics_order != PhysicsOrder::AsmFaithful {
+            self.last_kid_frame_grounded_release_probe = None;
+            return;
+        }
+
+        let held_direction = match (input.left, input.right) {
+            (true, false) => Some(Direction::Left),
+            (false, true) => Some(Direction::Right),
+            _ => None,
+        };
+        let mut probe = KidGroundedReleaseProbe {
+            on_ground_before: player.on_ground,
+            held_direction,
+            ..KidGroundedReleaseProbe::default()
+        };
+
+        if !player.on_ground {
+            self.last_kid_frame_grounded_release_probe = Some(probe);
+            return;
+        }
+
+        let Some(grid) = self.block_grid.as_ref() else {
+            self.last_kid_frame_grounded_release_probe = Some(probe);
+            return;
+        };
+
+        let collision_hw = self.progression.current_form.half_width();
+        let x_px = (player.x_pos >> 16) as i16 as i32;
+        let y_px = (player.y_pos >> 16) as i16 as i32;
+        let probe_row = ((y_px + 1) >> 4).max(0) as u16;
+        let left_col = ((x_px - collision_hw) >> 4).max(0) as u16;
+        let right_col = ((x_px + collision_hw) >> 4)
+            .max(0)
+            .min(grid.width_cells as i32 - 1) as u16;
+
+        probe.probe_row = Some(probe_row);
+        probe.left_col = Some(left_col);
+        probe.right_col = Some(right_col);
+
+        for col in left_col..=right_col {
+            let cell = grid.cell_at(col, probe_row);
+            if matches!(
+                cell.collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            ) {
+                probe.support_col = Some(col);
+                probe.support_collision = Some(cell.collision);
+                probe.support_block_type = Some(cell.block_type);
+                break;
+            }
+        }
+
+        probe.release_triggered = probe.support_col.is_none();
+        self.last_kid_frame_grounded_release_probe = Some(probe);
     }
 
     fn level_elapsed_frames(&self) -> Option<usize> {
@@ -708,6 +769,7 @@ impl NativeRuntime {
             // sub-half-pixel gap before landing. Letting AsmFaithful collapse
             // that gap lands frame 2625 of demo 1 one frame early.
             let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
+            self.begin_kid_grounded_release_probe(slice.player, input);
             slice.step_with_order(
                 effective_elapsed,
                 input,

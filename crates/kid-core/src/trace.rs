@@ -147,6 +147,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_grounded_release_probe_debug() {
+            gameplay_debug_fields.insert("kid_grounded_release_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -461,6 +464,46 @@ impl NativeRuntime {
             u8::from(before_physics.on_ground),
             first_mutator,
             mutators,
+        ))
+    }
+
+    fn kid_grounded_release_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_grounded_release_probe?;
+        let held = match probe.held_direction {
+            Some(Direction::Left) => "left",
+            Some(Direction::Right) => "right",
+            None => "none",
+        };
+        let scan = match (probe.probe_row, probe.left_col, probe.right_col) {
+            (Some(row), Some(left), Some(right)) => format!("row={row}/cols={left}..{right}"),
+            _ => String::from("row=none/cols=none"),
+        };
+        let support = match (probe.support_col, probe.support_collision, probe.probe_row) {
+            (Some(col), Some(collision), Some(row)) => format!(
+                "{}@{col},{row} block={}",
+                collision_kind_debug_label(collision),
+                block_type_debug_label(
+                    probe.support_block_type.unwrap_or(terrain::BlockType::None)
+                ),
+            ),
+            _ => String::from("none"),
+        };
+
+        Some(format!(
+            "ground={}/held={}/scan={}/support={}/release={}/post={}",
+            u8::from(probe.on_ground_before),
+            held,
+            scan,
+            support,
+            u8::from(probe.release_triggered),
+            self.last_kid_frame_post_motion_mutator.as_debug_label(),
         ))
     }
 
@@ -867,6 +910,37 @@ fn format_kid_floor_probe(probe: terrain::FloorProbe) -> String {
         probe.cell.collision,
         probe.cell.block_type,
     )
+}
+
+fn collision_kind_debug_label(collision: terrain::CollisionKind) -> &'static str {
+    match collision {
+        terrain::CollisionKind::Empty => "empty",
+        terrain::CollisionKind::HiddenBlock => "hidden_block",
+        terrain::CollisionKind::SlopeDown => "slope_down",
+        terrain::CollisionKind::SlopeUp => "slope_up",
+        terrain::CollisionKind::Solid => "solid",
+        terrain::CollisionKind::Spikes => "spikes",
+    }
+}
+
+fn block_type_debug_label(block_type: terrain::BlockType) -> &'static str {
+    match block_type {
+        terrain::BlockType::Smash => "Smash",
+        terrain::BlockType::Prize => "Prize",
+        terrain::BlockType::Ice => "Ice",
+        terrain::BlockType::SolidGhost => "SolidGhost",
+        terrain::BlockType::Teleporter => "Teleporter",
+        terrain::BlockType::Metal => "Metal",
+        terrain::BlockType::Rubber => "Rubber",
+        terrain::BlockType::Shifting => "Shifting",
+        terrain::BlockType::Shooter => "Shooter",
+        terrain::BlockType::Mushroom => "Mushroom",
+        terrain::BlockType::Evanescent => "Evanescent",
+        terrain::BlockType::Lift => "Lift",
+        terrain::BlockType::Drill => "Drill",
+        terrain::BlockType::Deleted => "Deleted",
+        terrain::BlockType::None => "None",
+    }
 }
 
 fn player_lifecycle_debug_label(lifecycle: PlayerLifecycle) -> &'static str {

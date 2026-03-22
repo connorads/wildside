@@ -4909,6 +4909,45 @@ fn trace_frame_reports_kid_pre_physics_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_grounded_release_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    let bounds = runtime.level_bounds(LevelId(0));
+    runtime.opening_slice = Some(OpeningSliceState::respawn(bounds));
+    runtime.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+    runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
+        on_ground_before: true,
+        held_direction: Some(Direction::Right),
+        probe_row: Some(28),
+        left_col: Some(58),
+        right_col: Some(58),
+        support_col: Some(58),
+        support_collision: Some(terrain::CollisionKind::Solid),
+        support_block_type: Some(terrain::BlockType::None),
+        release_triggered: false,
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_grounded_release_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid grounded-release diagnostics"));
+
+    assert!(
+        probe_debug.contains("held=right"),
+        "the grounded-release probe should expose the held horizontal direction",
+    );
+    assert!(
+        probe_debug.contains("support=solid@58,28 block=None"),
+        "the grounded-release probe should report the supporting terrain cell and block type",
+    );
+    assert!(
+        probe_debug.contains("post=none"),
+        "the grounded-release probe should echo the first post-motion mutator label",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -14001,6 +14040,53 @@ fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
         assert!(
             probe_debug.contains("ground=1"),
             "frame {frame_index} should preserve the grounded native snapshot before physics",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_grounded_release_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_grounded_release_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit kid grounded-release diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("scan=row=28/cols=58..58"),
+            "frame {frame_index} should report the exact AsmFaithful grounded-release scan window",
+        );
+        assert!(
+            probe_debug.contains("support=solid@58,28 block=None"),
+            "frame {frame_index} should keep the solid terrain support that blocks native release",
+        );
+        assert!(
+            probe_debug.contains("release=0"),
+            "frame {frame_index} should show the AsmFaithful release gate never fired in native",
+        );
+        assert!(
+            probe_debug.contains("post=none"),
+            "frame {frame_index} should show no later post-motion support handoff changed Kid",
         );
     }
 }

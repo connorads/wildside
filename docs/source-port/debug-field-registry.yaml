@@ -106,6 +106,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed pre-physics handoff or handler-attribution diagnostic."
     },
     {
+      "key": "kid_grounded_release_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "AsmFaithful grounded-release scan inputs and first supporting terrain cell, plus the first post-motion mutator label, for proving whether native leaves solid support before or after normal physics on frames 7968..7969.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed grounded-release scan or post-motion support-handoff diagnostic."
+    },
+    {
       "key": "kid_collision_type",
       "scope": "frame",
       "status": "exploratory",
