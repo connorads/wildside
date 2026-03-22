@@ -41,6 +41,10 @@ pub(crate) const DEMO_TITLE_PLAYER_HIDDEN_FRAMES: usize = 150;
 // while power-on TAS recordings can enter title earlier and remain inert until
 // frame 287.
 pub(crate) const TITLE_SCREEN_READY_GLOBAL_FRAME: usize = 287;
+// Early intro-skip traces do not make the title pose visible immediately on
+// entry. The title rebuild still needs 150 local frames before Kid appears,
+// even when the absolute boot-ready frame has already nearly been reached.
+pub(crate) const TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES: usize = 150;
 pub(crate) const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
 pub(crate) const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 pub(crate) const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;

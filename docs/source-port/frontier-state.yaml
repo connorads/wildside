@@ -3,48 +3,45 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-287-title-player-hide",
+    "slug": "any-percent-published-frame-1830-second-diamond-award",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "title return before the first published-demo gameplay segment",
+    "area": "demo level 0x1B floating-diamond award timing",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 287,
-    "authoritative_clean_through": 286,
+    "frontier_frame": 1830,
+    "authoritative_clean_through": 1829,
     "pre_divergence_windows": [
       {
-        "frame_start": 280,
-        "frame_end": 286,
-        "reason": "Frames 280..286 are CRC-clean apart from advisory `number_objects`: oracle already counts the four title objects while both traces still hide Kid."
+        "frame_start": 1826,
+        "frame_end": 1829,
+        "reason": "Frames 1826..1829 are authoritative-clean apart from advisory `number_objects` and `kid_x_vel`: oracle already has 13 objects loaded and Kid's X velocity pinned to zero while native still reports only 3 objects and a walking-speed carryover."
       }
     ],
-    "current_blocker": "After the full `kc_any_percent_2024` TAS went CRC-clean through frame 4916, the next live blocker moved to `any-percent-published`: native exposes the standard title pose on frames 287..288, but oracle still keeps Kid hidden while title mode is already active.",
+    "current_blocker": "The frame-287 title-return mismatch is gone. The next live blocker in `any-percent-published` is frame 1830, where oracle has already awarded a second diamond in demo level `0x1B` while native still reports `number_diamonds=1`.",
     "authoritative_diffs": [
-      "First live authoritative mismatch now lands at frame 287 in `any-percent-published`, where native reports `kid=(0x002E0000,0x008C0000)` and oracle still reports `kid=(0x00000000,0x00000000)` under title mode."
+      "First live authoritative mismatch now lands at frame 1830 in `any-percent-published`, where native reports `number_diamonds=1` and oracle reports `number_diamonds=2` while Kid position still matches."
     ],
     "advisory_diffs": [
-      "`kc_any_percent_2024` now passes the full 0..4916 recording by CRC after the frame-3414 pause-snapshot fix.",
-      "Frames 280..286 of `any-percent-published` only differ on advisory `number_objects` while both traces still hide Kid.",
-      "At frame 287 oracle already has title objects (`number_objects=4`) but still keeps Kid blanked and `title_ready=false`."
+      "The old frame-287 title-pose blocker is resolved: `verify-tas --frame-start 280 --frame-end 292 --checkpoint-interval 1` is now CRC-clean with only advisory `number_objects` diffs on frames 280..288.",
+      "Frames 1826..1829 of `any-percent-published` only differ on advisory `number_objects` and `kid_x_vel` while Kid position and diamond count still match.",
+      "At frame 1830 oracle still reports advisory `kid_x_vel=0x00000000` and a much larger object roster (`number_objects=12`) while the first authoritative break is the second diamond award."
     ],
     "current_hypothesis": {
-      "name": "Title pose / ready gating for the published TAS returns Kid two frames too early",
-      "reason": "`verify-tas --frame-start 280 --frame-end 292 --checkpoint-interval 1` and `tas-diff --frame-start 284 --frame-end 290` show oracle stays in title mode with Kid blanked on frames 287..288 even though the title objects are already present. Native reaches `title_screen elapsed=148 title_ready=true` and restores the normal title pose immediately, so the next pass should focus on the title-ready / player-hide gate instead of gameplay physics."
+      "name": "Published demo level 0x1B awards the second floating diamond a few frames too late",
+      "reason": "`verify-tas --frame-start 1826 --frame-end 1834 --checkpoint-interval 1` and `tas-diff --frame-start 1828 --frame-end 1832 --include-advisory --show-object-roster-on-match` show Kid position stays aligned through frame 1830, but oracle increments `number_diamonds` to 2 while native stays at 1. Native still carries several floating items in the roster at the break, so the next pass should trace floating-item collection / pending diamond-award timing rather than player motion."
     },
     "rejected_hypotheses": [],
     "required_next_evidence": [
-      "Trace the title-return/player-hide path around frames 284..289 in `any-percent-published` to find why oracle still blanks Kid after title mode becomes visible.",
-      "Compare the published TAS title-return window against the existing `kc_any_percent_2024` demo-return hide logic to see whether the same handoff rules should apply with different timing.",
-      "Keep the next fix focused on title pose / title-ready gating, not on gameplay or object loading."
+      "Trace floating-item collection and `pending_prize_diamond_awards` around frames 1828..1832 in `any-percent-published` to find why oracle awards the second diamond earlier than native.",
+      "Compare the published demo's late floating-item window against the earlier diamond-award fixes in `kc_any_percent_2024` to see whether the same queue / collection rule is being missed here.",
+      "Keep the next fix focused on floating-item collection or queued diamond awards, not on advisory object counts or Kid X velocity."
     ],
     "verification_commands": [
-      "cargo test -p kid-core demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400 -- --nocapture",
-      "cargo test -p kid-core demo_1_matches_the_oracle_pause_snapshot_on_frame_3414 -- --nocapture",
-      "cargo test -p kid-core demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399 -- --nocapture",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3400 --frame-end 4916 --bisect",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 280 --frame-end 292 --checkpoint-interval 1",
+      "cargo test -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 1826 --frame-end 1834 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 1828 --frame-end 1832 --include-advisory --show-object-roster-on-match",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 0 --frame-end 3000 --bisect",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 284 --frame-end 290 --include-advisory --show-object-roster-on-match",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
     ]
@@ -67,8 +64,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 280 --frame-end 292 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 284 --frame-end 290 --include-advisory --show-object-roster-on-match",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 1826 --frame-end 1834 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 1828 --frame-end 1832 --include-advisory --show-object-roster-on-match",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

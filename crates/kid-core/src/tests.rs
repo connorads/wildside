@@ -12276,13 +12276,21 @@ fn demo_transform_entry_freezes_buffer_before_flash_frames_start() {
 }
 
 fn cached_any_percent_demo_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
+    cached_tas_runtime_and_script("kc_any_percent_2024")
+}
+
+fn cached_any_percent_published_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
+    cached_tas_runtime_and_script("any-percent-published")
+}
+
+fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>) {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .expect("repo root");
     let manifest_path = repo_root
         .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-    let scenario_path = repo_root.join(".cache/tas-imports/kc_any_percent_2024/scenario.json");
+    let scenario_path = repo_root.join(format!(".cache/tas-imports/{scenario_slug}/scenario.json"));
     let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
     let scenario_raw = fs::read_to_string(scenario_path).expect("read TAS scenario");
     let scenario_json: serde_json::Value =
@@ -13729,6 +13737,67 @@ fn demo_title_return_keeps_kid_hidden_until_frame_1924() {
         frame_1924,
         Some((Some(TITLE_KID_X_POS), Some(TITLE_KID_Y_POS), true, 4)),
         "the standard title pose should only return once the longer demo-return rebuild window ends"
+    );
+}
+
+#[test]
+fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_287 = None;
+    let mut frame_288 = None;
+    let mut frame_289 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(290) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            287 => {
+                frame_287 = Some((
+                    trace.game_mode,
+                    trace.title_screen_ready,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            288 => {
+                frame_288 = Some((
+                    trace.game_mode,
+                    trace.title_screen_ready,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            289 => {
+                frame_289 = Some((
+                    trace.game_mode,
+                    trace.title_screen_ready,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_287,
+        Some((GameMode::TitleScreen, false, None, None)),
+        "the published TAS still keeps Kid hidden on frame 287 even though title mode is active"
+    );
+    assert_eq!(
+        frame_288,
+        Some((GameMode::TitleScreen, false, None, None)),
+        "the published TAS keeps the title pose hidden for one more frame after 287"
+    );
+    assert_eq!(
+        frame_289,
+        Some((
+            GameMode::TitleScreen,
+            true,
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "the published TAS only restores the standard title pose on frame 289"
     );
 }
 

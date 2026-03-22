@@ -5,7 +5,13 @@ impl NativeRuntime {
         self.boot_state = BootState::TitleScreen { cursor: 0 };
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
-        self.title_screen_ready_frame = self.frame_index.max(TITLE_SCREEN_READY_GLOBAL_FRAME);
+        self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
+            self.frame_index
+                .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES)
+                .max(TITLE_SCREEN_READY_GLOBAL_FRAME)
+        } else {
+            self.frame_index
+        };
         self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
         self.title_menu_active = false;
         self.demo_buffered_input = None;
