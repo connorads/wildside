@@ -3042,14 +3042,52 @@ fn dragon_walking_probe_wall(
     } else {
         center_x_px - 1
     };
-    terrain::probe_wall(
-        grid,
-        wall_center_x,
-        foot_y_px,
-        ENEMY_PROBE_HALF_WIDTH,
-        ENEMY_PROBE_HEIGHT,
-        moving_right,
-    )
+    let edge_x = if moving_right {
+        wall_center_x + ENEMY_PROBE_HALF_WIDTH + 1
+    } else {
+        wall_center_x - ENEMY_PROBE_HALF_WIDTH
+    };
+
+    // ORIGINAL_QUIRK: the shared Dragon/Lion grounded walker helpers
+    // (`sub_36972`/`sub_36A58`) treat hurt tiles as blocking side contacts for
+    // the turnaround path. The frame-3126 TAS frontier depends on a spike
+    // shoulder counting as a wall.
+    let lower_body_y = foot_y_px - 8;
+    let upper_body_y = foot_y_px - ENEMY_PROBE_HEIGHT + 8;
+    let probe_ys = [
+        lower_body_y,
+        foot_y_px - ENEMY_PROBE_HEIGHT / 2,
+        upper_body_y,
+    ];
+
+    for &py in &probe_ys {
+        let probe = terrain::probe_at(grid, edge_x, py);
+        if matches!(
+            probe.cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        ) {
+            let wall_x = if moving_right {
+                i32::from(probe.cell_x) * 16
+            } else {
+                (i32::from(probe.cell_x) + 1) * 16
+            };
+            return terrain::WallProbe {
+                hit: true,
+                wall_x_px: wall_x,
+                cell: probe.cell,
+                cell_x: probe.cell_x,
+                cell_y: probe.cell_y,
+            };
+        }
+    }
+
+    terrain::WallProbe {
+        hit: false,
+        wall_x_px: 0,
+        cell: terrain::Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
+    }
 }
 
 fn dragon_walking_wall_snap_x(wall_x_px: i32, moving_right: bool) -> u32 {

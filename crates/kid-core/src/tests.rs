@@ -12545,9 +12545,7 @@ fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384()
             dragon_3384 = runtime
                 .active_enemies
                 .iter()
-                .find(|enemy| {
-                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4
-                })
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4)
                 .map(|enemy| (enemy.x_pos, enemy.facing));
             break;
         }
@@ -12562,7 +12560,6 @@ fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384()
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: lower shared walker still misses the oracle turnaround on frame 3126"]
 fn demo_1_lower_dragon_turns_right_without_advancing_on_frame_3126() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3125 = None;
@@ -12574,18 +12571,14 @@ fn demo_1_lower_dragon_turns_right_without_advancing_on_frame_3126() {
             dragon_3125 = runtime
                 .active_enemies
                 .iter()
-                .find(|enemy| {
-                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0
-                })
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0)
                 .map(|enemy| (enemy.x_pos, enemy.facing));
         }
         if frame_index == 3_126 {
             dragon_3126 = runtime
                 .active_enemies
                 .iter()
-                .find(|enemy| {
-                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0
-                })
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0)
                 .map(|enemy| (enemy.x_pos, enemy.facing));
             break;
         }
@@ -12600,6 +12593,41 @@ fn demo_1_lower_dragon_turns_right_without_advancing_on_frame_3126() {
         dragon_3126,
         Some((0x0319_0000, Direction::Right)),
         "frame 3126 should idle on the same tile and flip to the oracle-backed right-facing turnaround",
+    );
+}
+
+#[test]
+fn dragon_walking_spike_shoulder_turns_the_shared_walker_in_place() {
+    let width_cells = 6u16 * 20;
+    let height_cells = 4u16 * 14;
+    let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+    let set_cell = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+        let offset = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+        data[offset] = hi;
+    };
+    for col in 47..=51 {
+        set_cell(&mut data, col, 28, 0x60);
+    }
+    set_cell(&mut data, 48, 27, 0x70);
+
+    let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 0x0319_0000, 0x01C0_0000, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Left;
+    enemy.shared_walker_state = SHARED_WALKER_STATE_PATROL;
+    enemy.shared_walker_patrol_timer = 0x00A9;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(0x02A9_4000));
+
+    assert_eq!(
+        enemy.x_pos, 0x0319_0000,
+        "a spike shoulder on the shared-walker leading edge should block the grounded patrol step before the dragon advances past the oracle tile",
+    );
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "the shared grounded walker should reverse in place when that spike shoulder blocks the left-facing step",
     );
 }
 
@@ -12757,9 +12785,7 @@ fn demo_1_iron_knight_transform_freezes_walking_dragons_on_frame_3171() {
             dragon_3170 = runtime
                 .active_enemies
                 .iter()
-                .find(|enemy| {
-                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4
-                })
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4)
                 .map(|enemy| {
                     (
                         enemy.x_pos,
@@ -12772,9 +12798,7 @@ fn demo_1_iron_knight_transform_freezes_walking_dragons_on_frame_3171() {
             dragon_3171 = runtime
                 .active_enemies
                 .iter()
-                .find(|enemy| {
-                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4
-                })
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4)
                 .map(|enemy| {
                     (
                         enemy.x_pos,
@@ -12797,8 +12821,7 @@ fn demo_1_iron_knight_transform_freezes_walking_dragons_on_frame_3171() {
         "frame 3170 should capture the last pre-freeze walking-dragon state",
     );
     assert_eq!(
-        dragon_3171,
-        dragon_3170,
+        dragon_3171, dragon_3170,
         "frame 3171 should keep the walking dragon frozen while Kid_Transform hibernates gameplay",
     );
 }
