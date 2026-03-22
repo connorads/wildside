@@ -12699,6 +12699,55 @@ fn published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_599
 }
 
 #[test]
+fn published_tas_demo_2_holds_intro_sequence_3_until_frame_6209() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_6033 = None;
+    let mut frame_6208 = None;
+    let mut frame_6209 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(6_210) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            6_033 => {
+                frame_6033 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            6_208 => {
+                frame_6208 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            6_209 => {
+                frame_6209 = Some(trace.game_mode);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_6033,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0060_0000),
+            Some(0x00D0_0000),
+        )),
+        "the timeout restart should keep intro sequence 3 alive on the old frame-6033 frontier",
+    );
+    assert_eq!(
+        frame_6208,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0060_0000),
+            Some(0x00D0_0000),
+        )),
+        "the timeout restart should keep intro sequence 3 alive through frame 6208",
+    );
+    assert_eq!(
+        frame_6209,
+        Some(GameMode::TitleScreen),
+        "the timeout restart should return straight to title on frame 6209",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);

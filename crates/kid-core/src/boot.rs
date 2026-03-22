@@ -22,6 +22,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_handoff_active = false;
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
+        self.demo_auto_timeout_intro_sequence_3_frames_override = None;
         self.preserve_demo_title_snapshot = false;
         self.hide_demo_return_title_player = false;
         self.pending_prize_diamond_awards.clear();
@@ -110,6 +111,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_handoff_active = false;
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
+        self.demo_auto_timeout_intro_sequence_3_frames_override = None;
         self.reload_block_grid_for_level(self.current_level);
     }
 
@@ -140,6 +142,8 @@ impl NativeRuntime {
             Some(DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES);
         self.demo_auto_timeout_intro_sequence_2_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES);
+        self.demo_auto_timeout_intro_sequence_3_frames_override =
+            Some(DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
@@ -536,6 +540,8 @@ impl NativeRuntime {
             self.demo_auto_timeout_intro_sequence_1_frames_override;
         let intro_sequence_2_frames_override =
             self.demo_auto_timeout_intro_sequence_2_frames_override;
+        let intro_sequence_3_frames_override =
+            self.demo_auto_timeout_intro_sequence_3_frames_override;
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
                 *elapsed += 1;
@@ -576,8 +582,11 @@ impl NativeRuntime {
                 let segment_frames = match *segment {
                     0 => intro_sequence_1_frames_override.unwrap_or(INTRO_FIRST_SEGMENT_FRAMES),
                     1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
+                    2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
+                let timeout_restart_returns_to_title =
+                    *segment == 2 && intro_sequence_3_frames_override.is_some();
                 let start_advances_segment = start_pressed
                     && (*segment != 0 || *elapsed >= INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES);
                 let start_jumps_to_title = start_pressed
@@ -590,8 +599,10 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
                     } else if *segment == 1 {
                         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
+                    } else if *segment == 2 {
+                        self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     }
-                    if *segment >= 4 {
+                    if *segment >= 4 || timeout_restart_returns_to_title {
                         *pending_title_skip = 2;
                     } else {
                         *segment += 1;
@@ -603,8 +614,10 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
                     } else if *segment == 1 {
                         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
+                    } else if *segment == 2 {
+                        self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     }
-                    if *segment >= 4 {
+                    if *segment >= 4 || timeout_restart_returns_to_title {
                         self.enter_title_screen();
                     } else {
                         *segment += 1;

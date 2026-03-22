@@ -141,6 +141,9 @@ pub struct NativeRuntime {
     /// Timeout restart also keeps intro sequence 2 alive much longer than the
     /// shared post-sequence-1 attract timer.
     demo_auto_timeout_intro_sequence_2_frames_override: Option<usize>,
+    /// Timeout restart keeps intro sequence 3 alive far longer too, then
+    /// returns straight to title instead of entering intro sequences 4 and 5.
+    demo_auto_timeout_intro_sequence_3_frames_override: Option<usize>,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
@@ -234,6 +237,7 @@ impl NativeRuntime {
             demo_auto_timeout_handoff_active: false,
             demo_auto_timeout_intro_sequence_1_frames_override: None,
             demo_auto_timeout_intro_sequence_2_frames_override: None,
+            demo_auto_timeout_intro_sequence_3_frames_override: None,
             preserve_demo_title_snapshot: false,
             hide_demo_return_title_player: false,
             demo_toggle: false,
