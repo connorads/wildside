@@ -12776,6 +12776,76 @@ fn published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frame
 }
 
 #[test]
+fn published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_6357 = None;
+    let mut frame_6358 = None;
+    let mut frame_6359 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(6_360) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            6_357 => {
+                frame_6357 = Some((
+                    trace.game_mode,
+                    trace.title_screen_ready,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            6_358 => {
+                frame_6358 = Some((
+                    trace.game_mode,
+                    trace.title_screen_ready,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+            }
+            6_359 => {
+                frame_6359 = Some((
+                    trace.game_mode,
+                    trace.title_screen_ready,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_6357,
+        Some((GameMode::TitleScreen, true, None, None)),
+        "the timeout restart should still keep Kid hidden on the last pre-return title frame",
+    );
+    assert_eq!(
+        frame_6358,
+        Some((
+            GameMode::TitleScreen,
+            true,
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+            Some(Direction::Right),
+        )),
+        "frame 6358 should restore the standard title pose on the first post-carry-over visible title frame",
+    );
+    assert_eq!(
+        frame_6359,
+        Some((
+            GameMode::TitleScreen,
+            true,
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+            Some(Direction::Right),
+        )),
+        "once the rebuild window ends the standard title pose should stay visible on the following frame",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);

@@ -63,6 +63,10 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES: usize = 256;
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.
 pub(crate) const DEMO_TITLE_PLAYER_HIDDEN_FRAMES: usize = 150;
+// The timeout-restart intro-sequence-3 carry-over keeps the intro pose alive
+// for the first 28 title frames, so the follow-up hidden rebuild window ends
+// one frame earlier than the older demo-abort path.
+pub(crate) const TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES: usize = 149;
 // Oracle-backed TAS traces show the title screen reaches a "ready" state only
 // once the overall boot timeline has progressed far enough. Synthetic
 // bootstrap scripts reach title much later and are ready immediately on entry,

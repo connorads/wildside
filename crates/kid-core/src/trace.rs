@@ -65,10 +65,15 @@ impl NativeRuntime {
     }
 
     fn title_hides_demo_return_player(&self) -> bool {
+        let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
+            TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
+        } else {
+            DEMO_TITLE_PLAYER_HIDDEN_FRAMES
+        };
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.hide_demo_return_title_player
             && (self.demo_auto_timeout_handoff_active
-                || self.title_screen_elapsed_frames < DEMO_TITLE_PLAYER_HIDDEN_FRAMES)
+                || self.title_screen_elapsed_frames < hidden_frames)
     }
 
     pub fn trace_frame(&self) -> NativeTraceFrame {
