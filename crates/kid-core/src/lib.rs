@@ -413,6 +413,10 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn gameplay_hibernating_for_transform(&self) -> bool {
+        self.progression.form_change_flash_frames > 0
+    }
+
     fn apply_form_width_overlap_fixup(&mut self, slice: &mut OpeningSliceState) {
         if self.progression.form_width_delta == 0 {
             return;
@@ -490,6 +494,13 @@ impl NativeRuntime {
         slice.ceiling_prize_clear = None;
         self.blocks_hit_this_frame = 0;
         self.sound_test_play_pending = false;
+        // ASM Kid_Transform replaces the normal frame loop with a coroutine
+        // that hibernates gameplay objects. Keep the previous slice/roster
+        // stable until the transform flash countdown finishes.
+        if self.gameplay_hibernating_for_transform() {
+            self.opening_slice = Some(slice);
+            return;
+        }
         // Tick visual effects
         self.step_visual_effects();
         // Prize blocks headbutted from below update their queued sub_1007A

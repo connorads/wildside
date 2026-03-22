@@ -4089,6 +4089,9 @@ impl NativeRuntime {
         if self.paused {
             return;
         }
+        if self.gameplay_hibernating_for_transform() {
+            return;
+        }
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();

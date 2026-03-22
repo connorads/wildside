@@ -12703,6 +12703,66 @@ fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
 }
 
 #[test]
+fn demo_1_iron_knight_transform_freezes_walking_dragons_on_frame_3171() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_3170 = None;
+    let mut dragon_3170 = None;
+    let mut dragon_3171 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_172) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_170 {
+            frame_3170 = Some((trace.current_helmet_id, trace.form_change_flash_frames));
+            dragon_3170 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| {
+                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4
+                })
+                .map(|enemy| {
+                    (
+                        enemy.x_pos,
+                        enemy.shared_walker_patrol_timer,
+                        enemy.wait_timer,
+                    )
+                });
+        }
+        if frame_index == 3_171 {
+            dragon_3171 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| {
+                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4
+                })
+                .map(|enemy| {
+                    (
+                        enemy.x_pos,
+                        enemy.shared_walker_patrol_timer,
+                        enemy.wait_timer,
+                    )
+                });
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_3170,
+        Some((PlayerForm::IronKnight.helmet_id(), 82)),
+        "frame 3170 should enter the Iron Knight transform on the oracle-backed pickup frame",
+    );
+    assert_eq!(
+        dragon_3170,
+        Some((0x02E5_8000, 0x008F, 0x0084)),
+        "frame 3170 should capture the last pre-freeze walking-dragon state",
+    );
+    assert_eq!(
+        dragon_3171,
+        dragon_3170,
+        "frame 3171 should keep the walking dragon frozen while Kid_Transform hibernates gameplay",
+    );
+}
+
+#[test]
 fn demo_transform_exit_rewinds_frame_counter_for_byte_parity() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut previous_flash_frames = 0u8;
