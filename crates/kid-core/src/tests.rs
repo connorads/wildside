@@ -4492,6 +4492,35 @@ fn dragon_walking_grounded_patrol_moves_without_populating_x_velocity() {
 }
 
 #[test]
+fn dragon_walking_patrol_timer_turns_around_without_taking_a_walk_step() {
+    let grid = grid_with_platform(17, 0, 4);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 23 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Right;
+    enemy.shared_walker_state = SHARED_WALKER_STATE_PATROL;
+    enemy.shared_walker_patrol_timer = 1;
+    enemy.shared_walker_patrol_short_next = true;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, None);
+
+    assert_eq!(
+        enemy.x_pos,
+        23 << 16,
+        "the shared walker turnaround should idle on the timer-expiry frame instead of taking one more patrol step",
+    );
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "the patrol cadence callback should reverse direction when $54 expires",
+    );
+    assert_eq!(
+        enemy.shared_walker_patrol_timer, 0x32,
+        "DragonWalking should swap the shared patrol cadence from the long leg to the short leg on the first turnaround",
+    );
+}
+
+#[test]
 fn dragon_walking_calm_state_stops_and_faces_nearby_player() {
     let grid = grid_with_platform(17, 0, 4);
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);

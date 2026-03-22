@@ -3067,6 +3067,7 @@ fn step_dragon_walking_walk(
     let moving_right = walk_delta >= 0;
 
     if shared_walker_tick_patrol(enemy) {
+        reverse_enemy_direction(enemy);
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
         return DragonWalkingWalkStep::Idled;
