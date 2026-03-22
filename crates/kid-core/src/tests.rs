@@ -5019,6 +5019,45 @@ fn trace_frame_reports_kid_same_frame_stomp_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_iron_knight_block_breaker_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+
+    let mut grid = grid_with_wall(3, 0, 20, 10);
+    for row in 0..3 {
+        grid.set_cell_at(10, row, terrain::Cell::from_be_bytes(0xE0, 0));
+    }
+    runtime.block_grid = Some(grid);
+
+    let mut player = airborne_slice().player;
+    player.x_pos = 154 << 16;
+    player.y_pos = 32 << 16;
+    player.x_velocity = 0x0004_8000;
+    player.facing = Direction::Right;
+    runtime.last_kid_frame_pre_physics_before_physics = Some(player);
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_iron_knight_block_breaker_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit Iron Knight block-breaker diagnostics"));
+
+    assert!(
+        probe_debug.contains("helmet=0x0006/facing=right/x_vel=0x00048000/speed_gate=1"),
+        "the breaker probe should report the Iron Knight speed gate from the pre-physics snapshot",
+    );
+    assert!(
+        probe_debug.contains("wall=hit=1/x=160/cell=10,1 collision=solid block=Smash has_block=1"),
+        "the breaker probe should report the forward solid block contact that mirrors the ROM wall-break check",
+    );
+    assert!(
+        probe_debug.contains("candidate=1"),
+        "the breaker probe should flag a ROM-like Iron Knight block-break candidate when speed and wall/block gates align",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -14258,6 +14297,49 @@ fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
         assert!(
             probe_debug.contains("anchor=0x03a80000,0x01bf0000"),
             "frame {frame_index} should preserve the ROM-style saved anchor that a same-frame stomp bounce would need",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_iron_knight_block_breaker_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_iron_knight_block_breaker_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit Iron Knight block-breaker diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("helmet=0x0006"),
+            "frame {frame_index} should keep the Iron Knight helmet context while testing the ROM block-break path",
+        );
+        assert!(
+            probe_debug.contains("x_vel=0x00000000/speed_gate=0"),
+            "frame {frame_index} should prove the ROM Iron Knight block-break speed gate is cold in the live 7968..7969 window",
+        );
+        assert!(
+            probe_debug.contains("candidate=0"),
+            "frame {frame_index} should rule out the ROM Iron Knight block-breaker path as the source of the oracle lift-off",
         );
     }
 }

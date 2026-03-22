@@ -153,6 +153,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_iron_knight_block_breaker_probe_debug() {
+            gameplay_debug_fields.insert("kid_iron_knight_block_breaker_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_grounded_release_probe_debug() {
             gameplay_debug_fields.insert("kid_grounded_release_probe".into(), summary);
         }
@@ -615,6 +618,64 @@ impl NativeRuntime {
             u8::from(probe.release_triggered),
             self.last_kid_frame_post_motion_mutator.as_debug_label(),
             terrain_provenance,
+        ))
+    }
+
+    fn kid_iron_knight_block_breaker_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let player = self.last_kid_frame_pre_physics_before_physics?;
+        let form = self.progression.current_form;
+        let facing = match player.facing {
+            Direction::Left => "left",
+            Direction::Right => "right",
+        };
+        let speed_gate =
+            form == PlayerForm::IronKnight && player.x_velocity.unsigned_abs() >= 0x48000;
+
+        let (wall_summary, breaker_candidate) = match self.block_grid.as_ref() {
+            Some(grid) => {
+                let wall_probe = terrain::probe_wall(
+                    grid,
+                    (player.x_pos >> 16) as i32,
+                    (player.y_pos >> 16) as i32,
+                    form.half_width(),
+                    PLAYER_HEIGHT,
+                    player.facing == Direction::Right,
+                );
+                (
+                    format!(
+                        "hit={}/x={}/cell={},{} collision={} block={} has_block={}",
+                        u8::from(wall_probe.hit),
+                        wall_probe.wall_x_px,
+                        wall_probe.cell_x,
+                        wall_probe.cell_y,
+                        collision_kind_debug_label(wall_probe.cell.collision),
+                        block_type_debug_label(wall_probe.cell.block_type),
+                        u8::from(wall_probe.cell.has_block),
+                    ),
+                    speed_gate && wall_probe.hit && wall_probe.cell.has_block,
+                )
+            }
+            None => (
+                String::from("hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"),
+                false,
+            ),
+        };
+
+        Some(format!(
+            "helmet={:#06x}/facing={}/x_vel={:#010x}/speed_gate={}/wall={}/candidate={}",
+            form.helmet_id(),
+            facing,
+            player.x_velocity as u32,
+            u8::from(speed_gate),
+            wall_summary,
+            u8::from(breaker_candidate),
         ))
     }
 
