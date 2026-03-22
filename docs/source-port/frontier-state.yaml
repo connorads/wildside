@@ -73,7 +73,7 @@
     ],
     "required_next_evidence": [
       "Trace the oracle-backed frame-3400 snap against `GfxObjects_CollisionKid` and the player-side `colid_kidbelow` consumers to see which object collision path should ground Kid with no terrain support.",
-      "Capture the frame-3399/frame-3400 object-collision state for the second dragon setup so native can prove whether DragonWalking should behave like a temporary support surface on that setup frame.",
+      "Compare the new native `kid_object_support_candidates` frame debug field on frames 3399..3400 against oracle object state so the next pass can prove whether DragonWalking should behave like a temporary support surface on that setup frame.",
       "Keep the next gameplay fix focused on Kid's frame-3400 object collision or landing resolution, not on re-opening the already-green lower-dragon shared-walker probes."
     ],
     "verification_commands": [

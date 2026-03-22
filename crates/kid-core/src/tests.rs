@@ -4654,6 +4654,43 @@ fn dragon_walking_snapshot_reports_shared_walker_debug_fields() {
 }
 
 #[test]
+fn trace_frame_reports_kid_object_support_candidates() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = 42 << 16;
+    slice.player.y_pos = 240 << 16;
+    runtime.opening_slice = Some(slice);
+    runtime.progression.current_form = PlayerForm::TheKid;
+
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Right;
+    runtime.active_enemy_roster = vec![enemy.snapshot()];
+    runtime.active_enemies = vec![enemy];
+
+    let trace = runtime.trace_frame();
+    let support_debug = trace
+        .gameplay_debug_fields
+        .get("kid_object_support_candidates")
+        .unwrap_or_else(|| panic!("trace frame should emit kid-object support diagnostics"));
+
+    assert!(
+        support_debug.contains("enemy_0D#00"),
+        "the support trace should identify the nearby grounded dragon candidate",
+    );
+    assert!(
+        support_debug.contains("relation=kidbelow"),
+        "overlapping support surfaces should be tagged with the kidbelow relation",
+    );
+    assert!(
+        support_debug.contains("support=1"),
+        "standing support candidates should be marked as active support",
+    );
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
@@ -12679,6 +12716,35 @@ fn demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399() {
             (4, 0, 0, true),
         ],
         "frame 3399 should keep the grounded walking dragons on the oracle-backed zero-velocity path even though the position/facing frontier remains open",
+    );
+}
+
+#[test]
+fn demo_1_frame_3400_reports_kid_object_support_candidates() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_3400 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_401) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_400 {
+            frame_3400 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_3400 = frame_3400.unwrap_or_else(|| panic!("frame 3400 should be captured"));
+    let support_debug = frame_3400
+        .gameplay_debug_fields
+        .get("kid_object_support_candidates")
+        .unwrap_or_else(|| panic!("frame 3400 should emit Kid/object support diagnostics"));
+
+    assert!(
+        support_debug.contains("enemy_0D#00"),
+        "the frame-3400 diagnostics should include the nearby right-side walking dragon candidate",
+    );
+    assert!(
+        support_debug.contains("support="),
+        "the frame-3400 diagnostics should report support classification details for the nearby candidates",
     );
 }
 

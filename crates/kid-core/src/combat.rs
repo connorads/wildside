@@ -668,14 +668,14 @@ pub(crate) enum EnemyContactResult {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct EnemyContactBounds {
-    left_px: i64,
-    right_px: i64,
-    top_px: i64,
-    bottom_px: i64,
+pub(crate) struct EnemyContactBounds {
+    pub(crate) left_px: i64,
+    pub(crate) right_px: i64,
+    pub(crate) top_px: i64,
+    pub(crate) bottom_px: i64,
 }
 
-fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x0D } => {
             // Oracle frame 2938 uses sprite offset $0544, whose collision table

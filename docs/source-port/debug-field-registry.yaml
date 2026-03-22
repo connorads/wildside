@@ -42,6 +42,14 @@
       "promotion_trigger": "Promote if pause-state parity needs to be asserted routinely."
     },
     {
+      "key": "kid_object_support_candidates",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "kid-object-collision-frontier",
+      "intended_meaning": "Nearby active objects around Kid with top-gap, overlap, and support-direction diagnostics for the frame-3400 stomp setup frontier.",
+      "promotion_trigger": "Promote if repeated parity work starts depending on a typed Kid/object support or collision-direction field."
+    },
+    {
       "key": "grounded_frames",
       "scope": "object",
       "status": "exploratory",

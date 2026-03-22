@@ -1,5 +1,44 @@
 use super::*;
+use crate::combat::enemy_contact_bounds;
 use std::collections::BTreeMap;
+
+const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
+const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
+const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KidObjectRelation {
+    Below,
+    Above,
+    Left,
+    Right,
+}
+
+impl KidObjectRelation {
+    fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::Below => "kidbelow",
+            Self::Above => "kidabove",
+            Self::Left => "kidleft",
+            Self::Right => "kidright",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ObjectBoundsPx {
+    left: i32,
+    right: i32,
+    top: i32,
+    bottom: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct KidObjectSupportCandidate {
+    abs_top_gap_px: i32,
+    abs_dx_px: i32,
+    summary: String,
+}
 
 impl NativeRuntime {
     fn title_uses_demo_snapshot(&self) -> bool {
@@ -53,6 +92,11 @@ impl NativeRuntime {
         }
         if self.gameplay_hibernating_for_transform() {
             gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
+        }
+        if let Some(player_state) = player_state
+            && let Some(summary) = self.kid_object_support_candidates(player_state)
+        {
+            gameplay_debug_fields.insert("kid_object_support_candidates".into(), summary);
         }
         NativeTraceFrame {
             frame_index: self.frame_index,
@@ -181,6 +225,69 @@ impl NativeRuntime {
             sound_test_play_pending: self.sound_test_play_pending,
             gameplay_debug_fields,
             physics_trace: self.opening_slice.and_then(|s| s.physics_trace),
+        }
+    }
+
+    fn kid_object_support_candidates(&self, player: PlayerState) -> Option<String> {
+        let player_bounds = self.player_collision_bounds(player);
+        let player_x_px = (player.x_pos >> 16) as i32;
+        let player_foot_y_px = (player.y_pos >> 16) as i32;
+        let mut candidates = Vec::new();
+
+        for enemy in &self.active_enemies {
+            let snapshot = enemy.snapshot();
+            if let Some(bounds) = enemy_collision_bounds_px(&snapshot)
+                && let Some(candidate) = kid_object_support_candidate(
+                    format!(
+                        "enemy_{:02X}#{:02}",
+                        enemy.family.object_type(),
+                        enemy.layout_index
+                    ),
+                    player_x_px,
+                    player_foot_y_px,
+                    player_bounds,
+                    bounds,
+                )
+            {
+                candidates.push(candidate);
+            }
+        }
+
+        for (platform_index, platform) in self.active_platforms.iter().enumerate() {
+            let bounds = platform_collision_bounds_px(*platform);
+            if let Some(candidate) = kid_object_support_candidate(
+                format!("platform_{platform_index:02}"),
+                player_x_px,
+                player_foot_y_px,
+                player_bounds,
+                bounds,
+            ) {
+                candidates.push(candidate);
+            }
+        }
+
+        if candidates.is_empty() {
+            return None;
+        }
+
+        candidates.sort_by_key(|candidate| (candidate.abs_top_gap_px, candidate.abs_dx_px));
+        let summaries = candidates
+            .into_iter()
+            .take(KID_OBJECT_SUPPORT_CANDIDATE_LIMIT)
+            .map(|candidate| candidate.summary)
+            .collect::<Vec<_>>();
+        Some(summaries.join("; "))
+    }
+
+    fn player_collision_bounds(&self, player: PlayerState) -> ObjectBoundsPx {
+        let half_width = self.progression.current_form.half_width();
+        let x_px = (player.x_pos >> 16) as i32;
+        let foot_y_px = (player.y_pos >> 16) as i32;
+        ObjectBoundsPx {
+            left: x_px - half_width,
+            right: x_px + half_width,
+            top: foot_y_px - PLAYER_HEIGHT,
+            bottom: foot_y_px,
         }
     }
 
@@ -437,6 +544,96 @@ impl NativeRuntime {
             })
             .unwrap_or(0);
         (roster_count + 2 + extra, roster_count + 2 + extra)
+    }
+}
+
+fn enemy_collision_bounds_px(enemy: &NativeObjectSnapshot) -> Option<ObjectBoundsPx> {
+    let NativeObjectKind::Enemy { .. } = enemy.kind else {
+        return None;
+    };
+    let x_px = (enemy.x_pos >> 16) as i32;
+    let y_px = (enemy.y_pos >> 16) as i32;
+    let bounds = enemy_contact_bounds(enemy);
+    Some(ObjectBoundsPx {
+        left: x_px - bounds.left_px as i32,
+        right: x_px + bounds.right_px as i32,
+        top: y_px - bounds.top_px as i32,
+        bottom: y_px + bounds.bottom_px as i32,
+    })
+}
+
+fn platform_collision_bounds_px(platform: ActivePlatform) -> ObjectBoundsPx {
+    let x_px = (platform.x_pos >> 16) as i32;
+    let y_px = (platform.y_pos >> 16) as i32;
+    ObjectBoundsPx {
+        left: x_px,
+        right: x_px + i32::from(platform.width_px),
+        top: y_px,
+        bottom: y_px + i32::from(platform.height_px),
+    }
+}
+
+fn kid_object_support_candidate(
+    label: String,
+    player_x_px: i32,
+    player_foot_y_px: i32,
+    player_bounds: ObjectBoundsPx,
+    object_bounds: ObjectBoundsPx,
+) -> Option<KidObjectSupportCandidate> {
+    let object_centre_x_px = (object_bounds.left + object_bounds.right) / 2;
+    let dx_px = object_centre_x_px - player_x_px;
+    let top_gap_px = player_foot_y_px - object_bounds.top;
+    if dx_px.abs() > KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX
+        || top_gap_px.abs() > KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX
+    {
+        return None;
+    }
+
+    let x_overlap_px =
+        player_bounds.right.min(object_bounds.right) - player_bounds.left.max(object_bounds.left);
+    let y_overlap_px =
+        player_bounds.bottom.min(object_bounds.bottom) - player_bounds.top.max(object_bounds.top);
+    let relation = classify_kid_object_relation(player_bounds, object_bounds);
+    let relation_label = relation
+        .map(KidObjectRelation::as_debug_label)
+        .unwrap_or("none");
+    let support = relation == Some(KidObjectRelation::Below);
+    Some(KidObjectSupportCandidate {
+        abs_top_gap_px: top_gap_px.abs(),
+        abs_dx_px: dx_px.abs(),
+        summary: format!(
+            "{label} dx={dx_px} top_gap={top_gap_px} x_overlap={x_overlap_px} y_overlap={y_overlap_px} relation={relation_label} support={}",
+            u8::from(support)
+        ),
+    })
+}
+
+fn classify_kid_object_relation(
+    player_bounds: ObjectBoundsPx,
+    object_bounds: ObjectBoundsPx,
+) -> Option<KidObjectRelation> {
+    let x_overlap_px =
+        player_bounds.right.min(object_bounds.right) - player_bounds.left.max(object_bounds.left);
+    let y_overlap_px =
+        player_bounds.bottom.min(object_bounds.bottom) - player_bounds.top.max(object_bounds.top);
+    if x_overlap_px <= 0 || y_overlap_px <= 0 {
+        return None;
+    }
+
+    let from_top = player_bounds.bottom - object_bounds.top;
+    let from_bottom = object_bounds.bottom - player_bounds.top;
+    let from_left = player_bounds.right - object_bounds.left;
+    let from_right = object_bounds.right - player_bounds.left;
+    let min_penetration = from_top.min(from_bottom).min(from_left).min(from_right);
+
+    if min_penetration == from_top {
+        Some(KidObjectRelation::Below)
+    } else if min_penetration == from_bottom {
+        Some(KidObjectRelation::Above)
+    } else if min_penetration == from_left {
+        Some(KidObjectRelation::Right)
+    } else {
+        Some(KidObjectRelation::Left)
     }
 }
 

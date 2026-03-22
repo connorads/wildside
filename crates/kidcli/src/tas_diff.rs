@@ -120,6 +120,10 @@ pub fn run_tas_diff(
                         );
                         println!("  oracle: {}", oracle_object_debug(oracle_state));
                     }
+                    if let Some(gameplay_debug) = native_gameplay_debug(native_trace.get(frame_idx))
+                    {
+                        println!("  gameplay: {gameplay_debug}");
+                    }
                 }
             }
             continue;
@@ -215,6 +219,9 @@ pub fn run_tas_diff(
                 native_object_debug(native_trace.get(frame_idx))
             );
             println!("  oracle: {}", oracle_object_debug(oracle_state));
+        }
+        if let Some(gameplay_debug) = native_gameplay_debug(native_trace.get(frame_idx)) {
+            println!("  gameplay: {gameplay_debug}");
         }
     }
 
@@ -356,6 +363,14 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
     }
 
     summarize_entries(entries)
+}
+
+fn native_gameplay_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Option<String> {
+    let frame = native_frame?;
+    if frame.gameplay_debug_fields.is_empty() {
+        return None;
+    }
+    Some(format!("{:?}", frame.gameplay_debug_fields))
 }
 
 fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
