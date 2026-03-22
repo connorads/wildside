@@ -135,6 +135,9 @@ pub struct NativeRuntime {
     /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
     /// paused title helper used by manual Start aborts.
     demo_auto_timeout_handoff_active: bool,
+    /// Timeout restart hands the generic intro state machine a different
+    /// sequence-1 duration than cold boot.
+    demo_auto_timeout_intro_sequence_1_frames_override: Option<usize>,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
@@ -226,6 +229,7 @@ impl NativeRuntime {
             demo_auto_timeout_return_pending: false,
             demo_auto_timeout_freeze_gameplay_frame: false,
             demo_auto_timeout_handoff_active: false,
+            demo_auto_timeout_intro_sequence_1_frames_override: None,
             preserve_demo_title_snapshot: false,
             hide_demo_return_title_player: false,
             demo_toggle: false,

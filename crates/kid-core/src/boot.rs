@@ -20,6 +20,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_return_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
+        self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.preserve_demo_title_snapshot = false;
         self.hide_demo_return_title_player = false;
         self.pending_prize_diamond_awards.clear();
@@ -106,6 +107,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_return_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
+        self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.reload_block_grid_for_level(self.current_level);
     }
 
@@ -132,6 +134,8 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = true;
+        self.demo_auto_timeout_intro_sequence_1_frames_override =
+            Some(DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
@@ -524,6 +528,8 @@ impl NativeRuntime {
     /// Advance the boot state machine one frame (Sega screen, intros, title,
     /// options, sound test, level transition, ending).
     pub(crate) fn step_boot_state(&mut self, input: FrameInput, start_pressed: bool) {
+        let intro_sequence_1_frames_override =
+            self.demo_auto_timeout_intro_sequence_1_frames_override;
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
                 *elapsed += 1;
@@ -562,7 +568,7 @@ impl NativeRuntime {
                 }
                 *elapsed += 1;
                 let segment_frames = if *segment == 0 {
-                    INTRO_FIRST_SEGMENT_FRAMES
+                    intro_sequence_1_frames_override.unwrap_or(INTRO_FIRST_SEGMENT_FRAMES)
                 } else {
                     INTRO_SEGMENT_FRAMES
                 };
@@ -574,6 +580,9 @@ impl NativeRuntime {
                 if start_jumps_to_title {
                     *pending_title_skip = 2;
                 } else if start_advances_segment {
+                    if *segment == 0 {
+                        self.demo_auto_timeout_intro_sequence_1_frames_override = None;
+                    }
                     if *segment >= 4 {
                         *pending_title_skip = 2;
                     } else {
@@ -582,6 +591,9 @@ impl NativeRuntime {
                     }
                 } else if *elapsed >= segment_frames {
                     // Natural timeout: advance immediately (no deferral)
+                    if *segment == 0 {
+                        self.demo_auto_timeout_intro_sequence_1_frames_override = None;
+                    }
                     if *segment >= 4 {
                         self.enter_title_screen();
                     } else {

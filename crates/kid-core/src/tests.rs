@@ -12584,6 +12584,38 @@ fn published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143() {
 }
 
 #[test]
+fn published_tas_demo_2_holds_intro_sequence_1_until_frame_5504() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_5503 = None;
+    let mut frame_5504 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(5_505) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            5_503 => {
+                frame_5503 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            5_504 => {
+                frame_5504 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_5503,
+        Some((GameMode::IntroSequence1, None, None)),
+        "the timeout restart should keep intro sequence 1 alive through frame 5503",
+    );
+    assert_eq!(
+        frame_5504,
+        Some((GameMode::IntroSequence2, None, None)),
+        "the timeout restart should only advance into intro sequence 2 on frame 5504",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);
