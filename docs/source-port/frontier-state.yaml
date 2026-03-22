@@ -13,17 +13,17 @@
     "authoritative_clean_through": 3399,
     "pre_divergence_windows": [
       {
-        "frame_start": 3374,
-        "frame_end": 3384,
-        "reason": "The second right-side dragon stays in patrol and takes timer turnaround while oracle still holds it on the right-facing tile."
+        "frame_start": 3391,
+        "frame_end": 3392,
+        "reason": "The lower shared walker (layout #02) should still be walking left at frame 3392, but native flips right and resets the patrol cadence one frame too early."
       },
       {
-        "frame_start": 3399,
+        "frame_start": 3392,
         "frame_end": 3400,
-        "reason": "Kid and camera are still authoritative, but the walking-dragon roster is already wrong."
+        "reason": "Kid and camera are still authoritative after the early lower-dragon turnaround, but the walking-dragon roster history is already wrong before the stomp."
       }
     ],
-    "current_blocker": "The missing behaviour is earlier than the visible stomp break: DragonWalking is not taking the shared walker from patrol state 0x000A into the calm/alert ladder before patrol expiry owns layout #04 at frame 3384.",
+    "current_blocker": "The old frame-3384 right-side hold theory is stale on the current tree. The live blocker is lower layout #02: native takes the shared patrol-turnaround at frame 3392, but oracle keeps that walker moving left into the pre-stomp warm state.",
     "authoritative_diffs": [
       "First live authoritative mismatch lands at frame 3400 in demo 0x15 during the second Knights Isle stomp setup."
     ],
@@ -32,8 +32,8 @@
       "Frame 3399 zero-velocity and frame 3384 hold-tile probes are green, but the roster history is still wrong."
     ],
     "current_hypothesis": {
-      "name": "Earlier patrol-to-alert entry is missing",
-      "reason": "The right-side walkers are still in plain patrol at frame 3374, so later turnaround and hold logic cannot be the entry point. The next fix has to explain the earlier write that moves DragonWalking into the shared 0 -> 1/2 alert ladder before frame 3384."
+      "name": "Lower shared walker is 24 patrol steps ahead before the stomp",
+      "reason": "The lower dragon reaches frame 3392 twelve pixels ahead of oracle and burns the shared turnaround callback there. That matches 24 extra half-pixel patrol steps, so the next fix should explain the missing idle/freeze window or cadence gate earlier in the grounded replay history."
     },
     "rejected_hypotheses": [
       {
@@ -49,19 +49,24 @@
         "reason": "The lower walker was clipping a spike shoulder. Treating Spikes as a blocking side wall fixed the 3126 turn-in-place case and kept 3124..3140 CRC-clean."
       },
       {
+        "name": "Frame-3384 right-side hold is still the first live blocker",
+        "reason": "The checked-in frame-3384 hold probe now passes on the current tree, so the second right-side dragon is no longer the first actionable state break."
+      },
+      {
         "name": "Transform timing is the remaining blocker",
         "reason": "Full gameplay hibernation during Kid_Transform fixed the load-bearing frame-3170 drift and cleared the old frame-3384 hold probe, but frame 3399 still fails."
       }
     ],
     "required_next_evidence": [
-      "Trace the ASM writes that move DragonWalking from patrol 0x000A into the shared calm/alert ladder before frame 3384.",
-      "Capture a wider tas-diff slice across frames 3368..3400 with shared walker internals visible for layouts #00 and #04.",
-      "Keep any new probe focused on the earlier state transition, not another patrol-expiry tweak."
+      "Trace the earlier grounded history that leaves lower layout #02 exactly 24 patrol steps ahead by frame 3392.",
+      "Capture a wider tas-diff slice across frames 3382..3399 with shared walker internals visible for layouts #02 and #04.",
+      "Keep the next gameplay fix focused on the lower dragon's early patrol-turnaround, not the now-green frame-3384 right-side hold tile."
     ],
     "verification_commands": [
+      "cargo test -p kid-core demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384 -- --nocapture",
       "cargo test -p kid-core demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399 -- --nocapture",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3368 --frame-end 3400 --include-advisory --frontier-kind enemy",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3382 --frame-end 3399 --include-advisory --frontier-kind enemy",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3200 --frame-end 4000 --bisect --frontier-kind enemy",
       "mise run verify-slice-fast"
     ]
@@ -91,7 +96,7 @@
     "commands": [
       "mise run frontier-status",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3200 --frame-end 4000 --bisect --frontier-kind enemy",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3368 --frame-end 3400 --include-advisory --frontier-kind enemy",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3382 --frame-end 3399 --include-advisory --frontier-kind enemy",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

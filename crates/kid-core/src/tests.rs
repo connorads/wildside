@@ -12539,6 +12539,44 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400: lower shared walker still turns around too early"]
+fn demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3391 = None;
+    let mut dragon_3392 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_393) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_391 {
+            dragon_3391 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| (enemy.x_pos, enemy.facing, enemy.on_ground));
+        }
+        if frame_index == 3_392 {
+            dragon_3392 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| (enemy.x_pos, enemy.facing, enemy.on_ground));
+            break;
+        }
+    }
+
+    assert_eq!(
+        dragon_3391,
+        Some((0x01E5_0000, Direction::Left, true)),
+        "frame 3391 should capture the last current-tree left-facing lower-dragon tile before the live patrol-turnaround bug",
+    );
+    assert_eq!(
+        dragon_3392,
+        Some((0x01F0_8000, Direction::Left, true)),
+        "frame 3392 should keep the lower dragon walking left on the oracle-backed patrol path instead of flipping right and resetting the shared cadence",
+    );
+}
+
+#[test]
 fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3384 = None;
