@@ -102,7 +102,36 @@
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
-    ]
+    ],
+    "task_package": {
+      "title": "Fix the one-frame late timeout-restart title to demo handoff",
+      "summary": "Use the live 6906 frontier to remove the last one-frame lag where native still reports title mode after oracle has already resumed demo playback.",
+      "sources": [
+        "docs/source-port/frontier-state.yaml",
+        "docs/source-port/backlog.md",
+        "docs/source-port/tas-roadmap.md",
+        "crates/kid-core/src/boot.rs",
+        "crates/kid-core/src/trace.rs",
+        "crates/kid-core/src/tests.rs"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/boot.rs",
+        "crates/kid-core/src/trace.rs",
+        "crates/kid-core/src/tests.rs"
+      ],
+      "commands": [
+        "mise run frontier-status",
+        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6900 --frame-end 6912 --include-advisory",
+        "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
+        "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
+        "mise run verify-slice-fast"
+      ],
+      "done_criteria": [
+        "The timeout-restart title->demo handoff no longer leaves native in title mode on frame 6906.",
+        "`tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` is authoritative-clean through the first resumed demo frame.",
+        "The focused regression suite records the first oracle-backed gameplay-resume frame after the timeout-restart title rebuild."
+      ]
+    }
   },
   "candidate_promotions": [],
   "stuck_policy": {

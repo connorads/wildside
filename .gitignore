@@ -7,6 +7,8 @@
 *.log
 hypothesis_log.jsonl
 kc.md
+__pycache__/
+*.pyc
 /.ralph-tui/
 /.ralph/
 /ralph.yml

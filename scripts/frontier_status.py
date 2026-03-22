@@ -10,6 +10,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = REPO_ROOT / "docs/source-port/frontier-state.yaml"
 REGISTRY_PATH = REPO_ROOT / "docs/source-port/debug-field-registry.yaml"
+SOURCE_PORT_AUTONOMY_DIR = REPO_ROOT / ".cache/autonomy/source-port-frontier"
+SOURCE_PORT_NEXT_TASK_PATH = SOURCE_PORT_AUTONOMY_DIR / "next-task.json"
+SOURCE_PORT_NEXT_AGENT_NOTE_PATH = SOURCE_PORT_AUTONOMY_DIR / "next-agent.md"
 
 
 def load_state(path: Path) -> dict:
@@ -24,6 +27,41 @@ def load_state(path: Path) -> dict:
 def print_list(items: list[str], indent: str = "  - ") -> None:
     for item in items:
         print(f"{indent}{item}")
+
+
+def repo_rel(path: Path) -> str:
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def extract_frontmatter_slug(path: Path) -> str | None:
+    try:
+        contents = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    lines = iter(contents.splitlines())
+    if next(lines, None) != "---":
+        return None
+    for line in lines:
+        if line == "---":
+            break
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "slug":
+            return value.strip()
+    return None
+
+
+def next_agent_note_status(active_slug: str) -> tuple[str, str]:
+    if not SOURCE_PORT_NEXT_AGENT_NOTE_PATH.exists():
+        return ("missing", "no next-agent note present")
+    slug = extract_frontmatter_slug(SOURCE_PORT_NEXT_AGENT_NOTE_PATH)
+    if slug is None:
+        return ("stale", "note frontmatter is missing `slug`")
+    if slug != active_slug:
+        return ("stale", f"note slug `{slug}` does not match `{active_slug}`")
+    return ("current", f"note slug `{slug}` matches the active frontier")
 
 
 def main() -> int:
@@ -89,6 +127,18 @@ def main() -> int:
     print_list(bootstrap["read_first"], indent="    - ")
     print("  commands:")
     print_list(bootstrap["commands"], indent="    - ")
+    print()
+
+    note_status, note_detail = next_agent_note_status(frontier["slug"])
+    print("Ralph Loop")
+    print("  package command:")
+    print("    - cargo run -p kidcli -- autonomous-loop --goal source-port-frontier")
+    print(f"  package dir: {repo_rel(SOURCE_PORT_AUTONOMY_DIR)}")
+    print(f"  next task path: {repo_rel(SOURCE_PORT_NEXT_TASK_PATH)}")
+    print(
+        "  next-agent note: "
+        f"{repo_rel(SOURCE_PORT_NEXT_AGENT_NOTE_PATH)} ({note_status}: {note_detail})"
+    )
     print()
 
     registry_candidates = [

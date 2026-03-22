@@ -1045,12 +1045,17 @@ fn main() -> Result<()> {
             emit_json,
         } => {
             let repo_root = current_dir()?;
-            let rom_path = resolve_rom_path(&repo_root, rom)?;
-            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let (rom_path, upstream_dir) = if matches!(goal, AutonomyGoal::SourcePortFrontier) {
+                (None, None)
+            } else {
+                let rom_path = resolve_rom_path(&repo_root, rom)?;
+                let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+                (Some(rom_path), Some(upstream_dir))
+            };
             run_autonomous_loop(
                 &repo_root,
-                &rom_path,
-                &upstream_dir,
+                rom_path.as_deref(),
+                upstream_dir.as_deref(),
                 goal,
                 max_cycles,
                 !no_resume,

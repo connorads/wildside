@@ -30,6 +30,7 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
 - `kidcli autonomous-loop --goal level1-full-traversal` evaluates the post-opening traversal contract for default-terrain authority and long transition parity.
+- `kidcli autonomous-loop --goal source-port-frontier` packages the live source-port frontier from `docs/source-port/frontier-state.yaml` into `.cache/autonomy/source-port-frontier/` for the next Ralph loop cycle.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -217,6 +218,8 @@ The native checkpoint comparison artefacts are written under `.cache/native-orac
 The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
 The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
+
+The live source-port frontier loop also writes to `.cache/autonomy/source-port-frontier/`. Its `next-task.json` is generated from `docs/source-port/frontier-state.yaml`, and `next-agent.md` is the cache-local handoff note the current agent leaves for the next loop cycle.
 
 Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
 

@@ -22,6 +22,18 @@ const DAMAGE_TRIGGER_TASK_MARKER: &str = "Recover the Level 1 gameplay damage tr
 const README_TRAVERSAL_FRONTIER_MARKER: &str =
     "The current delivery frontier is Level 1 full traversal";
 const RESEARCH_MAP_TRAVERSAL_MARKER: &str = "## Current frontier\n\n1. Level 1 full traversal";
+const SOURCE_PORT_FRONTIER_STATE_PATH: &str = "docs/source-port/frontier-state.yaml";
+const SOURCE_PORT_FRONTIER_NOTE_PATH: &str = ".cache/autonomy/source-port-frontier/next-agent.md";
+const SOURCE_PORT_FRONTIER_TITLE: &str = "Source-port frontier";
+const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the next-agent note with frontmatter for the active slug plus the required handoff sections.";
+const SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS: [&str; 6] = [
+    "What Changed",
+    "Current Model",
+    "Strongest Evidence",
+    "Exact Next Moves",
+    "Verification To Re-run",
+    "Dead Ends / Do Not Retry",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 pub(crate) enum AutonomyGoal {
@@ -42,6 +54,10 @@ pub(crate) enum AutonomyGoal {
     #[value(name = "sweep-parity")]
     #[serde(rename = "sweep-parity")]
     SweepParity,
+    /// Package the live source-port frontier into a Ralph-friendly task handoff.
+    #[value(name = "source-port-frontier")]
+    #[serde(rename = "source-port-frontier")]
+    SourcePortFrontier,
 }
 
 impl AutonomyGoal {
@@ -52,6 +68,7 @@ impl AutonomyGoal {
             Self::Level1FullTraversal => "level1-full-traversal",
             Self::LevelIdleParity => "level-idle-parity",
             Self::SweepParity => "sweep-parity",
+            Self::SourcePortFrontier => "source-port-frontier",
         }
     }
 
@@ -69,6 +86,7 @@ impl AutonomyGoal {
                 // rather than a static spec file.
                 repo_root.join("docs/source-port/sweep-parity-goal.json")
             }
+            Self::SourcePortFrontier => repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH),
         }
     }
 }
@@ -94,6 +112,7 @@ pub(crate) enum CapabilityId {
     TraversalGoalLoopCompletion,
     ReleaseGateGreen,
     StateSweepGreen,
+    SourcePortFrontierTask,
 }
 
 impl CapabilityId {
@@ -117,6 +136,7 @@ impl CapabilityId {
             Self::TraversalGoalLoopCompletion => "traversal_goal_loop_completion",
             Self::ReleaseGateGreen => "release_gate_green",
             Self::StateSweepGreen => "state_sweep_green",
+            Self::SourcePortFrontierTask => "source_port_frontier_task",
         }
     }
 }
@@ -202,6 +222,10 @@ pub(crate) struct TaskPackage {
     commands: Vec<String>,
     done_criteria: Vec<String>,
     evidence: Vec<EvidenceItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frontier_context: Option<FrontierContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_agent_note: Option<NextAgentNoteDirective>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,6 +234,90 @@ struct EvidenceItem {
     status: String,
     detail: String,
     artefact_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FrontierContext {
+    slug: String,
+    recording: String,
+    scenario: String,
+    area: String,
+    status: String,
+    frontier_frame: u32,
+    authoritative_clean_through: u32,
+    current_blocker: String,
+    current_hypothesis: HypothesisSummary,
+    rejected_hypotheses: Vec<HypothesisSummary>,
+    required_next_evidence: Vec<String>,
+    verification_commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HypothesisSummary {
+    name: String,
+    reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct NextAgentNoteDirective {
+    path: PathBuf,
+    status: NextAgentNoteStatus,
+    detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frontmatter_slug: Option<String>,
+    requirement_summary: String,
+    required_sections: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum NextAgentNoteStatus {
+    Missing,
+    Stale,
+    Current,
+}
+
+impl NextAgentNoteStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::Stale => "stale",
+            Self::Current => "current",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SourcePortFrontierState {
+    updated_at: String,
+    active_frontier: ActiveFrontierState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ActiveFrontierState {
+    slug: String,
+    recording: String,
+    scenario: String,
+    area: String,
+    status: String,
+    frontier_frame: u32,
+    authoritative_clean_through: u32,
+    current_blocker: String,
+    current_hypothesis: HypothesisSummary,
+    rejected_hypotheses: Vec<HypothesisSummary>,
+    required_next_evidence: Vec<String>,
+    verification_commands: Vec<String>,
+    task_package: SourcePortTaskPackageSpec,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SourcePortTaskPackageSpec {
+    title: String,
+    summary: String,
+    sources: Vec<String>,
+    implementation_targets: Vec<String>,
+    commands: Vec<String>,
+    done_criteria: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -266,15 +374,25 @@ impl CheckOutcome {
 
 pub(crate) fn run_autonomous_loop(
     repo_root: &Path,
-    rom_path: &Path,
-    upstream_dir: &Path,
+    rom_path: Option<&Path>,
+    upstream_dir: Option<&Path>,
     goal: AutonomyGoal,
     max_cycles: u32,
     resume: bool,
     emit_json: bool,
 ) -> Result<()> {
-    let spec = load_goal_spec(&goal.spec_path(repo_root))?;
-    let manifest = prepare_generated_assets(repo_root, rom_path, upstream_dir)?;
+    let goal_state = match goal {
+        AutonomyGoal::SourcePortFrontier => GoalState::SourcePortFrontier,
+        _ => {
+            let rom_path = rom_path.context("autonomy goal requires a ROM path")?;
+            let upstream_dir = upstream_dir.context("autonomy goal requires an upstream dir")?;
+            GoalState::SpecDriven {
+                spec: load_goal_spec(&goal.spec_path(repo_root))?,
+                rom_path: rom_path.to_path_buf(),
+                manifest: Box::new(prepare_generated_assets(repo_root, rom_path, upstream_dir)?),
+            }
+        }
+    };
     let run_dir = repo_root.join(".cache/autonomy").join(goal.slug());
     let evidence_dir = run_dir.join("evidence");
     fs::create_dir_all(&evidence_dir)
@@ -286,7 +404,7 @@ pub(crate) fn run_autonomous_loop(
     } else {
         LoopLedger {
             goal: goal.slug().to_owned(),
-            title: spec.title.clone(),
+            title: goal_state.title().to_owned(),
             cycles_run: 0,
             complete: false,
             stalled: false,
@@ -305,7 +423,7 @@ pub(crate) fn run_autonomous_loop(
     };
     for _ in 0..cycle_limit {
         let cycle_number = ledger.cycles_run + 1;
-        let mut cycle = evaluate_cycle(repo_root, rom_path, &manifest, &spec, cycle_number)?;
+        let mut cycle = goal_state.evaluate_cycle(repo_root, cycle_number)?;
         cycle.stalled = ledger
             .last_progress_fingerprint
             .as_deref()
@@ -317,8 +435,12 @@ pub(crate) fn run_autonomous_loop(
             &evidence_dir.join(format!("cycle-{cycle_number:04}.json")),
             &cycle,
         )?;
+        let next_task_path = run_dir.join("next-task.json");
         if let Some(task) = &cycle.selected_task {
-            write_json(&run_dir.join("next-task.json"), task)?;
+            write_json(&next_task_path, task)?;
+        } else if next_task_path.exists() {
+            fs::remove_file(&next_task_path)
+                .with_context(|| format!("failed to remove {}", next_task_path.display()))?;
         }
 
         ledger.cycles_run = cycle_number;
@@ -354,6 +476,37 @@ pub(crate) fn run_autonomous_loop(
     Ok(())
 }
 
+enum GoalState {
+    SpecDriven {
+        spec: GoalSpec,
+        rom_path: PathBuf,
+        manifest: Box<AssetManifest>,
+    },
+    SourcePortFrontier,
+}
+
+impl GoalState {
+    fn title(&self) -> &str {
+        match self {
+            Self::SpecDriven { spec, .. } => spec.title.as_str(),
+            Self::SourcePortFrontier => SOURCE_PORT_FRONTIER_TITLE,
+        }
+    }
+
+    fn evaluate_cycle(&self, repo_root: &Path, cycle_number: u32) -> Result<CycleReport> {
+        match self {
+            Self::SpecDriven {
+                spec,
+                rom_path,
+                manifest,
+            } => evaluate_cycle(repo_root, rom_path, manifest, spec, cycle_number),
+            Self::SourcePortFrontier => {
+                evaluate_source_port_frontier_cycle(repo_root, cycle_number)
+            }
+        }
+    }
+}
+
 fn load_goal_spec(path: &Path) -> Result<GoalSpec> {
     let bytes =
         fs::read(path).with_context(|| format!("failed to read goal spec {}", path.display()))?;
@@ -365,6 +518,190 @@ fn load_ledger(path: &Path) -> Result<LoopLedger> {
     let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
     serde_json::from_slice(&bytes)
         .with_context(|| format!("failed to parse ledger {}", path.display()))
+}
+
+fn load_source_port_frontier_state(repo_root: &Path) -> Result<SourcePortFrontierState> {
+    let path = repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH);
+    let bytes = fs::read(&path)
+        .with_context(|| format!("failed to read frontier state {}", path.display()))?;
+    serde_json::from_slice(&bytes)
+        .with_context(|| format!("failed to parse frontier state {}", path.display()))
+}
+
+fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport> {
+    let state = load_source_port_frontier_state(repo_root)?;
+    let frontier = &state.active_frontier;
+    let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
+    let task_ready = frontier.status == "active";
+    let selected_task = task_ready.then(|| source_port_frontier_task(frontier, &note));
+    let blocker = selected_task
+        .as_ref()
+        .and_then(|task| detect_blocker(repo_root, task));
+    let summary = if task_ready {
+        format!(
+            "Active frontier {} at frame {} (clean through {})",
+            frontier.slug, frontier.frontier_frame, frontier.authoritative_clean_through
+        )
+    } else {
+        format!(
+            "Active frontier {} is no longer marked active (status={})",
+            frontier.slug, frontier.status
+        )
+    };
+    let capabilities = vec![CapabilityReport {
+        id: CapabilityId::SourcePortFrontierTask,
+        title: frontier.task_package.title.clone(),
+        status: if task_ready {
+            CapabilityStatus::Ready
+        } else {
+            CapabilityStatus::Complete
+        },
+        summary,
+    }];
+
+    Ok(CycleReport {
+        goal: AutonomyGoal::SourcePortFrontier.slug().to_owned(),
+        cycle,
+        goal_complete: !task_ready,
+        stalled: false,
+        selected_task,
+        blocker,
+        progress_fingerprint: format!(
+            "{}:{}:{}:{}",
+            frontier.slug,
+            frontier.status,
+            note.status.as_str(),
+            note.frontmatter_slug.as_deref().unwrap_or("none")
+        ),
+        capabilities,
+    })
+}
+
+fn source_port_frontier_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+) -> TaskPackage {
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: frontier.task_package.title.clone(),
+        summary: frontier.task_package.summary.clone(),
+        sources: frontier.task_package.sources.clone(),
+        implementation_targets: frontier.task_package.implementation_targets.clone(),
+        commands: frontier.task_package.commands.clone(),
+        done_criteria: frontier.task_package.done_criteria.clone(),
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} frame {} (clean through {})",
+                    frontier.recording,
+                    frontier.frontier_frame,
+                    frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "current-hypothesis".to_owned(),
+                status: "active".to_owned(),
+                detail: format!(
+                    "{}: {}",
+                    frontier.current_hypothesis.name, frontier.current_hypothesis.reason
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        next_agent_note: Some(note.clone()),
+    }
+}
+
+fn source_port_next_agent_note(repo_root: &Path, active_slug: &str) -> NextAgentNoteDirective {
+    let path = PathBuf::from(SOURCE_PORT_FRONTIER_NOTE_PATH);
+    let note_path = repo_root.join(&path);
+    let (status, frontmatter_slug, detail) = note_status_for_frontier(&note_path, active_slug);
+    NextAgentNoteDirective {
+        path,
+        status,
+        detail,
+        frontmatter_slug,
+        requirement_summary: SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY.to_owned(),
+        required_sections: SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS
+            .iter()
+            .map(|section| (*section).to_owned())
+            .collect(),
+    }
+}
+
+fn note_status_for_frontier(
+    note_path: &Path,
+    active_slug: &str,
+) -> (NextAgentNoteStatus, Option<String>, String) {
+    let contents = match fs::read_to_string(note_path) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return (
+                NextAgentNoteStatus::Missing,
+                None,
+                "no next-agent note present for the active frontier".to_owned(),
+            );
+        }
+    };
+    let frontmatter_slug = extract_frontmatter_slug(&contents);
+    match frontmatter_slug.as_deref() {
+        Some(slug) if slug == active_slug => (
+            NextAgentNoteStatus::Current,
+            Some(slug.to_owned()),
+            format!("note slug `{slug}` matches the active frontier"),
+        ),
+        Some(slug) => (
+            NextAgentNoteStatus::Stale,
+            Some(slug.to_owned()),
+            format!("note slug `{slug}` does not match active frontier `{active_slug}`"),
+        ),
+        None => (
+            NextAgentNoteStatus::Stale,
+            None,
+            "next-agent note is missing `slug` frontmatter".to_owned(),
+        ),
+    }
+}
+
+fn extract_frontmatter_slug(contents: &str) -> Option<String> {
+    let mut lines = contents.lines();
+    if lines.next()? != "---" {
+        return None;
+    }
+    for line in lines {
+        if line == "---" {
+            break;
+        }
+        if let Some((key, value)) = line.split_once(':')
+            && key.trim() == "slug"
+        {
+            return Some(value.trim().to_owned());
+        }
+    }
+    None
 }
 
 fn evaluate_cycle(
@@ -940,6 +1277,11 @@ fn capability_completion_summary(
                 )
             },
         ),
+        CapabilityId::SourcePortFrontierTask => (
+            false,
+            "The live source-port frontier task package is generated from frontier-state.yaml."
+                .to_owned(),
+        ),
     }
 }
 
@@ -964,6 +1306,8 @@ fn select_next_task(
         commands: spec_capability.commands.clone(),
         done_criteria: spec_capability.done_criteria.clone(),
         evidence: evidence_for_capability(capability.id, signals),
+        frontier_context: None,
+        next_agent_note: None,
     })
 }
 
@@ -1128,6 +1472,7 @@ fn evidence_for_capability(
         CapabilityId::StateSweepGreen => {
             vec![check_evidence("sweep:state", &signals.state_sweep)]
         }
+        CapabilityId::SourcePortFrontierTask => Vec::new(),
     }
 }
 
@@ -1231,11 +1576,16 @@ fn print_cycle_summary(cycle: &CycleReport) {
 #[cfg(test)]
 mod tests {
     use super::{
-        CapabilityId, CapabilityStatus, CheckOutcome, GoalSpec, RepositorySignals, TaskPackage,
-        detect_blocker, evaluate_capabilities, fingerprint_for_capabilities, select_next_task,
+        CapabilityId, CapabilityStatus, CheckOutcome, GoalSpec, NextAgentNoteStatus,
+        RepositorySignals, SOURCE_PORT_FRONTIER_NOTE_PATH, SOURCE_PORT_FRONTIER_STATE_PATH,
+        TaskPackage, detect_blocker, evaluate_capabilities, evaluate_source_port_frontier_cycle,
+        fingerprint_for_capabilities, load_source_port_frontier_state, select_next_task,
+        source_port_next_agent_note,
     };
     use std::collections::BTreeMap;
+    use std::fs;
     use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
 
     fn goal_spec() -> GoalSpec {
         serde_json::from_str(
@@ -1414,6 +1764,8 @@ mod tests {
             commands: Vec::new(),
             done_criteria: Vec::new(),
             evidence: Vec::new(),
+            frontier_context: None,
+            next_agent_note: None,
         };
 
         let blocker =
@@ -1503,5 +1855,135 @@ mod tests {
 
         let task = select_next_task(&spec, &capabilities, &signals).expect("task should exist");
         assert_eq!(task.capability, CapabilityId::TerrainRuntimeAuthority);
+    }
+
+    fn source_port_repo() -> TempDir {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port"))
+            .expect("docs dir should exist");
+        fs::create_dir_all(temp_dir.path().join("crates/kid-core/src"))
+            .expect("source dir should exist");
+        fs::write(
+            temp_dir.path().join("crates/kid-core/src/boot.rs"),
+            "// boot placeholder\n",
+        )
+        .expect("boot source should write");
+        fs::write(
+            temp_dir.path().join("crates/kid-core/src/trace.rs"),
+            "// trace placeholder\n",
+        )
+        .expect("trace source should write");
+        fs::write(
+            temp_dir.path().join("crates/kid-core/src/tests.rs"),
+            "// tests placeholder\n",
+        )
+        .expect("tests source should write");
+        temp_dir
+    }
+
+    fn write_source_port_frontier(repo_root: &Path, include_task_package: bool, status: &str) {
+        let task_package = if include_task_package {
+            r#",
+    "task_package": {
+      "title": "Fix the handoff",
+      "summary": "Advance the source-port frontier.",
+      "sources": [
+        "docs/source-port/frontier-state.yaml",
+        "crates/kid-core/src/boot.rs"
+      ],
+      "implementation_targets": [
+        "crates/kid-core/src/boot.rs"
+      ],
+      "commands": [
+        "mise run frontier-status"
+      ],
+      "done_criteria": [
+        "The focused handoff window is green."
+      ]
+    }"#
+        } else {
+            ""
+        };
+        let contents = format!(
+            r#"{{
+  "updated_at": "2026-03-22",
+  "active_frontier": {{
+    "slug": "test-frontier",
+    "recording": "any-percent-published",
+    "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
+    "area": "title handoff",
+    "status": "{status}",
+    "frontier_frame": 6906,
+    "authoritative_clean_through": 6905,
+    "current_blocker": "Native lags title->demo by one frame.",
+    "current_hypothesis": {{
+      "name": "handoff late",
+      "reason": "Oracle resumes gameplay one frame earlier."
+    }},
+    "rejected_hypotheses": [
+      {{
+        "name": "hide window late",
+        "reason": "Already fixed at frame 6358."
+      }}
+    ],
+    "required_next_evidence": [
+      "Probe 6904..6908"
+    ],
+    "verification_commands": [
+      "cargo test -p kid-core published_tas_demo_2 -- --nocapture"
+    ]{task_package}
+  }}
+}}
+"#
+        );
+        fs::write(repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH), contents)
+            .expect("frontier state should write");
+    }
+
+    #[test]
+    fn source_port_frontier_requires_task_package() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "active");
+
+        let error = load_source_port_frontier_state(temp_dir.path())
+            .expect_err("missing task_package should fail");
+        assert!(
+            error
+                .chain()
+                .any(|cause| cause.to_string().contains("task_package")),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_cycle_marks_missing_note() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), true, "active");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("task should be selected");
+        let note = task.next_agent_note.expect("note directive should exist");
+
+        assert_eq!(task.capability, CapabilityId::SourcePortFrontierTask);
+        assert_eq!(note.status, NextAgentNoteStatus::Missing);
+        assert!(task.frontier_context.is_some());
+    }
+
+    #[test]
+    fn source_port_frontier_cycle_marks_current_note_when_slug_matches() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), true, "active");
+        let note_path = temp_dir.path().join(SOURCE_PORT_FRONTIER_NOTE_PATH);
+        fs::create_dir_all(note_path.parent().expect("note dir")).expect("note dir should exist");
+        fs::write(
+            &note_path,
+            "---\nslug: test-frontier\ncycle: 1\nupdated_at: 2026-03-22T18:00:00Z\n---\n# What Changed\n",
+        )
+        .expect("note should write");
+
+        let note = source_port_next_agent_note(temp_dir.path(), "test-frontier");
+        assert_eq!(note.status, NextAgentNoteStatus::Current);
+        assert_eq!(note.frontmatter_slug.as_deref(), Some("test-frontier"));
     }
 }
