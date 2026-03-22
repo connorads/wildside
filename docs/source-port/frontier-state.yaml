@@ -38,7 +38,7 @@
         "reason": "Kid and camera are still authoritative after the early lower-dragon turnaround, but the walking-dragon roster history is already wrong before the stomp."
       }
     ],
-    "current_blocker": "The old frame-3170 transform-entry theory is now stale on the current tree. A narrower lower-dragon trace shows layout #02 is already 12px ahead on the wrong upper lane by frame 3048, starts an early airborne drop on frame 3049, then lands 16px low at y=0x01C00000 on frame 3060 before Kid_Transform later freezes that bad state on frame 3170.",
+    "current_blocker": "The old frame-3170 transform-entry theory is now stale on the current tree. A narrower lower-dragon trace shows layout #02 is already 12px ahead on the wrong upper lane by frame 3048, starts an early airborne drop on frame 3049, then lands 16px low at y=0x01C00000 on frame 3060 before Kid_Transform later freezes that bad state on frame 3170. New shared-walker terrain probes now show why the drop starts: on frame 3048 native steps to next_x=455 and only the left edge still sees upper-lane support (`cell 27,27`, `floor_y=432`), while the centre and right probes have already moved to gap cell `28,28` with no ground.",
     "authoritative_diffs": [
       "First live authoritative mismatch lands at frame 3400 in demo 0x15 during the second Knights Isle stomp setup."
     ],
@@ -50,7 +50,7 @@
     ],
     "current_hypothesis": {
       "name": "Lower shared walker drops off the upper lane before the transform freeze window",
-      "reason": "A narrower probe shows native layout #02 is already at x=0x01C78000 on frame 3048 while oracle keeps the same dragon at x=0x01BB8000, and native starts an airborne drop on frame 3049 while oracle stays grounded at y=0x01B00000. The later frame-3060 lower-floor landing and frame-3170/frame-3206 hold/freeze window are downstream copies of that earlier shared walker ledge/handoff mistake."
+      "reason": "A narrower probe shows native layout #02 is already at x=0x01C78000 on frame 3048 while oracle keeps the same dragon at x=0x01BB8000, and native starts an airborne drop on frame 3049 while oracle stays grounded at y=0x01B00000. New terrain-probe instrumentation shows the grounded walker advances to next_x=455 on frame 3048 and already classifies the centre/right of the hitbox as unsupported gap (`cell 28,28`) even though the left edge still sees the upper lane (`cell 27,27`, `floor_y=432`). The later frame-3060 lower-floor landing and frame-3170/frame-3206 hold/freeze window are downstream copies of that earlier shared walker ledge/handoff mistake."
     },
     "rejected_hypotheses": [
       {
@@ -79,8 +79,8 @@
       }
     ],
     "required_next_evidence": [
-      "Trace layout #02 across frames 3048..3060 to explain why native leaves the oracle-backed upper lane one step early and lands on the lower floor band.",
-      "Use `kidcli tas-diff --show-object-roster-on-match` so clean or low-signal windows still emit the shared-walker roster history instead of hiding it behind MATCH lines.",
+      "Compare the new frame-3048 terrain-probe trace against `sub_36972`/`sub_36A58` to decide whether DragonWalking should keep upper-lane support when only the trailing edge still stands on the tile.",
+      "Carry the same probe fields through the frame-3060 landing window so the lower-floor snap can be tied back to the earlier support classification rather than treated as a fresh break.",
       "Keep the next gameplay fix focused on the lower dragon's earlier ledge/airborne handoff before transform entry, not the already-proven frame-3392 turnaround symptom or the now-green frame-3384 right-side hold tile."
     ],
     "verification_commands": [
@@ -100,13 +100,7 @@
       "mise run verify-slice-fast"
     ]
   },
-  "candidate_promotions": [
-    {
-      "key": "gameplay_hibernated",
-      "promotion_target": "NativeTraceFrame.gameplay_hibernated / OracleState.gameplay_hibernated",
-      "reason": "It already explains real TAS frontier decisions around Kid_Transform and should become typed once a second frontier depends on it."
-    }
-  ],
+  "candidate_promotions": [],
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
     "rule": "After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before landing another gameplay patch.",

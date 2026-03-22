@@ -26,12 +26,11 @@
     {
       "key": "gameplay_hibernated",
       "scope": "frame",
-      "status": "candidate",
+      "status": "exploratory",
       "owner": "transform-window",
       "first_added_commit": "55f70f0",
       "intended_meaning": "True when gameplay objects are intentionally hibernated for the transform coroutine.",
-      "promotion_trigger": "Promote after repeated use in frontier diagnosis or any checked-in parity assertion.",
-      "promotion_target": "NativeTraceFrame.gameplay_hibernated"
+      "promotion_trigger": "Promote after a second frontier or checked-in parity assertion depends on a dedicated typed hibernate flag."
     },
     {
       "key": "game_paused",
@@ -65,6 +64,46 @@
       "owner": "shared-walker-frontier",
       "intended_meaning": "Signed DragonWalking horizontal distance to Kid, captured when calm/alert logic evaluates its detect and release windows.",
       "promotion_trigger": "Promote if shared-walker range logic needs repeated parity checks or typed thresholds."
+    },
+    {
+      "key": "shared_walker_probe_next_x_px",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "The integer X position that DragonWalking probed for its next grounded or airborne terrain step.",
+      "promotion_trigger": "Promote if shared-walker parity work starts depending on the exact stepped probe position."
+    },
+    {
+      "key": "shared_walker_probe_center_floor",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "The centre floor probe result for the most recent DragonWalking terrain decision.",
+      "promotion_trigger": "Promote if shared-walker floor contact parity needs typed support-state fields."
+    },
+    {
+      "key": "shared_walker_probe_left_floor",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "The left-edge floor probe result for the most recent DragonWalking terrain decision.",
+      "promotion_trigger": "Promote if repeated frontier work depends on left-edge support classification."
+    },
+    {
+      "key": "shared_walker_probe_right_floor",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "The right-edge floor probe result for the most recent DragonWalking terrain decision.",
+      "promotion_trigger": "Promote if repeated frontier work depends on right-edge support classification."
+    },
+    {
+      "key": "shared_walker_probe_wall",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "intended_meaning": "The wall probe result for the most recent DragonWalking terrain decision, including negative hits.",
+      "promotion_trigger": "Promote if repeated frontier work depends on typed side-contact attribution."
     }
   ]
 }

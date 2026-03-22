@@ -346,6 +346,15 @@ pub(crate) enum SpinningTwinsPhase {
     Walking,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct SharedWalkerTerrainTrace {
+    pub(crate) next_x_px: Option<i32>,
+    pub(crate) wall: Option<terrain::WallProbe>,
+    pub(crate) center_floor: Option<terrain::FloorProbe>,
+    pub(crate) left_floor: Option<terrain::FloorProbe>,
+    pub(crate) right_floor: Option<terrain::FloorProbe>,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -415,6 +424,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) shared_walker_debug_branch: Option<&'static str>,
     /// Signed horizontal distance to Kid when the grounded shared walker last evaluated him.
     pub(crate) shared_walker_dx_to_kid_px: Option<i16>,
+    /// Frontier-only trace of the last terrain probes used by the shared walker.
+    pub(crate) shared_walker_terrain_trace: SharedWalkerTerrainTrace,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -676,6 +687,36 @@ impl ActiveEnemy {
                     dx_to_kid_px.to_string(),
                 );
             }
+            if let Some(next_x_px) = self.shared_walker_terrain_trace.next_x_px {
+                debug_fields.insert(
+                    "shared_walker_probe_next_x_px".into(),
+                    next_x_px.to_string(),
+                );
+            }
+            if let Some(probe) = self.shared_walker_terrain_trace.center_floor {
+                debug_fields.insert(
+                    "shared_walker_probe_center_floor".into(),
+                    format_shared_walker_floor_probe(probe),
+                );
+            }
+            if let Some(probe) = self.shared_walker_terrain_trace.left_floor {
+                debug_fields.insert(
+                    "shared_walker_probe_left_floor".into(),
+                    format_shared_walker_floor_probe(probe),
+                );
+            }
+            if let Some(probe) = self.shared_walker_terrain_trace.right_floor {
+                debug_fields.insert(
+                    "shared_walker_probe_right_floor".into(),
+                    format_shared_walker_floor_probe(probe),
+                );
+            }
+            if let Some(probe) = self.shared_walker_terrain_trace.wall {
+                debug_fields.insert(
+                    "shared_walker_probe_wall".into(),
+                    format_shared_walker_wall_probe(probe),
+                );
+            }
         }
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
@@ -700,6 +741,26 @@ impl ActiveEnemy {
             debug_fields,
         }
     }
+}
+
+fn format_shared_walker_floor_probe(probe: terrain::FloorProbe) -> String {
+    format!(
+        "ground={}/y={}/cell={},{}",
+        u8::from(probe.on_ground),
+        probe.floor_y_px,
+        probe.cell_x,
+        probe.cell_y
+    )
+}
+
+fn format_shared_walker_wall_probe(probe: terrain::WallProbe) -> String {
+    format!(
+        "hit={}/x={}/cell={},{}",
+        u8::from(probe.hit),
+        probe.wall_x_px,
+        probe.cell_x,
+        probe.cell_y
+    )
 }
 
 impl EnemyFamily {
@@ -995,6 +1056,7 @@ pub(crate) fn activate_enemies(
                 shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
+                shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             });
         }
     }
@@ -3045,12 +3107,28 @@ fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
     true
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DragonWalkingFloorSupport {
+    selected: terrain::FloorProbe,
+    center: terrain::FloorProbe,
+    left: terrain::FloorProbe,
+    right: terrain::FloorProbe,
+}
+
 fn dragon_walking_floor_support(
     grid: &terrain::BlockGrid,
     center_x_px: i32,
     foot_y_px: i32,
-) -> terrain::FloorProbe {
-    terrain::probe_floor_hitbox(grid, center_x_px, foot_y_px, ENEMY_PROBE_HALF_WIDTH)
+) -> DragonWalkingFloorSupport {
+    let center = terrain::probe_floor(grid, center_x_px, foot_y_px);
+    let left = terrain::probe_floor(grid, center_x_px - ENEMY_PROBE_HALF_WIDTH, foot_y_px);
+    let right = terrain::probe_floor(grid, center_x_px + ENEMY_PROBE_HALF_WIDTH, foot_y_px);
+    DragonWalkingFloorSupport {
+        selected: terrain::probe_floor_hitbox(grid, center_x_px, foot_y_px, ENEMY_PROBE_HALF_WIDTH),
+        center,
+        left,
+        right,
+    }
 }
 
 fn dragon_walking_probe_wall(
@@ -3136,7 +3214,9 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
     if wall.hit {
         return true;
     }
-    !dragon_walking_floor_support(grid, cx, cy).on_ground
+    !dragon_walking_floor_support(grid, cx, cy)
+        .selected
+        .on_ground
 }
 
 fn step_dragon_walking_walk(
@@ -3172,6 +3252,14 @@ fn step_dragon_walking_walk(
         let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
         let cx = (next_x >> 16) as i32;
         let wall = dragon_walking_probe_wall(grid, cx, current_y_px, moving_right);
+        let floor_support = dragon_walking_floor_support(grid, cx, current_y_px);
+        enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
+            next_x_px: Some(cx),
+            wall: Some(wall),
+            center_floor: Some(floor_support.center),
+            left_floor: Some(floor_support.left),
+            right_floor: Some(floor_support.right),
+        };
         if wall.hit {
             enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
             enemy.x_velocity = 0;
@@ -3181,7 +3269,7 @@ fn step_dragon_walking_walk(
             return DragonWalkingWalkStep::Idled;
         }
 
-        let floor = dragon_walking_floor_support(grid, cx, current_y_px);
+        let floor = floor_support.selected;
         if !floor.on_ground {
             enemy.on_ground = false;
             enemy.x_velocity = walk_delta;
@@ -3261,13 +3349,20 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
     let wall = dragon_walking_probe_wall(grid, cx, cy, moving_right);
+    let floor = terrain::probe_floor(grid, cx, cy);
+    enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
+        next_x_px: Some(cx),
+        wall: Some(wall),
+        center_floor: Some(floor),
+        left_floor: None,
+        right_floor: None,
+    };
     if wall.hit {
         enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
         enemy.x_velocity = 0;
         enemy.shared_walker_debug_branch = Some("airborne_wall_snap");
     }
 
-    let floor = terrain::probe_floor(grid, (enemy.x_pos >> 16) as i32, cy);
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
         if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
@@ -3297,12 +3392,14 @@ pub(crate) fn step_dragon_walking(
 ) {
     enemy.shared_walker_debug_branch = None;
     enemy.shared_walker_dx_to_kid_px = None;
+    enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace::default();
 
-    if enemy.grounded_frames > 0 {
+    let dragon_hurt_hibernate_armed = enemy.damage_flash_frames == ENEMY_DAMAGE_FLASH_FRAMES;
+    if enemy.grounded_frames > 0 && !dragon_hurt_hibernate_armed {
         enemy.grounded_frames -= 1;
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
-        enemy.shared_walker_debug_branch = Some("grounded_spawn_freeze");
+        enemy.shared_walker_debug_branch = Some("grounded_hibernate");
         return;
     }
 
