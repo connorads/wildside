@@ -104,6 +104,11 @@ pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// Demo 1 (Knights Isle) keeps the player hidden and inert seven frames longer
 /// than demo 2 before exposing gameplay state in RAM.
 pub(crate) const DEMO_1_GAMEPLAY_START_FRAME: u16 = 72;
+/// Oracle-backed published TAS probes show the Skydragon Castle demo timeout
+/// counter stays 61 frames behind the native startup counter. Keep the raw
+/// startup frame counter for visible choreography, but subtract this offset
+/// when modelling the ROM's demo auto-end compare.
+pub(crate) const DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES: u16 = 61;
 /// Hidden bootstrap frame where the player drops the missing spawn pixel before
 /// the grounded hand-off begins.
 pub(crate) const DEMO_BOOTSTRAP_INIT_FRAME: u16 = DEMO_GAMEPLAY_START_FRAME + 1;

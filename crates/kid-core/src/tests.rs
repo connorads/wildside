@@ -12261,6 +12261,54 @@ fn demo_auto_ends_after_max_frames() {
 }
 
 #[test]
+fn demo_2_auto_end_waits_for_the_oracle_backed_timeout_counter() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::DemoPlay {
+        frame_counter: demo::DEMO_MAX_FRAMES + demo::DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES - 1,
+        data_index: 0,
+        use_demo_2: true,
+    };
+    runtime.opening_slice = Some(OpeningSliceState::new(LevelBounds {
+        width_pixels: 640,
+        height_pixels: 448,
+    }));
+
+    let last_gameplay_frame = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        last_gameplay_frame.game_mode,
+        GameMode::DemoPlay,
+        "demo 2 should stay in gameplay until the delayed oracle timeout counter reaches DEMO_MAX_FRAMES",
+    );
+    assert!(matches!(runtime.boot_state, BootState::DemoPlay { .. }));
+
+    runtime.step_frame(FrameInput::default());
+    assert!(
+        matches!(runtime.boot_state, BootState::TitleScreen { .. }),
+        "demo 2 should return to title on the next frame once the delayed timeout counter reaches DEMO_MAX_FRAMES",
+    );
+}
+
+#[test]
+fn published_tas_demo_2_stays_in_gameplay_on_frame_4905() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_4905 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(4_906) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 4_905 {
+            frame_4905 = Some((trace.game_mode, trace.current_level, trace.paused));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_4905,
+        Some((GameMode::DemoPlay, LevelId(0x1B), false)),
+        "the published Skydragon Castle demo should still be in live gameplay on frame 4905",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);

@@ -54,6 +54,14 @@ impl NativeRuntime {
         })
     }
 
+    fn demo_timeout_counter(frame_counter: u16, use_demo_2: bool) -> u16 {
+        if use_demo_2 {
+            frame_counter.saturating_sub(demo::DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES)
+        } else {
+            frame_counter
+        }
+    }
+
     fn begin_demo_play(&mut self, use_demo_2: bool) {
         self.boot_state = BootState::DemoPlay {
             frame_counter: 0,
@@ -381,7 +389,7 @@ impl NativeRuntime {
             self.pending_demo_title_return = 2;
         }
         // Auto-end after DEMO_MAX_FRAMES
-        if frame_counter >= demo::DEMO_MAX_FRAMES {
+        if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
             self.finish_demo_title_return(FrameInput::default());
             self.frame_index += 1;
             return None;
