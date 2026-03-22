@@ -12699,13 +12699,15 @@ fn published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_599
 }
 
 #[test]
-fn published_tas_demo_2_holds_intro_sequence_3_until_frame_6209() {
+fn published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6033 = None;
     let mut frame_6208 = None;
     let mut frame_6209 = None;
+    let mut frame_6236 = None;
+    let mut frame_6237 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(6_210) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(6_238) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
             6_033 => {
@@ -12715,7 +12717,18 @@ fn published_tas_demo_2_holds_intro_sequence_3_until_frame_6209() {
                 frame_6208 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
             }
             6_209 => {
-                frame_6209 = Some(trace.game_mode);
+                frame_6209 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+            }
+            6_236 => {
+                frame_6236 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            6_237 => {
+                frame_6237 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
                 break;
             }
             _ => {}
@@ -12742,8 +12755,23 @@ fn published_tas_demo_2_holds_intro_sequence_3_until_frame_6209() {
     );
     assert_eq!(
         frame_6209,
-        Some(GameMode::TitleScreen),
-        "the timeout restart should return straight to title on frame 6209",
+        Some((
+            GameMode::TitleScreen,
+            Some(0x0060_0000),
+            Some(0x00D0_0000),
+            Some(Direction::Left),
+        )),
+        "frame 6209 should enter title mode without discarding the intro-sequence-3 Kid pose",
+    );
+    assert_eq!(
+        frame_6236,
+        Some((GameMode::TitleScreen, Some(0x0060_0000), Some(0x00D0_0000),)),
+        "the timeout restart should keep the intro-sequence-3 pose alive through the first 28 title frames",
+    );
+    assert_eq!(
+        frame_6237,
+        Some((GameMode::TitleScreen, None, None)),
+        "after the carry-over window the timeout restart should hide Kid again while the title rebuild continues",
     );
 }
 

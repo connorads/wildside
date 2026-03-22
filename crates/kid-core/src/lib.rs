@@ -144,10 +144,18 @@ pub struct NativeRuntime {
     /// Timeout restart keeps intro sequence 3 alive far longer too, then
     /// returns straight to title instead of entering intro sequences 4 and 5.
     demo_auto_timeout_intro_sequence_3_frames_override: Option<usize>,
+    /// A timeout-restart intro-sequence-3 title jump can still pass through the
+    /// shared deferred Start→title skip countdown before title mode becomes
+    /// visible, so the later handoff must remember to keep the intro pose.
+    timeout_restart_title_intro_sequence_3_return_pending: bool,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
     preserve_demo_title_snapshot: bool,
+    /// The timeout-restart intro-sequence-3 return reaches title mode before
+    /// the standard title pose appears; oracle traces keep the last intro pose
+    /// alive for the first title frames, then hide Kid again.
+    timeout_restart_title_intro_sequence_3_pose: bool,
     /// After the live snapshot is fully cleared, oracle traces still keep Kid
     /// hidden for a longer title-object rebuild window on the demo-return path.
     hide_demo_return_title_player: bool,
@@ -238,7 +246,9 @@ impl NativeRuntime {
             demo_auto_timeout_intro_sequence_1_frames_override: None,
             demo_auto_timeout_intro_sequence_2_frames_override: None,
             demo_auto_timeout_intro_sequence_3_frames_override: None,
+            timeout_restart_title_intro_sequence_3_return_pending: false,
             preserve_demo_title_snapshot: false,
+            timeout_restart_title_intro_sequence_3_pose: false,
             hide_demo_return_title_player: false,
             demo_toggle: false,
             demo_transform_active: false,

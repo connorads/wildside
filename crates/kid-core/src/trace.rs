@@ -58,6 +58,12 @@ impl NativeRuntime {
             && self.title_screen_elapsed_frames < self.demo_title_full_snapshot_frames()
     }
 
+    fn title_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
+        matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.timeout_restart_title_intro_sequence_3_pose
+            && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES
+    }
+
     fn title_hides_demo_return_player(&self) -> bool {
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.hide_demo_return_title_player
@@ -423,6 +429,11 @@ impl NativeRuntime {
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
                 self.opening_slice.map(|slice| slice.player)
+            }
+            BootState::TitleScreen { .. }
+                if self.title_uses_timeout_restart_intro_sequence_3_pose() =>
+            {
+                Some(PlayerState::intro_sequence_3_pose())
             }
             BootState::TitleScreen { .. } if self.title_hides_demo_return_player() => None,
             BootState::TitleScreen { .. }

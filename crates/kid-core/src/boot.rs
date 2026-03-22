@@ -23,7 +23,9 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
+        self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.preserve_demo_title_snapshot = false;
+        self.timeout_restart_title_intro_sequence_3_pose = false;
         self.hide_demo_return_title_player = false;
         self.pending_prize_diamond_awards.clear();
     }
@@ -147,6 +149,13 @@ impl NativeRuntime {
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
+    }
+
+    fn finish_timeout_restart_intro_sequence_3_title_return(&mut self) {
+        self.enter_title_screen();
+        self.timeout_restart_title_intro_sequence_3_return_pending = false;
+        self.hide_demo_return_title_player = true;
+        self.timeout_restart_title_intro_sequence_3_pose = true;
     }
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
@@ -572,7 +581,11 @@ impl NativeRuntime {
                 if *pending_title_skip > 0 {
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
-                        self.enter_title_screen();
+                        if self.timeout_restart_title_intro_sequence_3_return_pending {
+                            self.finish_timeout_restart_intro_sequence_3_title_return();
+                        } else {
+                            self.enter_title_screen();
+                        }
                         return;
                     }
                     *elapsed += 1;
@@ -593,6 +606,7 @@ impl NativeRuntime {
                     && ((*segment == 0 && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
                         || *segment >= 3);
                 if start_jumps_to_title {
+                    self.timeout_restart_title_intro_sequence_3_return_pending = false;
                     *pending_title_skip = 2;
                 } else if start_advances_segment {
                     if *segment == 0 {
@@ -603,8 +617,11 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     }
                     if *segment >= 4 || timeout_restart_returns_to_title {
+                        self.timeout_restart_title_intro_sequence_3_return_pending =
+                            timeout_restart_returns_to_title;
                         *pending_title_skip = 2;
                     } else {
+                        self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         *segment += 1;
                         *elapsed = 0;
                     }
@@ -617,9 +634,13 @@ impl NativeRuntime {
                     } else if *segment == 2 {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     }
-                    if *segment >= 4 || timeout_restart_returns_to_title {
+                    if timeout_restart_returns_to_title {
+                        self.finish_timeout_restart_intro_sequence_3_title_return();
+                    } else if *segment >= 4 {
+                        self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.enter_title_screen();
                     } else {
+                        self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         *segment += 1;
                         *elapsed = 0;
                     }

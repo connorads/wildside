@@ -3,36 +3,37 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-6209-timeout-restart-title-uses-title-pose-too-early",
+    "slug": "any-percent-published-frame-6358-timeout-restart-title-pose-returns-one-frame-late",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "demo level 0x1B auto-timeout first title-frame pose after intro sequence 3",
+    "area": "demo level 0x1B auto-timeout title-pose return after intro-sequence-3 carry-over",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 6209,
-    "authoritative_clean_through": 6208,
+    "frontier_frame": 6358,
+    "authoritative_clean_through": 6357,
     "pre_divergence_windows": [
       {
-        "frame_start": 6206,
-        "frame_end": 6208,
-        "reason": "Frames 6206..6208 are authoritative-clean apart from advisory `number_objects`: the timeout restart now keeps intro sequence 3 alive through the last oracle-backed pre-title frame with the same visible `kid_x_pos=0x00600000`, `kid_y_pos=0x00D00000` pose."
+        "frame_start": 6354,
+        "frame_end": 6357,
+        "reason": "Frames 6354..6357 are authoritative-clean: after the intro-sequence-3 title carry-over fix, native matches oracle through the last hidden-title frames before the standard title pose returns."
       }
     ],
-    "current_blocker": "The timeout restart now keeps intro sequence 3 alive through frame 6208 and returns to title on frame 6209. The next live blocker in `any-percent-published` is frame 6209, where native immediately falls back to the standard title pose at `kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000` while oracle still exposes the intro-sequence-3 pose at `kid_x_pos=0x00600000`, `kid_y_pos=0x00D00000`; object-count drift remains advisory.",
+    "current_blocker": "The timeout restart now carries the intro-sequence-3 pose across the first title frames and hides Kid on time, but the next live blocker in `any-percent-published` is frame 6358: native still keeps Kid hidden at `kid_x_pos=0x00000000`, `kid_y_pos=0x00000000` while oracle restores the standard title pose at `kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000`. Frame 6359 matches again, so the remaining bug is a one-frame late title-pose return.",
     "authoritative_diffs": [
       "The old frame-5994 blocker is gone: `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994` plus `tas-diff --frame-start 5988 --frame-end 6000 --include-advisory` now keep frames 5994..6000 authoritative-clean.",
       "The old frame-6033 blocker is gone: `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209` plus `tas-diff --frame-start 6028 --frame-end 6040 --include-advisory` now keep frames 6033..6040 authoritative-clean.",
       "Frames 6206..6208 are now authoritative-clean apart from advisory `number_objects`: after the timeout restart-specific intro-sequence-3 override, native matches oracle's late `game_mode=0x001C` window through the last pre-title frame.",
-      "First live authoritative mismatch now lands at frame 6209 in `any-percent-published`: native and oracle both return to title, but native immediately swaps to the standard title pose while oracle still carries the intro-sequence-3 pose."
+      "The old frame-6209 blocker is gone: `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames` plus `tas-diff --frame-start 6206 --frame-end 6245 --include-advisory` now keep frames 6209..6244 authoritative-clean while oracle's intro-sequence-3 pose carry-over and the follow-up hidden window are matched.",
+      "First live authoritative mismatch now lands at frame 6358 in `any-percent-published`: `tas-diff --frame-start 6354 --frame-end 6364 --include-advisory` shows frames 6354..6357 match, frame 6358 keeps Kid hidden one frame too long, and frame 6359 already matches again."
     ],
     "advisory_diffs": [
-      "Frames 6028..6208 of `any-percent-published` differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame window is CRC-clean through frame 6208.",
-      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, intro-sequence-2 duration, first intro-sequence-3 visible-pose fix, and late intro-sequence-3 duration fix are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`, `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994`, and `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209`.",
-      "Frames 6028..6211 keep advisory `number_objects` noise because oracle reports the intro-sequence-3 gfx-object roster while native still does not model the full roster."
+      "Frames 6028..6357 of `any-percent-published` now differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame window is CRC-clean through frame 6357.",
+      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, intro-sequence-2 duration, first intro-sequence-3 visible-pose fix, late intro-sequence-3 duration fix, and first-title-frame carry-over fix are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`, `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994`, `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209`, and `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames`.",
+      "Frames 6209..6240 keep advisory `number_objects` noise because oracle still reports the intro-sequence-3 gfx-object roster while native keeps the title roster stubbed; frames 6241..6357 keep the usual title object-count drift even though Kid/camera parity is restored."
     ],
     "current_hypothesis": {
-      "name": "The timeout restart returns to title on the correct frame but reuses the standard title pose too early",
-      "reason": "`tas-diff --frame-start 6206 --frame-end 6212 --include-advisory` now shows frames 6206..6208 only differ on advisory `number_objects`, then frame 6209 matches `game_mode=0x002C` but native snaps Kid to the standard title pose while oracle still carries the intro-sequence-3 pose at `kid_x_pos=0x00600000`, `kid_y_pos=0x00D00000`. That points to a title-entry pose carry-over issue rather than another `Game_Mode` timing bug."
+      "name": "The timeout-restart hidden-title window expires one frame too late after the intro-sequence-3 carry-over",
+      "reason": "`verify-tas --frame-start 3000 --frame-end 12000 --bisect` now moves the frontier to frame 6358, and `tas-diff --frame-start 6354 --frame-end 6364 --include-advisory` shows a single-frame authoritative mismatch: native keeps Kid hidden on 6358, oracle restores the standard title pose on 6358, and 6359 already matches again. That points to an off-by-one on the post-carry-over hide window rather than another title-entry pose source bug."
     },
     "rejected_hypotheses": [
       {
@@ -78,17 +79,21 @@
       {
         "name": "The timeout restart could still reuse the cold-boot 80-frame intro-sequence-3 timer and continue through intro sequences 4 and 5",
         "reason": "Re-reading `sub_1B93E`/`loc_1B96A` shows the ROM hibernates intro sequence 3 for `$EF+1 = 240` frames before the return, and `tas-diff --frame-start 6206 --frame-end 6212 --include-advisory` confirms oracle keeps `game_mode=0x001C` through frame 6208 and reaches title directly on frame 6209. Adding the timeout-restart-specific 256-frame override plus direct title return moves the frontier from 6033 to 6209."
+      },
+      {
+        "name": "The frame-6209 title-pose blocker only lived on the natural intro-sequence-3 timeout path",
+        "reason": "The focused regression caught `BootState::IntroSequence { segment: 2, elapsed: 255, pending_title_skip: 1 }` on frame 6208, so the visible title entry was still arriving through the shared deferred `pending_title_skip` handoff. Fixing only the natural timeout branch left the frame-6209 title pose unchanged; the carry-over tag had to survive the two-frame Start→title countdown as well."
       }
     ],
     "required_next_evidence": [
-      "Re-read the title-entry path after `loc_1B96A`, especially how the timeout restart hands off from intro sequence 3 into `Load_IntroSequence6` without immediately discarding the intro pose.",
-      "Capture a narrower oracle-backed probe around frames 6209..6220 for `Game_Mode`, Kid position, and the title-object roster before changing title-entry pose handling.",
-      "Add a focused regression around frame 6209 that records the first title-frame pose carry-over, not just the `Game_Mode` transition."
+      "Capture a narrower oracle-backed probe around frames 6354..6360 for `Game_Mode`, Kid position, and `title_screen_ready` to confirm whether the standard title pose returns exactly when the hidden window expires.",
+      "Re-read the title-object wake path after `Load_IntroSequence6`, especially the off-screen title Kid bootstrap that eventually lands at `x=0x2E`, `y=0x8C`, to explain why oracle restores the pose on frame 6358 instead of 6359.",
+      "Add a focused regression around frame 6358 that records the first visible standard title pose after the intro-sequence-3 carry-over."
     ],
     "verification_commands": [
       "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6028 --frame-end 6040 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6206 --frame-end 6212 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6206 --frame-end 6245 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6354 --frame-end 6364 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
@@ -112,8 +117,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6028 --frame-end 6040 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6206 --frame-end 6212 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6206 --frame-end 6245 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6354 --frame-end 6364 --include-advisory",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."
