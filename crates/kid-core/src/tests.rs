@@ -4737,6 +4737,110 @@ fn trace_frame_reports_kid_object_support_candidates() {
 }
 
 #[test]
+fn trace_frame_reports_kid_ground_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = 42 << 16;
+    slice.player.y_pos = ((17 * 16) - 1) << 16;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+    slice.terrain.floor_y_pos = ((17 * 16) - 1) << 16;
+    runtime.opening_slice = Some(slice);
+    runtime.progression.current_form = PlayerForm::TheKid;
+
+    let trace = runtime.trace_frame();
+    let ground_debug = trace
+        .gameplay_debug_fields
+        .get("kid_ground_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid-ground probe diagnostics"));
+
+    assert!(
+        ground_debug.contains("latched_ground=1"),
+        "the ground probe should report the latched grounded state",
+    );
+    assert!(
+        ground_debug.contains("y_vel=0x00000000"),
+        "the ground probe should include the current Y velocity",
+    );
+    assert!(
+        ground_debug.contains("hitbox=ground=1"),
+        "the hitbox probe should report solid support on a flat floor",
+    );
+}
+
+#[test]
+fn trace_frame_reports_kid_special_motion_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = 42 << 16;
+    slice.player.y_pos = ((17 * 16) - 1) << 16;
+    slice.player.on_ground = true;
+    runtime.opening_slice = Some(slice);
+    runtime.progression.current_form = PlayerForm::Skycutter;
+    runtime.helmet.skycutter_on_board = true;
+    runtime.helmet.skycutter_flipboard = 17;
+    runtime.pending_stomp_bounce = Some(PendingStompBounce {
+        anchor_x_pos: 0x0020_0000,
+        anchor_y_pos: 0x0030_0000,
+    });
+
+    let trace = runtime.trace_frame();
+    let motion_debug = trace
+        .gameplay_debug_fields
+        .get("kid_special_motion_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid special-motion diagnostics"));
+
+    assert!(
+        motion_debug.contains("helmet=0x0001"),
+        "the motion probe should report the current helmet id",
+    );
+    assert!(
+        motion_debug.contains("skycutter_on_board=1"),
+        "the motion probe should report the Skycutter board latch",
+    );
+    assert!(
+        motion_debug.contains("skycutter_flipboard=17"),
+        "the motion probe should report the live flipboard counter",
+    );
+    assert!(
+        motion_debug.contains("pending_stomp_bounce=1"),
+        "the motion probe should surface pending stomp-bounce state",
+    );
+}
+
+#[test]
+fn trace_frame_reports_kid_goal_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = 0x0750_0000;
+    slice.player.y_pos = 0x0300_0000;
+    runtime.opening_slice = Some(slice);
+
+    let trace = runtime.trace_frame();
+    let goal_debug = trace
+        .gameplay_debug_fields
+        .get("kid_goal_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid-goal probe diagnostics"));
+
+    assert!(
+        goal_debug.contains("lifecycle=alive"),
+        "the goal probe should expose the current player lifecycle",
+    );
+    assert!(
+        goal_debug.contains("touch=1"),
+        "standing on the flag should report an active native goal touch",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -12958,6 +13062,47 @@ fn published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstr
 }
 
 #[test]
+fn published_tas_demo_2_uses_the_oracle_hidden_camera_wrap_on_frame_6966() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_6965 = None;
+    let mut frame_6966 = None;
+    let mut frame_6967 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(6_968) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            6_965 => {
+                frame_6965 = Some((trace.current_level, trace.camera_y_pos, trace.kid_y_pos));
+            }
+            6_966 => {
+                frame_6966 = Some((trace.current_level, trace.camera_y_pos, trace.kid_y_pos));
+            }
+            6_967 => {
+                frame_6967 = Some((trace.current_level, trace.camera_y_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_6965,
+        Some((LevelId(0x15), 0x00E0_0000, None)),
+        "the frame before the wrap should still be the hidden Knights Isle warm-up hold",
+    );
+    assert_eq!(
+        frame_6966,
+        Some((LevelId(0x15), 0xFF00_0000, None)),
+        "the restarted demo 1 warm-up should use the oracle-backed wrapped camera Y on frame 6966",
+    );
+    assert_eq!(
+        frame_6967,
+        Some((LevelId(0x15), 0x00E0_0000, None)),
+        "the hidden warm-up should settle back to the normal preload camera on the next frame",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);
@@ -13123,7 +13268,7 @@ fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
     assert_eq!(frame_2531.kid_y_pos, None);
 
     let frame_2532 = frames.get(&2_532).expect("frame 2532 should be captured");
-    assert_eq!(frame_2532.camera_y_pos, 0xFF20_0000);
+    assert_eq!(frame_2532.camera_y_pos, 0xFF00_0000);
 
     let frame_2537 = frames.get(&2_537).expect("frame 2537 should be captured");
     assert_eq!(frame_2537.camera_y_pos, 0x00E0_0000);
@@ -13618,6 +13763,101 @@ fn demo_1_frame_3400_reports_kid_object_support_candidates() {
     assert!(
         support_debug.contains("support="),
         "the frame-3400 diagnostics should report support classification details for the nearby candidates",
+    );
+}
+
+#[test]
+fn published_tas_frame_7969_reports_kid_ground_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+    let ground_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_ground_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid-ground probe diagnostics"));
+
+    assert!(
+        ground_debug.contains("latched_ground=1"),
+        "the frame-7969 diagnostics should preserve the native grounded latch",
+    );
+    assert!(
+        ground_debug.contains("y_vel=0x00000000"),
+        "the frame-7969 diagnostics should preserve the zeroed native Y velocity",
+    );
+    assert!(
+        ground_debug.contains("hitbox=ground="),
+        "the frame-7969 diagnostics should include the hitbox terrain probe summary",
+    );
+}
+
+#[test]
+fn published_tas_frame_7968_reports_kid_special_motion_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_969) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let motion_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_special_motion_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit kid special-motion diagnostics"));
+
+    assert!(
+        motion_debug.contains(&format!("helmet={:#06x}", frame_7968.current_helmet_id)),
+        "the frame-7968 diagnostics should echo the live helmet id",
+    );
+    assert!(
+        motion_debug.contains("pending_stomp_bounce="),
+        "the frame-7968 diagnostics should include the pending stomp-bounce latch state",
+    );
+}
+
+#[test]
+fn published_tas_frame_7969_reports_kid_goal_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+    let goal_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_goal_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid-goal probe diagnostics"));
+
+    assert!(
+        goal_debug.contains("lifecycle=alive"),
+        "the frame-7969 diagnostics should show Kid is still in the normal gameplay lifecycle",
+    );
+    assert!(
+        goal_debug.contains("touch=0"),
+        "the frame-7969 diagnostics should prove native is not already touching the goal flag",
+    );
+    assert!(
+        !frame_7969.level_complete,
+        "the frame-7969 trace should not already be in LevelComplete",
     );
 }
 

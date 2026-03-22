@@ -109,6 +109,16 @@ fn validate_header(header: &str, source_label: &str) -> Result<()> {
     Ok(())
 }
 
+fn first_crc_mismatch_from_frame(
+    native_crcs: &[u32],
+    oracle_crcs: &[u32],
+    start: usize,
+) -> Option<usize> {
+    let native_window = native_crcs.get(start..)?;
+    let oracle_window = oracle_crcs.get(start..)?;
+    crate::sweep::find_first_crc_mismatch(native_window, oracle_window).map(|offset| start + offset)
+}
+
 /// Parse the `Input Log.txt` content into per-frame u8 button masks.
 ///
 /// Format:
@@ -412,14 +422,15 @@ pub fn verify_tas(
         && !oracle.frame_crcs.is_empty()
     {
         if let Some(first_mismatch) =
-            crate::sweep::find_first_crc_mismatch(&native_crcs, &oracle.frame_crcs)
+            first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start)
         {
             println!("  CRC divergence at frame {first_mismatch}");
         } else {
-            println!(
-                "  CRC: all {} frames match",
-                native_crcs.len().min(oracle.frame_crcs.len())
-            );
+            let compared_frames = native_crcs
+                .len()
+                .min(oracle.frame_crcs.len())
+                .saturating_sub(start);
+            println!("  CRC: all {compared_frames} frames match in {start}..{end}",);
         }
     }
 
@@ -768,7 +779,7 @@ pub fn bisect_tas(
         )?;
 
         if !oracle.frame_crcs.is_empty() {
-            match crate::sweep::find_first_crc_mismatch(&native_crcs, &oracle.frame_crcs) {
+            match first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start) {
                 Some(frame_idx) => {
                     println!();
                     println!("  RESULT: first CRC divergence at frame {frame_idx}");
@@ -1232,6 +1243,27 @@ mod tests {
         let cps = super::generate_checkpoints(100, 500, 150);
         let indices: Vec<usize> = cps.iter().map(|cp| cp.frame_index).collect();
         assert_eq!(indices, vec![100, 250, 400, 499]);
+    }
+
+    #[test]
+    fn first_crc_mismatch_from_frame_skips_earlier_divergences() {
+        let native = [11, 22, 33, 44, 55];
+        let oracle = [99, 22, 33, 88, 55];
+
+        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 1)
+            .expect("mismatch after start");
+
+        assert_eq!(mismatch, 3);
+    }
+
+    #[test]
+    fn first_crc_mismatch_from_frame_returns_none_when_tail_matches() {
+        let native = [11, 22, 33, 44, 55];
+        let oracle = [99, 22, 33, 44, 55];
+
+        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 1);
+
+        assert_eq!(mismatch, None);
     }
 
     #[test]

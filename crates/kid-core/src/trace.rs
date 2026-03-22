@@ -128,6 +128,19 @@ impl NativeRuntime {
         {
             gameplay_debug_fields.insert("kid_object_support_candidates".into(), summary);
         }
+        if let Some(player_state) = player_state
+            && let Some(summary) = self.kid_ground_probe_debug(player_state)
+        {
+            gameplay_debug_fields.insert("kid_ground_probe".into(), summary);
+        }
+        if let Some(summary) = self.kid_special_motion_probe_debug() {
+            gameplay_debug_fields.insert("kid_special_motion_probe".into(), summary);
+        }
+        if let Some(player_state) = player_state
+            && let Some(summary) = self.kid_goal_probe_debug(player_state)
+        {
+            gameplay_debug_fields.insert("kid_goal_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -307,6 +320,86 @@ impl NativeRuntime {
             .map(|candidate| candidate.summary)
             .collect::<Vec<_>>();
         Some(summaries.join("; "))
+    }
+
+    fn kid_ground_probe_debug(&self, player: PlayerState) -> Option<String> {
+        let grid = self.block_grid.as_ref()?;
+        let x_px = (player.x_pos >> 16) as i32;
+        let y_px = (player.y_pos >> 16) as i32;
+        let half_width = self.progression.current_form.half_width();
+        let left = terrain::probe_floor(grid, x_px - half_width, y_px);
+        let center = terrain::probe_floor(grid, x_px, y_px);
+        let right = terrain::probe_floor(grid, x_px + half_width, y_px);
+        let hitbox = terrain::probe_floor_hitbox(grid, x_px, y_px, half_width);
+        let latched_floor_y_px = self
+            .opening_slice
+            .as_ref()
+            .map(|slice| (slice.terrain.floor_y_pos >> 16) as i32)
+            .unwrap_or(y_px);
+
+        Some(format!(
+            "latched_ground={}/latched_floor_y={}/y_vel={:#010x}/left={}/center={}/right={}/hitbox={}",
+            u8::from(player.on_ground),
+            latched_floor_y_px,
+            player.y_velocity as u32,
+            format_kid_floor_probe(left),
+            format_kid_floor_probe(center),
+            format_kid_floor_probe(right),
+            format_kid_floor_probe(hitbox),
+        ))
+    }
+
+    fn kid_special_motion_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        Some(format!(
+            "helmet={:#06x}/skycutter_on_board={}/skycutter_flipboard={}/cyclone_flying={}/cyclone_y_accel={}/iron_knight_climbing={}/iron_knight_climb_accel={}/micromax_stuck={}/pending_stomp_bounce={}/form_flash={}",
+            self.progression.current_form.helmet_id(),
+            u8::from(self.helmet.skycutter_on_board),
+            self.helmet.skycutter_flipboard,
+            u8::from(self.helmet.cyclone_flying),
+            self.helmet.cyclone_y_accel,
+            u8::from(self.helmet.iron_knight_climbing),
+            self.helmet.iron_knight_climb_accel,
+            u8::from(self.helmet.micromax_stuck),
+            u8::from(self.pending_stomp_bounce.is_some()),
+            self.progression.form_change_flash_frames,
+        ))
+    }
+
+    fn kid_goal_probe_debug(&self, player: PlayerState) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let header = self.level_header(self.current_level)?;
+        let flag_x_fp = u32::from(header.flag_x) << 16;
+        let flag_y_fp = u32::from(header.flag_y) << 16;
+        let dx_px = player.x_pos.abs_diff(flag_x_fp) >> 16;
+        let dy_px = player.y_pos.abs_diff(flag_y_fp) >> 16;
+        let touching_flag = dx_px <= FLAG_HIT_HALF_SIZE && dy_px <= FLAG_HIT_HALF_SIZE;
+
+        Some(format!(
+            "lifecycle={}/level_complete={}/touch={}/flag=({}, {})/dx_px={}/dy_px={}",
+            player_lifecycle_debug_label(self.player_lifecycle),
+            u8::from(matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            )),
+            u8::from(touching_flag),
+            header.flag_x,
+            header.flag_y,
+            dx_px,
+            dy_px,
+        ))
     }
 
     fn pending_prize_diamond_awards_debug(&self) -> String {
@@ -692,6 +785,30 @@ fn platform_collision_bounds_px(platform: ActivePlatform) -> ObjectBoundsPx {
         right: x_px + i32::from(platform.width_px),
         top: y_px,
         bottom: y_px + i32::from(platform.height_px),
+    }
+}
+
+fn format_kid_floor_probe(probe: terrain::FloorProbe) -> String {
+    format!(
+        "ground={}/y={}/cell={},{} collision={:?} block={:?}",
+        u8::from(probe.on_ground),
+        probe.floor_y_px,
+        probe.cell_x,
+        probe.cell_y,
+        probe.cell.collision,
+        probe.cell.block_type,
+    )
+}
+
+fn player_lifecycle_debug_label(lifecycle: PlayerLifecycle) -> &'static str {
+    match lifecycle {
+        PlayerLifecycle::Alive => "alive",
+        PlayerLifecycle::DeathWindup { .. } => "death_windup",
+        PlayerLifecycle::Dying { .. } => "dying",
+        PlayerLifecycle::Respawning { .. } => "respawning",
+        PlayerLifecycle::LevelComplete { .. } => "level_complete",
+        PlayerLifecycle::GameOver { .. } => "game_over",
+        PlayerLifecycle::ContinueCountdown { .. } => "continue_countdown",
     }
 }
 

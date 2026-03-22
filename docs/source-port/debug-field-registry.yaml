@@ -66,6 +66,30 @@
       "promotion_trigger": "Promote if repeated parity work starts depending on a typed Kid/object support or collision-direction field."
     },
     {
+      "key": "kid_ground_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Native grounded latch plus left/centre/right/hitbox terrain floor probes for the frame-7969 Knight's Isle support frontier.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed native terrain-support or grounded-latch diagnostic."
+    },
+    {
+      "key": "kid_special_motion_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Native helmet/special-motion latch state for frame-7969 lift-off investigation: Skycutter board, Cyclone flight, Iron Knight climb, Micromax stick, pending stomp bounce, and form-flash state.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed special-motion or helmet-state latch during gameplay parity."
+    },
+    {
+      "key": "kid_goal_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Native player lifecycle plus goal-flag distance/touch status for ruling in or out the frame-7969 Knights Isle flagpole handoff theory.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed goal-touch or player-lifecycle diagnostic."
+    },
+    {
       "key": "kid_collision_type",
       "scope": "frame",
       "status": "exploratory",

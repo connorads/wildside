@@ -3,22 +3,22 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-6966-demo-1-hidden-camera-wrap-is-32px-too-low",
+    "slug": "any-percent-published-frame-7969-knights-isle-native-stays-grounded-while-oracle-lifts-off",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "post-timeout demo 1 startup hidden camera warm-up after the fixed 6945 Start-abort window",
+    "area": "Knights Isle gameplay descent after the fixed frame-6966 hidden camera wrap",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 6966,
-    "authoritative_clean_through": 6965,
+    "frontier_frame": 7969,
+    "authoritative_clean_through": 7968,
     "pre_divergence_windows": [
       {
-        "frame_start": 6960,
-        "frame_end": 6965,
-        "reason": "Frames 6960..6965 are authoritative-clean apart from advisory object-count drift: after suppressing the queued Start abort, native matches oracle through the hidden demo 1 warm-up until the single wrapped camera-Y blip on frame 6966."
+        "frame_start": 7966,
+        "frame_end": 7968,
+        "reason": "Frames 7966..7968 are authoritative-clean apart from advisory object-count drift: after fixing `verify-tas --bisect` to honour `frame_start`, a tight `tas-diff --frame-start 7966 --frame-end 7974 --include-advisory` confirmed the true first authoritative break lands one frame later at 7969."
       }
     ],
-    "current_blocker": "The queued frame-6943 Start abort is fixed, but the next live blocker in `any-percent-published` is frame 6966: native exposes `camera_y_pos=0xFF200000` during the hidden demo 1 warm-up while oracle uses `camera_y_pos=0xFF000000`. All other authoritative fields match through frame 6965.",
+    "current_blocker": "With `verify-tas --bisect` now honouring `frame_start`, the true first authoritative break after the fixed frame-6966 warm-up is frame 7969 in level `0x15`: native keeps Kid latched to `kid_y_pos=0x01BF0000` with `latched_ground=1`, `y_vel=0`, and left/centre/right/hitbox terrain probes all still reporting solid cell `58,28`, while oracle's own Kid gfx slot (`slot=2`, printed as `0x30(kid_gfx)`) has already lifted off to `kid_y_pos=0x01BEC080` with upward `y_velocity=0xFFFFC080` and `kid_collision_type=0x0000(empty)`. Frames 7966..7968 differ only on advisory `number_objects`, so the live frontier is a gameplay grounded-handoff/lift-off mismatch rather than the later frame-9518 title window.",
     "authoritative_diffs": [
       "The old frame-5994 blocker is gone: `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994` plus `tas-diff --frame-start 5988 --frame-end 6000 --include-advisory` now keep frames 5994..6000 authoritative-clean.",
       "The old frame-6033 blocker is gone: `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209` plus `tas-diff --frame-start 6028 --frame-end 6040 --include-advisory` now keep frames 6033..6040 authoritative-clean.",
@@ -27,18 +27,47 @@
       "The old frame-6358 blocker is gone: the timeout-restart path now uses its own 149-frame post-carry-over hide window, `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358` passes, and `tas-diff --frame-start 6354 --frame-end 6364 --include-advisory` is fully authoritative-clean.",
       "The old frame-6906 blocker is gone: `published_tas_demo_2_resumes_demo_play_on_frame_6906` plus the timeout-restart-specific one-frame attract-lock shrink make `tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` fully authoritative-clean.",
       "The old frame-6945 blocker is gone: `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap` plus the timeout-restart-specific manual-abort gate keep `tas-diff --frame-start 6940 --frame-end 6952 --include-advisory` fully authoritative-clean.",
-      "First live authoritative mismatch now lands at frame 6966 in `any-percent-published`: `tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` shows frames 6960..6965 match apart from advisory object counts, then native exposes a one-frame `camera_y_pos=0xFF200000` while oracle uses `0xFF000000`."
+      "The old frame-6966 blocker is gone: `published_tas_demo_2_uses_the_oracle_hidden_camera_wrap_on_frame_6966` plus the demo 1 hidden-camera table fix turn `tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` authoritative-clean apart from advisory object counts.",
+      "The old frame-9518 title-window guess is no longer the live frontier: adding `first_crc_mismatch_from_frame` in `crates/kidcli/src/tas.rs` makes `verify-tas --frame-start 6975 --frame-end 9530 --bisect` report the true first authoritative CRC break at frame 7969 instead of the global frame-2595 mismatch.",
+      "The true live blocker is frame 7969 in `any-percent-published`: `tas-diff --frame-start 7966 --frame-end 7974 --include-advisory` keeps frames 7966..7968 advisory-only, then shows native holding `kid_y_pos=0x01BF0000` while oracle lifts off to `0x01BEC080` on frame 7969 and beyond in level `0x15`.",
+      "The new `kid_ground_probe` instrumentation proves native is not hovering over empty space: at frames 7968..7970 it still reports `latched_ground=1`, `y_vel=0`, and solid terrain on the left/centre/right/hitbox probes at cell `58,28`, while oracle's player object already carries upward Y velocity with empty Kid gfx collision.",
+      "The raw oracle roster and collision-source words are now decoded in `tas-diff`: the rising `0x30` entry is Kid's own gfx slot (`slot=2`, `0x30(kid_gfx)`), and the lingering `kid_collision_source=0x00A0` word decodes to `flagpole`, so the frontier is no longer blocked on identifying an unknown support actor.",
+      "The new `kid_special_motion_probe` rules out the obvious native special-motion latches in the lift-off window: frames 7966..7973 keep Kid in helmet `0x0006` (Iron Knight) with `skycutter_on_board=0`, `cyclone_flying=0`, `iron_knight_climbing=0`, `micromax_stuck=0`, `pending_stomp_bounce=0`, and `form_flash=0`, so the upward oracle handoff is not explained by those native state machines.",
+      "The new `kid_goal_probe` rules out a native goal-touch / level-complete handoff at the live frontier: `published_tas_frame_7969_reports_kid_goal_probe` shows frame 7969 still has `lifecycle=alive`, `level_complete=0`, and `touch=0`, with the native goal flag at `(2416,64)` still `1480px` away in X and `383px` away in Y even though oracle's stale `kid_collision_source` word still decodes to `flagpole`."
     ],
     "advisory_diffs": [
-      "Frames 6028..6965 of `any-percent-published` now differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise even though the live frame windows are authoritative-clean through frame 6965.",
-      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, intro-sequence-2 duration, first intro-sequence-3 visible-pose fix, late intro-sequence-3 duration fix, first-title-frame carry-over fix, first standard-title-pose return fix, fixed frame-6906 demo handoff, and fixed frame-6945 queued-Start abort are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`, `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994`, `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209`, `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames`, `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358`, `published_tas_demo_2_resumes_demo_play_on_frame_6906`, and `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap`.",
-      "Frames 6209..6240 keep advisory `number_objects` noise because oracle still reports the intro-sequence-3 gfx-object roster while native keeps the title roster stubbed; frames 6241..6974 keep the usual title or early-demo object-count drift even though Kid/camera parity is restored apart from frame 6966."
+      "Frames 6028..7968 of `any-percent-published` now have no known authoritative diffs; the spot-checked 7966..7968 window still differs only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that reports object-count noise even though the live authoritative frontier now sits at frame 7969.",
+      "The timeout live-snapshot, hidden-Kid, mode-0 exit, intro-sequence-1 duration, intro-sequence-2 duration, first intro-sequence-3 visible-pose fix, late intro-sequence-3 duration fix, first-title-frame carry-over fix, first standard-title-pose return fix, fixed frame-6906 demo handoff, fixed frame-6945 queued-Start abort, and fixed frame-6966 hidden camera wrap are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`, `published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143`, `published_tas_demo_2_holds_intro_sequence_1_until_frame_5504`, `published_tas_demo_2_holds_intro_sequence_2_until_frame_5953`, `published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994`, `published_tas_demo_2_holds_intro_sequence_3_until_frame_6209`, `published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames`, `published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358`, `published_tas_demo_2_resumes_demo_play_on_frame_6906`, `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap`, and `published_tas_demo_2_uses_the_oracle_hidden_camera_wrap_on_frame_6966`.",
+      "The later frame-9518 title window still carries advisory `number_objects` drift alongside the downstream authoritative title-state mismatch, but it is no longer the live frontier after the frame-7969 gameplay break was proven.",
+      "Oracle still keeps `kid_collision_source=0x00A0(flagpole)` / `kid_collision_type=0x0000(empty)` throughout the 7968..7970 lift-off window. Because the rising roster entry is Kid's own gfx slot (`slot=2`), the current evidence points away from an unknown support actor and toward a player-side gameplay movement/handoff path.",
+      "The new `kid_special_motion_probe` keeps native's explicit helmet motion latches quiet throughout frames 7966..7973 even though `current_helmet_id=0x0006` (Iron Knight), so the remaining blocker is deeper than the existing Skycutter/Cyclone/Iron Knight-climb/Micromax helpers.",
+      "The new `kid_goal_probe` keeps native frames 7969+ in `lifecycle=alive` with `touch=0`; on frame 7969 the native goal flag is still `(2416,64)`, `1480px` away in X and `383px` away in Y. The decoded oracle `flagpole` collision-source word is therefore stale context rather than proof that native has already entered its own level-complete path."
     ],
     "current_hypothesis": {
-      "name": "The hard-coded demo 1 hidden-camera quirk for startup frame 60 is 32px too low",
-      "reason": "`verify-tas --frame-start 3000 --frame-end 12000 --bisect` now moves the frontier to frame 6966, `tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` shows the only authoritative difference is `camera_y_pos native=0xFF200000 oracle=0xFF000000` on frame 6966, and `trace.rs` sources that pre-gameplay camera directly from `demo::demo_1_hidden_camera_y(frame_counter)`, where `demo.rs` currently hard-codes frame `60 => 0xFF200000`."
+      "name": "Native keeps Kid grounded on solid terrain through the frame-7969 lift-off window instead of following the oracle's upward handoff",
+      "reason": "`verify-tas --frame-start 6975 --frame-end 9530 --bisect` still lands at frame 7969, and `kid_ground_probe` shows native explicitly grounded on solid terrain cell `58,28` with `y_vel=0` through frames 7968..7970. In the same window, oracle's own Kid gfx slot (`0x30(kid_gfx)`, `slot=2`) moves upward from `0x01BF0000` to `0x01BEC080` and beyond with `y_velocity=0xFFFFC000` / `0xFFFFC080` while `kid_collision_type` stays `0x0000(empty)` and `kid_collision_source` stays the decoded `0x00A0(flagpole)`. The newer `kid_special_motion_probe` also shows native is already in helmet `0x0006` (Iron Knight) with all explicit special-motion latches idle (`skycutter_on_board=0`, `cyclone_flying=0`, `iron_knight_climbing=0`, `micromax_stuck=0`, `pending_stomp_bounce=0`), and `kid_goal_probe` keeps frame 7969 at `lifecycle=alive` with `touch=0`. The live blocker therefore looks like a missed generic grounded-handoff / lift-off path in gameplay, not a simple early landing, native flag touch, a hidden support actor, or one of the known helmet special states."
     },
     "rejected_hypotheses": [
+      {
+        "name": "The later frame-9518 title/demo window is the live frontier",
+        "reason": "That was a tooling artefact. Fixing `verify-tas --bisect` so its CRC fast path honours `frame_start` makes `verify-tas --frame-start 6975 --frame-end 9530 --bisect` report the true first authoritative break at frame 7969; the title-screen mismatch is downstream of that earlier gameplay divergence."
+      },
+      {
+        "name": "The hard-coded demo 1 hidden-camera quirk for startup frame 60 is still the live blocker",
+        "reason": "That was the real frame-6966 blocker. Changing `demo::demo_1_hidden_camera_y(60)` from `0xFF200000` to the oracle-backed `0xFF000000`, adding `published_tas_demo_2_uses_the_oracle_hidden_camera_wrap_on_frame_6966`, and re-running `tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` remove the last authoritative mismatch from the timeout-restart warm-up window."
+      },
+      {
+        "name": "Frame 7969 is just an early floor-contact / falling clamp",
+        "reason": "The new `kid_ground_probe` field shows native still has explicit solid terrain support on left/centre/right/hitbox probes at cell `58,28` with `latched_ground=1` and `y_vel=0`, while oracle's player object is already moving upward with empty Kid gfx collision. The mismatch is a grounded-handoff / lift-off problem, not a simple late-fall landing."
+      },
+      {
+        "name": "The lift-off is driven by an obvious missing native special-motion latch (Skycutter/Cyclone/Iron Knight climb/Micromax or pending stomp bounce)",
+        "reason": "The new `kid_special_motion_probe` keeps frames 7966..7973 on helmet `0x0006` (Iron Knight) with `skycutter_on_board=0`, `skycutter_flipboard=0`, `cyclone_flying=0`, `iron_knight_climbing=0`, `micromax_stuck=0`, `pending_stomp_bounce=0`, and `form_flash=0`. Oracle still injects upward `y_velocity=0xFFFFC000` on frame 7968, so the blocker sits below those existing native special-motion state machines."
+      },
+      {
+        "name": "Frame 7969 is native flag-touch / level-complete handoff timing",
+        "reason": "The new `kid_goal_probe` proves native is not yet on its own goal path: `published_tas_frame_7969_reports_kid_goal_probe` shows `lifecycle=alive`, `level_complete=0`, and `touch=0` on frame 7969, with the native goal flag still `(2416,64)` and Kid `1480px` away in X / `383px` away in Y. The oracle `kid_collision_source=0x00A0(flagpole)` word is stale context, not evidence that native has already entered `CharacterCollision_TouchFlagpole`."
+      },
       {
         "name": "The timeout-restart title idle counter hands control back to demo playback one frame late",
         "reason": "That was the real frame-6906 blocker. Shortening only the timeout-restart title lock by one frame makes `published_tas_demo_2_resumes_demo_play_on_frame_6906` pass, turns `tas-diff --frame-start 6900 --frame-end 6912 --include-advisory` fully green, and moves the first live mismatch out to frame 6945."
@@ -101,48 +130,61 @@
       }
     ],
     "required_next_evidence": [
-      "Capture a narrower oracle-backed probe around frames 6965..6967 for `camera_y_pos`, `Current_LevelID`, and the hidden demo 1 startup counter so the one-frame wrapped camera blip is explicit.",
-      "Re-read the Kid demo-bootstrap camera choreography around `Load_DemoPlay` / `Load_InGame` to confirm whether the frame-60 wrap should be `0xFF000000` or whether another hidden startup frame is still offset.",
-      "Add a focused regression around frame 6966 that proves the restarted demo 1 warm-up uses the oracle-backed wrapped camera Y before the hidden settle resumes."
+      "Trace the generic player-side gameplay path that can give Kid's own gfx slot (`slot=2`) upward `y_velocity=0xFFFFC000` while `kid_collision_type` stays `0x0000(empty)` and the stale `kid_collision_source=0x00A0(flagpole)` word remains latched, now that both the obvious special-motion latches and native goal-touch timing are ruled out.",
+      "Re-read the level `0x15` gameplay path that can release or lift Iron Knight off solid terrain cell `58,28` while right is held, especially generic grounded-state release, object-side collision consumers, or any passive Iron Knight-specific behaviour around frame 7968 rather than native flag touch, unknown support actors, or active special abilities.",
+      "Add a focused regression around frames 7968..7969 in `crates/kid-core/src/tests.rs` once the grounded-handoff / lift-off cause is proven."
     ],
     "verification_commands": [
+      "cargo test -p kidcli first_crc_mismatch_from_frame -- --nocapture",
       "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6354 --frame-end 6364 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6900 --frame-end 6912 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory",
+      "cargo test -p kid-core trace_frame_reports_kid_goal_probe -- --nocapture",
+      "cargo test -p kid-core trace_frame_reports_kid_special_motion_probe -- --nocapture",
+      "cargo test -p kid-core published_tas_frame_7969_reports_kid_goal_probe -- --nocapture",
+      "cargo test -p kid-core published_tas_frame_7968_reports_kid_special_motion_probe -- --nocapture",
       "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6960 --frame-end 6974 --include-advisory",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7966 --frame-end 7974 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9518 --frame-end 9528 --include-advisory",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Fix the frame-6966 hidden demo 1 camera wrap during the timeout-restart warm-up",
-      "summary": "Use the live 6966 frontier to align the restarted demo 1 pre-gameplay camera quirk with oracle instead of exposing `0xFF200000` for one frame during the hidden warm-up.",
+      "title": "Investigate the frame-7969 Knights Isle grounded-handoff mismatch",
+      "summary": "The repaired `verify-tas --bisect` path shows the true first authoritative mismatch is frame 7969 in level `0x15`, where native stays grounded on solid terrain cell `58,28` while oracle has already started an upward lift-off path. The next session should explain and fix that gameplay grounded-handoff before revisiting the later frame-9518 title window.",
       "sources": [
         "docs/source-port/frontier-state.yaml",
         "docs/source-port/backlog.md",
         "docs/source-port/tas-roadmap.md",
-        "crates/kid-core/src/demo.rs",
+        "crates/kidcli/src/tas.rs",
+        "crates/kid-core/src/lib.rs",
+        "crates/kid-core/src/movement.rs",
+        "crates/kid-core/src/terrain.rs",
         "crates/kid-core/src/trace.rs",
         "crates/kid-core/src/tests.rs"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/demo.rs",
+        "crates/kid-core/src/lib.rs",
+        "crates/kid-core/src/movement.rs",
+        "crates/kid-core/src/terrain.rs",
         "crates/kid-core/src/trace.rs",
-        "crates/kid-core/src/tests.rs"
+        "crates/kid-core/src/tests.rs",
+        "docs/source-port/frontier-state.yaml",
+        "docs/source-port/tas-roadmap.md"
       ],
       "commands": [
         "mise run frontier-status",
-        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory",
         "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6960 --frame-end 6974 --include-advisory",
-        "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
+        "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
+        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7966 --frame-end 7974 --include-advisory",
+        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9518 --frame-end 9528 --include-advisory",
+        "cargo test -p kidcli first_crc_mismatch_from_frame -- --nocapture",
         "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
         "mise run verify-slice-fast"
       ],
       "done_criteria": [
-        "Frame 6966 no longer exposes the wrong wrapped demo 1 camera Y during the timeout-restart warm-up.",
-        "`tas-diff --frame-start 6960 --frame-end 6974 --include-advisory` is authoritative-clean apart from the existing advisory object-count drift.",
-        "The focused regression suite records the oracle-backed hidden camera pose for the restarted demo 1 warm-up."
+        "A focused regression captures the 7968 clean / 7969 divergent gameplay lift-off window in level `0x15`.",
+        "The engine fix explains why native stays grounded on cell `58,28` while oracle has already started the upward lift-off path.",
+        "The later frame-9518 title window is only revisited after the frame-7969 gameplay divergence is cleared."
       ]
     }
   },
@@ -164,8 +206,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6960 --frame-end 6974 --include-advisory",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7966 --frame-end 7974 --include-advisory",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

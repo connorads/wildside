@@ -141,8 +141,8 @@ pub(crate) fn demo_1_hidden_camera_y(frame_counter: u16) -> Option<u32> {
         57 | 58 => Some(0),
         59 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 => Some(0x00E0_0000),
         // ORIGINAL_QUIRK: demo 1 briefly exposes a wrapped negative camera Y
-        // one frame before the hidden Knight's Isle bootstrap settles.
-        60 => Some(0xFF20_0000),
+        // one frame before the hidden Knights Isle bootstrap settles.
+        60 => Some(0xFF00_0000),
         _ => None,
     }
 }

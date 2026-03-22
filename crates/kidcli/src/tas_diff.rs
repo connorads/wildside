@@ -396,7 +396,7 @@ fn oracle_gameplay_debug(oracle_state: Option<&OracleState>) -> Option<String> {
     if state.gameplay_debug_fields.is_empty() {
         return None;
     }
-    Some(format!("{:?}", state.gameplay_debug_fields))
+    Some(format_oracle_debug_fields(&state.gameplay_debug_fields))
 }
 
 fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSnapshot) -> String {
@@ -461,6 +461,9 @@ fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSna
 }
 
 fn format_oracle_enemy_debug(object: &crate::oracle::OracleEnemyState) -> String {
+    let role = oracle_object_role_label(object)
+        .map(|label| format!("({label})"))
+        .unwrap_or_default();
     let layout_index = object
         .layout_index
         .map(|index| format!(" li=#{index:02}"))
@@ -484,10 +487,13 @@ fn format_oracle_enemy_debug(object: &crate::oracle::OracleEnemyState) -> String
     let debug_fields = if object.debug_fields.is_empty() {
         String::new()
     } else {
-        format!(" debug={:?}", object.debug_fields)
+        format!(
+            " debug={}",
+            format_oracle_debug_fields(&object.debug_fields)
+        )
     };
     format!(
-        "0x{:02X}@{:#010x},{:#010x} vel={:#010x},{:#010x} face={:?}{layout_index}{layout_ptr}{parent_ptr}{gfx_slot}{on_ground}{debug_fields}",
+        "0x{:02X}{role}@{:#010x},{:#010x} vel={:#010x},{:#010x} face={:?}{layout_index}{layout_ptr}{parent_ptr}{gfx_slot}{on_ground}{debug_fields}",
         object.object_type,
         object.x_pos,
         object.y_pos,
@@ -495,6 +501,97 @@ fn format_oracle_enemy_debug(object: &crate::oracle::OracleEnemyState) -> String
         object.y_velocity as u32,
         object.facing
     )
+}
+
+fn oracle_object_role_label(object: &crate::oracle::OracleEnemyState) -> Option<&'static str> {
+    match object.gfx_slot_index {
+        Some(2) => Some("kid_gfx"),
+        _ => None,
+    }
+}
+
+fn format_oracle_debug_fields(fields: &std::collections::BTreeMap<String, String>) -> String {
+    let rendered = fields
+        .iter()
+        .map(|(key, value)| {
+            let value = match key.as_str() {
+                "collision_source" | "kid_collision_source" => format_collision_source_value(value),
+                _ => value.clone(),
+            };
+            format!("{key:?}: {value:?}")
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{{{rendered}}}")
+}
+
+fn format_collision_source_value(raw: &str) -> String {
+    let Some(source) = parse_hex_u16(raw) else {
+        return raw.to_owned();
+    };
+    let Some(label) = collision_source_label(source) else {
+        return raw.to_owned();
+    };
+    format!("{raw}({label})")
+}
+
+fn parse_hex_u16(raw: &str) -> Option<u16> {
+    let hex = raw.strip_prefix("0x").or_else(|| raw.strip_prefix("0X"))?;
+    u16::from_str_radix(hex, 16).ok()
+}
+
+fn collision_source_label(source: u16) -> Option<&'static str> {
+    match source & 0x00FF {
+        0x00 => Some("fire_demon"),
+        0x01 => Some("diamond"),
+        0x03 => Some("robot"),
+        0x04 => Some("armadillo"),
+        0x05 => Some("tar_monster"),
+        0x06 => Some("sphere"),
+        0x07 => Some("archer"),
+        0x08 => Some("orca"),
+        0x09 => Some("crab"),
+        0x0A => Some("rock_tank"),
+        0x0B => Some("rock_tank_shooting"),
+        0x0C => Some("dragon_flying"),
+        0x0D => Some("dragon"),
+        0x0E => Some("cloud"),
+        0x0F => Some("ufo"),
+        0x10 => Some("goat"),
+        0x11 => Some("ninja"),
+        0x12 => Some("lion"),
+        0x13 => Some("scorpion"),
+        0x14 => Some("spinning_twins"),
+        0x16 => Some("drip"),
+        0x17 => Some("hand"),
+        0x18 => Some("tornado"),
+        0x19 => Some("fireball"),
+        0x1A => Some("driller"),
+        0x1B => Some("emo_rock"),
+        0x1C => Some("mini_hopping_skull"),
+        0x1D => Some("big_hopping_skull"),
+        0x1F => Some("invalid_1f"),
+        0x20 => Some("heady_metal"),
+        0x22 => Some("shiskaboss"),
+        0x23 => Some("boomerang_bosses"),
+        0x24 => Some("bagel_brothers"),
+        0x64 => Some("prizediamond"),
+        0x6C => Some("skycutter"),
+        0x70 => Some("cyclone"),
+        0x74 => Some("redstealth"),
+        0x78 => Some("eyeclops"),
+        0x7C => Some("juggernaut"),
+        0x80 => Some("ironknight"),
+        0x84 => Some("berzerker"),
+        0x88 => Some("maniaxe"),
+        0x8C => Some("micromax"),
+        0x90 => Some("ankh"),
+        0x94 => Some("clock"),
+        0x98 => Some("continue"),
+        0x9C => Some("unknown_prize"),
+        0xA0 => Some("flagpole"),
+        _ => None,
+    }
 }
 
 fn summarize_entries(entries: Vec<String>) -> String {
@@ -513,8 +610,8 @@ fn summarize_entries(entries: Vec<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        format_native_enemy_debug, format_oracle_enemy_debug, oracle_gameplay_debug,
-        should_print_object_roster,
+        collision_source_label, format_collision_source_value, format_native_enemy_debug,
+        format_oracle_enemy_debug, oracle_gameplay_debug, should_print_object_roster,
     };
     use kid_core::{
         GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
@@ -577,6 +674,29 @@ mod tests {
     }
 
     #[test]
+    fn oracle_enemy_debug_labels_kid_gfx_slot_and_decodes_collision_source() {
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert("collision_source".into(), "0x00a0".into());
+        let debug = format_oracle_enemy_debug(&crate::oracle::OracleEnemyState {
+            object_type: 0x30,
+            x_pos: 0x03A8_0000,
+            y_pos: 0x01BF_0000,
+            x_velocity: 0,
+            y_velocity: -0x0000_4000,
+            facing: crate::oracle::EnemyFacing::Left,
+            layout_index: None,
+            layout_ptr: Some(0x0000_75FA),
+            parent_object_ptr: Some(0xFFFF_0E88),
+            gfx_slot_index: Some(2),
+            on_ground: None,
+            debug_fields,
+        });
+
+        assert!(debug.contains("0x30(kid_gfx)@"));
+        assert!(debug.contains("\"collision_source\": \"0x00a0(flagpole)\""));
+    }
+
+    #[test]
     fn oracle_gameplay_debug_reports_collision_fields() {
         let mut gameplay_debug_fields = std::collections::BTreeMap::new();
         gameplay_debug_fields.insert("kid_collision_source".into(), "0x000d".into());
@@ -629,6 +749,20 @@ mod tests {
             debug.contains("kid_collision_source"),
             "the gameplay summary should surface the raw oracle collision source word",
         );
+        assert!(
+            debug.contains("0x000d(dragon)"),
+            "the gameplay summary should decode known collision source ids",
+        );
+    }
+
+    #[test]
+    fn collision_source_label_decodes_flagpole() {
+        assert_eq!(collision_source_label(0x00A0), Some("flagpole"));
+    }
+
+    #[test]
+    fn format_collision_source_value_leaves_unknown_ids_raw() {
+        assert_eq!(format_collision_source_value("0x1234"), "0x1234");
     }
 
     #[test]
