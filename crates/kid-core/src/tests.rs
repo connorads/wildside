@@ -12630,6 +12630,31 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400: lower shared walker is already ahead when Kid_Transform freezes gameplay"]
+fn demo_1_lower_dragon_does_not_enter_transform_freeze_twelve_pixels_ahead_on_frame_3170() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3170 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_171) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_170 {
+            dragon_3170 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| (enemy.x_pos, enemy.facing, enemy.on_ground));
+            break;
+        }
+    }
+
+    assert_eq!(
+        dragon_3170,
+        Some((0x01F8_8000, Direction::Right, true)),
+        "frame 3170 should already enter Kid_Transform from the oracle-backed right-facing hold tile instead of freezing the lower dragon twelve pixels ahead",
+    );
+}
+
+#[test]
 #[ignore = "TAS frontier 3400: lower shared walker still turns around too early"]
 fn demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
@@ -12981,6 +13006,57 @@ fn demo_1_iron_knight_transform_freezes_walking_dragons_on_frame_3171() {
     assert_eq!(
         dragon_3171, dragon_3170,
         "frame 3171 should keep the walking dragon frozen while Kid_Transform hibernates gameplay",
+    );
+}
+
+#[test]
+fn demo_1_transform_freeze_preserves_lower_dragon_state_through_frame_3206() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3170 = None;
+    let mut dragon_3206 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_207) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_170 {
+            dragon_3170 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| {
+                    (
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.facing,
+                        enemy.on_ground,
+                        enemy.shared_walker_patrol_timer,
+                    )
+                });
+        }
+        if frame_index == 3_206 {
+            dragon_3206 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| {
+                    (
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.facing,
+                        enemy.on_ground,
+                        enemy.shared_walker_patrol_timer,
+                    )
+                });
+            break;
+        }
+    }
+
+    let dragon_3170 =
+        dragon_3170.unwrap_or_else(|| panic!("frame 3170 should capture the lower dragon"));
+    let dragon_3206 =
+        dragon_3206.unwrap_or_else(|| panic!("frame 3206 should capture the lower dragon"));
+    assert_eq!(
+        dragon_3206, dragon_3170,
+        "Kid_Transform should preserve the lower dragon's shared-walker state through the hibernated frame-3206 window",
     );
 }
 
