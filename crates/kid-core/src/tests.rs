@@ -12510,6 +12510,48 @@ fn published_tas_demo_2_clears_camera_and_progression_on_frame_4999() {
 }
 
 #[test]
+fn published_tas_demo_2_keeps_kid_hidden_during_timeout_restart() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_5116 = None;
+    let mut frame_5184 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(5_185) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            5_116 => {
+                frame_5116 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            5_184 => {
+                frame_5184 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.number_objects,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_5116,
+        Some((GameMode::SegaScreen, None, None, 4)),
+        "the timeout restart should keep Kid hidden on the first previously divergent frame",
+    );
+    assert_eq!(
+        frame_5184,
+        Some((GameMode::SegaScreen, None, None, 4)),
+        "the timeout restart should keep Kid hidden while the mode-0 handoff is still active",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);

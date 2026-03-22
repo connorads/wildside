@@ -3,35 +3,35 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-5116-demo-timeout-title-rebuild-hide-window",
+    "slug": "any-percent-published-frame-5143-demo-timeout-restart-stuck-in-mode-0",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "demo level 0x1B auto-timeout title rebuild hide window after the snapshot fix",
+    "area": "demo level 0x1B auto-timeout boot restart after the hidden-Kid fix",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 5116,
-    "authoritative_clean_through": 5115,
+    "frontier_frame": 5143,
+    "authoritative_clean_through": 5142,
     "pre_divergence_windows": [
       {
         "frame_start": 4898,
-        "frame_end": 5115,
-        "reason": "Frames 4898..5115 are authoritative-clean apart from advisory `number_objects`: the timeout threshold now freezes the prior live demo pose, the mode-0 handoff matches through frame 4998, and the later title rebuild stays clean until native starts showing Kid again on frame 5116."
+        "frame_end": 5142,
+        "reason": "Frames 4898..5142 are authoritative-clean apart from advisory `number_objects`: the timeout threshold and mode-0 handoff still match through frame 4998, Kid now stays hidden throughout the later timeout restart, and the first remaining authoritative diff only appears once oracle advances out of `game_mode=0x0000` on frame 5143."
       }
     ],
-    "current_blocker": "The timeout handoff snapshot is fixed. The next live blocker in `any-percent-published` is frame 5116, where native exposes the standard title pose (`kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000`) as soon as the shared 150-frame demo-return hide window ends, but oracle still keeps Kid blanked while the lingering title object-count drift remains advisory.",
+    "current_blocker": "The hidden-Kid timeout restart is fixed. The next live blocker in `any-percent-published` is frame 5143, where native still reports `game_mode=0x0000` (Sega screen) while oracle has already advanced to `game_mode=0x0004` (intro sequence 1); Kid remains hidden on both sides and the lingering object-count drift stays advisory.",
     "authoritative_diffs": [
       "The old frame-4966 handoff blockers are gone: `tas-diff --frame-start 4964 --frame-end 5020 --include-advisory` now matches every authoritative field through frame 4998, with only advisory `number_objects` noise after the snapshot clears.",
-      "First live authoritative mismatch now lands at frame 5116 in `any-percent-published`: native shows the standard title pose (`kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000`) while oracle still reports Kid blanked (`kid_x_pos=0`, `kid_y_pos=0`).",
-      "Frames 5116..5139 keep the same title rebuild mismatch alive: native continues to expose the title pose each frame, but oracle keeps Kid hidden while no other new authoritative state changes appear in the narrowed window."
+      "Frames 5116..5142 are now authoritative-clean apart from advisory `number_objects`: keeping Kid hidden while `demo_auto_timeout_handoff_active` is latched removes the old title-pose mismatch entirely.",
+      "First live authoritative mismatch now lands at frame 5143 in `any-percent-published`: native stays in `game_mode=0x0000`, but oracle has already advanced to `game_mode=0x0004` while keeping Kid hidden."
     ],
     "advisory_diffs": [
-      "Frames 4898..5115 of `any-percent-published` differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame window is CRC-clean through frame 5115.",
-      "The timeout live-snapshot fix is verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, and `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`.",
-      "Frames 4999..5115 keep only advisory title object-count drift (`native=4`, `oracle=0..1`) after the camera/progression snapshot has already cleared."
+      "Frames 4898..5142 of `any-percent-published` differ only on advisory `number_objects`, plus the existing transition checkpoint bookkeeping (`transition_*`) that still reports object-count noise and an ignored `game_paused` checkpoint mismatch even though the live frame window is CRC-clean through frame 5142.",
+      "The timeout live-snapshot and hidden-Kid fixes are verified by passing `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966`, `published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot`, `published_tas_demo_2_clears_camera_and_progression_on_frame_4999`, and `published_tas_demo_2_keeps_kid_hidden_during_timeout_restart`.",
+      "Frames 5143..5184 still keep only advisory `number_objects` noise alongside the new `game_mode` blocker; oracle drops from `1` visible object to `0` by frame 5174 while native stays at `4`."
     ],
     "current_hypothesis": {
-      "name": "The auto-timeout title rebuild keeps Kid hidden longer than the shared demo-return hide window",
-      "reason": "After freezing the timeout threshold frame and moving the auto-timeout full/partial snapshot clear windows out by one frame, the next authoritative diff appears exactly when native's shared `DEMO_TITLE_PLAYER_HIDDEN_FRAMES=150` window ends. Frame 5116 is the first title frame where native reuses the standard title pose, but oracle still keeps Kid blanked for many more frames, which suggests the mode-0 auto-timeout path needs its own longer hidden-Kid rebuild window instead of reusing the manual demo-return timing."
+      "name": "The auto-timeout restart never advances out of the latched mode-0 handoff",
+      "reason": "ROM `ReadJoypad` sets `Game_Mode=0` on timeout and jumps through `loc_6E2`; `GameLoadArray[0]` loads the Sega screen and the later Sega/logo object eventually writes `Game_Mode=4`. Oracle makes that `0x0000 -> 0x0004` transition on frame 5143, but native still models the path as a title-screen shell with a permanent `demo_auto_timeout_handoff_active` override, so the restart never progresses into intro sequence 1."
     },
     "rejected_hypotheses": [
       {
@@ -53,20 +53,24 @@
       {
         "name": "The remaining blocker was still inside the frame-4966..4998 timeout handoff window",
         "reason": "The focused published-TAS regressions and `tas-diff --frame-start 4964 --frame-end 5020 --include-advisory` now match every authoritative field through frame 4998; the next live blocker moves out to frame 5116 during the later title rebuild."
+      },
+      {
+        "name": "The auto-timeout path only needed a longer hidden-Kid title rebuild window",
+        "reason": "Keeping Kid hidden while `demo_auto_timeout_handoff_active` is latched removes the old frame-5116 pose mismatch and leaves frames 5116..5142 authoritative-clean. The next live blocker is frame 5143 on `game_mode=0x0000 -> 0x0004`, so the shared 150-frame hide window was only exposing the deeper restart-state bug."
       }
     ],
     "required_next_evidence": [
-      "Measure the oracle frame where Kid first reappears after the mode-0 auto-timeout rebuild: frames 5116..5139 still keep Kid hidden, so the shared 150-frame hide window is too short.",
-      "Compare the later auto-timeout title rebuild against the manual demo-return path to see whether `hide_demo_return_title_player` needs a separate duration for mode 0.",
-      "Narrow the title rebuild window with additional TAS probes or instrumentation before changing `DEMO_TITLE_PLAYER_HIDDEN_FRAMES`, so the next fix targets the real visibility gate rather than guessing at a single-frame offset."
+      "Measure the exact mode-0 restart duration from the timeout handoff to oracle's `game_mode=0x0004` transition on frame 5143, and compare it with the cold-boot Sega/logo path.",
+      "Trace which native state should replace the current title-shell override once the auto-timeout restart leaves `game_mode=0x0000`, including when `demo_auto_timeout_handoff_active` should clear.",
+      "Re-read the Sega/logo intro loader objects around `Load_SegaScreen` / `Load_IntroSequence1` and add a narrower oracle-backed probe before changing the timeout restart state machine."
     ],
     "verification_commands": [
       "cargo test -p kid-core published_tas_demo_2 -- --nocapture",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 4898 --frame-end 5010 --checkpoint-interval 1",
       "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 4964 --frame-end 5020 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5108 --frame-end 5122 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5114 --frame-end 5140 --include-advisory",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5108 --frame-end 5145 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 5114 --frame-end 5185 --include-advisory",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
     ]
