@@ -2,6 +2,17 @@
 
 This repo keeps source-port research material in cache-local checkouts and repo docs. Treat this file as the canonical guide for finding the right reference fast. `AGENTS.md` should point here as a symlink.
 
+## Ralph loop (agentic frontier sessions)
+
+If your prompt mentions "Ralph loop", "frontier loop", or "source-port frontier", follow this path **exactly** — do not discover your own:
+
+1. Read `docs/source-port/ralph-source-port-frontier-loop.md` (the loop spec)
+2. Read `.cache/autonomy/source-port-frontier/next-agent.md` (the handoff note — this IS your context)
+3. Read `.cache/autonomy/source-port-frontier/next-task.json` (the machine task package)
+4. Pick one item from "Exact Next Moves" in the handoff note. Do that item only.
+5. **Do NOT read** `frontier-state.yaml`, `backlog.md`, or `tas-roadmap.md` — the handoff note already distils them.
+6. Commit your work. Update `next-agent.md` before exiting.
+
 ## Source precedence
 
 Use sources in this order:

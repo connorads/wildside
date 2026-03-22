@@ -2,27 +2,24 @@
 
 Use this as the fixed prompt/context for repeated Ralph cycles on the live source-port frontier.
 
-## Bootstrap
+## Bootstrap (follow exactly — do not improvise)
 
-Run these commands first:
+**Step 1.** Read `.cache/autonomy/source-port-frontier/next-agent.md` — this is your primary context. It contains the current model, dead ends, and exact next moves. If this file is missing, run `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` to generate it, then read it.
 
-```bash
-mise run frontier-status
-cargo run -p kidcli -- autonomous-loop --goal source-port-frontier
-```
+**Step 2.** Read `.cache/autonomy/source-port-frontier/next-task.json` for commands and source paths.
 
-Then read:
+**Step 3.** Pick ONE item from "Exact Next Moves" in the handoff note. That is your task for this session.
 
-- `.cache/autonomy/source-port-frontier/next-task.json`
-- `.cache/autonomy/source-port-frontier/next-agent.md` only if `frontier-status` reports it as `current`
+**STOP.** Do not read `docs/source-port/frontier-state.yaml`, `docs/source-port/backlog.md`, `docs/source-port/tas-roadmap.md`, or any other broad context document. The handoff note already distils them. Reading them wastes your context window on information you already have.
 
 ## Working Rules
 
-- Treat `docs/source-port/frontier-state.yaml` as the canonical truth for the live frontier.
-- Treat `.cache/autonomy/source-port-frontier/next-task.json` as the machine package for the current loop cycle.
+- Your session has ONE task — the item you picked from "Exact Next Moves".
+- Check "Dead Ends / Do Not Retry" before starting — do not repeat rejected approaches.
 - Complete one coherent unit of work only: probe, instrumentation, or gameplay patch.
-- Prefer the commands and source paths named in `next-task.json` over rediscovering from broader docs.
-- If the frontier changes, update the tracked frontier docs in the same unit of work.
+- Use the commands and source paths from `next-task.json` — do not rediscover them.
+- You MUST commit before exiting, even if findings are inconclusive. No-commit sessions are failures.
+- If the frontier changes, update `docs/source-port/frontier-state.yaml` in the same commit.
 
 ## Exit Requirement
 
