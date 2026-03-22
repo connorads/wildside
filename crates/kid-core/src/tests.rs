@@ -12564,6 +12564,34 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400: right-side dragon still falls into the patrol-turnaround dead-end on frame 3384"]
+fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3384 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_385) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_384 {
+            dragon_3384 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| {
+                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 4
+                })
+                .map(|enemy| (enemy.x_pos, enemy.facing));
+            break;
+        }
+    }
+
+    let dragon_3384 = dragon_3384.unwrap_or_else(|| panic!("frame 3384 should be captured"));
+    assert_eq!(
+        dragon_3384,
+        (0x0327_0000, Direction::Right),
+        "the second right-side dragon should still be parked on the oracle-backed hold tile on frame 3384 instead of taking the shared patrol-turnaround branch",
+    );
+}
+
+#[test]
 #[ignore = "TAS frontier 3400: shared walking-dragon parity still open"]
 fn demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
