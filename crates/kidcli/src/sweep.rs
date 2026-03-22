@@ -698,10 +698,7 @@ fn summarise_results(results: &[LevelSweepResult]) -> DivergenceSummary {
 }
 
 /// Compare per-frame CRC arrays, returning the index of the first mismatch.
-pub(crate) fn find_first_crc_mismatch(
-    native_crcs: &[u32],
-    oracle_crcs: &[u32],
-) -> Option<usize> {
+pub(crate) fn find_first_crc_mismatch(native_crcs: &[u32], oracle_crcs: &[u32]) -> Option<usize> {
     native_crcs
         .iter()
         .zip(oracle_crcs.iter())
@@ -755,8 +752,8 @@ pub(crate) fn extract_checkpoint_states(
                 just_received_damage: None, // native doesn't track this separately
                 invulnerable_frames: Some(frame.invulnerable_frames as u8),
                 currently_transforming: None, // native doesn't track this separately
-                rng_offset: None, // native uses different RNG system
-                level_special_effects: None, // native doesn't track this separately
+                rng_offset: None,             // native uses different RNG system
+                level_special_effects: None,  // native doesn't track this separately
                 cpu_registers: None,
             })
         })
@@ -1207,8 +1204,13 @@ fn warm_oracle_cache(
                         let oracle_dir = tmp.join("oracle");
                         fs::create_dir_all(&oracle_dir).ok();
 
-                        match run_jgenesis_capture_dynamic(&env, &rom, &scenario_file, &oracle_dir, None)
-                        {
+                        match run_jgenesis_capture_dynamic(
+                            &env,
+                            &rom,
+                            &scenario_file,
+                            &oracle_dir,
+                            None,
+                        ) {
                             Ok(oracle) => {
                                 let _ = store_oracle_cache(&cache_key, &root, &oracle, &oracle_dir);
                                 println!("  warm {level_id:#04x}: cached");
@@ -2118,8 +2120,8 @@ pub(crate) fn run_sweep_compare(
         );
         let current_states = extract_checkpoint_states(&current_trace, &scenario.checkpoints);
         let current_diffs_vec = compare_sweep_states(&current_states, &oracle.states);
-        let current_auth = summarise_state_diffs(&current_diffs_vec, &empty_set, &empty_set)
-            .authoritative;
+        let current_auth =
+            summarise_state_diffs(&current_diffs_vec, &empty_set, &empty_set).authoritative;
 
         // Run native with PositionFirst
         let pos_first_trace = kid_core::run_script_with_physics_order(
@@ -2131,8 +2133,8 @@ pub(crate) fn run_sweep_compare(
         );
         let pos_first_states = extract_checkpoint_states(&pos_first_trace, &scenario.checkpoints);
         let pos_first_diffs_vec = compare_sweep_states(&pos_first_states, &oracle.states);
-        let pos_first_auth = summarise_state_diffs(&pos_first_diffs_vec, &empty_set, &empty_set)
-            .authoritative;
+        let pos_first_auth =
+            summarise_state_diffs(&pos_first_diffs_vec, &empty_set, &empty_set).authoritative;
 
         // Run native with AsmFaithful
         let asm_trace = kid_core::run_script_with_physics_order(
@@ -2144,15 +2146,18 @@ pub(crate) fn run_sweep_compare(
         );
         let asm_states = extract_checkpoint_states(&asm_trace, &scenario.checkpoints);
         let asm_diffs_vec = compare_sweep_states(&asm_states, &oracle.states);
-        let asm_auth = summarise_state_diffs(&asm_diffs_vec, &empty_set, &empty_set)
-            .authoritative;
+        let asm_auth = summarise_state_diffs(&asm_diffs_vec, &empty_set, &empty_set).authoritative;
 
         let verdict = if asm_auth < current_auth && asm_auth <= pos_first_auth {
             "ASM_BEST"
         } else if pos_first_auth < current_auth && pos_first_auth < asm_auth {
             "POS_BEST"
         } else if current_auth <= pos_first_auth && current_auth <= asm_auth {
-            if current_auth == 0 { "PERFECT" } else { "GRAV_BEST" }
+            if current_auth == 0 {
+                "PERFECT"
+            } else {
+                "GRAV_BEST"
+            }
         } else {
             "same"
         };
@@ -2388,7 +2393,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
-            physics_trace: None,
+                physics_trace: None,
             })
             .collect();
         let diffs = check_walk_right_assertions(&trace, &scenario);
@@ -2467,7 +2472,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
-            physics_trace: None,
+                physics_trace: None,
             })
             .collect();
 
@@ -2559,7 +2564,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
-            physics_trace: None,
+                physics_trace: None,
             })
             .collect();
 

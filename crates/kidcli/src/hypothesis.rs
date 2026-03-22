@@ -67,8 +67,7 @@ pub fn test_hypothesis(
 ) -> Result<HypothesisResult> {
     let toml_str = std::fs::read_to_string(hypothesis_path)
         .with_context(|| format!("failed to read {}", hypothesis_path.display()))?;
-    let hyp: HypothesisFile =
-        toml::from_str(&toml_str).context("invalid hypothesis TOML")?;
+    let hyp: HypothesisFile = toml::from_str(&toml_str).context("invalid hypothesis TOML")?;
 
     let name = hyp.hypothesis.name.clone();
     let [frame_start, frame_end] = hyp.hypothesis.frame_range;
@@ -87,7 +86,10 @@ pub fn test_hypothesis(
     }
 
     println!("hypothesis: {name}");
-    println!("  {}", hyp.hypothesis.description.lines().next().unwrap_or(""));
+    println!(
+        "  {}",
+        hyp.hypothesis.description.lines().next().unwrap_or("")
+    );
     println!("  frames: {frame_start}..{frame_end}");
 
     // Run oracle with watches if specified
@@ -98,8 +100,7 @@ pub fn test_hypothesis(
         let watches_str = oracle_section.watches.join(",");
 
         let raw_json = std::fs::read_to_string(&scenario_path)?;
-        let mut scenario: crate::scenarios::DynamicScenario =
-            serde_json::from_str(&raw_json)?;
+        let mut scenario: crate::scenarios::DynamicScenario = serde_json::from_str(&raw_json)?;
         scenario.frame_count = frame_end + 1;
         scenario.checkpoints = (frame_start..=frame_end)
             .map(|f| crate::scenarios::DynamicCheckpoint {
@@ -177,28 +178,23 @@ pub fn test_hypothesis(
 
     // Evaluate comparison
     if let Some(ref comparison) = hyp.comparison {
-        let native_val = native_trace
-            .get(comparison.frame)
-            .and_then(|f| match comparison.native_field.as_str() {
+        let native_val = native_trace.get(comparison.frame).and_then(|f| {
+            match comparison.native_field.as_str() {
                 "kid_y_pos" => f.kid_y_pos,
                 "kid_x_pos" => f.kid_x_pos,
                 _ => None,
-            });
-        let oracle_val = oracle_data
-            .get(&comparison.frame)
-            .and_then(|m| {
-                let key = comparison.oracle_address.replace(':', "_");
-                m.get(&key).copied()
-            });
+            }
+        });
+        let oracle_val = oracle_data.get(&comparison.frame).and_then(|m| {
+            let key = comparison.oracle_address.replace(':', "_");
+            m.get(&key).copied()
+        });
 
         if let (Some(n), Some(o)) = (native_val, oracle_val) {
             let matches = n as i64 == o;
             evidence.insert(
                 "comparison".into(),
-                format!(
-                    "native={:#010x} oracle={:#010x} match={}",
-                    n, o, matches
-                ),
+                format!("native={:#010x} oracle={:#010x} match={}", n, o, matches),
             );
             println!(
                 "  comparison at frame {}: native={:#010x} oracle={:#010x} {}",
@@ -304,9 +300,7 @@ fn evaluate_assertion(
 
 /// Parse "KEY[FRAME]" → (key, frame_index)
 fn parse_indexed_ref(s: &str) -> Result<(String, usize)> {
-    let (key, rest) = s
-        .split_once('[')
-        .context("expected KEY[FRAME] format")?;
+    let (key, rest) = s.split_once('[').context("expected KEY[FRAME] format")?;
     let frame_str = rest.trim_end_matches(']');
     let frame: usize = frame_str.parse().context("invalid frame index")?;
     Ok((key.to_string(), frame))

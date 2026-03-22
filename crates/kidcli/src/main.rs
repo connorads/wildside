@@ -1299,10 +1299,7 @@ fn main() -> Result<()> {
             }
 
             // Run native
-            println!(
-                "Running native ({} frames)...",
-                dyn_scenario.frame_count
-            );
+            println!("Running native ({} frames)...", dyn_scenario.frame_count);
             let native_trace = kid_core::run_script_with_warp(
                 manifest,
                 &dyn_scenario.script,
@@ -1311,17 +1308,11 @@ fn main() -> Result<()> {
             );
 
             // Run oracle
-            println!(
-                "Running oracle ({} frames)...",
-                dyn_scenario.frame_count
-            );
+            println!("Running oracle ({} frames)...", dyn_scenario.frame_count);
             let run_dir = repo_root.join(".cache/debug-tui");
             fs::create_dir_all(&run_dir)?;
             let scenario_file = run_dir.join("scenario.json");
-            fs::write(
-                &scenario_file,
-                serde_json::to_vec_pretty(&dyn_scenario)?,
-            )?;
+            fs::write(&scenario_file, serde_json::to_vec_pretty(&dyn_scenario)?)?;
             let env = crate::oracle::ensure_oracles(&repo_root)?;
             let oracle_dir = run_dir.join("oracle");
             fs::create_dir_all(&oracle_dir)?;
@@ -1383,10 +1374,7 @@ fn main() -> Result<()> {
             let run_dir = repo_root.join(".cache/oracle-probe");
             fs::create_dir_all(&run_dir)?;
             let scenario_file = run_dir.join("scenario.json");
-            fs::write(
-                &scenario_file,
-                serde_json::to_vec_pretty(&dyn_scenario)?,
-            )?;
+            fs::write(&scenario_file, serde_json::to_vec_pretty(&dyn_scenario)?)?;
 
             // Run oracle with memory watches
             let env = crate::oracle::ensure_oracles(&repo_root)?;
@@ -1434,9 +1422,7 @@ fn main() -> Result<()> {
                 let mut shown = 0usize;
                 for watch_map in &oracle_manifest.memory_watches {
                     if !predicates.is_empty()
-                        && !predicates
-                            .iter()
-                            .all(|pred| pred.evaluate(watch_map))
+                        && !predicates.iter().all(|pred| pred.evaluate(watch_map))
                     {
                         continue;
                     }
@@ -1521,13 +1507,7 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let level_ids = sweep::parse_level_range(&levels)?;
 
-            sweep::run_sweep_compare(
-                &repo_root,
-                &rom_path,
-                &manifest,
-                &level_ids,
-                tier,
-            )?;
+            sweep::run_sweep_compare(&repo_root, &rom_path, &manifest, &level_ids, tier)?;
         }
         Commands::RamDiff {
             file_a,
@@ -1605,11 +1585,15 @@ fn parse_when_predicates(specs: &[String]) -> Result<Vec<WhenPredicate>> {
                 let (left, right) = spec.split_once(tok)?;
                 Some((left.trim(), *mk, right.trim()))
             })
-            .ok_or_else(|| anyhow!("invalid --when predicate: '{spec}' (expected ADDRESS OP VALUE)"))?;
+            .ok_or_else(|| {
+                anyhow!("invalid --when predicate: '{spec}' (expected ADDRESS OP VALUE)")
+            })?;
         let address_key = addr.replace(':', "_");
-        let value = if let Some(hex) = val_str.strip_prefix("0x").or_else(|| val_str.strip_prefix("0X")) {
-            i64::from_str_radix(hex, 16)
-                .with_context(|| format!("invalid hex value: {val_str}"))?
+        let value = if let Some(hex) = val_str
+            .strip_prefix("0x")
+            .or_else(|| val_str.strip_prefix("0X"))
+        {
+            i64::from_str_radix(hex, 16).with_context(|| format!("invalid hex value: {val_str}"))?
         } else {
             val_str
                 .parse::<i64>()

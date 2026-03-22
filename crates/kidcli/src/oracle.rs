@@ -51,7 +51,13 @@ impl OracleBackend for JgenesisBackend {
         out_dir: &Path,
         skip_frames_before: Option<usize>,
     ) -> Result<OracleManifest> {
-        run_jgenesis_capture_dynamic(&self.env, rom_path, scenario_file, out_dir, skip_frames_before)
+        run_jgenesis_capture_dynamic(
+            &self.env,
+            rom_path,
+            scenario_file,
+            out_dir,
+            skip_frames_before,
+        )
     }
 }
 

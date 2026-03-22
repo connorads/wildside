@@ -1,11 +1,11 @@
 use crate::oracle::OracleManifest;
 use crate::sweep::find_first_crc_mismatch;
 use anyhow::Result;
+use crossterm::ExecutableCommand;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use crossterm::ExecutableCommand;
 use kid_core::NativeTraceFrame;
 use ratatui::prelude::*;
 use ratatui::widgets::*;
@@ -92,7 +92,7 @@ impl TuiDebugger {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3), // header
-                Constraint::Min(10),  // state comparison
+                Constraint::Min(10),   // state comparison
                 Constraint::Length(3), // footer / help
             ])
             .split(frame.area());
@@ -161,14 +161,8 @@ impl TuiDebugger {
             )),
             Line::from(format!("level: {:#04x}", f.current_level.0)),
             Line::from(format!("phase: {phase}")),
-            Line::from(format!(
-                "kid_x_pos: {:#010x}",
-                f.kid_x_pos.unwrap_or(0)
-            )),
-            Line::from(format!(
-                "kid_y_pos: {:#010x}",
-                f.kid_y_pos.unwrap_or(0)
-            )),
+            Line::from(format!("kid_x_pos: {:#010x}", f.kid_x_pos.unwrap_or(0))),
+            Line::from(format!("kid_y_pos: {:#010x}", f.kid_y_pos.unwrap_or(0))),
             Line::from(format!(
                 "kid_x_vel: {}",
                 f.kid_x_velocity
@@ -207,9 +201,7 @@ impl TuiDebugger {
             Line::from(format!("murder_wall: {:?}", f.murder_wall_x)),
             Line::from(format!(
                 "CRC: {:#010x}",
-                self.native_crcs
-                    .get(self.current_frame)
-                    .unwrap_or(&0)
+                self.native_crcs.get(self.current_frame).unwrap_or(&0)
             )),
         ]
     }
@@ -225,10 +217,7 @@ impl TuiDebugger {
         match nearest {
             Some(s) => {
                 vec![
-                    Line::from(format!(
-                        "checkpoint: {} (frame {})",
-                        s.label, s.frame_index
-                    )),
+                    Line::from(format!("checkpoint: {} (frame {})", s.label, s.frame_index)),
                     Line::from(format!("game_mode: {:#06x}", s.game_mode)),
                     Line::from(format!("level: {:#04x}", s.current_level_id)),
                     Line::from(format!("kid_x_pos: {:#010x}", s.kid_x_pos)),
@@ -268,9 +257,7 @@ impl TuiDebugger {
                     Line::from(format!("murder_wall: {:?}", s.murder_wall_x)),
                     Line::from(format!(
                         "CRC: {:#010x}",
-                        self.oracle_crcs
-                            .get(self.current_frame)
-                            .unwrap_or(&0)
+                        self.oracle_crcs.get(self.current_frame).unwrap_or(&0)
                     )),
                 ]
             }

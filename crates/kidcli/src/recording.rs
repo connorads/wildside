@@ -301,7 +301,8 @@ pub(crate) fn verify_recording(
         serde_json::to_vec_pretty(&oracle_scenario)?,
     )
     .with_context(|| format!("failed to write {}", oracle_scenario_path.display()))?;
-    let oracle = run_jgenesis_capture_dynamic(&env, rom_path, &oracle_scenario_path, &oracle_dir, None)?;
+    let oracle =
+        run_jgenesis_capture_dynamic(&env, rom_path, &oracle_scenario_path, &oracle_dir, None)?;
     let oracle = normalise_oracle_manifest_frame_indices(oracle, oracle_frame_prefix);
     fs::write(
         oracle_dir.join("manifest.json"),
