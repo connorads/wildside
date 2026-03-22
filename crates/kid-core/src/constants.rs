@@ -82,9 +82,11 @@ pub(crate) const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 66;
 
 pub(crate) const FLAG_HIT_HALF_SIZE: u32 = 8; // 16x16 hit region → 8px either side of centre
 pub(crate) const LEVEL_COMPLETE_PAUSE_FRAMES: usize = 120; // brief pause before advancing
-pub(crate) const ACTIVATION_WINDOW_X_LEAD: u32 = 384;
-pub(crate) const ACTIVATION_WINDOW_Y_LEAD: u32 = 288;
-pub(crate) const ACTIVATION_WINDOW_PADDING: u32 = 64;
+// ASM Manage_EnemyLoading (kid.asm loc_368A8): spawn window is
+// x=[camera-0x80, camera+0x1C0], y=[camera-0x80, camera+0x160].
+pub(crate) const ACTIVATION_WINDOW_X_LEAD: u32 = 0x1C0;
+pub(crate) const ACTIVATION_WINDOW_Y_LEAD: u32 = 0x160;
+pub(crate) const ACTIVATION_WINDOW_PADDING: u32 = 0x80;
 pub(crate) const FLYER_RETENTION_X_PADDING: u32 = 512;
 pub(crate) const FLYER_RETENTION_Y_PADDING: u32 = 96;
 pub(crate) const PLATFORM_PRELOAD_X_PADDING: u32 = 64;

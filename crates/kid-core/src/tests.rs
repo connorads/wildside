@@ -12189,6 +12189,35 @@ fn demo_1_reenters_walking_from_standingstill_on_frame_3252() {
 }
 
 #[test]
+fn demo_1_loads_the_second_knights_isle_dragon_by_frame_3400() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_layout_indices = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_401) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_400 {
+            let mut layout_indices: Vec<_> = runtime
+                .active_enemies
+                .iter()
+                .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                .map(|enemy| enemy.layout_index)
+                .collect();
+            layout_indices.sort_unstable();
+            dragon_layout_indices = Some(layout_indices);
+            break;
+        }
+    }
+
+    let dragon_layout_indices =
+        dragon_layout_indices.unwrap_or_else(|| panic!("frame 3400 should be captured"));
+    assert_eq!(
+        dragon_layout_indices,
+        vec![0, 1, 2, 4],
+        "frame 3400 should keep all four Knights Isle walking dragons active inside the ASM-backed loader window",
+    );
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
