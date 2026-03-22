@@ -12535,7 +12535,6 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: right-side dragon still falls into the patrol-turnaround dead-end on frame 3384"]
 fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3384 = None;
@@ -12559,6 +12558,48 @@ fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384()
         dragon_3384,
         (0x0327_0000, Direction::Right),
         "the second right-side dragon should still be parked on the oracle-backed hold tile on frame 3384 instead of taking the shared patrol-turnaround branch",
+    );
+}
+
+#[test]
+#[ignore = "TAS frontier 3400: lower shared walker still misses the oracle turnaround on frame 3126"]
+fn demo_1_lower_dragon_turns_right_without_advancing_on_frame_3126() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3125 = None;
+    let mut dragon_3126 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_127) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_125 {
+            dragon_3125 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| {
+                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0
+                })
+                .map(|enemy| (enemy.x_pos, enemy.facing));
+        }
+        if frame_index == 3_126 {
+            dragon_3126 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| {
+                    enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0
+                })
+                .map(|enemy| (enemy.x_pos, enemy.facing));
+            break;
+        }
+    }
+
+    assert_eq!(
+        dragon_3125,
+        Some((0x0319_0000, Direction::Left)),
+        "frame 3125 should still keep the lower dragon on the final oracle-backed left-facing patrol tile",
+    );
+    assert_eq!(
+        dragon_3126,
+        Some((0x0319_0000, Direction::Right)),
+        "frame 3126 should idle on the same tile and flip to the oracle-backed right-facing turnaround",
     );
 }
 
