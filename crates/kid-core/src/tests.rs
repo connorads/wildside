@@ -4990,6 +4990,35 @@ fn trace_frame_reports_kid_collision_handoff_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_same_frame_stomp_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.last_kid_frame_same_frame_stomp_probe = Some(KidSameFrameStompProbe {
+        stomp_candidate: true,
+        enemy_object_type: Some(0x0D),
+        enemy_x_pos: Some(0x035A_8000),
+        enemy_y_pos: Some(0x01C0_0000),
+        pre_physics_y_velocity: 0,
+        post_physics_y_velocity: 0,
+        anchor_x_pos: 0x03A8_0000,
+        anchor_y_pos: 0x01BF_0000,
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_same_frame_stomp_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit same-frame stomp diagnostics"));
+
+    assert!(
+        probe_debug.contains(
+            "candidate=1/enemy=0x0d@0x035a8000,0x01c00000/pre_y_vel=0x00000000/post_y_vel=0x00000000/anchor=0x03a80000,0x01bf0000"
+        ),
+        "the same-frame stomp probe should report the candidate enemy, velocity window, and saved anchor",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -14186,6 +14215,49 @@ fn published_tas_frames_7968_7969_report_kid_collision_handoff_probe() {
                 "pending_stomp=0/pending_form=none/pending_level_skip=none/ground=1/jump_buffer=0/wall_cling=none"
             ),
             "frame {frame_index} should prove native enters the lift-off window with no carried stomp, pending form, level-skip, jump-buffer, or wall-cling handoff queued before physics",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_same_frame_stomp_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit same-frame stomp diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("pre_y_vel=0x00000000/post_y_vel=0x00000000"),
+            "frame {frame_index} should record the zero-velocity native contact window before any post-motion stomp resolution",
+        );
+        assert!(
+            probe_debug.contains("candidate=0/enemy=none"),
+            "frame {frame_index} should prove native still has no stomp-eligible same-frame contact at the pre-post-motion probe point",
+        );
+        assert!(
+            probe_debug.contains("anchor=0x03a80000,0x01bf0000"),
+            "frame {frame_index} should preserve the ROM-style saved anchor that a same-frame stomp bounce would need",
         );
     }
 }

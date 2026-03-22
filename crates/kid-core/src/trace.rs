@@ -147,6 +147,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_collision_handoff_probe_debug() {
             gameplay_debug_fields.insert("kid_collision_handoff_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_same_frame_stomp_probe_debug() {
+            gameplay_debug_fields.insert("kid_same_frame_stomp_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
@@ -503,6 +506,37 @@ impl NativeRuntime {
             u8::from(probe.on_ground_before),
             probe.jump_buffer_frames,
             wall_cling,
+        ))
+    }
+
+    fn kid_same_frame_stomp_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_same_frame_stomp_probe?;
+        let enemy = match (
+            probe.enemy_object_type,
+            probe.enemy_x_pos,
+            probe.enemy_y_pos,
+        ) {
+            (Some(object_type), Some(x_pos), Some(y_pos)) => {
+                format!("{object_type:#04x}@{x_pos:#010x},{y_pos:#010x}")
+            }
+            _ => String::from("none"),
+        };
+
+        Some(format!(
+            "candidate={}/enemy={}/pre_y_vel={:#010x}/post_y_vel={:#010x}/anchor={:#010x},{:#010x}",
+            u8::from(probe.stomp_candidate),
+            enemy,
+            probe.pre_physics_y_velocity as u32,
+            probe.post_physics_y_velocity as u32,
+            probe.anchor_x_pos,
+            probe.anchor_y_pos,
         ))
     }
 

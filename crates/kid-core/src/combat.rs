@@ -213,6 +213,39 @@ impl NativeRuntime {
         true
     }
 
+    pub(crate) fn first_stomp_contact_candidate(
+        &self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+        pre_physics_y_pos: u32,
+    ) -> Option<&NativeObjectSnapshot> {
+        if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
+            return None;
+        }
+
+        for (i, enemy) in self.active_enemy_roster.iter().enumerate() {
+            let is_diamond = matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x01 });
+            if is_diamond {
+                continue;
+            }
+            if i < self.active_enemies.len() && !self.active_enemies[i].is_vulnerable() {
+                continue;
+            }
+            if classify_enemy_contact_with_half_width(
+                slice.player,
+                enemy,
+                pre_physics_y_velocity,
+                pre_physics_y_pos,
+                self.progression.current_form.half_width() as i64,
+            ) == EnemyContactResult::Stomp
+            {
+                return Some(enemy);
+            }
+        }
+
+        None
+    }
+
     /// Collect Diamond enemies on touch: remove from active list, increment count.
     pub(crate) fn collect_diamonds(&mut self, slice: &OpeningSliceState) {
         if !matches!(self.player_lifecycle, PlayerLifecycle::Alive) {

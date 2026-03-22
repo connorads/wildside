@@ -213,6 +213,18 @@ impl Default for KidCollisionHandoffProbe {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidSameFrameStompProbe {
+    pub(crate) stomp_candidate: bool,
+    pub(crate) enemy_object_type: Option<u8>,
+    pub(crate) enemy_x_pos: Option<u32>,
+    pub(crate) enemy_y_pos: Option<u32>,
+    pub(crate) pre_physics_y_velocity: i32,
+    pub(crate) post_physics_y_velocity: i32,
+    pub(crate) anchor_x_pos: u32,
+    pub(crate) anchor_y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidGroundedReleaseVelocityBranch {
     JumpPressed,
     JumpBuffered,

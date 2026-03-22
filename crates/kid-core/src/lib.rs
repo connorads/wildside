@@ -191,6 +191,9 @@ pub struct NativeRuntime {
     last_kid_frame_pre_physics_mutators: Vec<KidFramePrePhysicsMutator>,
     /// Debug snapshot of native carry-style state before pre-physics consumption.
     last_kid_frame_collision_handoff_probe: Option<KidCollisionHandoffProbe>,
+    /// Debug snapshot of stomp eligibility immediately after physics and before
+    /// any post-motion consumer can move Kid again.
+    last_kid_frame_same_frame_stomp_probe: Option<KidSameFrameStompProbe>,
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
@@ -284,6 +287,7 @@ impl NativeRuntime {
             last_kid_frame_pre_physics_before_physics: None,
             last_kid_frame_pre_physics_mutators: Vec::new(),
             last_kid_frame_collision_handoff_probe: None,
+            last_kid_frame_same_frame_stomp_probe: None,
             last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -332,6 +336,7 @@ impl NativeRuntime {
         self.last_kid_frame_pre_physics_before_physics = None;
         self.last_kid_frame_pre_physics_mutators.clear();
         self.last_kid_frame_collision_handoff_probe = None;
+        self.last_kid_frame_same_frame_stomp_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
@@ -478,6 +483,31 @@ impl NativeRuntime {
             on_ground_before: player.on_ground,
             jump_buffer_frames: player.jump_buffer_frames,
             wall_cling_direction: player.wall_cling_direction,
+        });
+    }
+
+    fn note_kid_same_frame_stomp_probe(
+        &mut self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+        pre_physics_y_pos: u32,
+        frame_start_x_pos: u32,
+        frame_start_y_pos: u32,
+    ) {
+        let candidate =
+            self.first_stomp_contact_candidate(slice, pre_physics_y_velocity, pre_physics_y_pos);
+        self.last_kid_frame_same_frame_stomp_probe = Some(KidSameFrameStompProbe {
+            stomp_candidate: candidate.is_some(),
+            enemy_object_type: candidate.and_then(|enemy| match enemy.kind {
+                NativeObjectKind::Enemy { object_type } => Some(object_type),
+                _ => None,
+            }),
+            enemy_x_pos: candidate.map(|enemy| enemy.x_pos),
+            enemy_y_pos: candidate.map(|enemy| enemy.y_pos),
+            pre_physics_y_velocity,
+            post_physics_y_velocity: slice.player.y_velocity,
+            anchor_x_pos: frame_start_x_pos,
+            anchor_y_pos: frame_start_y_pos,
         });
     }
 
@@ -830,6 +860,13 @@ impl NativeRuntime {
                 self.physics_order,
                 allow_asm_faithful_solid_touch_snap,
                 &deferred_prize_ceiling_cells,
+            );
+            self.note_kid_same_frame_stomp_probe(
+                &slice,
+                pre_physics_y_velocity,
+                pre_physics_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
             );
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
             // runs AFTER physics so flight takes effect next frame.

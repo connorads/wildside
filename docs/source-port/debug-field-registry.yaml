@@ -114,6 +114,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed native collision-handoff or carry-state diagnostic ahead of normal physics."
     },
     {
+      "key": "kid_same_frame_stomp_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Whether native already has a stomp-eligible enemy overlap immediately after physics and before any post-motion mutator runs, plus the saved anchor and y-velocity window for the frame-7969 Knights Isle lift-off frontier.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed same-frame stomp-contact diagnostic or if it starts driving the eventual stomp-timing fix."
+    },
+    {
       "key": "kid_grounded_release_probe",
       "scope": "frame",
       "status": "exploratory",

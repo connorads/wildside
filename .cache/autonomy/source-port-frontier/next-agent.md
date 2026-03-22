@@ -1,60 +1,59 @@
 ---
 slug: any-percent-published-frame-7969-knights-isle-native-stays-grounded-while-oracle-lifts-off
-cycle: 17
-updated_at: 2026-03-22T23:09:30Z
+cycle: 18
+updated_at: 2026-03-22T23:18:46Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Re-read the live ASM jump loop at `loc_A73A -> loc_A74E` and narrowed the on-path upward-velocity sources instead of looking for another carry-state latch.
-- Checked the published script around frames `7966..7970`; every mask is still `8` (`right` held only), so there is no fresh B/C edge in the frontier window.
-- Cross-checked the native stomp path and confirmed native still resolves stomp bounce after motion via `process_stomps -> pending_stomp_bounce`, not inside the same pre-physics jump loop.
+- Added a dedicated `kid_same_frame_stomp_probe` at the narrowest native point that matches the assigned question: immediately after `step_with_order(...)` finishes and before any post-motion mutator runs.
+- Registered the new exploratory debug key in `docs/source-port/debug-field-registry.yaml` and added focused trace/published-TAS regressions for frames `7968..7969`.
+- Re-ran the targeted TAS diff for frame `7968` plus the new regressions and `mise run verify-slice-fast`.
 
 ## Current Model
 
 - The active frontier is still frame `7969` in `any-percent-published`, clean through `7968`.
-- In the ROM path `loc_A73A -> Character_CheckCollision -> loc_A74E`, the only plausible generic way to reach negative `y_vel` in this exact right-held/no-B/no-C window is a live collision consumer before `sub_B168`, specifically `Jump_On_Enemy`.
-- `Jump_On_Enemy` restores the saved anchor from `$FFFFFA2C/$FFFFFA2E` and writes `y_vel = #$FFFC0000` while Kid is still in `MoveID_Jump`, so the bounce is visible in the same loop iteration before gravity finishes.
-- Native does not mirror that timing today: it discovers stomps in `resolve_frame_hazards()` after motion, stores `pending_stomp_bounce`, and only applies the bounce at the next frame start. That timing gap is now the strongest candidate for why oracle has already lifted off by frame `7969` while native is still grounded.
-- Inference from the existing probes plus the script read: this is no longer best explained as a missing jump edge, wall-cling release, or generic carry-state handoff. The next useful probe should target same-frame collision/stomp state around `Character_CheckCollision`, not another broad movement bag.
+- The new same-frame stomp probe stayed empty across the `7968..7969` window: native has no stomp-eligible enemy overlap at the closest pre-post-motion point, even though it preserves the ROM-style saved anchor (`0x03a80000,0x01bf0000`) and stays at zero vertical velocity there.
+- That materially weakens the previous stomp-timing hypothesis. The blocker is less likely to be “native found the stomp too late” and more likely to be a secondary movement-state path that the current probes still do not expose, such as a wall-cling/live release path or an Iron Knight-specific transition that happens without a stomp candidate.
+- Inference from the new probe plus the existing grounded-release/collision-handoff probes: the frame-7969 lift-off mismatch is still happening before any known native carry-state, grounded-release, special-motion latch, or same-frame stomp candidate becomes visible.
 
 ## Strongest Evidence
 
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:13055`
-  Result: the live jump loop calls `sub_7ACC`, then `Character_CheckCollision`, then `sub_B084`, then `sub_B168`.
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:14607`
-  Result: `Jump_On_Enemy` requires `MoveID_Jump`, restores the saved anchor, and sets `y_vel` to `#$FFFC0000` before returning to the loop.
-- `python - <<'PY' ...`
-  Result: `scenario.json` frame masks `7966..7970` are all `8`, matching the existing grounded-release probe’s `held=right` and ruling out a fresh B/C edge in the frontier window.
-- `crates/kid-core/src/combat.rs:28`
-  Result: `apply_pending_stomp_bounce()` replays the bounce from stored anchors at the next frame start.
-- `crates/kid-core/src/combat.rs:209`
-  Result: `process_stomps()` queues that bounce into `pending_stomp_bounce` instead of applying it immediately.
-- `crates/kid-core/src/combat.rs:963`
-  Result: native only runs `process_stomps()` from `resolve_frame_hazards()` after the movement step, so same-frame ROM-style `Character_CheckCollision` bounce timing is not currently represented there.
+- `crates/kid-core/src/lib.rs`
+  Result: `kid_same_frame_stomp_probe` is captured immediately after `slice.step_with_order(...)` and before any post-motion consumer runs.
+- `crates/kid-core/src/combat.rs`
+  Result: the probe reuses the same stomp classification gate as `process_stomps()` (`classify_enemy_contact_with_half_width(...)`) instead of inventing a parallel heuristic.
+- `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7968 --frame-end 7969 --include-advisory --include-physics-trace --show-object-roster-on-match`
+  Result: frame `7968` reports `kid_same_frame_stomp_probe = candidate=0/enemy=none/pre_y_vel=0x00000000/post_y_vel=0x00000000/anchor=0x03a80000,0x01bf0000`.
+- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe -- --nocapture`
+  Result: both frames `7968` and `7969` keep `candidate=0/enemy=none` at the new probe point.
+- `cargo test -p kid-core trace_frame_reports_kid_same_frame_stomp_probe -- --nocapture`
+  Result: the trace output emits the new probe with enemy identity, velocity window, and saved anchor.
+- `mise run audit-debug-fields`
+  Result: clean after registering `kid_same_frame_stomp_probe`.
 
 ## Exact Next Moves
 
-1. Instrument the native equivalent of the ROM’s `Character_CheckCollision -> Jump_On_Enemy` gate around frames `7968..7969`: expose whether a stomp-eligible enemy contact exists in the same frame before native reaches post-motion `process_stomps()`.
-2. If that probe fires, compare the anchor/velocity it would need with the ROM bounce (`saved x/y anchor`, `y_vel = -0x40000`) and then move the stomp resolution to the correct same-frame point with a tight regression around frames `7968..7969`.
-3. Only if the new probe stays empty should the next session return to secondary movement-state paths such as wall-cling or helmet-specific live transitions.
+1. Return to the secondary movement-state paths from the earlier handoff: instrument wall-cling/live release and Iron Knight-specific transition state around frames `7968..7969`, now that the same-frame stomp probe stayed empty.
+2. Re-read the ROM jump/live-state path around `loc_A74E -> sub_A4EE` for movement-side upward-velocity sources that do not require `Jump_On_Enemy`, then mirror the closest missing native state in a focused probe.
+3. Do not implement a gameplay fix yet unless a new probe identifies a concrete native state path that explains the lift-off.
 
 ## Verification To Re-run
 
+- `cargo test -p kid-core trace_frame_reports_kid_same_frame_stomp_probe -- --nocapture`
+- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe -- --nocapture`
 - `cargo test -p kid-core trace_frame_reports_kid_collision_handoff_probe -- --nocapture`
 - `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_collision_handoff_probe -- --nocapture`
-- `cargo test -p kid-core trace_frame_reports_kid_grounded_release_probe -- --nocapture`
-- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_grounded_release_probe -- --nocapture`
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7968 --frame-end 7969 --include-advisory --include-physics-trace --show-object-roster-on-match`
 - `mise run audit-debug-fields`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not retry terrain-write theories for cell `58,28`; the support tile still matches the generated layout and native still sees solid support there.
-- Do not retry generic post-motion support/platform/lift handoff theories for this window; the carry-state probes are still empty.
-- Do not retry native goal-touch timing; the goal probe still shows `lifecycle=alive` and `touch=0`.
-- Do not retry broad special-motion latch theories; the frontier script is right-held only through frames `7966..7970`, and the special-motion probe is still idle in the live window.
-- Do not add another generic carry-state probe unless the next stomp/collision probe points back to one.
+- Do not retry terrain-write theories for cell `58,28`; the support tile still matches the generated layout.
+- Do not retry generic post-motion support/platform/lift handoff theories; the existing carry-state probes are still empty.
+- Do not retry native goal-touch timing; the goal probe is still `lifecycle=alive` with `touch=0`.
+- Do not retry broad special-motion latch theories; the existing special-motion probe is still idle in the live window.
+- Do not retry same-frame stomp timing as the primary explanation unless a new movement-state probe later exposes a concrete stomp candidate. The new pre-post-motion stomp probe stays empty on both frames `7968` and `7969`.
