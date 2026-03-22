@@ -185,6 +185,97 @@ pub(crate) struct KidGroundedReleaseProbe {
     pub(crate) release_triggered: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidWallClingProbeDirectionSource {
+    WallCling,
+    Held,
+    Facing,
+    #[default]
+    None,
+}
+
+impl KidWallClingProbeDirectionSource {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::WallCling => "wall_cling",
+            Self::Held => "held",
+            Self::Facing => "facing",
+            Self::None => "none",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidWallClingReleaseBranch {
+    SubAdb8,
+    SubAe6e,
+    PressAwayExit,
+    #[default]
+    NoWallClingState,
+}
+
+impl KidWallClingReleaseBranch {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::SubAdb8 => "sub_ADB8",
+            Self::SubAe6e => "sub_AE6E",
+            Self::PressAwayExit => "press_away_exit",
+            Self::NoWallClingState => "no_wall_cling_state",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidWallClingReleaseGate {
+    Ready,
+    #[default]
+    WallClingMissing,
+    StickyInactive,
+    OnGround,
+    Rising,
+    NotAscending,
+    HeldDirectionMismatch,
+    NeedsTileCrossing,
+    ForwardWallBlocked,
+    TopEdgeBlocked,
+}
+
+impl KidWallClingReleaseGate {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::WallClingMissing => "wall_cling_missing",
+            Self::StickyInactive => "sticky_inactive",
+            Self::OnGround => "on_ground",
+            Self::Rising => "rising",
+            Self::NotAscending => "not_ascending",
+            Self::HeldDirectionMismatch => "held_direction_mismatch",
+            Self::NeedsTileCrossing => "needs_tile_crossing",
+            Self::ForwardWallBlocked => "forward_wall_blocked",
+            Self::TopEdgeBlocked => "top_edge_blocked",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidWallClingReleaseProbe {
+    pub(crate) held_direction: Option<Direction>,
+    pub(crate) probe_direction: Option<Direction>,
+    pub(crate) probe_direction_source: KidWallClingProbeDirectionSource,
+    pub(crate) wall_cling_direction: Option<Direction>,
+    pub(crate) right_wall_sticky: bool,
+    pub(crate) left_wall_sticky: bool,
+    pub(crate) on_ground: bool,
+    pub(crate) y_velocity: i32,
+    pub(crate) pre_vertical_y_px: i32,
+    pub(crate) post_vertical_y_px: i32,
+    pub(crate) branch: KidWallClingReleaseBranch,
+    pub(crate) sub_adb8_gate: KidWallClingReleaseGate,
+    pub(crate) sub_ae6e_gate: KidWallClingReleaseGate,
+    pub(crate) forward_wall_probe: Option<terrain::WallProbe>,
+    pub(crate) top_edge_probe: Option<terrain::WallProbe>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidCollisionHandoffProbe {
     pub(crate) player_lifecycle: PlayerLifecycle,
@@ -1275,6 +1366,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) pre_gravity_y_vel: i32,
     /// Sub-frame physics trace (populated when `trace_physics` is enabled).
     pub(crate) physics_trace: Option<PhysicsTrace>,
+    /// Focused wall-cling live-release probe captured at the loc_AA9C mirror.
+    pub(crate) wall_cling_release_probe: Option<KidWallClingReleaseProbe>,
 }
 
 #[cfg(test)]

@@ -159,6 +159,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_grounded_release_probe_debug() {
             gameplay_debug_fields.insert("kid_grounded_release_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_wall_cling_release_probe_debug() {
+            gameplay_debug_fields.insert("kid_wall_cling_release_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -649,23 +652,11 @@ impl NativeRuntime {
                     player.facing == Direction::Right,
                 );
                 (
-                    format!(
-                        "hit={}/x={}/cell={},{} collision={} block={} has_block={}",
-                        u8::from(wall_probe.hit),
-                        wall_probe.wall_x_px,
-                        wall_probe.cell_x,
-                        wall_probe.cell_y,
-                        collision_kind_debug_label(wall_probe.cell.collision),
-                        block_type_debug_label(wall_probe.cell.block_type),
-                        u8::from(wall_probe.cell.has_block),
-                    ),
+                    wall_probe_debug_summary(Some(wall_probe)),
                     speed_gate && wall_probe.hit && wall_probe.cell.has_block,
                 )
             }
-            None => (
-                String::from("hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"),
-                false,
-            ),
+            None => (wall_probe_debug_summary(None), false),
         };
 
         Some(format!(
@@ -676,6 +667,45 @@ impl NativeRuntime {
             u8::from(speed_gate),
             wall_summary,
             u8::from(breaker_candidate),
+        ))
+    }
+
+    fn kid_wall_cling_release_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.opening_slice?.wall_cling_release_probe?;
+        let held = direction_debug_label(probe.held_direction);
+        let wall_cling = direction_debug_label(probe.wall_cling_direction);
+        let probe_direction = match probe.probe_direction {
+            Some(direction) => format!(
+                "{}({})",
+                direction_debug_label(Some(direction)),
+                probe.probe_direction_source.as_debug_label(),
+            ),
+            None => String::from("none(none)"),
+        };
+
+        Some(format!(
+            "held={}/probe_dir={}/wall_cling={}/sticky=R{}L{}/ground={}/y_vel={:#010x}/y={}=>{}/branch={}/sub_ADB8={}/sub_AE6E={}/wall={}/top_edge={}",
+            held,
+            probe_direction,
+            wall_cling,
+            u8::from(probe.right_wall_sticky),
+            u8::from(probe.left_wall_sticky),
+            u8::from(probe.on_ground),
+            probe.y_velocity as u32,
+            probe.pre_vertical_y_px,
+            probe.post_vertical_y_px,
+            probe.branch.as_debug_label(),
+            probe.sub_adb8_gate.as_debug_label(),
+            probe.sub_ae6e_gate.as_debug_label(),
+            wall_probe_debug_summary(probe.forward_wall_probe),
+            wall_probe_debug_summary(probe.top_edge_probe),
         ))
     }
 
@@ -1082,6 +1112,30 @@ fn format_kid_floor_probe(probe: terrain::FloorProbe) -> String {
         probe.cell.collision,
         probe.cell.block_type,
     )
+}
+
+fn direction_debug_label(direction: Option<Direction>) -> &'static str {
+    match direction {
+        Some(Direction::Left) => "left",
+        Some(Direction::Right) => "right",
+        None => "none",
+    }
+}
+
+fn wall_probe_debug_summary(probe: Option<terrain::WallProbe>) -> String {
+    match probe {
+        Some(probe) => format!(
+            "hit={}/x={}/cell={},{} collision={} block={} has_block={}",
+            u8::from(probe.hit),
+            probe.wall_x_px,
+            probe.cell_x,
+            probe.cell_y,
+            collision_kind_debug_label(probe.cell.collision),
+            block_type_debug_label(probe.cell.block_type),
+            u8::from(probe.cell.has_block),
+        ),
+        None => String::from("hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"),
+    }
 }
 
 fn collision_kind_debug_label(collision: terrain::CollisionKind) -> &'static str {

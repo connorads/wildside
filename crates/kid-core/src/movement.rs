@@ -77,6 +77,7 @@ impl OpeningSliceState {
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
+            wall_cling_release_probe: None,
         }
     }
 
@@ -131,6 +132,7 @@ impl OpeningSliceState {
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
             physics_trace: None,
+            wall_cling_release_probe: None,
         }
     }
 
@@ -195,6 +197,7 @@ impl OpeningSliceState {
         }
         let mut block_grid = block_grid;
         let on_ground_before = self.player.on_ground;
+        self.wall_cling_release_probe = None;
         // ASM sub_914A uses FA78 (per-form half-width from unk_B408) for all
         // collision probes. Thread the form's half-width through to collision
         // functions instead of the constant PLAYER_HALF_WIDTH.
@@ -508,6 +511,9 @@ impl OpeningSliceState {
                         collision_hw,
                     );
                 }
+                if let Some(grid) = block_grid.as_deref() {
+                    self.record_wall_cling_release_probe(input, form, grid, pre_vertical_y_px);
+                }
                 if let Some(grid) = block_grid.as_deref()
                     && self.try_release_wall_cling_overhang(form, grid, pre_vertical_y_px)
                 {
@@ -552,6 +558,143 @@ impl OpeningSliceState {
             (false, true) => Some(Direction::Right),
             _ => None,
         }
+    }
+
+    fn wall_cling_probe_direction(
+        &self,
+        held_direction: Option<Direction>,
+    ) -> (Option<Direction>, KidWallClingProbeDirectionSource) {
+        if let Some(direction) = self.player.wall_cling_direction {
+            return (Some(direction), KidWallClingProbeDirectionSource::WallCling);
+        }
+        if let Some(direction) = held_direction {
+            return (Some(direction), KidWallClingProbeDirectionSource::Held);
+        }
+        (
+            Some(self.player.facing),
+            KidWallClingProbeDirectionSource::Facing,
+        )
+    }
+
+    fn wall_cling_direction_is_sticky(&self, direction: Direction) -> bool {
+        match direction {
+            Direction::Right => self.player.right_wall_sticky,
+            Direction::Left => self.player.left_wall_sticky,
+        }
+    }
+
+    fn record_wall_cling_release_probe(
+        &mut self,
+        input: FrameInput,
+        form: PlayerForm,
+        grid: &terrain::BlockGrid,
+        pre_vertical_y_px: i32,
+    ) {
+        let held_direction = Self::held_horizontal_direction(input);
+        let (probe_direction, probe_direction_source) =
+            self.wall_cling_probe_direction(held_direction);
+        let (forward_wall_probe, top_edge_probe) = match probe_direction {
+            Some(direction) => {
+                let moving_right = direction == Direction::Right;
+                (
+                    Some(terrain::probe_wall(
+                        grid,
+                        (self.player.x_pos >> 16) as i32,
+                        (self.player.y_pos >> 16) as i32,
+                        form.half_width(),
+                        PLAYER_HEIGHT,
+                        moving_right,
+                    )),
+                    Some(terrain::probe_wall_top_edge(
+                        grid,
+                        (self.player.x_pos >> 16) as i32,
+                        (self.player.y_pos >> 16) as i32,
+                        form.half_width(),
+                        PLAYER_HEIGHT,
+                        moving_right,
+                    )),
+                )
+            }
+            None => (None, None),
+        };
+
+        let branch = match self.player.wall_cling_direction {
+            Some(direction) => {
+                let pressing_away = match direction {
+                    Direction::Right => input.left,
+                    Direction::Left => input.right,
+                };
+                if pressing_away {
+                    KidWallClingReleaseBranch::PressAwayExit
+                } else if self.player.y_velocity < 0 {
+                    KidWallClingReleaseBranch::SubAe6e
+                } else {
+                    KidWallClingReleaseBranch::SubAdb8
+                }
+            }
+            None => KidWallClingReleaseBranch::NoWallClingState,
+        };
+
+        let sub_adb8_gate = match self.player.wall_cling_direction {
+            None => KidWallClingReleaseGate::WallClingMissing,
+            Some(direction) => {
+                if !self.wall_cling_direction_is_sticky(direction) {
+                    KidWallClingReleaseGate::StickyInactive
+                } else if self.player.on_ground {
+                    KidWallClingReleaseGate::OnGround
+                } else if self.player.y_velocity < 0 {
+                    KidWallClingReleaseGate::Rising
+                } else if held_direction != Some(direction) {
+                    KidWallClingReleaseGate::HeldDirectionMismatch
+                } else if forward_wall_probe.is_some_and(|probe| probe.hit) {
+                    KidWallClingReleaseGate::ForwardWallBlocked
+                } else if top_edge_probe.is_some_and(|probe| probe.hit) {
+                    KidWallClingReleaseGate::TopEdgeBlocked
+                } else {
+                    KidWallClingReleaseGate::Ready
+                }
+            }
+        };
+
+        let post_vertical_y_px = (self.player.y_pos >> 16) as i32;
+        let upward_displacement = pre_vertical_y_px - post_vertical_y_px;
+        let distance_to_tile = (-(post_vertical_y_px + 1)) & 0xF;
+        let sub_ae6e_gate = match self.player.wall_cling_direction {
+            None => KidWallClingReleaseGate::WallClingMissing,
+            Some(direction) => {
+                if !self.wall_cling_direction_is_sticky(direction) {
+                    KidWallClingReleaseGate::StickyInactive
+                } else if self.player.y_velocity >= 0 {
+                    KidWallClingReleaseGate::NotAscending
+                } else if upward_displacement <= distance_to_tile {
+                    KidWallClingReleaseGate::NeedsTileCrossing
+                } else if forward_wall_probe.is_some_and(|probe| probe.hit) {
+                    KidWallClingReleaseGate::ForwardWallBlocked
+                } else if top_edge_probe.is_some_and(|probe| probe.hit) {
+                    KidWallClingReleaseGate::TopEdgeBlocked
+                } else {
+                    KidWallClingReleaseGate::Ready
+                }
+            }
+        };
+
+        self.wall_cling_release_probe = Some(KidWallClingReleaseProbe {
+            held_direction,
+            probe_direction,
+            probe_direction_source,
+            wall_cling_direction: self.player.wall_cling_direction,
+            right_wall_sticky: self.player.right_wall_sticky,
+            left_wall_sticky: self.player.left_wall_sticky,
+            on_ground: self.player.on_ground,
+            y_velocity: self.player.y_velocity,
+            pre_vertical_y_px,
+            post_vertical_y_px,
+            branch,
+            sub_adb8_gate,
+            sub_ae6e_gate,
+            forward_wall_probe,
+            top_edge_probe,
+        });
     }
 
     fn should_hold_standing_still(

@@ -1912,6 +1912,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.step(
@@ -3053,6 +3054,7 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5058,6 +5060,66 @@ fn trace_frame_reports_kid_iron_knight_block_breaker_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_wall_cling_release_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.wall_cling_release_probe = Some(KidWallClingReleaseProbe {
+        held_direction: Some(Direction::Right),
+        probe_direction: Some(Direction::Right),
+        probe_direction_source: KidWallClingProbeDirectionSource::Held,
+        wall_cling_direction: None,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        on_ground: true,
+        y_velocity: 0,
+        pre_vertical_y_px: 447,
+        post_vertical_y_px: 447,
+        branch: KidWallClingReleaseBranch::NoWallClingState,
+        sub_adb8_gate: KidWallClingReleaseGate::WallClingMissing,
+        sub_ae6e_gate: KidWallClingReleaseGate::WallClingMissing,
+        forward_wall_probe: Some(terrain::WallProbe {
+            hit: true,
+            wall_x_px: 944,
+            cell: terrain::Cell::from_be_bytes(0x60, 0x82),
+            cell_x: 59,
+            cell_y: 27,
+        }),
+        top_edge_probe: Some(terrain::WallProbe {
+            hit: false,
+            wall_x_px: 0,
+            cell: terrain::Cell::from_be_bytes(0, 0),
+            cell_x: 0,
+            cell_y: 0,
+        }),
+    });
+    runtime.opening_slice = Some(slice);
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_wall_cling_release_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit wall-cling release diagnostics"));
+
+    assert!(
+        probe_debug
+            .contains("held=right/probe_dir=right(held)/wall_cling=none/sticky=R0L0/ground=1"),
+        "the wall-cling release probe should report the held direction, probe direction source, and sticky state",
+    );
+    assert!(
+        probe_debug.contains(
+            "branch=no_wall_cling_state/sub_ADB8=wall_cling_missing/sub_AE6E=wall_cling_missing"
+        ),
+        "the wall-cling release probe should distinguish missing wall-cling state from the ROM helper gates",
+    );
+    assert!(
+        probe_debug.contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+        "the wall-cling release probe should report the forward wall contact at the loc_AA9C mirror",
+    );
+}
+
+#[test]
 fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -5710,6 +5772,7 @@ fn headbutt_prize_block_changes_to_empty() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5770,6 +5833,7 @@ fn ceiling_collision_skips_when_upward_motion_stays_within_same_tile() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5831,6 +5895,7 @@ fn headbutt_metal_block_does_not_clear() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5896,6 +5961,7 @@ fn headbutt_smash_block_changes_to_empty() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5957,6 +6023,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6025,6 +6092,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6102,6 +6170,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6156,6 +6225,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6212,6 +6282,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6277,6 +6348,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH, true);
@@ -6328,6 +6400,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -6376,6 +6449,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -6424,6 +6498,7 @@ fn asm_faithful_solid_floor_snap_waits_for_contact_row() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, false);
@@ -9574,6 +9649,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -9625,6 +9701,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     // No floor under player → should leave ground and reset terrain type
@@ -9685,6 +9762,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     }
 }
 
@@ -9933,6 +10011,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     assert!(runtime.block_state.evanescent_blocks.is_empty());
@@ -9988,6 +10067,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     runtime.step_evanescent_blocks(&slice);
@@ -10052,6 +10132,7 @@ fn evanescent_block_clears_after_timer_expires() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     // Trigger + first tick
@@ -10125,6 +10206,7 @@ fn evanescent_block_with_skin_delay() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     let airborne_slice = OpeningSliceState {
@@ -10318,6 +10400,7 @@ fn evanescent_block_not_triggered_twice() {
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
         physics_trace: None,
+        wall_cling_release_probe: None,
     };
 
     // Trigger twice while standing
@@ -14340,6 +14423,57 @@ fn published_tas_frames_7968_7969_report_kid_iron_knight_block_breaker_probe() {
         assert!(
             probe_debug.contains("candidate=0"),
             "frame {frame_index} should rule out the ROM Iron Knight block-breaker path as the source of the oracle lift-off",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_wall_cling_release_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_wall_cling_release_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit wall-cling release diagnostics")
+            });
+
+        assert!(
+            probe_debug
+                .contains("held=right/probe_dir=right(held)/wall_cling=none/sticky=R0L0/ground=1"),
+            "frame {frame_index} should show native never enters the wall-cling release window even though right stays held",
+        );
+        assert!(
+            probe_debug.contains("y_vel=0x00000000/y=447=>447"),
+            "frame {frame_index} should keep Kid flat through the loc_AA9C mirror instead of taking an upward live-release step",
+        );
+        assert!(
+            probe_debug.contains(
+                "branch=no_wall_cling_state/sub_ADB8=wall_cling_missing/sub_AE6E=wall_cling_missing"
+            ),
+            "frame {frame_index} should prove both ROM-style live-release helpers stay cold because native never carries wall-cling state into the window",
+        );
+        assert!(
+            probe_debug
+                .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+            "frame {frame_index} should confirm the forward wall contact survives at the live frontier",
         );
     }
 }

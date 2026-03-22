@@ -138,6 +138,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed Iron Knight block-breaker candidate or wall-block contact diagnostic."
     },
     {
+      "key": "kid_wall_cling_release_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Focused loc_AA9C mirror for frames 7968..7969: held/probe direction, carried wall-cling state, native sub_ADB8/sub_AE6E-style gate status, and the forward/top-edge wall contacts at the live release window.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed wall-cling live-release gate or side-contact diagnostic."
+    },
+    {
       "key": "kid_collision_type",
       "scope": "frame",
       "status": "exploratory",
