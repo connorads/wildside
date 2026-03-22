@@ -499,6 +499,9 @@ enum Commands {
         /// Show PhysicsTrace sub-step values at divergent frames
         #[arg(long, default_value_t = false)]
         include_physics_trace: bool,
+        /// Print object rosters on matching frames as well as divergent ones
+        #[arg(long, default_value_t = false)]
+        show_object_roster_on_match: bool,
         /// Generate 3-panel visual diff PNGs at divergent frames
         #[arg(long, default_value_t = false)]
         visual: bool,
@@ -1220,6 +1223,7 @@ fn main() -> Result<()> {
             only_divergent,
             include_advisory,
             include_physics_trace,
+            show_object_roster_on_match,
             visual,
             frontier_kind,
         } => {
@@ -1237,6 +1241,7 @@ fn main() -> Result<()> {
                 only_divergent,
                 include_advisory,
                 include_physics_trace,
+                show_object_roster_on_match,
                 visual,
                 frontier_kind,
             )?;

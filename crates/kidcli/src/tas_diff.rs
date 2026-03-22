@@ -19,6 +19,7 @@ pub fn run_tas_diff(
     only_divergent: bool,
     include_advisory: bool,
     include_physics_trace: bool,
+    show_object_roster_on_match: bool,
     visual: bool,
     frontier_kind: FrontierKind,
 ) -> Result<()> {
@@ -109,6 +110,17 @@ pub fn run_tas_diff(
             match_count += 1;
             if !only_divergent {
                 println!("frame {frame_idx}: \x1b[32mMATCH\x1b[0m");
+                if show_object_roster_on_match {
+                    let oracle_state = checkpoint_state(&oracle.states, &label);
+                    if native_object_debug_relevant(native_trace.get(frame_idx), oracle_state) {
+                        println!("  --- object roster ---");
+                        println!(
+                            "  native: {}",
+                            native_object_debug(native_trace.get(frame_idx))
+                        );
+                        println!("  oracle: {}", oracle_object_debug(oracle_state));
+                    }
+                }
             }
             continue;
         }
@@ -191,8 +203,12 @@ pub fn run_tas_diff(
         }
 
         let oracle_state = checkpoint_state(&oracle.states, &label);
-        if auth_count > 0 || native_object_debug_relevant(native_trace.get(frame_idx), oracle_state)
-        {
+        if should_print_object_roster(
+            auth_count > 0,
+            show_object_roster_on_match,
+            native_trace.get(frame_idx),
+            oracle_state,
+        ) {
             println!("  --- object roster ---");
             println!(
                 "  native: {}",
@@ -283,6 +299,16 @@ pub fn run_tas_diff(
 
 fn checkpoint_state<'a>(states: &'a [OracleState], label: &str) -> Option<&'a OracleState> {
     states.iter().find(|state| state.label == label)
+}
+
+fn should_print_object_roster(
+    has_authoritative_diff: bool,
+    show_on_match: bool,
+    native_frame: Option<&kid_core::NativeTraceFrame>,
+    oracle_state: Option<&OracleState>,
+) -> bool {
+    has_authoritative_diff
+        || (show_on_match && native_object_debug_relevant(native_frame, oracle_state))
 }
 
 fn native_object_debug_relevant(
@@ -457,8 +483,11 @@ fn summarize_entries(entries: Vec<String>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_native_enemy_debug, format_oracle_enemy_debug};
-    use kid_core::{NativeObjectKind, NativeObjectSnapshot, physics::Direction};
+    use super::{format_native_enemy_debug, format_oracle_enemy_debug, should_print_object_roster};
+    use kid_core::{
+        GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
+        physics::Direction,
+    };
 
     #[test]
     fn native_enemy_debug_includes_layout_motion_and_ground_state() {
@@ -512,6 +541,101 @@ mod tests {
         assert_eq!(
             debug,
             "0x0D@0x03670000,0x01c00000 vel=0x00000000,0x00000000 face=Right",
+        );
+    }
+
+    #[test]
+    fn match_frames_only_print_object_roster_when_requested() {
+        let native_frame = NativeTraceFrame {
+            frame_index: 0,
+            game_mode: GameMode::TitleScreen,
+            game_mode_value: GameMode::TitleScreen.as_disassembly_value(),
+            start_press_count: 0,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            current_player: 0,
+            current_level: LevelId(0),
+            player_1_level_id: LevelId(0),
+            current_level_name: None,
+            player_start_x: None,
+            player_start_y: None,
+            flag_x: None,
+            flag_y: None,
+            level_enemy_object_count: None,
+            active_enemy_object_count: 1,
+            active_platform_object_count: 0,
+            number_lives: 0,
+            number_continues: 0,
+            number_hitpoints: 0,
+            current_helmet_id: 0,
+            paused: false,
+            kid_x_pos: None,
+            kid_y_pos: None,
+            kid_x_velocity: None,
+            kid_y_velocity: None,
+            kid_facing: None,
+            kid_on_ground: Some(false),
+            form_change_flash_frames: 0,
+            score: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            number_objects: 1,
+            number_gfx_objects: 0,
+            level_complete: false,
+            game_over: false,
+            continue_countdown: None,
+            game_complete: false,
+            ending_elapsed: None,
+            options_cursor: None,
+            sound_test_track: None,
+            two_player: false,
+            invulnerable_frames: 0,
+            diamond_power_active: false,
+            diamond_count: 0,
+            level_timer_seconds: 0,
+            level_damage_taken: false,
+            murder_wall_x: None,
+            active_projectiles: Vec::new(),
+            active_geysers: Vec::new(),
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            active_objects: vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0D },
+                x_pos: 0x0367_0000,
+                y_pos: 0x01C0_0000,
+                layout_index: Some(4),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(Direction::Right),
+                on_ground: Some(true),
+                hit_points: Some(2),
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: Some(0x000a),
+                shared_walker_patrol_timer: Some(0x0029),
+                shared_walker_patrol_short_next: Some(false),
+                walk_phase: Some(0),
+                wait_timer: Some(0x01df),
+                debug_fields: std::collections::BTreeMap::new(),
+            }],
+            block_bounces: Vec::new(),
+            floating_items: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
+            sound_test_play_pending: false,
+            physics_trace: None,
+        };
+
+        assert!(
+            !should_print_object_roster(false, false, Some(&native_frame), None),
+            "match frames should stay compact unless the caller opts into match-roster output",
+        );
+        assert!(
+            should_print_object_roster(false, true, Some(&native_frame), None),
+            "match frames should expose object rosters when the caller is tracing clean history",
         );
     }
 }

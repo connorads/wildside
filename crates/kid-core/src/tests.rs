@@ -12668,6 +12668,31 @@ fn demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400: lower shared walker is already 12px ahead by frame 3206"]
+fn demo_1_lower_dragon_does_not_freeze_twelve_pixels_ahead_on_frame_3206() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3206 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_207) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_206 {
+            dragon_3206 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| (enemy.x_pos, enemy.facing, enemy.on_ground));
+            break;
+        }
+    }
+
+    assert_eq!(
+        dragon_3206,
+        Some((0x01F8_8000, Direction::Right, true)),
+        "frame 3206 should already keep the lower dragon on the oracle-backed right-facing hold tile instead of freezing twelve pixels ahead before the later patrol countdown",
+    );
+}
+
+#[test]
 fn demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3384 = None;
