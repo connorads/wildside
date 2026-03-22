@@ -480,7 +480,13 @@ impl NativeRuntime {
         }
     }
 
-    fn begin_kid_grounded_release_probe(&mut self, player: PlayerState, input: FrameInput) {
+    fn begin_kid_grounded_release_probe(
+        &mut self,
+        player: PlayerState,
+        input: FrameInput,
+        jump_pressed: bool,
+        custom_gravity: bool,
+    ) {
         if self.physics_order != PhysicsOrder::AsmFaithful {
             self.last_kid_frame_grounded_release_probe = None;
             return;
@@ -494,6 +500,21 @@ impl NativeRuntime {
         let mut probe = KidGroundedReleaseProbe {
             on_ground_before: player.on_ground,
             held_direction,
+            jump_pressed,
+            jump_buffer_frames: player.jump_buffer_frames,
+            custom_gravity,
+            wall_cling_direction: player.wall_cling_direction,
+            velocity_branch: if player.on_ground && player.y_velocity >= 0 && jump_pressed {
+                KidGroundedReleaseVelocityBranch::JumpPressed
+            } else if player.on_ground && player.y_velocity >= 0 && player.jump_buffer_frames > 0 {
+                KidGroundedReleaseVelocityBranch::JumpBuffered
+            } else if !player.on_ground && custom_gravity {
+                KidGroundedReleaseVelocityBranch::AirborneCustomGravity
+            } else if !player.on_ground {
+                KidGroundedReleaseVelocityBranch::AirborneGravity
+            } else {
+                KidGroundedReleaseVelocityBranch::GroundedHold
+            },
             ..KidGroundedReleaseProbe::default()
         };
 
@@ -769,7 +790,12 @@ impl NativeRuntime {
             // sub-half-pixel gap before landing. Letting AsmFaithful collapse
             // that gap lands frame 2625 of demo 1 one frame early.
             let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
-            self.begin_kid_grounded_release_probe(slice.player, input);
+            self.begin_kid_grounded_release_probe(
+                slice.player,
+                input,
+                jump_pressed,
+                custom_gravity,
+            );
             slice.step_with_order(
                 effective_elapsed,
                 input,

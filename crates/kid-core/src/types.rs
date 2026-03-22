@@ -171,6 +171,11 @@ impl KidFramePrePhysicsMutator {
 pub(crate) struct KidGroundedReleaseProbe {
     pub(crate) on_ground_before: bool,
     pub(crate) held_direction: Option<Direction>,
+    pub(crate) jump_pressed: bool,
+    pub(crate) jump_buffer_frames: u8,
+    pub(crate) custom_gravity: bool,
+    pub(crate) wall_cling_direction: Option<Direction>,
+    pub(crate) velocity_branch: KidGroundedReleaseVelocityBranch,
     pub(crate) probe_row: Option<u16>,
     pub(crate) left_col: Option<u16>,
     pub(crate) right_col: Option<u16>,
@@ -178,6 +183,28 @@ pub(crate) struct KidGroundedReleaseProbe {
     pub(crate) support_collision: Option<terrain::CollisionKind>,
     pub(crate) support_block_type: Option<terrain::BlockType>,
     pub(crate) release_triggered: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidGroundedReleaseVelocityBranch {
+    JumpPressed,
+    JumpBuffered,
+    AirborneCustomGravity,
+    AirborneGravity,
+    #[default]
+    GroundedHold,
+}
+
+impl KidGroundedReleaseVelocityBranch {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::JumpPressed => "jump_pressed",
+            Self::JumpBuffered => "jump_buffered",
+            Self::AirborneCustomGravity => "airborne_custom_gravity",
+            Self::AirborneGravity => "airborne_gravity",
+            Self::GroundedHold => "grounded_hold",
+        }
+    }
 }
 
 pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;

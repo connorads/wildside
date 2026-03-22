@@ -4918,6 +4918,11 @@ fn trace_frame_reports_kid_grounded_release_probe() {
     runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
         on_ground_before: true,
         held_direction: Some(Direction::Right),
+        jump_pressed: false,
+        jump_buffer_frames: 0,
+        custom_gravity: false,
+        wall_cling_direction: None,
+        velocity_branch: KidGroundedReleaseVelocityBranch::GroundedHold,
         probe_row: Some(28),
         left_col: Some(58),
         right_col: Some(58),
@@ -4936,6 +4941,10 @@ fn trace_frame_reports_kid_grounded_release_probe() {
     assert!(
         probe_debug.contains("held=right"),
         "the grounded-release probe should expose the held horizontal direction",
+    );
+    assert!(
+        probe_debug.contains("velocity=grounded_hold"),
+        "the grounded-release probe should expose the native velocity branch selected after the scan",
     );
     assert!(
         probe_debug.contains("support=solid@58,28 block=None"),
@@ -14073,8 +14082,18 @@ fn published_tas_frames_7968_7969_report_kid_grounded_release_probe() {
             });
 
         assert!(
+            probe_debug.contains(
+                "jump=0/jump_buffer=0/velocity=grounded_hold/custom_gravity=0/wall_cling=none"
+            ),
+            "frame {frame_index} should prove native had no player-side jump, buffered jump, custom-gravity, or wall-cling lift-off path queued before normal physics",
+        );
+        assert!(
             probe_debug.contains("scan=row=28/cols=58..58"),
             "frame {frame_index} should report the exact AsmFaithful grounded-release scan window",
+        );
+        assert!(
+            probe_debug.contains("held=right"),
+            "frame {frame_index} should keep the right-held walking input during the grounded-release scan",
         );
         assert!(
             probe_debug.contains("support=solid@58,28 block=None"),

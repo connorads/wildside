@@ -481,6 +481,11 @@ impl NativeRuntime {
             Some(Direction::Right) => "right",
             None => "none",
         };
+        let wall_cling = match probe.wall_cling_direction {
+            Some(Direction::Left) => "left",
+            Some(Direction::Right) => "right",
+            None => "none",
+        };
         let scan = match (probe.probe_row, probe.left_col, probe.right_col) {
             (Some(row), Some(left), Some(right)) => format!("row={row}/cols={left}..{right}"),
             _ => String::from("row=none/cols=none"),
@@ -524,9 +529,14 @@ impl NativeRuntime {
             };
 
         Some(format!(
-            "ground={}/held={}/scan={}/support={}/release={}/post={}{}",
+            "ground={}/held={}/jump={}/jump_buffer={}/velocity={}/custom_gravity={}/wall_cling={}/scan={}/support={}/release={}/post={}{}",
             u8::from(probe.on_ground_before),
             held,
+            u8::from(probe.jump_pressed),
+            probe.jump_buffer_frames,
+            probe.velocity_branch.as_debug_label(),
+            u8::from(probe.custom_gravity),
+            wall_cling,
             scan,
             support,
             u8::from(probe.release_triggered),
