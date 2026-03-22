@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 
 impl NativeRuntime {
     fn title_uses_demo_snapshot(&self) -> bool {
@@ -46,6 +47,13 @@ impl NativeRuntime {
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
             .count();
+        let mut gameplay_debug_fields = BTreeMap::new();
+        if self.progression.form_change_flash_frames > 0 {
+            gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
+        }
+        if self.gameplay_hibernating_for_transform() {
+            gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -171,6 +179,7 @@ impl NativeRuntime {
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,
             sound_test_play_pending: self.sound_test_play_pending,
+            gameplay_debug_fields,
             physics_trace: self.opening_slice.and_then(|s| s.physics_trace),
         }
     }
@@ -307,6 +316,7 @@ impl NativeRuntime {
                     shared_walker_patrol_short_next: None,
                     walk_phase: None,
                     wait_timer: None,
+                    debug_fields: BTreeMap::new(),
                 });
             }
             objects.extend(self.active_enemy_roster.iter().cloned());
@@ -348,6 +358,7 @@ impl NativeRuntime {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: BTreeMap::new(),
             });
         }
         objects.extend(self.active_enemy_roster.iter().cloned());

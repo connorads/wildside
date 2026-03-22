@@ -14,6 +14,7 @@ use jgenesis_common::frontend::{
 };
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io;
@@ -171,6 +172,18 @@ struct OracleEnemyState {
     x_velocity: i32,
     y_velocity: i32,
     facing: EnemyFacing,
+    #[serde(default)]
+    layout_index: Option<usize>,
+    #[serde(default)]
+    layout_ptr: Option<u32>,
+    #[serde(default)]
+    parent_object_ptr: Option<u32>,
+    #[serde(default)]
+    gfx_slot_index: Option<usize>,
+    #[serde(default)]
+    on_ground: Option<bool>,
+    #[serde(default)]
+    debug_fields: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -270,6 +283,8 @@ struct OracleState {
     rng_offset: Option<u16>,
     #[serde(default)]
     level_special_effects: Option<u16>,
+    #[serde(default)]
+    gameplay_debug_fields: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     cpu_registers: Option<CpuRegisters>,
 }
@@ -838,6 +853,16 @@ fn capture_state(
     let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
+    let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
+    let game_paused = read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0;
+    let mut gameplay_debug_fields = BTreeMap::new();
+    if currently_transforming {
+        gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
+        gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
+    }
+    if game_paused {
+        gameplay_debug_fields.insert("game_paused".into(), "true".into());
+    }
     OracleState {
         label: label.to_string(),
         frame_index,
@@ -858,7 +883,7 @@ fn capture_state(
         kid_y_pos: read_wram_u32(&work_ram, KID_Y_POS_ADDR),
         number_objects: read_wram_u16(&work_ram, NUMBER_OBJECTS_ADDR),
         number_gfx_objects: read_wram_u16(&work_ram, NUMBER_GFX_OBJECTS_ADDR),
-        game_paused: read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0,
+        game_paused,
         active_enemies: capture_enemy_states(&work_ram, rom.as_ref()),
         score: read_wram_u32(&work_ram, SCORE_ADDR),
         number_lives: read_wram_u16(&work_ram, NUMBER_LIVES_ADDR),
@@ -882,9 +907,10 @@ fn capture_state(
         character_movement: Some(read_wram_u16(&work_ram, CHARACTER_MOVEMENT_ADDR)),
         just_received_damage: Some(read_wram_u8(&work_ram, JUST_RECEIVED_DAMAGE_ADDR) != 0),
         invulnerable_frames: Some(read_wram_u8(&work_ram, INVULNERABLE_FRAMES_ADDR)),
-        currently_transforming: Some(read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0),
+        currently_transforming: Some(currently_transforming),
         rng_offset: Some(read_wram_u16(&work_ram, RNG_OFFSET_ADDR)),
         level_special_effects: Some(read_wram_u16(&work_ram, LEVEL_SPECIAL_EFFECTS_ADDR)),
+        gameplay_debug_fields,
         cpu_registers: cpu_regs,
     }
 }
@@ -936,6 +962,12 @@ fn capture_enemy_states(
             } else {
                 EnemyFacing::Right
             },
+            layout_index: None,
+            layout_ptr: Some(layout_ptr as u32),
+            parent_object_ptr: Some(parent_object as u32),
+            gfx_slot_index: Some(slot_index),
+            on_ground: None,
+            debug_fields: BTreeMap::new(),
         });
     }
     enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));

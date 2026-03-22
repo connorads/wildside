@@ -3,7 +3,9 @@ use std::path::Path;
 
 use crate::oracle::OracleState;
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
-use crate::sweep::{ADVISORY_FIELDS, compare_sweep_states, extract_checkpoint_states};
+use crate::sweep::{
+    ADVISORY_FIELDS, FrontierKind, compare_sweep_states_for_frontier, extract_checkpoint_states,
+};
 
 /// Run native and oracle side-by-side, print per-frame divergences.
 #[allow(clippy::too_many_arguments)]
@@ -18,6 +20,7 @@ pub fn run_tas_diff(
     include_advisory: bool,
     include_physics_trace: bool,
     visual: bool,
+    frontier_kind: FrontierKind,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -39,7 +42,10 @@ pub fn run_tas_diff(
         })
         .collect();
 
-    println!("tas-diff: {} (frames {start}..{end})", scenario.slug);
+    println!(
+        "tas-diff: {} (frames {start}..{end}, frontier {:?})",
+        scenario.slug, frontier_kind
+    );
 
     // Run native (with physics trace if requested)
     println!("  running native ({end} frames)...");
@@ -79,7 +85,7 @@ pub fn run_tas_diff(
     )?;
 
     // Build per-frame diff index
-    let diffs = compare_sweep_states(&native_states, &oracle.states);
+    let diffs = compare_sweep_states_for_frontier(&native_states, &oracle.states, frontier_kind);
     let mut diff_by_checkpoint: std::collections::HashMap<&str, Vec<_>> =
         std::collections::HashMap::new();
     for diff in &diffs {
@@ -388,15 +394,45 @@ fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSna
         .wait_timer
         .map(|wait_timer| format!(" wait={wait_timer:#06x}"))
         .unwrap_or_default();
+    let debug_fields = if object.debug_fields.is_empty() {
+        String::new()
+    } else {
+        format!(" debug={:?}", object.debug_fields)
+    };
     format!(
-        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{wait_timer}",
-        object.x_pos, object.y_pos
+        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{wait_timer}{debug_fields}",
+        object.x_pos, object.y_pos,
     )
 }
 
 fn format_oracle_enemy_debug(object: &crate::oracle::OracleEnemyState) -> String {
+    let layout_index = object
+        .layout_index
+        .map(|index| format!(" li=#{index:02}"))
+        .unwrap_or_default();
+    let layout_ptr = object
+        .layout_ptr
+        .map(|ptr| format!(" lp={ptr:#08x}"))
+        .unwrap_or_default();
+    let parent_ptr = object
+        .parent_object_ptr
+        .map(|ptr| format!(" pp={ptr:#08x}"))
+        .unwrap_or_default();
+    let gfx_slot = object
+        .gfx_slot_index
+        .map(|slot| format!(" slot={slot}"))
+        .unwrap_or_default();
+    let on_ground = object
+        .on_ground
+        .map(|on_ground| format!(" ground={}", u8::from(on_ground)))
+        .unwrap_or_default();
+    let debug_fields = if object.debug_fields.is_empty() {
+        String::new()
+    } else {
+        format!(" debug={:?}", object.debug_fields)
+    };
     format!(
-        "0x{:02X}@{:#010x},{:#010x} vel={:#010x},{:#010x} face={:?}",
+        "0x{:02X}@{:#010x},{:#010x} vel={:#010x},{:#010x} face={:?}{layout_index}{layout_ptr}{parent_ptr}{gfx_slot}{on_ground}{debug_fields}",
         object.object_type,
         object.x_pos,
         object.y_pos,
@@ -446,6 +482,7 @@ mod tests {
                 shared_walker_patrol_short_next: Some(false),
                 walk_phase: Some(0),
                 wait_timer: Some(0x01df),
+                debug_fields: std::collections::BTreeMap::new(),
             },
         );
 
@@ -464,6 +501,12 @@ mod tests {
             x_velocity: 0,
             y_velocity: 0,
             facing: crate::oracle::EnemyFacing::Right,
+            layout_index: None,
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: None,
+            debug_fields: std::collections::BTreeMap::new(),
         });
 
         assert_eq!(

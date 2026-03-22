@@ -1,7 +1,7 @@
 use crate::scenarios::Scenario;
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -110,6 +110,18 @@ pub struct OracleEnemyState {
     pub x_velocity: i32,
     pub y_velocity: i32,
     pub facing: EnemyFacing,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_index: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_ptr: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_object_ptr: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gfx_slot_index: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_ground: Option<bool>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub debug_fields: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize, PartialEq, Eq)]
@@ -210,6 +222,8 @@ pub struct OracleState {
     pub rng_offset: Option<u16>,
     #[serde(default)]
     pub level_special_effects: Option<u16>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub gameplay_debug_fields: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cpu_registers: Option<OracleCpuRegisters>,
 }

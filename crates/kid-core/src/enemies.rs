@@ -659,6 +659,8 @@ impl ActiveEnemy {
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
         let wait_timer =
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.wait_timer);
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert("segment_index".into(), self.segment_index.to_string());
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -679,6 +681,7 @@ impl ActiveEnemy {
             shared_walker_patrol_short_next,
             walk_phase,
             wait_timer,
+            debug_fields,
         }
     }
 }
@@ -823,6 +826,7 @@ impl EnemyFamily {
             shared_walker_patrol_short_next: None,
             walk_phase: None,
             wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
         })
     }
 }

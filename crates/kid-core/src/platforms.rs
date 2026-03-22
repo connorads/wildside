@@ -46,6 +46,7 @@ impl PlatformLoaderState {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             })
             .collect()
     }

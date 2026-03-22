@@ -134,10 +134,22 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 7. Fix: implement in focused commit(s)
 8. Verify visually: capture frames, Read PNGs, compare before/after
 9. Verify mechanically: `mise run verify-slice-fast` must pass
-10. Update `docs/source-port/frontier-state.yaml` whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes
+10. Update `docs/source-port/frontier-state.yaml` whenever the frontier, current hypothesis, rejected-hypothesis ledger, or `candidate_promotions` list changes
 11. Mark `[x]` in backlog (same commit as the fix)
 12. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
 13. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
+
+### Frontier diagnostics defaults
+- For TAS frontier work, start with `cargo run -p kidcli -- verify-tas --scenario <scenario> --bisect --frontier-kind enemy`
+- Use `--frontier-kind gameplay` only when Kid/camera/global behaviour is the known first causal divergence
+- Follow with `cargo run -p kidcli -- tas-diff --scenario <scenario> --include-advisory --frontier-kind enemy` so hidden enemy drift is visible before the visible gameplay break
+
+### Debug field promotion workflow
+- Register every emitted `debug_fields` or `gameplay_debug_fields` key in `docs/source-port/debug-field-registry.yaml`
+- New keys start as `exploratory` unless they already drive pass/fail parity or regression checks
+- If a debug key is used to choose, reject, or verify a fix in repeated frontier work, mark it `candidate` and add it to `candidate_promotions` in `docs/source-port/frontier-state.yaml`
+- Run `mise run audit-debug-fields` before landing instrumentation changes; unregistered keys are errors, stale `candidate` keys need promotion or an explicit exemption note
+- Promote a key from debug bag to typed state when it is used in parity logic, checked-in regression assertions, or multiple frontiers; keep the debug bag only for raw or temporary correlation data
 
 ## Visual debugging
 

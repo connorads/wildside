@@ -9,6 +9,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = REPO_ROOT / "docs/source-port/frontier-state.yaml"
+REGISTRY_PATH = REPO_ROOT / "docs/source-port/debug-field-registry.yaml"
 
 
 def load_state(path: Path) -> dict:
@@ -28,6 +29,7 @@ def print_list(items: list[str], indent: str = "  - ") -> None:
 def main() -> int:
     path = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else STATE_PATH
     state = load_state(path)
+    registry = load_state(REGISTRY_PATH)
     frontier = state["active_frontier"]
     hypothesis = frontier["current_hypothesis"]
     stuck_policy = state["stuck_policy"]
@@ -67,6 +69,17 @@ def main() -> int:
     print_list(frontier["required_next_evidence"])
     print()
 
+    candidate_promotions = state.get("candidate_promotions", [])
+    print("Candidate Promotions")
+    if candidate_promotions:
+        for item in candidate_promotions:
+            print(
+                f"  - {item['key']} -> {item['promotion_target']}: {item['reason']}"
+            )
+    else:
+        print("  - none")
+    print()
+
     print("Verification Commands")
     print_list(frontier["verification_commands"])
     print()
@@ -76,6 +89,18 @@ def main() -> int:
     print_list(bootstrap["read_first"], indent="    - ")
     print("  commands:")
     print_list(bootstrap["commands"], indent="    - ")
+    print()
+
+    registry_candidates = [
+        field for field in registry.get("fields", []) if field.get("status") == "candidate"
+    ]
+    print("Registry Candidates")
+    if registry_candidates:
+        for field in registry_candidates:
+            target = field.get("promotion_target", "(target not set)")
+            print(f"  - {field['key']} -> {target}")
+    else:
+        print("  - none")
     print()
 
     print("Stuck Policy")

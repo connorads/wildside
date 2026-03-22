@@ -16,10 +16,12 @@ you do not restart from stale roadmap prose.
 ```bash
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-end 1000 --bisect
+  --frame-end 1000 --bisect --frontier-kind enemy
 ```
 
-`--bisect` uses per-frame CRC comparison to binary-search for the first divergent frame.
+`--bisect` uses per-frame state comparison to find the first divergent frame. Use
+`--frontier-kind enemy` when hidden enemy drift may arrive before Kid/camera drift;
+reserve `gameplay` for frontiers where gameplay/global state is already known to be first.
 
 ## Step 2: Probe relevant RAM addresses
 
@@ -70,6 +72,8 @@ Shows which levels improve/regress if physics sub-step order is swapped.
 - **Skipping frontier bootstrap** — run `mise run frontier-status` before reading broad backlog/roadmap prose
 - **Manual frame counter tweaking** — use `--bisect` instead of guessing
 - **Hypothesis without data** — always probe before reading ASM
+- **Unregistered debug payloads** — every new `debug_fields` / `gameplay_debug_fields` key must be added to `docs/source-port/debug-field-registry.yaml`
+- **Letting useful debug fields stay ad hoc** — if a field drives more than one session, mark it as a `candidate`, add it to `candidate_promotions`, and run `mise run audit-debug-fields`
 - **>30 min without running a probe** — stop and build measurement tooling
 - **Fear of breaking sweep** — use `sweep-compare` to preview impact
 - **Circular ASM reading** — if you've read the same routine 3 times without

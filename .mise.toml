@@ -143,3 +143,7 @@ description = "Verify no TAS regression before current frontier frame"
 [tasks.frontier-status]
 run = "python3 scripts/frontier_status.py"
 description = "Print the live source-port frontier, rejected hypotheses, and next verification commands"
+
+[tasks.audit-debug-fields]
+run = "python3 scripts/audit_debug_fields.py"
+description = "Check that emitted debug fields are registered and stale candidates are promoted or exempted"

@@ -647,7 +647,7 @@ pub(crate) fn native_trace_to_oracle_state(
         number_objects: frame.number_objects,
         number_gfx_objects: frame.number_gfx_objects,
         active_enemies: active_enemy_states_from_native_frame(frame),
-        game_paused: false,
+        game_paused: frame.paused,
         score: frame.score,
         number_lives: frame.number_lives,
         number_diamonds: frame.diamond_count,
@@ -658,9 +658,10 @@ pub(crate) fn native_trace_to_oracle_state(
         character_movement: None,
         just_received_damage: None,
         invulnerable_frames: Some(frame.invulnerable_frames as u8),
-        currently_transforming: None,
+        currently_transforming: Some(frame.form_change_flash_frames > 0),
         rng_offset: None,
         level_special_effects: None,
+        gameplay_debug_fields: frame.gameplay_debug_fields.clone(),
         cpu_registers: None,
     }
 }
@@ -679,6 +680,12 @@ pub(crate) fn active_enemy_states_from_native_frame(
                 x_velocity: object.x_velocity.unwrap_or(0),
                 y_velocity: object.y_velocity.unwrap_or(0),
                 facing: enemy_facing_from_native(object.facing),
+                layout_index: object.layout_index,
+                layout_ptr: None,
+                parent_object_ptr: None,
+                gfx_slot_index: None,
+                on_ground: object.on_ground,
+                debug_fields: object.debug_fields.clone(),
             }),
             _ => None,
         })
@@ -695,7 +702,15 @@ pub(crate) fn enemy_facing_from_native(facing: Option<NativeDirection>) -> Enemy
 }
 
 pub(crate) fn sort_enemy_states(enemies: &mut [OracleEnemyState]) {
-    enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
+    enemies.sort_by_key(|enemy| {
+        (
+            enemy.object_type,
+            enemy.layout_index.unwrap_or(usize::MAX),
+            enemy.layout_ptr.unwrap_or(u32::MAX),
+            enemy.x_pos,
+            enemy.y_pos,
+        )
+    });
 }
 
 pub(crate) fn compare_native_states_against_oracle(

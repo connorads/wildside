@@ -1,6 +1,7 @@
 use crate::physics::{Direction, LevelBounds};
 use crate::terrain;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Controls the order of physics sub-steps within each frame.
 /// Used for data-driven comparison of native vs ASM execution order.
@@ -451,6 +452,10 @@ pub struct NativeTraceFrame {
     pub blocks_hit_this_frame: u8,
     /// Sound test: play was requested this frame (A/C pressed).
     pub sound_test_play_pending: bool,
+    /// Frontier-specific frame debug fields. Start exploratory here; promote
+    /// recurring decision-making fields into typed members.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub gameplay_debug_fields: BTreeMap<String, String>,
     /// Sub-frame physics trace (populated when `trace_physics` is enabled).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub physics_trace: Option<PhysicsTrace>,
@@ -509,6 +514,10 @@ pub struct NativeObjectSnapshot {
     pub walk_phase: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wait_timer: Option<u16>,
+    /// Frontier-specific object debug fields. Start exploratory here; promote
+    /// recurring decision-making fields into typed members.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub debug_fields: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

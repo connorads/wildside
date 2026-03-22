@@ -473,6 +473,9 @@ enum Commands {
         /// Binary-search for the first divergent frame within the range
         #[arg(long, default_value_t = false)]
         bisect: bool,
+        /// Which frontier to optimise for during verification/bisection
+        #[arg(long, value_enum, default_value_t = sweep::FrontierKind::Gameplay)]
+        frontier_kind: sweep::FrontierKind,
     },
     /// Side-by-side native vs oracle comparison for TAS debugging.
     TasDiff {
@@ -499,6 +502,9 @@ enum Commands {
         /// Generate 3-panel visual diff PNGs at divergent frames
         #[arg(long, default_value_t = false)]
         visual: bool,
+        /// Which frontier to optimise for during diff classification
+        #[arg(long, value_enum, default_value_t = sweep::FrontierKind::Gameplay)]
+        frontier_kind: sweep::FrontierKind,
     },
     /// Import a BK2 TAS recording as a DynamicScenario JSON.
     ImportTas {
@@ -1176,6 +1182,7 @@ fn main() -> Result<()> {
             frame_end,
             checkpoint_interval,
             bisect,
+            frontier_kind,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1189,6 +1196,7 @@ fn main() -> Result<()> {
                     &scenario,
                     frame_start,
                     frame_end,
+                    frontier_kind,
                 )?;
             } else {
                 tas::verify_tas(
@@ -1199,6 +1207,7 @@ fn main() -> Result<()> {
                     frame_start,
                     frame_end,
                     checkpoint_interval,
+                    frontier_kind,
                 )?;
             }
         }
@@ -1212,6 +1221,7 @@ fn main() -> Result<()> {
             include_advisory,
             include_physics_trace,
             visual,
+            frontier_kind,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1228,6 +1238,7 @@ fn main() -> Result<()> {
                 include_advisory,
                 include_physics_trace,
                 visual,
+                frontier_kind,
             )?;
         }
         Commands::ImportTas {
@@ -2194,6 +2205,12 @@ mod tests {
             x_velocity,
             y_velocity,
             facing,
+            layout_index: None,
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: None,
+            debug_fields: std::collections::BTreeMap::new(),
         }
     }
 
@@ -2236,6 +2253,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             cpu_registers: None,
         }
     }
@@ -2290,6 +2308,7 @@ mod tests {
                     shared_walker_patrol_short_next: None,
                     walk_phase: None,
                     wait_timer: None,
+                    debug_fields: std::collections::BTreeMap::new(),
                 },
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2309,6 +2328,7 @@ mod tests {
                     shared_walker_patrol_short_next: None,
                     walk_phase: None,
                     wait_timer: None,
+                    debug_fields: std::collections::BTreeMap::new(),
                 },
             ],
             camera_x_pos: 0x0010_0000,
@@ -2339,6 +2359,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             physics_trace: None,
             options_cursor: None,
             two_player: false,

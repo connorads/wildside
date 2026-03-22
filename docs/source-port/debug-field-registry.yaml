@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "defaults": {
+    "warn_after_commits": 2,
+    "fail_after_commits": 4
+  },
+  "fields": [
+    {
+      "key": "segment_index",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "enemy-lineage",
+      "first_added_commit": "55f70f0",
+      "intended_meaning": "Native segmented enemy-layout slot index used for lineage and loader debugging.",
+      "promotion_trigger": "Promote if parity matching, loader attribution, or roster identity starts depending on it."
+    },
+    {
+      "key": "currently_transforming",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "transform-window",
+      "first_added_commit": "55f70f0",
+      "intended_meaning": "Boolean debug alias for the current transform/hibernate window.",
+      "promotion_trigger": "Promote if the frontier logic needs a dedicated frame flag beyond form_change_flash_frames."
+    },
+    {
+      "key": "gameplay_hibernated",
+      "scope": "frame",
+      "status": "candidate",
+      "owner": "transform-window",
+      "first_added_commit": "55f70f0",
+      "intended_meaning": "True when gameplay objects are intentionally hibernated for the transform coroutine.",
+      "promotion_trigger": "Promote after repeated use in frontier diagnosis or any checked-in parity assertion.",
+      "promotion_target": "NativeTraceFrame.gameplay_hibernated"
+    },
+    {
+      "key": "game_paused",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "gameplay-status",
+      "first_added_commit": "55f70f0",
+      "intended_meaning": "Boolean debug alias for oracle pause state when inspecting non-gameplay windows.",
+      "promotion_trigger": "Promote if pause-state parity needs to be asserted routinely."
+    }
+  ]
+}

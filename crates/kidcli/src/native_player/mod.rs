@@ -1322,6 +1322,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             physics_trace: None,
         }
     }
@@ -2457,6 +2458,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2476,6 +2478,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -2495,6 +2498,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2514,6 +2518,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
         ];
         let grid = BlockGrid::from_level_layout(&[0x60, 0x00, 0xE1, 0x02], 2, 1);
@@ -2698,6 +2703,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2717,6 +2723,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2736,6 +2743,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
         ];
         let scene = build_ingame_scene(&trace, true, None);
@@ -2794,6 +2802,7 @@ mod tests {
             shared_walker_patrol_short_next: None,
             walk_phase: None,
             wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
@@ -2929,6 +2938,7 @@ mod tests {
             shared_walker_patrol_short_next: None,
             walk_phase: None,
             wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
         }];
         trace
     }
@@ -3053,6 +3063,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -3072,6 +3083,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
         ];
 
@@ -3117,6 +3129,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -3136,6 +3149,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
             },
         ];
 

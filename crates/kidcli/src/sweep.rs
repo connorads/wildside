@@ -21,6 +21,13 @@ pub(crate) const ADVISORY_FIELDS: &[&str] = &[
     "kid_y_vel",        // capture-timing: native post-frame vs oracle VBlank
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum FrontierKind {
+    Gameplay,
+    Enemy,
+}
+
 /// Position tolerance in FP16.16 units. 6px = 0x0006_0000 accommodates the ±5px
 /// PLAYER_HALF_WIDTH offset from gravity settling differences between native
 /// (instant floor snap) and oracle (physics-based settling).
@@ -739,8 +746,8 @@ pub(crate) fn extract_checkpoint_states(
                 kid_y_pos: frame.kid_y_pos.unwrap_or(0),
                 number_objects: frame.number_objects,
                 number_gfx_objects: frame.number_gfx_objects,
-                game_paused: false,
-                active_enemies: Vec::new(),
+                game_paused: frame.paused,
+                active_enemies: crate::compare::active_enemy_states_from_native_frame(frame),
                 score: frame.score,
                 number_lives: frame.number_lives,
                 number_diamonds: frame.diamond_count,
@@ -751,9 +758,10 @@ pub(crate) fn extract_checkpoint_states(
                 character_movement: None, // native doesn't track this separately
                 just_received_damage: None, // native doesn't track this separately
                 invulnerable_frames: Some(frame.invulnerable_frames as u8),
-                currently_transforming: None, // native doesn't track this separately
-                rng_offset: None,             // native uses different RNG system
-                level_special_effects: None,  // native doesn't track this separately
+                currently_transforming: Some(frame.form_change_flash_frames > 0),
+                rng_offset: None,            // native uses different RNG system
+                level_special_effects: None, // native doesn't track this separately
+                gameplay_debug_fields: frame.gameplay_debug_fields.clone(),
                 cpu_registers: None,
             })
         })
@@ -764,6 +772,14 @@ pub(crate) fn extract_checkpoint_states(
 pub(crate) fn compare_sweep_states(
     native_states: &[OracleState],
     oracle_states: &[OracleState],
+) -> Vec<StateDiff> {
+    compare_sweep_states_for_frontier(native_states, oracle_states, FrontierKind::Gameplay)
+}
+
+pub(crate) fn compare_sweep_states_for_frontier(
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+    frontier_kind: FrontierKind,
 ) -> Vec<StateDiff> {
     let mut diffs = Vec::new();
 
@@ -914,9 +930,57 @@ pub(crate) fn compare_sweep_states(
                 oracle_value: format!("{o_inv}"),
             });
         }
+        if let (Some(n_transform), Some(o_transform)) =
+            (native.currently_transforming, oracle.currently_transforming)
+            && n_transform != o_transform
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "currently_transforming".into(),
+                native_value: format!("{n_transform}"),
+                oracle_value: format!("{o_transform}"),
+            });
+        }
+        if native.game_paused != oracle.game_paused {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "game_paused".into(),
+                native_value: format!("{}", native.game_paused),
+                oracle_value: format!("{}", oracle.game_paused),
+            });
+        }
+        if matches!(frontier_kind, FrontierKind::Enemy)
+            && native.active_enemies != oracle.active_enemies
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "enemy_roster".into(),
+                native_value: summarise_enemy_states(&native.active_enemies),
+                oracle_value: summarise_enemy_states(&oracle.active_enemies),
+            });
+        }
     }
 
     diffs
+}
+
+fn summarise_enemy_states(enemies: &[OracleEnemyState]) -> String {
+    enemies
+        .iter()
+        .map(|enemy| {
+            format!(
+                "{:02X}:{:08X},{:08X}:{:?}:li={:?}:lp={:?}:g={:?}",
+                enemy.object_type,
+                enemy.x_pos,
+                enemy.y_pos,
+                enemy.facing,
+                enemy.layout_index,
+                enemy.layout_ptr,
+                enemy.on_ground
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 /// Capture native frames at checkpoint indices and compare against oracle PNGs.
@@ -2250,6 +2314,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             cpu_registers: None,
         }];
         let mut oracle = native.clone();
@@ -2296,12 +2361,80 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             cpu_registers: None,
         }];
         let oracle = native.clone();
 
         let diffs = compare_sweep_states(&native, &oracle);
         assert!(diffs.is_empty());
+    }
+
+    #[test]
+    fn enemy_frontier_detects_enemy_roster_drift_before_gameplay_drift() {
+        let enemy = OracleEnemyState {
+            object_type: 0x0D,
+            x_pos: 0x035E_8000,
+            y_pos: 0x0270_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            layout_index: Some(4),
+            layout_ptr: Some(0x00FF_A100),
+            parent_object_ptr: Some(0x00FF_9120),
+            gfx_slot_index: Some(3),
+            on_ground: Some(true),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let native = vec![OracleState {
+            label: "settle".into(),
+            frame_index: 780,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 3,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0x0100_0000,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 5,
+            number_gfx_objects: 3,
+            game_paused: false,
+            active_enemies: vec![enemy.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }];
+        let oracle = vec![OracleState {
+            active_enemies: Vec::new(),
+            ..native[0].clone()
+        }];
+
+        let gameplay_diffs =
+            compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Gameplay);
+        assert!(gameplay_diffs.is_empty());
+
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert_eq!(enemy_diffs.len(), 1);
+        assert_eq!(enemy_diffs[0].field, "enemy_roster");
     }
 
     #[test]
@@ -2392,6 +2525,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
+                gameplay_debug_fields: std::collections::BTreeMap::new(),
                 physics_trace: None,
             })
             .collect();
@@ -2471,6 +2605,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
+                gameplay_debug_fields: std::collections::BTreeMap::new(),
                 physics_trace: None,
             })
             .collect();
@@ -2563,6 +2698,7 @@ mod tests {
                 blocks_hit_this_frame: 0,
                 sound_test_track: None,
                 sound_test_play_pending: false,
+                gameplay_debug_fields: std::collections::BTreeMap::new(),
                 physics_trace: None,
             })
             .collect();
@@ -2610,6 +2746,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             cpu_registers: None,
         }];
         let mut oracle = native.clone();
@@ -2752,6 +2889,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             physics_trace: None,
         };
 
@@ -2831,6 +2969,7 @@ mod tests {
             blocks_hit_this_frame: 0,
             sound_test_track: None,
             sound_test_play_pending: false,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
             physics_trace: None,
         };
 

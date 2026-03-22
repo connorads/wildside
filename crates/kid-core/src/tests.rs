@@ -6026,6 +6026,7 @@ fn falling_straight_onto_enemy_is_stomp() {
         shared_walker_patrol_short_next: None,
         walk_phase: None,
         wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
     };
 
     assert_eq!(
@@ -6069,6 +6070,7 @@ fn mini_hopping_skull_graze_does_not_damage() {
         shared_walker_patrol_short_next: None,
         walk_phase: None,
         wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
     };
 
     assert_eq!(
@@ -6112,6 +6114,7 @@ fn walking_dragon_landing_frame_registers_as_stomp() {
         shared_walker_patrol_short_next: None,
         walk_phase: None,
         wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
     };
 
     assert_eq!(
@@ -6155,6 +6158,7 @@ fn walking_dragon_pre_landing_frame_has_not_reached_contact_threshold() {
         shared_walker_patrol_short_next: None,
         walk_phase: None,
         wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
     };
 
     assert_eq!(
