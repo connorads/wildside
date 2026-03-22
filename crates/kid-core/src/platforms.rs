@@ -41,6 +41,11 @@ impl PlatformLoaderState {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             })
             .collect()
     }

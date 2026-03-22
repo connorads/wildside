@@ -422,7 +422,8 @@ impl NativeRuntime {
     ) {
         let x_px = (slice.player.x_pos >> 16) as i32;
         let y_px = (slice.player.y_pos >> 16) as i32;
-        let left_probe = terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, false);
+        let left_probe =
+            terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, false);
         let right_probe =
             terrain::probe_wall(grid, x_px, y_px, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, true);
         let mut resolved_x_px = x_px;
@@ -870,6 +871,11 @@ impl NativeRuntime {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
         }]
     }
 

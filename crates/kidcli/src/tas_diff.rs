@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::oracle::OracleState;
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
-use crate::sweep::{compare_sweep_states, extract_checkpoint_states, ADVISORY_FIELDS};
+use crate::sweep::{ADVISORY_FIELDS, compare_sweep_states, extract_checkpoint_states};
 
 /// Run native and oracle side-by-side, print per-frame divergences.
 #[allow(clippy::too_many_arguments)]
@@ -372,8 +372,27 @@ fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSna
     } else {
         ""
     };
+    let shared_walker = match (
+        object.shared_walker_state,
+        object.shared_walker_patrol_timer,
+        object.shared_walker_patrol_short_next,
+    ) {
+        (Some(state), Some(timer), short_next) => {
+            let short_next = short_next.map(u8::from).unwrap_or(0);
+            format!(" walker={state:#06x}/{timer:#06x}/short={short_next}")
+        }
+        _ => String::new(),
+    };
+    let walk_phase = object
+        .walk_phase
+        .map(|phase| format!(" phase={phase:#04x}"))
+        .unwrap_or_default();
+    let wait_timer = object
+        .wait_timer
+        .map(|wait_timer| format!(" wait={wait_timer:#06x}"))
+        .unwrap_or_default();
     format!(
-        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}",
+        "enemy_{object_type:02X}{layout}@{:#010x},{:#010x}{velocity}{facing}{on_ground}{hit_points}{stationary}{shared_walker}{walk_phase}{wait_timer}",
         object.x_pos, object.y_pos
     )
 }
@@ -406,7 +425,7 @@ fn summarize_entries(entries: Vec<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{format_native_enemy_debug, format_oracle_enemy_debug};
-    use kid_core::{physics::Direction, NativeObjectKind, NativeObjectSnapshot};
+    use kid_core::{NativeObjectKind, NativeObjectSnapshot, physics::Direction};
 
     #[test]
     fn native_enemy_debug_includes_layout_motion_and_ground_state() {
@@ -425,12 +444,17 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: Some(0x000a),
+                shared_walker_patrol_timer: Some(0x0029),
+                shared_walker_patrol_short_next: Some(false),
+                walk_phase: Some(0),
+                wait_timer: Some(0x01df),
             },
         );
 
         assert_eq!(
             debug,
-            "enemy_0D#04@0x035e8000,0x02700000 vel=0x00000000,0x00000000 face=Left ground=1 hp=2",
+            "enemy_0D#04@0x035e8000,0x02700000 vel=0x00000000,0x00000000 face=Left ground=1 hp=2 walker=0x000a/0x0029/short=0 phase=0x00 wait=0x01df",
         );
     }
 

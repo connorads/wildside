@@ -6021,6 +6021,11 @@ fn falling_straight_onto_enemy_is_stomp() {
         damage_flash: false,
         palette_variant: 0,
         stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
     };
 
     assert_eq!(
@@ -6059,6 +6064,11 @@ fn mini_hopping_skull_graze_does_not_damage() {
         damage_flash: false,
         palette_variant: 0,
         stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
     };
 
     assert_eq!(
@@ -6097,6 +6107,11 @@ fn walking_dragon_landing_frame_registers_as_stomp() {
         damage_flash: false,
         palette_variant: 0,
         stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
     };
 
     assert_eq!(
@@ -6135,6 +6150,11 @@ fn walking_dragon_pre_landing_frame_has_not_reached_contact_threshold() {
         damage_flash: false,
         palette_variant: 0,
         stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
     };
 
     assert_eq!(

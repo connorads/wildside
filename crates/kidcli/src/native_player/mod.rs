@@ -2454,6 +2454,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2468,6 +2473,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -2482,6 +2492,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2496,6 +2511,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
         ];
         let grid = BlockGrid::from_level_layout(&[0x60, 0x00, 0xE1, 0x02], 2, 1);
@@ -2675,6 +2695,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -2689,6 +2714,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Player,
@@ -2703,6 +2733,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
         ];
         let scene = build_ingame_scene(&trace, true, None);
@@ -2756,6 +2791,11 @@ mod tests {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
         }];
         trace.camera_x_pos = 0x0040_0000;
         trace.camera_y_pos = 0x0040_0000;
@@ -2886,6 +2926,11 @@ mod tests {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
         }];
         trace
     }
@@ -3005,6 +3050,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x1C },
@@ -3019,6 +3069,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
         ];
 
@@ -3059,6 +3114,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -3073,6 +3133,11 @@ mod tests {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             },
         ];
 

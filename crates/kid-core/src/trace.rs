@@ -215,8 +215,9 @@ impl NativeRuntime {
                 Some(PlayerState::title_pose())
             }
             BootState::DemoPlay { frame_counter, .. }
-                if demo_use_demo_2
-                    .is_some_and(|use_demo_2| frame_counter < demo::gameplay_start_frame(use_demo_2)) =>
+                if demo_use_demo_2.is_some_and(|use_demo_2| {
+                    frame_counter < demo::gameplay_start_frame(use_demo_2)
+                }) =>
             {
                 None
             }
@@ -244,8 +245,9 @@ impl NativeRuntime {
                 .map(|slice| slice.camera)
                 .unwrap_or_default();
         }
-        if let Some((frame_counter, use_demo_2)) =
-            self.demo_startup_frame().zip(self.demo_uses_second_recording())
+        if let Some((frame_counter, use_demo_2)) = self
+            .demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
             && frame_counter < demo::gameplay_start_frame(use_demo_2)
         {
             let camera_y_pos = if !use_demo_2 {
@@ -300,14 +302,20 @@ impl NativeRuntime {
                     damage_flash: false,
                     palette_variant: 0,
                     stationary: false,
+                    shared_walker_state: None,
+                    shared_walker_patrol_timer: None,
+                    shared_walker_patrol_short_next: None,
+                    walk_phase: None,
+                    wait_timer: None,
                 });
             }
             objects.extend(self.active_enemy_roster.iter().cloned());
             objects.extend(self.active_platform_roster.iter().cloned());
             return objects;
         }
-        if let Some((frame_counter, use_demo_2)) =
-            self.demo_startup_frame().zip(self.demo_uses_second_recording())
+        if let Some((frame_counter, use_demo_2)) = self
+            .demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
             && frame_counter < demo::gameplay_start_frame(use_demo_2)
         {
             return Vec::new();
@@ -335,6 +343,11 @@ impl NativeRuntime {
                 damage_flash: false,
                 palette_variant: 0,
                 stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
             });
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
@@ -354,8 +367,9 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_object_counts();
         }
-        if let Some((frame_counter, use_demo_2)) =
-            self.demo_startup_frame().zip(self.demo_uses_second_recording())
+        if let Some((frame_counter, use_demo_2)) = self
+            .demo_startup_frame()
+            .zip(self.demo_uses_second_recording())
             && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {

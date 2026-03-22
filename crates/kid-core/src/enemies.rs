@@ -647,6 +647,18 @@ impl ActiveEnemy {
     }
 
     pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
+        let shared_walker_state =
+            matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
+                .then_some(self.shared_walker_state);
+        let shared_walker_patrol_timer =
+            matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
+                .then_some(self.shared_walker_patrol_timer);
+        let shared_walker_patrol_short_next = matches!(self.family, EnemyFamily::DragonWalking)
+            .then_some(self.shared_walker_patrol_short_next);
+        let walk_phase =
+            matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
+        let wait_timer =
+            matches!(self.family, EnemyFamily::DragonWalking).then_some(self.wait_timer);
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -662,6 +674,11 @@ impl ActiveEnemy {
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
             stationary: self.dragon_phase.is_stationary(),
+            shared_walker_state,
+            shared_walker_patrol_timer,
+            shared_walker_patrol_short_next,
+            walk_phase,
+            wait_timer,
         }
     }
 }
@@ -801,6 +818,11 @@ impl EnemyFamily {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
         })
     }
 }

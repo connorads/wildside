@@ -499,6 +499,16 @@ pub struct NativeObjectSnapshot {
     /// True when the enemy is in a stationary phase (e.g. dragon perching).
     #[serde(default)]
     pub stationary: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shared_walker_state: Option<i16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shared_walker_patrol_timer: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shared_walker_patrol_short_next: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub walk_phase: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wait_timer: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
