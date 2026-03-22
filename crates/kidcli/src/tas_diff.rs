@@ -122,7 +122,10 @@ pub fn run_tas_diff(
                     }
                     if let Some(gameplay_debug) = native_gameplay_debug(native_trace.get(frame_idx))
                     {
-                        println!("  gameplay: {gameplay_debug}");
+                        println!("  native gameplay: {gameplay_debug}");
+                    }
+                    if let Some(gameplay_debug) = oracle_gameplay_debug(oracle_state) {
+                        println!("  oracle gameplay: {gameplay_debug}");
                     }
                 }
             }
@@ -221,7 +224,10 @@ pub fn run_tas_diff(
             println!("  oracle: {}", oracle_object_debug(oracle_state));
         }
         if let Some(gameplay_debug) = native_gameplay_debug(native_trace.get(frame_idx)) {
-            println!("  gameplay: {gameplay_debug}");
+            println!("  native gameplay: {gameplay_debug}");
+        }
+        if let Some(gameplay_debug) = oracle_gameplay_debug(oracle_state) {
+            println!("  oracle gameplay: {gameplay_debug}");
         }
     }
 
@@ -385,6 +391,14 @@ fn oracle_object_debug(oracle_state: Option<&OracleState>) -> String {
     summarize_entries(entries)
 }
 
+fn oracle_gameplay_debug(oracle_state: Option<&OracleState>) -> Option<String> {
+    let state = oracle_state?;
+    if state.gameplay_debug_fields.is_empty() {
+        return None;
+    }
+    Some(format!("{:?}", state.gameplay_debug_fields))
+}
+
 fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSnapshot) -> String {
     let layout = object
         .layout_index
@@ -498,7 +512,10 @@ fn summarize_entries(entries: Vec<String>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_native_enemy_debug, format_oracle_enemy_debug, should_print_object_roster};
+    use super::{
+        format_native_enemy_debug, format_oracle_enemy_debug, oracle_gameplay_debug,
+        should_print_object_roster,
+    };
     use kid_core::{
         GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
         physics::Direction,
@@ -556,6 +573,61 @@ mod tests {
         assert_eq!(
             debug,
             "0x0D@0x03670000,0x01c00000 vel=0x00000000,0x00000000 face=Right",
+        );
+    }
+
+    #[test]
+    fn oracle_gameplay_debug_reports_collision_fields() {
+        let mut gameplay_debug_fields = std::collections::BTreeMap::new();
+        gameplay_debug_fields.insert("kid_collision_source".into(), "0x000d".into());
+        gameplay_debug_fields.insert("kid_collision_type".into(), "0x0028(kidbelow)".into());
+        let state = crate::oracle::OracleState {
+            label: "frame_3400".into(),
+            frame_index: 3400,
+            game_mode: 0x0010,
+            boot_phase: Some("demo_play".into()),
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 5,
+            current_helmet_id: 6,
+            current_level_id: 0x15,
+            player_1_level_id: 0x15,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 0,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields,
+            cpu_registers: None,
+        };
+
+        let debug = oracle_gameplay_debug(Some(&state))
+            .unwrap_or_else(|| panic!("oracle gameplay debug should be printed when present"));
+        assert!(
+            debug.contains("kid_collision_type"),
+            "the gameplay summary should surface the oracle Kid collision classification",
+        );
+        assert!(
+            debug.contains("kid_collision_source"),
+            "the gameplay summary should surface the raw oracle collision source word",
         );
     }
 

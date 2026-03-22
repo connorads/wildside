@@ -38,8 +38,8 @@
       "The old lower-dragon probes at frames 3048, 3170, 3206, and 3384 are green on the current tree; the live mismatch is now Kid state on frame 3400 rather than shared-walker roster drift before it."
     ],
     "current_hypothesis": {
-      "name": "Kid misses a gfx-object collision snap into the second dragon setup",
-      "reason": "Frame 3399 still matches the oracle-backed pre-stomp arc with no input, but on frame 3400 native keeps integrating the airborne trajectory and reports no terrain/platform support while the DragonWalking roster itself remains oracle-backed. That points away from another shared-walker timing bug and toward missing player-vs-object collision handling on the stationary dragon setup, likely around the `GfxObjects_CollisionKid` / `colid_kidbelow` path rather than level terrain."
+      "name": "Native misses the enemy-side `kidabove` overlap on the right-side walking dragon",
+      "reason": "A new oracle collision-type trace disproved the earlier Kid-support theory: on frames 3399..3404 Kid's own gfx-object collision_type stays `0x0000(empty)`, while the right-side walking dragon at `x=0x03670000` already reports `0x002c(kidabove)` from frame 3399 onward. Native still reports no overlap/support candidate for that dragon. The next fix therefore belongs on the enemy/object-side consumer of the overlap, not on a player-side `colid_kidbelow` snap."
     },
     "rejected_hypotheses": [
       {
@@ -69,12 +69,16 @@
       {
         "name": "The surviving lower dragon still resumes patrol too early after the first stomp",
         "reason": "DragonWalking now arms a 24-frame hurt hibernate after a surviving stomp, and the checked-in regression keeps layout #02 parked on the oracle-backed tile through frame 2962 before patrol resumes on frame 2963."
+      },
+      {
+        "name": "Kid needs a `colid_kidbelow` support snap on frame 3400",
+        "reason": "Oracle gameplay debug now shows Kid's own gfx-object collision_type stays `0x0000(empty)` on frames 3398..3404, while the right-side walking dragon reports `0x002c(kidabove)` from frame 3399 onward. The original game is not grounding Kid via player-side `kidbelow` support there."
       }
     ],
     "required_next_evidence": [
-      "Trace the oracle-backed frame-3400 snap against `GfxObjects_CollisionKid` and the player-side `colid_kidbelow` consumers to see which object collision path should ground Kid with no terrain support.",
-      "Compare the new native `kid_object_support_candidates` frame debug field on frames 3399..3400 against oracle object state so the next pass can prove whether DragonWalking should behave like a temporary support surface on that setup frame.",
-      "Keep the next gameplay fix focused on Kid's frame-3400 object collision or landing resolution, not on re-opening the already-green lower-dragon shared-walker probes."
+      "Trace the oracle-backed `enemy_0D#00 collision_type=0x002c(kidabove)` write on frames 3399..3400 through the walking-dragon consumer path to find which object-side behaviour advances the second stomp setup while Kid's own collision_type stays empty.",
+      "Compare native overlap geometry against the oracle's right-side dragon contact window so the next pass can explain why native never produces the enemy-side `kidabove` state at all.",
+      "Keep the next gameplay fix focused on the dragon/object-side response to the frame-3399 overlap, not on re-opening the already-green lower-dragon shared-walker probes or on a player-side support snap."
     ],
     "verification_commands": [
       "cargo test -p kid-core demo_1_lands_on_the_walking_dragon_on_frame_2938 -- --nocapture",

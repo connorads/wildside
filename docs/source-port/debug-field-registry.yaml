@@ -50,6 +50,38 @@
       "promotion_trigger": "Promote if repeated parity work starts depending on a typed Kid/object support or collision-direction field."
     },
     {
+      "key": "kid_collision_type",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "kid-object-collision-frontier",
+      "intended_meaning": "Oracle Kid gfx-object collision_type word, formatted with the disassembly colid label when present.",
+      "promotion_trigger": "Promote if parity work starts depending on a typed oracle/native collision classification field."
+    },
+    {
+      "key": "kid_collision_source",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "kid-object-collision-frontier",
+      "intended_meaning": "Oracle Kid gfx-object collision metadata word captured alongside collision_type for frame-3400 tracing.",
+      "promotion_trigger": "Promote if repeated parity work depends on decoding or asserting the collision metadata word."
+    },
+    {
+      "key": "collision_type",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "kid-object-collision-frontier",
+      "intended_meaning": "Oracle gfx-object collision_type word for active enemies involved in the frame-3400 stomp setup window.",
+      "promotion_trigger": "Promote if repeated frontiers depend on typed per-object collision classifications."
+    },
+    {
+      "key": "collision_source",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "kid-object-collision-frontier",
+      "intended_meaning": "Oracle gfx-object collision metadata word captured next to collision_type on active enemy slots.",
+      "promotion_trigger": "Promote if repeated frontiers depend on decoding or asserting the per-object collision metadata."
+    },
+    {
       "key": "grounded_frames",
       "scope": "object",
       "status": "exploratory",

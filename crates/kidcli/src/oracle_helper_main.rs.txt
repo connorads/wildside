@@ -329,6 +329,8 @@ const OBJECT_X_POS_OFFSET: usize = 0x1A;
 const OBJECT_Y_POS_OFFSET: usize = 0x1E;
 const OBJECT_X_VEL_OFFSET: usize = 0x26;
 const OBJECT_Y_VEL_OFFSET: usize = 0x2A;
+const OBJECT_COLLISION_TYPE_OFFSET: usize = 0x38;
+const OBJECT_COLLISION_SOURCE_OFFSET: usize = 0x3A;
 const OBJECT_LAYOUT_PTR_OFFSET: usize = 0x44;
 
 struct NullSaveWriter;
@@ -863,6 +865,20 @@ fn capture_state(
     if game_paused {
         gameplay_debug_fields.insert("game_paused".into(), "true".into());
     }
+    let kid_collision_type =
+        read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_TYPE_OFFSET);
+    let kid_collision_source =
+        read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_SOURCE_OFFSET);
+    if matches!(game_mode, 0x0008 | 0x0010) {
+        gameplay_debug_fields.insert(
+            "kid_collision_type".into(),
+            format_collision_type(kid_collision_type),
+        );
+        gameplay_debug_fields.insert(
+            "kid_collision_source".into(),
+            format!("{kid_collision_source:#06x}"),
+        );
+    }
     OracleState {
         label: label.to_string(),
         frame_index,
@@ -951,6 +967,13 @@ fn capture_enemy_states(
             continue;
         }
         let object_type = read_rom_u8(rom, layout_ptr);
+        let collision_type = read_wram_u16(work_ram, base + OBJECT_COLLISION_TYPE_OFFSET);
+        let collision_source = read_wram_u16(work_ram, base + OBJECT_COLLISION_SOURCE_OFFSET);
+        let mut debug_fields = BTreeMap::new();
+        if collision_type != 0 || collision_source != 0 {
+            debug_fields.insert("collision_type".into(), format_collision_type(collision_type));
+            debug_fields.insert("collision_source".into(), format!("{collision_source:#06x}"));
+        }
         enemies.push(OracleEnemyState {
             object_type,
             x_pos: read_wram_u32(work_ram, base + OBJECT_X_POS_OFFSET),
@@ -967,11 +990,31 @@ fn capture_enemy_states(
             parent_object_ptr: Some(parent_object as u32),
             gfx_slot_index: Some(slot_index),
             on_ground: None,
-            debug_fields: BTreeMap::new(),
+            debug_fields,
         });
     }
     enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
     enemies
+}
+
+fn format_collision_type(collision_type: u16) -> String {
+    let label = match collision_type {
+        0x0000 => "empty",
+        0x0004 => "rightwall",
+        0x0008 => "leftwall",
+        0x000C => "floor",
+        0x0010 => "ceiling",
+        0x0014 => "slopeup",
+        0x0018 => "slopedown",
+        0x001C => "hurt",
+        0x0020 => "kidright",
+        0x0024 => "kidleft",
+        0x0028 => "kidbelow",
+        0x002C => "kidabove",
+        0xFFFF => "special",
+        _ => "unknown",
+    };
+    format!("{collision_type:#06x}({label})")
 }
 
 fn capture_enemy_layout_checkpoint(
