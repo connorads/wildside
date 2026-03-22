@@ -3062,7 +3062,17 @@ fn step_dragon_walking_walk(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
 ) -> DragonWalkingWalkStep {
-    let walk_speed = pacer_walk_speed(enemy.family, enemy.hit_points);
+    // ASM routes the positive shared-walker states through loc_3E4CE/loc_3E50A,
+    // which swap $50(a5) to the stationary $4C(a5) slot before returning to the
+    // grounded walker loop. DragonWalking leaves $4C(a5) at zero, so the alert
+    // branch holds position until Kid leaves the wider release window.
+    let walk_speed = if enemy.shared_walker_state > 0
+        && enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
+    {
+        0
+    } else {
+        pacer_walk_speed(enemy.family, enemy.hit_points)
+    };
     let walk_delta = horizontal_velocity(enemy.facing, walk_speed);
     let moving_right = walk_delta >= 0;
 

@@ -4549,6 +4549,33 @@ fn dragon_walking_calm_state_stops_and_faces_nearby_player() {
 }
 
 #[test]
+fn dragon_walking_alert_state_holds_position_while_player_stays_in_range() {
+    let grid = grid_with_platform(17, 0, 4);
+    let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
+    enemy.on_ground = true;
+    enemy.facing = Direction::Right;
+    enemy.shared_walker_state = SHARED_WALKER_STATE_FACE_RIGHT;
+    enemy.shared_walker_patrol_timer = 5;
+    let mut projectiles = Vec::new();
+
+    step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(72 << 16));
+
+    assert_eq!(
+        enemy.x_pos,
+        40 << 16,
+        "the shared alert state should keep DragonWalking stationary while Kid remains inside the release window",
+    );
+    assert_eq!(
+        enemy.x_velocity, 0,
+        "the ASM alert branch swaps to the stationary speed slot instead of taking another patrol step",
+    );
+    assert_eq!(
+        enemy.shared_walker_state, SHARED_WALKER_STATE_FACE_RIGHT,
+        "holding Kid in range should keep the alert-facing state live",
+    );
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
