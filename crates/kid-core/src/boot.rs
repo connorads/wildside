@@ -591,6 +591,17 @@ impl NativeRuntime {
                 }
             }
             BootState::TitleScreen { cursor } => {
+                if self.demo_auto_timeout_handoff_active
+                    && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
+                {
+                    self.demo_auto_timeout_handoff_active = false;
+                    self.boot_state = BootState::IntroSequence {
+                        segment: 0,
+                        elapsed: 0,
+                        pending_title_skip: 0,
+                    };
+                    return;
+                }
                 let up_pressed = input.up && !self.prior_input.up;
                 let down_pressed = input.down && !self.prior_input.down;
 

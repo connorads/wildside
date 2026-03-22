@@ -12546,8 +12546,40 @@ fn published_tas_demo_2_keeps_kid_hidden_during_timeout_restart() {
     );
     assert_eq!(
         frame_5184,
-        Some((GameMode::SegaScreen, None, None, 4)),
-        "the timeout restart should keep Kid hidden while the mode-0 handoff is still active",
+        Some((GameMode::IntroSequence1, None, None, 0)),
+        "Kid should stay hidden even after the timeout restart leaves the mode-0 handoff",
+    );
+}
+
+#[test]
+fn published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_5142 = None;
+    let mut frame_5143 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(5_144) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            5_142 => {
+                frame_5142 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            5_143 => {
+                frame_5143 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_5142,
+        Some((GameMode::SegaScreen, None, None)),
+        "the timeout restart should still trace as the mode-0 Sega handoff on frame 5142",
+    );
+    assert_eq!(
+        frame_5143,
+        Some((GameMode::IntroSequence1, None, None)),
+        "the next frame should leave the latched mode-0 handoff and enter intro sequence 1",
     );
 }
 
