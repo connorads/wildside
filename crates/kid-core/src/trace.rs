@@ -2,6 +2,7 @@ use super::*;
 use crate::combat::enemy_contact_bounds;
 use std::collections::BTreeMap;
 
+const FLOATING_DIAMOND_CANDIDATE_LIMIT: usize = 4;
 const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
@@ -37,6 +38,12 @@ struct ObjectBoundsPx {
 struct KidObjectSupportCandidate {
     abs_top_gap_px: i32,
     abs_dx_px: i32,
+    summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FloatingDiamondContactCandidate {
+    distance_score: i32,
     summary: String,
 }
 
@@ -92,6 +99,17 @@ impl NativeRuntime {
         }
         if self.gameplay_hibernating_for_transform() {
             gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
+        }
+        let floating_diamond_debug =
+            player_state.and_then(|state| self.floating_diamond_contact_candidates(state));
+        if !self.pending_prize_diamond_awards.is_empty() || floating_diamond_debug.is_some() {
+            gameplay_debug_fields.insert(
+                "pending_prize_diamond_awards".into(),
+                self.pending_prize_diamond_awards_debug(),
+            );
+        }
+        if let Some(summary) = floating_diamond_debug {
+            gameplay_debug_fields.insert("floating_diamond_contact_candidates".into(), summary);
         }
         if let Some(player_state) = player_state
             && let Some(summary) = self.kid_object_support_candidates(player_state)
@@ -274,6 +292,82 @@ impl NativeRuntime {
         let summaries = candidates
             .into_iter()
             .take(KID_OBJECT_SUPPORT_CANDIDATE_LIMIT)
+            .map(|candidate| candidate.summary)
+            .collect::<Vec<_>>();
+        Some(summaries.join("; "))
+    }
+
+    fn pending_prize_diamond_awards_debug(&self) -> String {
+        let delays = self
+            .pending_prize_diamond_awards
+            .iter()
+            .map(u8::to_string)
+            .collect::<Vec<_>>();
+        format!("[{}]", delays.join(","))
+    }
+
+    fn floating_diamond_contact_candidates(&self, player: PlayerState) -> Option<String> {
+        use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
+
+        const PLAYER_PRIZE_PICKUP_HEIGHT: i32 = (PLAYER_HEIGHT + 1) / 2;
+
+        let player_x_px = (player.x_pos >> 16) as i32;
+        let player_y_px = (player.y_pos >> 16) as i32;
+        let player_left = player_x_px - PLAYER_HALF_WIDTH;
+        let player_right = player_x_px + PLAYER_HALF_WIDTH;
+        let player_top = player_y_px - PLAYER_PRIZE_PICKUP_HEIGHT;
+        let player_bottom = player_y_px;
+        let mut candidates = Vec::new();
+
+        for item in &self.floating_items {
+            if item.content != terrain::PrizeContent::Diamond {
+                continue;
+            }
+            let item_x_px = (item.x_pos >> 16) as i32;
+            let item_y_px = (item.y_pos >> 16) as i32;
+            let item_left = item_x_px - 8;
+            let item_right = item_x_px + 8;
+            let item_top = item_y_px;
+            let item_bottom = item_y_px + 15;
+            let overlap_x = player_left < item_right && player_right > item_left;
+            let overlap_y = player_top < item_bottom && player_bottom > item_top;
+            let horizontal_gap_px = if overlap_x {
+                0
+            } else if player_right <= item_left {
+                item_left - player_right
+            } else {
+                player_left - item_right
+            };
+            let vertical_gap_px = if overlap_y {
+                0
+            } else if player_bottom <= item_top {
+                item_top - player_bottom
+            } else {
+                player_top - item_bottom
+            };
+            let dx_px = item_x_px - player_x_px;
+            let dy_px = item_y_px - player_y_px;
+            candidates.push(FloatingDiamondContactCandidate {
+                distance_score: dx_px.abs() + dy_px.abs(),
+                summary: format!(
+                    "diamond@{item_x_px},{item_y_px} dx={dx_px} dy={dy_px} gap_x={horizontal_gap_px} gap_y={vertical_gap_px} overlap_x={} overlap_y={} spawn={} rem={} collected={}",
+                    u8::from(overlap_x),
+                    u8::from(overlap_y),
+                    item.spawn_delay,
+                    item.remaining,
+                    u8::from(item.collected),
+                ),
+            });
+        }
+
+        if candidates.is_empty() {
+            return None;
+        }
+
+        candidates.sort_unstable_by_key(|candidate| candidate.distance_score);
+        let summaries = candidates
+            .into_iter()
+            .take(FLOATING_DIAMOND_CANDIDATE_LIMIT)
             .map(|candidate| candidate.summary)
             .collect::<Vec<_>>();
         Some(summaries.join("; "))

@@ -28,14 +28,19 @@
       "At frame 1830 oracle still reports advisory `kid_x_vel=0x00000000` and a much larger object roster (`number_objects=12`) while the first authoritative break is the second diamond award."
     ],
     "current_hypothesis": {
-      "name": "Published demo level 0x1B awards the second floating diamond a few frames too late",
-      "reason": "`verify-tas --frame-start 1826 --frame-end 1834 --checkpoint-interval 1` and `tas-diff --frame-start 1828 --frame-end 1832 --include-advisory --show-object-roster-on-match` show Kid position stays aligned through frame 1830, but oracle increments `number_diamonds` to 2 while native stays at 1. Native still carries several floating items in the roster at the break, so the next pass should trace floating-item collection / pending diamond-award timing rather than player motion."
+      "name": "Native never arms the second prize-diamond award before frame 1830",
+      "reason": "New frame debug fields show `pending_prize_diamond_awards=[]` on native frames 1828..1831 while the closest native floating diamonds are still far below Kid (`gap_y` 242px+ on frame 1828). That rules out the earlier frame-1406-style queue countdown landing late; the missing write now looks like an earlier collection / object-lineage gap before the frame-1830 breakpoint."
     },
-    "rejected_hypotheses": [],
+    "rejected_hypotheses": [
+      {
+        "name": "The second diamond was already queued natively but the countdown landed too late",
+        "reason": "Instrumented `tas-diff --frame-start 1828 --frame-end 1832 --include-advisory --show-object-roster-on-match` now prints `pending_prize_diamond_awards=[]` on every native frame in the clean pre-divergence window, so there is no queued native award to expire at frame 1830."
+      }
+    ],
     "required_next_evidence": [
-      "Trace floating-item collection and `pending_prize_diamond_awards` around frames 1828..1832 in `any-percent-published` to find why oracle awards the second diamond earlier than native.",
-      "Compare the published demo's late floating-item window against the earlier diamond-award fixes in `kc_any_percent_2024` to see whether the same queue / collection rule is being missed here.",
-      "Keep the next fix focused on floating-item collection or queued diamond awards, not on advisory object counts or Kid X velocity."
+      "Trace the earlier native collection site that should have armed the missing second prize-diamond award before frame 1830; the queue is empty throughout the 1828..1831 breakpoint window.",
+      "Probe oracle state around the missing second diamond's source object so the earlier collection frame and object lineage are known before another gameplay patch.",
+      "Keep the next fix focused on the missing earlier collection / object-lifecycle write, not on advisory object counts or Kid X velocity."
     ],
     "verification_commands": [
       "cargo test -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",

@@ -42,6 +42,22 @@
       "promotion_trigger": "Promote if pause-state parity needs to be asserted routinely."
     },
     {
+      "key": "pending_prize_diamond_awards",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "published-demo-diamond-frontier",
+      "intended_meaning": "Current native queue of delayed prize-diamond award countdowns, emitted when floating-diamond frontier tracing is active.",
+      "promotion_trigger": "Promote if parity work or checked-in regressions repeatedly depend on the queued prize-award countdown state."
+    },
+    {
+      "key": "floating_diamond_contact_candidates",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "published-demo-diamond-frontier",
+      "intended_meaning": "Nearest floating diamond pickup candidates with overlap and gap diagnostics for the frame-1830 published-demo frontier.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed floating-item pickup/contact state."
+    },
+    {
       "key": "kid_object_support_candidates",
       "scope": "frame",
       "status": "exploratory",

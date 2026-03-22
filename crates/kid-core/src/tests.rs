@@ -4691,6 +4691,49 @@ fn trace_frame_reports_kid_object_support_candidates() {
 }
 
 #[test]
+fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = 96 << 16;
+    slice.player.y_pos = 208 << 16;
+    runtime.opening_slice = Some(slice);
+    runtime.pending_prize_diamond_awards = vec![31, 4];
+    runtime.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: i64::from(201 << 16),
+        y_velocity: 0,
+        remaining: 144,
+        spawn_delay: 0,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    let trace = runtime.trace_frame();
+    assert_eq!(
+        trace
+            .gameplay_debug_fields
+            .get("pending_prize_diamond_awards"),
+        Some(&"[31,4]".to_string()),
+        "the trace should expose the live queued diamond-award delays",
+    );
+
+    let candidate_debug = trace
+        .gameplay_debug_fields
+        .get("floating_diamond_contact_candidates")
+        .unwrap_or_else(|| panic!("trace frame should emit floating diamond contact diagnostics"));
+    assert!(
+        candidate_debug.contains("diamond@100,201"),
+        "the floating-diamond trace should report the diamond position in pixels",
+    );
+    assert!(
+        candidate_debug.contains("overlap_x=1"),
+        "the floating-diamond trace should report overlap information from the pickup box",
+    );
+}
+
+#[test]
 fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
@@ -12829,6 +12872,36 @@ fn demo_1_frame_3400_reports_kid_object_support_candidates() {
     assert!(
         support_debug.contains("support="),
         "the frame-3400 diagnostics should report support classification details for the nearby candidates",
+    );
+}
+
+#[test]
+fn published_tas_frame_1830_reports_prize_diamond_frontier_debug_fields() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_1830 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_831) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_830 {
+            frame_1830 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1830 = frame_1830.unwrap_or_else(|| panic!("frame 1830 should be captured"));
+    assert!(
+        frame_1830
+            .gameplay_debug_fields
+            .contains_key("pending_prize_diamond_awards"),
+        "frame 1830 should expose the queued diamond-award state for the live frontier",
+    );
+    let candidate_debug = frame_1830
+        .gameplay_debug_fields
+        .get("floating_diamond_contact_candidates")
+        .unwrap_or_else(|| panic!("frame 1830 should expose floating-diamond pickup diagnostics"));
+    assert!(
+        candidate_debug.contains("diamond@"),
+        "the published frame-1830 diagnostics should enumerate nearby floating diamonds",
     );
 }
 
