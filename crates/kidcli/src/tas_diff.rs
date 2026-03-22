@@ -136,55 +136,52 @@ pub fn run_tas_diff(
         }
 
         // Show physics trace if available and requested
-        if include_physics_trace {
-            if let Some(native_frame) = native_trace.get(frame_idx) {
-                if let Some(ref pt) = native_frame.physics_trace {
-                    println!("  --- physics trace ---");
-                    println!(
-                        "  pre_h:  x={:#010x} xv={:#010x}",
-                        pt.pre_horizontal.0, pt.pre_horizontal.1 as u32
-                    );
-                    println!(
-                        "  post_h: x={:#010x} xv={:#010x}  step={}",
-                        pt.post_horizontal.0,
-                        pt.post_horizontal.1 as u32,
-                        pt.horizontal_step_applied
-                    );
-                    println!(
-                        "  pre_v:  y={:#010x} yv={:#010x}",
-                        pt.pre_vertical.0, pt.pre_vertical.1 as u32
-                    );
-                    println!(
-                        "  post_v: y={:#010x} yv={:#010x}  grav={}  half_grav={}",
-                        pt.post_vertical.0,
-                        pt.post_vertical.1 as u32,
-                        pt.gravity_applied,
-                        pt.ascending_and_b_held
-                    );
-                    if pt.jump_initiated {
-                        println!("  jump:   yv={:#010x}", pt.jump_y_vel.unwrap_or(0) as u32);
-                    }
-                    if pt.floor_hit {
-                        println!(
-                            "  floor:  y_px={} landing={:?}",
-                            pt.floor_y_px.unwrap_or(-1),
-                            pt.landing_path
-                        );
-                    }
-                    if pt.wall_hit {
-                        println!("  wall:   snap_x={:#010x}", pt.wall_snap_x.unwrap_or(0));
-                    }
-                    println!(
-                        "  final:  ({:#010x},{:#010x}) vel=({:#010x},{:#010x}) ground={}→{}",
-                        pt.final_pos.0,
-                        pt.final_pos.1,
-                        pt.final_vel.0 as u32,
-                        pt.final_vel.1 as u32,
-                        pt.on_ground_before,
-                        pt.on_ground_after
-                    );
-                }
+        if include_physics_trace
+            && let Some(native_frame) = native_trace.get(frame_idx)
+            && let Some(ref pt) = native_frame.physics_trace
+        {
+            println!("  --- physics trace ---");
+            println!(
+                "  pre_h:  x={:#010x} xv={:#010x}",
+                pt.pre_horizontal.0, pt.pre_horizontal.1 as u32
+            );
+            println!(
+                "  post_h: x={:#010x} xv={:#010x}  step={}",
+                pt.post_horizontal.0, pt.post_horizontal.1 as u32, pt.horizontal_step_applied
+            );
+            println!(
+                "  pre_v:  y={:#010x} yv={:#010x}",
+                pt.pre_vertical.0, pt.pre_vertical.1 as u32
+            );
+            println!(
+                "  post_v: y={:#010x} yv={:#010x}  grav={}  half_grav={}",
+                pt.post_vertical.0,
+                pt.post_vertical.1 as u32,
+                pt.gravity_applied,
+                pt.ascending_and_b_held
+            );
+            if pt.jump_initiated {
+                println!("  jump:   yv={:#010x}", pt.jump_y_vel.unwrap_or(0) as u32);
             }
+            if pt.floor_hit {
+                println!(
+                    "  floor:  y_px={} landing={:?}",
+                    pt.floor_y_px.unwrap_or(-1),
+                    pt.landing_path
+                );
+            }
+            if pt.wall_hit {
+                println!("  wall:   snap_x={:#010x}", pt.wall_snap_x.unwrap_or(0));
+            }
+            println!(
+                "  final:  ({:#010x},{:#010x}) vel=({:#010x},{:#010x}) ground={}→{}",
+                pt.final_pos.0,
+                pt.final_pos.1,
+                pt.final_vel.0 as u32,
+                pt.final_vel.1 as u32,
+                pt.on_ground_before,
+                pt.on_ground_after
+            );
         }
 
         let oracle_state = checkpoint_state(&oracle.states, &label);

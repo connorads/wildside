@@ -456,7 +456,7 @@ fn apply_layered_background_palette_fallback(
     let fallback_palette_line = match (theme_name, plane_id) {
         // PlaneEd palette destination offsets are byte offsets into CRAM:
         // 16 => upper half of line 0, 48 => upper half of line 1.
-        ("desert", 0 | 1 | 2) => Some(2),
+        ("desert", 0..=2) => Some(2),
         ("forest", 0 | 1) => Some(1),
         ("forest", 2) => Some(2),
         ("hill", 0 | 1) => Some(2),
@@ -2457,18 +2457,7 @@ fn load_player_form_visuals_if_present(
     if find_ingame_asset(manifest, spec.palette_path).is_none() {
         return Ok(None);
     }
-    load_player_form_visuals(
-        manifest,
-        spec.palette_path,
-        spec.palette_family,
-        spec.idle,
-        spec.walk,
-        spec.jump_rise,
-        spec.jump_fall,
-        spec.transform_palette,
-        spec.transform_steps,
-    )
-    .map(Some)
+    load_player_form_visuals(manifest, spec).map(Some)
 }
 
 fn load_juggernaut_form_visuals_if_present(
@@ -2548,39 +2537,40 @@ fn load_juggernaut_form_visuals_if_present(
 
 fn load_player_form_visuals(
     manifest: &AssetManifest,
-    palette_path: &str,
-    palette_family: &str,
-    idle: PlayerFrameDescriptor,
-    walk: &[PlayerFrameDescriptor],
-    jump_rise: PlayerFrameDescriptor,
-    jump_fall: PlayerFrameDescriptor,
-    transform_palette: Option<(&str, &str)>,
-    transform_steps: &[PlayerTransformStepDescriptor],
+    spec: &PlayerFormSpec,
 ) -> Result<PlayerFormVisuals> {
     let palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "ingame",
-        find_ingame_asset(manifest, palette_path)
-            .ok_or_else(|| anyhow!("missing {palette_family} asset ingame/{palette_path}"))?,
-        palette_family,
+        find_ingame_asset(manifest, spec.palette_path).ok_or_else(|| {
+            anyhow!(
+                "missing {} asset ingame/{}",
+                spec.palette_family,
+                spec.palette_path
+            )
+        })?,
+        spec.palette_family,
     )?)?;
 
-    let transform_palette = transform_palette
+    let transform_palette = spec
+        .transform_palette
         .map(|(relative_path, family)| load_ingame_palette_asset(manifest, relative_path, family))
         .transpose()?;
 
     Ok(PlayerFormVisuals {
         palette,
-        idle: load_player_frame(manifest, idle)?,
-        walk: walk
+        idle: load_player_frame(manifest, spec.idle)?,
+        walk: spec
+            .walk
             .iter()
             .copied()
             .map(|descriptor| load_player_frame(manifest, descriptor))
             .collect::<Result<Vec<_>>>()?,
-        jump_rise: load_player_frame(manifest, jump_rise)?,
-        jump_fall: load_player_frame(manifest, jump_fall)?,
+        jump_rise: load_player_frame(manifest, spec.jump_rise)?,
+        jump_fall: load_player_frame(manifest, spec.jump_fall)?,
         transform_palette,
-        transform_steps: transform_steps
+        transform_steps: spec
+            .transform_steps
             .iter()
             .copied()
             .map(|step| {

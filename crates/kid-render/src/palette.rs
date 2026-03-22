@@ -42,8 +42,13 @@ impl Palette {
             // The permutation tables are still expressed in full MD slot space,
             // so visible slot N must read from table[N] and source slot M maps
             // to stored index M-1.
-            for visible_slot in 1..=self.colours.len() {
-                let source_slot = usize::from(table[visible_slot]);
+            for (visible_slot, &mapped_slot) in table
+                .iter()
+                .enumerate()
+                .take(self.colours.len() + 1)
+                .skip(1)
+            {
+                let source_slot = usize::from(mapped_slot);
                 if source_slot == 0 {
                     continue;
                 }

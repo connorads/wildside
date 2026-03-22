@@ -539,9 +539,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             .map_err(|error| anyhow!("failed to copy SDL texture: {error}"))?;
         canvas.present();
 
-        if level_card_frames_remaining > 0 {
-            level_card_frames_remaining -= 1;
-        }
+        level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
 
         let elapsed = frame_started.elapsed();
         if elapsed < FRAME_TIME {

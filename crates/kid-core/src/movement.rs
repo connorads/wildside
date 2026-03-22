@@ -362,37 +362,35 @@ impl OpeningSliceState {
                 // (y_pos + 1) / 16 across player width BEFORE any velocity/position
                 // updates. If no Solid/Spikes cell found → loc_B5F6: y_pos += 1px,
                 // transition to Jump, skip sub_9A0A/sub_8F26 entirely.
-                if on_ground_before {
-                    if let Some(grid) = block_grid.as_deref() {
-                        let x_int = (self.player.x_pos >> 16) as i16 as i32;
-                        let y_int = (self.player.y_pos >> 16) as i16 as i32;
-                        let probe_row = ((y_int + 1) >> 4).max(0) as u16;
-                        let left_col = ((x_int - collision_hw) >> 4).max(0) as u16;
-                        let right_col = ((x_int + collision_hw) >> 4)
-                            .max(0)
-                            .min(grid.width_cells as i32 - 1)
-                            as u16;
-                        let mut has_floor = false;
-                        for col in left_col..=right_col {
-                            let cell = grid.cell_at(col, probe_row);
-                            if matches!(
-                                cell.collision,
-                                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
-                            ) {
-                                has_floor = true;
-                                break;
-                            }
+                if on_ground_before && let Some(grid) = block_grid.as_deref() {
+                    let x_int = (self.player.x_pos >> 16) as i16 as i32;
+                    let y_int = (self.player.y_pos >> 16) as i16 as i32;
+                    let probe_row = ((y_int + 1) >> 4).max(0) as u16;
+                    let left_col = ((x_int - collision_hw) >> 4).max(0) as u16;
+                    let right_col = ((x_int + collision_hw) >> 4)
+                        .max(0)
+                        .min(grid.width_cells as i32 - 1)
+                        as u16;
+                    let mut has_floor = false;
+                    for col in left_col..=right_col {
+                        let cell = grid.cell_at(col, probe_row);
+                        if matches!(
+                            cell.collision,
+                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                        ) {
+                            has_floor = true;
+                            break;
                         }
-                        if !has_floor {
-                            // loc_B5F6: addq.w #1,y_pos(a3)
-                            self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
-                            self.player.on_ground = false;
-                            self.player.on_spikes = false;
-                            self.terrain.floor_terrain_type = TerrainType::Normal;
-                            self.finalise_trace();
-                            self.update_camera_follow(y_look_offset);
-                            return;
-                        }
+                    }
+                    if !has_floor {
+                        // loc_B5F6: addq.w #1,y_pos(a3)
+                        self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
+                        self.player.on_ground = false;
+                        self.player.on_spikes = false;
+                        self.terrain.floor_terrain_type = TerrainType::Normal;
+                        self.finalise_trace();
+                        self.update_camera_follow(y_look_offset);
+                        return;
                     }
                 }
 
@@ -511,7 +509,7 @@ impl OpeningSliceState {
                 self.apply_x_velocity_to_position();
 
                 let pre_collision_x = self.player.x_pos;
-                if let Some(grid) = block_grid.as_deref_mut() {
+                if let Some(grid) = block_grid {
                     self.apply_wall_collision(Some(grid), collision_hw);
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace

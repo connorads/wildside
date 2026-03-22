@@ -67,10 +67,7 @@ pub(crate) fn run_ram_diff(path_a: &Path, path_b: &Path, annotate: bool) -> Resu
     };
 
     let mut diff_count = 0usize;
-    println!(
-        "{:<10} {:<12} {:<12} {}",
-        "offset", "old", "new", "annotation"
-    );
+    println!("{:<10} {:<12} {:<12} annotation", "offset", "old", "new");
     println!("{}", "-".repeat(60));
 
     for (offset, (a, b)) in data_a.iter().zip(data_b.iter()).enumerate() {

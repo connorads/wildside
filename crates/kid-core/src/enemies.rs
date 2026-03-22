@@ -3318,18 +3318,17 @@ pub(crate) fn step_dragon_walking(
         DRAGON_WALKING_PHASE_BREATH => {
             if enemy.dragon_phase_frames > 0 {
                 enemy.dragon_phase_frames -= 1;
-                return;
+            } else {
+                enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
+                enemy.dragon_phase_frames = DRAGON_WALKING_RECOVER_FRAMES;
             }
-            enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
-            enemy.dragon_phase_frames = DRAGON_WALKING_RECOVER_FRAMES;
-            return;
         }
         DRAGON_WALKING_PHASE_RECOVER => {
             if enemy.dragon_phase_frames > 0 {
                 enemy.dragon_phase_frames -= 1;
-                return;
+            } else {
+                enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
             }
-            enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
         }
         _ => {}
     }

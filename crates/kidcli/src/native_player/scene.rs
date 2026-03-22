@@ -846,7 +846,7 @@ pub(super) fn layered_background_shimmer_offset(
     row_selector: u8,
     effect_start_row_selector: Option<u8>,
 ) -> i32 {
-    if !effect_start_row_selector.is_some_and(|start| row_selector >= start) {
+    if effect_start_row_selector.is_none_or(|start| row_selector < start) {
         return 0;
     }
     let time_phase = (frame_index / 4) & 0x3F;
@@ -1702,16 +1702,12 @@ fn push_effect_enemy_sprite(
     screen_x: i32,
     screen_y: i32,
     facing: Direction,
-    stationary: bool,
+    _stationary: bool,
 ) {
     let Some(enemy_visuals) = level_visuals.enemies.families.get(&object_type) else {
         return;
     };
-    let frame = if stationary {
-        &enemy_visuals.frames[0]
-    } else {
-        &enemy_visuals.frames[0]
-    };
+    let frame = &enemy_visuals.frames[0];
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
     commands.push(DrawCommand::Sprite {
         x: draw_x,

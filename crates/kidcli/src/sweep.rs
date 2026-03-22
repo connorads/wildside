@@ -884,36 +884,35 @@ pub(crate) fn compare_sweep_states(
             });
         }
         // Extended fields — velocity comparison (authoritative when both available)
-        if let (Some(n_xv), Some(o_xv)) = (native.kid_x_vel, oracle.kid_x_vel) {
-            if n_xv != o_xv {
-                diffs.push(StateDiff {
-                    checkpoint: cp.clone(),
-                    field: "kid_x_vel".into(),
-                    native_value: format!("{n_xv:#010x}"),
-                    oracle_value: format!("{o_xv:#010x}"),
-                });
-            }
+        if let (Some(n_xv), Some(o_xv)) = (native.kid_x_vel, oracle.kid_x_vel)
+            && n_xv != o_xv
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "kid_x_vel".into(),
+                native_value: format!("{n_xv:#010x}"),
+                oracle_value: format!("{o_xv:#010x}"),
+            });
         }
-        if let (Some(n_yv), Some(o_yv)) = (native.kid_y_vel, oracle.kid_y_vel) {
-            if n_yv != o_yv {
-                diffs.push(StateDiff {
-                    checkpoint: cp.clone(),
-                    field: "kid_y_vel".into(),
-                    native_value: format!("{n_yv:#010x}"),
-                    oracle_value: format!("{o_yv:#010x}"),
-                });
-            }
+        if let (Some(n_yv), Some(o_yv)) = (native.kid_y_vel, oracle.kid_y_vel)
+            && n_yv != o_yv
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "kid_y_vel".into(),
+                native_value: format!("{n_yv:#010x}"),
+                oracle_value: format!("{o_yv:#010x}"),
+            });
         }
         if let (Some(n_inv), Some(o_inv)) = (native.invulnerable_frames, oracle.invulnerable_frames)
+            && n_inv != o_inv
         {
-            if n_inv != o_inv {
-                diffs.push(StateDiff {
-                    checkpoint: cp.clone(),
-                    field: "invulnerable_frames".into(),
-                    native_value: format!("{n_inv}"),
-                    oracle_value: format!("{o_inv}"),
-                });
-            }
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "invulnerable_frames".into(),
+                native_value: format!("{n_inv}"),
+                oracle_value: format!("{o_inv}"),
+            });
         }
     }
 

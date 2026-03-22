@@ -228,9 +228,7 @@ pub(crate) fn run_recorded_trace(
             replay.push(recorded_frame);
         }
 
-        if level_card_frames_remaining > 0 {
-            level_card_frames_remaining -= 1;
-        }
+        level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
     }
 
     Ok(replay)
