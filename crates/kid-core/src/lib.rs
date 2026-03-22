@@ -122,6 +122,9 @@ pub struct NativeRuntime {
     /// the live Start press arms the return, then title only becomes visible
     /// two frames later when that object wakes and flips Game_Mode.
     pending_demo_title_return: u8,
+    /// Once the wake-up lands, preserve the current frame's updated gameplay
+    /// slice under title mode instead of freezing the previous frame.
+    demo_title_return_after_frame: bool,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
@@ -209,6 +212,7 @@ impl NativeRuntime {
             title_menu_active: false,
             demo_buffered_input: None,
             pending_demo_title_return: 0,
+            demo_title_return_after_frame: false,
             preserve_demo_title_snapshot: false,
             hide_demo_return_title_player: false,
             demo_toggle: false,
@@ -257,6 +261,7 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        let raw_input = input;
         let Some(input) = self.step_demo_input(input) else {
             return self.trace_frame();
         };
@@ -344,6 +349,10 @@ impl NativeRuntime {
         }
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
+        }
+        if self.demo_title_return_after_frame {
+            self.demo_title_return_after_frame = false;
+            self.finish_demo_title_return(raw_input);
         }
 
         let trace = self.trace_frame();

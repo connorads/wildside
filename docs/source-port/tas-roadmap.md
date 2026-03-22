@@ -11,8 +11,8 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | first 3413 frames CRC-clean; current live mismatch window starts at frame 3414 during the later demo `0x15` pause snapshot |
-| `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
+| `kc_any_percent_2024` | 4916 | ~82s | 0 diffs (verified) |
+| `any-percent-published` | 37759 | ~10.5min | first live mismatch now at frame 287 during the title return |
 
 ## Milestones
 
@@ -21,9 +21,9 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | M1 | First 1000 frames | 0-1000 | boot -> title -> demo play (0x1B) | [x] |
 | M2 | Through title to level entry | 0-2000 | demo end -> title -> Start -> Level 1 | [x] |
 | M3 | First level traversal | 0-3000 | Level 1 gameplay: enemies, platforms, blocks | [x] |
-| M4 | First level transition | 0-4000 | Level 1 complete -> transition -> Level 2 | [~] |
-| M5 | Full kc_any_percent_2024 | 0-4916 | multiple levels, warps, pause | [ ] |
-| M6 | any-percent-published first level | 0-3000 | different TAS, different route | [ ] |
+| M4 | First level transition | 0-4000 | Level 1 complete -> transition -> Level 2 | [x] |
+| M5 | Full kc_any_percent_2024 | 0-4916 | multiple levels, warps, pause | [x] |
+| M6 | any-percent-published first level | 0-3000 | different TAS, different route | [~] |
 | M7 | any-percent-published half run | 0-19000 | ~10 levels, bosses, forms | [ ] |
 | M8 | Full any-percent-published | 0-37759 | boot to credits | [ ] |
 
@@ -31,6 +31,8 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-22 | any-percent-published | 287 | The next unchecked recording now breaks on the title-return handoff: native restores the standard title pose on frames 287..288 while oracle still keeps Kid blanked even though title mode is already active | Re-ran `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 0 --frame-end 3000 --bisect`, then narrowed it with `--frame-start 280 --frame-end 292 --checkpoint-interval 1` plus `tas-diff --frame-start 284 --frame-end 290 --include-advisory --show-object-roster-on-match`. The next fix should target title-ready / player-hide gating, not gameplay. |
+| 2026-03-22 | kc_any_percent_2024 | 4916 | The frame-3414 pause snapshot was the last live blocker in the late demo `0x15` title return | Deferred the demo title-return handoff until after the frame's final gameplay step so the preserved title snapshot uses the updated paused Kid/camera state. Promoted `demo_1_matches_the_oracle_pause_snapshot_on_frame_3414` into the normal suite, re-ran the older `demo_title_return*` regressions and the nearby frame-3399/frame-3400 probes, then verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3412 --frame-end 3416 --checkpoint-interval 1` is CRC-clean and `--frame-start 3400 --frame-end 4916 --bisect` now passes all 4916 frames by CRC. |
 | 2026-03-22 | kc_any_percent_2024 | 3414 | The second-dragon stomp setup is now authoritative-clean, but the next bisect lands two frames after the demo `Start` press: oracle has already frozen the pause snapshot by frame 3414 while native keeps the camera and Kid Y one pixel off | Replaced the fixed-point DragonWalking contact prefilter with `GfxObjects_CollisionKid`'s integer-inclusive overlap gate, threaded the active form half-width through runtime enemy-contact queries, added `walking_dragon_right_facing_edge_contact_matches_live_tas_stomp_window`, promoted `demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400` into a passing regression, and re-ran `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` plus `--frame-start 3400 --frame-end 4916 --bisect`. The old frame-3400 blocker is gone; the new ignored probe is `demo_1_matches_the_oracle_pause_snapshot_on_frame_3414`. |
 | 2026-03-22 | kc_any_percent_2024 | 3400 | The previous frame-3400 theory was aimed at Kid's `colid_kidbelow` landing path, but the oracle still hid whether the original game ever gave Kid a support collision there | Added oracle gfx-object collision tracing to `tas-diff`: Kid gameplay debug now exposes `kid_collision_type`/`kid_collision_source`, active oracle enemies expose per-slot `collision_type`/`collision_source`, and the 3398..3405 re-check shows Kid stays `0x0000(empty)` while the right-side walking dragon at `x=0x03670000` already reports `0x002c(kidabove)` from frame 3399 onward. That narrows the next fix to the enemy/object-side overlap consumer rather than a player-side support snap. |
 | 2026-03-22 | kc_any_percent_2024 | 3400 | The live blocker had shifted to Kid/object collision on the second dragon setup, but the native trace still only exposed positions and could not show whether any nearby gfx object would count as temporary `kidbelow` support on frames 3399..3400 | Added native frame debug field `kid_object_support_candidates`, printed `gameplay_debug_fields` in `kidcli tas-diff`, covered the trace with `trace_frame_reports_kid_object_support_candidates` plus `demo_1_frame_3400_reports_kid_object_support_candidates`, registered the new field in `debug-field-registry.yaml`, and updated `frontier-state.yaml` so the next pass can compare the native support candidates directly against oracle object state before attempting another gameplay patch. |

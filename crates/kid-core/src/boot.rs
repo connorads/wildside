@@ -10,6 +10,7 @@ impl NativeRuntime {
         self.title_menu_active = false;
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
+        self.demo_title_return_after_frame = false;
         self.preserve_demo_title_snapshot = false;
         self.hide_demo_return_title_player = false;
         self.pending_prize_diamond_awards.clear();
@@ -68,10 +69,11 @@ impl NativeRuntime {
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
+        self.demo_title_return_after_frame = false;
         self.reload_block_grid_for_level(self.current_level);
     }
 
-    fn finish_demo_title_return(&mut self, input: FrameInput) {
+    pub(crate) fn finish_demo_title_return(&mut self, input: FrameInput) {
         self.enter_title_screen();
         self.current_level = LevelId(0);
         // Demo abort returns to an inert title rebuild path rather than the
@@ -85,7 +87,6 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.prior_input = input;
         self.previous_input = input;
-        self.frame_index += 1;
     }
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
@@ -363,8 +364,7 @@ impl NativeRuntime {
         if self.pending_demo_title_return > 0 {
             self.pending_demo_title_return -= 1;
             if self.pending_demo_title_return == 0 {
-                self.finish_demo_title_return(input);
-                return None;
+                self.demo_title_return_after_frame = true;
             }
         }
 
@@ -377,6 +377,7 @@ impl NativeRuntime {
         // Auto-end after DEMO_MAX_FRAMES
         if frame_counter >= demo::DEMO_MAX_FRAMES {
             self.finish_demo_title_return(FrameInput::default());
+            self.frame_index += 1;
             return None;
         }
         let level_id = Self::demo_level_id(use_demo_2);

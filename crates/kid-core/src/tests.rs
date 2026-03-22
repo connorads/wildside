@@ -13121,7 +13121,6 @@ fn demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3414: pause snapshot timing still open"]
 fn demo_1_matches_the_oracle_pause_snapshot_on_frame_3414() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_3414 = None;
