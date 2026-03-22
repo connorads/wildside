@@ -12657,6 +12657,48 @@ fn published_tas_demo_2_holds_intro_sequence_2_until_frame_5953() {
 }
 
 #[test]
+fn published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_5993 = None;
+    let mut frame_5994 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(5_995) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            5_993 => {
+                frame_5993 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            5_994 => {
+                frame_5994 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_5993,
+        Some((GameMode::IntroSequence3, None, None)),
+        "the timeout restart should still keep the intro-sequence-3 pose hidden on frame 5993",
+    );
+    assert_eq!(
+        frame_5994,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0060_0000),
+            Some(0x00D0_0000),
+            Some(Direction::Left),
+        )),
+        "frame 5994 should expose the first intro-sequence-3 Kid pose from the ROM gfx-object roster",
+    );
+}
+
+#[test]
 fn demo_input_decoded_correctly() {
     // 0x48 = bits 6,3 = Left+Right? No: bit 6=A, bit 3=Right → A+Right
     let input = demo::decode_demo_byte(0x48);

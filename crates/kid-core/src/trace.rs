@@ -412,7 +412,15 @@ impl NativeRuntime {
         }
         let demo_use_demo_2 = self.demo_uses_second_recording();
         match self.boot_state {
-            BootState::SegaScreen { .. } | BootState::IntroSequence { .. } => None,
+            BootState::SegaScreen { .. } => None,
+            BootState::IntroSequence {
+                segment: 2,
+                elapsed,
+                ..
+            } if elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES => {
+                Some(PlayerState::intro_sequence_3_pose())
+            }
+            BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
                 self.opening_slice.map(|slice| slice.player)
             }

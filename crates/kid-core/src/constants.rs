@@ -26,6 +26,13 @@ pub(crate) const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = [33, 77, 135, 137, 178, 360, 460];
 pub(crate) const TITLE_KID_X_POS: u32 = 0x002E_0000;
 pub(crate) const TITLE_KID_Y_POS: u32 = 0x008C_0000;
+// Oracle-backed published TAS traces expose the first intro-sequence-3 Kid
+// pose on frame 5994. The ROM seeds that pose from Load_IntroSequence3's
+// gfx-object descriptor table entry at x=0x60, y=0xD0 rather than from the
+// real gameplay player state.
+pub(crate) const INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES: usize = 41;
+pub(crate) const INTRO_SEQUENCE_3_KID_X_POS: u32 = 0x0060_0000;
+pub(crate) const INTRO_SEQUENCE_3_KID_Y_POS: u32 = 0x00D0_0000;
 // Oracle-backed demo-abort traces split the return-to-title handoff into two
 // phases: Kid disappears first, then the preserved camera/form state drops a
 // few frames later when the title objects fully take over.
