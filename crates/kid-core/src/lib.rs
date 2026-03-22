@@ -181,6 +181,12 @@ pub struct NativeRuntime {
     last_kid_frame_motion_branch: KidFrameMotionBranch,
     /// Debug label for the first post-motion system that moved or consumed Kid.
     last_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
+    /// Debug snapshot of Kid before any pre-physics mutator runs this frame.
+    last_kid_frame_pre_physics_start: Option<PlayerState>,
+    /// Debug snapshot of Kid immediately before `step_with_order(...)`.
+    last_kid_frame_pre_physics_before_physics: Option<PlayerState>,
+    /// Ordered list of pre-physics handlers that changed Kid state this frame.
+    last_kid_frame_pre_physics_mutators: Vec<KidFramePrePhysicsMutator>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -267,6 +273,9 @@ impl NativeRuntime {
             trace_physics: false,
             last_kid_frame_motion_branch: KidFrameMotionBranch::default(),
             last_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
+            last_kid_frame_pre_physics_start: None,
+            last_kid_frame_pre_physics_before_physics: None,
+            last_kid_frame_pre_physics_mutators: Vec::new(),
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
@@ -309,6 +318,9 @@ impl NativeRuntime {
         let raw_input = input;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        self.last_kid_frame_pre_physics_start = None;
+        self.last_kid_frame_pre_physics_before_physics = None;
+        self.last_kid_frame_pre_physics_mutators.clear();
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
             self.finish_demo_auto_timeout_return();
@@ -438,6 +450,32 @@ impl NativeRuntime {
         trace
     }
 
+    fn begin_kid_pre_physics_probe(&mut self, player: PlayerState) {
+        self.last_kid_frame_pre_physics_start = Some(player);
+        self.last_kid_frame_pre_physics_before_physics = Some(player);
+        self.last_kid_frame_pre_physics_mutators.clear();
+    }
+
+    fn kid_pre_physics_probe_state_changed(before: PlayerState, after: PlayerState) -> bool {
+        before.x_pos != after.x_pos
+            || before.y_pos != after.y_pos
+            || before.x_velocity != after.x_velocity
+            || before.y_velocity != after.y_velocity
+            || before.on_ground != after.on_ground
+    }
+
+    fn note_kid_pre_physics_mutator(
+        &mut self,
+        mutator: KidFramePrePhysicsMutator,
+        before: PlayerState,
+        after: PlayerState,
+    ) {
+        self.last_kid_frame_pre_physics_before_physics = Some(after);
+        if Self::kid_pre_physics_probe_state_changed(before, after) {
+            self.last_kid_frame_pre_physics_mutators.push(mutator);
+        }
+    }
+
     fn level_elapsed_frames(&self) -> Option<usize> {
         self.level_start_frame
             .map(|frame| self.frame_index.saturating_sub(frame))
@@ -563,8 +601,21 @@ impl NativeRuntime {
         // player clear. This can come from a transform resolved last frame or
         // from a floating helmet prize collected later in this frame.
         self.stomped_this_frame = false;
+        self.begin_kid_pre_physics_probe(slice.player);
+        let player_before_form_width_overlap_fixup = slice.player;
         self.apply_form_width_overlap_fixup(&mut slice);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::FormWidthOverlapFixup,
+            player_before_form_width_overlap_fixup,
+            slice.player,
+        );
+        let player_before_pending_stomp_bounce = slice.player;
         self.apply_pending_stomp_bounce(&mut slice);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::PendingStompBounce,
+            player_before_pending_stomp_bounce,
+            slice.player,
+        );
         slice.prize_block_hit = None;
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;
@@ -588,15 +639,39 @@ impl NativeRuntime {
         // lifecycle before movement, so the clear frame is collision-visible.
         self.step_deferred_ceiling_clears();
         // Step helmet abilities BEFORE physics
+        let player_before_skycutter_flipboard = slice.player;
         self.step_skycutter_flipboard(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::SkycutterFlipboard,
+            player_before_skycutter_flipboard,
+            slice.player,
+        );
+        let player_before_cyclone_flight = slice.player;
         self.step_cyclone_flight(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::CycloneFlight,
+            player_before_cyclone_flight,
+            slice.player,
+        );
+        let player_before_iron_knight_climb = slice.player;
         self.step_iron_knight_climb(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::IronKnightClimb,
+            player_before_iron_knight_climb,
+            slice.player,
+        );
         self.step_red_stealth_sword(input);
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
         self.step_berzerker_charge(&slice);
         self.step_juggernaut_skull(&slice, input);
+        let player_before_micromax_stick = slice.player;
         self.step_micromax_stick(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::MicromaxStick,
+            player_before_micromax_stick,
+            slice.player,
+        );
         let frame_start_x_pos = slice.player.x_pos;
         let frame_start_y_pos = slice.player.y_pos;
 

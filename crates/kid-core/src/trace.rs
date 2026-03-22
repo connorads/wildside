@@ -144,6 +144,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_gameplay_path_probe_debug() {
             gameplay_debug_fields.insert("kid_gameplay_path_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_pre_physics_probe_debug() {
+            gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
+        }
         NativeTraceFrame {
             frame_index: self.frame_index,
             game_mode,
@@ -419,6 +422,45 @@ impl NativeRuntime {
             self.last_kid_frame_motion_branch.as_debug_label(),
             self.last_kid_frame_post_motion_mutator.as_debug_label(),
             u8::from(self.paused),
+        ))
+    }
+
+    fn kid_pre_physics_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let start = self.last_kid_frame_pre_physics_start?;
+        let before_physics = self
+            .last_kid_frame_pre_physics_before_physics
+            .unwrap_or(start);
+        let first_mutator = self
+            .last_kid_frame_pre_physics_mutators
+            .first()
+            .copied()
+            .unwrap_or(KidFramePrePhysicsMutator::None)
+            .as_debug_label();
+        let mutators = if self.last_kid_frame_pre_physics_mutators.is_empty() {
+            String::from("none")
+        } else {
+            self.last_kid_frame_pre_physics_mutators
+                .iter()
+                .map(|mutator| mutator.as_debug_label())
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+
+        Some(format!(
+            "start[{}/ground={}]/before_physics[{}/ground={}]/first={}/mutators={}",
+            kid_pre_physics_state_debug(start),
+            u8::from(start.on_ground),
+            kid_pre_physics_state_debug(before_physics),
+            u8::from(before_physics.on_ground),
+            first_mutator,
+            mutators,
         ))
     }
 
@@ -780,6 +822,13 @@ impl NativeRuntime {
             .unwrap_or(0);
         (roster_count + 2 + extra, roster_count + 2 + extra)
     }
+}
+
+fn kid_pre_physics_state_debug(player: PlayerState) -> String {
+    format!(
+        "x={:#010x}/y={:#010x}/x_vel={:#010x}/y_vel={:#010x}",
+        player.x_pos, player.y_pos, player.x_velocity as u32, player.y_velocity as u32,
+    )
 }
 
 fn enemy_collision_bounds_px(enemy: &NativeObjectSnapshot) -> Option<ObjectBoundsPx> {

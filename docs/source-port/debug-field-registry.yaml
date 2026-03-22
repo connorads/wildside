@@ -98,6 +98,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed gameplay-path or post-motion handoff diagnostic."
     },
     {
+      "key": "kid_pre_physics_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Native Kid snapshot before and after the pre-physics handlers in refresh_opening_slice, plus the ordered list of handlers that changed Kid before normal physics on frames 7968..7969.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed pre-physics handoff or handler-attribution diagnostic."
+    },
+    {
       "key": "kid_collision_type",
       "scope": "frame",
       "status": "exploratory",

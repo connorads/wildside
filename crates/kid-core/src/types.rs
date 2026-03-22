@@ -141,6 +141,32 @@ impl KidFramePostMotionMutator {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidFramePrePhysicsMutator {
+    #[default]
+    None,
+    FormWidthOverlapFixup,
+    PendingStompBounce,
+    SkycutterFlipboard,
+    CycloneFlight,
+    IronKnightClimb,
+    MicromaxStick,
+}
+
+impl KidFramePrePhysicsMutator {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::FormWidthOverlapFixup => "form_width_overlap_fixup",
+            Self::PendingStompBounce => "pending_stomp_bounce",
+            Self::SkycutterFlipboard => "skycutter_flipboard",
+            Self::CycloneFlight => "cyclone_flight",
+            Self::IronKnightClimb => "iron_knight_climb",
+            Self::MicromaxStick => "micromax_stick",
+        }
+    }
+}
+
 pub const GENERIC_ENEMY_DEATH_EFFECT_FRAMES: u16 = 10;
 pub const HEADYMETAL_DEATH_EFFECT_FRAMES: u16 = 0x01C2;
 
