@@ -560,6 +560,14 @@ pub(crate) struct FloatingItem {
     /// Oracle-backed TAS probing for demo 0x1B shows the spawned prize object
     /// is already active on its first native frame, so this remains `0`.
     pub(crate) spawn_delay: u16,
+    /// Source column from the level layout address used by the original
+    /// object. Prize items consult this fixed column while falling.
+    pub(crate) level_col: u16,
+    /// Current row pointer used by the ASM prize/helmet fall routines.
+    pub(crate) level_row: u16,
+    /// ASM keeps a one-row grace flag so the prize can emerge from its source
+    /// tile before later solid rows stop the fall.
+    pub(crate) first_row_grace: bool,
     pub(crate) content: terrain::PrizeContent,
     /// Whether the player has collected this item by touching it.
     pub(crate) collected: bool,

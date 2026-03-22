@@ -309,13 +309,10 @@ impl NativeRuntime {
     fn floating_diamond_contact_candidates(&self, player: PlayerState) -> Option<String> {
         use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
 
-        const PLAYER_PRIZE_PICKUP_HEIGHT: i32 = (PLAYER_HEIGHT + 1) / 2;
-
         let player_x_px = (player.x_pos >> 16) as i32;
         let player_y_px = (player.y_pos >> 16) as i32;
         let player_left = player_x_px - PLAYER_HALF_WIDTH;
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
-        let player_top = player_y_px - PLAYER_PRIZE_PICKUP_HEIGHT;
         let player_bottom = player_y_px;
         let mut candidates = Vec::new();
 
@@ -325,12 +322,13 @@ impl NativeRuntime {
             }
             let item_x_px = (item.x_pos >> 16) as i32;
             let item_y_px = (item.y_pos >> 16) as i32;
-            let item_left = item_x_px - 8;
-            let item_right = item_x_px + 8;
-            let item_top = item_y_px;
-            let item_bottom = item_y_px + 15;
-            let overlap_x = player_left < item_right && player_right > item_left;
-            let overlap_y = player_top < item_bottom && player_bottom > item_top;
+            let player_top = player_y_px - PLAYER_HEIGHT;
+            let item_left = item_x_px - 7;
+            let item_right = item_x_px + 7;
+            let item_top = item_y_px - PLAYER_HEIGHT;
+            let item_bottom = item_y_px;
+            let overlap_x = player_left <= item_right && player_right >= item_left;
+            let overlap_y = player_top <= item_bottom && player_bottom >= item_top;
             let horizontal_gap_px = if overlap_x {
                 0
             } else if player_right <= item_left {

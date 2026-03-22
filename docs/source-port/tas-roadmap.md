@@ -12,7 +12,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
 | `kc_any_percent_2024` | 4916 | ~82s | 0 diffs (verified) |
-| `any-percent-published` | 37759 | ~10.5min | first live mismatch now at frame 287 during the title return |
+| `any-percent-published` | 37759 | ~10.5min | first live mismatch now at frame 4905 during the demo/title handoff |
 
 ## Milestones
 
@@ -23,7 +23,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | M3 | First level traversal | 0-3000 | Level 1 gameplay: enemies, platforms, blocks | [x] |
 | M4 | First level transition | 0-4000 | Level 1 complete -> transition -> Level 2 | [x] |
 | M5 | Full kc_any_percent_2024 | 0-4916 | multiple levels, warps, pause | [x] |
-| M6 | any-percent-published first level | 0-3000 | different TAS, different route | [~] |
+| M6 | any-percent-published first level | 0-3000 | different TAS, different route | [x] |
 | M7 | any-percent-published half run | 0-19000 | ~10 levels, bosses, forms | [ ] |
 | M8 | Full any-percent-published | 0-37759 | boot to credits | [ ] |
 
@@ -31,6 +31,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-22 | any-percent-published | 4905 | The frame-1830 prize-diamond frontier is fixed; the next live blocker is the demo `0x1B -> 0x00` handoff, where native unloads into paused title state a frame before oracle | Matched falling prize items to the ASM's fixed-column row probe and one-row grace, gave diamonds their own bottom-anchored pickup box, and held queued `PrizeDiamondCollected_Init` awards for 33 frame starts instead of 32. Added `floating_diamond_stops_once_it_reaches_supported_row_below_source` plus `published_tas_arms_the_second_prize_diamond_queue_on_frame_1798`, updated the demo diamond regressions, verified the focused published/demo windows, re-bisected `any-percent-published` through frame 3000 to CRC-clean, then narrowed the new frontier with `verify-tas --frame-start 4898 --frame-end 4912 --checkpoint-interval 1` and `tas-diff --frame-start 4902 --frame-end 4908 --include-advisory --show-object-roster-on-match`. |
 | 2026-03-22 | any-percent-published | 1830 | The generic “late prize-diamond queue” theory was too loose: the published demo still broke at frame 1830, but the native trace could not show whether a delayed award had ever been armed | Added native frame debug fields `pending_prize_diamond_awards` and `floating_diamond_contact_candidates`, covered them with `trace_frame_reports_prize_diamond_frontier_debug_fields` plus `published_tas_frame_1830_reports_prize_diamond_frontier_debug_fields`, registered the new keys in `debug-field-registry.yaml`, and re-ran `tas-diff --frame-start 1828 --frame-end 1832 --include-advisory --show-object-roster-on-match`. The new trace shows `pending_prize_diamond_awards=[]` on native frames 1828..1831 while the nearest floating diamonds are still 242px+ below Kid, so the next pass should trace the missing earlier collection / object-lifecycle write rather than the existing 32-frame award delay. |
 | 2026-03-22 | any-percent-published | 1830 | The frame-287 title gate is fixed; the next live mismatch is demo level `0x1B` awarding a second diamond a few frames later than oracle while Kid position still matches | Added an early-title local-ready delay so intro-skip title entry keeps Kid hidden until local title frame 150, without touching the older demo-abort hide window. Added `published_tas_boot_title_keeps_kid_hidden_until_frame_289`, re-ran the older title-ready and demo-return regressions, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 280 --frame-end 292 --checkpoint-interval 1` is CRC-clean apart from advisory `number_objects`, and re-bisected to move the frontier from 287 to 1830. |
 | 2026-03-22 | any-percent-published | 287 | The next unchecked recording now breaks on the title-return handoff: native restores the standard title pose on frames 287..288 while oracle still keeps Kid blanked even though title mode is already active | Re-ran `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 0 --frame-end 3000 --bisect`, then narrowed it with `--frame-start 280 --frame-end 292 --checkpoint-interval 1` plus `tas-diff --frame-start 284 --frame-end 290 --include-advisory --show-object-roster-on-match`. The next fix should target title-ready / player-hide gating, not gameplay. |

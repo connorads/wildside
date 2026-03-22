@@ -20,7 +20,10 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
 }
 
 impl NativeRuntime {
-    const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 32;
+    // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
+    // the contact frame, so the queued native award needs to survive 33 frame
+    // starts before the diamond count increments.
+    const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 33;
 
     pub(crate) fn apply_pending_stomp_bounce(&mut self, slice: &mut OpeningSliceState) {
         let Some(pending) = self.pending_stomp_bounce.take() else {

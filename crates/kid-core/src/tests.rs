@@ -3092,6 +3092,9 @@ fn floating_helmet_prize_above_lower_body_does_not_collect() {
         y_velocity: 0,
         remaining: 500,
         spawn_delay: 0,
+        level_col: 0,
+        level_row: 0,
+        first_row_grace: false,
         content: terrain::PrizeContent::Cyclone,
         collected: false,
     });
@@ -3115,6 +3118,9 @@ fn floating_helmet_prize_entering_lower_body_collects() {
         y_velocity: 0,
         remaining: 500,
         spawn_delay: 0,
+        level_col: 0,
+        level_row: 0,
+        first_row_grace: false,
         content: terrain::PrizeContent::Cyclone,
         collected: false,
     });
@@ -3152,6 +3158,46 @@ fn smash_block_headbutt_does_not_grant_diamond() {
     assert_eq!(
         runtime.progression.diamond_count, diamonds_before,
         "headbutting smash block should not grant a diamond"
+    );
+}
+
+#[test]
+fn floating_diamond_stops_once_it_reaches_supported_row_below_source() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut grid = grid_with_blocks();
+    grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0, 0));
+    runtime.set_block_grid(grid);
+    runtime.floating_items.push(FloatingItem {
+        x_pos: (2 * 16 + 8) << 16,
+        y_pos: i64::from(32 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 2,
+        level_row: 2,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    while runtime.floating_items[0].level_row == 2 {
+        runtime.step_visual_effects();
+    }
+
+    let y_pos_on_supported_row = runtime.floating_items[0].y_pos;
+    runtime.step_visual_effects();
+
+    assert_eq!(
+        runtime.floating_items[0].level_row, 3,
+        "the floating diamond should advance into the floor row after leaving its source row",
+    );
+    assert_eq!(
+        runtime.floating_items[0].y_pos, y_pos_on_supported_row,
+        "once the source-row grace ends, the supported row should stop further falling",
+    );
+    assert_eq!(
+        runtime.floating_items[0].y_velocity, 0,
+        "supported floating diamonds should zero their fall speed like the ASM object",
     );
 }
 
@@ -4706,6 +4752,9 @@ fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
         y_velocity: 0,
         remaining: 144,
         spawn_delay: 0,
+        level_col: 0,
+        level_row: 0,
+        first_row_grace: false,
         content: terrain::PrizeContent::Diamond,
         collected: false,
     });
@@ -12906,6 +12955,29 @@ fn published_tas_frame_1830_reports_prize_diamond_frontier_debug_fields() {
 }
 
 #[test]
+fn published_tas_arms_the_second_prize_diamond_queue_on_frame_1798() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut pending_debug = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_799) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_798 {
+            pending_debug = trace
+                .gameplay_debug_fields
+                .get("pending_prize_diamond_awards")
+                .cloned();
+            break;
+        }
+    }
+
+    assert_eq!(
+        pending_debug.as_deref(),
+        Some("[32]"),
+        "by frame 1798 the published TAS should already be one frame into the second queued diamond award",
+    );
+}
+
+#[test]
 #[ignore = "TAS frontier 3400: pre-stomp walking-dragon parity still open"]
 fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
@@ -13875,27 +13947,34 @@ fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
 }
 
 #[test]
-fn demo_diamond_prize_is_not_collected_on_frame_1405() {
+fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_406) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if frame_index == 1_405 {
-            frame_1405 = Some((trace.score, trace.diamond_count, trace.floating_items.len()));
+            frame_1405 = Some((
+                trace.score,
+                trace.diamond_count,
+                trace
+                    .gameplay_debug_fields
+                    .get("pending_prize_diamond_awards")
+                    .cloned(),
+            ));
             break;
         }
     }
 
     assert_eq!(
         frame_1405,
-        Some((0, 0, 1)),
-        "oracle frame 1405 is still mid-flight: the spawned diamond should exist but remain uncollected"
+        Some((0, 0, Some("[33]".into()))),
+        "oracle frame 1405 has already entered PrizeDiamondCollected_Init, but the HUD award has not landed yet",
     );
 }
 
 #[test]
-fn demo_diamond_prize_stays_uncollected_on_frame_1406() {
+fn demo_diamond_prize_queue_counts_down_on_frame_1406() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1406 = None;
 
@@ -13903,11 +13982,12 @@ fn demo_diamond_prize_stays_uncollected_on_frame_1406() {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if frame_index == 1_406 {
             frame_1406 = Some((
-                trace.kid_y_pos,
-                trace.camera_y_pos,
                 trace.score,
                 trace.diamond_count,
-                trace.floating_items.len(),
+                trace
+                    .gameplay_debug_fields
+                    .get("pending_prize_diamond_awards")
+                    .cloned(),
             ));
             break;
         }
@@ -13915,8 +13995,8 @@ fn demo_diamond_prize_stays_uncollected_on_frame_1406() {
 
     assert_eq!(
         frame_1406,
-        Some((Some(0x00FF_0000), 0x006A_0000, 0, 0, 1)),
-        "oracle frame 1406 still keeps Kid on the arc and the prize uncollected"
+        Some((0, 0, Some("[32]".into()))),
+        "one frame after contact, the queued diamond award should have counted down once without scoring yet",
     );
 }
 

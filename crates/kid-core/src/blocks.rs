@@ -142,6 +142,9 @@ impl NativeRuntime {
                             y_velocity: 0,
                             remaining: 500,
                             spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
+                            level_col: entry.col,
+                            level_row: entry.row,
+                            first_row_grace: true,
                             content: entry.content,
                             collected: false,
                         });
@@ -419,10 +422,6 @@ impl NativeRuntime {
         let player_y_px = (slice.player.y_pos >> 16) as i32;
         let player_left = player_x_px - PLAYER_HALF_WIDTH;
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
-        // Oracle demo 0x1B keeps the falling Cyclone helmet non-collectible
-        // until it overlaps Kid's lower body. Using the full 31px sprite body
-        // collects helmets five frames early and starts Kid_Transform too soon.
-        let player_top = player_y_px - PLAYER_PRIZE_PICKUP_HEIGHT;
 
         let mut collected_contents = Vec::new();
         let mut collected_prize_diamonds = 0usize;
@@ -430,24 +429,44 @@ impl NativeRuntime {
             if item.collected || item.spawn_delay > 0 {
                 continue;
             }
-            // Floating items use a small contact box around the visible pickup
-            // sprite rather than the whole 16x16 cell. Diamonds render as a
-            // slightly smaller shape than helmet prizes and otherwise collect a
-            // frame early in the demo 0x1B post-latch arc.
             let item_x_px = (item.x_pos >> 16) as i32;
             let item_y_px = (item.y_pos >> 16) as i32;
-            let item_left = item_x_px - 8;
-            let item_right = item_x_px + 8;
-            let item_top = item_y_px;
-            let item_bottom = item_y_px
-                + if item.content == terrain::PrizeContent::Diamond {
-                    15
+            let (player_top, item_left, item_right, item_top, item_bottom, inclusive_overlap) =
+                if item.content == terrain::PrizeContent::Diamond {
+                    // PrizeDiamond_Init uses the standard gfx-object collision path,
+                    // with `y_pos` anchored at the object's bottom edge rather than
+                    // the top of a tiny 16px sprite box.
+                    (
+                        player_y_px - PLAYER_HEIGHT,
+                        item_x_px - 7,
+                        item_x_px + 7,
+                        item_y_px - PLAYER_HEIGHT,
+                        item_y_px,
+                        true,
+                    )
                 } else {
-                    16
+                    // Oracle demo 0x1B keeps falling helmets non-collectible until
+                    // they overlap Kid's lower body, not the full 31px sprite box.
+                    (
+                        player_y_px - PLAYER_PRIZE_PICKUP_HEIGHT,
+                        item_x_px - 8,
+                        item_x_px + 8,
+                        item_y_px,
+                        item_y_px + 16,
+                        false,
+                    )
                 };
 
-            let overlap_x = player_left < item_right && player_right > item_left;
-            let overlap_y = player_top < item_bottom && player_y_px > item_top;
+            let overlap_x = if inclusive_overlap {
+                player_left <= item_right && player_right >= item_left
+            } else {
+                player_left < item_right && player_right > item_left
+            };
+            let overlap_y = if inclusive_overlap {
+                player_top <= item_bottom && player_y_px >= item_top
+            } else {
+                player_top < item_bottom && player_y_px > item_top
+            };
 
             if overlap_x && overlap_y {
                 item.collected = true;
@@ -467,6 +486,28 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_visual_effects(&mut self) {
+        let floating_item_can_fall = |grid: &terrain::BlockGrid, item: &FloatingItem| {
+            let current_cell = grid.cell_at(item.level_col, item.level_row);
+            let current_row_open = matches!(
+                current_cell.collision,
+                terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+            );
+            if current_row_open {
+                return true;
+            }
+            if !item.first_row_grace {
+                return false;
+            }
+            if item.content != terrain::PrizeContent::Diamond {
+                return true;
+            }
+            let below_cell = grid.cell_at(item.level_col, item.level_row.saturating_add(1));
+            matches!(
+                below_cell.collision,
+                terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+            )
+        };
+
         for b in &mut self.block_bounces {
             b.remaining = b.remaining.saturating_sub(1);
         }
@@ -483,11 +524,24 @@ impl NativeRuntime {
                 continue;
             }
             f.remaining = f.remaining.saturating_sub(1);
-            // ASM: velocity accumulates +$1388/frame (downward), applied to position.
-            // PrizeDiamond_Init (kid.asm:21640): addi.l #$1388,d1
-            // Then: move.l y_pos(a3),d2; add.l d1,d2; move.l d2,y_pos(a3)
-            f.y_velocity = f.y_velocity.saturating_add(0x1388);
-            f.y_pos += i64::from(f.y_velocity);
+            let can_fall = self
+                .block_grid
+                .as_ref()
+                .is_none_or(|grid| floating_item_can_fall(grid, f));
+            if can_fall {
+                let previous_aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
+                // ASM: velocity accumulates +$1388/frame (downward), applied to position.
+                // PrizeDiamond_Init (kid.asm:21640) and sub_10C38.
+                f.y_velocity = f.y_velocity.saturating_add(0x1388);
+                f.y_pos += i64::from(f.y_velocity);
+                let new_aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
+                if new_aligned_y != previous_aligned_y {
+                    f.first_row_grace = false;
+                    f.level_row = f.level_row.saturating_add(1);
+                }
+            } else {
+                f.y_velocity = 0;
+            }
         }
         self.floating_items
             .retain(|f| (f.spawn_delay > 0 || f.remaining > 0) && !f.collected);
