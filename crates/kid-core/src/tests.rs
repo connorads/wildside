@@ -12630,6 +12630,44 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400: lower shared walker leaves the upper lane too early"]
+fn demo_1_lower_dragon_stays_grounded_on_the_upper_lane_through_frame_3049() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut dragon_3048 = None;
+    let mut dragon_3049 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_050) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_048 {
+            dragon_3048 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| (enemy.x_pos, enemy.y_pos, enemy.facing, enemy.on_ground));
+        }
+        if frame_index == 3_049 {
+            dragon_3049 = runtime
+                .active_enemies
+                .iter()
+                .find(|enemy| enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2)
+                .map(|enemy| (enemy.x_pos, enemy.y_pos, enemy.facing, enemy.on_ground));
+            break;
+        }
+    }
+
+    assert_eq!(
+        dragon_3048,
+        Some((0x01BB_8000, 0x01B0_0000, Direction::Right, true)),
+        "frame 3048 should still keep the lower dragon parked on the oracle-backed upper lane before the early drop begins",
+    );
+    assert_eq!(
+        dragon_3049,
+        Some((0x01BC_0000, 0x01B0_0000, Direction::Right, true)),
+        "frame 3049 should still keep the lower dragon grounded on that upper lane instead of starting the early airborne drop that later lands sixteen pixels low",
+    );
+}
+
+#[test]
 #[ignore = "TAS frontier 3400: lower shared walker is already ahead when Kid_Transform freezes gameplay"]
 fn demo_1_lower_dragon_does_not_enter_transform_freeze_twelve_pixels_ahead_on_frame_3170() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
