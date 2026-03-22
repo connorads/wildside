@@ -12218,6 +12218,48 @@ fn demo_1_loads_the_second_knights_isle_dragon_by_frame_3400() {
 }
 
 #[test]
+#[ignore = "TAS frontier 3400: shared walking-dragon parity still open"]
+fn demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_3400 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_401) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_400 {
+            frame_3400 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_3400 = frame_3400.unwrap_or_else(|| panic!("frame 3400 should be captured"));
+    assert_eq!(
+        frame_3400.kid_x_pos,
+        Some(0x037E_3B20),
+        "demo 1 should stay on the oracle-backed X position through the second dragon setup on frame 3400",
+    );
+    assert_eq!(
+        frame_3400.kid_y_pos,
+        Some(0x0197_0000),
+        "demo 1 should stay on the oracle-backed Y position through the second dragon setup on frame 3400",
+    );
+    assert_eq!(
+        frame_3400.kid_x_velocity,
+        Some(0),
+        "frame 3400 should have already burned off the stomp carry in oracle",
+    );
+    assert_eq!(
+        frame_3400.kid_y_velocity,
+        Some(0),
+        "frame 3400 should already be grounded on the oracle-backed dragon path",
+    );
+    assert_eq!(
+        frame_3400.camera_x_pos,
+        0x02CF_0000,
+        "camera follow should still match the oracle-backed second dragon setup on frame 3400",
+    );
+}
+
+#[test]
 fn demo_cyclone_pickup_enters_transform_on_frame_1056() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1055 = None;
