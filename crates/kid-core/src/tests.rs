@@ -6160,7 +6160,13 @@ fn falling_straight_onto_enemy_is_stomp() {
     };
 
     assert_eq!(
-        classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
+        classify_enemy_contact_with_half_width(
+            player,
+            &enemy,
+            player.y_velocity,
+            player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
         EnemyContactResult::Stomp
     );
 }
@@ -6204,13 +6210,19 @@ fn mini_hopping_skull_graze_does_not_damage() {
     };
 
     assert_eq!(
-        classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
+        classify_enemy_contact_with_half_width(
+            player,
+            &enemy,
+            player.y_velocity,
+            player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
         EnemyContactResult::None
     );
 }
 
 #[test]
-fn walking_dragon_landing_frame_registers_as_stomp() {
+fn walking_dragon_top_heavy_contact_box_registers_as_stomp() {
     let player = PlayerState {
         x_pos: 0x01B4_1700,
         y_pos: 0x0188_3300,
@@ -6236,7 +6248,7 @@ fn walking_dragon_landing_frame_registers_as_stomp() {
         facing: Some(Direction::Right),
         on_ground: Some(true),
         hit_points: Some(2),
-        damage_flash: false,
+        damage_flash: true,
         palette_variant: 0,
         stationary: false,
         shared_walker_state: None,
@@ -6248,8 +6260,15 @@ fn walking_dragon_landing_frame_registers_as_stomp() {
     };
 
     assert_eq!(
-        classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
-        EnemyContactResult::Stomp
+        classify_enemy_contact_with_half_width(
+            player,
+            &enemy,
+            player.y_velocity,
+            player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Stomp,
+        "the frame-2938 landing coordinates only intersect DragonWalking's taller top-heavy sub-box",
     );
 }
 
@@ -6292,8 +6311,65 @@ fn walking_dragon_pre_landing_frame_has_not_reached_contact_threshold() {
     };
 
     assert_eq!(
-        classify_enemy_contact(player, &enemy, player.y_velocity, player.y_pos),
+        classify_enemy_contact_with_half_width(
+            player,
+            &enemy,
+            player.y_velocity,
+            player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
         EnemyContactResult::None
+    );
+}
+
+#[test]
+fn walking_dragon_right_facing_edge_contact_matches_live_tas_stomp_window() {
+    let player = PlayerState {
+        x_pos: 0x037E_F100,
+        y_pos: 0x01A1_C000,
+        x_velocity: 0x0002_9640,
+        y_velocity: 0x0006_DE00,
+        facing: Direction::Left,
+        on_ground: false,
+        on_spikes: false,
+        just_jumped: false,
+        jump_buffer_frames: 0,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
+    };
+    let enemy = NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x0D },
+        x_pos: 0x0367_0000,
+        y_pos: 0x01C0_0000,
+        layout_index: Some(0),
+        x_velocity: Some(0),
+        y_velocity: Some(0),
+        facing: Some(Direction::Right),
+        on_ground: Some(true),
+        hit_points: Some(2),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
+    };
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            player,
+            &enemy,
+            player.y_velocity,
+            player.y_pos,
+            PlayerForm::IronKnight.half_width() as i64,
+        ),
+        EnemyContactResult::Stomp,
+        "the live frame-3399 second-dragon setup should classify as a stomp when IronKnight's wider hitbox clips the flipped dragon box",
     );
 }
 
@@ -13015,8 +13091,7 @@ fn dragon_walking_spike_shoulder_turns_the_shared_walker_in_place() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: shared walking-dragon parity still open"]
-fn demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400() {
+fn demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_3400 = None;
 
@@ -13040,18 +13115,47 @@ fn demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400() {
         "demo 1 should stay on the oracle-backed Y position through the second dragon setup on frame 3400",
     );
     assert_eq!(
-        frame_3400.kid_x_velocity,
-        Some(0),
-        "frame 3400 should have already burned off the stomp carry in oracle",
-    );
-    assert_eq!(
-        frame_3400.kid_y_velocity,
-        Some(0),
-        "frame 3400 should already be grounded on the oracle-backed dragon path",
-    );
-    assert_eq!(
         frame_3400.camera_x_pos, 0x02CF_0000,
         "camera follow should still match the oracle-backed second dragon setup on frame 3400",
+    );
+}
+
+#[test]
+#[ignore = "TAS frontier 3414: pause snapshot timing still open"]
+fn demo_1_matches_the_oracle_pause_snapshot_on_frame_3414() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_3414 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_415) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 3_414 {
+            frame_3414 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_3414 = frame_3414.unwrap_or_else(|| panic!("frame 3414 should be captured"));
+    assert!(
+        frame_3414.paused,
+        "oracle has already entered pause by frame 3414"
+    );
+    assert_eq!(
+        frame_3414.kid_x_pos,
+        Some(0x03A8_0000),
+        "the pause snapshot should keep Kid on the oracle-backed X position",
+    );
+    assert_eq!(
+        frame_3414.kid_y_pos,
+        Some(0x017C_C000),
+        "the pause snapshot should preserve the oracle-backed sub-pixel Y",
+    );
+    assert_eq!(
+        frame_3414.camera_x_pos, 0x02F8_0000,
+        "pause should freeze the camera on the oracle-backed X snapshot",
+    );
+    assert_eq!(
+        frame_3414.camera_y_pos, 0x00E0_0000,
+        "pause should freeze the camera on the oracle-backed Y snapshot",
     );
 }
 

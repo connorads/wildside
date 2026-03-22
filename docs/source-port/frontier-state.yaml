@@ -3,14 +3,14 @@
   "updated_at": "2026-03-22",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "kc_any_percent_2024-frame-3400-shared-walker",
+    "slug": "kc_any_percent_2024-frame-3414-pause-snapshot",
     "recording": "kc_any_percent_2024",
     "scenario": ".cache/tas-imports/kc_any_percent_2024/scenario.json",
-    "area": "Knights Isle second dragon stomp setup",
+    "area": "Knights Isle pause snapshot after the second dragon setup",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 3400,
-    "authoritative_clean_through": 3399,
+    "frontier_frame": 3414,
+    "authoritative_clean_through": 3413,
     "pre_divergence_windows": [
       {
         "frame_start": 2938,
@@ -19,27 +19,28 @@
       },
       {
         "frame_start": 3399,
-        "frame_end": 3400,
-        "reason": "Frame 3399 still matches the oracle-backed pre-stomp arc, but frame 3400 keeps Kid on the old airborne ballistic path instead of snapping into the grounded second-dragon setup."
+        "frame_end": 3413,
+        "reason": "The second-dragon stomp setup is now authoritative-clean through frame 3413; frames 3399..3413 only retain advisory velocity and object-count drift."
       },
       {
-        "frame_start": 3400,
-        "frame_end": 3401,
-        "reason": "Native still reports no terrain, wall, ceiling, platform, or stomp event on the live frame, while oracle has already resolved Kid onto the grounded setup path."
+        "frame_start": 3412,
+        "frame_end": 3414,
+        "reason": "The demo script presses Start on frame 3412, and oracle has already frozen the pause snapshot by frame 3414."
       }
     ],
-    "current_blocker": "DragonWalking now holds the first stomp's surviving lower dragon on the oracle-backed tile through frame 2962, which keeps the old 3048/3170/3206 lower-dragon probes green on the current tree. The first live blocker is back at frame 3400: frame 3399 still matches the oracle-backed pre-stomp arc, but frame 3400 leaves Kid airborne with no terrain, wall, ceiling, platform, or stomp event in native while oracle has already snapped into the grounded second-dragon setup.",
+    "current_blocker": "The DragonWalking overlap fix clears the old frame-3400 stomp blocker, but the next live breakpoint appears two frames after the demo Start press on frame 3412. By frame 3414 oracle has already frozen the pause snapshot while native still keeps the camera one pixel low/left and Kid one sub-pixel row higher, then drops `number_objects` to 0.",
     "authoritative_diffs": [
-      "First live authoritative mismatch lands at frame 3400 in demo 0x15 during the second Knights Isle stomp setup."
+      "First live authoritative mismatch now lands at frame 3414 in demo 0x15 during the pause snapshot immediately after the second dragon setup."
     ],
     "advisory_diffs": [
       "The 3124..3140 re-check is CRC-clean with only advisory diffs.",
       "The post-stomp lower-dragon hold now stays on the oracle-backed tile through frame 2962 and resumes patrol on frame 2963.",
-      "The old lower-dragon probes at frames 3048, 3170, 3206, and 3384 are green on the current tree; the live mismatch is now Kid state on frame 3400 rather than shared-walker roster drift before it."
+      "The old lower-dragon probes at frames 3048, 3170, 3206, and 3384 are green on the current tree, and the second-dragon stomp setup is authoritative-clean through frame 3413.",
+      "Frames 3390..3413 still carry only advisory `number_objects` / `kid_y_vel` drift after the second-dragon setup."
     ],
     "current_hypothesis": {
-      "name": "Native misses the enemy-side `kidabove` overlap on the right-side walking dragon",
-      "reason": "A new oracle collision-type trace disproved the earlier Kid-support theory: on frames 3399..3404 Kid's own gfx-object collision_type stays `0x0000(empty)`, while the right-side walking dragon at `x=0x03670000` already reports `0x002c(kidabove)` from frame 3399 onward. Native still reports no overlap/support candidate for that dragon. The next fix therefore belongs on the enemy/object-side consumer of the overlap, not on a player-side `colid_kidbelow` snap."
+      "name": "Pause latch / pause snapshot capture happens in the wrong order after the frame-3412 Start press",
+      "reason": "A new bisect shows the DragonWalking contact window is no longer authoritative. `tas-diff` for frames 3412..3416 shows oracle gameplay already reports `game_paused=true` on frame 3414 with `camera=(0x02F80000,0x00E00000)` and `kid_y=0x017CC000`, while native still advances to `camera=(0x02F60000,0x00E10000)` and `kid_y=0x017D0000` before collapsing `number_objects` to 0. The next fix should therefore target pause-entry timing / snapshot freeze order, not reopen the solved dragon overlap path."
     },
     "rejected_hypotheses": [
       {
@@ -73,12 +74,16 @@
       {
         "name": "Kid needs a `colid_kidbelow` support snap on frame 3400",
         "reason": "Oracle gameplay debug now shows Kid's own gfx-object collision_type stays `0x0000(empty)` on frames 3398..3404, while the right-side walking dragon reports `0x002c(kidabove)` from frame 3399 onward. The original game is not grounding Kid via player-side `kidbelow` support there."
+      },
+      {
+        "name": "Frame-3400 second-dragon overlap is still the first live blocker",
+        "reason": "After switching DragonWalking contact to the ASM-style integer-inclusive overlap gate and using the active form half-width, `verify-tas --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` is CRC-clean with 0 authoritative diffs through frame 3410, and a longer bisect moves the frontier to 3414."
       }
     ],
     "required_next_evidence": [
-      "Trace the oracle-backed `enemy_0D#00 collision_type=0x002c(kidabove)` write on frames 3399..3400 through the walking-dragon consumer path to find which object-side behaviour advances the second stomp setup while Kid's own collision_type stays empty.",
-      "Compare native overlap geometry against the oracle's right-side dragon contact window so the next pass can explain why native never produces the enemy-side `kidabove` state at all.",
-      "Keep the next gameplay fix focused on the dragon/object-side response to the frame-3399 overlap, not on re-opening the already-green lower-dragon shared-walker probes or on a player-side support snap."
+      "Trace the pause-entry path around the frame-3412 Start press to find when oracle freezes Kid/camera/object state and marks gameplay paused.",
+      "Compare native versus oracle pause snapshots on frames 3412..3416 so the next pass can explain why native still advances camera/Kid before pause is visible.",
+      "Keep the next gameplay fix focused on pause latch / snapshot timing, not on reopening the solved DragonWalking overlap work."
     ],
     "verification_commands": [
       "cargo test -p kid-core demo_1_lands_on_the_walking_dragon_on_frame_2938 -- --nocapture",
@@ -86,7 +91,8 @@
       "cargo test -p kid-core demo_1_keeps_the_oracle_backed_stomp_drift_on_frame_2994 -- --nocapture",
       "cargo test -p kid-core demo_1_reenters_walking_from_standingstill_on_frame_3252 -- --nocapture",
       "cargo test -p kid-core demo_1_reaches_the_last_oracle_backed_pre_stomp_arc_on_frame_3399 -- --nocapture",
-      "cargo test -p kid-core demo_1_holds_the_oracle_backed_second_dragon_setup_on_frame_3400 -- --ignored --nocapture",
+      "cargo test -p kid-core demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400 -- --nocapture",
+      "cargo test -p kid-core demo_1_matches_the_oracle_pause_snapshot_on_frame_3414 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_lower_dragon_stays_grounded_on_the_upper_lane_through_frame_3049 -- --ignored --nocapture",
       "cargo test -p kid-core demo_1_transform_freeze_preserves_lower_dragon_state_through_frame_3206 -- --nocapture",
       "cargo test -p kid-core demo_1_lower_dragon_does_not_enter_transform_freeze_twelve_pixels_ahead_on_frame_3170 -- --ignored --nocapture",
@@ -94,7 +100,8 @@
       "cargo test -p kid-core demo_1_second_right_side_dragon_stays_on_the_oracle_hold_tile_on_frame_3384 -- --nocapture",
       "cargo test -p kid-core demo_1_walking_dragons_keep_grounded_zero_velocity_on_frame_3399 -- --nocapture",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3398 --frame-end 3405 --include-advisory --frontier-kind enemy --show-object-roster-on-match",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3400 --frame-end 4916 --bisect",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3412 --frame-end 3416 --include-advisory --show-object-roster-on-match",
       "mise run audit-debug-fields",
       "mise run verify-slice-fast"
     ]
@@ -117,8 +124,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3398 --frame-end 3405 --include-advisory --frontier-kind enemy --show-object-roster-on-match",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3412 --frame-end 3416 --checkpoint-interval 1",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3412 --frame-end 3416 --include-advisory --show-object-roster-on-match",
       "mise run audit-debug-fields"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

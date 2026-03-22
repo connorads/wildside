@@ -555,9 +555,9 @@ fn enemy_collision_bounds_px(enemy: &NativeObjectSnapshot) -> Option<ObjectBound
     let y_px = (enemy.y_pos >> 16) as i32;
     let bounds = enemy_contact_bounds(enemy);
     Some(ObjectBoundsPx {
-        left: x_px - bounds.left_px as i32,
+        left: x_px + bounds.left_px as i32,
         right: x_px + bounds.right_px as i32,
-        top: y_px - bounds.top_px as i32,
+        top: y_px + bounds.top_px as i32,
         bottom: y_px + bounds.bottom_px as i32,
     })
 }

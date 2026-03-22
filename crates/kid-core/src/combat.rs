@@ -99,11 +99,12 @@ impl NativeRuntime {
             if i < self.active_enemies.len() && !self.active_enemies[i].is_vulnerable() {
                 continue;
             }
-            if classify_enemy_contact(
+            if classify_enemy_contact_with_half_width(
                 slice.player,
                 enemy,
                 pre_physics_y_velocity,
                 pre_physics_y_pos,
+                self.progression.current_form.half_width() as i64,
             ) == EnemyContactResult::Stomp
             {
                 stomped_indices.push(i);
@@ -242,7 +243,11 @@ impl NativeRuntime {
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             };
-            if player_touches_enemy(slice.player, &snapshot) {
+            if player_touches_enemy_with_half_width(
+                slice.player,
+                &snapshot,
+                self.progression.current_form.half_width() as i64,
+            ) {
                 collected_indices.push(i);
             }
         }
@@ -380,7 +385,11 @@ impl NativeRuntime {
                 return None;
             }
             let snapshot = enemy.snapshot();
-            if player_touches_enemy(slice.player, &snapshot) {
+            if player_touches_enemy_with_half_width(
+                slice.player,
+                &snapshot,
+                self.progression.current_form.half_width() as i64,
+            ) {
                 Some(enemy.x_pos)
             } else {
                 None
@@ -677,40 +686,56 @@ pub(crate) struct EnemyContactBounds {
 
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
-        NativeObjectKind::Enemy { object_type: 0x0D } => {
-            // Oracle frame 2938 uses sprite offset $0544, whose collision table
-            // entry is `dc.w -$13,$21,-$2B,$29`: a wide top-heavy box anchored
-            // near the dragon's feet, not the generic centred 16x16 fallback.
-            let (left_px, right_px) = match enemy.facing {
-                Some(Direction::Right) => (19, 14),
-                Some(Direction::Left) => (14, 19),
-                None => (19, 19),
-            };
-            EnemyContactBounds {
-                left_px,
-                right_px,
-                top_px: 43,
-                bottom_px: 2,
-            }
-        }
+        NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x1C } => EnemyContactBounds {
-            left_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
+            left_px: -MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
             right_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
-            top_px: ENEMY_CONTACT_HALF_HEIGHT,
+            top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
         _ => EnemyContactBounds {
-            left_px: ENEMY_CONTACT_HALF_WIDTH,
+            left_px: -ENEMY_CONTACT_HALF_WIDTH,
             right_px: ENEMY_CONTACT_HALF_WIDTH,
-            top_px: ENEMY_CONTACT_HALF_HEIGHT,
+            top_px: -ENEMY_CONTACT_HALF_HEIGHT,
             bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
         },
     }
 }
 
+fn dragon_walking_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // CollisionSize_Index entries for the live DragonWalking frames:
+    // - walk/breath (`unk_31630` / `unk_31658`): `dc.w -$10,$20,-$20,$20`
+    // - hurt (`unk_31610`): `dc.w -$13,$21,-$2B,$29`
+    // These are raw left/top offsets plus width/height, so the boxes can sit
+    // entirely above the feet anchor (`y_pos`) on the landing frames.
+    if enemy.damage_flash {
+        let (left_px, right_px) = match enemy.facing {
+            Some(Direction::Right) => (-14, 19),
+            Some(Direction::Left) => (-19, 14),
+            None => (-19, 14),
+        };
+        return EnemyContactBounds {
+            left_px,
+            right_px,
+            top_px: -43,
+            bottom_px: -2,
+        };
+    }
+
+    EnemyContactBounds {
+        left_px: -16,
+        right_px: 16,
+        top_px: -32,
+        bottom_px: 0,
+    }
+}
+
 fn enemy_contact_min_overlap_fp(enemy: &NativeObjectSnapshot) -> i64 {
     match enemy.kind {
-        NativeObjectKind::Enemy { object_type: 0x0D } => 0x0008_0000,
+        // GfxObjects_CollisionKid accepts edge contacts on DragonWalking's
+        // real collision boxes; the previous 8px gate was an invented guard
+        // that suppressed the frame-3399 stomp in the live TAS frontier.
+        NativeObjectKind::Enemy { object_type: 0x0D } => 0,
         _ => ENEMY_CONTACT_MIN_OVERLAP_FP,
     }
 }
@@ -720,35 +745,27 @@ fn enemy_contact_min_overlap_fp(enemy: &NativeObjectSnapshot) -> i64 {
 /// Stomp: player is falling (y_velocity > 0) and the player's feet are at or
 /// above the enemy's top edge. Contacts lower on the sprite deal damage
 /// instead of granting a bounce.
-pub(crate) fn classify_enemy_contact(
+pub(crate) fn classify_enemy_contact_with_half_width(
     player: PlayerState,
     enemy: &NativeObjectSnapshot,
     pre_physics_y_velocity: i32,
     _pre_physics_y_pos: u32,
+    player_contact_half_width: i64,
 ) -> EnemyContactResult {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
-    let p_left = px - (PLAYER_CONTACT_HALF_WIDTH << 16);
-    let p_right = px + (PLAYER_CONTACT_HALF_WIDTH << 16);
+    let p_left = px - (player_contact_half_width << 16);
+    let p_right = px + (player_contact_half_width << 16);
     let p_top = py - (i64::from(PLAYER_HEIGHT) << 16);
     let p_bottom = py;
 
     let ex = enemy.x_pos as i64;
     let ey = enemy.y_pos as i64;
     let bounds = enemy_contact_bounds(enemy);
-    let e_left = ex - (bounds.left_px << 16);
+    let e_left = ex + (bounds.left_px << 16);
     let e_right = ex + (bounds.right_px << 16);
-    let e_top = ey - (bounds.top_px << 16);
+    let e_top = ey + (bounds.top_px << 16);
     let e_bottom = ey + (bounds.bottom_px << 16);
-
-    // Check AABB overlap first
-    if !(p_left < e_right && p_right > e_left && p_top < e_bottom && p_bottom > e_top) {
-        return EnemyContactResult::None;
-    }
-    let x_overlap = p_right.min(e_right) - p_left.max(e_left);
-    if x_overlap < enemy_contact_min_overlap_fp(enemy) {
-        return EnemyContactResult::None;
-    }
 
     // MiniHoppingSkull immunity while airborne and rising
     if matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x1C })
@@ -758,35 +775,99 @@ pub(crate) fn classify_enemy_contact(
         return EnemyContactResult::None;
     }
 
-    // ASM-style direction classification: compare relative velocity with overlap
-    // to determine if the player is hitting from above (stomp) or from the side.
-    // The ASM uses: y_overlap × |relative_x_vel| vs x_overlap × |relative_y_vel|
-    // If vertical approach dominates, and player is falling → stomp.
-    if pre_physics_y_velocity > 0 && !player.on_ground {
-        let y_overlap = p_bottom.min(e_bottom) - p_top.max(e_top);
-        let enemy_x_vel = enemy.x_velocity.unwrap_or(0) as i64;
-        let enemy_y_vel = enemy.y_velocity.unwrap_or(0) as i64;
-        let rel_x_vel = (enemy_x_vel - i64::from(player.x_velocity)).unsigned_abs();
-        let rel_y_vel = (enemy_y_vel - i64::from(pre_physics_y_velocity)).unsigned_abs();
+    let kid_left = (p_left >> 16) as i32;
+    let kid_right = (p_right >> 16) as i32;
+    let kid_top = (p_top >> 16) as i32;
+    let kid_bottom = (p_bottom >> 16) as i32;
+    let object_left = (e_left >> 16) as i32;
+    let object_right = (e_right >> 16) as i32;
+    let object_top = (e_top >> 16) as i32;
+    let object_bottom = (e_bottom >> 16) as i32;
 
-        // "Kid above" = small y_overlap relative to vertical approach speed.
-        // When rel_y_vel is 0 (no vertical approach), can't be a stomp.
-        if rel_y_vel > 0 {
-            let from_above = (y_overlap as u64) * rel_x_vel < (x_overlap as u64) * rel_y_vel;
-            if from_above {
-                return EnemyContactResult::Stomp;
+    // GfxObjects_CollisionKid truncates world positions to word pixel bounds
+    // before testing overlap, and the comparisons are inclusive. The live
+    // frame-3399 stomp only clips on that integer edge-touch.
+    if object_left > kid_right
+        || object_right < kid_left
+        || object_top > kid_bottom
+        || object_bottom < kid_top
+    {
+        return EnemyContactResult::None;
+    }
+
+    let x_overlap_px = object_right.min(kid_right) - object_left.max(kid_left);
+    if (i64::from(x_overlap_px) << 16) < enemy_contact_min_overlap_fp(enemy) {
+        return EnemyContactResult::None;
+    }
+
+    let object_x_delta = enemy.x_velocity.unwrap_or(0) - player.x_velocity;
+    let object_y_delta = enemy.y_velocity.unwrap_or(0) - pre_physics_y_velocity;
+    let rel_x = object_x_delta >> 8;
+    let rel_y = object_y_delta >> 8;
+
+    enum ContactSide {
+        Above,
+        Below,
+        Left,
+        Right,
+    }
+
+    let relation = if object_x_delta >= 0 {
+        if object_y_delta >= 0 {
+            let x_term = i64::from(object_right - kid_left) * i64::from(rel_y);
+            let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
+            if y_term > x_term {
+                ContactSide::Right
+            } else {
+                ContactSide::Below
+            }
+        } else {
+            let x_term = i64::from(object_right - kid_left) * i64::from(rel_y);
+            let y_term = i64::from(object_top - kid_bottom) * i64::from(rel_x);
+            if y_term < x_term {
+                ContactSide::Right
+            } else {
+                ContactSide::Above
             }
         }
+    } else if object_y_delta >= 0 {
+        let x_term = i64::from(object_left - kid_right) * i64::from(rel_y);
+        let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
+        if y_term < x_term {
+            ContactSide::Left
+        } else {
+            ContactSide::Below
+        }
+    } else {
+        let x_term = i64::from(object_left - kid_right) * i64::from(rel_y);
+        let y_term = i64::from(object_top - kid_bottom) * i64::from(rel_x);
+        if y_term > x_term {
+            ContactSide::Left
+        } else {
+            ContactSide::Above
+        }
+    };
+
+    if matches!(relation, ContactSide::Above) {
+        return EnemyContactResult::Stomp;
     }
 
     EnemyContactResult::Damage
 }
 
-pub(crate) fn player_touches_enemy(player: PlayerState, enemy: &NativeObjectSnapshot) -> bool {
-    // For contact detection (damage source), use current velocity — stomp
-    // direction doesn't matter here, only overlap.
+pub(crate) fn player_touches_enemy_with_half_width(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    player_contact_half_width: i64,
+) -> bool {
     !matches!(
-        classify_enemy_contact(player, enemy, player.y_velocity, player.y_pos),
+        classify_enemy_contact_with_half_width(
+            player,
+            enemy,
+            player.y_velocity,
+            player.y_pos,
+            player_contact_half_width,
+        ),
         EnemyContactResult::None
     )
 }

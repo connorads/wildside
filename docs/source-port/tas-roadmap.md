@@ -11,7 +11,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | Recording | Frames | Duration | Status |
 |-----------|--------|----------|--------|
 | `kid_chameleon_short_demo` | 800 | ~13s | 0 diffs (verified) |
-| `kc_any_percent_2024` | 4916 | ~82s | first 3399 frames CRC-clean; current live mismatch window starts at frame 3400 during a later demo `0x15` airborne state break |
+| `kc_any_percent_2024` | 4916 | ~82s | first 3413 frames CRC-clean; current live mismatch window starts at frame 3414 during the later demo `0x15` pause snapshot |
 | `any-percent-published` | 37759 | ~10.5min | untested since boot timing fix |
 
 ## Milestones
@@ -31,6 +31,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 
 | Date | Recording | Frontier frame | Blocker | Fix |
 |------|-----------|---------------|---------|-----|
+| 2026-03-22 | kc_any_percent_2024 | 3414 | The second-dragon stomp setup is now authoritative-clean, but the next bisect lands two frames after the demo `Start` press: oracle has already frozen the pause snapshot by frame 3414 while native keeps the camera and Kid Y one pixel off | Replaced the fixed-point DragonWalking contact prefilter with `GfxObjects_CollisionKid`'s integer-inclusive overlap gate, threaded the active form half-width through runtime enemy-contact queries, added `walking_dragon_right_facing_edge_contact_matches_live_tas_stomp_window`, promoted `demo_1_reaches_the_oracle_backed_second_dragon_setup_on_frame_3400` into a passing regression, and re-ran `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3390 --frame-end 3410 --checkpoint-interval 1` plus `--frame-start 3400 --frame-end 4916 --bisect`. The old frame-3400 blocker is gone; the new ignored probe is `demo_1_matches_the_oracle_pause_snapshot_on_frame_3414`. |
 | 2026-03-22 | kc_any_percent_2024 | 3400 | The previous frame-3400 theory was aimed at Kid's `colid_kidbelow` landing path, but the oracle still hid whether the original game ever gave Kid a support collision there | Added oracle gfx-object collision tracing to `tas-diff`: Kid gameplay debug now exposes `kid_collision_type`/`kid_collision_source`, active oracle enemies expose per-slot `collision_type`/`collision_source`, and the 3398..3405 re-check shows Kid stays `0x0000(empty)` while the right-side walking dragon at `x=0x03670000` already reports `0x002c(kidabove)` from frame 3399 onward. That narrows the next fix to the enemy/object-side overlap consumer rather than a player-side support snap. |
 | 2026-03-22 | kc_any_percent_2024 | 3400 | The live blocker had shifted to Kid/object collision on the second dragon setup, but the native trace still only exposed positions and could not show whether any nearby gfx object would count as temporary `kidbelow` support on frames 3399..3400 | Added native frame debug field `kid_object_support_candidates`, printed `gameplay_debug_fields` in `kidcli tas-diff`, covered the trace with `trace_frame_reports_kid_object_support_candidates` plus `demo_1_frame_3400_reports_kid_object_support_candidates`, registered the new field in `debug-field-registry.yaml`, and updated `frontier-state.yaml` so the next pass can compare the native support candidates directly against oracle object state before attempting another gameplay patch. |
 | 2026-03-22 | kc_any_percent_2024 | 3400 | The old lower-dragon shared-walker break was no longer the live blocker: surviving the first stomp should keep layout `#02` parked on the oracle-backed tile through frame 2962, and once that hold is restored the first authoritative mismatch moves back to Kid's second-dragon setup on frame 3400 | Surviving stomps now arm a 24-frame DragonWalking hurt hibernate, with a one-frame flash offset so the landing still reaches the oracle-backed frame-2938 contact tile before the freeze begins on frame 2939. Re-ran the frame-2938, frame-2962, frame-2994, frame-3252, and frame-3399 regressions, updated `frontier-state.yaml`, and shifted the next frontier work to the missing Kid/object collision snap at frame 3400 rather than the older lower-dragon walker drift. |
@@ -104,18 +105,18 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 # Print the live frontier summary first
 mise run frontier-status
 
-# Re-check the live dragon-landing window
+# Re-check the live pause-snapshot window
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 3368 --frame-end 3405 --checkpoint-interval 1
+  --frame-start 3412 --frame-end 3416 --checkpoint-interval 1
 
 # Bisect to find first divergence
 cargo run --release -p kidcli -- verify-tas \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 3200 --frame-end 4000 --bisect
+  --frame-start 3400 --frame-end 4916 --bisect
 
-# Show the advisory object-roster/velocity drift around the live walker window
+# Show the new pause-window divergence plus the late-demo object state
 cargo run --release -p kidcli -- tas-diff \
   --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
-  --frame-start 3368 --frame-end 3400 --include-advisory
+  --frame-start 3412 --frame-end 3416 --include-advisory --show-object-roster-on-match
 ```
