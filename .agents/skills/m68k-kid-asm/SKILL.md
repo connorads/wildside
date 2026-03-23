@@ -129,11 +129,15 @@ Read 68k assembly from `.cache/upstream/kid-chameleon-disasm/` with confidence. 
 | ABCD | B | Add BCD with extend |
 | SBCD | B | Subtract BCD with extend |
 | NBCD | B | Negate BCD |
+| MOVEP | W/L | Move peripheral data (alternating bytes between Dn and memory) |
+| CHK | W | Check Dn against bound; trap if out of range |
+| TRAPV | - | Trap if overflow (V flag set) |
 | LINK | - | Allocate stack frame (An, #displacement) |
 | UNLK | - | Deallocate stack frame |
 | TRAP | - | Software interrupt (#0-15) |
 | STOP | - | Stop and load SR |
 | RESET | - | Assert reset line |
+| ILLEGAL | - | Force illegal instruction trap (opcode $4AFC) |
 
 **CCR key:** `*` = affected, `-` = unchanged, `0` = cleared, `1` = set, `?` = undefined
 
@@ -436,6 +440,10 @@ These are used extensively for boolean flags like `x_direction`. Don't confuse `
 
 `moveq #N,Dn` sign-extends the 8-bit immediate to 32 bits. `moveq #$FF,d0` sets d0 to `$FFFFFFFF` (-1), not `$000000FF`. This is used intentionally for setting flags to $FF.
 
+### ADDX/SUBX Zero Flag
+
+`ADDX` and `SUBX` only **clear** Z, never set it. Z starts set and is cleared if any partial result is non-zero — this enables multi-precision zero detection across chained operations. Don't assume Z=1 means the result was zero without checking the initial state.
+
 ### Word Operations on Address Registers
 
 `move.w` to an address register (`movea.w`) **sign-extends** to 32 bits. `movea.w #$8000,a0` sets a0 to `$FFFF8000`, not `$00008000`. This is how the disassembly accesses RAM in the $FF0000-$FFFFFF range with absolute short addressing.
@@ -511,7 +519,7 @@ Kid's sprite table is at `$FFFF0000` (Sprite_Table), DMA'd to VRAM each frame. F
 | VRAM Fill | Reg $17 bit 7=1, bit 6=1 | Fill VRAM range with a value. Used for clearing |
 | VRAM Copy | Reg $17 bits 7-6=11 | Copy within VRAM. Rarely used in Kid |
 
-The `dma68kToVDP` macro in `macros.asm` sets up registers $13-$17 then writes the command word to trigger the transfer. DMA halts the 68k during transfer (in H40 mode, ~16.7 bytes/scanline during active display, unlimited during VBlank).
+The `dma68kToVDP` macro in `macros.asm` sets up registers $13-$17 then writes the command word to trigger the transfer. 68k→VDP DMA **halts the 68k** during transfer (~205 bytes/scanline during VBlank, ~18 bytes/scanline during active display). VRAM Fill and VRAM Copy do **not** halt the 68k.
 
 ### Palette (CRAM)
 
