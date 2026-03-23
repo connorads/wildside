@@ -13,8 +13,10 @@
 
 ## 68k semantics
 
+- `.agents/skills/m68k-kid-asm/SKILL.md`
+  - M68000 instruction reference, addressing modes, condition codes, Kid Chameleon ROM conventions, Mega Drive hardware, pitfall ledger
 - `.cache/references/m68k-instructions-documentation`
-  - primary 68k instruction reference
+  - per-instruction markdown docs (if bootstrapped)
 - official manual fallback
   - https://www.nxp.com/docs/en/reference-manual/M68000PRM.pdf
 

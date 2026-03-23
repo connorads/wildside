@@ -40,6 +40,7 @@ Use sources in this order:
 
 4. Local skills and repo docs
 - `docs/source-port/frontier-state.yaml`
+- `.agents/skills/m68k-kid-asm/SKILL.md`
 - `.agents/skills/as-assembler/SKILL.md`
 - `docs/source-port/methodology.md`
 - `docs/source-port/reference-index.md`
@@ -88,8 +89,12 @@ The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate
 
 ## Which source to use
 
-- Unknown 68k opcode or addressing mode
-  - use `.cache/references/m68k-instructions-documentation` first
+- Unknown 68k opcode, addressing mode, condition code, or register convention
+  - use `.agents/skills/m68k-kid-asm/SKILL.md` first (sections 1-3)
+- Kid Chameleon object layout, direction convention, or collision IDs
+  - use `.agents/skills/m68k-kid-asm/SKILL.md` (sections 5-7)
+- Mega Drive hardware (VDP, DMA, sprites, memory map)
+  - use `.agents/skills/m68k-kid-asm/SKILL.md` (section 9)
 - Unknown AS directive, macro, or pseudo-op
   - use `.agents/skills/as-assembler/SKILL.md` and its `references/` docs
 - Unknown Kid RAM variable or object-state field
