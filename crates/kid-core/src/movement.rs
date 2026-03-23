@@ -617,22 +617,35 @@ impl OpeningSliceState {
                         self.finalise_trace();
                         return;
                     }
-                    // ASM sub_9386 (kid.asm:10809): after horizontal movement,
-                    // snap Y to the slope surface so the player follows the
-                    // diagonal smoothly. Without this, gravity+collision creates
-                    // a 1-frame oscillation (visual jitter on slopes).
-                    // Formula: y_pos = slope_floor_y(x_pos) for the current tile.
+                    // ASM sub_9386 + sub_A254: after horizontal movement, snap Y
+                    // to the slope surface. The ROM stores a linear constant
+                    // ($FFFFFA24) and computes y = constant ± x each frame.
+                    // Native equivalent: compute slope_floor_y from x_px directly,
+                    // checking both the current cell row AND one row below/above
+                    // to handle tile boundary crossings during horizontal movement.
                     if self.player.on_ground {
                         let x_px = (self.player.x_pos >> 16) as i32;
                         let y_px = (self.player.y_pos >> 16) as i32;
-                        let probe = terrain::probe_floor(grid, x_px, y_px);
-                        if matches!(
-                            probe.cell.collision,
-                            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
-                        ) && probe.on_ground
-                        {
-                            self.player.y_pos =
-                                (probe.floor_y_px.max(0) as u32) << 16;
+                        // Try current row and one above (for uphill movement where
+                        // the new surface is in the cell above the current y_pos).
+                        let col = (x_px >> 4).max(0) as u16;
+                        for row_offset in [0i32, -1, 1] {
+                            let row = ((y_px >> 4) + row_offset).max(0) as u16;
+                            let cell = grid.cell_at(col, row);
+                            if matches!(
+                                cell.collision,
+                                terrain::CollisionKind::SlopeUp
+                                    | terrain::CollisionKind::SlopeDown
+                            ) {
+                                let cell_top = i32::from(row) * 16;
+                                let floor_y =
+                                    terrain::slope_floor_y_pub(cell.collision, cell_top, x_px);
+                                // Only snap if we're within reasonable range of the surface
+                                if (y_px - floor_y).abs() <= 16 {
+                                    self.player.y_pos = (floor_y.max(0) as u32) << 16;
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
