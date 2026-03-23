@@ -78,6 +78,7 @@ impl OpeningSliceState {
             pre_gravity_y_vel: 0,
             physics_trace: None,
             wall_cling_release_probe: None,
+            kid_flip_follow_on_stages: None,
         }
     }
 
@@ -133,6 +134,7 @@ impl OpeningSliceState {
             pre_gravity_y_vel: 0,
             physics_trace: None,
             wall_cling_release_probe: None,
+            kid_flip_follow_on_stages: None,
         }
     }
 
@@ -198,6 +200,7 @@ impl OpeningSliceState {
         let mut block_grid = block_grid;
         let on_ground_before = self.player.on_ground;
         self.wall_cling_release_probe = None;
+        self.kid_flip_follow_on_stages = None;
         // ASM sub_914A uses FA78 (per-form half-width from unk_B408) for all
         // collision probes. Thread the form's half-width through to collision
         // functions instead of the constant PLAYER_HALF_WIDTH.
@@ -415,6 +418,15 @@ impl OpeningSliceState {
                     }
                 }
 
+                let entry_stage = self.kid_flip_follow_on_stage_state();
+                let mut kid_flip_follow_on_stages = KidFlipFollowOnStages {
+                    entry: entry_stage,
+                    after_press_away: entry_stage,
+                    after_jump_gravity: entry_stage,
+                    after_floor: entry_stage,
+                    after_wall: entry_stage,
+                };
+
                 // ASM loc_AA9C: pressing away from wall exits wall-cling.
                 if let Some(dir) = self.player.wall_cling_direction {
                     let pressing_away = match dir {
@@ -425,6 +437,7 @@ impl OpeningSliceState {
                         self.player.wall_cling_direction = None;
                     }
                 }
+                kid_flip_follow_on_stages.after_press_away = self.kid_flip_follow_on_stage_state();
 
                 // Step 1: sub_B084 — horizontal velocity only (no x_pos update).
                 // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
@@ -453,6 +466,8 @@ impl OpeningSliceState {
                 // In AsmFaithful, gravity runs before position, so pre_gravity_y_vel
                 // is the velocity before gravity was applied (same as GravityFirst).
                 self.pre_gravity_y_vel = pre_gravity_y_vel;
+                kid_flip_follow_on_stages.after_jump_gravity =
+                    self.kid_flip_follow_on_stage_state();
 
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_gravity_y_vel = self.player.y_velocity;
@@ -500,6 +515,7 @@ impl OpeningSliceState {
                         allow_asm_faithful_solid_touch_snap,
                     )
                 };
+                kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
                 if let (Some(grid), Some(collision)) =
                     (block_grid.as_deref(), airborne_slope_recontact)
                 {
@@ -517,6 +533,8 @@ impl OpeningSliceState {
                 if let Some(grid) = block_grid.as_deref()
                     && self.try_release_wall_cling_overhang(form, grid, pre_vertical_y_px)
                 {
+                    kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
                     return;
@@ -524,6 +542,8 @@ impl OpeningSliceState {
                 if let Some(grid) = block_grid.as_deref()
                     && self.try_release_descending_wall_cling_into_run(input, form, grid)
                 {
+                    kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
+                    self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                     self.finalise_trace();
                     self.update_camera_follow(y_look_offset);
                     return;
@@ -542,10 +562,15 @@ impl OpeningSliceState {
                         t.wall_snap_x = Some(self.player.x_pos);
                     }
                     if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw) {
+                        kid_flip_follow_on_stages.after_wall =
+                            self.kid_flip_follow_on_stage_state();
+                        self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
                         self.finalise_trace();
                         return;
                     }
                 }
+                kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
+                self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
             }
         }
         self.finalise_trace();
@@ -557,6 +582,15 @@ impl OpeningSliceState {
             (true, false) => Some(Direction::Left),
             (false, true) => Some(Direction::Right),
             _ => None,
+        }
+    }
+
+    fn kid_flip_follow_on_stage_state(&self) -> KidFlipFollowOnStageState {
+        KidFlipFollowOnStageState {
+            x_velocity: self.player.x_velocity,
+            y_velocity: self.player.y_velocity,
+            on_ground: self.player.on_ground,
+            wall_cling_direction: self.player.wall_cling_direction,
         }
     }
 

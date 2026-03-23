@@ -156,6 +156,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_flip_branch_probe_debug() {
             gameplay_debug_fields.insert("kid_flip_branch_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_flip_follow_on_probe_debug() {
+            gameplay_debug_fields.insert("kid_flip_follow_on_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
@@ -598,6 +601,39 @@ impl NativeRuntime {
             u8::from(probe.on_ground_after),
             probe.branch.as_debug_label(),
             wall_probe_debug_summary(probe.wall_probe),
+        ))
+    }
+
+    fn kid_flip_follow_on_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_kid_flip_follow_on_probe?;
+
+        Some(format!(
+            "branch={}/motion={}/post={}/entry[{}/ground={}/wall_cling={}]/press_away[{}/ground={}/wall_cling={}]/jump_gravity[{}/ground={}/wall_cling={}]/floor[{}/ground={}/wall_cling={}]/wall[{}/ground={}/wall_cling={}]",
+            probe.branch.as_debug_label(),
+            probe.motion_branch.as_debug_label(),
+            probe.post_motion_mutator.as_debug_label(),
+            kid_flip_follow_on_stage_debug(probe.stages.entry),
+            u8::from(probe.stages.entry.on_ground),
+            direction_debug_label(probe.stages.entry.wall_cling_direction),
+            kid_flip_follow_on_stage_debug(probe.stages.after_press_away),
+            u8::from(probe.stages.after_press_away.on_ground),
+            direction_debug_label(probe.stages.after_press_away.wall_cling_direction),
+            kid_flip_follow_on_stage_debug(probe.stages.after_jump_gravity),
+            u8::from(probe.stages.after_jump_gravity.on_ground),
+            direction_debug_label(probe.stages.after_jump_gravity.wall_cling_direction),
+            kid_flip_follow_on_stage_debug(probe.stages.after_floor),
+            u8::from(probe.stages.after_floor.on_ground),
+            direction_debug_label(probe.stages.after_floor.wall_cling_direction),
+            kid_flip_follow_on_stage_debug(probe.stages.after_wall),
+            u8::from(probe.stages.after_wall.on_ground),
+            direction_debug_label(probe.stages.after_wall.wall_cling_direction),
         ))
     }
 
@@ -1175,6 +1211,13 @@ fn direction_debug_label(direction: Option<Direction>) -> &'static str {
         Some(Direction::Right) => "right",
         None => "none",
     }
+}
+
+fn kid_flip_follow_on_stage_debug(stage: KidFlipFollowOnStageState) -> String {
+    format!(
+        "x_vel={:#010x}/y_vel={:#010x}",
+        stage.x_velocity as u32, stage.y_velocity as u32
+    )
 }
 
 fn wall_probe_debug_summary(probe: Option<terrain::WallProbe>) -> String {

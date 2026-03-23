@@ -1913,6 +1913,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.step(
@@ -3055,6 +3056,7 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5111,6 +5113,73 @@ fn trace_frame_reports_kid_flip_branch_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_flip_follow_on_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.last_kid_frame_kid_flip_follow_on_probe = Some(KidFlipFollowOnProbe {
+        branch: KidFlipBranchSelection::CPressedFallthrough,
+        motion_branch: KidFrameMotionBranch::NormalPhysics,
+        post_motion_mutator: KidFramePostMotionMutator::None,
+        stages: KidFlipFollowOnStages {
+            entry: KidFlipFollowOnStageState {
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: true,
+                wall_cling_direction: None,
+            },
+            after_press_away: KidFlipFollowOnStageState {
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: true,
+                wall_cling_direction: None,
+            },
+            after_jump_gravity: KidFlipFollowOnStageState {
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: true,
+                wall_cling_direction: None,
+            },
+            after_floor: KidFlipFollowOnStageState {
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: true,
+                wall_cling_direction: None,
+            },
+            after_wall: KidFlipFollowOnStageState {
+                x_velocity: 0,
+                y_velocity: 0,
+                on_ground: true,
+                wall_cling_direction: None,
+            },
+        },
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_flip_follow_on_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid_flip follow-on diagnostics"));
+
+    assert!(
+        probe_debug.contains("branch=c_pressed_fallthrough/motion=normal_physics/post=none"),
+        "the kid_flip follow-on probe should identify the shared fallthrough branch and the native movement shell it entered",
+    );
+    assert!(
+        probe_debug.contains("entry[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+        "the kid_flip follow-on probe should capture the entry state at the shared loc_AA22 mirror",
+    );
+    assert!(
+        probe_debug
+            .contains("jump_gravity[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+        "the kid_flip follow-on probe should expose whether the native jump/gravity stage injected lift-off velocity or released ground",
+    );
+    assert!(
+        probe_debug.contains("wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+        "the kid_flip follow-on probe should preserve the final pre-post-motion state after the wall-collision stage",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_iron_knight_block_breaker_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -5863,6 +5932,7 @@ fn headbutt_prize_block_changes_to_empty() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5924,6 +5994,7 @@ fn ceiling_collision_skips_when_upward_motion_stays_within_same_tile() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5986,6 +6057,7 @@ fn headbutt_metal_block_does_not_clear() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6052,6 +6124,7 @@ fn headbutt_smash_block_changes_to_empty() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6114,6 +6187,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6183,6 +6257,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6261,6 +6336,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6316,6 +6392,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6373,6 +6450,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6439,6 +6517,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH, true);
@@ -6491,6 +6570,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -6540,6 +6620,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -6589,6 +6670,7 @@ fn asm_faithful_solid_floor_snap_waits_for_contact_row() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, false);
@@ -9740,6 +9822,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -9792,6 +9875,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     // No floor under player → should leave ground and reset terrain type
@@ -9853,6 +9937,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     }
 }
 
@@ -10102,6 +10187,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     assert!(runtime.block_state.evanescent_blocks.is_empty());
@@ -10158,6 +10244,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     runtime.step_evanescent_blocks(&slice);
@@ -10223,6 +10310,7 @@ fn evanescent_block_clears_after_timer_expires() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     // Trigger + first tick
@@ -10297,6 +10385,7 @@ fn evanescent_block_with_skin_delay() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     let airborne_slice = OpeningSliceState {
@@ -10491,6 +10580,7 @@ fn evanescent_block_not_triggered_twice() {
         pre_gravity_y_vel: 0,
         physics_trace: None,
         wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
     };
 
     // Trigger twice while standing
@@ -14563,6 +14653,67 @@ fn published_tas_frames_7968_7969_report_kid_flip_branch_probe() {
             probe_debug
                 .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
             "frame {frame_index} should keep the same post-sub_AF10 wall contact at the shared branch-selection boundary",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_flip_follow_on_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_flip_follow_on_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit kid_flip follow-on diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("branch=c_pressed_fallthrough/motion=normal_physics/post=none"),
+            "frame {frame_index} should show the shared C-fallthrough enters the native loc_AA22 movement shell before any later post-motion mutator",
+        );
+        assert!(
+            probe_debug
+                .contains("entry[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+            "frame {frame_index} should start the shared follow-on from a fully grounded, zero-velocity, no-wall-cling state",
+        );
+        assert!(
+            probe_debug
+                .contains("press_away[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+            "frame {frame_index} should prove the loc_AA9C-style press-away gate stays inert in the live window",
+        );
+        assert!(
+            probe_debug.contains(
+                "jump_gravity[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"
+            ),
+            "frame {frame_index} should prove the native jump/gravity stage still injects no lift-off velocity and never clears grounded state",
+        );
+        assert!(
+            probe_debug
+                .contains("floor[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+            "frame {frame_index} should keep the floor-collision stage inert instead of handing Kid into the oracle's upward path",
+        );
+        assert!(
+            probe_debug
+                .contains("wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+            "frame {frame_index} should close the shared follow-on with no wall-state or velocity mutation before later systems run",
         );
     }
 }

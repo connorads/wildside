@@ -138,6 +138,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed shared kid_flip branch-selection or button-consumer diagnostic."
     },
     {
+      "key": "kid_flip_follow_on_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Stage-by-stage native snapshot of the shared post-kid_flip fallthrough path inside the loc_AA22 movement shell: entry, press-away, jump/gravity, floor, and wall states before later post-motion consumers run.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed shared follow-on stage state for grounded, velocity, or wall-cling handoff debugging."
+    },
+    {
       "key": "kid_grounded_release_probe",
       "scope": "frame",
       "status": "exploratory",

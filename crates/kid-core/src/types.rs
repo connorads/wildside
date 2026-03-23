@@ -375,6 +375,31 @@ pub(crate) struct KidFlipBranchProbe {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidFlipFollowOnStageState {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) on_ground: bool,
+    pub(crate) wall_cling_direction: Option<Direction>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidFlipFollowOnStages {
+    pub(crate) entry: KidFlipFollowOnStageState,
+    pub(crate) after_press_away: KidFlipFollowOnStageState,
+    pub(crate) after_jump_gravity: KidFlipFollowOnStageState,
+    pub(crate) after_floor: KidFlipFollowOnStageState,
+    pub(crate) after_wall: KidFlipFollowOnStageState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidFlipFollowOnProbe {
+    pub(crate) branch: KidFlipBranchSelection,
+    pub(crate) motion_branch: KidFrameMotionBranch,
+    pub(crate) post_motion_mutator: KidFramePostMotionMutator,
+    pub(crate) stages: KidFlipFollowOnStages,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidGroundedReleaseVelocityBranch {
     JumpPressed,
     JumpBuffered,
@@ -1427,6 +1452,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) physics_trace: Option<PhysicsTrace>,
     /// Focused wall-cling live-release probe captured at the loc_AA9C mirror.
     pub(crate) wall_cling_release_probe: Option<KidWallClingReleaseProbe>,
+    /// Focused shared post-kid_flip follow-on stages inside the native loc_AA22 mirror.
+    pub(crate) kid_flip_follow_on_stages: Option<KidFlipFollowOnStages>,
 }
 
 #[cfg(test)]

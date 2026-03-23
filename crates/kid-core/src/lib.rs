@@ -200,6 +200,9 @@ pub struct NativeRuntime {
     /// Debug snapshot of the shared kid_flip branch-selection fan-out after the
     /// post-sub_AF10 wall scan.
     last_kid_frame_kid_flip_branch_probe: Option<KidFlipBranchProbe>,
+    /// Debug snapshot of the shared post-kid_flip follow-on stages inside the
+    /// native loc_AA22 mirror.
+    last_kid_frame_kid_flip_follow_on_probe: Option<KidFlipFollowOnProbe>,
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
@@ -296,6 +299,7 @@ impl NativeRuntime {
             last_kid_frame_same_frame_stomp_probe: None,
             last_kid_frame_iron_knight_attach_probe: None,
             last_kid_frame_kid_flip_branch_probe: None,
+            last_kid_frame_kid_flip_follow_on_probe: None,
             last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -347,6 +351,7 @@ impl NativeRuntime {
         self.last_kid_frame_same_frame_stomp_probe = None;
         self.last_kid_frame_iron_knight_attach_probe = None;
         self.last_kid_frame_kid_flip_branch_probe = None;
+        self.last_kid_frame_kid_flip_follow_on_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
@@ -572,6 +577,7 @@ impl NativeRuntime {
         input: FrameInput,
         player_before: PlayerState,
         player_after: PlayerState,
+        slice: &OpeningSliceState,
     ) {
         let wall_probe = self.block_grid.as_ref().map(|grid| {
             terrain::probe_wall(
@@ -617,6 +623,15 @@ impl NativeRuntime {
             branch,
             wall_probe,
         });
+        self.last_kid_frame_kid_flip_follow_on_probe =
+            slice
+                .kid_flip_follow_on_stages
+                .map(|stages| KidFlipFollowOnProbe {
+                    branch,
+                    motion_branch: self.last_kid_frame_motion_branch,
+                    post_motion_mutator: self.last_kid_frame_post_motion_mutator,
+                    stages,
+                });
     }
 
     fn kid_pre_physics_probe_state_changed(before: PlayerState, after: PlayerState) -> bool {
@@ -986,7 +1001,12 @@ impl NativeRuntime {
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
             // runs AFTER physics so flight takes effect next frame.
             self.step_cyclone_activation(&slice, input);
-            self.note_kid_flip_branch_probe(input, player_before_iron_knight_climb, slice.player);
+            self.note_kid_flip_branch_probe(
+                input,
+                player_before_iron_knight_climb,
+                slice.player,
+                &slice,
+            );
         }
         self.finish_deferred_ceiling_clears();
         // Wide spawn-support settling is a bootstrap/respawn helper, not
