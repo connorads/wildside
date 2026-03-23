@@ -303,13 +303,20 @@ pub(super) fn push_enemy_sprite(
     let frame = select_enemy_frame(trace, enemy_visuals, object.stationary);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let facing = object.facing.unwrap_or(Direction::Right);
-    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    // Enemy VRAM art is stored facing left (the ROM uses the H-flip bit to
+    // show right-facing sprites). Invert the facing for rendering so that
+    // Direction::Right flips the left-facing art to face right.
+    let render_facing = match facing {
+        Direction::Right => Direction::Left,
+        Direction::Left => Direction::Right,
+    };
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(select_enemy_palette(enemy_visuals, object.palette_variant).clone()),
-        tiles: build_sprite_tiles(frame, facing, 0),
+        tiles: build_sprite_tiles(frame, render_facing, 0),
     });
 }
 
