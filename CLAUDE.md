@@ -235,6 +235,19 @@ diff composites, and per-layer diagnostics.
 | Engine-wide invariant | Metamorphic test | Determinism, bounds, symmetry — no per-case oracle needed |
 | Stateful system | Stateful property test (proptest-state-machine) | Model lifecycle as states, auto-shrink failing transition sequences |
 | Test suite confidence | Mutation testing (`cargo-mutants`) | Surviving mutants = test gaps; target ≥80% kill rate |
+| Operator/sign correctness | Targeted unit tests with exact values | Proptests catch bounds violations but miss `+`→`-` or `<`→`>` mutations |
+
+### Mutation testing
+
+Run per-file with demo/TAS/snapshot tests skipped (they have pre-existing failures):
+```bash
+cargo mutants -p kid-core -f <file>.rs -j 4 -- --lib -- --skip demo_ --skip published_tas --skip snapshot
+```
+
+**Lessons learned:**
+- Proptest properties (bounded, converges) are too loose to catch sign/direction mutations — pair them with exact-value unit tests
+- Left-facing code paths are systematically undertested; the ASM is NOT perfectly mirrored (different brake constants), so symmetry doesn't mean redundancy
+- Binary parser byte-offset mutations need test data with multiple entries per section and distinct field values
 
 ## Code conventions for fidelity
 
