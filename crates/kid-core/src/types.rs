@@ -283,9 +283,16 @@ pub(crate) struct KidCollisionHandoffProbe {
     pub(crate) pending_stomp_bounce: bool,
     pub(crate) pending_form: Option<PlayerForm>,
     pub(crate) pending_level_skip: Option<LevelId>,
+    pub(crate) form_change_flash_frames: u8,
     pub(crate) on_ground_before: bool,
     pub(crate) jump_buffer_frames: u8,
     pub(crate) wall_cling_direction: Option<Direction>,
+    pub(crate) stomp_candidate: bool,
+    pub(crate) stomp_enemy_object_type: Option<u8>,
+    pub(crate) stomp_enemy_x_pos: Option<u32>,
+    pub(crate) stomp_enemy_y_pos: Option<u32>,
+    pub(crate) anchor_x_pos: u32,
+    pub(crate) anchor_y_pos: u32,
 }
 
 impl Default for KidCollisionHandoffProbe {
@@ -296,9 +303,16 @@ impl Default for KidCollisionHandoffProbe {
             pending_stomp_bounce: false,
             pending_form: None,
             pending_level_skip: None,
+            form_change_flash_frames: 0,
             on_ground_before: false,
             jump_buffer_frames: 0,
             wall_cling_direction: None,
+            stomp_candidate: false,
+            stomp_enemy_object_type: None,
+            stomp_enemy_x_pos: None,
+            stomp_enemy_y_pos: None,
+            anchor_x_pos: 0,
+            anchor_y_pos: 0,
         }
     }
 }

@@ -1,53 +1,52 @@
 ---
 slug: any-percent-published-frame-7969-knights-isle-native-stays-grounded-while-oracle-lifts-off
-cycle: 24
-updated_at: 2026-03-23T00:25:17Z
+cycle: 25
+updated_at: 2026-03-23T00:33:42Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Added a focused `kid_jump_gravity_probe` around the native `apply_jump_and_gravity_vel_only(...)` call and registered the new exploratory debug field.
-- Added formatter coverage plus a published-TAS regression for frames `7968..7969`.
-- Re-ran the targeted `kid_flip_*` and new `kid_jump_gravity_probe` tests, the broader `published_tas_frames_7968_7969_report_kid_` suite, `tas-diff` for frames `7968..7969`, `mise run audit-debug-fields`, and `mise run verify-slice-fast`.
+- Extended `kid_collision_handoff_probe` so it now covers the closest native pre-`sub_B168` collision-bounce surrogate: `form_flash`, pre-physics stomp candidate/enemy, and the saved anchor.
+- Updated the trace/unit regression and the published-TAS `7968..7969` regression to lock the new handoff fields.
+- Re-ran the focused collision-handoff tests, the broader published-TAS `7968..7969` frontier probe suite, `mise run audit-debug-fields`, and `mise run verify-slice-fast`.
 
 ## Current Model
 
 - The active frontier is still frame `7969` in `any-percent-published`, clean through `7968`.
-- The shared `kid_flip` fallthrough is still correct through the `loc_AA22` mirror: `c_press=1`, wall scan hit, grounded Iron Knight state, and no post-motion mutator.
-- The new probe narrows the blocker further: on frame `7968`, the native `apply_jump_and_gravity_vel_only(...)` call itself takes `branch=grounded_hold` with `jump=0`, `jump_buffer=0=>0`, `just_jumped=0=>0`, `b_held=0`, `custom_gravity=0`, `y_vel=0x00000000->0x00000000`, and `ground=1=>1`.
-- Inference from the disassembly plus the new probe: the missing oracle lift-off is not explained by branch selection, wall-cling release, floor/wall handling, or a local gravity tweak inside the native call. The next likely gap is an omitted pre-`sub_B168` state write or carry-in condition that should already exist before the jump/gravity routine runs.
+- ROM `loc_AA22` still looks like the critical pre-`sub_B168` shell: it forces `Character_Movement=Jump`, then runs `Character_CheckCollision` before the shared jump/gravity routine.
+- The new native handoff probe narrows the gap further: on frames `7968..7969`, native reaches the pre-physics boundary with `pending_form=none`, `form_flash=0`, `stomp_candidate=0`, `stomp_enemy=none`, and anchor `0x03a80000,0x01bf0000`.
+- Inference from the ROM path plus the new probe: the nearest native surrogates for `sub_7ACC` and `Jump_On_Enemy` are cold in the live window, so the missing oracle lift-off is still upstream of `apply_jump_and_gravity_vel_only(...)`, but it is no longer well explained by a deferred stomp carry or transform/helmet-change handoff.
 
 ## Strongest Evidence
 
-- `crates/kid-core/src/movement.rs`
-  Result: `apply_jump_and_gravity_vel_only(...)` now records the exact native gate branch plus pre/post `y_vel`, grounded, jump-buffer, and `just_jumped` state.
+- `crates/kid-core/src/lib.rs`
+  Result: `begin_kid_collision_handoff_probe(...)` now records the native pre-physics stomp candidate/enemy, form-flash latch, and saved anchor as the closest mirror of ROM's `Character_CheckCollision`/`Jump_On_Enemy` carry-in before `sub_B168`.
 - `crates/kid-core/src/trace.rs`
-  Result: `kid_jump_gravity_probe_debug()` emits a compact summary for live-frame inspection.
+  Result: `kid_collision_handoff_probe` now emits `form_flash`, `stomp_candidate`, `stomp_enemy`, and `anchor` in one compact summary.
 - `crates/kid-core/src/tests.rs`
-  Result: `trace_frame_reports_kid_jump_gravity_probe` and `published_tas_frames_7968_7969_report_kid_jump_gravity_probe` lock the new probe into the frontier suite.
+  Result: both the trace-unit test and the published-TAS `7968..7969` regression now assert `form_flash=0`, `stomp_candidate=0`, `stomp_enemy=none`, and anchor `0x03a80000,0x01bf0000`.
+- `cargo test -p kid-core kid_collision_handoff_probe -- --nocapture`
+  Result: passes.
+- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_ -- --nocapture`
+  Result: passes all 10 frontier probe regressions.
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7968 --frame-end 7969 --include-advisory --include-physics-trace --show-object-roster-on-match`
-  Result: frame `7968` now reports `kid_jump_gravity_probe = branch=grounded_hold/jump=0/jump_buffer=0=>0/just_jumped=0=>0/b_held=0/custom_gravity=0/y_vel=0x00000000->0x00000000/ground=1=>1`, while oracle `kid_gfx` is already at `y_velocity=0xffffc000`.
+  Result: oracle still shows frame `7968` `0x30(kid_gfx)` with `y_velocity=0xffffc000`, while native now reports `kid_collision_handoff_probe = lifecycle=alive/prev_post=none/pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none/stomp_candidate=0/stomp_enemy=none/anchor=0x03a80000,0x01bf0000`.
 - `mise run audit-debug-fields`
-  Result: clean after registering `kid_jump_gravity_probe`.
+  Result: clean after updating the collision-handoff field meaning in the registry.
 - `mise run verify-slice-fast`
   Result: passes.
 
 ## Exact Next Moves
 
-1. Inspect the ROM path immediately before and into `loc_AA22` / `sub_B168`, concentrating on what state write or carry-in condition makes oracle enter the routine with lift-off already armed; do not revisit wall-cling, floor, or later post-motion systems.
-2. Compare native equivalents for the pre-`sub_B168` setup that still remains unprobed in this frontier, especially any `Character_Movement = Jump`, `Character_CheckCollision`, or other carry-in state that can feed `y_vel` before the shared jump/gravity call.
-3. Do not implement a gameplay fix yet unless that narrower pre-`sub_B168` inspection exposes the concrete missing native state write or gate.
+1. Inspect ROM writers of `collision_type(a3)`, `object_meta(a3)`, and `$FFFFFA6A` that can feed `Character_CheckCollision` immediately before `loc_AA22` in the frame-`7968` window; compare them to native systems that could arm an equivalent carry before physics.
+2. Compare the ROM state write `Character_Movement=Jump` at `loc_AA22` against native pre-physics state: determine whether a missing native jump-mode latch or consumer exists before `apply_jump_and_gravity_vel_only(...)`, rather than another gravity/floor issue.
+3. Do not implement a gameplay fix yet unless that narrower pre-`sub_B168` inspection exposes the concrete upstream write or consumer that should already have armed the oracle's `y_vel=-0x00004000`.
 
 ## Verification To Re-run
 
-- `cargo test -p kid-core trace_frame_reports_kid_flip_branch_probe -- --nocapture`
-- `cargo test -p kid-core trace_frame_reports_kid_flip_follow_on_probe -- --nocapture`
-- `cargo test -p kid-core trace_frame_reports_kid_jump_gravity_probe -- --nocapture`
-- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_flip_branch_probe -- --nocapture`
-- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_flip_follow_on_probe -- --nocapture`
-- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_jump_gravity_probe -- --nocapture`
+- `cargo test -p kid-core kid_collision_handoff_probe -- --nocapture`
 - `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_ -- --nocapture`
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7968 --frame-end 7969 --include-advisory --include-physics-trace --show-object-roster-on-match`
 - `mise run audit-debug-fields`
@@ -59,11 +58,6 @@ updated_at: 2026-03-23T00:25:17Z
 - Do not retry generic post-motion support/platform/lift handoff theories; the existing carry-state probes are still empty.
 - Do not retry native goal-touch timing; the goal probe is still `lifecycle=alive` with `touch=0`.
 - Do not retry broad special-motion latch theories; the existing special-motion probe is still idle in the live window.
-- Do not retry same-frame stomp timing as the primary explanation unless a new movement-state probe later exposes a concrete stomp candidate.
-- Do not retry ROM `sub_AF7A` / Iron Knight block-breaker as the primary explanation unless a later probe finds non-zero pre-physics horizontal speed or a block-bearing forward wall in the live window.
-- Do not retry wall-cling live-release as the primary explanation; the `kid_wall_cling_release_probe` shows frames `7968..7969` never carry wall-cling state into the `loc_AA9C` mirror.
-- Do not retry Iron Knight wall-attach as the primary explanation; the `kid_iron_knight_attach_probe` shows frame `7968` does carry a raw `C` edge, but Kid is still grounded so the candidate stays `0` and no `-0x4000` attach velocity is injected.
-- Do not retry "missing raw C-edge at kid_flip" as the primary explanation; the `kid_flip_branch_probe` still shows `c_press=1`, `wall_scan=1`, and `branch=c_pressed_fallthrough`.
-- Do not retry `sub_B270`, floor collision, wall collision, or later post-motion systems as primary lift-off causes unless `kid_flip_follow_on_probe` stops reporting the flat `x_vel=0/y_vel=0/ground=1/wall_cling=none` stage sequence.
-- Do not retry fixing `apply_jump_and_gravity_vel_only(...)` in isolation based only on the new `grounded_hold` result; the probe shows the native call enters with no jump, no jump-buffer carry, no `just_jumped`, no held-B low-gravity gate, and no custom-gravity override, so the missing lift-off is upstream of the call.
-- Do not rely on the broad `cargo test -p kid-core trace_frame_reports_kid_ -- --nocapture` filter as a frontier signal; it still trips the unrelated existing `trace_frame_reports_kid_object_support_candidates` assertion.
+- Do not retry same-frame stomp timing as the primary explanation unless a later probe finds a concrete positive pre-`sub_B168` stomp/collision candidate; the new collision-handoff probe still reports `stomp_candidate=0`.
+- Do not retry transform/helmet-change handoff as the primary explanation unless a later probe finds a non-zero pending form or flash latch in the live window; the new collision-handoff probe still reports `pending_form=none` and `form_flash=0`.
+- Do not retry wall-cling live-release, Iron Knight attach, `sub_B270`, floor collision, wall collision, or `apply_jump_and_gravity_vel_only(...)` in isolation as the primary lift-off cause unless a new upstream carry probe stops reporting the current flat grounded state.

@@ -508,6 +508,16 @@ impl NativeRuntime {
             .pending_level_skip
             .map(|level| format!("{:#04x}", level.0))
             .unwrap_or_else(|| String::from("none"));
+        let stomp_enemy = match (
+            probe.stomp_enemy_object_type,
+            probe.stomp_enemy_x_pos,
+            probe.stomp_enemy_y_pos,
+        ) {
+            (Some(object_type), Some(x_pos), Some(y_pos)) => {
+                format!("{object_type:#04x}@{x_pos:#010x},{y_pos:#010x}")
+            }
+            _ => String::from("none"),
+        };
         let wall_cling = match probe.wall_cling_direction {
             Some(Direction::Left) => "left",
             Some(Direction::Right) => "right",
@@ -515,15 +525,20 @@ impl NativeRuntime {
         };
 
         Some(format!(
-            "lifecycle={}/prev_post={}/pending_stomp={}/pending_form={}/pending_level_skip={}/ground={}/jump_buffer={}/wall_cling={}",
+            "lifecycle={}/prev_post={}/pending_stomp={}/pending_form={}/pending_level_skip={}/form_flash={}/ground={}/jump_buffer={}/wall_cling={}/stomp_candidate={}/stomp_enemy={}/anchor={:#010x},{:#010x}",
             player_lifecycle_debug_label(probe.player_lifecycle),
             probe.previous_post_motion_mutator.as_debug_label(),
             u8::from(probe.pending_stomp_bounce),
             pending_form,
             pending_level_skip,
+            probe.form_change_flash_frames,
             u8::from(probe.on_ground_before),
             probe.jump_buffer_frames,
             wall_cling,
+            u8::from(probe.stomp_candidate),
+            stomp_enemy,
+            probe.anchor_x_pos,
+            probe.anchor_y_pos,
         ))
     }
 

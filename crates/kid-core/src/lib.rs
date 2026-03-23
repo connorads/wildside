@@ -189,7 +189,9 @@ pub struct NativeRuntime {
     last_kid_frame_pre_physics_before_physics: Option<PlayerState>,
     /// Ordered list of pre-physics handlers that changed Kid state this frame.
     last_kid_frame_pre_physics_mutators: Vec<KidFramePrePhysicsMutator>,
-    /// Debug snapshot of native carry-style state before pre-physics consumption.
+    /// Debug snapshot of native carry-style state before pre-physics consumption,
+    /// including the closest native equivalent to ROM's pre-sub_B168
+    /// Character_CheckCollision / Jump_On_Enemy handoff.
     last_kid_frame_collision_handoff_probe: Option<KidCollisionHandoffProbe>,
     /// Debug snapshot of stomp eligibility immediately after physics and before
     /// any post-motion consumer can move Kid again.
@@ -493,16 +495,33 @@ impl NativeRuntime {
         self.last_kid_frame_pre_physics_mutators.clear();
     }
 
-    fn begin_kid_collision_handoff_probe(&mut self, player: PlayerState) {
+    fn begin_kid_collision_handoff_probe(&mut self, slice: &OpeningSliceState) {
+        let player = slice.player;
+        // ROM loc_AA22 runs Character_CheckCollision immediately before sub_B168,
+        // and Jump_On_Enemy can already restore the saved anchor and inject the
+        // bounce velocity there. Native does not have the same collision payload,
+        // so record the closest pre-physics stomp/collision carry state here.
+        let stomp_candidate =
+            self.first_stomp_contact_candidate(slice, player.y_velocity, player.y_pos);
         self.last_kid_frame_collision_handoff_probe = Some(KidCollisionHandoffProbe {
             player_lifecycle: self.player_lifecycle,
             previous_post_motion_mutator: self.previous_kid_frame_post_motion_mutator,
             pending_stomp_bounce: self.pending_stomp_bounce.is_some(),
             pending_form: self.progression.pending_form,
             pending_level_skip: self.pending_level_skip,
+            form_change_flash_frames: self.progression.form_change_flash_frames,
             on_ground_before: player.on_ground,
             jump_buffer_frames: player.jump_buffer_frames,
             wall_cling_direction: player.wall_cling_direction,
+            stomp_candidate: stomp_candidate.is_some(),
+            stomp_enemy_object_type: stomp_candidate.and_then(|enemy| match enemy.kind {
+                NativeObjectKind::Enemy { object_type } => Some(object_type),
+                _ => None,
+            }),
+            stomp_enemy_x_pos: stomp_candidate.map(|enemy| enemy.x_pos),
+            stomp_enemy_y_pos: stomp_candidate.map(|enemy| enemy.y_pos),
+            anchor_x_pos: player.x_pos,
+            anchor_y_pos: player.y_pos,
         });
     }
 
@@ -862,7 +881,7 @@ impl NativeRuntime {
         // player clear. This can come from a transform resolved last frame or
         // from a floating helmet prize collected later in this frame.
         self.stomped_this_frame = false;
-        self.begin_kid_collision_handoff_probe(slice.player);
+        self.begin_kid_collision_handoff_probe(&slice);
         self.begin_kid_pre_physics_probe(slice.player);
         let player_before_form_width_overlap_fixup = slice.player;
         self.apply_form_width_overlap_fixup(&mut slice);

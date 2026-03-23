@@ -4972,9 +4972,16 @@ fn trace_frame_reports_kid_collision_handoff_probe() {
         pending_stomp_bounce: false,
         pending_form: None,
         pending_level_skip: None,
+        form_change_flash_frames: 0,
         on_ground_before: true,
         jump_buffer_frames: 0,
         wall_cling_direction: None,
+        stomp_candidate: false,
+        stomp_enemy_object_type: None,
+        stomp_enemy_x_pos: None,
+        stomp_enemy_y_pos: None,
+        anchor_x_pos: 0x03A8_0000,
+        anchor_y_pos: 0x01BF_0000,
     });
 
     let trace = runtime.trace_frame();
@@ -4989,9 +4996,13 @@ fn trace_frame_reports_kid_collision_handoff_probe() {
     );
     assert!(
         probe_debug.contains(
-            "pending_stomp=0/pending_form=none/pending_level_skip=none/ground=1/jump_buffer=0/wall_cling=none"
+            "pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none"
         ),
         "the collision-handoff probe should expose the native carry-style state before pre-physics consumption",
+    );
+    assert!(
+        probe_debug.contains("stomp_candidate=0/stomp_enemy=none/anchor=0x03a80000,0x01bf0000"),
+        "the collision-handoff probe should expose the closest native pre-sub_B168 stomp/collision carry state and saved anchor",
     );
 }
 
@@ -14576,9 +14587,13 @@ fn published_tas_frames_7968_7969_report_kid_collision_handoff_probe() {
         );
         assert!(
             probe_debug.contains(
-                "pending_stomp=0/pending_form=none/pending_level_skip=none/ground=1/jump_buffer=0/wall_cling=none"
+                "pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none"
             ),
             "frame {frame_index} should prove native enters the lift-off window with no carried stomp, pending form, level-skip, jump-buffer, or wall-cling handoff queued before physics",
+        );
+        assert!(
+            probe_debug.contains("stomp_candidate=0/stomp_enemy=none/anchor=0x03a80000,0x01bf0000"),
+            "frame {frame_index} should prove the closest native pre-sub_B168 collision/stomp carry path is still cold while preserving the ROM-style saved anchor",
         );
     }
 }
