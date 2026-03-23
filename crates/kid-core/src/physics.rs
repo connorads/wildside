@@ -1248,6 +1248,323 @@ mod tests {
         assert_eq!(JUMP_AIR_PROFILES[3].accel, 0x4000);
         assert_eq!(JUMP_AIR_PROFILES[3].max_speed, 0x2A000);
     }
+
+    // -- Left-facing ground movement (apply_holding_left) --
+    // These kill mutants in the left-mirror of apply_holding_right.
+
+    fn left_run() -> HorizontalInput {
+        HorizontalInput {
+            left: true,
+            right: false,
+            run: true,
+        }
+    }
+
+    #[test]
+    fn walk_left_single_frame_from_standstill() {
+        // loc_9B90: walking left from stopped should apply -walk_accel
+        let (vel, dir) = update_horizontal_velocity(0, Direction::Left, left_walk(), &NORMAL_KID);
+        assert_eq!(vel, -NORMAL_KID.strong_brake); // stopped uses strong_brake path (ASM: vel=0 → bpl taken)
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn run_left_accelerates_from_moving_left() {
+        // loc_9BCE: running left when already moving left → accelerate with run_accel
+        let vel = -0x1_0000;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_run(), &NORMAL_KID);
+        // abs(vel) + run_accel = 0x10000 + 0x1C00 = 0x11C00, negated
+        assert_eq!(result, -(0x1_0000 + NORMAL_KID.run_accel));
+    }
+
+    #[test]
+    fn run_left_caps_at_max_run_speed() {
+        let mut vel = 0i32;
+        for _ in 0..1000 {
+            let (v, _) = update_horizontal_velocity(vel, Direction::Left, left_run(), &NORMAL_KID);
+            vel = v;
+        }
+        assert_eq!(vel, -NORMAL_KID.max_run_speed);
+    }
+
+    #[test]
+    fn run_left_from_moving_right_uses_strong_brake() {
+        // loc_9BE8: running left but vel >= 0 → strong_brake
+        let vel = NORMAL_KID.max_walk_speed;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_run(), &NORMAL_KID);
+        assert_eq!(result, vel - NORMAL_KID.strong_brake);
+    }
+
+    #[test]
+    fn walk_left_above_walk_cap_decelerates() {
+        // Walking left at above-walk speed: decel with walk_run_decel
+        let vel = -(NORMAL_KID.max_walk_speed + 0x8000);
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        // vel + walk_run_decel (towards zero, i.e. less negative)
+        assert_eq!(result, vel + NORMAL_KID.walk_run_decel);
+    }
+
+    #[test]
+    fn walk_left_above_run_cap_snaps_to_run_cap() {
+        // Walking left at above-run speed: snap to -max_run_speed
+        let vel = -(NORMAL_KID.max_run_speed + 0x1_0000);
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        assert_eq!(result, -NORMAL_KID.max_run_speed);
+    }
+
+    #[test]
+    fn walk_left_below_walk_cap_accelerates() {
+        // Walking left, speed below walk cap: accelerate with walk_accel
+        let vel = -0x1_0000; // below max_walk (0x2_0000)
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        assert_eq!(result, -(0x1_0000 + NORMAL_KID.walk_accel));
+    }
+
+    #[test]
+    fn walk_left_acceleration_caps_at_walk_speed() {
+        // Just below max_walk: accel should not overshoot
+        let vel = -(NORMAL_KID.max_walk_speed - 0x100);
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        assert_eq!(result, -NORMAL_KID.max_walk_speed);
+    }
+
+    // -- Ground decelerate (no input) --
+
+    #[test]
+    fn decel_positive_subtracts_walk_run_decel() {
+        // loc_9BEE: vel > 0, no input → subtract walk_run_decel
+        let vel = NORMAL_KID.max_walk_speed;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
+        assert_eq!(result, vel - NORMAL_KID.walk_run_decel);
+    }
+
+    #[test]
+    fn decel_negative_adds_walk_run_decel() {
+        // loc_9BEE: vel < 0, no input → add walk_run_decel (towards zero)
+        let vel = -NORMAL_KID.max_walk_speed;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, no_input(), &NORMAL_KID);
+        assert_eq!(result, vel + NORMAL_KID.walk_run_decel);
+    }
+
+    #[test]
+    fn decel_negative_snaps_to_zero() {
+        // Small negative velocity: should snap to 0, not go positive
+        let vel = -(NORMAL_KID.walk_run_decel - 1);
+        let (result, _) = update_horizontal_velocity(vel, Direction::Left, no_input(), &NORMAL_KID);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn decel_zero_stays_zero() {
+        let (result, _) = update_horizontal_velocity(0, Direction::Right, no_input(), &NORMAL_KID);
+        assert_eq!(result, 0);
+    }
+
+    // -- Air decelerate (no input) --
+
+    #[test]
+    fn air_decel_negative_adds_towards_zero() {
+        // Symmetric: vel < 0, no input → add air_no_input_decel
+        let vel = -0x2_0000;
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Left, no_input(), &AIR_NORMAL);
+        assert_eq!(result, vel + AIR_NORMAL.air_no_input_decel);
+    }
+
+    #[test]
+    fn air_decel_negative_snaps_to_zero() {
+        let vel = -(AIR_NORMAL.air_no_input_decel - 1);
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Left, no_input(), &AIR_NORMAL);
+        assert_eq!(result, 0);
+    }
+
+    // -- Air holding left (apply_air_holding_left) --
+
+    #[test]
+    fn air_left_from_standstill_accelerates_left() {
+        let (vel, dir) =
+            update_air_horizontal_velocity(0, Direction::Left, left_walk(), &AIR_NORMAL);
+        assert_eq!(vel, -AIR_NORMAL.air_accel);
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn air_left_turn_from_moving_right() {
+        // Moving right, holding left → turn with air_turn_accel (subtract)
+        let vel = 0x2_0000;
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Right, left_walk(), &AIR_NORMAL);
+        assert_eq!(result, vel - AIR_NORMAL.air_turn_accel);
+    }
+
+    #[test]
+    fn air_left_above_max_decelerates() {
+        // Moving left above max_air_speed: decel towards max
+        let vel = -(AIR_NORMAL.max_air_speed + 0x8000);
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Left, left_walk(), &AIR_NORMAL);
+        // abs decreases by air_above_max_decel
+        let expected_abs = vel.saturating_neg() - AIR_NORMAL.air_above_max_decel;
+        assert_eq!(result, -expected_abs);
+    }
+
+    // -- Jump horizontal velocity (update_jump_horizontal_velocity) --
+
+    #[test]
+    fn jump_air_left_accelerates() {
+        // Holding left from standstill: should go negative
+        let (vel, dir) = update_jump_horizontal_velocity(
+            0,
+            Direction::Right,
+            left_walk(),
+            JUMP_AIR_PROFILES[0],
+        );
+        assert!(vel < 0, "holding left should produce negative velocity");
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn jump_air_left_exact_value() {
+        // From standstill, left walk: vel = 0 - accel (via the left branch)
+        // But: 0 is not < 0 (min_speed check path), so: next = 0 - accel = -accel
+        // -accel >= min_speed (-max_speed) since accel < max_speed, so result = -accel
+        let profile = JUMP_AIR_PROFILES[0];
+        let (vel, _) = update_jump_horizontal_velocity(
+            0,
+            Direction::Right,
+            left_walk(),
+            profile,
+        );
+        assert_eq!(vel, -profile.accel);
+    }
+
+    #[test]
+    fn jump_air_left_at_max_speed_clamps() {
+        // Already at -max_speed: result should stay at limit, not go further
+        let profile = JUMP_AIR_PROFILES[0];
+        let (vel, _) = update_jump_horizontal_velocity(
+            -(profile.max_speed as i32),
+            Direction::Left,
+            left_walk(),
+            profile,
+        );
+        // next = -max_speed - accel → below min_speed → fallback: vel + 0x100
+        assert_eq!(vel, -(profile.max_speed as i32) + 0x100);
+    }
+
+    #[test]
+    fn jump_air_no_input_decel_positive() {
+        // No input, positive velocity: should decelerate by 0x400, snapping to zero
+        let profile = JUMP_AIR_PROFILES[0];
+        let (result, _) = update_jump_horizontal_velocity(
+            0x2_0000,
+            Direction::Right,
+            no_input(),
+            profile,
+        );
+        assert_eq!(result, 0x2_0000 - 0x400);
+    }
+
+    #[test]
+    fn jump_air_no_input_decel_negative() {
+        // No input, negative velocity: should decelerate towards zero
+        let profile = JUMP_AIR_PROFILES[0];
+        let (result, _) = update_jump_horizontal_velocity(
+            -0x2_0000,
+            Direction::Left,
+            no_input(),
+            profile,
+        );
+        assert_eq!(result, -0x2_0000 + 0x400);
+    }
+
+    #[test]
+    fn jump_air_no_input_snap_positive_to_zero() {
+        let profile = JUMP_AIR_PROFILES[0];
+        let (result, _) = update_jump_horizontal_velocity(
+            0x100,
+            Direction::Right,
+            no_input(),
+            profile,
+        );
+        assert_eq!(result, 0, "small positive vel should snap to zero");
+    }
+
+    #[test]
+    fn jump_air_no_input_snap_negative_to_zero() {
+        let profile = JUMP_AIR_PROFILES[0];
+        let (result, _) = update_jump_horizontal_velocity(
+            -0x100,
+            Direction::Left,
+            no_input(),
+            profile,
+        );
+        assert_eq!(result, 0, "small negative vel should snap to zero");
+    }
+
+    // -- Camera edge nudge (update_camera_axis) --
+
+    #[test]
+    fn camera_near_left_edge_nudges_left() {
+        // camera <= 4 && target < camera → nudge at -1
+        // camera=3, player=0 → target = max(0 - 0xA0, 0) = 0, target < camera
+        let max_pos = 1600;
+        let result = update_camera_axis(3, 0, max_pos);
+        assert_eq!(result, 2); // 3 + (-1) = 2
+    }
+
+    #[test]
+    fn camera_near_right_edge_nudges_right() {
+        // camera >= max_pos - 4 && target > camera → nudge at +1
+        let max_pos = 1600;
+        // camera = max_pos - 3, player far right so target = max_pos
+        let camera = max_pos - 3;
+        let result = update_camera_axis(camera, max_pos + CAMERA_PLAYER_OFFSET, max_pos);
+        assert_eq!(result, camera + 1);
+    }
+
+    #[test]
+    fn camera_mid_field_uses_delta_formula() {
+        // Not near edge: delta = (target - camera + 4) >> 3
+        let max_pos = 1600;
+        let camera = 400;
+        let player = 400 + CAMERA_PLAYER_OFFSET + 80; // target = 480
+        let result = update_camera_axis(camera, player, max_pos);
+        let expected_delta = (480 - 400 + 4) >> 3; // 84 >> 3 = 10, clamped to 8
+        assert_eq!(result, camera + 8);
+        assert_eq!(expected_delta, 10); // confirms clamping was needed
+    }
+
+    // -- Right-facing edge cases (apply_holding_right / apply_air_holding_right) --
+
+    #[test]
+    fn run_right_from_moving_left_uses_strong_brake() {
+        // loc_9B62: running right but vel < 0 → vel + strong_brake (towards zero)
+        let vel = -NORMAL_KID.max_walk_speed;
+        let (result, _) = update_horizontal_velocity(vel, Direction::Right, right_run(), &NORMAL_KID);
+        assert_eq!(result, vel + NORMAL_KID.strong_brake);
+        assert!(result > vel, "should move towards zero (less negative)");
+    }
+
+    #[test]
+    fn air_right_above_max_decelerates_exact() {
+        // loc_852C: moving right above max_air_speed → decel by air_above_max_decel
+        let vel = AIR_NORMAL.max_air_speed + 0x8000;
+        let (result, _) =
+            update_air_horizontal_velocity(vel, Direction::Right, right_walk(), &AIR_NORMAL);
+        assert_eq!(result, vel - AIR_NORMAL.air_above_max_decel);
+    }
+
+    // -- initiate_jump negative x_vel sign --
+
+    #[test]
+    fn initiate_jump_negative_x_vel_produces_same_y_as_positive() {
+        // abs(-x) == abs(x), so y_vel should be identical
+        let (_, y_pos) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
+        let (_, y_neg) = initiate_jump(-0x2_0000, JUMP_HEIGHTS[0]);
+        assert_eq!(y_pos, y_neg);
+    }
 }
 
 // ---------------------------------------------------------------------------

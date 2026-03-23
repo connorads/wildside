@@ -2936,10 +2936,11 @@ fn enemy_contact_deals_damage() {
     }
     runtime.step_frame(FrameInput::default());
 
-    assert!(
-        runtime.progression.number_hitpoints < hp_before
-            || !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
-        "player should take damage from enemy contact (HP before: {hp_before}, after: {})",
+    // Enemy contact deals exactly 1 HP (combat.rs:596 — `number_hitpoints -= 1`)
+    assert_eq!(
+        runtime.progression.number_hitpoints,
+        hp_before - 1,
+        "enemy contact should deal exactly 1 damage (HP before: {hp_before}, after: {})",
         runtime.progression.number_hitpoints
     );
 }
@@ -12701,9 +12702,42 @@ fn soak_all_105_levels_no_panic() {
     for level_id in 0u8..105 {
         runtime.begin_level_entry(LevelId(level_id));
         runtime.set_block_grid(grid_with_floor_at_row(17));
-        // Run 60 frames of gameplay per level
-        for _ in 0..60 {
+        // Run 60 frames of gameplay per level with invariant checks
+        for frame in 0..60 {
             runtime.step_frame(FrameInput::default());
+            let trace = runtime.trace_frame();
+
+            // Velocity invariants: must stay within terminal limits
+            if let Some(y_vel) = trace.kid_y_velocity {
+                assert!(
+                    y_vel >= -0x8_0000 && y_vel <= 0x8_0000,
+                    "level {level_id} frame {frame}: y_vel {y_vel:#x} outside terminal limits"
+                );
+            }
+            if let Some(x_vel) = trace.kid_x_velocity {
+                assert!(
+                    x_vel.abs() <= 0x8_0000,
+                    "level {level_id} frame {frame}: x_vel {x_vel:#x} exceeds max ground speed"
+                );
+            }
+
+            // Player lifecycle must be a valid state — all variants are valid,
+            // but the match ensures the enum hasn't been corrupted or extended
+            // without updating this soak test.
+            assert!(
+                matches!(
+                    runtime.player_lifecycle,
+                    PlayerLifecycle::Alive
+                        | PlayerLifecycle::DeathWindup { .. }
+                        | PlayerLifecycle::Dying { .. }
+                        | PlayerLifecycle::Respawning { .. }
+                        | PlayerLifecycle::LevelComplete { .. }
+                        | PlayerLifecycle::GameOver { .. }
+                        | PlayerLifecycle::ContinueCountdown { .. }
+                ),
+                "level {level_id} frame {frame}: unexpected lifecycle {:?}",
+                runtime.player_lifecycle
+            );
         }
     }
 }
