@@ -1158,6 +1158,13 @@ impl NativeRuntime {
                 (1, 0)
             };
         }
+        if self.title_uses_full_demo_snapshot() {
+            let roster_count = active_objects.len() as u16;
+            // ORIGINAL_QUIRK: the timeout/abort title rebuild keeps four fixed
+            // title objects live alongside the preserved gameplay roster while
+            // the demo snapshot is still being shown.
+            return (roster_count + 4, roster_count + 4);
+        }
         if !matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }

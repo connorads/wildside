@@ -12966,7 +12966,7 @@ fn demo_aborts_on_start_press() {
 fn demo_auto_ends_after_max_frames() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
-        frame_counter: demo::DEMO_MAX_FRAMES,
+        frame_counter: demo::DEMO_MAX_FRAMES + demo::DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES,
         data_index: 0,
         use_demo_2: false,
     };
@@ -13749,7 +13749,7 @@ fn demo_camera_handoff_primes_buffer_for_the_hidden_settle_frame() {
     };
 
     let handoff_input = runtime
-        .step_demo_input(FrameInput::default())
+        .step_demo_input(FrameInput::default(), false)
         .expect("demo playback should continue");
     assert_eq!(
         handoff_input,
@@ -13763,7 +13763,7 @@ fn demo_camera_handoff_primes_buffer_for_the_hidden_settle_frame() {
     );
 
     let hidden_settle_input = runtime
-        .step_demo_input(FrameInput::default())
+        .step_demo_input(FrameInput::default(), false)
         .expect("demo playback should continue");
     assert_eq!(
         hidden_settle_input,
@@ -13795,7 +13795,7 @@ fn demo_transform_entry_freezes_buffer_before_flash_frames_start() {
     runtime.progression.pending_form = Some(PlayerForm::Cyclone);
 
     let output = runtime
-        .step_demo_input(FrameInput::default())
+        .step_demo_input(FrameInput::default(), false)
         .expect("demo playback should continue");
     assert_eq!(
         output,
@@ -14784,6 +14784,61 @@ fn published_tas_demo_1_times_out_on_frame_8069() {
         frame_8069,
         Some((GameMode::SegaScreen, LevelId(0x00))),
         "frame 8069 should expose the ROM's mode-0 timeout handoff on the first post-threshold frame",
+    );
+}
+
+#[test]
+fn published_tas_demo_1_preserves_the_oracle_timeout_snapshot_on_frames_8069_and_8070() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8069 = None;
+    let mut frame_8070 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_071) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            8_069 => {
+                frame_8069 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+            }
+            8_070 => {
+                frame_8070 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let expected = Some((
+        GameMode::SegaScreen,
+        LevelId(0x00),
+        Some(0x0398_2C80),
+        Some(0x0188_3680),
+        0x02FF_0000,
+        0x00E7_0000,
+        9,
+    ));
+    assert_eq!(
+        frame_8069, expected,
+        "frame 8069 should keep the oracle-backed Kid/camera/object snapshot while the timeout handoff first exposes mode 0",
+    );
+    assert_eq!(
+        frame_8070, expected,
+        "frame 8070 should keep the same preserved timeout snapshot until the title rebuild starts clearing it",
     );
 }
 

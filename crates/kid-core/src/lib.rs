@@ -360,11 +360,21 @@ impl NativeRuntime {
         self.last_kid_frame_kid_flip_follow_on_probe = None;
         self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
-        if self.demo_auto_timeout_return_pending {
+        let replay_demo_1_timeout_handoff_frame = matches!(
+            self.boot_state,
+            BootState::DemoPlay {
+                use_demo_2: false,
+                ..
+            }
+        ) && self.demo_auto_timeout_return_pending
+            && self.demo_buffered_input.is_some();
+        if replay_demo_1_timeout_handoff_frame {
+            self.demo_auto_timeout_return_pending = false;
+        } else if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
             self.finish_demo_auto_timeout_return();
         }
-        let Some(input) = self.step_demo_input(input) else {
+        let Some(input) = self.step_demo_input(input, replay_demo_1_timeout_handoff_frame) else {
             return self.trace_frame();
         };
         self.maybe_begin_pending_level_skip();
@@ -388,7 +398,10 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } | BootState::InGame
         ) || (self.demo_gameplay_active()
             && self.opening_slice.is_some());
-        if !freeze_demo_auto_timeout_snapshot {
+        let preserve_demo_title_snapshot_frame =
+            matches!(self.boot_state, BootState::TitleScreen { .. })
+                && self.preserve_demo_title_snapshot;
+        if !freeze_demo_auto_timeout_snapshot && !preserve_demo_title_snapshot_frame {
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
             // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
@@ -474,6 +487,9 @@ impl NativeRuntime {
         if self.demo_title_return_after_frame {
             self.demo_title_return_after_frame = false;
             self.finish_demo_title_return(raw_input);
+        }
+        if replay_demo_1_timeout_handoff_frame {
+            self.finish_demo_auto_timeout_return();
         }
 
         let trace = self.trace_frame();

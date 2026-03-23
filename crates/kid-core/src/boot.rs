@@ -429,7 +429,11 @@ impl NativeRuntime {
     /// Handle demo playback input override and exit conditions.
     /// Returns `Some(input)` with the (possibly overridden) input to continue,
     /// or `None` if the frame was fully handled (early return with trace).
-    pub(crate) fn step_demo_input(&mut self, input: FrameInput) -> Option<FrameInput> {
+    pub(crate) fn step_demo_input(
+        &mut self,
+        input: FrameInput,
+        replay_timeout_handoff_frame: bool,
+    ) -> Option<FrameInput> {
         let Some((frame_counter, data_index, use_demo_2)) = (match self.boot_state {
             BootState::DemoPlay {
                 frame_counter,
@@ -465,6 +469,13 @@ impl NativeRuntime {
             && !manual_abort_locked
         {
             self.pending_demo_title_return = 2;
+        }
+        if replay_timeout_handoff_frame {
+            // ORIGINAL_QUIRK: `ReadJoypad` flips demo 1 into mode 0 after the
+            // frame's gameplay/object work has already consumed the previously
+            // buffered demo input. Replay that final buffered step, but do not
+            // advance the demo stream again on the visible handoff frame.
+            return Some(self.demo_buffered_input.unwrap_or_default());
         }
         // Auto-end after DEMO_MAX_FRAMES
         if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
