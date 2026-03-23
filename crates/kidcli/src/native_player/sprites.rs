@@ -171,14 +171,18 @@ pub(super) fn select_player_frame<'a>(
             &player_visuals.idle
         } else if trace.kid_on_slope != 0 {
             // ASM stru_8B6A: use pre-drawn tilted slope walk frames.
-            // Select left or right set based on facing (slope tilt is asymmetric).
+            // The left-facing art is drawn leaning left (for uphill-right),
+            // the right-facing art leans right (for uphill-left). Select
+            // based on facing — the renderer applies H-flip separately.
             let facing = trace.kid_facing.unwrap_or(Direction::Right);
             let slope_frames = match facing {
-                Direction::Left if !player_visuals.slope_walk_left.is_empty() => {
+                Direction::Right if !player_visuals.slope_walk_left.is_empty() => {
                     &player_visuals.slope_walk_left
                 }
-                _ if !player_visuals.slope_walk.is_empty() => &player_visuals.slope_walk,
-                _ => &player_visuals.walk, // fallback to normal walk
+                Direction::Left if !player_visuals.slope_walk.is_empty() => {
+                    &player_visuals.slope_walk
+                }
+                _ => &player_visuals.walk,
             };
             let frame_index = (trace.frame_index / 4) % slope_frames.len();
             &slope_frames[frame_index]
