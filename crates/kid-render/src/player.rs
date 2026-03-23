@@ -31,6 +31,11 @@ pub struct PlayerFormVisuals {
     pub palette: Palette,
     pub idle: SpriteFrame,
     pub walk: Vec<SpriteFrame>,
+    /// ASM stru_8B6A: pre-drawn tilted sprite frames for slope walking.
+    /// Right-facing set (kid_slope_7..12). Empty if not loaded.
+    pub slope_walk: Vec<SpriteFrame>,
+    /// Left-facing slope walk frames (kid_slope_1..6). Empty if not loaded.
+    pub slope_walk_left: Vec<SpriteFrame>,
     pub jump_rise: SpriteFrame,
     pub jump_fall: SpriteFrame,
     pub transform_palette: Option<Palette>,

@@ -169,6 +169,19 @@ pub(super) fn select_player_frame<'a>(
     if on_ground {
         if x_velocity == 0 {
             &player_visuals.idle
+        } else if trace.kid_on_slope != 0 {
+            // ASM stru_8B6A: use pre-drawn tilted slope walk frames.
+            // Select left or right set based on facing (slope tilt is asymmetric).
+            let facing = trace.kid_facing.unwrap_or(Direction::Right);
+            let slope_frames = match facing {
+                Direction::Left if !player_visuals.slope_walk_left.is_empty() => {
+                    &player_visuals.slope_walk_left
+                }
+                _ if !player_visuals.slope_walk.is_empty() => &player_visuals.slope_walk,
+                _ => &player_visuals.walk, // fallback to normal walk
+            };
+            let frame_index = (trace.frame_index / 4) % slope_frames.len();
+            &slope_frames[frame_index]
         } else {
             let frame_index = (trace.frame_index / 4) % player_visuals.walk.len();
             &player_visuals.walk[frame_index]
@@ -258,10 +271,6 @@ pub(super) fn push_player_sprite(
     let frame = select_player_frame(trace, form_visuals);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
 
-    // TODO(fidelity): ASM stru_8B6A uses pre-drawn tilted sprite art for slope
-    // walking (kid_slope_*.bin). The ROM does NOT apply runtime per-tile offsets —
-    // the tilt is baked into the sprite graphics. When slope_walk frames are wired
-    // into PlayerFormVisuals, select them here when kid_on_slope != 0.
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,

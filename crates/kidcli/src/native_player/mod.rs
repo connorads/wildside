@@ -1562,6 +1562,8 @@ mod tests {
                     sample_player_frame(6),
                     sample_player_frame(7),
                 ],
+                slope_walk: Vec::new(),
+                slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(8),
                 jump_fall: sample_player_frame(9),
                 transform_palette: None,
@@ -1583,6 +1585,8 @@ mod tests {
                     sample_player_frame(15),
                     sample_player_frame(16),
                 ],
+                slope_walk: Vec::new(),
+                slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
                 jump_fall: sample_player_frame(18),
                 transform_palette: Some(Palette {
