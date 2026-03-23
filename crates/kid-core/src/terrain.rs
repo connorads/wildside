@@ -1443,4 +1443,313 @@ mod tests {
         assert_eq!(wide.cell.collision, CollisionKind::Solid);
         assert_eq!(wide.floor_y_px, 32);
     }
+
+    // -----------------------------------------------------------------------
+    // BlockList::from_raw — comprehensive binary parser test
+    // -----------------------------------------------------------------------
+
+    /// Build a raw Block List blob containing one entry of each type
+    /// (prize, ghost, teleporter, hidden) with distinct field values so
+    /// any byte-offset mutation produces a detectable wrong result.
+    ///
+    /// Binary format note: sections are sequential, each terminated by a
+    /// sentinel. The prize section ends when layout_addr (first 2 bytes)
+    /// is 0. The ghost section's first entry with timer=0 also acts as
+    /// the prize terminator (timer bytes overlap layout_addr position).
+    #[test]
+    fn block_list_from_raw_parses_all_sections() {
+        let mut data = Vec::new();
+
+        // --- Prize block entry (8 bytes) ---
+        // layout_addr=0x0042, col=7, row=3, disguised=0x80|content=0x05
+        data.extend_from_slice(&[
+            0x00, 0x42, // layout_addr (non-zero → valid)
+            0x00, 0x07, // col = 7
+            0x00, 0x03, // row = 3
+            0x80,       // disguised bit set
+            0x05,       // content = 5 (Eyeclops)
+        ]);
+
+        // --- Ghost block entry (16 bytes) ---
+        // The ghost's timer=0 acts as prize terminator (layout_addr=0).
+        // timer=0, flags=0, mapping_frame=0 (solid), solid_time=25,
+        // vanished_time=15, layout_addr=0x0020, col=4, row=6,
+        // count_nibble=0x03→4, vertical=1
+        data.extend_from_slice(&[
+            0x00, 0x00, // timer = 0 (doubles as prize terminator)
+            0x00,       // flags
+            0x00,       // mapping_frame = 0 → solid
+            0x00, 0x19, // solid_time = 25
+            0x00, 0x0F, // vanished_time = 15
+            0x00, 0x20, // layout_addr (non-zero → valid ghost)
+            0x00, 0x04, // col = 4
+            0x00, 0x06, // row = 6
+            0x03,       // count nibble = 3 → count = 4
+            0x01,       // vertical = true
+        ]);
+        // Ghost terminator (all zeros — timer=0, layout_addr=0, solid_time=0)
+        data.extend_from_slice(&[0u8; 16]);
+
+        // --- Teleporter entry (10 bytes) ---
+        data.extend_from_slice(&[
+            0x00, 0x10, // layout_addr
+            0x00, 0x09, // col = 9
+            0x00, 0x02, // row = 2
+            0x05,       // dest_map_id = 5
+            0x0B,       // dest_y = 11
+            0x00, 0x18, // dest_x = 24
+        ]);
+        // Teleporter terminator (layout_addr=0)
+        data.extend_from_slice(&[0x00, 0x00]);
+
+        // --- Hidden block entry (8 bytes, after 2-byte teleporter terminator skip) ---
+        data.extend_from_slice(&[
+            0x00, 0x08, // layout_addr
+            0x00, 0x01, // col = 1
+            0x00, 0x0A, // row = 10
+            0xAB,       // block_type
+            0xCD,       // block_setting
+        ]);
+        // Hidden terminator
+        data.extend_from_slice(&[0x00, 0x00]);
+
+        let bl = BlockList::from_raw(&data, 20);
+
+        // Prize assertions — every field must be exact
+        assert_eq!(bl.prize_blocks.len(), 1);
+        assert_eq!(bl.prize_blocks[0].col, 7);
+        assert_eq!(bl.prize_blocks[0].row, 3);
+        assert!(bl.prize_blocks[0].disguised);
+        assert_eq!(bl.prize_blocks[0].content, PrizeContent::Eyeclops);
+
+        // Ghost assertions
+        assert_eq!(bl.ghost_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks[0].col, 4);
+        assert_eq!(bl.ghost_blocks[0].row, 6);
+        assert_eq!(bl.ghost_blocks[0].count, 4); // nibble 3 + 1
+        assert!(bl.ghost_blocks[0].vertical);
+        assert_eq!(bl.ghost_blocks[0].solid_time, 25);
+        assert_eq!(bl.ghost_blocks[0].vanished_time, 15);
+        assert_eq!(bl.ghost_blocks[0].timer, 0);
+        assert!(bl.ghost_blocks[0].solid);
+
+        // Teleporter assertions
+        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters[0].col, 9);
+        assert_eq!(bl.teleporters[0].row, 2);
+        assert_eq!(bl.teleporters[0].dest_map_id, 5);
+        assert_eq!(bl.teleporters[0].dest_y, 11);
+        assert_eq!(bl.teleporters[0].dest_x, 24);
+
+        // Hidden block assertions
+        assert_eq!(bl.hidden_blocks.len(), 1);
+        assert_eq!(bl.hidden_blocks[0].col, 1);
+        assert_eq!(bl.hidden_blocks[0].row, 10);
+        assert_eq!(bl.hidden_blocks[0].block_type, 0xAB);
+        assert_eq!(bl.hidden_blocks[0].block_setting, 0xCD);
+    }
+
+    #[test]
+    fn block_list_prize_content_lookup() {
+        let mut data = Vec::new();
+        // Two prize entries with different contents
+        data.extend_from_slice(&[0x00, 0x10, 0x00, 0x02, 0x00, 0x05, 0x00, 0x03]); // col=2, row=5, Cyclone
+        data.extend_from_slice(&[0x00, 0x20, 0x00, 0x08, 0x00, 0x01, 0x00, 0x0B]); // col=8, row=1, Ankh
+        // Ghost with timer=0 as prize terminator + ghost terminator
+        data.extend_from_slice(&[0u8; 16]); // timer=0, layout_addr=0, solid_time=0 → terminates both
+
+        let bl = BlockList::from_raw(&data, 20);
+        assert_eq!(bl.prize_content_at(2, 5), Some(PrizeContent::Cyclone));
+        assert_eq!(bl.prize_content_at(8, 1), Some(PrizeContent::Ankh));
+        assert_eq!(bl.prize_content_at(99, 99), None);
+    }
+
+    #[test]
+    fn block_list_hidden_block_lookup() {
+        let mut data = Vec::new();
+        // No prizes: ghost timer=0 acts as prize terminator
+        // Ghost terminator: timer=0, layout_addr=0, solid_time=0
+        data.extend_from_slice(&[0u8; 16]);
+        // No teleporters (layout_addr=0)
+        data.extend_from_slice(&[0x00, 0x00]);
+        // Teleporter terminator skip (2 bytes consumed by parser)
+        // Hidden block: col=3, row=7, type=0x42, setting=0x01
+        data.extend_from_slice(&[0x00, 0x10, 0x00, 0x03, 0x00, 0x07, 0x42, 0x01]);
+        data.extend_from_slice(&[0x00, 0x00]); // hidden terminator
+
+        let bl = BlockList::from_raw(&data, 20);
+        let hb = bl.hidden_block_at(3, 7);
+        assert!(hb.is_some(), "hidden block at (3,7) should exist, got {:?}", bl.hidden_blocks);
+        assert_eq!(hb.unwrap().block_type, 0x42);
+        assert_eq!(hb.unwrap().block_setting, 0x01);
+        assert!(bl.hidden_block_at(99, 99).is_none());
+    }
+
+    #[test]
+    fn prize_content_round_trip() {
+        // Every content variant round-trips through to_id/from_id
+        let variants = [
+            PrizeContent::Diamond,
+            PrizeContent::Points10000,
+            PrizeContent::Skycutter,
+            PrizeContent::Cyclone,
+            PrizeContent::RedStealth,
+            PrizeContent::Eyeclops,
+            PrizeContent::Juggernaut,
+            PrizeContent::IronKnight,
+            PrizeContent::Berzerker,
+            PrizeContent::Maniaxe,
+            PrizeContent::Micromax,
+            PrizeContent::Ankh,
+            PrizeContent::Clock,
+            PrizeContent::Continue,
+            PrizeContent::TenDiamonds,
+        ];
+        for v in &variants {
+            assert_eq!(PrizeContent::from_id(v.to_id()), *v, "round-trip failed for {v:?}");
+        }
+    }
+
+    #[test]
+    fn prize_content_to_id_covers_all_non_zero() {
+        // to_id returns distinct values for all non-Diamond variants
+        let ids: Vec<u8> = [
+            PrizeContent::Points10000,
+            PrizeContent::Skycutter,
+            PrizeContent::Cyclone,
+            PrizeContent::RedStealth,
+            PrizeContent::Eyeclops,
+            PrizeContent::Juggernaut,
+            PrizeContent::IronKnight,
+            PrizeContent::Berzerker,
+            PrizeContent::Maniaxe,
+            PrizeContent::Micromax,
+            PrizeContent::Ankh,
+            PrizeContent::Clock,
+            PrizeContent::Continue,
+            PrizeContent::TenDiamonds,
+        ]
+        .iter()
+        .map(|v| v.to_id())
+        .collect();
+        for (i, id) in ids.iter().enumerate() {
+            assert!(*id > 0, "non-Diamond variant should have non-zero id");
+            assert!(*id <= 0x0E, "id should be <= 0x0E");
+            for (j, other) in ids.iter().enumerate() {
+                if i != j {
+                    assert_ne!(id, other, "ids must be unique");
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // BlockGrid::from_level_layout — grid construction
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn block_grid_dimensions_match_input() {
+        let w = 10u16;
+        let h = 8u16;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+        assert_eq!(grid.width_pixels(), i32::from(w) * 16);
+        assert_eq!(grid.height_pixels(), i32::from(h) * 16);
+    }
+
+    #[test]
+    fn block_grid_set_cell_at_out_of_bounds_is_noop() {
+        let data = vec![0u8; 4 * 4 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 4, 4);
+        let solid = Cell::from_be_bytes(0x60, 0x00);
+        // Out of bounds should not panic
+        grid.set_cell_at(4, 0, solid);
+        grid.set_cell_at(0, 4, solid);
+        grid.set_cell_at(100, 100, solid);
+        // In-bounds should work
+        grid.set_cell_at(2, 2, solid);
+        assert_eq!(grid.cell_at(2, 2).collision, CollisionKind::Solid);
+    }
+
+    // -----------------------------------------------------------------------
+    // Probe functions — left-moving and edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn probe_wall_column_moving_left_hits_wall() {
+        // Build grid with wall at col 0, rows 1-2
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Wall at col 0, rows 1-2
+        data[(1 * usize::from(w) + 0) * 2] = 0x60;
+        data[(2 * usize::from(w) + 0) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // Player at x=16, moving left. half_width=7: edge_x = 16 - 7 - 1 = 8
+        // pixel_to_cell(8) = 0 → wall col
+        let probe = probe_wall_column(&grid, 16, 47, 7, 31, false);
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 0);
+        // Wall surface = right edge of col 0 = 16
+        assert_eq!(probe.wall_x_px, 16);
+    }
+
+    #[test]
+    fn probe_iron_knight_climb_resume_moving_left() {
+        // Wall at col 0, row 1
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(1 * usize::from(w) + 0) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // Player at x=16, feet at y=48. Probe y = 48 - 24 = 24 (row 1).
+        // Moving left: edge_x = 16 - 7 - 1 = 8 → col 0
+        let probe = probe_iron_knight_climb_resume_wall(&grid, 16, 48, 7, false);
+        assert!(probe.hit);
+        assert_eq!(probe.wall_x_px, 16); // right edge of col 0
+    }
+
+    #[test]
+    fn probe_iron_knight_climb_resume_moving_right() {
+        let grid = make_wall_grid(); // wall at col 5, rows 1-2
+        // Player at x=72, feet at y=48. Probe y = 48 - 24 = 24 (row 1).
+        // Moving right: edge_x = 72 + 7 + 1 = 80 → col 5
+        let probe = probe_iron_knight_climb_resume_wall(&grid, 72, 48, 7, true);
+        assert!(probe.hit);
+        assert_eq!(probe.wall_x_px, 80); // left edge of col 5
+    }
+
+    #[test]
+    fn probe_wall_top_edge_moving_left() {
+        // Wall at col 0, row 0
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[0] = 0x60; // col 0, row 0
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // Player feet at y=31, height=31 → top_y=0. Moving left: edge_x = 10 - 5 = 5 → col 0
+        let probe = probe_wall_top_edge(&grid, 10, 31, 5, 31, false);
+        assert!(probe.hit);
+        assert_eq!(probe.wall_x_px, 16); // right edge of col 0
+    }
+
+    #[test]
+    fn probe_floor_hitbox_with_exact_landing_y() {
+        let grid = make_wall_grid();
+        // Floor at row 3 (y=48). Player feet at exactly 48.
+        let probe = probe_floor_hitbox(&grid, 8, 48, 5);
+        assert!(probe.on_ground);
+        assert_eq!(probe.floor_y_px, 48);
+    }
+
+    #[test]
+    fn probe_floor_hitbox_below_floor_still_detects() {
+        let grid = make_wall_grid();
+        // Player feet 2px below floor surface — should still detect floor
+        let probe = probe_floor_hitbox(&grid, 8, 50, 5);
+        assert!(probe.on_ground);
+    }
 }
