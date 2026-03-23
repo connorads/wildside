@@ -4091,12 +4091,15 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         EnemyFamily::Hand => Direction::Right,
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
-        // All other families face toward the player at spawn
+        // Dragon.asm loc_3CD70: face AWAY from the player at spawn.
+        // `cmp.w x_pos(a4),d4; blt.s skip; st x_direction(a3)` means
+        // player_x >= dragon_x → x_direction=$FF (left), else right.
+        // Walking enemies patrol away initially, then turn at edges.
         _ => {
             if player_x < enemy_x {
-                Direction::Left
-            } else {
                 Direction::Right
+            } else {
+                Direction::Left
             }
         }
     }
