@@ -1294,6 +1294,7 @@ mod tests {
             kid_y_velocity: Some(0),
             kid_facing: Some(Direction::Right),
             kid_on_ground: Some(true),
+            kid_on_slope: 0,
             active_objects: Vec::new(),
             camera_x_pos: 0x0010_0000,
             camera_y_pos: 0x0008_0000,

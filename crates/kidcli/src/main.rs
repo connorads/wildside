@@ -2299,6 +2299,7 @@ mod tests {
             kid_y_velocity: Some(0),
             kid_facing: None,
             kid_on_ground: Some(true),
+            kid_on_slope: 0,
             active_objects: vec![
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy { object_type: 0x1C },

@@ -833,6 +833,10 @@ pub struct NativeTraceFrame {
     pub kid_y_velocity: Option<i32>,
     pub kid_facing: Option<Direction>,
     pub kid_on_ground: Option<bool>,
+    /// Slope direction the player is standing on: 0 = flat, 1 = SlopeUp, -1 = SlopeDown.
+    /// ASM sub_9386 / $FFFFFA26: used by renderer for per-column sprite tilt.
+    #[serde(default)]
+    pub kid_on_slope: i8,
     pub active_objects: Vec<NativeObjectSnapshot>,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,

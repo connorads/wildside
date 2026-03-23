@@ -216,6 +216,20 @@ impl NativeRuntime {
             kid_y_velocity: player_state.map(|state| state.y_velocity),
             kid_facing: player_state.map(|state| state.facing),
             kid_on_ground: player_state.map(|state| state.on_ground),
+            kid_on_slope: player_state
+                .filter(|state| state.on_ground)
+                .and_then(|state| {
+                    let grid = self.block_grid.as_ref()?;
+                    let x_px = (state.x_pos >> 16) as i32;
+                    let y_px = (state.y_pos >> 16) as i32;
+                    let probe = terrain::probe_floor(grid, x_px, y_px);
+                    match probe.cell.collision {
+                        terrain::CollisionKind::SlopeUp => Some(1),
+                        terrain::CollisionKind::SlopeDown => Some(-1),
+                        _ => Some(0),
+                    }
+                })
+                .unwrap_or(0),
             active_objects,
             camera_x_pos: camera_state.x_pos,
             camera_y_pos: camera_state.y_pos,
