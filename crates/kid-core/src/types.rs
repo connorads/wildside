@@ -81,6 +81,7 @@ pub(crate) enum KidFrameMotionBranch {
     DemoBootstrapGroundedHold,
     DemoBootstrapGroundedRun,
     IronKnightAttachHibernate,
+    IronKnightClimbResume,
     TransformHibernating,
     NormalPhysics,
 }
@@ -97,10 +98,19 @@ impl KidFrameMotionBranch {
             Self::DemoBootstrapGroundedHold => "demo_bootstrap_grounded_hold",
             Self::DemoBootstrapGroundedRun => "demo_bootstrap_grounded_run",
             Self::IronKnightAttachHibernate => "iron_knight_attach_hibernate",
+            Self::IronKnightClimbResume => "iron_knight_climb_resume",
             Self::TransformHibernating => "transform_hibernating",
             Self::NormalPhysics => "normal_physics",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum IronKnightClimbStep {
+    #[default]
+    None,
+    AttachHibernate,
+    ResumeClimb,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -909,6 +909,89 @@ impl OpeningSliceState {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn step_iron_knight_climb_resume(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+        y_look_offset: i16,
+        allow_asm_faithful_solid_touch_snap: bool,
+        deferred_prize_ceiling_cells: &[(u16, u16)],
+    ) {
+        let stage = self.kid_flip_follow_on_stage_state();
+        self.kid_flip_follow_on_stages = Some(KidFlipFollowOnStages {
+            entry: stage,
+            after_press_away: stage,
+            after_jump_gravity: stage,
+            after_floor: stage,
+            after_wall: stage,
+        });
+        self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
+            branch: KidJumpGravityBranch::AirborneCustomGravity,
+            jump_pressed,
+            input_b_held: input.b,
+            custom_gravity: true,
+            on_ground_before: self.player.on_ground,
+            on_ground_after: self.player.on_ground,
+            just_jumped_before: self.player.just_jumped,
+            just_jumped_after: self.player.just_jumped,
+            jump_buffer_frames_before: self.player.jump_buffer_frames,
+            jump_buffer_frames_after: self.player.jump_buffer_frames,
+            y_velocity_before: self.player.y_velocity,
+            y_velocity_after: self.player.y_velocity,
+        });
+
+        if let Some(ref mut trace) = self.physics_trace {
+            trace.pre_horizontal = (self.player.x_pos, self.player.x_velocity);
+            trace.post_horizontal = (self.player.x_pos, self.player.x_velocity);
+            trace.horizontal_step_applied = false;
+            trace.pre_vertical = (self.player.y_pos, self.player.y_velocity);
+            trace.pre_gravity_y_vel = self.player.y_velocity;
+            trace.post_gravity_y_vel = self.player.y_velocity;
+            trace.gravity_applied = false;
+            trace.ascending_and_b_held = false;
+        }
+        self.pre_gravity_y_vel = self.player.y_velocity;
+
+        let pre_vertical_y_px = (self.player.y_pos >> 16) as i32;
+        self.apply_y_velocity_to_position();
+        if let Some(ref mut trace) = self.physics_trace {
+            trace.post_vertical = (self.player.y_pos, self.player.y_velocity);
+        }
+
+        if let Some(grid) = block_grid {
+            self.apply_ceiling_collision(
+                Some(grid),
+                block_list,
+                form,
+                form.half_width(),
+                deferred_prize_ceiling_cells,
+            );
+            self.apply_floor_collision(
+                Some(grid),
+                false,
+                !jump_pressed,
+                form.half_width(),
+                allow_asm_faithful_solid_touch_snap,
+            );
+            self.record_wall_cling_release_probe(input, form, grid, pre_vertical_y_px);
+        } else {
+            self.apply_floor_collision(
+                None,
+                false,
+                !jump_pressed,
+                form.half_width(),
+                allow_asm_faithful_solid_touch_snap,
+            );
+        }
+
+        self.finalise_trace();
+        self.update_camera_follow(y_look_offset);
+    }
+
     pub(crate) fn try_snap_wall_sticky_ledge(
         &mut self,
         jump_pressed: bool,

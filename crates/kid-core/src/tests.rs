@@ -14407,7 +14407,7 @@ fn published_tas_frame_7969_reports_kid_ground_probe() {
         "the frame-7969 diagnostics should show the grounded latch clears after the frame-7968 attach hibernate",
     );
     assert!(
-        ground_debug.contains("y_vel=0xffffb800"),
+        ground_debug.contains("y_vel=0xffffc080"),
         "the frame-7969 diagnostics should show the resume-frame ROM wall lookup now preserves upward climb velocity",
     );
     assert!(
@@ -14527,6 +14527,41 @@ fn published_tas_frame_7968_reports_kid_gameplay_path_probe() {
 }
 
 #[test]
+fn published_tas_frame_7969_matches_oracle_iron_knight_climb_resume_pose() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+    let path_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid gameplay-path diagnostics"));
+
+    assert!(
+        path_debug.contains("motion=iron_knight_climb_resume"),
+        "frame 7969 should stay on the dedicated Iron Knight climb resume path",
+    );
+    assert_eq!(
+        frame_7969.kid_x_pos,
+        Some(0x03A8_0000),
+        "frame 7969 should keep Kid pinned to the wall column during the resume step",
+    );
+    assert_eq!(
+        frame_7969.kid_y_pos,
+        Some(0x01BE_C080),
+        "frame 7969 should climb to the oracle-backed resume position",
+    );
+}
+
+#[test]
 fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_7968 = None;
@@ -14579,9 +14614,9 @@ fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     );
     assert!(
         frame_7969_debug.contains(
-            "before_physics[x=0x03a80000/y=0x01bf0000/x_vel=0x00000000/y_vel=0xffffb800/ground=0]"
+            "before_physics[x=0x03a80000/y=0x01bf0000/x_vel=0x00000000/y_vel=0xffffc080/ground=0]"
         ),
-        "frame 7969 should apply the ROM climb accel before normal physics runs",
+        "frame 7969 should apply the ROM climb drift before the dedicated resume step runs",
     );
 }
 
@@ -14726,7 +14761,7 @@ fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
         .get("kid_same_frame_stomp_probe")
         .unwrap_or_else(|| panic!("frame 7969 should emit same-frame stomp diagnostics"));
     assert!(
-        frame_7969_debug.contains("pre_y_vel=0xffffb800/post_y_vel=0xffffb800"),
+        frame_7969_debug.contains("pre_y_vel=0xffffc080/post_y_vel=0xffffc080"),
         "frame 7969 should show the resume frame now preserves the climb velocity through physics",
     );
     assert!(
@@ -14816,8 +14851,8 @@ fn published_tas_frames_7968_7969_report_kid_flip_branch_probe() {
         .unwrap_or_else(|| panic!("frame 7969 should emit kid_flip branch diagnostics"));
     assert!(
         frame_7969_debug
-            .contains("wall_scan=1/b_press=0/c_press=1/helmet=0x0006/facing=right/ground=0=>0"),
-        "frame 7969 should show the next frame reaches the shared fan-out already airborne",
+            .contains("wall_scan=1/b_press=0/c_press=0/helmet=0x0006/facing=right/ground=0=>0"),
+        "frame 7969 should show the resume frame stays airborne without a fresh C edge",
     );
     assert!(
         frame_7969_debug
@@ -14866,18 +14901,19 @@ fn published_tas_frames_7968_7969_report_kid_flip_follow_on_probe() {
         .get("kid_flip_follow_on_probe")
         .unwrap_or_else(|| panic!("frame 7969 should emit kid_flip follow-on diagnostics"));
     assert!(
-        frame_7969_debug.contains("branch=c_pressed_fallthrough/motion=normal_physics/post=none"),
-        "frame 7969 should show the new frontier now lives in the next frame's normal physics path",
+        frame_7969_debug
+            .contains("branch=no_button_branch/motion=iron_knight_climb_resume/post=none"),
+        "frame 7969 should show the climb resume now stays on the dedicated Iron Knight loop",
     );
     assert!(
         frame_7969_debug
-            .contains("entry[x_vel=0x00000000/y_vel=0xffffb800/ground=0/wall_cling=none]"),
-        "frame 7969 should now start normal physics from the resumed climb state",
+            .contains("entry[x_vel=0x00000000/y_vel=0xffffc080/ground=0/wall_cling=none]"),
+        "frame 7969 should enter the resume step with the ROM drift velocity",
     );
     assert!(
         frame_7969_debug
-            .contains("jump_gravity[x_vel=0x00002b00/y_vel=0xffffb800/ground=0/wall_cling=none]"),
-        "frame 7969 should capture the remaining bad next-frame fallthrough that still injects run speed",
+            .contains("jump_gravity[x_vel=0x00000000/y_vel=0xffffc080/ground=0/wall_cling=none]"),
+        "frame 7969 should keep horizontal speed pinned while the climb resume loop runs",
     );
 }
 
@@ -14922,7 +14958,7 @@ fn published_tas_frames_7968_7969_report_kid_jump_gravity_probe() {
         "frame 7969 should prove native keeps the Iron Knight custom-gravity climb state alive",
     );
     assert!(
-        frame_7969_debug.contains("y_vel=0xffffb800->0xffffb800/ground=0=>0"),
+        frame_7969_debug.contains("y_vel=0xffffc080->0xffffc080/ground=0=>0"),
         "frame 7969 should confirm the resume frame preserves climb velocity through gravity",
     );
 }
@@ -15014,8 +15050,8 @@ fn published_tas_frames_7968_7969_report_kid_wall_cling_release_probe() {
         "frame 7969 should show the new frontier reaches the wall-cling release probe already airborne",
     );
     assert!(
-        frame_7969_debug.contains("y_vel=0xffffb800/y=447=>446"),
-        "frame 7969 should confirm native now takes the ROM-style upward step before the remaining X drift bug",
+        frame_7969_debug.contains("y_vel=0xffffc080/y=447=>446"),
+        "frame 7969 should confirm native now takes the ROM-style climb step without falling into run speed",
     );
     assert!(
         frame_7969_debug.contains(

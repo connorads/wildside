@@ -562,7 +562,7 @@ impl NativeRuntime {
             return;
         }
 
-        let c_pressed = input.c && !self.prior_input.c;
+        let c_pressed = input.c && !self.previous_input.c;
         let wall_probe = self.block_grid.as_ref().map(|grid| {
             let x_px = (player_before.x_pos >> 16) as i32;
             let y_px = (player_before.y_pos >> 16) as i32;
@@ -627,8 +627,8 @@ impl NativeRuntime {
             )
         });
         let wall_scan_hit = wall_probe.is_some_and(|probe| probe.hit);
-        let b_pressed = input.b && !self.prior_input.b;
-        let c_pressed = input.c && !self.prior_input.c;
+        let b_pressed = input.b && !self.previous_input.b;
+        let c_pressed = input.c && !self.previous_input.c;
         let branch = if !wall_scan_hit {
             KidFlipBranchSelection::NoWallPath
         } else if b_pressed {
@@ -949,7 +949,7 @@ impl NativeRuntime {
         );
         let player_before_iron_knight_climb = slice.player;
         let iron_knight_climbing_before = self.helmet.iron_knight_climbing;
-        let grounded_iron_knight_attach_hibernate = self.step_iron_knight_climb(&mut slice, input);
+        let iron_knight_climb_step = self.step_iron_knight_climb(&mut slice, input);
         self.note_kid_iron_knight_attach_probe(
             input,
             player_before_iron_knight_climb,
@@ -1004,7 +1004,7 @@ impl NativeRuntime {
                 || self.helmet.cyclone_flying
                 || self.helmet.iron_knight_climbing
                 || self.helmet.micromax_stuck;
-            if grounded_iron_knight_attach_hibernate {
+            if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
                 // `Hibernate_Object_1Frame` stops Kid immediately. The attach
                 // frame preserves position while the new upward velocity becomes
@@ -1027,6 +1027,26 @@ impl NativeRuntime {
                         ..PhysicsTrace::default()
                     });
                 }
+            } else if iron_knight_climb_step == IronKnightClimbStep::ResumeClimb {
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightClimbResume;
+                let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
+                self.begin_kid_grounded_release_probe(
+                    slice.player,
+                    input,
+                    jump_pressed,
+                    custom_gravity,
+                );
+                slice.step_iron_knight_climb_resume(
+                    input,
+                    jump_pressed,
+                    self.progression.current_form,
+                    self.block_grid.as_mut(),
+                    self.block_list.as_ref(),
+                    self.y_look_offset,
+                    allow_asm_faithful_solid_touch_snap,
+                    &deferred_prize_ceiling_cells,
+                );
+                self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
             } else {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
                 // Demo playback keeps a hidden shadow arc with one last airborne

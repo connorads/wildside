@@ -240,14 +240,16 @@ impl NativeRuntime {
         &mut self,
         slice: &mut OpeningSliceState,
         input: FrameInput,
-    ) -> bool {
+    ) -> IronKnightClimbStep {
         if self.progression.current_form != PlayerForm::IronKnight {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
-            return false;
+            return IronKnightClimbStep::None;
         }
 
-        let c_pressed = input.c && !self.prior_input.c;
+        // ASM `Get_RandomNumber_wordC` consumes `Ctrl_Pressed`, so climb boost
+        // only triggers on the immediate rising edge, not two frames later.
+        let c_pressed = input.c && !self.previous_input.c;
 
         // ROM walking state `loc_7664` and jump state `kid_flip` both allow a
         // raw C edge to enter wall climbing when Iron Knight is pressed against
@@ -280,23 +282,27 @@ impl NativeRuntime {
                 slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
                 slice.player.x_velocity = 0;
                 slice.player.on_ground = false;
-                return attach_from_grounded_walk;
+                return if attach_from_grounded_walk {
+                    IronKnightClimbStep::AttachHibernate
+                } else {
+                    IronKnightClimbStep::None
+                };
             }
         }
 
         if !self.helmet.iron_knight_climbing {
-            return false;
+            return IronKnightClimbStep::None;
         }
 
         // Landing stops climb
         if slice.player.on_ground {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
-            return false;
+            return IronKnightClimbStep::None;
         }
 
         // B press = jump off wall
-        let b_pressed = input.b && !self.prior_input.b;
+        let b_pressed = input.b && !self.previous_input.b;
         if b_pressed {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
@@ -305,7 +311,7 @@ impl NativeRuntime {
                 physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
             let (_, y_vel) = physics::initiate_jump(0, jump_height);
             slice.player.y_velocity = y_vel;
-            return false;
+            return IronKnightClimbStep::None;
         }
 
         // Check wall still exists
@@ -324,7 +330,7 @@ impl NativeRuntime {
                 // Wall gone, fall off
                 self.helmet.iron_knight_climbing = false;
                 self.helmet.iron_knight_climb_accel = 0;
-                return false;
+                return IronKnightClimbStep::None;
             }
         }
 
@@ -361,7 +367,7 @@ impl NativeRuntime {
 
         // Zero horizontal velocity while climbing
         slice.player.x_velocity = 0;
-        false
+        IronKnightClimbStep::ResumeClimb
     }
 
     /// Micromax wall/ceiling stick: auto-attach on contact while airborne,
