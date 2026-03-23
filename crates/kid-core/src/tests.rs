@@ -1931,6 +1931,18 @@ fn walking_on_slope_up_applies_horizontal_motion_every_frame() {
         dx_pixels >= 2,
         "player should move at least 2px in 4 frames on a slope, got {dx_pixels}px"
     );
+    // ASM sub_9386: Y should track the slope surface smoothly (no vibration).
+    // After horizontal movement, y_pos is snapped to slope_floor_y(x_pos).
+    let final_x_px = (slice.player.x_pos >> 16) as i32;
+    let x_within_cell = final_x_px & 0x0F;
+    // SlopeUp: floor_y = cell_top + 15 - x_within_cell
+    // Cell row 5, cell_top = 80
+    let expected_floor_y = 80 + 15 - x_within_cell;
+    let actual_y_px = (slice.player.y_pos >> 16) as i32;
+    assert!(
+        (actual_y_px - expected_floor_y).abs() <= 1,
+        "Y should track slope surface: expected ~{expected_floor_y}, got {actual_y_px} (x_within_cell={x_within_cell})"
+    );
 }
 
 #[test]

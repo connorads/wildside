@@ -617,6 +617,24 @@ impl OpeningSliceState {
                         self.finalise_trace();
                         return;
                     }
+                    // ASM sub_9386 (kid.asm:10809): after horizontal movement,
+                    // snap Y to the slope surface so the player follows the
+                    // diagonal smoothly. Without this, gravity+collision creates
+                    // a 1-frame oscillation (visual jitter on slopes).
+                    // Formula: y_pos = slope_floor_y(x_pos) for the current tile.
+                    if self.player.on_ground {
+                        let x_px = (self.player.x_pos >> 16) as i32;
+                        let y_px = (self.player.y_pos >> 16) as i32;
+                        let probe = terrain::probe_floor(grid, x_px, y_px);
+                        if matches!(
+                            probe.cell.collision,
+                            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+                        ) && probe.on_ground
+                        {
+                            self.player.y_pos =
+                                (probe.floor_y_px.max(0) as u32) << 16;
+                        }
+                    }
                 }
                 kid_flip_follow_on_stages.after_wall = self.kid_flip_follow_on_stage_state();
                 self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
