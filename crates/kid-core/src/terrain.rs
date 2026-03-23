@@ -1737,6 +1737,215 @@ mod tests {
     }
 
     #[test]
+    fn probe_wall_column_out_of_bounds_left() {
+        let grid = make_wall_grid();
+        // Player near left edge, moving left. edge_x would go negative.
+        let probe = probe_wall_column(&grid, 2, 47, 7, 31, false);
+        assert!(!probe.hit, "out-of-bounds probe should not hit");
+    }
+
+    #[test]
+    fn probe_wall_column_moving_left_edge_calculation() {
+        // Verify edge_x = center - half_width - 1 (not center / half_width)
+        // Build grid where col 1 is solid but col 2 is not
+        let w = 6u16;
+        let h = 3u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(1 * usize::from(w) + 1) * 2] = 0x60; // col 1, row 1 solid
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // center=32, half_width=7 → edge_x = 32 - 7 - 1 = 24 → col 1 (solid)
+        let probe = probe_wall_column(&grid, 32, 31, 7, 16, false);
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 1);
+
+        // center=33, half_width=7 → edge_x = 33 - 7 - 1 = 25 → col 1 (solid)
+        let probe2 = probe_wall_column(&grid, 33, 31, 7, 16, false);
+        assert!(probe2.hit);
+        assert_eq!(probe2.cell_x, 1);
+
+        // center=40, half_width=7 → edge_x = 40 - 7 - 1 = 32 → col 2 (empty)
+        let probe3 = probe_wall_column(&grid, 40, 31, 7, 16, false);
+        assert!(!probe3.hit);
+    }
+
+    #[test]
+    fn probe_wall_three_point_height_calculation() {
+        // Verify probe_wall samples lower, mid, and upper body points.
+        // Build grid where only the middle row is solid.
+        let w = 4u16;
+        let h = 6u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Solid at col 3, row 2 only (middle of body)
+        data[(2 * usize::from(w) + 3) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // Player at x=42, half_width=5: edge_x = 42 + 5 + 1 = 48 → col 3
+        // height=32. Feet at y=63 (row 3).
+        // lower_body = 63 - 8 = 55 (row 3) — not solid
+        // mid_body = 63 - 16 = 47 (row 2) — SOLID
+        let probe = probe_wall(&grid, 42, 63, 5, 32, true);
+        assert!(probe.hit, "mid-body probe should hit solid at col 3 row 2");
+        assert_eq!(probe.cell_x, 3);
+    }
+
+    #[test]
+    fn probe_ceiling_uses_both_edges() {
+        // Left edge hits ceiling, right edge doesn't
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Ceiling at col 0, row 0
+        data[0] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // center=8, half_width=5, height=31, feet=31 → top=0
+        // left edge = 8 - 5 = 3 → col 0 (solid ceiling)
+        let probe = probe_ceiling(&grid, 8, 31, 5, 31);
+        assert!(probe.hit);
+
+        // center=24, half_width=5 → left=19 (col 1), right=29 (col 1) → no ceiling
+        let probe2 = probe_ceiling(&grid, 24, 31, 5, 31);
+        assert!(!probe2.hit);
+    }
+
+    #[test]
+    fn probe_ceiling_right_edge_hits() {
+        // Right edge hits ceiling, left edge doesn't
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Ceiling at col 2, row 0
+        data[(0 * usize::from(w) + 2) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // center=28, half_width=5, height=31, feet=31 → top=0
+        // left edge = 28 - 5 = 23 → col 1 (empty)
+        // right edge = 28 + 5 = 33 → col 2 (solid ceiling)
+        let probe = probe_ceiling(&grid, 28, 31, 5, 31);
+        assert!(probe.hit);
+    }
+
+    #[test]
+    fn probe_floor_hitbox_asymmetric_edges() {
+        // Left edge on floor, right edge over gap — assert left edge detected
+        let grid = make_wall_grid(); // floor at row 3, gap at cols 2-3
+        // center=24 (col 1), half_width=5: left=19 (col 1, solid), right=29 (col 1, solid)
+        let probe = probe_floor_hitbox(&grid, 24, 48, 5);
+        assert!(probe.on_ground);
+
+        // center=28: left=23 (col 1, solid), right=33 (col 2, gap)
+        let probe2 = probe_floor_hitbox(&grid, 28, 48, 5);
+        assert!(probe2.on_ground);
+
+        // center=56: left=51 (col 3, gap), right=61 (col 3, gap) — no floor
+        let probe3 = probe_floor_hitbox(&grid, 56, 48, 5);
+        assert!(!probe3.on_ground);
+    }
+
+    #[test]
+    fn probe_floor_slope_on_ground_boundary() {
+        let grid = make_slope_grid();
+        // SlopeUp at col 0, row 1. x=8: floor_y = 16 + 15 - 8 = 23
+        // At exactly the surface: on_ground
+        let on = probe_floor(&grid, 8, 23);
+        assert!(on.on_ground);
+        // One pixel above: not on_ground
+        let above = probe_floor(&grid, 8, 22);
+        assert!(!above.on_ground);
+        // One pixel below: on_ground
+        let below = probe_floor(&grid, 8, 24);
+        assert!(below.on_ground);
+    }
+
+    #[test]
+    fn block_list_from_raw_multiple_prizes_distinct_fields() {
+        // Two prizes with different col/row to test offset arithmetic
+        let mut data = Vec::new();
+        // Prize 1: col=2, row=3, content=Diamond (0), not disguised
+        data.extend_from_slice(&[0x00, 0x10, 0x00, 0x02, 0x00, 0x03, 0x00, 0x00]);
+        // Prize 2: col=5, row=8, content=IronKnight (7), disguised
+        data.extend_from_slice(&[0x00, 0x20, 0x00, 0x05, 0x00, 0x08, 0x80, 0x07]);
+        // Terminator via ghost timer=0
+        data.extend_from_slice(&[0u8; 16]);
+
+        let bl = BlockList::from_raw(&data, 20);
+        assert_eq!(bl.prize_blocks.len(), 2);
+        // First prize
+        assert_eq!(bl.prize_blocks[0].col, 2);
+        assert_eq!(bl.prize_blocks[0].row, 3);
+        assert_eq!(bl.prize_blocks[0].content, PrizeContent::Diamond);
+        assert!(!bl.prize_blocks[0].disguised);
+        // Second prize — tests offset advancement (+8 per entry)
+        assert_eq!(bl.prize_blocks[1].col, 5);
+        assert_eq!(bl.prize_blocks[1].row, 8);
+        assert_eq!(bl.prize_blocks[1].content, PrizeContent::IronKnight);
+        assert!(bl.prize_blocks[1].disguised);
+    }
+
+    #[test]
+    fn block_list_from_raw_ghost_non_solid() {
+        // Ghost with mapping_frame != 0 should have solid=false
+        let mut data = Vec::new();
+        // Prize terminator + ghost entry with mapping_frame=1 (non-solid)
+        data.extend_from_slice(&[
+            0x00, 0x00, // timer=0 (prize terminator)
+            0x00, 0x01, // flags=0, mapping_frame=1 → NOT solid
+            0x00, 0x0A, // solid_time=10
+            0x00, 0x05, // vanished_time=5
+            0x00, 0x30, // layout_addr
+            0x00, 0x02, // col=2
+            0x00, 0x04, // row=4
+            0x01,       // count=2
+            0x00,       // horizontal
+        ]);
+        data.extend_from_slice(&[0u8; 16]); // ghost terminator
+
+        let bl = BlockList::from_raw(&data, 20);
+        assert_eq!(bl.ghost_blocks.len(), 1);
+        assert!(!bl.ghost_blocks[0].solid, "mapping_frame=1 means not solid");
+        assert!(!bl.ghost_blocks[0].vertical);
+        assert_eq!(bl.ghost_blocks[0].count, 2);
+    }
+
+    #[test]
+    fn block_list_from_raw_teleporter_dest_fields() {
+        // Verify teleporter offset arithmetic for dest_x (bytes 8-9)
+        let mut data = Vec::new();
+        data.extend_from_slice(&[0u8; 16]); // no prizes, ghost terminator
+        // Teleporter with large dest_x to test byte ordering
+        data.extend_from_slice(&[
+            0x00, 0x10, // layout_addr
+            0x00, 0x01, // col=1
+            0x00, 0x02, // row=2
+            0x03,       // dest_map_id=3
+            0x04,       // dest_y=4
+            0x01, 0x00, // dest_x=256 (big-endian)
+        ]);
+        data.extend_from_slice(&[0x00, 0x00]); // teleporter terminator
+
+        let bl = BlockList::from_raw(&data, 20);
+        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters[0].dest_x, 256);
+        assert_eq!(bl.teleporters[0].dest_map_id, 3);
+        assert_eq!(bl.teleporters[0].dest_y, 4);
+    }
+
+    #[test]
+    fn block_grid_from_level_layout_cell_index() {
+        // Verify row-major indexing: cell(col, row) = data[row * width + col]
+        let w = 3u16;
+        let h = 3u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Put solid at (col=2, row=1) → byte offset = (1*3 + 2) * 2 = 10
+        data[10] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+        assert_eq!(grid.cell_at(2, 1).collision, CollisionKind::Solid);
+        assert_eq!(grid.cell_at(1, 2).collision, CollisionKind::Empty);
+        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Empty);
+    }
+
+    #[test]
     fn probe_floor_hitbox_with_exact_landing_y() {
         let grid = make_wall_grid();
         // Floor at row 3 (y=48). Player feet at exactly 48.
