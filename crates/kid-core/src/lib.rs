@@ -573,10 +573,7 @@ impl NativeRuntime {
                 player_before.facing == Direction::Right,
             )
         });
-        let candidate = c_pressed
-            && !player_before.on_ground
-            && !climbing_before
-            && wall_probe.is_some_and(|probe| probe.hit);
+        let candidate = c_pressed && !climbing_before && wall_probe.is_some_and(|probe| probe.hit);
         let climbing_after = self.helmet.iron_knight_climbing;
         let attach_triggered = !climbing_before
             && climbing_after

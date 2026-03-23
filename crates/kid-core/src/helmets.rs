@@ -233,8 +233,9 @@ impl NativeRuntime {
         }
     }
 
-    /// IronKnight wall climb: C press while airborne attaches to adjacent wall,
-    /// C presses while climbing boost upward, natural drift slides down.
+    /// IronKnight wall climb: the ROM accepts the attach from the grounded
+    /// walking path as well as from airborne wall contact. C presses while
+    /// climbing boost upward, natural drift slides down.
     pub(crate) fn step_iron_knight_climb(
         &mut self,
         slice: &mut OpeningSliceState,
@@ -248,9 +249,10 @@ impl NativeRuntime {
 
         let c_pressed = input.c && !self.prior_input.c;
 
-        // Try to attach to wall on C press while airborne and not already climbing
+        // ROM walking state `loc_7664` and jump state `kid_flip` both allow a
+        // raw C edge to enter wall climbing when Iron Knight is pressed against
+        // a wall in the facing direction.
         if c_pressed
-            && !slice.player.on_ground
             && !self.helmet.iron_knight_climbing
             && let Some(ref grid) = self.block_grid
         {
@@ -264,6 +266,7 @@ impl NativeRuntime {
                 self.helmet.iron_knight_climb_accel = 0;
                 slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
                 slice.player.x_velocity = 0;
+                slice.player.on_ground = false;
                 return;
             }
         }

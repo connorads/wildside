@@ -11371,6 +11371,34 @@ fn iron_knight_c_press_attaches_to_wall_when_airborne() {
 }
 
 #[test]
+fn iron_knight_c_press_attaches_to_wall_from_grounded_walk() {
+    let mut rt = iron_knight_runtime_with_wall();
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_iron_knight_climb(&mut slice, input);
+
+    assert!(
+        rt.helmet.iron_knight_climbing,
+        "should attach from grounded walk"
+    );
+    assert_eq!(slice.player.y_velocity, IRON_KNIGHT_ATTACH_Y_VEL);
+    assert_eq!(slice.player.x_velocity, 0);
+    assert!(
+        !slice.player.on_ground,
+        "attach should clear grounded state"
+    );
+}
+
+#[test]
 fn iron_knight_no_attach_without_wall() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::IronKnight;
@@ -14683,8 +14711,8 @@ fn published_tas_frames_7968_7969_report_kid_iron_knight_attach_probe() {
             "frame {frame_index} should preserve the adjacent wall contact at the Iron Knight attach boundary",
         );
         assert!(
-            probe_debug.contains("candidate=0/attach=0"),
-            "frame {frame_index} should prove the exact native attach path is cold on both frontier frames",
+            probe_debug.contains("candidate=1/attach=0"),
+            "frame {frame_index} should show the ROM-style wall-attach gate is open in the live window even though the full runtime still refuses to enter climb",
         );
     }
 }
