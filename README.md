@@ -96,6 +96,11 @@ mise run bootstrap-references
 mise run reference-build
 ```
 
+Verification tasks intentionally fail on Rust warnings. Use `mise run verify-*`,
+`mise run test`, `mise run verify-slice-fast`, `mise run verify-slice-full`,
+`mise run release-gate`, and the sweep tasks when you want a clean warning-free gate;
+use `mise run play` or `mise run play-native` for manual work without that strictness.
+
 For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-full-traversal.md`.
 
 If you want to play or test the project, pick the runtime first:

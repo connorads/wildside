@@ -803,17 +803,6 @@ impl NativeRuntime {
             .map(|frame| self.frame_index.saturating_sub(frame))
     }
 
-    /// True while the source port's opening entry animation is playing.
-    /// During this phase, enemies should remain frozen (not activated or
-    /// stepped) so the camera pan looks correct.
-    fn entry_animation_active(&self) -> bool {
-        !self.skip_entry_animation
-            && !self.demo_gameplay_active()
-            && self
-                .level_elapsed_frames()
-                .is_some_and(|elapsed| elapsed < OPENING_SCROLL_START_FRAME)
-    }
-
     fn gameplay_input(&self, input: FrameInput) -> FrameInput {
         FrameInput {
             up: self.previous_input.up,

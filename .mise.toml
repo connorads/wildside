@@ -13,10 +13,10 @@ run = "cargo fmt --all"
 run = "cargo clippy --workspace --all-targets -- -D warnings"
 
 [tasks.test]
-run = "cargo test --workspace"
+run = "scripts/strict-rust.sh cargo test --workspace"
 
 [tasks.verify-rom]
-run = "cargo run -p kidcli -- verify-rom"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-rom"
 
 [tasks.play]
 run = "cargo run --release -p kidcli -- play"
@@ -28,19 +28,20 @@ run = "cargo run --release -p kidcli -- play-native"
 run = "cargo run -p kidcli -- probe-cpu"
 
 [tasks.verify-boot]
-run = "cargo run -p kidcli -- verify-boot"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-boot"
 
 [tasks.verify-startup]
-run = "cargo run -p kidcli -- verify-startup"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-startup"
 
 [tasks.verify-level]
-run = "cargo run -p kidcli -- verify-level"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-level"
 
 [tasks.verify-gameplay]
-run = "cargo run --release -p kidcli -- verify-gameplay --all"
+run = "scripts/strict-rust.sh cargo run --release -p kidcli -- verify-gameplay --all"
 
 [tasks.verify-slice-fast]
 run = """
+scripts/strict-rust.sh sh -ec '
 cargo test -q -p kid-core timing_regression_ \
   && cargo test -q -p kid-core determinism_ \
   && cargo test -q -p kid-core -- enemy_contact --skip demo_ --skip published_tas \
@@ -50,26 +51,35 @@ cargo test -q -p kid-core timing_regression_ \
   && cargo test -q -p kid-core -- slope \
   && cargo test -q -p kid-core -- death --skip demo_ --skip published_tas \
   && cargo test -q -p kidcli gameplay_regression_
+'
 """
 
 [tasks.verify-slice-full]
-run = "cargo test -q -p kid-core && cargo test -q -p kidcli && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 && cargo run -q -p kidcli -- compare-native-gameplay --scenario progress-two-transitions && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
+run = """
+scripts/strict-rust.sh sh -ec '
+cargo test -q -p kid-core \
+  && cargo test -q -p kidcli \
+  && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 \
+  && cargo run -q -p kidcli -- compare-native-gameplay --scenario progress-two-transitions \
+  && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
+'
+"""
 
 [tasks.release-gate]
-run = "cargo run --release -p kidcli -- release-gate --target 1p-accurate"
+run = "scripts/strict-rust.sh cargo run --release -p kidcli -- release-gate --target 1p-accurate"
 description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares, frame/audio oracle, full state sweep"
 
 [tasks.verify-audio-driver]
-run = "cargo run -p kidcli -- verify-audio-driver"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-driver"
 
 [tasks.verify-audio-output]
-run = "cargo run -p kidcli -- verify-audio-output --scenario boot-title-start-level1"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-output --scenario boot-title-start-level1"
 
 [tasks.verify-frames]
-run = "cargo run -p kidcli -- verify-frames --scenario boot-title-start-level1-move-right5s"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-frames --scenario boot-title-start-level1-move-right5s"
 
 [tasks.verify-oracle]
-run = "cargo run -p kidcli -- verify-oracle --scenario boot-title-start-level1"
+run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-oracle --scenario boot-title-start-level1"
 
 [tasks.render-frame]
 run = "cargo run --release -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
@@ -99,7 +109,7 @@ run = "cargo run -p kidcli -- reference-build"
 run = "cargo run -p kidcli -- dump-level-layout --level ${1:-00}"
 
 [tasks.sweep]
-run = "cargo run --release -p kidcli -- sweep"
+run = "scripts/strict-rust.sh cargo run --release -p kidcli -- sweep"
 description = "Sweep all 105 levels for native vs oracle parity"
 
 [tasks.warm-cache]
@@ -111,7 +121,7 @@ run = "cargo bench -p kid-core --bench frame_step"
 description = "Run performance benchmarks (criterion); results in target/criterion/"
 
 [tasks.sweep-gameplay]
-run = "cargo run --release -p kidcli -- sweep --levels 0-104 --tier gameplay"
+run = "scripts/strict-rust.sh cargo run --release -p kidcli -- sweep --levels 0-104 --tier gameplay"
 description = "Self-consistency gameplay sweep: walk-right + jump + stomp on all 69 BCD levels"
 
 [tasks.collect-metrics]
@@ -127,16 +137,16 @@ run = "cargo run -p kidcli -- import-tas --bk2 ${1:?usage: mise run import-tas <
 description = "Import a BK2 TAS recording as a DynamicScenario JSON"
 
 [tasks.verify-tas]
-run = "cargo run --release -p kidcli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
+run = "scripts/strict-rust.sh cargo run --release -p kidcli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
 description = "Verify a TAS scenario against the oracle (native vs emulator)"
 
 [tasks.verify-tas-frontier]
 run = """
-set -e
+scripts/strict-rust.sh sh -ec '
 FRONTIER=tests/tas_frontier.json
 if [ ! -f "$FRONTIER" ]; then echo "missing $FRONTIER"; exit 1; fi
 FAIL=0
-for slug in $(jq -r '.recordings | keys[]' "$FRONTIER"); do
+for slug in $(jq -r '"'"'.recordings | keys[]'"'"' "$FRONTIER"); do
   scenario=$(jq -r ".recordings[\"$slug\"].scenario" "$FRONTIER")
   frame=$(jq -r ".recordings[\"$slug\"].frontier_frame" "$FRONTIER")
   echo "checking $slug up to frame $frame..."
@@ -147,6 +157,7 @@ for slug in $(jq -r '.recordings | keys[]' "$FRONTIER"); do
 done
 if [ "$FAIL" -eq 1 ]; then echo "TAS frontier regression detected"; exit 1; fi
 echo "TAS frontier: all recordings pass"
+'
 """
 description = "Verify no TAS regression before current frontier frame"
 
