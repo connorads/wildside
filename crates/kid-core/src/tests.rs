@@ -14562,6 +14562,76 @@ fn published_tas_frame_7969_matches_oracle_iron_knight_climb_resume_pose() {
 }
 
 #[test]
+fn published_tas_frame_8000_stays_on_live_climb_gameplay() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8000 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_001) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 8_000 {
+            frame_8000 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_8000 = frame_8000.unwrap_or_else(|| panic!("frame 8000 should be captured"));
+    let path_debug = frame_8000
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 8000 should emit kid gameplay-path diagnostics"));
+
+    assert_eq!(
+        frame_8000.game_mode,
+        GameMode::DemoPlay,
+        "frame 8000 should still trace as live demo gameplay before the timeout handoff becomes visible",
+    );
+    assert!(
+        !path_debug.contains("motion=demo_auto_timeout_frozen"),
+        "frame 8000 should not freeze the timeout snapshot one gameplay frame early",
+    );
+    assert_eq!(
+        frame_8000.kid_y_pos,
+        Some(0x01BA_6D00),
+        "frame 8000 should keep climbing to the oracle-backed live gameplay pose",
+    );
+}
+
+#[test]
+fn published_tas_frame_8001_delays_demo_1_timeout_handoff_by_one_more_climb_step() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8001 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_002) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 8_001 {
+            frame_8001 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_8001 = frame_8001.unwrap_or_else(|| panic!("frame 8001 should be captured"));
+    let path_debug = frame_8001
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 8001 should emit kid gameplay-path diagnostics"));
+
+    assert_eq!(
+        frame_8001.game_mode,
+        GameMode::DemoPlay,
+        "frame 8001 should still be live demo gameplay before the timeout handoff becomes visible",
+    );
+    assert!(
+        path_debug.contains("motion=iron_knight_climb_resume"),
+        "frame 8001 should stay on the climb-resume motion instead of dropping into the timeout handoff",
+    );
+    assert_eq!(
+        frame_8001.kid_y_pos,
+        Some(0x01BA_1780),
+        "frame 8001 should take one more oracle-backed climb step before the title return",
+    );
+}
+
+#[test]
 fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_7968 = None;

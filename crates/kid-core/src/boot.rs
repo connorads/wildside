@@ -67,7 +67,7 @@ impl NativeRuntime {
         if use_demo_2 {
             frame_counter.saturating_sub(demo::DEMO_2_TIMEOUT_COUNTER_OFFSET_FRAMES)
         } else {
-            frame_counter
+            frame_counter.saturating_sub(demo::DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES)
         }
     }
 
@@ -469,7 +469,7 @@ impl NativeRuntime {
         // Auto-end after DEMO_MAX_FRAMES
         if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
             self.demo_auto_timeout_return_pending = true;
-            self.demo_auto_timeout_freeze_gameplay_frame = true;
+            self.demo_auto_timeout_freeze_gameplay_frame = use_demo_2;
             return Some(input);
         }
         let level_id = Self::demo_level_id(use_demo_2);
