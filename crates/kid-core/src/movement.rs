@@ -626,9 +626,10 @@ impl OpeningSliceState {
                     if self.player.on_ground {
                         let x_px = (self.player.x_pos >> 16) as i32;
                         let y_px = (self.player.y_pos >> 16) as i32;
-                        // Try current row and one above (for uphill movement where
-                        // the new surface is in the cell above the current y_pos).
                         let col = (x_px >> 4).max(0) as u16;
+                        // ASM sub_9386 + sub_A254: snap Y to slope surface using
+                        // the current x_pos. Search current row ± 1 to handle
+                        // tile boundary crossings during horizontal movement.
                         for row_offset in [0i32, -1, 1] {
                             let row = ((y_px >> 4) + row_offset).max(0) as u16;
                             let cell = grid.cell_at(col, row);
@@ -640,7 +641,6 @@ impl OpeningSliceState {
                                 let cell_top = i32::from(row) * 16;
                                 let floor_y =
                                     terrain::slope_floor_y_pub(cell.collision, cell_top, x_px);
-                                // Only snap if we're within reasonable range of the surface
                                 if (y_px - floor_y).abs() <= 16 {
                                     self.player.y_pos = (floor_y.max(0) as u32) << 16;
                                     break;

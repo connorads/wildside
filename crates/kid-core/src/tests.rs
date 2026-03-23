@@ -1870,28 +1870,28 @@ fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
     assert!(!slice.player.on_ground);
 }
 
-/// DEVIATION from ASM sub_B43A: native includes SlopeUp/SlopeDown as valid floor
-/// so that the single-step physics loop doesn't skip horizontal motion on slopes.
-/// Without this, the player oscillates between grounded (no h-motion) and airborne
-/// (h-motion) every other frame, resulting in half-speed walking on slopes.
+/// ASM sub_9386 + sub_A254: walking up a SlopeUp tile, the player's Y must
+/// smoothly track the slope diagonal every frame. SlopeUp: floor_y = cell_top
+/// + 15 - (x_px & 0x0F). Each pixel of rightward movement should raise Y by 1px.
 #[test]
-fn walking_on_slope_up_applies_horizontal_motion_every_frame() {
-    // Build a grid with a SlopeUp tile: collision kind 5 (SlopeUp)
-    // 0x50 = collision bits 101 (SlopeUp), no block
+fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
+    // Build a wide slope: 4 consecutive SlopeUp tiles at row 6, cols 2-5.
+    // Solid floor beneath at row 7, cols 2-5.
     let w = 8u16;
-    let h = 8u16;
+    let h = 10u16;
     let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-    // SlopeUp at (3, 5): hi byte = 0x50 (collision=5=SlopeUp)
-    let idx = (5 * w + 3) as usize * 2;
-    data[idx] = 0x50;
-    // Solid at (3, 6) and (4, 6) as floor beneath the slope
-    let idx2 = (6 * w + 3) as usize * 2;
-    data[idx2] = 0x60;
-    let idx3 = (6 * w + 4) as usize * 2;
-    data[idx3] = 0x60;
-    // SlopeUp at (4, 5) for continuity
-    let idx4 = (5 * w + 4) as usize * 2;
-    data[idx4] = 0x50;
+    let set = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = hi;
+    };
+    // SlopeUp at (2..5, 6)
+    for col in 2..=5 {
+        set(&mut data, col, 6, 0x50); // SlopeUp = collision 5
+        set(&mut data, col, 7, 0x60); // Solid beneath
+    }
+    // Also solid at row 7 cols 0-1 so the player doesn't fall off the left edge
+    set(&mut data, 0, 7, 0x60);
+    set(&mut data, 1, 7, 0x60);
     let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
 
     let bounds = LevelBounds {
@@ -1899,18 +1899,24 @@ fn walking_on_slope_up_applies_horizontal_motion_every_frame() {
         height_pixels: h * 16,
     };
     let mut slice = OpeningSliceState::new(bounds);
-    // Place player grounded on the slope at x=56 (col 3, 8px into cell), y at slope surface
-    // SlopeUp at row 5: cell top = 80, floor_y = 80 + 15 - (56 % 16) = 80 + 15 - 8 = 87
-    slice.player.x_pos = 56 << 16;
-    slice.player.y_pos = 87 << 16;
+    // Start at x=36 (col 2, 4px into cell), on the slope surface.
+    // SlopeUp at row 6: cell_top=96, floor_y = 96 + 15 - (36 & 0x0F) = 96+15-4 = 107
+    let start_x_px: i32 = 36;
+    let start_floor_y = 96 + 15 - (start_x_px & 0x0F); // 107
+    slice.player.x_pos = (start_x_px as u32) << 16;
+    slice.player.y_pos = (start_floor_y as u32) << 16;
     slice.player.on_ground = true;
-    slice.player.x_velocity = 0x0001_0000; // 1 px/frame rightward
+    slice.player.x_velocity = 0x0001_0000; // 1px/frame
     slice.player.facing = Direction::Right;
 
-    let start_x = slice.player.x_pos;
-    // Step 4 frames with right input
-    for _ in 0..4 {
-        slice.step(
+    let mut prev_x_px = start_x_px;
+    let mut prev_y_px = start_floor_y;
+    let mut frames_log = vec![format!(
+        "frame 0: x={start_x_px}, y={start_floor_y}, on_ground=true"
+    )];
+
+    for frame in 1..=20 {
+        slice.step_with_order(
             OPENING_SCROLL_START_FRAME,
             FrameInput {
                 right: true,
@@ -1923,25 +1929,57 @@ fn walking_on_slope_up_applies_horizontal_motion_every_frame() {
             None,
             false,
             0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
         );
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let on_ground = slice.player.on_ground;
+        let y_vel = slice.player.y_velocity;
+        let x_vel = slice.player.x_velocity;
+        frames_log.push(format!(
+            "frame {frame}: x={x_px}, y={y_px}, on_ground={on_ground}, dx={}, dy={}, xv={x_vel:#X}, yv={y_vel:#X}",
+            x_px - prev_x_px,
+            y_px - prev_y_px
+        ));
+
+        // Must stay grounded every frame
+        assert!(
+            on_ground,
+            "player fell off slope on frame {frame}!\n{}",
+            frames_log.join("\n")
+        );
+
+        // Must move rightward every frame
+        assert!(
+            x_px > prev_x_px,
+            "player didn't move right on frame {frame}!\n{}",
+            frames_log.join("\n")
+        );
+
+        // Y must track the slope surface: floor_y = cell_top + 15 - (x & 0x0F)
+        // where cell_top = (row * 16). The row depends on which SlopeUp cell we're in.
+        let col = x_px >> 4;
+        if col >= 2 && col <= 5 {
+            let expected_y = 96 + 15 - (x_px & 0x0F); // all slope tiles at row 6
+            assert!(
+                (y_px - expected_y).abs() <= 1,
+                "Y not tracking slope surface on frame {frame}: x={x_px}, expected y~={expected_y}, got y={y_px}\n{}",
+                frames_log.join("\n")
+            );
+        }
+
+        prev_x_px = x_px;
+        prev_y_px = y_px;
     }
-    // Player should have moved substantially rightward (not half-speed)
-    let dx_pixels = (slice.player.x_pos.wrapping_sub(start_x)) >> 16;
+
+    // After 20 frames, player should have moved at least 10px right
+    let total_dx = (slice.player.x_pos >> 16) as i32 - start_x_px;
     assert!(
-        dx_pixels >= 2,
-        "player should move at least 2px in 4 frames on a slope, got {dx_pixels}px"
-    );
-    // ASM sub_9386: Y should track the slope surface smoothly (no vibration).
-    // After horizontal movement, y_pos is snapped to slope_floor_y(x_pos).
-    let final_x_px = (slice.player.x_pos >> 16) as i32;
-    let x_within_cell = final_x_px & 0x0F;
-    // SlopeUp: floor_y = cell_top + 15 - x_within_cell
-    // Cell row 5, cell_top = 80
-    let expected_floor_y = 80 + 15 - x_within_cell;
-    let actual_y_px = (slice.player.y_pos >> 16) as i32;
-    assert!(
-        (actual_y_px - expected_floor_y).abs() <= 1,
-        "Y should track slope surface: expected ~{expected_floor_y}, got {actual_y_px} (x_within_cell={x_within_cell})"
+        total_dx >= 10,
+        "player only moved {total_dx}px in 20 frames on slope!\n{}",
+        frames_log.join("\n")
     );
 }
 
