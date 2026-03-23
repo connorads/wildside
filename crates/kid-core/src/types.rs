@@ -80,6 +80,7 @@ pub(crate) enum KidFrameMotionBranch {
     DemoBootstrapFreefall,
     DemoBootstrapGroundedHold,
     DemoBootstrapGroundedRun,
+    IronKnightAttachHibernate,
     TransformHibernating,
     NormalPhysics,
 }
@@ -95,6 +96,7 @@ impl KidFrameMotionBranch {
             Self::DemoBootstrapFreefall => "demo_bootstrap_freefall",
             Self::DemoBootstrapGroundedHold => "demo_bootstrap_grounded_hold",
             Self::DemoBootstrapGroundedRun => "demo_bootstrap_grounded_run",
+            Self::IronKnightAttachHibernate => "iron_knight_attach_hibernate",
             Self::TransformHibernating => "transform_hibernating",
             Self::NormalPhysics => "normal_physics",
         }

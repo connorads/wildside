@@ -941,7 +941,7 @@ impl NativeRuntime {
         );
         let player_before_iron_knight_climb = slice.player;
         let iron_knight_climbing_before = self.helmet.iron_knight_climbing;
-        self.step_iron_knight_climb(&mut slice, input);
+        let grounded_iron_knight_attach_hibernate = self.step_iron_knight_climb(&mut slice, input);
         self.note_kid_iron_knight_attach_probe(
             input,
             player_before_iron_knight_climb,
@@ -984,7 +984,6 @@ impl NativeRuntime {
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
         if self.progression.form_change_flash_frames == 0 {
-            self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
             let deferred_prize_ceiling_cells: Vec<(u16, u16)> = self
                 .block_state
                 .deferred_ceiling_clears
@@ -997,30 +996,56 @@ impl NativeRuntime {
                 || self.helmet.cyclone_flying
                 || self.helmet.iron_knight_climbing
                 || self.helmet.micromax_stuck;
-            // Demo playback keeps a hidden shadow arc with one last airborne
-            // sub-half-pixel gap before landing. Letting AsmFaithful collapse
-            // that gap lands frame 2625 of demo 1 one frame early.
-            let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
-            self.begin_kid_grounded_release_probe(
-                slice.player,
-                input,
-                jump_pressed,
-                custom_gravity,
-            );
-            slice.step_with_order(
-                effective_elapsed,
-                input,
-                jump_pressed,
-                self.progression.current_form,
-                self.block_grid.as_mut(),
-                self.block_list.as_ref(),
-                custom_gravity,
-                self.y_look_offset,
-                self.physics_order,
-                allow_asm_faithful_solid_touch_snap,
-                &deferred_prize_ceiling_cells,
-            );
-            self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+            if grounded_iron_knight_attach_hibernate {
+                // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
+                // `Hibernate_Object_1Frame` stops Kid immediately. The attach
+                // frame preserves position while the new upward velocity becomes
+                // visible in object state.
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightAttachHibernate;
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+            } else {
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+                // Demo playback keeps a hidden shadow arc with one last airborne
+                // sub-half-pixel gap before landing. Letting AsmFaithful collapse
+                // that gap lands frame 2625 of demo 1 one frame early.
+                let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
+                self.begin_kid_grounded_release_probe(
+                    slice.player,
+                    input,
+                    jump_pressed,
+                    custom_gravity,
+                );
+                slice.step_with_order(
+                    effective_elapsed,
+                    input,
+                    jump_pressed,
+                    self.progression.current_form,
+                    self.block_grid.as_mut(),
+                    self.block_list.as_ref(),
+                    custom_gravity,
+                    self.y_look_offset,
+                    self.physics_order,
+                    allow_asm_faithful_solid_touch_snap,
+                    &deferred_prize_ceiling_cells,
+                );
+                self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+            }
             self.note_kid_same_frame_stomp_probe(
                 &slice,
                 pre_physics_y_velocity,

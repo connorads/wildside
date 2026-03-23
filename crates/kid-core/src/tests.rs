@@ -14370,16 +14370,16 @@ fn published_tas_frame_7969_reports_kid_ground_probe() {
         .unwrap_or_else(|| panic!("frame 7969 should emit kid-ground probe diagnostics"));
 
     assert!(
-        ground_debug.contains("latched_ground=1"),
-        "the frame-7969 diagnostics should preserve the native grounded latch",
+        ground_debug.contains("latched_ground=0"),
+        "the frame-7969 diagnostics should show the grounded latch clears after the frame-7968 attach hibernate",
     );
     assert!(
         ground_debug.contains("y_vel=0x00000000"),
-        "the frame-7969 diagnostics should preserve the zeroed native Y velocity",
+        "the frame-7969 diagnostics should show native immediately zeroes the seeded climb velocity on the next frame",
     );
     assert!(
-        ground_debug.contains("hitbox=ground="),
-        "the frame-7969 diagnostics should include the hitbox terrain probe summary",
+        ground_debug.contains("hitbox=ground=1"),
+        "the frame-7969 diagnostics should keep exposing the stale solid support under Kid's unchanged sprite position",
     );
 }
 
@@ -14469,12 +14469,27 @@ fn published_tas_frame_7968_reports_kid_gameplay_path_probe() {
         "the frame-7968 diagnostics should show Kid is still on the live gameplay lifecycle path",
     );
     assert!(
-        path_debug.contains("motion=normal_physics"),
-        "the frame-7968 diagnostics should prove native is still taking the normal gameplay motion path",
+        path_debug.contains("motion=iron_knight_attach_hibernate"),
+        "the frame-7968 diagnostics should prove native now mirrors loc_A276's one-frame attach hibernate",
     );
     assert!(
         path_debug.contains("post=none"),
         "the frame-7968 diagnostics should prove no post-physics handoff moved Kid on the native side",
+    );
+    assert_eq!(
+        frame_7968.kid_x_pos,
+        Some(0x03A8_0000),
+        "frame 7968 should preserve Kid's x position while the grounded Iron Knight attach hibernates",
+    );
+    assert_eq!(
+        frame_7968.kid_y_pos,
+        Some(0x01BF_0000),
+        "frame 7968 should preserve Kid's y position while the grounded Iron Knight attach hibernates",
+    );
+    assert_eq!(
+        frame_7968.kid_y_velocity,
+        Some(0xFFFF_C000u32 as i32),
+        "frame 7968 should still expose loc_A276's seeded upward climb velocity in object state",
     );
 }
 
@@ -14498,27 +14513,43 @@ fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_pre_physics_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit kid pre-physics diagnostics")
-            });
+    let frame_7968_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_pre_physics_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit kid pre-physics diagnostics"));
+    assert!(
+        frame_7968_debug.contains("first=iron_knight_climb"),
+        "frame 7968 should record Iron Knight climb as the first pre-physics mutator on the attach frame",
+    );
+    assert!(
+        frame_7968_debug.contains("mutators=iron_knight_climb"),
+        "frame 7968 should keep the attach visible in the mutator list",
+    );
+    assert!(
+        frame_7968_debug.contains(
+            "before_physics[x=0x03a80000/y=0x01bf0000/x_vel=0x00000000/y_vel=0xffffc000/ground=0]"
+        ),
+        "frame 7968 should expose the seeded climb velocity and airborne state before the hibernated frame ends",
+    );
 
-        assert!(
-            probe_debug.contains("first=none"),
-            "frame {frame_index} should show no pre-physics handler changed Kid before normal physics",
-        );
-        assert!(
-            probe_debug.contains("mutators=none"),
-            "frame {frame_index} should keep the pre-physics mutator list empty",
-        );
-        assert!(
-            probe_debug.contains("ground=1"),
-            "frame {frame_index} should preserve the grounded native snapshot before physics",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_pre_physics_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid pre-physics diagnostics"));
+    assert!(
+        frame_7969_debug.contains("first=none"),
+        "frame 7969 should start without another pre-physics mutator firing",
+    );
+    assert!(
+        frame_7969_debug.contains("mutators=none"),
+        "frame 7969 should keep the mutator list empty after the attach frame",
+    );
+    assert!(
+        frame_7969_debug.contains(
+            "start[x=0x03a80000/y=0x01bf0000/x_vel=0x00000000/y_vel=0xffffc000/ground=0]"
+        ),
+        "frame 7969 should inherit the hibernated attach state's preserved position and seeded velocity",
+    );
 }
 
 #[test]
@@ -14541,47 +14572,31 @@ fn published_tas_frames_7968_7969_report_kid_grounded_release_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
+    assert!(
+        !frame_7968
             .gameplay_debug_fields
-            .get("kid_grounded_release_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit kid grounded-release diagnostics")
-            });
+            .contains_key("kid_grounded_release_probe"),
+        "frame 7968 should skip the grounded-release probe because loc_A276 hibernates before native normal physics",
+    );
 
-        assert!(
-            probe_debug.contains(
-                "jump=0/jump_buffer=0/velocity=grounded_hold/custom_gravity=0/wall_cling=none"
-            ),
-            "frame {frame_index} should prove native had no player-side jump, buffered jump, custom-gravity, or wall-cling lift-off path queued before normal physics",
-        );
-        assert!(
-            probe_debug.contains("scan=row=28/cols=58..58"),
-            "frame {frame_index} should report the exact AsmFaithful grounded-release scan window",
-        );
-        assert!(
-            probe_debug.contains("held=right"),
-            "frame {frame_index} should keep the right-held walking input during the grounded-release scan",
-        );
-        assert!(
-            probe_debug.contains("support=solid@58,28 block=None"),
-            "frame {frame_index} should keep the solid terrain support that blocks native release",
-        );
-        assert!(
-            probe_debug.contains(
-                "terrain=grid=generated/current[solid,None,skin=0x82]/baseline[solid,None,skin=0x82]/same=1"
-            ),
-            "frame {frame_index} should prove the supporting terrain cell still matches the generated level-layout tile",
-        );
-        assert!(
-            probe_debug.contains("release=0"),
-            "frame {frame_index} should show the AsmFaithful release gate never fired in native",
-        );
-        assert!(
-            probe_debug.contains("post=none"),
-            "frame {frame_index} should show no later post-motion support handoff changed Kid",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_grounded_release_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid grounded-release diagnostics"));
+    assert!(
+        frame_7969_debug.contains(
+            "ground=0/held=right/jump=0/jump_buffer=0/velocity=airborne_gravity/custom_gravity=0/wall_cling=none"
+        ),
+        "frame 7969 should show the next frame reaches the grounded-release probe already airborne, with no custom-gravity climb path preserved",
+    );
+    assert!(
+        frame_7969_debug.contains("scan=row=none/cols=none/support=none"),
+        "frame 7969 should prove the old grounded support scan no longer runs once the attach frame hibernates",
+    );
+    assert!(
+        frame_7969_debug.contains("release=0/post=none"),
+        "frame 7969 should show no later native release handoff recovers the lost climb state",
+    );
 }
 
 #[test]
@@ -14604,29 +14619,36 @@ fn published_tas_frames_7968_7969_report_kid_collision_handoff_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_collision_handoff_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit kid collision-handoff diagnostics")
-            });
+    let frame_7968_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_collision_handoff_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit kid collision-handoff diagnostics"));
+    assert!(
+        frame_7968_debug.contains(
+            "pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none"
+        ),
+        "frame 7968 should still enter the attach frame with no pre-existing collision carry state",
+    );
+    assert!(
+        frame_7968_debug.contains("anchor=0x03a80000,0x01bf0000"),
+        "frame 7968 should preserve the saved anchor before the attach hibernate",
+    );
 
-        assert!(
-            probe_debug.contains("lifecycle=alive/prev_post=none"),
-            "frame {frame_index} should show no prior native post-motion consumer feeding the next pre-motion handoff",
-        );
-        assert!(
-            probe_debug.contains(
-                "pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none"
-            ),
-            "frame {frame_index} should prove native enters the lift-off window with no carried stomp, pending form, level-skip, jump-buffer, or wall-cling handoff queued before physics",
-        );
-        assert!(
-            probe_debug.contains("stomp_candidate=0/stomp_enemy=none/anchor=0x03a80000,0x01bf0000"),
-            "frame {frame_index} should prove the closest native pre-sub_B168 collision/stomp carry path is still cold while preserving the ROM-style saved anchor",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_collision_handoff_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid collision-handoff diagnostics"));
+    assert!(
+        frame_7969_debug.contains(
+            "pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=0/jump_buffer=0/wall_cling=none"
+        ),
+        "frame 7969 should show the next frame starts airborne from the hibernated attach state",
+    );
+    assert!(
+        frame_7969_debug
+            .contains("stomp_candidate=0/stomp_enemy=none/anchor=0x03a80000,0x01bf0000"),
+        "frame 7969 should keep the anchor stable even though the climb follow-on is still wrong",
+    );
 }
 
 #[test]
@@ -14649,27 +14671,39 @@ fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_same_frame_stomp_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit same-frame stomp diagnostics")
-            });
+    let frame_7968_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_same_frame_stomp_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit same-frame stomp diagnostics"));
+    assert!(
+        frame_7968_debug.contains("pre_y_vel=0xffffc000/post_y_vel=0xffffc000"),
+        "frame 7968 should record the hibernated attach frame's preserved seeded climb velocity",
+    );
+    assert!(
+        frame_7968_debug.contains("candidate=0/enemy=none"),
+        "frame 7968 should keep the stomp path cold while preserving the attach anchor",
+    );
+    assert!(
+        frame_7968_debug.contains("anchor=0x03a80000,0x01bf0000"),
+        "frame 7968 should keep the stomp path cold while preserving the attach anchor",
+    );
 
-        assert!(
-            probe_debug.contains("pre_y_vel=0x00000000/post_y_vel=0x00000000"),
-            "frame {frame_index} should record the zero-velocity native contact window before any post-motion stomp resolution",
-        );
-        assert!(
-            probe_debug.contains("candidate=0/enemy=none"),
-            "frame {frame_index} should prove native still has no stomp-eligible same-frame contact at the pre-post-motion probe point",
-        );
-        assert!(
-            probe_debug.contains("anchor=0x03a80000,0x01bf0000"),
-            "frame {frame_index} should preserve the ROM-style saved anchor that a same-frame stomp bounce would need",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_same_frame_stomp_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit same-frame stomp diagnostics"));
+    assert!(
+        frame_7969_debug.contains("pre_y_vel=0xffffc000/post_y_vel=0x00000000"),
+        "frame 7969 should show the next-frame bug zeroes the seeded climb velocity during native physics",
+    );
+    assert!(
+        frame_7969_debug.contains("candidate=0/enemy=none"),
+        "frame 7969 should keep the stomp path cold while the new frontier stays in player motion",
+    );
+    assert!(
+        frame_7969_debug.contains("anchor=0x03a80000,0x01bf0000"),
+        "frame 7969 should keep the stomp path cold while the new frontier stays in player motion",
+    );
 }
 
 #[test]
@@ -14729,29 +14763,34 @@ fn published_tas_frames_7968_7969_report_kid_flip_branch_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_flip_branch_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit kid_flip branch diagnostics")
-            });
+    let frame_7968_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_flip_branch_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit kid_flip branch diagnostics"));
+    assert!(
+        frame_7968_debug
+            .contains("wall_scan=1/b_press=0/c_press=1/helmet=0x0006/facing=right/ground=1=>0"),
+        "frame 7968 should show the grounded attach clears the on-ground bit before the hibernated frame ends",
+    );
+    assert!(
+        frame_7968_debug.contains("branch=c_pressed_fallthrough"),
+        "frame 7968 should keep exposing the shared kid_flip C fan-out label for comparison against the intercepted motion path",
+    );
 
-        assert!(
-            probe_debug
-                .contains("wall_scan=1/b_press=0/c_press=1/helmet=0x0006/facing=right/ground=1=>1"),
-            "frame {frame_index} should show the frame reaches the shared kid_flip fan-out with a live wall scan, grounded Iron Knight state, and a raw C edge",
-        );
-        assert!(
-            probe_debug.contains("branch=c_pressed_fallthrough"),
-            "frame {frame_index} should prove the native kid_flip fan-out still falls through the C branch instead of handing the frame to a form-specific consumer",
-        );
-        assert!(
-            probe_debug
-                .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
-            "frame {frame_index} should keep the same post-sub_AF10 wall contact at the shared branch-selection boundary",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_flip_branch_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid_flip branch diagnostics"));
+    assert!(
+        frame_7969_debug
+            .contains("wall_scan=1/b_press=0/c_press=1/helmet=0x0006/facing=right/ground=0=>0"),
+        "frame 7969 should show the next frame reaches the shared fan-out already airborne",
+    );
+    assert!(
+        frame_7969_debug
+            .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+        "frame 7969 should keep the forward wall contact visible at the moved frontier",
+    );
 }
 
 #[test]
@@ -14774,45 +14813,39 @@ fn published_tas_frames_7968_7969_report_kid_flip_follow_on_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_flip_follow_on_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit kid_flip follow-on diagnostics")
-            });
+    let frame_7968_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_flip_follow_on_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit kid_flip follow-on diagnostics"));
+    assert!(
+        frame_7968_debug
+            .contains("branch=c_pressed_fallthrough/motion=iron_knight_attach_hibernate/post=none"),
+        "frame 7968 should show the shared C-fallthrough label now feeds the attach-hibernate motion branch instead of normal physics",
+    );
+    assert!(
+        frame_7968_debug
+            .contains("entry[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
+        "frame 7968 should keep the follow-on stages frozen at the pre-hibernate walking snapshot",
+    );
 
-        assert!(
-            probe_debug.contains("branch=c_pressed_fallthrough/motion=normal_physics/post=none"),
-            "frame {frame_index} should show the shared C-fallthrough enters the native loc_AA22 movement shell before any later post-motion mutator",
-        );
-        assert!(
-            probe_debug
-                .contains("entry[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
-            "frame {frame_index} should start the shared follow-on from a fully grounded, zero-velocity, no-wall-cling state",
-        );
-        assert!(
-            probe_debug
-                .contains("press_away[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
-            "frame {frame_index} should prove the loc_AA9C-style press-away gate stays inert in the live window",
-        );
-        assert!(
-            probe_debug.contains(
-                "jump_gravity[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"
-            ),
-            "frame {frame_index} should prove the native jump/gravity stage still injects no lift-off velocity and never clears grounded state",
-        );
-        assert!(
-            probe_debug
-                .contains("floor[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
-            "frame {frame_index} should keep the floor-collision stage inert instead of handing Kid into the oracle's upward path",
-        );
-        assert!(
-            probe_debug
-                .contains("wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
-            "frame {frame_index} should close the shared follow-on with no wall-state or velocity mutation before later systems run",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_flip_follow_on_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid_flip follow-on diagnostics"));
+    assert!(
+        frame_7969_debug.contains("branch=c_pressed_fallthrough/motion=normal_physics/post=none"),
+        "frame 7969 should show the new frontier now lives in the next frame's normal physics path",
+    );
+    assert!(
+        frame_7969_debug
+            .contains("entry[x_vel=0x00000000/y_vel=0xffffc000/ground=0/wall_cling=none]"),
+        "frame 7969 should start normal physics from the preserved attach state",
+    );
+    assert!(
+        frame_7969_debug
+            .contains("jump_gravity[x_vel=0x00002b00/y_vel=0x00000000/ground=0/wall_cling=none]"),
+        "frame 7969 should capture the bad next-frame fallthrough that injects run speed and zeroes climb velocity",
+    );
 }
 
 #[test]
@@ -14835,27 +14868,30 @@ fn published_tas_frames_7968_7969_report_kid_jump_gravity_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
+    assert!(
+        !frame_7968
             .gameplay_debug_fields
-            .get("kid_jump_gravity_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit kid jump/gravity diagnostics")
-            });
+            .contains_key("kid_jump_gravity_probe"),
+        "frame 7968 should skip the jump/gravity probe because the attach frame never reaches native normal physics",
+    );
 
-        assert!(
-            probe_debug.contains("branch=grounded_hold/jump=0/jump_buffer=0=>0/just_jumped=0=>0"),
-            "frame {frame_index} should show the native jump/gravity call still takes its grounded-hold branch with no queued jump or just-jumped carry state",
-        );
-        assert!(
-            probe_debug.contains("b_held=0/custom_gravity=0"),
-            "frame {frame_index} should prove the live lift-off window reaches the native call with no held-B low-gravity gate or custom-gravity override active",
-        );
-        assert!(
-            probe_debug.contains("y_vel=0x00000000->0x00000000/ground=1=>1"),
-            "frame {frame_index} should confirm the native call itself keeps Kid flat and grounded through the shared loc_AA22 jump/gravity stage",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_jump_gravity_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit kid jump/gravity diagnostics"));
+    assert!(
+        frame_7969_debug
+            .contains("branch=airborne_default_gravity/jump=0/jump_buffer=0=>0/just_jumped=0=>0"),
+        "frame 7969 should show the new frontier has moved into the airborne default-gravity branch",
+    );
+    assert!(
+        frame_7969_debug.contains("b_held=0/custom_gravity=0"),
+        "frame 7969 should prove native has already lost the Iron Knight custom-gravity climb state",
+    );
+    assert!(
+        frame_7969_debug.contains("y_vel=0xffffc000->0x00000000/ground=0=>0"),
+        "frame 7969 should confirm the bad next-frame physics zeroes the seeded climb velocity",
+    );
 }
 
 #[test]
@@ -14921,35 +14957,39 @@ fn published_tas_frames_7968_7969_report_kid_wall_cling_release_probe() {
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
     let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_wall_cling_release_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit wall-cling release diagnostics")
-            });
+    let frame_7968_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_wall_cling_release_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit wall-cling release diagnostics"));
+    assert!(
+        frame_7968_debug
+            .contains("held=right/probe_dir=right(held)/wall_cling=none/sticky=R0L0/ground=1"),
+        "frame 7968 should show the attach frame still starts from the grounded walking-side release gate inputs",
+    );
+    assert!(
+        frame_7968_debug.contains("y_vel=0x00000000/y=447=>447"),
+        "frame 7968 should keep the wall-cling release mirror frozen at the pre-attach pose",
+    );
 
-        assert!(
-            probe_debug
-                .contains("held=right/probe_dir=right(held)/wall_cling=none/sticky=R0L0/ground=1"),
-            "frame {frame_index} should show native never enters the wall-cling release window even though right stays held",
-        );
-        assert!(
-            probe_debug.contains("y_vel=0x00000000/y=447=>447"),
-            "frame {frame_index} should keep Kid flat through the loc_AA9C mirror instead of taking an upward live-release step",
-        );
-        assert!(
-            probe_debug.contains(
-                "branch=no_wall_cling_state/sub_ADB8=wall_cling_missing/sub_AE6E=wall_cling_missing"
-            ),
-            "frame {frame_index} should prove both ROM-style live-release helpers stay cold because native never carries wall-cling state into the window",
-        );
-        assert!(
-            probe_debug
-                .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
-            "frame {frame_index} should confirm the forward wall contact survives at the live frontier",
-        );
-    }
+    let frame_7969_debug = frame_7969
+        .gameplay_debug_fields
+        .get("kid_wall_cling_release_probe")
+        .unwrap_or_else(|| panic!("frame 7969 should emit wall-cling release diagnostics"));
+    assert!(
+        frame_7969_debug
+            .contains("held=right/probe_dir=right(held)/wall_cling=none/sticky=R0L0/ground=0"),
+        "frame 7969 should show the new frontier reaches the wall-cling release probe already airborne",
+    );
+    assert!(
+        frame_7969_debug.contains("y_vel=0x00000000/y=447=>447"),
+        "frame 7969 should confirm native still never takes the ROM's upward live-release step",
+    );
+    assert!(
+        frame_7969_debug.contains(
+            "branch=no_wall_cling_state/sub_ADB8=wall_cling_missing/sub_AE6E=wall_cling_missing"
+        ),
+        "frame 7969 should prove both wall-cling release helpers remain cold at the moved frontier",
+    );
 }
 
 #[test]
