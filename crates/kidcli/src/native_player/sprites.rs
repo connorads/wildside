@@ -258,31 +258,16 @@ pub(super) fn push_player_sprite(
     let frame = select_player_frame(trace, form_visuals);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
 
-    let mut tiles = build_player_sprite_tiles(frame, facing);
-    // ASM sub_9386 / $FFFFFA26: tilt the sprite on slopes by applying per-column
-    // Y offsets. The Mega Drive achieves this by positioning each 8px-wide VDP
-    // sprite piece at a different Y, creating a diagonal lean. SlopeUp (/):
-    // left columns lower, right columns higher. SlopeDown (\): opposite.
-    if trace.kid_on_slope != 0 {
-        let sprite_width = i32::from(align_sprite_dimension(frame.width_px));
-        let centre_x = sprite_width / 2;
-        for tile in &mut tiles {
-            // Offset relative to sprite centre: positive = right of centre
-            let dx = tile.offset_x - centre_x;
-            // SlopeUp (1): right is higher (negative Y), left is lower (positive Y)
-            // SlopeDown (-1): right is lower (positive Y), left is higher (negative Y)
-            // Scale: 1px of Y per 1px of X (45° slope), but VDP tiles are 8px
-            // wide so we use the tile's centre-of-column offset.
-            tile.offset_y -= dx * i32::from(trace.kid_on_slope);
-        }
-    }
-
+    // TODO(fidelity): ASM stru_8B6A uses pre-drawn tilted sprite art for slope
+    // walking (kid_slope_*.bin). The ROM does NOT apply runtime per-tile offsets —
+    // the tilt is baked into the sprite graphics. When slope_walk frames are wired
+    // into PlayerFormVisuals, select them here when kid_on_slope != 0.
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(form_visuals.palette.clone()),
-        tiles,
+        tiles: build_player_sprite_tiles(frame, facing),
     });
 }
 
