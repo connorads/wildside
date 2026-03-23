@@ -442,6 +442,10 @@ pub(crate) enum EnemyArchetype {
 }
 
 pub(crate) const DRAGON_SPAWN_X_OFFSET_FP: u32 = 0x001A_8000;
+/// Dragon families spawn 1px below layout Y. ASM-traced offset.
+const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
+/// Walking dragons also use the 1px Y offset.
+const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
 
 // --- Dragon Flying script interpreter (Dragon_Flying.asm) ---
 
@@ -2037,7 +2041,13 @@ pub(crate) fn hopper_should_reverse(
     if wall.hit {
         return true;
     }
-    false
+    // Reverse at platform edge: look ahead for floor support
+    let look_ahead_x = if moving_right {
+        cx + ENEMY_PROBE_HALF_WIDTH
+    } else {
+        cx - ENEMY_PROBE_HALF_WIDTH
+    };
+    !terrain::probe_floor(grid, look_ahead_x, cy).on_ground
 }
 
 /// Step a Pacer-archetype enemy: walk at a fixed speed, reverse on wall or
@@ -4045,8 +4055,14 @@ pub(crate) fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
     }
 }
 
-pub(crate) fn spawn_y_pos(_family: EnemyFamily, object_y: u32) -> u32 {
-    object_y << 16
+pub(crate) fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
+    match family {
+        EnemyFamily::Dragon => object_y.saturating_add(DRAGON_SPAWN_Y_OFFSET_PX) << 16,
+        EnemyFamily::DragonWalking => {
+            object_y.saturating_add(DRAGON_WALKING_SPAWN_Y_OFFSET_PX) << 16
+        }
+        _ => object_y << 16,
+    }
 }
 
 pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {

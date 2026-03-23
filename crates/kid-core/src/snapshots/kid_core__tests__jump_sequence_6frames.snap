@@ -58,6 +58,8 @@ active_objects:
     damage_flash: false
     palette_variant: 0
     stationary: false
+    debug_fields:
+      segment_index: "0"
   - kind:
       Platform:
         kind: 0
@@ -102,3 +104,17 @@ form_change_flash_frames: 0
 stomped_this_frame: false
 blocks_hit_this_frame: 0
 sound_test_play_pending: false
+gameplay_debug_fields:
+  kid_collision_handoff_probe: "lifecycle=alive/prev_post=none/pending_stomp=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=0/jump_buffer=0/wall_cling=none/stomp_candidate=0/stomp_enemy=none/anchor=0x00200000,0x00ff4000"
+  kid_flip_branch_probe: "wall_scan=0/b_press=0/c_press=0/helmet=0x0000/facing=right/ground=0=>0/branch=no_wall_path/wall=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"
+  kid_flip_follow_on_probe: "branch=no_wall_path/motion=normal_physics/post=none/entry[x_vel=0x00000000/y_vel=0xfffc4000/ground=0/wall_cling=none]/press_away[x_vel=0x00000000/y_vel=0xfffc4000/ground=0/wall_cling=none]/jump_gravity[x_vel=0x00000000/y_vel=0xfffc6000/ground=0/wall_cling=none]/floor[x_vel=0x00000000/y_vel=0xfffc6000/ground=0/wall_cling=none]/wall[x_vel=0x00000000/y_vel=0xfffc6000/ground=0/wall_cling=none]"
+  kid_gameplay_path_probe: lifecycle=alive/motion=normal_physics/post=none/paused=0
+  kid_goal_probe: "lifecycle=alive/level_complete=0/touch=0/flag=(1872, 768)/dx_px=1840/dy_px=516"
+  kid_ground_probe: "latched_ground=0/latched_floor_y=271/y_vel=0xfffc6000/left=ground=0/y=896/cell=1,15 collision=Empty block=None/center=ground=0/y=896/cell=2,15 collision=Empty block=None/right=ground=0/y=896/cell=2,15 collision=Empty block=None/hitbox=ground=0/y=896/cell=1,15 collision=Empty block=None"
+  kid_grounded_release_probe: ground=0/held=none/jump=0/jump_buffer=0/velocity=airborne_gravity/custom_gravity=0/wall_cling=none/scan=row=none/cols=none/support=none/release=0/post=none
+  kid_iron_knight_block_breaker_probe: "helmet=0x0000/facing=right/x_vel=0x00000000/speed_gate=0/wall=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0/candidate=0"
+  kid_jump_gravity_probe: branch=airborne_held_jump_gravity/jump=0/jump_buffer=0=>0/just_jumped=0=>0/b_held=1/custom_gravity=0/y_vel=0xfffc4000->0xfffc6000/ground=0=>0
+  kid_pre_physics_probe: "start[x=0x00200000/y=0x00ff4000/x_vel=0x00000000/y_vel=0xfffc4000/ground=0]/before_physics[x=0x00200000/y=0x00ff4000/x_vel=0x00000000/y_vel=0xfffc4000/ground=0]/first=none/mutators=none"
+  kid_same_frame_stomp_probe: "candidate=0/enemy=none/pre_y_vel=0xfffc4000/post_y_vel=0xfffc6000/anchor=0x00200000,0x00ff4000"
+  kid_special_motion_probe: helmet=0x0000/skycutter_on_board=0/skycutter_flipboard=0/cyclone_flying=0/cyclone_y_accel=0/iron_knight_climbing=0/iron_knight_climb_accel=0/micromax_stuck=0/pending_stomp_bounce=0/form_flash=0
+  kid_wall_cling_release_probe: "held=none/probe_dir=right(facing)/wall_cling=none/sticky=R0L0/ground=0/y_vel=0xfffc6000/y=255=>251/branch=no_wall_cling_state/sub_ADB8=wall_cling_missing/sub_AE6E=wall_cling_missing/wall=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0/top_edge=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"

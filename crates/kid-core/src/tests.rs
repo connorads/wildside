@@ -2635,8 +2635,9 @@ fn enemy_contact_deals_damage() {
 
     let hp_before = runtime.progression.number_hitpoints;
 
+    // Position player to the side of the skull so activation window includes it
     if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 0x0120_0000;
+        slice.player.x_pos = 0x0100_0000; // 16px left of skull
         slice.player.y_pos = 0x00E0_0000;
         slice.player.on_ground = true;
         slice.camera.x_pos = 0;
@@ -2644,11 +2645,12 @@ fn enemy_contact_deals_damage() {
     }
     // Step to activate the skull
     runtime.step_frame(FrameInput::default());
-    // Reposition for contact
+    // Walk into the skull horizontally (same Y = contact, not stomp)
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 0x0120_0000;
         slice.player.y_pos = 0x00E0_0000;
         slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
@@ -2670,16 +2672,21 @@ fn invulnerability_prevents_rapid_rehit() {
     advance_past_level_entry_damage_grace(&mut runtime);
     runtime.progression.number_hitpoints = 3;
 
-    // Activate skull, then position for contact
+    // Activate skull from the side
     if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00E0_0000;
+        slice.player.on_ground = true;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
     runtime.step_frame(FrameInput::default());
+    // Walk into the skull horizontally (same Y = contact, not stomp)
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 0x0120_0000;
         slice.player.y_pos = 0x00E0_0000;
         slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
@@ -2696,6 +2703,7 @@ fn invulnerability_prevents_rapid_rehit() {
             slice.player.x_pos = 0x0120_0000;
             slice.player.y_pos = 0x00E0_0000;
             slice.player.on_ground = true;
+            slice.player.y_velocity = 0;
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
@@ -2716,15 +2724,21 @@ fn enemy_contact_kills_at_one_hp() {
     advance_past_level_entry_damage_grace(&mut runtime);
     runtime.progression.number_hitpoints = 1;
 
+    // Activate skull from the side
     if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00E0_0000;
+        slice.player.on_ground = true;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
     runtime.step_frame(FrameInput::default());
+    // Walk into the skull horizontally (same Y = contact, not stomp)
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 0x0120_0000;
         slice.player.y_pos = 0x00E0_0000;
         slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
@@ -2751,15 +2765,21 @@ fn enemy_survives_after_damaging_player() {
     start_level(&mut runtime);
     advance_past_level_entry_damage_grace(&mut runtime);
 
+    // Activate skull from the side
     if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00E0_0000;
+        slice.player.on_ground = true;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
     runtime.step_frame(FrameInput::default());
+    // Walk into the skull horizontally (same Y = contact, not stomp)
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 0x0120_0000;
         slice.player.y_pos = 0x00E0_0000;
         slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
@@ -3256,10 +3276,13 @@ fn drill_block_headbutt_spawns_projectile() {
 
     assert!(runtime.projectiles.is_empty());
 
-    // Position player below drill block at col 2, row 2
+    // Position player just below drill block at col 2, row 2 (y=32..47).
+    // Player head must cross the tile boundary from below (y>=48) into the
+    // block row. With collision_height=31, feet at y=80 puts head at y=49,
+    // one pixel below the block bottom. Upward velocity crosses the boundary.
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 40 << 16;
-        slice.player.y_pos = 73 << 16;
+        slice.player.y_pos = 80 << 16;
         slice.player.y_velocity = -0x0002_0000;
         slice.player.on_ground = false;
         slice.camera.x_pos = 0;
@@ -3301,10 +3324,11 @@ fn lift_block_headbutt_spawns_platform() {
 
     assert!(runtime.block_state.lift_platforms.is_empty());
 
-    // Position player below lift block at col 2, row 2
+    // Position player just below lift block at col 2, row 2 (y=32..47).
+    // Head must cross tile boundary: feet at y=80, head at y=49 (just below).
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 40 << 16;
-        slice.player.y_pos = 73 << 16;
+        slice.player.y_pos = 80 << 16;
         slice.player.y_velocity = -0x0002_0000;
         slice.player.on_ground = false;
         slice.camera.x_pos = 0;
@@ -3403,10 +3427,11 @@ fn hidden_block_reveals_on_headbutt() {
     let cell = grid.cell_at(2, 2);
     assert_eq!(cell.collision, terrain::CollisionKind::HiddenBlock);
 
-    // Position player below the hidden block, moving upward
+    // Position player just below the hidden block, moving upward.
+    // Head must cross tile boundary: feet at y=80, head at y=49 (just below row 2).
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = 40 << 16; // col 2 centre
-        slice.player.y_pos = 73 << 16;
+        slice.player.y_pos = 80 << 16;
         slice.player.y_velocity = -0x0002_0000;
         slice.player.on_ground = false;
         slice.camera.x_pos = 0;
@@ -4290,7 +4315,7 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         segment_index: 0,
         layout_index: 0,
         family: EnemyFamily::Dragon,
-        x_pos: ((-200i32) << 16) as u32,
+        x_pos: ((-300i32) << 16) as u32, // beyond ASM-correct retention margin
         y_pos: 272u32 << 16,
         x_velocity: 0,
         y_velocity: 0,
@@ -4712,7 +4737,7 @@ fn trace_frame_reports_kid_object_support_candidates() {
     let bounds = runtime.level_bounds(LevelId(0));
     let mut slice = OpeningSliceState::respawn(bounds);
     slice.player.x_pos = 42 << 16;
-    slice.player.y_pos = 240 << 16;
+    slice.player.y_pos = 241 << 16; // 1px overlap with enemy top (272-32=240)
     runtime.opening_slice = Some(slice);
     runtime.progression.current_form = PlayerForm::TheKid;
 
