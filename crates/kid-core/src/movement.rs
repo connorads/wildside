@@ -1,10 +1,45 @@
 use super::*;
 
+const INTRO_SEQUENCE_3_ROSTER_DESCRIPTOR_POSITIONS: [(u16, u16); 14] = [
+    (0x00F8, 0x00D0),
+    (0x00E3, 0x00CC),
+    (0x0040, 0x00CC),
+    (0x0060, 0x00D0),
+    (0x00D0, 0x00C8),
+    (0x00C4, 0x00CC),
+    (0x0070, 0x00CC),
+    (0x0098, 0x00C4),
+    (0x00E4, 0x00C8),
+    (0x0050, 0x00C8),
+    (0x0024, 0x00CC),
+    (0x003C, 0x00C8),
+    (0x0114, 0x00CA),
+    (0x002C, 0x00C8),
+];
+const INTRO_SEQUENCE_3_ROSTERS: [[u8; 8]; 4] = [
+    [0, 2, 3, 4, 6, 7, 9, 10],
+    [0, 5, 6, 7, 8, 12, 0xFF, 0xFF],
+    [1, 7, 8, 10, 11, 13, 0xFF, 0xFF],
+    [1, 2, 3, 5, 7, 8, 9, 0xFF],
+];
+const INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT: usize = 2;
+
 impl PlayerState {
-    pub(crate) fn intro_sequence_3_pose() -> Self {
+    pub(crate) fn intro_sequence_3_roster_count() -> usize {
+        INTRO_SEQUENCE_3_ROSTERS.len()
+    }
+
+    pub(crate) fn intro_sequence_3_pose_for_roster(roster_index: usize) -> Self {
+        // ROM Load_IntroSequence3 rotates through the four `unk_1AF78`
+        // descriptor rosters via `$FFFFFC83`, and oracle traces expose the
+        // third allocated roster descriptor in slot 2 as `kid_gfx`.
+        let descriptor_index = INTRO_SEQUENCE_3_ROSTERS
+            [roster_index % INTRO_SEQUENCE_3_ROSTERS.len()][INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT]
+            as usize;
+        let (x_pos, y_pos) = INTRO_SEQUENCE_3_ROSTER_DESCRIPTOR_POSITIONS[descriptor_index];
         Self {
-            x_pos: INTRO_SEQUENCE_3_KID_X_POS,
-            y_pos: INTRO_SEQUENCE_3_KID_Y_POS,
+            x_pos: u32::from(x_pos) << 16,
+            y_pos: u32::from(y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Left,

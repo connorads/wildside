@@ -162,6 +162,10 @@ pub struct NativeRuntime {
     /// Timeout-restart demo playback ignores queued manual Start aborts until
     /// the restarted attract demo reaches its live gameplay hand-off.
     ignore_demo_start_abort_until_gameplay: bool,
+    /// Next Load_IntroSequence3 roster index from ROM byte `$FFFFFC83`.
+    next_intro_sequence_3_roster_index: usize,
+    /// Active/last Load_IntroSequence3 roster used by trace-visible intro pose.
+    active_intro_sequence_3_roster_index: usize,
     /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
     demo_toggle: bool,
     /// Tracks whether demo playback is currently inside Kid_Transform so the
@@ -287,6 +291,8 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_3_pose: false,
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,
+            next_intro_sequence_3_roster_index: 0,
+            active_intro_sequence_3_roster_index: 0,
             demo_toggle: false,
             demo_transform_active: false,
             two_player: false,

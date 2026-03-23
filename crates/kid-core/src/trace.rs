@@ -965,7 +965,9 @@ impl NativeRuntime {
                 elapsed,
                 ..
             } if elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES => {
-                Some(PlayerState::intro_sequence_3_pose())
+                Some(PlayerState::intro_sequence_3_pose_for_roster(
+                    self.active_intro_sequence_3_roster_index,
+                ))
             }
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
@@ -974,7 +976,9 @@ impl NativeRuntime {
             BootState::TitleScreen { .. }
                 if self.title_uses_timeout_restart_intro_sequence_3_pose() =>
             {
-                Some(PlayerState::intro_sequence_3_pose())
+                Some(PlayerState::intro_sequence_3_pose_for_roster(
+                    self.active_intro_sequence_3_roster_index,
+                ))
             }
             BootState::TitleScreen { .. } if self.title_hides_demo_return_player() => None,
             BootState::TitleScreen { .. }

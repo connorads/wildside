@@ -1,98 +1,93 @@
 {
   "version": 1,
-  "updated_at": "2026-03-23",
+  "updated_at": "2026-03-23T04:19:08Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-8004-demo-1-timeout-handoff-still-early-after-third-lag-fix",
+    "slug": "any-percent-published-frame-9312-native-enters-title-before-oracle-leaves-intro-sequence-3",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Knights Isle demo-1 timeout/title-return timing after the frame-8003 stored-counter fix",
+    "area": "Demo-1 timeout restart intro-sequence-3/title timing after the frame-9097 roster fix",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 8004,
-    "authoritative_clean_through": 8003,
+    "frontier_frame": 9312,
+    "authoritative_clean_through": 9311,
     "pre_divergence_windows": [
       {
-        "frame_start": 7998,
-        "frame_end": 8003,
-        "reason": "Frames 7998..8003 are now authoritative-clean apart from advisory `number_objects` and `kid_y_vel`: `tas-diff --frame-start 7998 --frame-end 8004 --include-physics-trace --include-advisory` shows the first authoritative break one frame later at 8004."
+        "frame_start": 9308,
+        "frame_end": 9311,
+        "reason": "Frames 9308..9311 are authoritative-clean after the ROM-roster fix and now differ only on advisory `number_objects`: `tas-diff --frame-start 9308 --frame-end 9316 --include-advisory` shows the first authoritative break at frame 9312."
       }
     ],
-    "current_blocker": "After moving the demo-1 timeout compare three startup frames behind the raw counter, native now keeps the published TAS live through frame 8003. The handoff is still one ReadJoypad pass early, though: `verify-tas --frame-start 8002 --frame-end 8010 --checkpoint-interval 1` reports frame 8004 as the first authoritative break, where native switches to `game_mode=0x0000` / `current_level_id=0x0000` and freezes Kid at `kid_y_pos=0x01B95E00`, while oracle stays in `game_mode=0x0010` / `current_level_id=0x0015` and continues the climb to `kid_y_pos=0x01B8FB00`.",
+    "current_blocker": "After replacing the single hard-coded intro-sequence-3 pose with the ROM's rotating `Load_IntroSequence3` roster, native now matches the oracle on frame 9097 and stays CRC-clean through frame 9311. The first authoritative break is frame 9312, where native flips to `game_mode=0x002C` (title screen) with the second-roster pose still visible while oracle stays in `game_mode=0x001C` (intro sequence 3) with the same pose and only advisory object-count drift.",
     "authoritative_diffs": [
-      "The old frame-7969 blocker is gone: rerunning the 7968/7969 and `iron_knight_` suites plus `verify-tas --frame-start 6975 --frame-end 9530 --bisect` keeps the fixed Knights Isle lift-off window behind the live frontier.",
-      "The old frame-8003 blocker is gone: adding `published_tas_frame_8003_keeps_demo_1_in_live_climb_gameplay` and moving `DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES` from 2 to 3 keeps frame 8003 in `game_mode=0x0010` with the oracle-backed live climb pose `kid_y_pos=0x01B95E00`.",
-      "The true live blocker is now frame 8004: `tas-diff --frame-start 7998 --frame-end 8004 --include-physics-trace --include-advisory` keeps frames 7998..8003 advisory-only, then shows native entering the mode-0/title handoff on frame 8004 one frame before oracle."
+      "The old frame-9097 blocker is gone: `published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097` passes, and `tas-diff --frame-start 9094 --frame-end 9100 --include-advisory` is authoritative-clean after native starts mirroring the ROM's `$FFFFFC83` roster cycle.",
+      "The first CRC divergence moves from frame 9097 to frame 9312: `verify-tas --frame-start 6975 --frame-end 9530 --bisect` now reports `mode=0x002C level=00 kid=(0x00700000,0x00CC0000)` on the first native miss.",
+      "The new live blocker is an early intro-sequence-3 exit: `tas-diff --frame-start 9308 --frame-end 9316 --include-advisory` keeps frames 9308..9311 advisory-only, then shows native entering `game_mode=0x002C` on frame 9312 while oracle stays in `game_mode=0x001C` through at least frame 9315."
     ],
     "advisory_diffs": [
-      "Frames 7998..8003 of `any-percent-published` now differ only on advisory `number_objects` and `kid_y_vel`.",
-      "The frame-4966 demo-2 timeout snapshot guard still holds: `published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966` remains green after the demo-1 offset change."
+      "Frames 9097..9099 and 9308..9311 still differ only on advisory `number_objects` because native trace state does not model the intro/title glyph object roster yet.",
+      "The preserved `kid_ground_probe` debug text remains irrelevant noise during this boot-only frontier; the authoritative mode/pose state is the useful signal."
     ],
     "current_hypothesis": {
-      "name": "Native still commits the demo-1 timeout/title-return handoff one ReadJoypad pass earlier than oracle after the third stored-counter lag fix",
-      "reason": "The new frame-8003 regression and `DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES = 3` move the first authoritative divergence from frame 8003 to frame 8004. The remaining gap is therefore not the old frame-7969 gameplay motion bug; it sits in demo timeout arming/consumption or the title-return entry timing between frames 8003 and 8004."
+      "name": "Native still exits the later demo-1 timeout-restart copy of intro sequence 3 too early",
+      "reason": "The pose itself now matches the ROM's second `unk_1AF78` roster, so the remaining gap is timing only. `sub_1B93E` / `loc_1B96A` keep `Game_Mode=0x001C` alive until the intro object decides to leave, and `tas-diff --frame-start 9308 --frame-end 9316 --include-advisory` shows native taking the title-screen path several frames before oracle does."
     },
     "rejected_hypotheses": [
       {
-        "name": "The frame-7969 Iron Knight lift-off mismatch is still the live frontier",
-        "reason": "That blocker was fixed earlier. The 7968/7969 and `iron_knight_` suites remain green, and `verify-tas --frame-start 6975 --frame-end 9530 --bisect` now reports the first CRC divergence at frame 8004."
+        "name": "The frame-9097 intro-sequence-3 pose mismatch is still the live frontier",
+        "reason": "That blocker is fixed. The new regression plus `tas-diff --frame-start 9094 --frame-end 9100 --include-advisory` prove native now exposes the second-roster pose `0x00700000,0x00CC0000` on the same frame as oracle."
       },
       {
-        "name": "Demo 1 still only needs a two-frame timeout-counter lag",
-        "reason": "That model left frame 8003 as the first authoritative miss. The new frame-8003 regression only passes once the demo-1 timeout offset moves from 2 to 3."
+        "name": "The single hard-coded intro-sequence-3 pose `0x00600000,0x00D00000` is still valid for later attract loops",
+        "reason": "The ROM's `Load_IntroSequence3` roster tables (`unk_1AF24` / `unk_1AF78`) rotate through four descriptor sets via `$FFFFFC83`, and oracle frame 9097 exposes the second roster's third descriptor `0x0070,0x00CC` instead."
       },
       {
-        "name": "The later frame-9518 title/demo window is the live frontier",
-        "reason": "That was a tooling artefact. Honour `frame_start` in the CRC bisect and the first authoritative divergence stays in the earlier demo-1 timeout/title-return window."
+        "name": "The new 9312 break is another pose-selection bug",
+        "reason": "Oracle and native now agree on the carried pose at frame 9312; only `game_mode` diverges. The live blocker is the intro-sequence-3 → title transition timing, not the selected coordinates."
       }
     ],
     "required_next_evidence": [
-      "Re-read the ROM demo timeout/title-return path around `loc_C22` and the title entry it reaches after `j_loc_6E2` to explain why oracle still avoids the visible mode-0 handoff on frame 8004.",
-      "Trace native demo-1 timeout arming and consumption across frames 8003..8004 only, comparing `frame_counter`, the derived timeout counter, `demo_auto_timeout_return_pending`, and the first visible title-return frame against oracle.",
-      "Add the next focused regression once the remaining frame-8004 handoff timing is proven."
+      "Re-read `sub_1B93E`, `loc_1B96A`, and `sub_1C246` / `loc_1C250` in the ROM to pin down exactly which path should leave `Game_Mode=0x001C` on this later attract-loop visit.",
+      "Trace native segment-2 timing around frames 9311..9315 only, comparing `elapsed`, `pending_title_skip`, and any timeout-restart intro-sequence-3 return flags against the oracle's still-visible `0x001C` state.",
+      "Add the next focused regression once the frame-9312 early-title timing is proven."
     ],
     "verification_commands": [
-      "cargo test -p kid-core published_tas_frame_8000_stays_on_live_climb_gameplay -- --nocapture",
-      "cargo test -p kid-core published_tas_frame_8001_delays_demo_1_timeout_handoff_by_one_more_climb_step -- --nocapture",
-      "cargo test -p kid-core published_tas_frame_8002_keeps_demo_1_in_live_climb_gameplay -- --nocapture",
-      "cargo test -p kid-core published_tas_frame_8003_keeps_demo_1_in_live_climb_gameplay -- --nocapture",
-      "cargo test -p kid-core published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966 -- --nocapture",
-      "cargo test -p kid-core 7968 -- --nocapture",
-      "cargo test -p kid-core 7969 -- --nocapture",
-      "cargo test -p kid-core iron_knight_ -- --nocapture",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7998 --frame-end 8004 --include-physics-trace --include-advisory",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8002 --frame-end 8010 --checkpoint-interval 1",
+      "cargo test -p kid-core published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994 -- --nocapture",
+      "cargo test -p kid-core published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames -- --nocapture",
+      "cargo test -p kid-core published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097 -- --nocapture",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9094 --frame-end 9100 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9316 --include-advisory",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Investigate the frame-8004 demo-1 timeout/title-return mismatch",
-      "summary": "The demo-1 timeout compare now lags the raw startup frame by three frames, which keeps frame 8003 live. The next session should explain and fix why native still exposes the mode-0/title handoff one frame early on 8004.",
+      "title": "Investigate the frame-9312 intro-sequence-3 early title transition",
+      "summary": "The ROM-roster pose fix clears frame 9097 and moves the first authoritative divergence to frame 9312, where native reaches `TitleScreen (0x002C)` while oracle is still in `IntroSequence3 (0x001C)`. The next session should explain and fix that timing gap.",
       "sources": [
         ".cache/upstream/kid-chameleon-disasm/kid.asm",
         "crates/kid-core/src/lib.rs",
         "crates/kid-core/src/boot.rs",
-        "crates/kid-core/src/demo.rs",
+        "crates/kid-core/src/movement.rs",
+        "crates/kid-core/src/trace.rs",
         "crates/kid-core/src/tests.rs"
       ],
       "implementation_targets": [
         "crates/kid-core/src/lib.rs",
         "crates/kid-core/src/boot.rs",
-        "crates/kid-core/src/demo.rs",
+        "crates/kid-core/src/trace.rs",
         "crates/kid-core/src/tests.rs",
         "docs/source-port/frontier-state.yaml"
       ],
       "commands": [
-        "cargo test -p kid-core published_tas_frame_8003_keeps_demo_1_in_live_climb_gameplay -- --nocapture",
-        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7998 --frame-end 8004 --include-physics-trace --include-advisory",
-        "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8002 --frame-end 8010 --checkpoint-interval 1",
+        "cargo test -p kid-core published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097 -- --nocapture",
+        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9316 --include-advisory",
         "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
         "mise run verify-slice-fast"
       ],
       "done_criteria": [
-        "A focused regression captures frame 8003 clean and the next authoritative timeout/title-return mismatch at frame 8004.",
-        "The engine fix explains why native still exposes the mode-0/title handoff one frame before oracle after the third stored-counter lag fix.",
-        "The first authoritative divergence moves past frame 8004."
+        "A focused regression captures frame 9311 clean and the next authoritative intro-sequence-3/title mismatch at frame 9312.",
+        "The engine fix explains why native reaches `TitleScreen (0x002C)` before oracle leaves `IntroSequence3 (0x001C)` on the later demo-1 timeout restart path.",
+        "The first authoritative divergence moves past frame 9312."
       ]
     }
   },
@@ -115,7 +110,7 @@
     "commands": [
       "mise run frontier-status",
       "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7998 --frame-end 8004 --include-advisory",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9316 --include-advisory",
       "mise run verify-slice-fast"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

@@ -13567,6 +13567,55 @@ fn published_tas_demo_2_restores_the_standard_title_pose_on_frame_6358() {
 }
 
 #[test]
+fn published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9096 = None;
+    let mut frame_9097 = None;
+    let mut frame_9098 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_099) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_096 => {
+                frame_9096 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            9_097 => {
+                frame_9097 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            9_098 => {
+                frame_9098 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_9096,
+        Some((GameMode::IntroSequence3, None, None)),
+        "frame 9096 should already be the hidden intro-sequence-3 frame before the roster pose appears",
+    );
+    assert_eq!(
+        frame_9097,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+        )),
+        "frame 9097 should expose the second Load_IntroSequence3 roster's third descriptor pose",
+    );
+    assert_eq!(
+        frame_9098,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+        )),
+        "frame 9098 should keep the same second-roster intro-sequence-3 pose once the glyph objects appear",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;

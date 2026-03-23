@@ -1,6 +1,12 @@
 use super::*;
 
 impl NativeRuntime {
+    fn activate_intro_sequence_3_roster(&mut self) {
+        self.active_intro_sequence_3_roster_index = self.next_intro_sequence_3_roster_index;
+        self.next_intro_sequence_3_roster_index = (self.next_intro_sequence_3_roster_index + 1)
+            % PlayerState::intro_sequence_3_roster_count();
+    }
+
     pub(crate) fn enter_title_screen(&mut self) {
         self.boot_state = BootState::TitleScreen { cursor: 0 };
         self.title_idle_frames = 0;
@@ -579,6 +585,7 @@ impl NativeRuntime {
             self.demo_auto_timeout_intro_sequence_2_frames_override;
         let intro_sequence_3_frames_override =
             self.demo_auto_timeout_intro_sequence_3_frames_override;
+        let mut activate_intro_sequence_3_roster = false;
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
                 *elapsed += 1;
@@ -651,6 +658,7 @@ impl NativeRuntime {
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         *segment += 1;
+                        activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;
                     }
                 } else if *elapsed >= segment_frames {
@@ -670,6 +678,7 @@ impl NativeRuntime {
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         *segment += 1;
+                        activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;
                     }
                 }
@@ -826,6 +835,9 @@ impl NativeRuntime {
                     self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
                 }
             }
+        }
+        if activate_intro_sequence_3_roster {
+            self.activate_intro_sequence_3_roster();
         }
     }
 
