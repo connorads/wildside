@@ -40,7 +40,17 @@ run = "cargo run -p kidcli -- verify-level"
 run = "cargo run --release -p kidcli -- verify-gameplay --all"
 
 [tasks.verify-slice-fast]
-run = "cargo test -q -p kid-core timing_regression_ && cargo test -q -p kid-core determinism_ && cargo test -q -p kidcli gameplay_regression_"
+run = """
+cargo test -q -p kid-core timing_regression_ \
+  && cargo test -q -p kid-core determinism_ \
+  && cargo test -q -p kid-core -- enemy_contact --skip demo_ --skip published_tas \
+  && cargo test -q -p kid-core -- stomp --skip demo_ --skip published_tas \
+  && cargo test -q -p kid-core -- prize --skip demo_ --skip published_tas \
+  && cargo test -q -p kid-core -- spawn_facing \
+  && cargo test -q -p kid-core -- slope \
+  && cargo test -q -p kid-core -- death --skip demo_ --skip published_tas \
+  && cargo test -q -p kidcli gameplay_regression_
+"""
 
 [tasks.verify-slice-full]
 run = "cargo test -q -p kid-core && cargo test -q -p kidcli && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 && cargo run -q -p kidcli -- compare-native-gameplay --scenario progress-two-transitions && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
