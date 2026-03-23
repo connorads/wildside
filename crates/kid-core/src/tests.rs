@@ -13826,6 +13826,20 @@ fn demo_transform_entry_freezes_buffer_before_flash_frames_start() {
     }
 }
 
+#[test]
+fn demo_1_timeout_overrun_uses_the_adjacent_rom_bytes() {
+    assert_eq!(
+        demo::demo_byte(false, demo::DEMO_INPUT_DATA_1.len()),
+        0x06,
+        "demo 1 should keep reading the raw ROM stream after Demo_InputData1 ends",
+    );
+    assert_eq!(
+        demo::demo_byte(false, demo::DEMO_INPUT_DATA_1.len() + 1),
+        0xC4,
+        "the next overflow byte should match the ROM byte immediately after Demo_InputData1",
+    );
+}
+
 fn cached_any_percent_demo_runtime_and_script() -> (NativeRuntime, Vec<u8>) {
     cached_tas_runtime_and_script("kc_any_percent_2024")
 }
@@ -14770,6 +14784,71 @@ fn published_tas_demo_1_times_out_on_frame_8069() {
         frame_8069,
         Some((GameMode::SegaScreen, LevelId(0x00))),
         "frame 8069 should expose the ROM's mode-0 timeout handoff on the first post-threshold frame",
+    );
+}
+
+#[test]
+fn published_tas_frame_8056_hibernates_the_iron_knight_wall_release() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8056 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_057) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 8_056 {
+            frame_8056 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_8056 = frame_8056.unwrap_or_else(|| panic!("frame 8056 should be captured"));
+    let path_debug = frame_8056
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 8056 should emit kid gameplay-path diagnostics"));
+
+    assert!(
+        path_debug.contains("motion=iron_knight_climb_exit_hibernate"),
+        "frame 8056 should leave the climb-resume loop and hibernate the wall-release frame",
+    );
+    assert_eq!(
+        frame_8056.kid_y_pos,
+        Some(0x0186_D680),
+        "frame 8056 should preserve the oracle-backed wall-cling pose while the release frame hibernates",
+    );
+}
+
+#[test]
+fn published_tas_frame_8057_matches_the_oracle_wall_release_carry() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8057 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_058) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 8_057 {
+            frame_8057 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_8057 = frame_8057.unwrap_or_else(|| panic!("frame 8057 should be captured"));
+    let path_debug = frame_8057
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 8057 should emit kid gameplay-path diagnostics"));
+
+    assert!(
+        !path_debug.contains("motion=iron_knight_climb_resume"),
+        "frame 8057 should stay off the dedicated climb-resume motion after the wall release",
+    );
+    assert_eq!(
+        frame_8057.kid_x_pos,
+        Some(0x03A7_D500),
+        "frame 8057 should pick up the oracle-backed leftward carry on the first post-release frame",
+    );
+    assert_eq!(
+        frame_8057.kid_y_pos,
+        Some(0x0185_9680),
+        "frame 8057 should match the oracle-backed post-release jump pose",
     );
 }
 

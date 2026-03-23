@@ -41,6 +41,12 @@ pub(crate) const DEMO_INPUT_DATA_1: [u8; 498] = [
     0x09, 0x29,
 ];
 
+/// ORIGINAL_QUIRK: `ReadJoypad` (`loc_C22`) advances the raw demo pointer with
+/// no table-end guard. Demo 1 times out after `Demo_InputData1`, so the ROM
+/// reads six extra bytes from the immediately following `byte_1E6E3` Dark Alley
+/// art blob before the timeout handoff returns to title.
+pub(crate) const DEMO_INPUT_DATA_1_OVERFLOW: [u8; 6] = [0x06, 0xC4, 0xC7, 0xFF, 0x9A, 0x14];
+
 /// Level: Skydragon Castle 1 ($1B). 499 bytes = 998 frames.
 #[rustfmt::skip]
 pub(crate) const DEMO_INPUT_DATA_2: [u8; 499] = [
@@ -157,4 +163,17 @@ pub(crate) fn demo_1_hidden_camera_y(frame_counter: u16) -> Option<u32> {
 /// Bit 7 (Start) is stripped — the real Start button state is applied separately.
 pub(crate) fn decode_demo_byte(byte: u8) -> super::FrameInput {
     super::FrameInput::from_mask(byte & 0x7F)
+}
+
+pub(crate) fn demo_byte(use_demo_2: bool, data_index: usize) -> u8 {
+    if use_demo_2 {
+        DEMO_INPUT_DATA_2.get(data_index).copied().unwrap_or(0)
+    } else if let Some(byte) = DEMO_INPUT_DATA_1.get(data_index).copied() {
+        byte
+    } else {
+        DEMO_INPUT_DATA_1_OVERFLOW
+            .get(data_index - DEMO_INPUT_DATA_1.len())
+            .copied()
+            .unwrap_or(0)
+    }
 }

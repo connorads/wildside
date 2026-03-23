@@ -487,11 +487,6 @@ impl NativeRuntime {
             return Some(FrameInput::default());
         }
 
-        let data = if use_demo_2 {
-            &demo::DEMO_INPUT_DATA_2[..]
-        } else {
-            &demo::DEMO_INPUT_DATA_1[..]
-        };
         let output_input = if frame_counter >= gameplay_start_frame {
             self.demo_buffered_input.unwrap_or_default()
         } else {
@@ -500,7 +495,7 @@ impl NativeRuntime {
         // Read demo byte and decode into input for the NEXT frame. ASM loc_C22
         // runs after object/gameplay logic, so the controller state fetched on
         // the camera-handoff frame is first consumed on the hidden settle frame.
-        let byte = data.get(data_index).copied().unwrap_or(0);
+        let byte = demo::demo_byte(use_demo_2, data_index);
         let demo_input = demo::decode_demo_byte(byte);
         // ASM demo input (loc_C22) freezes once the queued transform frame
         // hands control to Kid_Transform. The pending_form frame itself still

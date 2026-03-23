@@ -810,12 +810,7 @@ impl NativeRuntime {
                 // restore that skipped byte advance when the transform exits.
                 *frame_counter = frame_counter.saturating_sub(1);
                 *data_index += 1;
-                let data = if *use_demo_2 {
-                    &demo::DEMO_INPUT_DATA_2[..]
-                } else {
-                    &demo::DEMO_INPUT_DATA_1[..]
-                };
-                let byte = data.get(*data_index).copied().unwrap_or(0);
+                let byte = demo::demo_byte(*use_demo_2, *data_index);
                 self.demo_buffered_input = Some(demo::decode_demo_byte(byte));
             }
             self.demo_transform_active = transform_active;
@@ -1010,6 +1005,30 @@ impl NativeRuntime {
                 // frame preserves position while the new upward velocity becomes
                 // visible in object state.
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightAttachHibernate;
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+            } else if iron_knight_climb_step == IronKnightClimbStep::ExitHibernate {
+                // ORIGINAL_QUIRK: `loc_A2E2`/`loc_A2F6` flip facing and jump
+                // into `loc_A6F8`, which hibernates the release frame before
+                // normal jump physics consumes the preserved climb velocity on
+                // the next frame.
+                self.last_kid_frame_motion_branch =
+                    KidFrameMotionBranch::IronKnightClimbExitHibernate;
                 if self.trace_physics {
                     slice.physics_trace = Some(PhysicsTrace {
                         pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),

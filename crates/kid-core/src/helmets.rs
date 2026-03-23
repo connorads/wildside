@@ -314,6 +314,18 @@ impl NativeRuntime {
             return IronKnightClimbStep::None;
         }
 
+        let release_direction = match slice.player.facing {
+            Direction::Right if input.left => Some(Direction::Left),
+            Direction::Left if input.right => Some(Direction::Right),
+            _ => None,
+        };
+        if let Some(direction) = release_direction {
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
+            slice.player.facing = direction;
+            return IronKnightClimbStep::ExitHibernate;
+        }
+
         // Check wall still exists
         if let Some(ref grid) = self.block_grid {
             let facing_right = slice.player.facing == Direction::Right;
