@@ -501,6 +501,25 @@ impl OpeningSliceState {
                     )
                 };
 
+                // ASM loc_9D22: on slopes, y_vel mirrors x_vel so the player
+                // moves diagonally along the 45° surface. SlopeUp (/): going
+                // right means going up → y_vel = -x_vel. SlopeDown (\): going
+                // right means going down → y_vel = +x_vel.
+                if self.player.on_ground {
+                    if let Some(grid) = block_grid.as_deref() {
+                        let slope = self.grounded_slope_collision(Some(grid));
+                        match slope {
+                            Some(terrain::CollisionKind::SlopeUp) => {
+                                self.player.y_velocity = -self.player.x_velocity;
+                            }
+                            Some(terrain::CollisionKind::SlopeDown) => {
+                                self.player.y_velocity = self.player.x_velocity;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
                 if let Some(ref mut t) = self.physics_trace {
                     // Record post-horizontal with unchanged x_pos (vel-only update)
                     t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
