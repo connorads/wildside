@@ -28,6 +28,7 @@ Before writing ANY code, understand what the ROM does first:
 - Your session has ONE task — the item you picked from "Exact Next Moves".
 - Check "Dead Ends / Do Not Retry" before starting — do not repeat rejected approaches.
 - Follow the investigation hierarchy above: ASM → oracle → fix → probe (last resort).
+- Every frontier commit must cite the ASM label it implements. If you can't name the routine, you haven't done the investigation yet. No exceptions.
 - Use the commands and source paths from `next-task.json` — do not rediscover them.
 - You MUST commit before exiting, even if findings are inconclusive. No-commit sessions are failures.
 - If the frontier changes, update `docs/source-port/frontier-state.yaml` in the same commit.

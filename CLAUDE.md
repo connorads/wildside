@@ -60,6 +60,17 @@ Use sources in this order:
 - **Progressive fidelity**: approximate implementations acceptable as stepping stones when marked `// TODO(fidelity): <description>` and tracked. Never ship a guess as if it were verified.
 - **Code as documentation**: implementation should read as a specification of original behaviour. Avoid speed hacks or clever abstractions that obscure what the original did. (bsnes: speed hacks "destroy code's ability to serve as verifiable hardware documentation")
 
+## ASM-first implementation rule
+
+The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate source of truth** for all gameplay behaviour.
+
+- **Read the ASM before writing native code.** Find the routine in `kid.asm` or `code/*.asm`, read 50-100 lines around the label, and understand what the ROM does before implementing anything.
+- **Cite the ASM label in every code comment.** Example: `// ASM loc_3CD70: cmp.w x_pos(a4),d4; blt.s skip; st x_direction(a3)`. This prevents future misreadings and makes the implementation auditable.
+- **Understand register/flag conventions before interpreting.** In particular: `x_direction=0` means default sprite orientation (LEFT for enemies whose VRAM art faces left), `x_direction=$FF` means flipped. Don't assume 0=Right.
+- **Cross-reference ASM with oracle.** If the ASM and oracle disagree, investigate further. If they agree, implement with confidence.
+- **Never guess from observed behaviour alone.** Oracle observation tells you WHAT happens but not WHY. The ASM tells you WHY, which is what you need to implement correctly.
+- **Tests must cite the ASM routine they validate.** The test name or comment should reference the label so future readers know the expected value comes from the ROM, not a guess.
+
 ## Cache layout
 
 - `.cache/upstream/`
