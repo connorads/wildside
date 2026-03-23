@@ -10,8 +10,10 @@ If your prompt mentions "Ralph loop", "frontier loop", or "source-port frontier"
 2. Read `.cache/autonomy/source-port-frontier/next-agent.md` (the handoff note — this IS your context)
 3. Read `.cache/autonomy/source-port-frontier/next-task.json` (the machine task package)
 4. Pick one item from "Exact Next Moves" in the handoff note. Do that item only.
-5. **Do NOT read** `frontier-state.yaml`, `backlog.md`, or `tas-roadmap.md` — the handoff note already distils them.
-6. Commit your work. Update `next-agent.md` before exiting.
+5. **Read the ASM first** — the handoff note names ROM routines. Find them in `.cache/upstream/kid-chameleon-disasm/kid.asm`. Understand what the ROM does before writing any native code.
+6. **Do NOT read** `frontier-state.yaml`, `backlog.md`, or `tas-roadmap.md` — the handoff note already distils them.
+7. **Do NOT add more debug fields** unless ASM + oracle leave genuine ambiguity. The answer is in the disassembly.
+8. Commit your work. Update `next-agent.md` before exiting.
 
 ## Source precedence
 

@@ -12,11 +12,22 @@ Use this as the fixed prompt/context for repeated Ralph cycles on the live sourc
 
 **STOP.** Do not read `docs/source-port/frontier-state.yaml`, `docs/source-port/backlog.md`, `docs/source-port/tas-roadmap.md`, or any other broad context document. The handoff note already distils them. Reading them wastes your context window on information you already have.
 
+## Investigation hierarchy (follow this order)
+
+Before writing ANY code, understand what the ROM does first:
+
+1. **Read the ASM** — the handoff note names ROM routines. Find them in `.cache/upstream/kid-chameleon-disasm/kid.asm` or `code/*.asm`. Read 50-100 lines around the named label. This is the source of truth.
+2. **Run oracle diagnostics** — use `tas-diff --include-physics-trace` or `oracle-probe` to see what the ROM actually does at the frontier frame. Compare to what you read in the ASM.
+3. **If the cause is clear, fix it** — if ASM + oracle tell you what's missing in native, implement the fix directly. Skip probing.
+4. **Only probe native as a last resort** — if ASM and oracle are ambiguous, add ONE targeted probe to disambiguate. Do not add probes to rule out theories the ASM already answers.
+
+**Do not write native-side probes to guess what the ROM does. Read the ROM.**
+
 ## Working Rules
 
 - Your session has ONE task — the item you picked from "Exact Next Moves".
 - Check "Dead Ends / Do Not Retry" before starting — do not repeat rejected approaches.
-- Complete one coherent unit of work only: probe, instrumentation, or gameplay patch.
+- Follow the investigation hierarchy above: ASM → oracle → fix → probe (last resort).
 - Use the commands and source paths from `next-task.json` — do not rediscover them.
 - You MUST commit before exiting, even if findings are inconclusive. No-commit sessions are failures.
 - If the frontier changes, update `docs/source-port/frontier-state.yaml` in the same commit.
@@ -46,56 +57,21 @@ Required sections:
 
 The note should be concise but complete enough that the next agent can resume from the active frontier without rediscovering the same model.
 
-## Session Types
+## What a good session looks like
 
-Choose the right session type based on frontier maturity. Do NOT conflate investigation with fixing.
+1. Read next-agent.md (2 min)
+2. Read the named ASM routine in kid.asm (5 min)
+3. Run tas-diff to see oracle behaviour at the frontier frame (2 min)
+4. Either implement the fix or write a handoff explaining what the ASM says (10 min)
+5. Commit + update next-agent.md (1 min)
 
-### Probe session (investigation mode)
+A session that only adds debug fields without reading ASM is a wasted session.
 
-Use when the frontier has no proven causal path yet (hypothesis is still "something in gameplay does X").
-
-**Prompt template:**
-
-```
-You have 1 task: [paste one item from next-agent.md "Exact Next Moves"].
-
-Context: read .cache/autonomy/source-port-frontier/next-agent.md (do NOT re-read frontier-state.yaml, backlog.md, or tas-roadmap.md).
-
-Rules:
-- Add instrumentation, traces, or oracle probes that narrow the cause.
-- Run the new instrumentation and record findings.
-- Commit the result even if inconclusive — findings go in the commit message.
-- Update next-agent.md with what you learned before exiting.
-- Do NOT attempt a gameplay fix. Do NOT investigate alternative hypotheses beyond the one assigned.
-```
-
-Expected output: 1 commit (instrumentation + findings), updated next-agent.md.
-
-### Fix session (execution mode)
-
-Use only when a probe session has narrowed the cause to a specific code path and the next-agent.md "Exact Next Moves" says "implement fix for X".
-
-**Prompt template:**
-
-```
-You have 1 task: implement the fix described in .cache/autonomy/source-port-frontier/next-agent.md "Exact Next Moves".
-
-Context: read .cache/autonomy/source-port-frontier/next-agent.md.
-
-Rules:
-- Write the gameplay fix + a regression test around the divergent frame window.
-- Run `mise run verify-slice-fast` before committing.
-- Update frontier-state.yaml and next-agent.md in the same commit.
-- If the fix doesn't work on first attempt, commit what you have and update next-agent.md with findings.
-```
-
-Expected output: 1-2 commits (fix + verification), updated frontier docs.
-
-### Stuck detection
+## Stuck detection
 
 If a session produces no commit:
-1. Stage all changes and commit as `WIP: <frontier-slug> probe N`
+1. Stage all changes and commit as `WIP: <frontier-slug>`
 2. Write/update next-agent.md with what was attempted and why it stalled
-3. The next session must use a different probe angle from "Exact Next Moves"
+3. The next session must use a different approach
 
 Never run the same investigation twice — check "Dead Ends / Do Not Retry" first.
