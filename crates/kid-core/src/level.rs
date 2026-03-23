@@ -46,10 +46,7 @@ impl NativeRuntime {
         self.current_level = next_level;
         self.reload_block_grid_for_level(next_level);
         self.level_start_frame = Some(self.frame_index);
-        // Use floor-snap variant so the player lands on actual terrain.
-        // The header spawn Y is approximate; without floor snap the player
-        // can spawn inside ground when skip_entry_animation is true.
-        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(next_level));
+        self.opening_slice = Some(self.level_respawn_slice(next_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platforms.clear();
@@ -94,7 +91,7 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.reload_block_grid_for_level(level_id);
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(level_id));
+        self.opening_slice = Some(self.level_respawn_slice(level_id));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platforms.clear();
@@ -199,7 +196,7 @@ impl NativeRuntime {
         self.boot_state = BootState::LevelSkipHold;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
-        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(level_id));
+        self.opening_slice = Some(self.level_respawn_slice(level_id));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platforms.clear();
