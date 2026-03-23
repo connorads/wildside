@@ -1,38 +1,37 @@
 ---
 slug: any-percent-published-frame-7969-knights-isle-native-stays-grounded-while-oracle-lifts-off
-cycle: 28
-updated_at: 2026-03-23T01:58:08Z
+cycle: 29
+updated_at: 2026-03-23T02:08:15Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Ported the ROM's one-frame coroutine boundary for grounded Iron Knight attach: `step_iron_knight_climb(...)` now reports grounded walking-path attaches, and the gameplay loop suppresses same-frame player physics for that case while preserving the seeded `y_vel = 0xFFFFC000`.
-- Added `KidFrameMotionBranch::IronKnightAttachHibernate` plus a frozen physics-trace snapshot so frame 7968 now records the attach hibernate explicitly instead of falling through native normal physics.
-- Rewrote the frame-7968/7969 Kid diagnostics to match the new frontier: frame 7968 now asserts preserved `x/y`, seeded climb velocity, and attach-hibernate motion; frame 7969 is now the first live next-frame physics break.
+- Ported the ROM wall-climb resume lookup from `loc_A30A`/`sub_B55C`: native now checks the single solid cell at `half_width + 1, y - 24` instead of the old airborne `probe_wall(..., 5, 31, ...)` gate when Iron Knight is already climbing.
+- Added `terrain::probe_iron_knight_climb_resume_wall(...)` and wired the existing Iron Knight attach diagnostics to report that same resume-frame lookup whenever climb is already active.
+- Added `iron_knight_resume_climb_uses_rom_wall_lookup`, then updated the frame-7969 frontier tests to the new truth: climb state and custom gravity survive frame 7969, but the frame still diverges on horizontal movement and a slightly-too-fast upward step.
 - Re-ran `cargo test -p kid-core 7968 -- --nocapture`, `cargo test -p kid-core 7969 -- --nocapture`, `cargo test -p kid-core iron_knight_ -- --nocapture`, `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7967 --frame-end 7970 --include-physics-trace --include-advisory`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect`, and `mise run verify-slice-fast`.
 
 ## Current Model
 
-- The frame-7968 blocker is fixed. Native now mirrors `loc_A276`: it consumes the grounded C-edge, enters Iron Knight climb, seeds `y_vel = 0xFFFFC000`, clears grounded state, and hibernates without advancing `x_pos` or `y_pos`.
-- The first authoritative divergence is still frame 7969, but it has moved to the next frame's wall-climb resume path rather than the attach frame.
-- On frame 7969 native starts from the preserved attach state at `x=0x03A80000`, `y=0x01BF0000`, `y_vel=0xFFFFC000`, but then drops out of Iron Knight climb before applying the ROM wall-climb update. That sends Kid into normal airborne physics, injects run speed (`x_vel=0x00002B00`), zeroes vertical velocity, and leaves `y_pos` unchanged at `0x01BF0000`.
-- The strongest native clue is the mismatch between the attach/climb retention probes on frame 7969: `kid_flip_branch_probe` still sees the wall at `cell=59,27`, but `kid_iron_knight_attach_probe` reports the airborne wall probe as `wall=hit=0` and `climbing=1=>0`. The likely missing behaviour is the ROM wall-retention logic immediately after `loc_A28A` resumes, not the grounded attach gate.
+- The old frame-7969 wall-retention failure is fixed. Native now keeps `iron_knight_climbing=1`, keeps custom gravity live, and preserves upward motion on the resume frame.
+- The first authoritative divergence is still frame 7969, but it is no longer "native drops climb and falls". It is now "native resumes climb, then still takes the generic horizontal run-speed path and climbs slightly too fast".
+- On frame 7969 native now reaches `(x=0x03A82B00, y=0x01BEB800, x_vel=0x00002B00, y_vel=0xFFFFB800)` while oracle keeps Kid pinned at `x=0x03A80000` and climbs to `y=0x01BEC080` with gfx-slot velocity `0xFFFFC080`.
+- The remaining bug therefore sits after the wall-retention gate. The likely live gap is the `loc_A28A` resume-path handling around held-right / `Get_RandomNumber_wordC` / `sub_A3BC`, not the wall lookup itself.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7967 --frame-end 7970 --include-physics-trace --include-advisory` now reports frame 7968 as advisory-only: native final `(0x03a80000,0x01bf0000)` with `vel=(0x00000000,0xffffc000)` and `motion=iron_knight_attach_hibernate`.
-- The same diff still shows the first authoritative mismatch at frame 7969: native final `(0x03a82b00,0x01bf0000)` versus oracle `0x30(kid_gfx)@0x03a80000,0x01bec080 vel=0x00000000,0xffffc080`.
-- Frame-7969 native diagnostics show the climb state being lost before movement: `kid_special_motion_probe ... iron_knight_climbing=0`, `kid_jump_gravity_probe branch=airborne_default_gravity ... custom_gravity=0`, and `kid_iron_knight_attach_probe ... climbing=1=>0/wall=hit=0`.
-- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect` now lands at frame 7969 with native `kid=(0x03a82b00,0x01bf0000) vel=(Some(11008),Some(0))`, confirming the frame-7968 same-frame motion bug is gone.
+- `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7967 --frame-end 7970 --include-physics-trace --include-advisory` now shows frame 7969 native gameplay with `kid_iron_knight_attach_probe ... climbing=1=>1/wall=hit=1/x=944/cell=59,26`, `kid_jump_gravity_probe branch=airborne_custom_gravity ... custom_gravity=1`, and `kid_pre_physics_probe ... before_physics[...]y_vel=0xffffb800`.
+- The same diff shows the remaining authoritative mismatch at frame 7969 is position only: native final `(0x03a82b00,0x01beb800)` vs oracle `0x30(kid_gfx)@0x03a80000,0x01bec080`.
+- `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect` still lands at frame 7969, but native now reports `vel=(Some(11008),Some(-18432))` instead of the earlier dropped-climb `vel=(Some(11008),Some(0))`.
+- The focused unit test `iron_knight_resume_climb_uses_rom_wall_lookup` proves why the old gate was wrong: the ROM-shaped lookup still sees the wall at `half_width + 1`, while the earlier 5px airborne probe misses the same column and detaches one frame too early.
 
 ## Exact Next Moves
 
-1. Read the wall-climb resume path after `loc_A28A` in `kid.asm`, especially the `sub_7ACC` / `sub_B55C` / `sub_902A` path that runs after `Hibernate_Object_1Frame`, and work out how the ROM keeps Iron Knight in climb state on frame 7969.
-2. Compare that ROM resume logic against native `step_iron_knight_climb(...)`'s "wall still exists" gate. The current airborne `probe_wall(..., 5, 31, ...)` looks too weak, because frame 7969 native loses climb even though the shared wall scan still hits `cell=59,27`.
-3. Fix the resume-frame climb retention so frame 7969 stays at `x=0x03A80000`, advances upward to `y=0x01BEC080`, and keeps wall-climb motion instead of falling into normal airborne physics.
-4. Re-run `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7967 --frame-end 7970 --include-physics-trace --include-advisory` and `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect`. The target is moving the first CRC divergence later than frame 7969.
+1. Re-read the remainder of the `loc_A28A` resume loop, especially the held-direction branch and `Get_RandomNumber_wordC` / `sub_A3BC`, to explain why oracle keeps `x_pos` pinned on frame 7969 while native still injects `x_vel=0x2B00`.
+2. Trace the oracle frame-7969 resume step against that ASM and work out why native climbs to `0x01BEB800` while oracle lands at `0x01BEC080` with gfx-slot velocity `0xFFFFC080`. The remaining Y error is only `0x780`, so it likely comes from resume-path accel/order rather than the wall gate.
+3. Fix the resume-frame horizontal/vertical update so frame 7969 stays at `x=0x03A80000` and climbs to `y=0x01BEC080`, then re-run the same TAS diff and bisect to push the first CRC divergence later than frame 7969.
 
 ## Verification To Re-run
 
@@ -45,6 +44,6 @@ updated_at: 2026-03-23T01:58:08Z
 
 ## Dead Ends / Do Not Retry
 
-- Do not remove the new grounded attach hibernate. The ROM really does stop executing Kid immediately after seeding climb state at `loc_A276`.
-- Do not reapply `probe_wall_column(...)` to every Iron Knight attach path. That earlier dead end still moves the CRC frontier backward to frame 7906 during an airborne wall-cling window.
-- Do not go back to the generic half-width-7 wall probe swap. The grounded attach gate is solved; the live bug is the resume-frame climb retention after the hibernated attach.
+- Do not revert the new `sub_B55C`-shaped resume lookup. The old `probe_wall(..., 5, 31, ...)` gate was the direct cause of the dropped-climb bug on frame 7969.
+- Do not broaden the initial airborne attach gate to the form half-width. That earlier dead end still moves the CRC frontier backward to frame 7906 during an unrelated airborne wall-cling window.
+- Do not remove the grounded attach hibernate from frame 7968. The ROM still seeds `y_vel = 0xFFFFC000` at `loc_A276` and stops Kid for one frame before the resume loop runs.

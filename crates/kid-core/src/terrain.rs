@@ -863,6 +863,49 @@ pub fn probe_wall_column(
     }
 }
 
+/// Mirror Iron Knight wall-climb resume lookup `sub_B55C` at `loc_A30A`.
+///
+/// The ROM does not reuse the generic three-point wall scan once climb is
+/// active. It samples exactly one cell at `half_width + 1` in the facing
+/// direction and 24px above the feet, then requires the collision nibble to be
+/// `0x6000` (solid) to keep climb state alive.
+pub fn probe_iron_knight_climb_resume_wall(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    moving_right: bool,
+) -> WallProbe {
+    let edge_x = if moving_right {
+        center_x_px + half_width + 1
+    } else {
+        center_x_px - half_width - 1
+    };
+    let probe = probe_at(grid, edge_x, foot_y_px - 24);
+    if probe.cell.collision == CollisionKind::Solid {
+        let wall_x = if moving_right {
+            i32::from(probe.cell_x) * 16
+        } else {
+            (i32::from(probe.cell_x) + 1) * 16
+        };
+        return WallProbe {
+            hit: true,
+            wall_x_px: wall_x,
+            cell: probe.cell,
+            cell_x: probe.cell_x,
+            cell_y: probe.cell_y,
+        };
+    }
+
+    WallProbe {
+        hit: false,
+        wall_x_px: 0,
+        cell: Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
+    }
+}
+
 /// Probe only the player's exact top edge against a side wall.
 ///
 /// This is intentionally narrower than `probe_wall`: it is used to keep the

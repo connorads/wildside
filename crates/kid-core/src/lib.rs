@@ -568,7 +568,15 @@ impl NativeRuntime {
             let y_px = (player_before.y_pos >> 16) as i32;
             let facing_right = player_before.facing == Direction::Right;
 
-            if player_before.on_ground {
+            if climbing_before {
+                terrain::probe_iron_knight_climb_resume_wall(
+                    grid,
+                    x_px,
+                    y_px,
+                    self.progression.current_form.half_width(),
+                    facing_right,
+                )
+            } else if player_before.on_ground {
                 terrain::probe_wall_column(
                     grid,
                     x_px,

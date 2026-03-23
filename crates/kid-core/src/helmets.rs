@@ -313,7 +313,13 @@ impl NativeRuntime {
             let facing_right = slice.player.facing == Direction::Right;
             let px = (slice.player.x_pos >> 16) as i32;
             let py = (slice.player.y_pos >> 16) as i32;
-            let probe = terrain::probe_wall(grid, px, py, 5, 31, facing_right);
+            let probe = terrain::probe_iron_knight_climb_resume_wall(
+                grid,
+                px,
+                py,
+                self.progression.current_form.half_width(),
+                facing_right,
+            );
             if !probe.hit {
                 // Wall gone, fall off
                 self.helmet.iron_knight_climbing = false;
