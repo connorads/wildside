@@ -105,11 +105,11 @@ pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// than demo 2 before exposing gameplay state in RAM.
 pub(crate) const DEMO_1_GAMEPLAY_START_FRAME: u16 = 72;
 /// Oracle-backed published TAS traces keep the Knights Isle demo auto-timeout
-/// compare three frames behind the raw startup frame counter. `loc_C22`
-/// compares the stored timeout counter before incrementing it, so demo 1 stays
-/// on live climb gameplay for one more ReadJoypad pass after the current model
-/// first reaches the threshold.
-pub(crate) const DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES: u16 = 3;
+/// compare sixty-eight frames behind the raw startup frame counter. `loc_C22`
+/// compares the stored timeout counter before incrementing it, and oracle RAM
+/// keeps `($FFFFFBC2).w` at `0x03B2` on published frame 8004 and only reaches
+/// the `$3F2` timeout threshold on frame 8068.
+pub(crate) const DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES: u16 = 68;
 /// Oracle-backed published TAS probes show the Skydragon Castle demo timeout
 /// counter stays 61 frames behind the native startup counter. Keep the raw
 /// startup frame counter for visible choreography, but subtract this offset

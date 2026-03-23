@@ -14712,6 +14712,68 @@ fn published_tas_frame_8003_keeps_demo_1_in_live_climb_gameplay() {
 }
 
 #[test]
+fn published_tas_frame_8004_keeps_demo_1_in_live_climb_gameplay() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8004 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_005) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 8_004 {
+            frame_8004 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_8004 = frame_8004.unwrap_or_else(|| panic!("frame 8004 should be captured"));
+
+    assert_eq!(
+        frame_8004.game_mode,
+        GameMode::DemoPlay,
+        "frame 8004 should still trace as live demo gameplay before the ROM leaves demo mode",
+    );
+    assert_eq!(
+        frame_8004.current_level,
+        LevelId(0x15),
+        "frame 8004 should stay in Knights Isle while the demo timeout counter is still below $3F2 in oracle RAM",
+    );
+    assert_eq!(
+        frame_8004.kid_y_pos,
+        Some(0x01B8_FB00),
+        "frame 8004 should keep the oracle-backed live climb pose instead of freezing the prior step",
+    );
+}
+
+#[test]
+fn published_tas_demo_1_times_out_on_frame_8069() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8068 = None;
+    let mut frame_8069 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_070) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            8_068 => frame_8068 = Some((trace.game_mode, trace.current_level)),
+            8_069 => {
+                frame_8069 = Some((trace.game_mode, trace.current_level));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_8068,
+        Some((GameMode::DemoPlay, LevelId(0x15))),
+        "frame 8068 should still be live demo gameplay while the oracle timeout counter first reaches $3F2",
+    );
+    assert_eq!(
+        frame_8069,
+        Some((GameMode::SegaScreen, LevelId(0x00))),
+        "frame 8069 should expose the ROM's mode-0 timeout handoff on the first post-threshold frame",
+    );
+}
+
+#[test]
 fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_7968 = None;
