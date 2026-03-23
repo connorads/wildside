@@ -14853,6 +14853,43 @@ fn published_tas_frame_8057_matches_the_oracle_wall_release_carry() {
 }
 
 #[test]
+fn published_tas_frames_8056_to_8058_match_the_oracle_wall_release_camera_carry() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8056 = None;
+    let mut frame_8057 = None;
+    let mut frame_8058 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_059) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            8_056 => frame_8056 = Some(trace.camera_y_pos),
+            8_057 => frame_8057 = Some(trace.camera_y_pos),
+            8_058 => {
+                frame_8058 = Some(trace.camera_y_pos);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_8056,
+        Some(0x00F0_0000),
+        "frame 8056 should still advance the release-frame camera follow before the Iron Knight wall-release hibernates",
+    );
+    assert_eq!(
+        frame_8057,
+        Some(0x00EF_0000),
+        "frame 8057 should continue from the oracle-backed release-frame camera state",
+    );
+    assert_eq!(
+        frame_8058,
+        Some(0x00EE_0000),
+        "frame 8058 should keep the one-pixel-per-frame camera falloff after the wall release",
+    );
+}
+
+#[test]
 fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_7968 = None;

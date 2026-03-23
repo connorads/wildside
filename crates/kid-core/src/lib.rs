@@ -1026,7 +1026,8 @@ impl NativeRuntime {
                 // ORIGINAL_QUIRK: `loc_A2E2`/`loc_A2F6` flip facing and jump
                 // into `loc_A6F8`, which hibernates the release frame before
                 // normal jump physics consumes the preserved climb velocity on
-                // the next frame.
+                // the next frame. `loc_A6F8` still runs `sub_71E4`, so camera
+                // follow advances once on the hibernated release frame.
                 self.last_kid_frame_motion_branch =
                     KidFrameMotionBranch::IronKnightClimbExitHibernate;
                 if self.trace_physics {
@@ -1046,6 +1047,7 @@ impl NativeRuntime {
                         ..PhysicsTrace::default()
                     });
                 }
+                slice.update_camera_follow(self.y_look_offset);
             } else if iron_knight_climb_step == IronKnightClimbStep::ResumeClimb {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightClimbResume;
                 let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();

@@ -1,68 +1,67 @@
 ---
-slug: any-percent-published-frame-8056-demo-1-camera-y-after-iron-knight-release
-cycle: 36
-updated_at: 2026-03-23T03:39:03Z
+slug: any-percent-published-frame-8069-demo-timeout-handoff-preserves-the-wrong-snapshot
+cycle: 37
+updated_at: 2026-03-23T03:47:34Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Confirmed from ROM `ReadJoypad` (`loc_C22`) that demo playback does not guard the demo-input pointer. `Demo_InputData1` falls straight into `byte_1E6E3`, so late demo 1 reads adjacent ROM bytes instead of clamping to zero.
-- Ported that quirk into native with a small demo-1 overflow tail (`0x06, 0xC4, 0xC7, 0xFF, 0x9A, 0x14`) and reused it in both `step_demo_input()` and the transform-parity re-prime path.
-- Added the missing Iron Knight opposite-direction wall-release branch: when the overrun byte supplies held left on frame `8056`, native now leaves `iron_knight_climb_resume`, flips facing, and hibernates the release frame instead of forcing another climb step.
-- Added focused regressions for the demo-byte overrun and the `8056`/`8057` wall-release window.
+- Re-read ROM `loc_A6F8` and `sub_71E4`: the Iron Knight opposite-direction wall release hibernates the frame, but it still runs camera follow before `Hibernate_Object_1Frame`.
+- Ported that release-frame camera follow into the native `IronKnightClimbStep::ExitHibernate` branch.
+- Added a focused regression for the oracle-backed wall-release camera carry on frames `8056..8058`.
+- Re-ran the focused wall-release tests, `tas-diff 8054..8059`, `verify-tas --frame-start 6975 --frame-end 9530 --bisect`, and `mise run verify-slice-fast`.
 
 ## Current Model
 
-- The old gameplay blocker is fixed. Kid now matches oracle through the wall-release handoff:
-  - frame `8056`: native preserves `kid_y_pos=0x0186d680` and reports `motion=iron_knight_climb_exit_hibernate`
-  - frame `8057`: native matches oracle `kid_x_pos=0x03a7d500`, `kid_y_pos=0x01859680`
-- The live frontier is still frame `8056`, but it has moved from Kid gameplay to camera state.
-- Focused `tas-diff` now shows the only authoritative mismatch in `8054..8059` is `camera_y_pos`:
-  - frame `8056`: native `0x00f10000`, oracle `0x00f00000`
-  - frame `8057`: native `0x00f00000`, oracle `0x00ef0000`
-  - frame `8058`: native `0x00ef0000`, oracle `0x00ee0000`
-- Advisory velocity/object-count drift remains, but Kid pose/control flow is no longer the causal blocker in this slice.
+- The `8056..8058` camera-only blocker is fixed.
+- Focused `tas-diff --frame-start 8054 --frame-end 8059 --include-physics-trace --include-advisory` now has no authoritative mismatches; only advisory object-count/velocity drift remains in that window.
+- The first CRC divergence for the published TAS slice has moved to frame `8069`.
+- This is now a demo-timeout / mode handoff frontier, not a wall-release gameplay frontier.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8055 --frame-end 8058 --watches 0xFFFFF813:u8,0xFFFFF815:u8,0xFFFFF817:u8,0xFFFFF818:u8,0xFFFFF819:u8`
-  - oracle rows prove the late demo window is not idle:
-  - frame `8055`: pressed `0x06`, `Ctrl_C_Held=FF`, `Ctrl_Right_Held=FF`
-  - frame `8056`: first overflow byte is live in held-state form: `Ctrl_Left_Held=FF`, `Ctrl_Down_Held=FF`
 - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-  - `ReadJoypad` `loc_C22` increments `(Addr_Current_Demo_Keypress)` with no bounds check.
-  - `Demo_InputData1` is followed immediately by `byte_1E6E3` (`scenes/artcomp/Dark_alley_from_intro.bin`), whose first bytes are `06 C4 C7 FF 9A 14`.
-  - `loc_A2E2`/`loc_A2F6` exit Iron Knight wall climb on opposite-direction hold and feed `loc_A6F8`, which hibernates the release frame.
+  - `loc_A6F8` clears climb/platform state, calls `sub_71E4`, then hibernates the frame.
+  - `sub_71E4` updates both `Camera_X_pos` and `Camera_Y_pos` from the current Kid pose before returning.
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8054 --frame-end 8059 --include-physics-trace --include-advisory`
-  - frame `8056` now matches oracle Kid pose and reports `motion=iron_knight_climb_exit_hibernate`
-  - frame `8057` now matches oracle Kid `x/y`
-  - remaining authoritative diff is `camera_y_pos`
+  - frame `8056`: native now matches oracle `camera_y_pos=0x00f00000`
+  - frame `8057`: native now matches oracle `camera_y_pos=0x00ef0000`
+  - frame `8058`: native now matches oracle `camera_y_pos=0x00ee0000`
 - `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect`
-  - `RESULT: first CRC divergence at frame 8056`
-  - native summary already shows the repaired Kid pose: `kid=(0x03a80000,0x0186d680)`
+  - `RESULT: first CRC divergence at frame 8069`
+  - native summary: `mode=0x0000 level=00 kid=(0x0399d280,0x0186b680)`
+- `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8068 --frame-end 8071 --include-advisory`
+  - frame `8068` is advisory-only
+  - frame `8069` authoritative diffs:
+    - `camera_x_pos`: native `0x03000000`, oracle `0x02ff0000`
+    - `kid_x_pos`: native `0x0399d280`, oracle `0x03982c80`
+    - `kid_y_pos`: native `0x0186b680`, oracle `0x01883680`
+  - native has only 4 objects while oracle still has 9 and keeps the Kid gfx object live
 
 ## Exact Next Moves
 
-1. Read the camera-follow ROM path that runs on the `loc_A6F8` release frame and the first post-release jump frame. Do not reopen Iron Knight climb maths; Kid state is now right.
-2. Compare native camera update timing against oracle for frames `8056..8058`. The pattern is a clean one-frame-high camera carry, so look for a preserved y-look / follow offset that should have dropped with the climb exit.
-3. Patch camera only, then rerun the focused `8054..8059` diff, the `6975..9530` bisect, and `mise run verify-slice-fast`.
+1. Read the ROM timeout handoff path that triggers when demo 1 times out on frame `8069`. Do not reopen the wall-release camera code; that slice is now authoritative-clean.
+2. Compare the ROM handoff’s preserved gameplay snapshot against native on `8069..8070`, especially why native jumps to `camera_x_pos=0x03000000` / `kid=(0x0399d280,0x0186b680)` while oracle preserves `camera_x_pos=0x02ff0000` / `kid=(0x03982c80,0x01883680)` and keeps the extra objects alive.
+3. Patch only the timeout handoff, then rerun the focused `8068..8071` diff, the `6975..9530` bisect, and `mise run verify-slice-fast`.
 
 ## Verification To Re-run
 
-- `cargo test -p kid-core demo_1_timeout_overrun_uses_the_adjacent_rom_bytes -- --nocapture`
 - `cargo test -p kid-core published_tas_frame_8056_hibernates_the_iron_knight_wall_release -- --nocapture`
 - `cargo test -p kid-core published_tas_frame_8057_matches_the_oracle_wall_release_carry -- --nocapture`
+- `cargo test -p kid-core published_tas_frames_8056_to_8058_match_the_oracle_wall_release_camera_carry -- --nocapture`
+- `cargo test -p kid-core demo_1_timeout_overrun_uses_the_adjacent_rom_bytes -- --nocapture`
 - `cargo test -p kid-core published_tas_frame_8004_keeps_demo_1_in_live_climb_gameplay -- --nocapture`
 - `cargo test -p kid-core published_tas_demo_1_times_out_on_frame_8069 -- --nocapture`
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8054 --frame-end 8059 --include-physics-trace --include-advisory`
+- `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 8068 --frame-end 8071 --include-advisory`
 - `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not clamp demo-1 input past `DEMO_INPUT_DATA_1` to zero. The ROM overreads into `byte_1E6E3`, and zero-clamping recreates the bad `held=none` branch choice.
-- Do not reopen the old `iron_knight_climb_resume` constant tuning. The climb exit was a branch/input issue, not an accel issue.
-- Do not trust the imported scenario bytes around `8055..8058` for demo gameplay input. Oracle controller RAM is the source of truth here.
-- Do not keep working the Kid pose on this frontier. Kid state now matches through the release carry; the remaining blocker is camera timing.
+- Do not reopen the old wall-release branch/input work. `8056..8058` is no longer the blocker.
+- Do not chase `y_look_offset` / `$FFFFFB58` for this frontier. Oracle watch rows keep it at `0` through `8054..8058`; that was not the cause of the camera carry.
+- Do not remove the release-frame camera follow from the `ExitHibernate` branch. ROM `loc_A6F8` calls `sub_71E4` before hibernation.
+- Do not treat the `8069` object-count drift as purely advisory. Native dropping to 4 objects is part of the wrong timeout snapshot/handoff state, not harmless noise.
