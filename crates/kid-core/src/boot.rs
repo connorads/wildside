@@ -633,6 +633,10 @@ impl NativeRuntime {
                     2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
+                // TODO(fidelity): the first published timeout-restart visit
+                // reaches title because frame 6207 presses Start. The later
+                // no-Start visit still diverges at frame 9312, so treating the
+                // override itself as a general natural title return is wrong.
                 let timeout_restart_returns_to_title =
                     *segment == 2 && intro_sequence_3_frames_override.is_some();
                 let start_advances_segment = start_pressed

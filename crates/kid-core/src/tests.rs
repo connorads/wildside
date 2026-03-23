@@ -13616,6 +13616,28 @@ fn published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_90
 }
 
 #[test]
+fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
+    let (_, script) = cached_any_percent_published_runtime_and_script();
+    let first_visit_start_frames = (6_204..=6_211)
+        .filter(|&frame| script[frame] & 0x80 != 0)
+        .collect::<Vec<_>>();
+    let second_visit_start_frames = (9_308..=9_316)
+        .filter(|&frame| script[frame] & 0x80 != 0)
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        first_visit_start_frames,
+        vec![6_207],
+        "the frame-6209 intro-sequence-3 title return is driven by the published TAS Start press on frame 6207",
+    );
+    assert_eq!(
+        second_visit_start_frames,
+        Vec::<usize>::new(),
+        "the later frame-9312 frontier has no Start press to justify a direct intro-sequence-3 title return",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
