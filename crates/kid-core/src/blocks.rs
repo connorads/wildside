@@ -135,7 +135,14 @@ impl NativeRuntime {
                 .retain_mut(|entry| match entry.phase {
                     DeferredPrizeBlockPhase::Deleted | DeferredPrizeBlockPhase::Restored => true,
                     DeferredPrizeBlockPhase::PendingClear => {
-                        grid.set_cell_at(entry.col, entry.row, terrain::Cell::from_be_bytes(0, 0));
+                        // ASM sub_1007A line 21411: after prize spawns, restore
+                        // cell to $E001 (Smash block, skin=1). The player can
+                        // then smash this block on a second headbutt.
+                        grid.set_cell_at(
+                            entry.col,
+                            entry.row,
+                            terrain::Cell::from_be_bytes(0xE0, 0x01),
+                        );
                         spawned_items.push(FloatingItem {
                             x_pos: (u32::from(entry.col) * 16 + 8) << 16,
                             y_pos: i64::from(u32::from(entry.row) * 16) << 16,

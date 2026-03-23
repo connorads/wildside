@@ -3299,8 +3299,12 @@ fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
 
     runtime.step_frame(FrameInput::default());
 
-    let cleared_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
-    assert_eq!(cleared_cell.collision, terrain::CollisionKind::Empty);
+    // ASM sub_1007A line 21411: prize block becomes Smash block ($E001)
+    // after prize spawns, NOT empty. Player can smash it on a second headbutt.
+    let post_prize_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
+    assert_eq!(post_prize_cell.collision, terrain::CollisionKind::Solid);
+    assert!(post_prize_cell.has_block);
+    assert_eq!(post_prize_cell.block_type, terrain::BlockType::Smash);
     assert_eq!(runtime.floating_items.len(), 1);
     assert_eq!(
         runtime.floating_items[0].spawn_delay,
