@@ -802,6 +802,67 @@ pub fn probe_wall(
     }
 }
 
+/// Mirror ROM `sub_922C`'s single-column wall scan.
+///
+/// Unlike `probe_wall`, this does not sample three body points. It probes the
+/// exact edge column at `half_width + 1` and scans every 16px row from the
+/// player's feet upward through the requested body height.
+pub fn probe_wall_column(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+    moving_right: bool,
+) -> WallProbe {
+    let edge_x = if moving_right {
+        center_x_px + half_width + 1
+    } else {
+        center_x_px - half_width - 1
+    };
+
+    if edge_x < 0 || edge_x >= grid.width_pixels() {
+        return WallProbe {
+            hit: false,
+            wall_x_px: 0,
+            cell: Cell::from_be_bytes(0, 0),
+            cell_x: 0,
+            cell_y: 0,
+        };
+    }
+
+    let col = pixel_to_cell(edge_x).clamp(0, i32::from(grid.width_cells).saturating_sub(1)) as u16;
+    let top_row = pixel_to_cell(foot_y_px - height).max(0) as u16;
+    let foot_row =
+        pixel_to_cell(foot_y_px).clamp(0, i32::from(grid.height_cells).saturating_sub(1)) as u16;
+
+    for row in (top_row..=foot_row).rev() {
+        let cell = grid.cell_at(col, row);
+        if matches!(cell.collision, CollisionKind::Solid | CollisionKind::Spikes) {
+            let wall_x = if moving_right {
+                i32::from(col) * 16
+            } else {
+                (i32::from(col) + 1) * 16
+            };
+            return WallProbe {
+                hit: true,
+                wall_x_px: wall_x,
+                cell,
+                cell_x: col,
+                cell_y: row,
+            };
+        }
+    }
+
+    WallProbe {
+        hit: false,
+        wall_x_px: 0,
+        cell: Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
+    }
+}
+
 /// Probe only the player's exact top edge against a side wall.
 ///
 /// This is intentionally narrower than `probe_wall`: it is used to keep the
@@ -1084,6 +1145,21 @@ mod tests {
         // Player at x=24, no wall to the right
         let probe = probe_wall(&grid, 24, 47, 5, 31, true);
         assert!(!probe.hit);
+    }
+
+    #[test]
+    fn probe_wall_column_uses_rom_half_width_plus_one_edge() {
+        let grid = make_wall_grid();
+
+        // ROM `sub_922C` scans the exact edge column at half_width + 1. With
+        // x=72 and half_width=7, that lands on col 5; the narrower 5px probe
+        // would still be one tile short.
+        let probe = probe_wall_column(&grid, 72, 47, 7, 31, true);
+
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 5);
+        assert_eq!(probe.cell_y, 2);
+        assert_eq!(probe.wall_x_px, 80);
     }
 
     #[test]

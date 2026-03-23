@@ -256,15 +256,23 @@ impl NativeRuntime {
             && !self.helmet.iron_knight_climbing
             && let Some(ref grid) = self.block_grid
         {
-            // TODO(fidelity): walking-path Iron Knight attach uses ROM sub_922C,
-            // a y_pos-derived tile-column scan. Do not "fix" this by simply
-            // widening the generic wall probe to the form half-width; that
-            // over-attaches and moves the published TAS frontier earlier.
-            // Probe wall in player's facing direction
             let facing_right = slice.player.facing == Direction::Right;
             let px = (slice.player.x_pos >> 16) as i32;
             let py = (slice.player.y_pos >> 16) as i32;
-            let probe = terrain::probe_wall(grid, px, py, 5, 31, facing_right);
+            let probe = if slice.player.on_ground {
+                // ROM walking-state `loc_7664` uses `sub_922C`: a single edge
+                // column at half_width + 1 through the form's full height.
+                terrain::probe_wall_column(
+                    grid,
+                    px,
+                    py,
+                    self.progression.current_form.half_width(),
+                    PLAYER_HEIGHT,
+                    facing_right,
+                )
+            } else {
+                terrain::probe_wall(grid, px, py, 5, 31, facing_right)
+            };
             if probe.hit {
                 self.helmet.iron_knight_climbing = true;
                 self.helmet.iron_knight_climb_accel = 0;

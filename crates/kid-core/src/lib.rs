@@ -564,14 +564,22 @@ impl NativeRuntime {
 
         let c_pressed = input.c && !self.prior_input.c;
         let wall_probe = self.block_grid.as_ref().map(|grid| {
-            terrain::probe_wall(
-                grid,
-                (player_before.x_pos >> 16) as i32,
-                (player_before.y_pos >> 16) as i32,
-                self.progression.current_form.half_width(),
-                PLAYER_HEIGHT,
-                player_before.facing == Direction::Right,
-            )
+            let x_px = (player_before.x_pos >> 16) as i32;
+            let y_px = (player_before.y_pos >> 16) as i32;
+            let facing_right = player_before.facing == Direction::Right;
+
+            if player_before.on_ground {
+                terrain::probe_wall_column(
+                    grid,
+                    x_px,
+                    y_px,
+                    self.progression.current_form.half_width(),
+                    PLAYER_HEIGHT,
+                    facing_right,
+                )
+            } else {
+                terrain::probe_wall(grid, x_px, y_px, 5, 31, facing_right)
+            }
         });
         let candidate = c_pressed && !climbing_before && wall_probe.is_some_and(|probe| probe.hit);
         let climbing_after = self.helmet.iron_knight_climbing;

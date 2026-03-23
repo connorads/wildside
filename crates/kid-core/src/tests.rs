@@ -11374,7 +11374,10 @@ fn iron_knight_c_press_attaches_to_wall_when_airborne() {
 fn iron_knight_c_press_attaches_to_wall_from_grounded_walk() {
     let mut rt = iron_knight_runtime_with_wall();
     let mut slice = airborne_slice();
-    slice.player.x_pos = 154 << 16;
+    // ROM `sub_922C` uses Iron Knight's full 7px half-width plus one edge
+    // pixel, so grounded attach can trigger one tile column earlier than the
+    // old 5px generic wall probe.
+    slice.player.x_pos = 152 << 16;
     slice.player.y_pos = 32 << 16;
     slice.player.facing = Direction::Right;
     slice.player.on_ground = true;
@@ -14673,48 +14676,37 @@ fn published_tas_frames_7968_7969_report_kid_same_frame_stomp_probe() {
 fn published_tas_frames_7968_7969_report_kid_iron_knight_attach_probe() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_7968 = None;
-    let mut frame_7969 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_969) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if frame_index == 7_968 {
-            frame_7968 = Some(trace.clone());
-        }
-        if frame_index == 7_969 {
-            frame_7969 = Some(trace);
+            frame_7968 = Some(trace);
             break;
         }
     }
 
     let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
-    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+    let probe_debug = frame_7968
+        .gameplay_debug_fields
+        .get("kid_iron_knight_attach_probe")
+        .unwrap_or_else(|| panic!("frame 7968 should emit Iron Knight attach diagnostics"));
 
-    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
-        let probe_debug = trace
-            .gameplay_debug_fields
-            .get("kid_iron_knight_attach_probe")
-            .unwrap_or_else(|| {
-                panic!("frame {frame_index} should emit Iron Knight attach diagnostics")
-            });
-
-        assert!(
-            probe_debug.contains("c_press=1/ground=1/climbing=0=>0/facing=right"),
-            "frame {frame_index} should show the live window does carry a raw C-edge, but Kid stays grounded so the Iron Knight attach consumer never transitions into climb",
-        );
-        assert!(
-            probe_debug.contains("y_vel=0x00000000->0x00000000"),
-            "frame {frame_index} should keep the native attach injector flat instead of taking the oracle's -0x4000 step",
-        );
-        assert!(
-            probe_debug
-                .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
-            "frame {frame_index} should preserve the adjacent wall contact at the Iron Knight attach boundary",
-        );
-        assert!(
-            probe_debug.contains("candidate=1/attach=0"),
-            "frame {frame_index} should show the ROM-style wall-attach gate is open in the live window even though the full runtime still refuses to enter climb",
-        );
-    }
+    assert!(
+        probe_debug.contains("c_press=1/ground=1/climbing=0=>1/facing=right"),
+        "frame 7968 should consume the raw C edge and enter Iron Knight climb from the grounded walking path",
+    );
+    assert!(
+        probe_debug.contains("y_vel=0x00000000->0xffffc000"),
+        "frame 7968 should mirror loc_A276's -0x4000 wall-climb lift-off seed",
+    );
+    assert!(
+        probe_debug.contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+        "frame 7968 should preserve the ROM edge-column wall hit at the attach boundary",
+    );
+    assert!(
+        probe_debug.contains("candidate=1/attach=1"),
+        "frame 7968 should prove the ported sub_922C gate now fires the live grounded attach window",
+    );
 }
 
 #[test]
@@ -14899,8 +14891,8 @@ fn published_tas_frames_7968_7969_report_kid_iron_knight_block_breaker_probe() {
             "frame {frame_index} should keep the Iron Knight helmet context while testing the ROM block-break path",
         );
         assert!(
-            probe_debug.contains("x_vel=0x00000000/speed_gate=0"),
-            "frame {frame_index} should prove the ROM Iron Knight block-break speed gate is cold in the live 7968..7969 window",
+            probe_debug.contains("speed_gate=0"),
+            "frame {frame_index} should prove the ROM Iron Knight block-break speed gate stays cold in the live 7968..7969 window even after the attach gate fires",
         );
         assert!(
             probe_debug.contains("candidate=0"),
