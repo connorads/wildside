@@ -1870,6 +1870,69 @@ fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
     assert!(!slice.player.on_ground);
 }
 
+/// DEVIATION from ASM sub_B43A: native includes SlopeUp/SlopeDown as valid floor
+/// so that the single-step physics loop doesn't skip horizontal motion on slopes.
+/// Without this, the player oscillates between grounded (no h-motion) and airborne
+/// (h-motion) every other frame, resulting in half-speed walking on slopes.
+#[test]
+fn walking_on_slope_up_applies_horizontal_motion_every_frame() {
+    // Build a grid with a SlopeUp tile: collision kind 5 (SlopeUp)
+    // 0x50 = collision bits 101 (SlopeUp), no block
+    let w = 8u16;
+    let h = 8u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // SlopeUp at (3, 5): hi byte = 0x50 (collision=5=SlopeUp)
+    let idx = (5 * w + 3) as usize * 2;
+    data[idx] = 0x50;
+    // Solid at (3, 6) and (4, 6) as floor beneath the slope
+    let idx2 = (6 * w + 3) as usize * 2;
+    data[idx2] = 0x60;
+    let idx3 = (6 * w + 4) as usize * 2;
+    data[idx3] = 0x60;
+    // SlopeUp at (4, 5) for continuity
+    let idx4 = (5 * w + 4) as usize * 2;
+    data[idx4] = 0x50;
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    // Place player grounded on the slope at x=56 (col 3, 8px into cell), y at slope surface
+    // SlopeUp at row 5: cell top = 80, floor_y = 80 + 15 - (56 % 16) = 80 + 15 - 8 = 87
+    slice.player.x_pos = 56 << 16;
+    slice.player.y_pos = 87 << 16;
+    slice.player.on_ground = true;
+    slice.player.x_velocity = 0x0001_0000; // 1 px/frame rightward
+    slice.player.facing = Direction::Right;
+
+    let start_x = slice.player.x_pos;
+    // Step 4 frames with right input
+    for _ in 0..4 {
+        slice.step(
+            OPENING_SCROLL_START_FRAME,
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+        );
+    }
+    // Player should have moved substantially rightward (not half-speed)
+    let dx_pixels = (slice.player.x_pos.wrapping_sub(start_x)) >> 16;
+    assert!(
+        dx_pixels >= 2,
+        "player should move at least 2px in 4 frames on a slope, got {dx_pixels}px"
+    );
+}
+
 #[test]
 fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
     let w = 8u16;

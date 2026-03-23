@@ -438,7 +438,18 @@ impl OpeningSliceState {
                         let cell = grid.cell_at(col, probe_row);
                         if matches!(
                             cell.collision,
-                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                            terrain::CollisionKind::Solid
+                                | terrain::CollisionKind::Spikes
+                                // ASM sub_B43A only checks Solid ($6000) and Spikes ($7000),
+                                // NOT slopes. In the ROM, failing this check transitions to
+                                // the Jump coroutine which yields and re-catches next frame
+                                // via sub_902A. The native code has no coroutines — an early
+                                // return here skips horizontal motion for the frame, causing
+                                // half-speed walking on slopes. Include slopes as valid floor
+                                // so the player continues the physics step normally.
+                                // DEVIATION: sub_B43A only checks Solid|Spikes in the ROM.
+                                | terrain::CollisionKind::SlopeUp
+                                | terrain::CollisionKind::SlopeDown
                         ) {
                             has_floor = true;
                             break;
