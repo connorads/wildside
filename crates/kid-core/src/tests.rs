@@ -14632,6 +14632,46 @@ fn published_tas_frame_8001_delays_demo_1_timeout_handoff_by_one_more_climb_step
 }
 
 #[test]
+fn published_tas_frame_8002_keeps_demo_1_in_live_climb_gameplay() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_8002 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(8_003) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 8_002 {
+            frame_8002 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_8002 = frame_8002.unwrap_or_else(|| panic!("frame 8002 should be captured"));
+    let path_debug = frame_8002
+        .gameplay_debug_fields
+        .get("kid_gameplay_path_probe")
+        .unwrap_or_else(|| panic!("frame 8002 should emit kid gameplay-path diagnostics"));
+
+    assert_eq!(
+        frame_8002.game_mode,
+        GameMode::DemoPlay,
+        "frame 8002 should still be live demo gameplay before the mode-0 handoff becomes visible",
+    );
+    assert_eq!(
+        frame_8002.current_level,
+        LevelId(0x15),
+        "frame 8002 should stay in Knights Isle until the ROM timeout gate actually trips",
+    );
+    assert!(
+        path_debug.contains("motion=iron_knight_climb_resume"),
+        "frame 8002 should stay on the climb-resume motion instead of flipping into the title return",
+    );
+    assert_eq!(
+        frame_8002.kid_y_pos,
+        Some(0x01B9_BD00),
+        "frame 8002 should keep the oracle-backed live climb pose instead of freezing the prior step",
+    );
+}
+
+#[test]
 fn published_tas_frames_7968_7969_report_kid_pre_physics_probe() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_7968 = None;

@@ -105,10 +105,10 @@ pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// than demo 2 before exposing gameplay state in RAM.
 pub(crate) const DEMO_1_GAMEPLAY_START_FRAME: u16 = 72;
 /// Oracle-backed published TAS traces keep the Knights Isle demo auto-timeout
-/// compare one frame behind the raw startup frame counter. Preserve the visible
-/// choreography from the startup counter, but subtract one frame when modelling
-/// the ROM's timeout gate for demo 1.
-pub(crate) const DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES: u16 = 1;
+/// compare two frames behind the raw startup frame counter. `loc_C22` compares
+/// the stored timeout counter before incrementing it, so demo 1 still needs one
+/// more live climb frame after the current model reaches the threshold.
+pub(crate) const DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES: u16 = 2;
 /// Oracle-backed published TAS probes show the Skydragon Castle demo timeout
 /// counter stays 61 frames behind the native startup counter. Keep the raw
 /// startup frame counter for visible choreography, but subtract this offset
