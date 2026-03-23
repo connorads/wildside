@@ -244,7 +244,9 @@ impl NativeRuntime {
             death_camera_lock: None,
             level_skip_transition: None,
             level_skip_resume_hold: false,
-            skip_entry_animation: false,
+            // The original ROM has no entry animation — the player appears
+            // instantly at the spawn point. Skip by default for ROM fidelity.
+            skip_entry_animation: true,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platforms: Vec::new(),
