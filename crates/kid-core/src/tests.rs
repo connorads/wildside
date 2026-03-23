@@ -1914,6 +1914,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.step(
@@ -3057,6 +3058,7 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5180,6 +5182,45 @@ fn trace_frame_reports_kid_flip_follow_on_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_jump_gravity_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.last_kid_frame_jump_gravity_probe = Some(KidJumpGravityProbe {
+        branch: KidJumpGravityBranch::GroundedHold,
+        jump_pressed: false,
+        input_b_held: false,
+        custom_gravity: false,
+        on_ground_before: true,
+        on_ground_after: true,
+        just_jumped_before: false,
+        just_jumped_after: false,
+        jump_buffer_frames_before: 0,
+        jump_buffer_frames_after: 0,
+        y_velocity_before: 0,
+        y_velocity_after: 0,
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_jump_gravity_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid jump/gravity diagnostics"));
+
+    assert!(
+        probe_debug.contains("branch=grounded_hold/jump=0/jump_buffer=0=>0/just_jumped=0=>0"),
+        "the jump/gravity probe should expose the exact native gate branch together with jump and just-jumped carry state",
+    );
+    assert!(
+        probe_debug.contains("b_held=0/custom_gravity=0"),
+        "the jump/gravity probe should report the held-B and custom-gravity gates consumed by the native call",
+    );
+    assert!(
+        probe_debug.contains("y_vel=0x00000000->0x00000000/ground=1=>1"),
+        "the jump/gravity probe should preserve the pre/post y-velocity and grounded state around the native call",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_iron_knight_block_breaker_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -5933,6 +5974,7 @@ fn headbutt_prize_block_changes_to_empty() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -5995,6 +6037,7 @@ fn ceiling_collision_skips_when_upward_motion_stays_within_same_tile() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6058,6 +6101,7 @@ fn headbutt_metal_block_does_not_clear() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6125,6 +6169,7 @@ fn headbutt_smash_block_changes_to_empty() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6188,6 +6233,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6258,6 +6304,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_ceiling_collision(
@@ -6337,6 +6384,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6393,6 +6441,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6451,6 +6500,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
@@ -6518,6 +6568,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), true, false, PLAYER_HALF_WIDTH, true);
@@ -6571,6 +6622,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -6621,6 +6673,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -6671,6 +6724,7 @@ fn asm_faithful_solid_floor_snap_waits_for_contact_row() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, false);
@@ -9823,6 +9877,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
@@ -9876,6 +9931,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     // No floor under player → should leave ground and reset terrain type
@@ -9938,6 +9994,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     }
 }
 
@@ -10188,6 +10245,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     assert!(runtime.block_state.evanescent_blocks.is_empty());
@@ -10245,6 +10303,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     runtime.step_evanescent_blocks(&slice);
@@ -10311,6 +10370,7 @@ fn evanescent_block_clears_after_timer_expires() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     // Trigger + first tick
@@ -10386,6 +10446,7 @@ fn evanescent_block_with_skin_delay() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     let airborne_slice = OpeningSliceState {
@@ -10581,6 +10642,7 @@ fn evanescent_block_not_triggered_twice() {
         physics_trace: None,
         wall_cling_release_probe: None,
         kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
     };
 
     // Trigger twice while standing
@@ -14714,6 +14776,49 @@ fn published_tas_frames_7968_7969_report_kid_flip_follow_on_probe() {
             probe_debug
                 .contains("wall[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]"),
             "frame {frame_index} should close the shared follow-on with no wall-state or velocity mutation before later systems run",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_jump_gravity_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_jump_gravity_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit kid jump/gravity diagnostics")
+            });
+
+        assert!(
+            probe_debug.contains("branch=grounded_hold/jump=0/jump_buffer=0=>0/just_jumped=0=>0"),
+            "frame {frame_index} should show the native jump/gravity call still takes its grounded-hold branch with no queued jump or just-jumped carry state",
+        );
+        assert!(
+            probe_debug.contains("b_held=0/custom_gravity=0"),
+            "frame {frame_index} should prove the live lift-off window reaches the native call with no held-B low-gravity gate or custom-gravity override active",
+        );
+        assert!(
+            probe_debug.contains("y_vel=0x00000000->0x00000000/ground=1=>1"),
+            "frame {frame_index} should confirm the native call itself keeps Kid flat and grounded through the shared loc_AA22 jump/gravity stage",
         );
     }
 }

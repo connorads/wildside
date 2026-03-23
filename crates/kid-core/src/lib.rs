@@ -203,6 +203,9 @@ pub struct NativeRuntime {
     /// Debug snapshot of the shared post-kid_flip follow-on stages inside the
     /// native loc_AA22 mirror.
     last_kid_frame_kid_flip_follow_on_probe: Option<KidFlipFollowOnProbe>,
+    /// Debug snapshot of the gate inputs and branch taken by the native
+    /// `apply_jump_and_gravity_vel_only(...)` call.
+    last_kid_frame_jump_gravity_probe: Option<KidJumpGravityProbe>,
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
@@ -300,6 +303,7 @@ impl NativeRuntime {
             last_kid_frame_iron_knight_attach_probe: None,
             last_kid_frame_kid_flip_branch_probe: None,
             last_kid_frame_kid_flip_follow_on_probe: None,
+            last_kid_frame_jump_gravity_probe: None,
             last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -352,6 +356,7 @@ impl NativeRuntime {
         self.last_kid_frame_iron_knight_attach_probe = None;
         self.last_kid_frame_kid_flip_branch_probe = None;
         self.last_kid_frame_kid_flip_follow_on_probe = None;
+        self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
@@ -991,6 +996,7 @@ impl NativeRuntime {
                 allow_asm_faithful_solid_touch_snap,
                 &deferred_prize_ceiling_cells,
             );
+            self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
             self.note_kid_same_frame_stomp_probe(
                 &slice,
                 pre_physics_y_velocity,

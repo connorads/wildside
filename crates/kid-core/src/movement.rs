@@ -79,6 +79,7 @@ impl OpeningSliceState {
             physics_trace: None,
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
+            kid_jump_gravity_probe: None,
         }
     }
 
@@ -135,6 +136,7 @@ impl OpeningSliceState {
             physics_trace: None,
             wall_cling_release_probe: None,
             kid_flip_follow_on_stages: None,
+            kid_jump_gravity_probe: None,
         }
     }
 
@@ -201,6 +203,7 @@ impl OpeningSliceState {
         let on_ground_before = self.player.on_ground;
         self.wall_cling_release_probe = None;
         self.kid_flip_follow_on_stages = None;
+        self.kid_jump_gravity_probe = None;
         // ASM sub_914A uses FA78 (per-form half-width from unk_B408) for all
         // collision probes. Thread the form's half-width through to collision
         // functions instead of the constant PLAYER_HALF_WIDTH.
@@ -1130,6 +1133,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         custom_gravity: bool,
     ) {
+        let before = self.player;
         // Jump initiation
         if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
@@ -1139,6 +1143,20 @@ impl OpeningSliceState {
             self.player.on_ground = false;
             self.player.just_jumped = false;
             self.player.jump_buffer_frames = 0;
+            self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
+                branch: KidJumpGravityBranch::JumpPressed,
+                jump_pressed,
+                input_b_held: input.b,
+                custom_gravity,
+                on_ground_before: before.on_ground,
+                on_ground_after: self.player.on_ground,
+                just_jumped_before: before.just_jumped,
+                just_jumped_after: self.player.just_jumped,
+                jump_buffer_frames_before: before.jump_buffer_frames,
+                jump_buffer_frames_after: self.player.jump_buffer_frames,
+                y_velocity_before: before.y_velocity,
+                y_velocity_after: self.player.y_velocity,
+            });
             return;
         }
 
@@ -1154,8 +1172,36 @@ impl OpeningSliceState {
             self.player.on_ground = false;
             self.player.just_jumped = false;
             self.player.jump_buffer_frames = 0;
+            self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
+                branch: KidJumpGravityBranch::JumpBuffered,
+                jump_pressed,
+                input_b_held: input.b,
+                custom_gravity,
+                on_ground_before: before.on_ground,
+                on_ground_after: self.player.on_ground,
+                just_jumped_before: before.just_jumped,
+                just_jumped_after: self.player.just_jumped,
+                jump_buffer_frames_before: before.jump_buffer_frames,
+                jump_buffer_frames_after: self.player.jump_buffer_frames,
+                y_velocity_before: before.y_velocity,
+                y_velocity_after: self.player.y_velocity,
+            });
             return;
         }
+
+        let branch = if !self.player.on_ground {
+            if self.player.just_jumped {
+                KidJumpGravityBranch::AirborneJustJumpedHold
+            } else if custom_gravity {
+                KidJumpGravityBranch::AirborneCustomGravity
+            } else if self.player.y_velocity < 0 && input.b {
+                KidJumpGravityBranch::AirborneHeldJumpGravity
+            } else {
+                KidJumpGravityBranch::AirborneDefaultGravity
+            }
+        } else {
+            KidJumpGravityBranch::GroundedHold
+        };
 
         // Airborne: apply gravity to y_vel only
         if !self.player.on_ground {
@@ -1175,6 +1221,21 @@ impl OpeningSliceState {
             self.player.y_velocity = 0;
             self.player.just_jumped = false;
         }
+
+        self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
+            branch,
+            jump_pressed,
+            input_b_held: input.b,
+            custom_gravity,
+            on_ground_before: before.on_ground,
+            on_ground_after: self.player.on_ground,
+            just_jumped_before: before.just_jumped,
+            just_jumped_after: self.player.just_jumped,
+            jump_buffer_frames_before: before.jump_buffer_frames,
+            jump_buffer_frames_after: self.player.jump_buffer_frames,
+            y_velocity_before: before.y_velocity,
+            y_velocity_after: self.player.y_velocity,
+        });
     }
 
     /// Apply y_vel to y_pos only. ASM sub_902A applies vertical position

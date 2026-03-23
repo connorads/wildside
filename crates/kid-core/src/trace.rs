@@ -159,6 +159,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_flip_follow_on_probe_debug() {
             gameplay_debug_fields.insert("kid_flip_follow_on_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_jump_gravity_probe_debug() {
+            gameplay_debug_fields.insert("kid_jump_gravity_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
@@ -634,6 +637,33 @@ impl NativeRuntime {
             kid_flip_follow_on_stage_debug(probe.stages.after_wall),
             u8::from(probe.stages.after_wall.on_ground),
             direction_debug_label(probe.stages.after_wall.wall_cling_direction),
+        ))
+    }
+
+    fn kid_jump_gravity_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_jump_gravity_probe?;
+
+        Some(format!(
+            "branch={}/jump={}/jump_buffer={}=>{}/just_jumped={}=>{}/b_held={}/custom_gravity={}/y_vel={:#010x}->{:#010x}/ground={}=>{}",
+            probe.branch.as_debug_label(),
+            u8::from(probe.jump_pressed),
+            probe.jump_buffer_frames_before,
+            probe.jump_buffer_frames_after,
+            u8::from(probe.just_jumped_before),
+            u8::from(probe.just_jumped_after),
+            u8::from(probe.input_b_held),
+            u8::from(probe.custom_gravity),
+            probe.y_velocity_before as u32,
+            probe.y_velocity_after as u32,
+            u8::from(probe.on_ground_before),
+            u8::from(probe.on_ground_after),
         ))
     }
 

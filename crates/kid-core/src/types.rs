@@ -400,6 +400,48 @@ pub(crate) struct KidFlipFollowOnProbe {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidJumpGravityBranch {
+    JumpPressed,
+    JumpBuffered,
+    AirborneJustJumpedHold,
+    AirborneCustomGravity,
+    AirborneHeldJumpGravity,
+    AirborneDefaultGravity,
+    #[default]
+    GroundedHold,
+}
+
+impl KidJumpGravityBranch {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::JumpPressed => "jump_pressed",
+            Self::JumpBuffered => "jump_buffered",
+            Self::AirborneJustJumpedHold => "airborne_just_jumped_hold",
+            Self::AirborneCustomGravity => "airborne_custom_gravity",
+            Self::AirborneHeldJumpGravity => "airborne_held_jump_gravity",
+            Self::AirborneDefaultGravity => "airborne_default_gravity",
+            Self::GroundedHold => "grounded_hold",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidJumpGravityProbe {
+    pub(crate) branch: KidJumpGravityBranch,
+    pub(crate) jump_pressed: bool,
+    pub(crate) input_b_held: bool,
+    pub(crate) custom_gravity: bool,
+    pub(crate) on_ground_before: bool,
+    pub(crate) on_ground_after: bool,
+    pub(crate) just_jumped_before: bool,
+    pub(crate) just_jumped_after: bool,
+    pub(crate) jump_buffer_frames_before: u8,
+    pub(crate) jump_buffer_frames_after: u8,
+    pub(crate) y_velocity_before: i32,
+    pub(crate) y_velocity_after: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidGroundedReleaseVelocityBranch {
     JumpPressed,
     JumpBuffered,
@@ -1454,6 +1496,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) wall_cling_release_probe: Option<KidWallClingReleaseProbe>,
     /// Focused shared post-kid_flip follow-on stages inside the native loc_AA22 mirror.
     pub(crate) kid_flip_follow_on_stages: Option<KidFlipFollowOnStages>,
+    /// Focused gate snapshot around the native `apply_jump_and_gravity_vel_only(...)` call.
+    pub(crate) kid_jump_gravity_probe: Option<KidJumpGravityProbe>,
 }
 
 #[cfg(test)]

@@ -1,53 +1,53 @@
 ---
 slug: any-percent-published-frame-7969-knights-isle-native-stays-grounded-while-oracle-lifts-off
-cycle: 23
-updated_at: 2026-03-23T00:13:12Z
+cycle: 24
+updated_at: 2026-03-23T00:25:17Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Added a focused `kid_flip_follow_on_probe` inside the native shared post-`kid_flip` movement shell, recording the entry, press-away, jump/gravity, floor, and wall stages before later post-motion systems run.
-- Registered the new exploratory debug key and added both a formatter regression and a published-TAS regression for frames `7968..7969`.
-- Re-ran the new probe tests, the existing `kid_flip_branch_probe` tests, the broader `published_tas_frames_7968_7969_report_kid_` suite, `tas-diff` for frames `7968..7969`, `mise run audit-debug-fields`, and `mise run verify-slice-fast`.
+- Added a focused `kid_jump_gravity_probe` around the native `apply_jump_and_gravity_vel_only(...)` call and registered the new exploratory debug field.
+- Added formatter coverage plus a published-TAS regression for frames `7968..7969`.
+- Re-ran the targeted `kid_flip_*` and new `kid_jump_gravity_probe` tests, the broader `published_tas_frames_7968_7969_report_kid_` suite, `tas-diff` for frames `7968..7969`, `mise run audit-debug-fields`, and `mise run verify-slice-fast`.
 
 ## Current Model
 
 - The active frontier is still frame `7969` in `any-percent-published`, clean through `7968`.
-- Frame `7968` still reaches the shared `kid_flip` fan-out with `c_press=1`, `wall_scan=1`, grounded Iron Knight state, and `branch=c_pressed_fallthrough`.
-- The new follow-on probe narrows the live blocker further: once native enters the shared `loc_AA22` mirror, every recorded stage stays flat on frame `7968` (`x_vel=0`, `y_vel=0`, `ground=1`, `wall_cling=none`) through press-away, jump/gravity, floor, and wall handling.
-- Inference from the new probe plus the earlier branch/attach probes: the missing oracle lift-off is no longer inside `sub_B270`, wall-cling release, floor collision, wall collision, or any later post-motion consumer. The next likely gap is the native precondition or omitted side effect that should feed the shared jump/gravity path before or at `apply_jump_and_gravity_vel_only(...)`.
+- The shared `kid_flip` fallthrough is still correct through the `loc_AA22` mirror: `c_press=1`, wall scan hit, grounded Iron Knight state, and no post-motion mutator.
+- The new probe narrows the blocker further: on frame `7968`, the native `apply_jump_and_gravity_vel_only(...)` call itself takes `branch=grounded_hold` with `jump=0`, `jump_buffer=0=>0`, `just_jumped=0=>0`, `b_held=0`, `custom_gravity=0`, `y_vel=0x00000000->0x00000000`, and `ground=1=>1`.
+- Inference from the disassembly plus the new probe: the missing oracle lift-off is not explained by branch selection, wall-cling release, floor/wall handling, or a local gravity tweak inside the native call. The next likely gap is an omitted pre-`sub_B168` state write or carry-in condition that should already exist before the jump/gravity routine runs.
 
 ## Strongest Evidence
 
 - `crates/kid-core/src/movement.rs`
-  Result: `step_with_order(...)` now snapshots the shared post-fallthrough follow-on stages around the native `loc_AA22` mirror.
-- `crates/kid-core/src/lib.rs`
-  Result: `note_kid_flip_branch_probe(...)` now stores both the shared branch-selection result and the staged follow-on probe for the same frame window.
+  Result: `apply_jump_and_gravity_vel_only(...)` now records the exact native gate branch plus pre/post `y_vel`, grounded, jump-buffer, and `just_jumped` state.
 - `crates/kid-core/src/trace.rs`
-  Result: `kid_flip_follow_on_probe_debug()` formats the stage-by-stage velocity, grounded, and wall-cling state.
+  Result: `kid_jump_gravity_probe_debug()` emits a compact summary for live-frame inspection.
 - `crates/kid-core/src/tests.rs`
-  Result: `trace_frame_reports_kid_flip_follow_on_probe` and `published_tas_frames_7968_7969_report_kid_flip_follow_on_probe` lock the new probe in place.
+  Result: `trace_frame_reports_kid_jump_gravity_probe` and `published_tas_frames_7968_7969_report_kid_jump_gravity_probe` lock the new probe into the frontier suite.
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7968 --frame-end 7969 --include-advisory --include-physics-trace --show-object-roster-on-match`
-  Result: frame `7968` now reports `kid_flip_follow_on_probe = branch=c_pressed_fallthrough/motion=normal_physics/post=none/entry[x_vel=0x00000000/y_vel=0x00000000/ground=1/wall_cling=none]/press_away[...] /jump_gravity[...] /floor[...] /wall[...]`, while oracle `kid_gfx` already carries `y_velocity=0xffffc000`.
+  Result: frame `7968` now reports `kid_jump_gravity_probe = branch=grounded_hold/jump=0/jump_buffer=0=>0/just_jumped=0=>0/b_held=0/custom_gravity=0/y_vel=0x00000000->0x00000000/ground=1=>1`, while oracle `kid_gfx` is already at `y_velocity=0xffffc000`.
 - `mise run audit-debug-fields`
-  Result: clean after registering `kid_flip_follow_on_probe`.
+  Result: clean after registering `kid_jump_gravity_probe`.
 - `mise run verify-slice-fast`
   Result: passes.
 
 ## Exact Next Moves
 
-1. Inspect why the native shared jump/gravity stage still stays at `grounded_hold` on frame `7968`, concentrating on the setup immediately before and inside `apply_jump_and_gravity_vel_only(...)` rather than revisiting branch-selection, wall-cling, or post-motion systems.
-2. Cross-check the shared `loc_AA22` setup against the disassembly for any omitted state write or precondition equivalent to the ROM’s jump-movement / platform-clear handoff before `sub_B168`.
-3. Do not implement a gameplay fix yet unless that narrower jump/gravity inspection exposes the concrete missing native state write or gate.
+1. Inspect the ROM path immediately before and into `loc_AA22` / `sub_B168`, concentrating on what state write or carry-in condition makes oracle enter the routine with lift-off already armed; do not revisit wall-cling, floor, or later post-motion systems.
+2. Compare native equivalents for the pre-`sub_B168` setup that still remains unprobed in this frontier, especially any `Character_Movement = Jump`, `Character_CheckCollision`, or other carry-in state that can feed `y_vel` before the shared jump/gravity call.
+3. Do not implement a gameplay fix yet unless that narrower pre-`sub_B168` inspection exposes the concrete missing native state write or gate.
 
 ## Verification To Re-run
 
 - `cargo test -p kid-core trace_frame_reports_kid_flip_branch_probe -- --nocapture`
 - `cargo test -p kid-core trace_frame_reports_kid_flip_follow_on_probe -- --nocapture`
+- `cargo test -p kid-core trace_frame_reports_kid_jump_gravity_probe -- --nocapture`
 - `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_flip_branch_probe -- --nocapture`
 - `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_flip_follow_on_probe -- --nocapture`
+- `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_jump_gravity_probe -- --nocapture`
 - `cargo test -p kid-core published_tas_frames_7968_7969_report_kid_ -- --nocapture`
 - `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 7968 --frame-end 7969 --include-advisory --include-physics-trace --show-object-roster-on-match`
 - `mise run audit-debug-fields`
@@ -65,4 +65,5 @@ updated_at: 2026-03-23T00:13:12Z
 - Do not retry Iron Knight wall-attach as the primary explanation; the `kid_iron_knight_attach_probe` shows frame `7968` does carry a raw `C` edge, but Kid is still grounded so the candidate stays `0` and no `-0x4000` attach velocity is injected.
 - Do not retry "missing raw C-edge at kid_flip" as the primary explanation; the `kid_flip_branch_probe` still shows `c_press=1`, `wall_scan=1`, and `branch=c_pressed_fallthrough`.
 - Do not retry `sub_B270`, floor collision, wall collision, or later post-motion systems as primary lift-off causes unless `kid_flip_follow_on_probe` stops reporting the flat `x_vel=0/y_vel=0/ground=1/wall_cling=none` stage sequence.
+- Do not retry fixing `apply_jump_and_gravity_vel_only(...)` in isolation based only on the new `grounded_hold` result; the probe shows the native call enters with no jump, no jump-buffer carry, no `just_jumped`, no held-B low-gravity gate, and no custom-gravity override, so the missing lift-off is upstream of the call.
 - Do not rely on the broad `cargo test -p kid-core trace_frame_reports_kid_ -- --nocapture` filter as a frontier signal; it still trips the unrelated existing `trace_frame_reports_kid_object_support_candidates` assertion.

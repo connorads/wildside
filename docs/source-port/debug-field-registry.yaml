@@ -146,6 +146,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed shared follow-on stage state for grounded, velocity, or wall-cling handoff debugging."
     },
     {
+      "key": "kid_jump_gravity_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Focused native gate snapshot around `apply_jump_and_gravity_vel_only(...)`: branch label, jump and just-jumped carry bits, held-B/custom-gravity gates, and pre/post y-velocity plus grounded state for the loc_AA22 lift-off window.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed sub_B168-surrogate branch or gate snapshot instead of the free-form debug string."
+    },
+    {
       "key": "kid_grounded_release_probe",
       "scope": "frame",
       "status": "exploratory",
