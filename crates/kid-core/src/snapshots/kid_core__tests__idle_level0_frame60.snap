@@ -52,7 +52,7 @@ active_objects:
     layout_index: 0
     x_velocity: 0
     y_velocity: 0
-    facing: Left
+    facing: Right
     on_ground: false
     hit_points: 1
     damage_flash: false

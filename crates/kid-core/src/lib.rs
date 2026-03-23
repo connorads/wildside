@@ -244,9 +244,7 @@ impl NativeRuntime {
             death_camera_lock: None,
             level_skip_transition: None,
             level_skip_resume_hold: false,
-            // The original ROM has no entry animation — the player appears
-            // instantly at the spawn point. Skip by default for ROM fidelity.
-            skip_entry_animation: true,
+            skip_entry_animation: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platforms: Vec::new(),
@@ -340,6 +338,13 @@ impl NativeRuntime {
     /// Enable sub-frame physics tracing for TAS debugging.
     pub fn set_trace_physics(&mut self, enabled: bool) {
         self.trace_physics = enabled;
+    }
+
+    /// Skip the source port's opening entry animation (camera pan + player
+    /// float). The original ROM has no entry animation — set this to true
+    /// for ROM-faithful play.
+    pub fn set_skip_entry_animation(&mut self, skip: bool) {
+        self.skip_entry_animation = skip;
     }
 
     /// Set the block collision grid for the current level.

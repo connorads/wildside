@@ -4311,11 +4311,10 @@ impl NativeRuntime {
         ) {
             return;
         }
-        // Freeze enemies during the opening entry animation so the
-        // camera pan plays without background gameplay activity.
-        if self.entry_animation_active() {
-            return;
-        }
+        // When skip_entry_animation is false and the entry animation is
+        // playing, enemies are already naturally inactive because the player
+        // hasn't settled yet. No explicit freeze needed — play-native sets
+        // skip_entry_animation=true so the animation never runs there.
 
         let Some(slice) = self.opening_slice else {
             return;
