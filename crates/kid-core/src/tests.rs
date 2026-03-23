@@ -350,6 +350,19 @@ fn reaches_title_screen_without_input() {
 }
 
 #[test]
+fn boot_with_start_presses_reaches_ingame_at_expected_frame() {
+    let mut script = vec![0u8; 500];
+    for &f in BOOT_TO_LEVEL_START_FRAMES.iter() {
+        if f < script.len() {
+            script[f] = 0x80;
+        }
+    }
+    let trace = run_script(manifest(), &script, 500);
+    assert_eq!(trace[360].game_mode, GameMode::TitleScreen);
+    assert_eq!(trace[460].game_mode, GameMode::InGame);
+}
+
+#[test]
 fn first_boot_frame_keeps_gameplay_state_cold() {
     let mut runtime = NativeRuntime::new(manifest());
     let trace = runtime.step_frame(FrameInput::default());

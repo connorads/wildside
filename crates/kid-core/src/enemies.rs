@@ -4308,6 +4308,11 @@ impl NativeRuntime {
         ) {
             return;
         }
+        // Freeze enemies during the opening entry animation so the
+        // camera pan plays without background gameplay activity.
+        if self.entry_animation_active() {
+            return;
+        }
 
         let Some(slice) = self.opening_slice else {
             return;
