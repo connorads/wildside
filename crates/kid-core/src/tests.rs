@@ -4498,6 +4498,32 @@ fn dragon_walking_fires_breath_left_when_facing_left() {
     );
 }
 
+/// ASM Dragon.asm loc_3CD70: dragon faces TOWARD the player at spawn.
+/// `cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
+/// kid.x < dragon.x → x_direction stays 0 → LEFT (toward kid).
+/// kid.x >= dragon.x → st x_direction=$FF → RIGHT (toward kid).
+#[test]
+fn spawn_facing_dragon_faces_toward_player() {
+    // Player at x=50, dragon at x=200 → player is LEFT → dragon faces Left (toward player)
+    assert_eq!(
+        spawn_facing(EnemyFamily::DragonWalking, 200 << 16, 50 << 16),
+        Direction::Left,
+        "dragon should face left toward player on its left (ASM loc_3CD70: blt.s skip)"
+    );
+    // Player at x=300, dragon at x=200 → player is RIGHT → dragon faces Right (toward player)
+    assert_eq!(
+        spawn_facing(EnemyFamily::DragonWalking, 200 << 16, 300 << 16),
+        Direction::Right,
+        "dragon should face right toward player on its right (ASM loc_3CD70: st x_direction)"
+    );
+    // Equal position → faces Right (st branch: kid.x >= dragon.x)
+    assert_eq!(
+        spawn_facing(EnemyFamily::DragonWalking, 200 << 16, 200 << 16),
+        Direction::Right,
+        "equal position → st x_direction → Right (ASM loc_3CD70: blt is strict less-than)"
+    );
+}
+
 #[test]
 fn dragon_walking_stops_to_breathe_then_turns_from_a_wall() {
     let grid = grid_with_wall(17, 0, 20, 1);
