@@ -197,6 +197,9 @@ pub struct NativeRuntime {
     /// Debug snapshot of the Iron Knight wall-attach gate at the pre-physics
     /// consumer boundary.
     last_kid_frame_iron_knight_attach_probe: Option<KidIronKnightAttachProbe>,
+    /// Debug snapshot of the shared kid_flip branch-selection fan-out after the
+    /// post-sub_AF10 wall scan.
+    last_kid_frame_kid_flip_branch_probe: Option<KidFlipBranchProbe>,
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
@@ -292,6 +295,7 @@ impl NativeRuntime {
             last_kid_frame_collision_handoff_probe: None,
             last_kid_frame_same_frame_stomp_probe: None,
             last_kid_frame_iron_knight_attach_probe: None,
+            last_kid_frame_kid_flip_branch_probe: None,
             last_kid_frame_grounded_release_probe: None,
         };
         runtime.reload_block_grid_for_level(LevelId(0));
@@ -342,6 +346,7 @@ impl NativeRuntime {
         self.last_kid_frame_collision_handoff_probe = None;
         self.last_kid_frame_same_frame_stomp_probe = None;
         self.last_kid_frame_iron_knight_attach_probe = None;
+        self.last_kid_frame_kid_flip_branch_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
@@ -559,6 +564,58 @@ impl NativeRuntime {
             wall_probe,
             candidate,
             attach_triggered,
+        });
+    }
+
+    fn note_kid_flip_branch_probe(
+        &mut self,
+        input: FrameInput,
+        player_before: PlayerState,
+        player_after: PlayerState,
+    ) {
+        let wall_probe = self.block_grid.as_ref().map(|grid| {
+            terrain::probe_wall(
+                grid,
+                (player_before.x_pos >> 16) as i32,
+                (player_before.y_pos >> 16) as i32,
+                self.progression.current_form.half_width(),
+                PLAYER_HEIGHT,
+                player_before.facing == Direction::Right,
+            )
+        });
+        let wall_scan_hit = wall_probe.is_some_and(|probe| probe.hit);
+        let b_pressed = input.b && !self.prior_input.b;
+        let c_pressed = input.c && !self.prior_input.c;
+        let branch = if !wall_scan_hit {
+            KidFlipBranchSelection::NoWallPath
+        } else if b_pressed {
+            match self.progression.current_form {
+                PlayerForm::TheKid => KidFlipBranchSelection::BPressedTheKid,
+                PlayerForm::Micromax => KidFlipBranchSelection::BPressedMicromax,
+                _ if player_before.on_ground => KidFlipBranchSelection::BPressedGroundedLaunch,
+                _ => KidFlipBranchSelection::BPressedFallthrough,
+            }
+        } else if c_pressed {
+            match self.progression.current_form {
+                PlayerForm::Cyclone => KidFlipBranchSelection::CPressedCyclone,
+                PlayerForm::Maniaxe => KidFlipBranchSelection::CPressedManiaxe,
+                PlayerForm::Skycutter => KidFlipBranchSelection::CPressedSkycutter,
+                _ => KidFlipBranchSelection::CPressedFallthrough,
+            }
+        } else {
+            KidFlipBranchSelection::NoButtonBranch
+        };
+
+        self.last_kid_frame_kid_flip_branch_probe = Some(KidFlipBranchProbe {
+            wall_scan_hit,
+            b_pressed,
+            c_pressed,
+            helmet_id: self.progression.current_form.helmet_id(),
+            facing: Some(player_before.facing),
+            on_ground_before: player_before.on_ground,
+            on_ground_after: player_after.on_ground,
+            branch,
+            wall_probe,
         });
     }
 
@@ -929,6 +986,7 @@ impl NativeRuntime {
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
             // runs AFTER physics so flight takes effect next frame.
             self.step_cyclone_activation(&slice, input);
+            self.note_kid_flip_branch_probe(input, player_before_iron_knight_climb, slice.player);
         }
         self.finish_deferred_ceiling_clears();
         // Wide spawn-support settling is a bootstrap/respawn helper, not

@@ -5068,6 +5068,49 @@ fn trace_frame_reports_kid_iron_knight_attach_probe() {
 }
 
 #[test]
+fn trace_frame_reports_kid_flip_branch_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.last_kid_frame_kid_flip_branch_probe = Some(KidFlipBranchProbe {
+        wall_scan_hit: true,
+        b_pressed: false,
+        c_pressed: true,
+        helmet_id: PlayerForm::IronKnight.helmet_id(),
+        facing: Some(Direction::Right),
+        on_ground_before: true,
+        on_ground_after: true,
+        branch: KidFlipBranchSelection::CPressedFallthrough,
+        wall_probe: Some(terrain::WallProbe {
+            hit: true,
+            wall_x_px: 944,
+            cell: terrain::Cell::from_be_bytes(0x60, 0x82),
+            cell_x: 59,
+            cell_y: 27,
+        }),
+    });
+
+    let trace = runtime.trace_frame();
+    let probe_debug = trace
+        .gameplay_debug_fields
+        .get("kid_flip_branch_probe")
+        .unwrap_or_else(|| panic!("trace frame should emit kid_flip branch diagnostics"));
+
+    assert!(
+        probe_debug
+            .contains("wall_scan=1/b_press=0/c_press=1/helmet=0x0006/facing=right/ground=1=>1"),
+        "the kid_flip branch probe should expose the live wall scan, raw button edges, helmet, facing, and grounded window",
+    );
+    assert!(
+        probe_debug.contains("branch=c_pressed_fallthrough"),
+        "the kid_flip branch probe should identify the post-sub_AF10 fallthrough branch when no native C consumer claims the frame",
+    );
+    assert!(
+        probe_debug.contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+        "the kid_flip branch probe should preserve the post-sub_AF10 wall scan contact",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_iron_knight_block_breaker_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -14475,6 +14518,51 @@ fn published_tas_frames_7968_7969_report_kid_iron_knight_attach_probe() {
         assert!(
             probe_debug.contains("candidate=0/attach=0"),
             "frame {frame_index} should prove the exact native attach path is cold on both frontier frames",
+        );
+    }
+}
+
+#[test]
+fn published_tas_frames_7968_7969_report_kid_flip_branch_probe() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_7968 = None;
+    let mut frame_7969 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(7_970) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 7_968 {
+            frame_7968 = Some(trace.clone());
+        }
+        if frame_index == 7_969 {
+            frame_7969 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_7968 = frame_7968.unwrap_or_else(|| panic!("frame 7968 should be captured"));
+    let frame_7969 = frame_7969.unwrap_or_else(|| panic!("frame 7969 should be captured"));
+
+    for (frame_index, trace) in [(7_968usize, &frame_7968), (7_969usize, &frame_7969)] {
+        let probe_debug = trace
+            .gameplay_debug_fields
+            .get("kid_flip_branch_probe")
+            .unwrap_or_else(|| {
+                panic!("frame {frame_index} should emit kid_flip branch diagnostics")
+            });
+
+        assert!(
+            probe_debug
+                .contains("wall_scan=1/b_press=0/c_press=1/helmet=0x0006/facing=right/ground=1=>1"),
+            "frame {frame_index} should show the frame reaches the shared kid_flip fan-out with a live wall scan, grounded Iron Knight state, and a raw C edge",
+        );
+        assert!(
+            probe_debug.contains("branch=c_pressed_fallthrough"),
+            "frame {frame_index} should prove the native kid_flip fan-out still falls through the C branch instead of handing the frame to a form-specific consumer",
+        );
+        assert!(
+            probe_debug
+                .contains("wall=hit=1/x=944/cell=59,27 collision=solid block=None has_block=0"),
+            "frame {frame_index} should keep the same post-sub_AF10 wall contact at the shared branch-selection boundary",
         );
     }
 }

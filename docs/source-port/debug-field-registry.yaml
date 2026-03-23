@@ -130,6 +130,14 @@
       "promotion_trigger": "Promote if repeated parity work depends on a typed Iron Knight attach candidate or attach-trigger diagnostic."
     },
     {
+      "key": "kid_flip_branch_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "knights-isle-ground-support-frontier",
+      "intended_meaning": "Shared post-sub_AF10 kid_flip branch-selection snapshot for frames 7968..7969: wall-scan result, raw B/C edges, grounded Iron Knight state, and which native B/C fan-out branch actually claims or drops the frame.",
+      "promotion_trigger": "Promote if repeated parity work depends on a typed shared kid_flip branch-selection or button-consumer diagnostic."
+    },
+    {
       "key": "kid_grounded_release_probe",
       "scope": "frame",
       "status": "exploratory",

@@ -330,6 +330,51 @@ pub(crate) struct KidIronKnightAttachProbe {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum KidFlipBranchSelection {
+    #[default]
+    NoWallPath,
+    NoButtonBranch,
+    BPressedTheKid,
+    BPressedMicromax,
+    BPressedGroundedLaunch,
+    BPressedFallthrough,
+    CPressedCyclone,
+    CPressedManiaxe,
+    CPressedSkycutter,
+    CPressedFallthrough,
+}
+
+impl KidFlipBranchSelection {
+    pub(crate) fn as_debug_label(self) -> &'static str {
+        match self {
+            Self::NoWallPath => "no_wall_path",
+            Self::NoButtonBranch => "no_button_branch",
+            Self::BPressedTheKid => "b_pressed_the_kid",
+            Self::BPressedMicromax => "b_pressed_micromax",
+            Self::BPressedGroundedLaunch => "b_pressed_grounded_launch",
+            Self::BPressedFallthrough => "b_pressed_fallthrough",
+            Self::CPressedCyclone => "c_pressed_cyclone",
+            Self::CPressedManiaxe => "c_pressed_maniaxe",
+            Self::CPressedSkycutter => "c_pressed_skycutter",
+            Self::CPressedFallthrough => "c_pressed_fallthrough",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct KidFlipBranchProbe {
+    pub(crate) wall_scan_hit: bool,
+    pub(crate) b_pressed: bool,
+    pub(crate) c_pressed: bool,
+    pub(crate) helmet_id: u16,
+    pub(crate) facing: Option<Direction>,
+    pub(crate) on_ground_before: bool,
+    pub(crate) on_ground_after: bool,
+    pub(crate) branch: KidFlipBranchSelection,
+    pub(crate) wall_probe: Option<terrain::WallProbe>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidGroundedReleaseVelocityBranch {
     JumpPressed,
     JumpBuffered,

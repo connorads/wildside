@@ -153,6 +153,9 @@ impl NativeRuntime {
         if let Some(summary) = self.kid_iron_knight_attach_probe_debug() {
             gameplay_debug_fields.insert("kid_iron_knight_attach_probe".into(), summary);
         }
+        if let Some(summary) = self.kid_flip_branch_probe_debug() {
+            gameplay_debug_fields.insert("kid_flip_branch_probe".into(), summary);
+        }
         if let Some(summary) = self.kid_pre_physics_probe_debug() {
             gameplay_debug_fields.insert("kid_pre_physics_probe".into(), summary);
         }
@@ -571,6 +574,30 @@ impl NativeRuntime {
             wall_probe_debug_summary(probe.wall_probe),
             u8::from(probe.candidate),
             u8::from(probe.attach_triggered),
+        ))
+    }
+
+    fn kid_flip_branch_probe_debug(&self) -> Option<String> {
+        if !matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+        ) {
+            return None;
+        }
+
+        let probe = self.last_kid_frame_kid_flip_branch_probe?;
+
+        Some(format!(
+            "wall_scan={}/b_press={}/c_press={}/helmet={:#06x}/facing={}/ground={}=>{}/branch={}/wall={}",
+            u8::from(probe.wall_scan_hit),
+            u8::from(probe.b_pressed),
+            u8::from(probe.c_pressed),
+            probe.helmet_id,
+            direction_debug_label(probe.facing),
+            u8::from(probe.on_ground_before),
+            u8::from(probe.on_ground_after),
+            probe.branch.as_debug_label(),
+            wall_probe_debug_summary(probe.wall_probe),
         ))
     }
 
