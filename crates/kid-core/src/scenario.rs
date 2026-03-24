@@ -62,31 +62,86 @@ impl NativeRuntime {
     }
 }
 
+/// Builder for running scripted scenarios with configurable options.
+pub struct ScriptRunner {
+    assets: AssetManifest,
+    warp_to_level: Option<u8>,
+    physics_order: Option<PhysicsOrder>,
+    trace_physics: bool,
+}
+
+impl ScriptRunner {
+    pub fn new(assets: AssetManifest) -> Self {
+        Self {
+            assets,
+            warp_to_level: None,
+            physics_order: None,
+            trace_physics: false,
+        }
+    }
+
+    pub fn warp_to_level(mut self, level: u8) -> Self {
+        self.warp_to_level = Some(level);
+        self
+    }
+
+    pub fn physics_order(mut self, order: PhysicsOrder) -> Self {
+        self.physics_order = Some(order);
+        self
+    }
+
+    pub fn trace_physics(mut self) -> Self {
+        self.trace_physics = true;
+        self
+    }
+
+    pub fn run(self, script: &[u8], frame_count: usize) -> Vec<NativeTraceFrame> {
+        let mut runtime = NativeRuntime::with_generated_level_layout(self.assets);
+        if let Some(order) = self.physics_order {
+            runtime.set_physics_order(order);
+        }
+        if self.trace_physics {
+            runtime.set_trace_physics(true);
+        }
+        if let Some(level_id) = self.warp_to_level {
+            runtime.boot_to_level(LevelId(level_id));
+        }
+        let mut trace = Vec::with_capacity(frame_count);
+        for frame_index in 0..frame_count {
+            let input = script
+                .get(frame_index)
+                .copied()
+                .map(FrameInput::from_mask)
+                .unwrap_or_default();
+            trace.push(runtime.step_frame(input));
+        }
+        trace
+    }
+}
+
+// Thin wrappers delegating to ScriptRunner to minimise caller churn.
+
 pub fn run_script(
     assets: AssetManifest,
     script: &[u8],
     frame_count: usize,
 ) -> Vec<NativeTraceFrame> {
-    run_script_with_warp(assets, script, frame_count, None)
+    ScriptRunner::new(assets).run(script, frame_count)
 }
 
-/// Run a scripted scenario, optionally warping to a target level first.
-/// When `warp_to_level` is `Some`, the runtime boots to level 0 and then
-/// advances to the target level before running the script.
 pub fn run_script_with_warp(
     assets: AssetManifest,
     script: &[u8],
     frame_count: usize,
     warp_to_level: Option<u8>,
 ) -> Vec<NativeTraceFrame> {
-    let mut runtime = NativeRuntime::with_generated_level_layout(assets);
-    if let Some(level_id) = warp_to_level {
-        runtime.boot_to_level(LevelId(level_id));
+    let mut runner = ScriptRunner::new(assets);
+    if let Some(level) = warp_to_level {
+        runner = runner.warp_to_level(level);
     }
-    run_script_with_runtime(&mut runtime, script, frame_count)
+    runner.run(script, frame_count)
 }
 
-/// Run a scripted scenario with a specific physics order, optionally warping.
 pub fn run_script_with_physics_order(
     assets: AssetManifest,
     script: &[u8],
@@ -94,42 +149,22 @@ pub fn run_script_with_physics_order(
     warp_to_level: Option<u8>,
     physics_order: PhysicsOrder,
 ) -> Vec<NativeTraceFrame> {
-    let mut runtime = NativeRuntime::with_generated_level_layout(assets);
-    runtime.set_physics_order(physics_order);
-    if let Some(level_id) = warp_to_level {
-        runtime.boot_to_level(LevelId(level_id));
+    let mut runner = ScriptRunner::new(assets).physics_order(physics_order);
+    if let Some(level) = warp_to_level {
+        runner = runner.warp_to_level(level);
     }
-    run_script_with_runtime(&mut runtime, script, frame_count)
+    runner.run(script, frame_count)
 }
 
-/// Run a scripted scenario with physics tracing enabled (for TAS debugging).
 pub fn run_script_with_trace(
     assets: AssetManifest,
     script: &[u8],
     frame_count: usize,
     warp_to_level: Option<u8>,
 ) -> Vec<NativeTraceFrame> {
-    let mut runtime = NativeRuntime::with_generated_level_layout(assets);
-    runtime.set_trace_physics(true);
-    if let Some(level_id) = warp_to_level {
-        runtime.boot_to_level(LevelId(level_id));
+    let mut runner = ScriptRunner::new(assets).trace_physics();
+    if let Some(level) = warp_to_level {
+        runner = runner.warp_to_level(level);
     }
-    run_script_with_runtime(&mut runtime, script, frame_count)
-}
-
-fn run_script_with_runtime(
-    runtime: &mut NativeRuntime,
-    script: &[u8],
-    frame_count: usize,
-) -> Vec<NativeTraceFrame> {
-    let mut trace = Vec::with_capacity(frame_count);
-    for frame_index in 0..frame_count {
-        let input = script
-            .get(frame_index)
-            .copied()
-            .map(FrameInput::from_mask)
-            .unwrap_or_default();
-        trace.push(runtime.step_frame(input));
-    }
-    trace
+    runner.run(script, frame_count)
 }
