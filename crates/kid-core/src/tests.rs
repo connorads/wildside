@@ -1961,7 +1961,7 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
         // Y must track the slope surface: floor_y = cell_top + 15 - (x & 0x0F)
         // where cell_top = (row * 16). The row depends on which SlopeUp cell we're in.
         let col = x_px >> 4;
-        if col >= 2 && col <= 5 {
+        if (2..=5).contains(&col) {
             let expected_y = 96 + 15 - (x_px & 0x0F); // all slope tiles at row 6
             assert!(
                 (y_px - expected_y).abs() <= 1,
@@ -2061,7 +2061,7 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
         );
 
         let col = x_px >> 4;
-        if col >= 2 && col <= 5 {
+        if (2..=5).contains(&col) {
             let expected_y = 80 + (x_px & 0x0F);
             assert!(
                 (y_px - expected_y).abs() <= 1,
@@ -12792,7 +12792,7 @@ fn soak_all_105_levels_no_panic() {
             // Velocity invariants: must stay within terminal limits
             if let Some(y_vel) = trace.kid_y_velocity {
                 assert!(
-                    y_vel >= -0x8_0000 && y_vel <= 0x8_0000,
+                    (-0x8_0000..=0x8_0000).contains(&y_vel),
                     "level {level_id} frame {frame}: y_vel {y_vel:#x} outside terminal limits"
                 );
             }

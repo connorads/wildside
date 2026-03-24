@@ -516,18 +516,18 @@ impl OpeningSliceState {
                 // moves diagonally along the 45° surface. SlopeUp (/): going
                 // right means going up → y_vel = -x_vel. SlopeDown (\): going
                 // right means going down → y_vel = +x_vel.
-                if self.player.on_ground {
-                    if let Some(grid) = block_grid.as_deref() {
-                        let slope = self.grounded_slope_collision(Some(grid));
-                        match slope {
-                            Some(terrain::CollisionKind::SlopeUp) => {
-                                self.player.y_velocity = -self.player.x_velocity;
-                            }
-                            Some(terrain::CollisionKind::SlopeDown) => {
-                                self.player.y_velocity = self.player.x_velocity;
-                            }
-                            _ => {}
+                if self.player.on_ground
+                    && let Some(grid) = block_grid.as_deref()
+                {
+                    let slope = self.grounded_slope_collision(Some(grid));
+                    match slope {
+                        Some(terrain::CollisionKind::SlopeUp) => {
+                            self.player.y_velocity = -self.player.x_velocity;
                         }
+                        Some(terrain::CollisionKind::SlopeDown) => {
+                            self.player.y_velocity = self.player.x_velocity;
+                        }
+                        _ => {}
                     }
                 }
 

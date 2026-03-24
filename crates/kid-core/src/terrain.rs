@@ -575,7 +575,7 @@ pub fn probe_at(grid: &BlockGrid, x_px: i32, y_px: i32) -> TerrainProbe {
 /// Slopes span 15 pixels vertically within a 16x16 cell (full diagonal).
 /// - `SlopeUp`: floor rises left-to-right (higher on the left, lower on the right). `\`
 /// - `SlopeDown`: floor falls left-to-right (lower on the left, higher on the right). `/`
-/// Public wrapper for slope_floor_y used by movement.rs sub_9386 Y-snap.
+///   Public wrapper for slope_floor_y used by movement.rs sub_9386 Y-snap.
 pub fn slope_floor_y_pub(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
     slope_floor_y(collision, cell_top_y, x_px)
 }
@@ -1816,7 +1816,7 @@ mod tests {
         let h = 4u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
         // Ceiling at col 2, row 0
-        data[(0 * usize::from(w) + 2) * 2] = 0x60;
+        data[2 * 2] = 0x60;
         let grid = BlockGrid::from_level_layout(&data, w, h);
 
         // center=28, half_width=5, height=31, feet=31 → top=0

@@ -1444,13 +1444,13 @@ mod tests {
         // Already at -max_speed: result should stay at limit, not go further
         let profile = JUMP_AIR_PROFILES[0];
         let (vel, _) = update_jump_horizontal_velocity(
-            -(profile.max_speed as i32),
+            -profile.max_speed,
             Direction::Left,
             left_walk(),
             profile,
         );
         // next = -max_speed - accel → below min_speed → fallback: vel + 0x100
-        assert_eq!(vel, -(profile.max_speed as i32) + 0x100);
+        assert_eq!(vel, -profile.max_speed + 0x100);
     }
 
     #[test]
