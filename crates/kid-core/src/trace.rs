@@ -81,8 +81,12 @@ impl NativeRuntime {
             self.boot_state,
             // ASM sub_1B988: `move.w #4,(Camera_Y_pos).w`. The timeout-restart
             // path exposes this only after the carried intro-sequence-3 pose
-            // has already cleared, then keeps the camera latched through the
-            // following intro-sequence-5 segment until title setup takes over.
+            // has already cleared. ASM Load_IntroSequence5 only allocates
+            // `loc_1BA28` / `loc_1BCD0`; unlike Load_IntroSequence6 and
+            // GfxObjects_Collision_BottomBoundary4 it does not call
+            // `sub_1B222`, so oracle traces keep the carried camera only for
+            // the first 31 intro-sequence-5 frames before the scene drops
+            // back to the cleared camera state.
             BootState::IntroSequence {
                 segment: 3,
                 elapsed,
@@ -91,8 +95,13 @@ impl NativeRuntime {
                 && elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES
         ) || matches!(
             self.boot_state,
-            BootState::IntroSequence { segment: 4, .. }
+            BootState::IntroSequence {
+                segment: 4,
+                elapsed,
+                ..
+            }
                 if self.timeout_restart_intro_sequence_4_pose_carry
+                    && elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES
         )
     }
 

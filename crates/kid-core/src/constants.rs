@@ -87,6 +87,13 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize =
     TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES
         + TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES
         + 0x021C;
+// ASM Load_IntroSequence5 only allocates the `loc_1BA28` / `loc_1BCD0`
+// workers; unlike Load_IntroSequence6 and GfxObjects_Collision_BottomBoundary4
+// it does not call `sub_1B222` or otherwise rewrite `Camera_Y_pos`. Oracle
+// timeout-restart traces therefore keep the carried `sub_1B988` camera only
+// for the first 31 intro-sequence-5 frames, through frame 9979, and clear it
+// on frame 9980.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES: usize = 31;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

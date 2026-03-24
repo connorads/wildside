@@ -14323,6 +14323,52 @@ fn published_tas_second_timeout_restart_carries_camera_into_intro_sequence_5_on_
 }
 
 #[test]
+fn published_tas_second_timeout_restart_clears_intro_sequence_5_camera_on_frame_9980() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9979 = None;
+    let mut frame_9980 = None;
+    let mut frame_9981 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_982) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_979 => {
+                frame_9979 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_980 => {
+                frame_9980 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_981 => {
+                frame_9981 = Some((trace.game_mode, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence5 only allocates `loc_1BA28` / `loc_1BCD0`; it
+    // does not invoke the later `sub_1B222` camera rewrite path itself. The
+    // oracle-backed timeout-restart window therefore keeps the inherited
+    // `sub_1B988` camera only through frame 9979, then clears it on 9980
+    // while intro sequence 5 remains active.
+    assert_eq!(
+        frame_9979,
+        Some((GameMode::IntroSequence5, 0x0004_0000)),
+        "frame 9979 should still show the carried intro-sequence-4 camera inside intro sequence 5",
+    );
+    assert_eq!(
+        frame_9980,
+        Some((GameMode::IntroSequence5, 0x0000_0000)),
+        "frame 9980 should stay in intro sequence 5 but drop the carried camera",
+    );
+    assert_eq!(
+        frame_9981,
+        Some((GameMode::IntroSequence5, 0x0000_0000)),
+        "frame 9981 should keep the cleared intro-sequence-5 camera state",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
