@@ -183,14 +183,10 @@ fn start_level_settled(runtime: &mut NativeRuntime) {
 }
 
 fn advance_past_level_entry_damage_grace(runtime: &mut NativeRuntime) {
-    const ENTRY_BUFFER_FRAMES: usize = 260;
     let mut saw_spawn_invulnerability = runtime.progression.invulnerable_frames > 0;
-    for step in 0..512 {
+    for _ in 0..128 {
         runtime.step_frame(FrameInput::default());
         saw_spawn_invulnerability |= runtime.progression.invulnerable_frames > 0;
-        if step + 1 < ENTRY_BUFFER_FRAMES {
-            continue;
-        }
         if !saw_spawn_invulnerability || runtime.progression.invulnerable_frames == 0 {
             return;
         }
@@ -1252,9 +1248,7 @@ fn death_windup_keeps_player_motion_alive() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     if let Some(slice) = runtime.opening_slice.as_mut() {
         slice.player.x_velocity = 0x0002_0000;
@@ -2319,22 +2313,13 @@ fn pit_death_triggers_death_and_respawn() {
 
     start_level(&mut runtime);
 
-    // Advance past the opening scroll animation (260 frames) so physics are active.
-    // With no floor in the grid, the player will fall under gravity.
-    for _ in 0..300 {
-        runtime.step_frame(FrameInput::default());
+    // Force player below the level boundary to trigger pit death.
+    let level_height_fp = u32::from(4u16 * 224) << 16;
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.y_pos = level_height_fp + (1 << 16);
+        slice.player.on_ground = false;
     }
-
-    // Player should have fallen below the level boundary (896 pixels)
-    // and triggered pit death. Force position if gravity alone wasn't enough.
-    if matches!(runtime.player_lifecycle, PlayerLifecycle::Alive) {
-        let level_height_fp = u32::from(4u16 * 224) << 16;
-        if let Some(ref mut slice) = runtime.opening_slice {
-            slice.player.y_pos = level_height_fp + (1 << 16);
-            slice.player.on_ground = false;
-        }
-        runtime.step_frame(FrameInput::default());
-    }
+    runtime.step_frame(FrameInput::default());
 
     let pre_lives = runtime.progression.number_lives;
     runtime.step_frame(FrameInput::default());
@@ -2654,9 +2639,7 @@ fn flag_touch_triggers_level_complete() {
     start_level(&mut runtime);
 
     // Advance past entry animation so physics are active
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Place player directly on the flag position
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2687,9 +2670,7 @@ fn level_complete_freezes_input_then_advances() {
     start_level(&mut runtime);
 
     // Advance past entry animation
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     assert_eq!(runtime.current_level, LevelId(0));
 
@@ -2761,9 +2742,7 @@ fn level_complete_awards_time_bonus() {
     start_level(&mut runtime);
 
     // Advance past entry animation
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     assert_eq!(runtime.progression.score, 0);
 
@@ -2803,9 +2782,7 @@ fn no_hit_bonus_absent_when_damage_taken() {
     runtime.set_block_grid(grid_with_floor_at_row(48));
     start_level(&mut runtime);
 
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Take damage
     runtime.apply_damage();
@@ -2838,9 +2815,7 @@ fn damage_clears_wall_sticky() {
     runtime.set_block_grid(grid_with_floor_at_row(48));
     start_level(&mut runtime);
 
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Set wall-sticky as if player is grabbing a wall
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -2868,9 +2843,7 @@ fn flag_miss_does_not_trigger_completion() {
     start_level(&mut runtime);
 
     // Advance past entry animation
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Place player far from flag (with floor at row 16 = 256px for this position)
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -3097,9 +3070,7 @@ fn unsupported_enemy_family_stays_inert_on_contact() {
     let mut runtime = NativeRuntime::new(manifest_with_static_unknown_enemy());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     let hp_before = runtime.progression.number_hitpoints;
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -3135,9 +3106,7 @@ fn diamond_stays_at_spawn_position() {
     start_level(&mut runtime);
 
     // Advance past entry animation
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Keep camera at origin so Diamond remains active
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -3183,9 +3152,7 @@ fn diamond_collected_on_touch() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     let hp_before = runtime.progression.number_hitpoints;
     let diamonds_before = runtime.progression.diamond_count;
@@ -3230,9 +3197,7 @@ fn prize_block_headbutt_grants_diamond() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_blocks());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     let diamonds_before = runtime.progression.diamond_count;
 
@@ -3285,9 +3250,7 @@ fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_blocks());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     let diamonds_before = runtime.progression.diamond_count;
 
@@ -3530,9 +3493,7 @@ fn smash_block_headbutt_does_not_grant_diamond() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_blocks());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     let diamonds_before = runtime.progression.diamond_count;
 
@@ -3637,9 +3598,7 @@ fn drill_block_headbutt_spawns_projectile() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_drill_block());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     assert!(runtime.projectiles.is_empty());
 
@@ -3685,9 +3644,7 @@ fn lift_block_headbutt_spawns_platform() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_lift_block());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     assert!(runtime.block_state.lift_platforms.is_empty());
 
@@ -3785,9 +3742,7 @@ fn hidden_block_reveals_on_headbutt() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_hidden_block());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Verify hidden block at col 2, row 2
     let grid = runtime.block_grid.as_ref().unwrap();
@@ -3843,9 +3798,7 @@ fn diamond_power_activates_with_start_a_and_20_diamonds() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     // Advance past entry
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.diamond_count = 25;
     assert_eq!(runtime.progression.diamond_power_frames, 0);
 
@@ -3870,9 +3823,7 @@ fn diamond_power_activates_with_start_a_and_20_diamonds() {
 fn diamond_power_requires_20_diamonds() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.diamond_count = 19;
     runtime.step_frame(FrameInput {
         start: true,
@@ -3893,9 +3844,7 @@ fn diamond_power_requires_20_diamonds() {
 fn diamond_power_tier2_costs_50_diamonds() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     // 50+ diamonds triggers tier 2: costs 20 + 30 = 50
     runtime.progression.diamond_count = 55;
     runtime.step_frame(FrameInput {
@@ -3917,9 +3866,7 @@ fn diamond_power_tier2_costs_50_diamonds() {
 fn diamond_power_tier1_when_under_50() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     // 49 diamonds: deduct 20, remaining 29 < 30, so tier 1 only
     runtime.progression.diamond_count = 49;
     runtime.step_frame(FrameInput {
@@ -3941,9 +3888,7 @@ fn diamond_power_tier1_when_under_50() {
 fn diamond_power_blocked_for_eyeclops() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.diamond_count = 25;
     runtime.progression.current_form = PlayerForm::Eyeclops;
     runtime.step_frame(FrameInput {
@@ -3961,9 +3906,7 @@ fn diamond_power_blocked_for_eyeclops() {
 fn diamond_power_juggernaut_costs_5_diamonds() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.current_form = PlayerForm::Juggernaut;
     runtime.progression.diamond_count = 10;
     runtime.step_frame(FrameInput {
@@ -3989,9 +3932,7 @@ fn diamond_power_juggernaut_costs_5_diamonds() {
 fn diamond_power_iron_knight_tier2_grants_hp() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.current_form = PlayerForm::IronKnight;
     runtime.progression.diamond_count = 55;
     let hp_before = runtime.progression.number_hitpoints;
@@ -4011,9 +3952,7 @@ fn diamond_power_iron_knight_tier2_grants_hp() {
 fn diamond_power_maniaxe_tier2_grants_life() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.current_form = PlayerForm::Maniaxe;
     runtime.progression.diamond_count = 55;
     let lives_before = runtime.progression.number_lives;
@@ -4033,9 +3972,7 @@ fn diamond_power_maniaxe_tier2_grants_life() {
 fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
     runtime.progression.current_form = PlayerForm::Cyclone;
     runtime.progression.diamond_count = 25;
     runtime.step_frame(FrameInput {
@@ -7198,9 +7135,7 @@ fn stomp_from_above_kills_enemy() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     setup_stomp_scenario(&mut runtime, true);
     let enemies_before = runtime.active_enemies.len();
@@ -7219,9 +7154,7 @@ fn stomp_bounces_player_upward() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     setup_stomp_scenario(&mut runtime, true);
     runtime.step_frame(FrameInput::default());
@@ -7521,9 +7454,7 @@ fn stomp_works_during_invulnerability() {
     let mut runtime = NativeRuntime::new(manifest_with_static_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     runtime.progression.invulnerable_frames = 100;
     setup_stomp_scenario(&mut runtime, true);
@@ -7542,9 +7473,7 @@ fn falling_onto_diamond_collects_without_stomp_bounce() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     let diamonds_before = runtime.progression.diamond_count;
 
@@ -7683,9 +7612,7 @@ fn two_hp_enemy_survives_first_stomp() {
     let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Activate enemy
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -7720,9 +7647,7 @@ fn two_hp_enemy_dies_on_second_stomp() {
     let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     // Activate enemy
     if let Some(ref mut slice) = runtime.opening_slice {
@@ -7778,9 +7703,7 @@ fn stomp_always_bounces_even_on_surviving_enemy() {
     let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
     runtime.set_block_grid(grid_with_floor_at_row(14));
     start_level(&mut runtime);
-    for _ in 0..260 {
-        runtime.step_frame(FrameInput::default());
-    }
+
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.camera.x_pos = 0;
