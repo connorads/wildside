@@ -149,11 +149,17 @@ pub struct NativeRuntime {
     /// ASM sub_1B988 / loc_1B9B2 hibernate intro sequence 4 for `#$21B+1`
     /// frames before exposing intro sequence 5 on the timeout-restart path.
     demo_auto_timeout_intro_sequence_4_frames_override: Option<usize>,
+    /// ASM loc_1BA28 / sub_1C204 / loc_1BA5C keep timeout-restart intro
+    /// sequence 5 alive far longer than the shared 80-frame cold-boot timer.
+    demo_auto_timeout_intro_sequence_5_frames_override: Option<usize>,
     /// A Start-driven timeout-restart intro-sequence-3 title jump can still
     /// pass through the shared deferred Start→title skip countdown before
     /// title mode becomes visible, so the later handoff must remember to keep
     /// the intro pose.
     timeout_restart_title_intro_sequence_3_return_pending: bool,
+    /// ASM sub_1C246 can also jump straight from timeout-restart intro
+    /// sequence 5 into title mode after the shared 2-frame Start deferral.
+    timeout_restart_title_intro_sequence_5_return_pending: bool,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
@@ -162,6 +168,10 @@ pub struct NativeRuntime {
     /// the standard title pose appears; oracle traces keep the last intro pose
     /// alive for the first title frames, then hide Kid again.
     timeout_restart_title_intro_sequence_3_pose: bool,
+    /// ASM sub_1C246 enters title mode before the title objects rebuild, so
+    /// the timeout-restart intro-sequence-5 slot-2 pose survives briefly into
+    /// title mode before Kid blanks again.
+    timeout_restart_title_intro_sequence_5_pose: bool,
     /// ASM loc_1B96A switches to `Game_Mode=$20` before Load_IntroSequence4 /
     /// sub_1B988 clear the old intro-sequence-3 roster, so timeout-restart
     /// intro sequence 4 briefly keeps the previous pose visible. The same
@@ -299,9 +309,12 @@ impl NativeRuntime {
             demo_auto_timeout_intro_sequence_2_frames_override: None,
             demo_auto_timeout_intro_sequence_3_frames_override: None,
             demo_auto_timeout_intro_sequence_4_frames_override: None,
+            demo_auto_timeout_intro_sequence_5_frames_override: None,
             timeout_restart_title_intro_sequence_3_return_pending: false,
+            timeout_restart_title_intro_sequence_5_return_pending: false,
             preserve_demo_title_snapshot: false,
             timeout_restart_title_intro_sequence_3_pose: false,
+            timeout_restart_title_intro_sequence_5_pose: false,
             timeout_restart_intro_sequence_4_pose_carry: false,
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,

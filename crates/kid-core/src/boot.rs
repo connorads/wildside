@@ -30,9 +30,12 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
         self.demo_auto_timeout_intro_sequence_4_frames_override = None;
+        self.demo_auto_timeout_intro_sequence_5_frames_override = None;
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+        self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
+        self.timeout_restart_title_intro_sequence_5_pose = false;
         self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = false;
@@ -125,7 +128,10 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
         self.demo_auto_timeout_intro_sequence_4_frames_override = None;
+        self.demo_auto_timeout_intro_sequence_5_frames_override = None;
+        self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
+        self.timeout_restart_title_intro_sequence_5_pose = false;
         self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
@@ -163,6 +169,8 @@ impl NativeRuntime {
             Some(DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES);
         self.demo_auto_timeout_intro_sequence_4_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES);
+        self.demo_auto_timeout_intro_sequence_5_frames_override =
+            Some(DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
@@ -179,6 +187,13 @@ impl NativeRuntime {
         // timeout-restart attract window by one frame so the $280 title idle
         // countdown reaches demo mode on the correct frame.
         self.title_menu_arm_frame = self.title_menu_arm_frame.saturating_sub(1);
+    }
+
+    fn finish_timeout_restart_intro_sequence_5_title_return(&mut self) {
+        self.enter_title_screen();
+        self.timeout_restart_title_intro_sequence_5_return_pending = false;
+        self.hide_demo_return_title_player = true;
+        self.timeout_restart_title_intro_sequence_5_pose = true;
     }
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
@@ -593,6 +608,8 @@ impl NativeRuntime {
             self.demo_auto_timeout_intro_sequence_3_frames_override;
         let intro_sequence_4_frames_override =
             self.demo_auto_timeout_intro_sequence_4_frames_override;
+        let intro_sequence_5_frames_override =
+            self.demo_auto_timeout_intro_sequence_5_frames_override;
         let mut activate_intro_sequence_3_roster = false;
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
@@ -626,6 +643,8 @@ impl NativeRuntime {
                     if *pending_title_skip == 0 {
                         if self.timeout_restart_title_intro_sequence_3_return_pending {
                             self.finish_timeout_restart_intro_sequence_3_title_return();
+                        } else if self.timeout_restart_title_intro_sequence_5_return_pending {
+                            self.finish_timeout_restart_intro_sequence_5_title_return();
                         } else {
                             self.enter_title_screen();
                         }
@@ -640,6 +659,7 @@ impl NativeRuntime {
                     1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     3 => intro_sequence_4_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
+                    4 => intro_sequence_5_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
                 // ASM sub_1B93E / loc_1B96A naturally count intro sequence 3
@@ -648,6 +668,8 @@ impl NativeRuntime {
                 // path is gated by a Start press.
                 let timeout_restart_start_returns_to_title =
                     *segment == 2 && intro_sequence_3_frames_override.is_some();
+                let timeout_restart_intro_sequence_5_title_return =
+                    *segment == 4 && intro_sequence_5_frames_override.is_some();
                 let start_advances_segment = start_pressed
                     && (*segment != 0 || *elapsed >= INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES);
                 let start_jumps_to_title = start_pressed
@@ -655,7 +677,11 @@ impl NativeRuntime {
                         || *segment >= 3);
                 if start_jumps_to_title {
                     self.timeout_restart_title_intro_sequence_3_return_pending = false;
-                    self.timeout_restart_intro_sequence_4_pose_carry = false;
+                    self.timeout_restart_title_intro_sequence_5_return_pending =
+                        timeout_restart_intro_sequence_5_title_return;
+                    if !timeout_restart_intro_sequence_5_title_return {
+                        self.timeout_restart_intro_sequence_4_pose_carry = false;
+                    }
                     *pending_title_skip = 2;
                 } else if start_advances_segment {
                     if *segment == 0 {
@@ -666,14 +692,21 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     } else if *segment == 3 {
                         self.demo_auto_timeout_intro_sequence_4_frames_override = None;
+                    } else if *segment == 4 {
+                        self.demo_auto_timeout_intro_sequence_5_frames_override = None;
                     }
                     if *segment >= 4 || timeout_restart_start_returns_to_title {
                         self.timeout_restart_title_intro_sequence_3_return_pending =
                             timeout_restart_start_returns_to_title;
-                        self.timeout_restart_intro_sequence_4_pose_carry = false;
+                        self.timeout_restart_title_intro_sequence_5_return_pending =
+                            timeout_restart_intro_sequence_5_title_return;
+                        if !timeout_restart_intro_sequence_5_title_return {
+                            self.timeout_restart_intro_sequence_4_pose_carry = false;
+                        }
                         *pending_title_skip = 2;
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                         *segment += 1;
                         activate_intro_sequence_3_roster = *segment == 2;
@@ -689,9 +722,12 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     } else if *segment == 3 {
                         self.demo_auto_timeout_intro_sequence_4_frames_override = None;
+                    } else if *segment == 4 {
+                        self.demo_auto_timeout_intro_sequence_5_frames_override = None;
                     }
                     if *segment >= 4 {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                         self.enter_title_screen();
                     } else {
@@ -701,6 +737,7 @@ impl NativeRuntime {
                             && intro_sequence_4_frames_override.is_some()
                             && self.timeout_restart_intro_sequence_4_pose_carry;
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry =
                             carry_intro_sequence_3_pose_into_intro_sequence_4
                                 || carry_intro_sequence_4_camera_into_intro_sequence_5;

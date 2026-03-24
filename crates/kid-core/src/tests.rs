@@ -14423,6 +14423,172 @@ fn published_tas_second_timeout_restart_exposes_intro_sequence_5_slot_2_on_frame
 }
 
 #[test]
+fn published_tas_second_timeout_restart_keeps_intro_sequence_5_alive_past_frame_10029() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_10028 = None;
+    let mut frame_10029 = None;
+    let mut frame_10030 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(10_031) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            10_028 => {
+                frame_10028 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_029 => {
+                frame_10029 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_030 => {
+                frame_10030 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1BA28 calls sub_1C204 before loc_1BA5C starts the `move.w
+    // #$1BC,d0` / `dbf` countdown, so the timeout-restart copy of intro
+    // sequence 5 cannot legitimately fall back to title on local frame 10029.
+    assert_eq!(
+        frame_10028,
+        Some((
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10028 should still show the loc_1BCD0 slot-2 pose inside intro sequence 5",
+    );
+    assert_eq!(
+        frame_10029,
+        Some((
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10029 should stay in intro sequence 5 instead of jumping to title early",
+    );
+    assert_eq!(
+        frame_10030,
+        Some((
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10030 should keep the same intro-sequence-5 slot-2 pose after the old false frontier",
+    );
+}
+
+#[test]
+fn published_tas_second_timeout_restart_carries_intro_sequence_5_pose_into_title() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_10288 = None;
+    let mut frame_10289 = None;
+    let mut frame_10290 = None;
+    let mut frame_10317 = None;
+    let mut frame_10318 = None;
+    let mut frame_10437 = None;
+    let mut frame_10438 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(10_439) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            10_288 => {
+                frame_10288 = Some((mask, trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_289 => {
+                frame_10289 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_290 => {
+                frame_10290 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_317 => {
+                frame_10317 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_318 => {
+                frame_10318 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_437 => {
+                frame_10437 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_438 => {
+                frame_10438 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1C246 checks Ctrl_1_Pressed during loc_1BA5C's long loop and
+    // writes `move.w #$2C,(Game_Mode).w` without rebuilding the title gfx
+    // slots. Oracle probes show the published TAS presses Start (`mask=0x80`)
+    // on frame 10288, stays in intro sequence 5 through 10289, carries the
+    // loc_1BCD0 slot-2 pose through title frame 10317, blanks Kid on 10318,
+    // then restores the standard title pose on 10438.
+    assert_eq!(
+        frame_10288,
+        Some((
+            0x80,
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10288 should be the published TAS Start press that arms the intro-sequence-5 title return",
+    );
+    assert_eq!(
+        frame_10289,
+        Some((
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10289 should still be intro sequence 5 during the shared 2-frame Start deferral",
+    );
+    assert_eq!(
+        frame_10290,
+        Some((
+            GameMode::TitleScreen,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10290 should enter title mode without discarding loc_1BCD0's slot-2 pose",
+    );
+    assert_eq!(
+        frame_10317,
+        Some((
+            GameMode::TitleScreen,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "the intro-sequence-5 slot-2 pose should survive through the first 28 title frames",
+    );
+    assert_eq!(
+        frame_10318,
+        Some((GameMode::TitleScreen, None, None)),
+        "the title rebuild should blank Kid on the frame after the carried slot-2 pose clears",
+    );
+    assert_eq!(
+        frame_10437,
+        Some((GameMode::TitleScreen, None, None)),
+        "Kid should stay hidden through the final pre-title-pose rebuild frame",
+    );
+    assert_eq!(
+        frame_10438,
+        Some((
+            GameMode::TitleScreen,
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+            Some(Direction::Right),
+        )),
+        "frame 10438 should restore the standard title pose once the intro-sequence-5 rebuild finishes",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;

@@ -64,6 +64,16 @@ impl NativeRuntime {
             && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES
     }
 
+    fn title_uses_timeout_restart_intro_sequence_5_pose(&self) -> bool {
+        matches!(self.boot_state, BootState::TitleScreen { .. })
+            // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so
+            // the loc_1BCD0 slot-2 pose survives into title mode until the
+            // later title rebuild overwrites that WRAM slot 28 frames later.
+            && self.timeout_restart_title_intro_sequence_5_pose
+            && self.title_screen_elapsed_frames
+                < TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+    }
+
     fn intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
         matches!(
             self.boot_state,
@@ -125,6 +135,8 @@ impl NativeRuntime {
     fn title_hides_demo_return_player(&self) -> bool {
         let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
             TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
+        } else if self.timeout_restart_title_intro_sequence_5_pose {
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_HIDDEN_FRAMES
         } else {
             DEMO_TITLE_PLAYER_HIDDEN_FRAMES
         };
@@ -1067,6 +1079,11 @@ impl NativeRuntime {
                 Some(PlayerState::intro_sequence_3_pose_for_roster(
                     self.active_intro_sequence_3_roster_index,
                 ))
+            }
+            BootState::TitleScreen { .. }
+                if self.title_uses_timeout_restart_intro_sequence_5_pose() =>
+            {
+                Some(PlayerState::intro_sequence_5_slot_2_pose())
             }
             BootState::TitleScreen { .. } if self.title_hides_demo_return_player() => None,
             BootState::TitleScreen { .. }

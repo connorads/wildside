@@ -102,6 +102,21 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES: usize = 3
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES: usize = 58;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_X_POS: u32 = 0x0000_0000;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
+// ASM loc_1BA28 dispatches to the shared fade helper sub_1C204 before
+// loc_1BA5C starts its `move.w #$1BC,d0` / `Hibernate_Object_1Frame` / `dbf`
+// countdown. Native therefore cannot reuse the shared 80-frame intro timer on
+// the timeout-restart path; this segment must stay alive for the 17-frame fade
+// plus the full `0x1BD` DBF loop unless Start drives the earlier sub_1C246
+// title return.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD;
+// ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so the
+// loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
+// overwrites that WRAM slot 28 frames later.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES: usize = 28;
+// After the carried intro-sequence-5 slot-2 pose clears, oracle keeps title
+// slot 2 blank through frame 10437 and only restores the standard title pose
+// on 10438.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_HIDDEN_FRAMES: usize = 148;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

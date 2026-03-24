@@ -1,64 +1,69 @@
 ---
-slug: any-percent-published-frame-10029-timeout-restart-native-enters-title-while-oracle-stays-in-intro-sequence-5
-cycle: 50
-updated_at: 2026-03-24T02:32:06Z
+slug: any-percent-published-frame-10986-title-briefly-stays-in-0x10-oracle-window
+cycle: 51
+updated_at: 2026-03-24T02:51:34Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Re-read `loc_1BA28`, `loc_1BA5C`, `loc_1BCD0`, `loc_1BE3C`, `loc_1BE88`, and `sub_1C204` in `.cache/upstream/kid-chameleon-disasm/kid.asm`.
-- Proved with oracle slot probes that the verifier's `kid_x_pos` / `kid_y_pos` are the fixed slot-2 WRAM words at `$FF24FA/$FF24FE`, and that timeout-restart intro sequence 5 keeps them zero through frame 10006 before exposing `loc_1BCD0`'s slot-2 pose (`x=0`, `y=$E0`) on frame 10007.
-- Added timeout-restart intro-sequence-5 regression `published_tas_second_timeout_restart_exposes_intro_sequence_5_slot_2_on_frame_10007`.
-- Updated native trace modelling so timeout-restart intro sequence 5 exposes the `loc_1BCD0` slot-2 pose from frame 10007 onward.
-- Cleared the old frame-10007 authoritative mismatch; the first CRC divergence now moves to frame 10029.
+- Re-read `loc_1BA28`, `loc_1BA5C`, `sub_1C204`, and `sub_1C246` in `.cache/upstream/kid-chameleon-disasm/kid.asm`.
+- Added a timeout-restart override for intro sequence 5 so native no longer reuses the shared 80-frame intro timer; it now models `sub_1C204`'s fade delay plus `loc_1BA5C`'s long DBF loop.
+- Added title-handoff modelling for the Start-driven `sub_1C246` exit from timeout-restart intro sequence 5: title mode keeps `loc_1BCD0`'s slot-2 pose through frame 10317, blanks Kid on 10318, and restores the standard title pose on 10438.
+- Added focused regressions for the old frame-10029 false frontier and the later 10288/10290/10318/10438 intro-sequence-5 title handoff.
+- Cleared the frame-10029 timeout-restart intro-sequence-5 blocker; `verify-tas --frame-start 9531 --bisect` now moves the first CRC divergence to frame 10986.
 
 ## Current Model
 
-- The frame-10007 blocker was not gameplay at all; it was missing boot-scene trace state. Oracle slot-2 WRAM stays blank through frame 10006, then `loc_1BCD0`'s third gfx allocation becomes visible at frame 10007 while `Game_Mode` remains `$24`.
-- Native still exits intro sequence 5 too early. At frame 10029 native has already entered title mode (`game_mode=0x002C`) and snapped to the standard title pose (`kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000`), while oracle is still in intro sequence 5 (`game_mode=0x0024`) with slot 2 held at `x=0`, `y=0x00E00000`.
-- The likely cause is now the intro-sequence-5 duration itself: native still uses the shared 80-frame segment timer, but ASM `loc_1BA5C` runs `move.w #$1BC,d0` followed by a `Hibernate_Object_1Frame` / `sub_1C246` / `dbf` loop after the `sub_1C204` fade dispatch, so this scene cannot legitimately end on local frame 80.
+- The old frame-10029 break was genuine native timing debt. The timeout-restart copy of intro sequence 5 does not naturally end after 80 frames; `loc_1BA28` first runs the shared fade helper `sub_1C204`, and only then does `loc_1BA5C` start its `move.w #$1BC,d0` / `Hibernate_Object_1Frame` / `dbf` loop.
+- In the published TAS, that natural timeout still does not fire. The script presses Start on frame 10288 (`mask=0x80`), `sub_1C246` handles that during the long intro-sequence-5 loop, and title only becomes visible two frames later on 10290.
+- Oracle slot-2 WRAM proves the direct title return keeps `loc_1BCD0`'s slot-2 pose (`x=0`, `y=$E0`) visible through title frame 10317, clears it on 10318, then restores the standard title pose on 10438.
+- The next live blocker is now later and smaller: on frames 10986..10987 oracle briefly reports `game_mode=0x0010` while native stays in title mode `0x002C`. Frames 10982..10985 match, frames 10986..10987 diverge only on `game_mode`, and frames 10988..10989 match again.
 
 ## Strongest Evidence
 
 - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-  - `loc_1BCD0`: third gfx allocation writes `move.w #0,$1A(a1)` and `move.w #$E0,$1E(a1)`.
-  - `loc_1BA28`: stores `#loc_1BA5C,$44(a5)` then runs `sub_1C204`.
-  - `sub_1C204`: performs the fade helper loop before jumping to `$44(a5)`.
-  - `loc_1BA5C`: `move.w #$1BC,d0`, then `Hibernate_Object_1Frame` + `sub_1C246` + `dbf`, and only afterwards writes `move.w #$28,(Game_Mode).w`.
+  - `loc_1BA28`: allocates the intro-sequence-5 workers, stores `#loc_1BA5C,$44(a5)`, then calls `sub_1C204`.
+  - `sub_1C204`: runs the fade-helper loop (`Hibernate_Object_1Frame`, `sub_1C246`, `addi.w #$10,($FFFFF876).w`) before dispatching `$44(a5)`.
+  - `loc_1BA5C`: starts `move.w #$1BC,d0`, loops on `Hibernate_Object_1Frame` + `sub_1C246` + `dbf`, and only its natural path eventually leaves intro sequence 5.
+  - `sub_1C246`: on Start, writes `move.w #$2C,(Game_Mode).w` immediately without rebuilding the title gfx slots first.
 - Native/oracle diagnostics
   - `cargo test -q -p kid-core published_tas_second_timeout_restart_ -- --nocapture`
-    - all 8 focused timeout-restart regressions pass
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10003 --frame-end 10011 --include-advisory`
-    - frames `10003..10005`: `MATCH`
-    - frame `10006`: advisory-only (`number_objects`)
-    - frames `10007..10010`: advisory-only (`number_objects`) after the slot-2 fix
-  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9948 --frame-end 10008 --watches 0xFFFBCA:u16,0xFFF85C:u16,0xFF24F3:u8,0xFF24FA:u32,0xFF24FE:u32`
-    - frame `10006`: slot 2 inactive / zero, `Game_Mode=0x0024`
-    - frame `10007`: slot 2 active (`0xFF`) with `x=0x00000000`, `y=0x00E00000`, `Number_GfxObjects=0x0005`, `Game_Mode=0x0024`
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
-    - `RESULT: first CRC divergence at frame 10029`
+    - all 10 focused timeout-restart regressions pass
   - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10025 --frame-end 10033 --include-advisory`
-    - frames `10025..10028`: advisory-only (`number_objects`)
-    - frame `10029`: `game_mode native=0x002c oracle=0x0024`, `kid_x_pos native=0x002e0000 oracle=0x00000000`, `kid_y_pos native=0x008c0000 oracle=0x00e00000`
+    - frames `10025..10032`: advisory-only (`number_objects`) after the intro-sequence-5 timing fix
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 0 --frame-end 10520 --watches 0xFFFBCA:u16,0xFF24FA:u32,0xFF24FE:u32 | awk -F, 'NR==1 || ($1+0)>=10284 && ($1+0)<=10325 {print}'`
+    - frame `10288`: `Game_Mode=0x0024`, slot 2 still `x=0`, `y=0x00E00000`
+    - frame `10290`: `Game_Mode=0x002C`, slot 2 still `x=0`, `y=0x00E00000`
+    - frame `10318`: `Game_Mode=0x002C`, slot 2 clears back to zero
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 0 --frame-end 10620 --watches 0xFF24FA:u32,0xFF24FE:u32 | awk -F, 'NR==1 || ($1+0)>=10430 && ($1+0)<=10510 {print}'`
+    - frame `10438`: slot 2 first restores the standard title pose `x=0x002E0000`, `y=0x008C0000`
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
+    - `RESULT: first CRC divergence at frame 10986`
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10982 --frame-end 10990 --include-advisory`
+    - frames `10982..10985`: `MATCH`
+    - frames `10986..10987`: `game_mode native=0x002c oracle=0x0010`
+    - frames `10988..10989`: `MATCH`
+  - `mise run verify-slice-fast`
+    - passes
 
 ## Exact Next Moves
 
-1. Read `loc_1BA28`, `loc_1BA5C`, and `sub_1C204` together and map the true intro-sequence-5 timeout window, including the fade-helper delay before the `#$1BC` DBF loop starts.
-2. Add a focused regression for the new boundary: frame `10028` should still be intro sequence 5 with the `loc_1BCD0` slot-2 pose, and frame `10029` should still remain in `Game_Mode=$24`.
-3. Fix the premature intro-sequence-5 -> title transition in native, then re-run the frame-9531 bisect.
+1. Read the title-shell ASM that can briefly write `Game_Mode=$10` and then return to the normal title state by frame 10988. Start from the title-side code reached after `sub_1C246` rather than reopening intro-sequence-5 timing.
+2. Add a focused regression for the new transient window: frame 10985 should still match title, frames 10986..10987 should expose the oracle's `game_mode=0x0010`, and frame 10988 should return to the matched title state.
+3. Fix the native title-state machine so the brief `0x0010` excursion is reproduced, then re-run the frame-9531 bisect.
 
 ## Verification To Re-run
 
 - `cargo test -q -p kid-core published_tas_second_timeout_restart_ -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10003 --frame-end 10011 --include-advisory`
 - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10025 --frame-end 10033 --include-advisory`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10982 --frame-end 10990 --include-advisory`
 - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not reopen the old camera theory; `Load_IntroSequence5` still does not call `sub_1B222`, and frame 10007 was not another camera bug.
-- Do not guess from visible title pixels. The verifier reads fixed slot-2 WRAM directly at `$FF24FA/$FF24FE`; use oracle probes against that slot when checking intro/title trace state.
-- Do not keep the shared 80-frame intro-sequence-5 timer without re-reading `loc_1BA5C`; ASM already shows a much longer post-fade DBF countdown before `Game_Mode=$28`.
+- Do not reopen the old shared-80-frame intro-sequence-5 timer theory. `loc_1BA28` + `sub_1C204` + `loc_1BA5C` already prove the timeout-restart copy is much longer.
+- Do not clear the intro-sequence-5 carry latch on the Start-press frame itself. Oracle keeps `loc_1BCD0`'s slot-2 pose visible through the 2-frame deferred `sub_1C246` title handoff.
+- Do not guess from the title pixels alone. Use the fixed slot-2 WRAM words (`$FF24FA/$FF24FE`) and `Game_Mode` when checking the 10288..10438 title rebuild window.
