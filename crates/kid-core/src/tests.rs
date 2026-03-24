@@ -18094,6 +18094,81 @@ fn published_tas_intro_return_title_keeps_kid_hidden_through_frame_16798() {
 }
 
 #[test]
+fn published_tas_intro_return_title_waits_until_frame_17347_to_start_demo_play() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_17345 = None;
+    let mut frame_17346 = None;
+    let mut frame_17347 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(17_348) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            17_345 => {
+                frame_17345 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            17_346 => {
+                frame_17346 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            17_347 => {
+                frame_17347 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA` runs the `$280` title idle loop and only
+    // `loc_1BB02` flips `Game_Mode=$10`. Oracle keeps the later Start-skip
+    // intro-return lineage in `Game_Mode=$2C` through frame 17346, then
+    // reaches the demo-mode flip on 17347.
+    assert_eq!(
+        frame_17345,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 17345 should still be the settled title pose before Obj_TitleMenu reaches loc_1BB02",
+    );
+    assert_eq!(
+        frame_17346,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 17346 should remain in title mode for one more Obj_TitleMenu idle frame on the later intro-return lineage",
+    );
+    assert_eq!(
+        frame_17347,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 17347 should be the first demo-play frame after Obj_TitleMenu reaches loc_1BB02",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

@@ -222,11 +222,17 @@ impl NativeRuntime {
         self.timeout_restart_title_intro_sequence_5_pose = true;
         self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay =
             intro_return_hidden_delay;
+        let carried_title_wait_frames = if intro_return_hidden_delay { 1 } else { 2 };
         // ASM sub_1C246 returns to title after the shared 2-frame Start
-        // deferral, so the reused Obj_TitleMenu coroutine is already two title
-        // frames into its pre-menu attract wait when this direct return
-        // becomes visible.
-        self.title_menu_arm_frame = self.title_menu_arm_frame.saturating_sub(2);
+        // deferral, but the later Start-skip intro-return lineage reaches
+        // Obj_TitleMenu `loc_1BAEA` one rebuild frame later than the plain
+        // timeout-restart path. Only one title pre-wait frame has already
+        // elapsed by the time the later lineage becomes visible, so keep that
+        // lineage one frame farther from Obj_TitleMenu `loc_1BB02`'s
+        // `move.w #$10,(Game_Mode).w` flip.
+        self.title_menu_arm_frame = self
+            .title_menu_arm_frame
+            .saturating_sub(carried_title_wait_frames);
     }
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
