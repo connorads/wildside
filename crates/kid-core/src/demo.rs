@@ -100,6 +100,9 @@ pub(crate) const DEMO_TITLE_POSE_FRAMES: u16 = 27;
 pub(crate) const DEMO_LEVEL_SWITCH_FRAME: u16 = 30;
 /// Demo bootstrap briefly exposes a camera-only preload pose before gameplay.
 pub(crate) const DEMO_CAMERA_PRELOAD_FRAME: u16 = 57;
+/// Oracle-backed Skydragon Castle demo preload row on the hidden frame before
+/// `Load_InGame`'s camera snap becomes visible on the following hold frame.
+pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0220_0000;
 /// Demo bootstrap holds the level camera on the respawn pose for these frames.
 pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 /// Demo bootstrap publishes widened object counts one frame before the player

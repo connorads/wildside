@@ -14685,6 +14685,66 @@ fn published_tas_second_timeout_restart_starts_demo_play_on_frame_10986() {
 }
 
 #[test]
+fn published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame_11043() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_11042 = None;
+    let mut frame_11043 = None;
+    let mut frame_11044 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(11_045) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            11_042 => {
+                frame_11042 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            11_043 => {
+                frame_11043 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            11_044 => {
+                frame_11044 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu loc_1BB02 flips to `Game_Mode=$10`, and the
+    // timeout-restart hand-off keeps one hidden preload camera row before
+    // Load_InGame's respawn camera snap lands on the next frame.
+    assert_eq!(
+        frame_11042,
+        Some((GameMode::DemoPlay, Some(56), 0x0000_0000)),
+        "frame 11042 should still be on the blank hidden demo bootstrap camera row",
+    );
+    assert_eq!(
+        frame_11043,
+        Some((
+            GameMode::DemoPlay,
+            Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
+            demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
+        )),
+        "frame 11043 should expose the oracle-backed hidden preload camera row",
+    );
+    assert_eq!(
+        frame_11044,
+        Some((GameMode::DemoPlay, Some(58), 0x02A0_0000)),
+        "frame 11044 should return to Load_InGame's respawn camera snap",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;

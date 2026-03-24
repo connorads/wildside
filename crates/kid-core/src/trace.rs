@@ -1148,7 +1148,11 @@ impl NativeRuntime {
                         .unwrap_or_default()
                 }
             } else if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
-                0x0228_0000
+                // ASM Obj_TitleMenu loc_1BB02 flips into `Game_Mode=$10`, and
+                // the timeout-restart demo bootstrap exposes one hidden camera
+                // preload row before Load_InGame's respawn camera snap takes
+                // over on the following frame.
+                demo::DEMO_2_CAMERA_PRELOAD_Y_FP
             } else if frame_counter >= demo::DEMO_CAMERA_HOLD_START_FRAME {
                 0x02A0_0000
             } else {
