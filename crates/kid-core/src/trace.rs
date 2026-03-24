@@ -1174,10 +1174,17 @@ impl NativeRuntime {
                 }
             } else if frame_counter == demo::DEMO_CAMERA_PRELOAD_FRAME {
                 // ASM Obj_TitleMenu loc_1BB02 flips into `Game_Mode=$10`, and
-                // the timeout-restart demo bootstrap exposes one hidden camera
-                // preload row before Load_InGame's respawn camera snap takes
-                // over on the following frame.
-                demo::DEMO_2_CAMERA_PRELOAD_Y_FP
+                // the following `Load_DemoPlay -> Load_InGame` hand-off
+                // exposes one hidden camera preload row before Load_InGame's
+                // `$02A0_0000` respawn camera snap takes over on the next
+                // frame. Oracle WRAM keeps the later Start-skip intro-return
+                // lineage eight pixels lower than the plain timeout-restart
+                // preload row here.
+                if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay {
+                    demo::DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP
+                } else {
+                    demo::DEMO_2_CAMERA_PRELOAD_Y_FP
+                }
             } else if frame_counter >= demo::DEMO_CAMERA_HOLD_START_FRAME {
                 0x02A0_0000
             } else {

@@ -103,6 +103,11 @@ pub(crate) const DEMO_CAMERA_PRELOAD_FRAME: u16 = 57;
 /// Oracle-backed Skydragon Castle demo preload row on the hidden frame before
 /// `Load_InGame`'s camera snap becomes visible on the following hold frame.
 pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0220_0000;
+/// Oracle-backed Start-skip intro-return demo-2 preload row. ASM
+/// `Obj_TitleMenu loc_1BB02` still reaches `Load_DemoPlay -> Load_InGame`, but
+/// oracle WRAM keeps `Camera_Y_pos=$0228_0000` for that lineage's one hidden
+/// preload frame before `Load_InGame` snaps to `$02A0_0000`.
+pub(crate) const DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP: u32 = 0x0228_0000;
 /// Demo bootstrap holds the level camera on the respawn pose for these frames.
 pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 /// Demo bootstrap publishes widened object counts one frame before the player

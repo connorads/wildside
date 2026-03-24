@@ -18169,6 +18169,72 @@ fn published_tas_intro_return_title_waits_until_frame_17347_to_start_demo_play()
 }
 
 #[test]
+fn published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_17403 = None;
+    let mut frame_17404 = None;
+    let mut frame_17405 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(17_406) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            17_403 => {
+                frame_17403 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+            }
+            17_404 => {
+                frame_17404 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+            }
+            17_405 => {
+                frame_17405 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BB02` still flips into `Game_Mode=$10`, then
+    // `Load_DemoPlay -> Load_InGame` starts demo 2. Oracle WRAM probes of
+    // `Camera_Y_pos` show this later Start-skip intro-return lineage keeping a
+    // one-frame `$0228_0000` preload row before `Load_InGame`'s standard
+    // `$02A0_0000` camera snap lands on the next frame.
+    assert_eq!(
+        frame_17403,
+        Some((GameMode::DemoPlay, Some(56), LevelId(0x1B), 0x0000_0000)),
+        "frame 17403 should still be on the blank hidden demo-2 bootstrap row",
+    );
+    assert_eq!(
+        frame_17404,
+        Some((
+            GameMode::DemoPlay,
+            Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
+            LevelId(0x1B),
+            demo::DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP,
+        )),
+        "frame 17404 should expose the oracle-backed intro-return demo-2 preload row",
+    );
+    assert_eq!(
+        frame_17405,
+        Some((GameMode::DemoPlay, Some(58), LevelId(0x1B), 0x02A0_0000)),
+        "frame 17405 should return to Load_InGame's respawn camera snap",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

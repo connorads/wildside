@@ -1,63 +1,64 @@
 ---
-slug: any-percent-published-frame-17404-title-demo-preload-camera-row
-cycle: 63
-updated_at: 2026-03-24T06:19:14Z
+slug: any-percent-published-frame-20835-title-vs-intro-sequence-5-return
+cycle: 64
+updated_at: 2026-03-24T06:36:08Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the later Start-skip intro-return title fencepost so native now stays in `Game_Mode=$2C` through frame 17346 and only reaches demo play on 17347.
-- Added `published_tas_intro_return_title_waits_until_frame_17347_to_start_demo_play`.
-- Kept the earlier timeout-restart direct-return demo timing intact: `published_tas_second_timeout_restart_starts_demo_play_on_frame_10986` still passes.
+- Fixed the later Start-skip intro-return demo-2 preload row so frame 17404 now matches oracle.
+- Added `published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404`.
+- Kept the plain timeout-restart demo-2 preload row intact: `published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame_11043` still passes.
 
 ## Current Model
 
-- ASM `sub_1C246` still returns to title after the shared 2-frame Start deferral, but the later Start-skip intro-return lineage does not reach Obj_TitleMenu `loc_1BAEA` with the same amount of pre-wait credit as the plain timeout-restart path.
-- Oracle-backed frame checks now match the later lineage keeping `Game_Mode=$2C` on frame 17346 and only letting Obj_TitleMenu `loc_1BB02` flip to `Game_Mode=$10` on 17347.
-- The next first authoritative break is frame 17404.
-- That new break is no longer a mode fencepost. Both sides are already in demo play, but native keeps `camera_y_pos=0x0220_0000` while oracle reports `0x0228_0000` for one frame on the hidden demo bootstrap preload row.
+- ASM `Obj_TitleMenu loc_1BB02` still flips into `Load_DemoPlay -> Load_InGame`; the frame-17404 miss was trace parity, not a gameplay-state bug.
+- Oracle WRAM keeps the later timeout-restart intro-return lineage on a one-frame `Camera_Y_pos=$0228_0000` preload row before `Load_InGame`'s `$02A0_0000` snap; native was wrongly reusing the plain timeout-restart `$0220_0000` row.
+- Native now matches through frame 17404. The next first authoritative break is frame 20835.
+- That new break is a mode/pose return bug: native stays in title (`Game_Mode=$2C`, `kid_y_pos=0`) while oracle is already back in intro sequence 5 (`Game_Mode=$24`, `kid_y_pos=$00E00000`).
 
 ## Strongest Evidence
 
 - ASM
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `Obj_TitleMenu loc_1BAEA` reloads `move.w #$280,d0`, hibernates one frame per loop, and only `loc_1BB02` writes `move.w #$10,(Game_Mode).w`.
-    - `sub_1C246` still performs the shared Start-driven title return to `Game_Mode=$2C`.
+    - `Obj_TitleMenu loc_1BB02` is still the only title idle exit writing `move.w #$10,(Game_Mode).w`.
+    - `Load_DemoPlay` immediately calls `Load_InGame`, whose `move.l d0,(Camera_Y_pos).w` snap explains the frame-17405 `$02A0_0000`.
 - Native
-  - `crates/kid-core/src/boot.rs`
-    - `finish_timeout_restart_intro_sequence_5_title_return()` now shortens `title_menu_arm_frame` by 1 frame for the later Start-skip intro-return lineage and by 2 frames for the plain timeout-restart path.
+  - `crates/kid-core/src/trace.rs`
+    - The demo-2 preload branch now keys off `timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay`, which is the surviving lineage bit for this later Start-skip intro-return path.
   - `crates/kid-core/src/tests.rs`
-    - `published_tas_intro_return_title_waits_until_frame_17347_to_start_demo_play` locks the corrected title-idle/demo-start fencepost.
+    - `published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404` locks the one-frame `$0228_0000` preload row.
 - Oracle / parity
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 17342 --frame-end 17350 --include-advisory`
-    - frames 17342..17349 all match after the fix.
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16650 --bisect`
-    - first CRC divergence moved to frame `17404`.
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 17403 --frame-end 17405 --watches 0xFFFFF820:u32,0xFFFFFBCA:u16,0xFFFFFC44:u16,0xFFFFFC2C:u16,0xFFFFFBC9:u8`
+    - frame 17404 has `Camera_Y_pos=0x02280000`; frame 17405 has `0x02A00000`.
   - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 17400 --frame-end 17408 --include-advisory`
-    - frame 17404 diverges only on `camera_y_pos` (`native=0x02200000`, `oracle=0x02280000`).
+    - frames 17400..17407 all match after the fix.
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16650 --bisect`
+    - first CRC divergence moved to frame `20835`.
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20831 --frame-end 20839 --include-advisory`
+    - frames 20835..20838 diverge on `game_mode` (`native=0x002c`, `oracle=0x0024`) and `kid_y_pos` (`native=0x00000000`, `oracle=0x00e00000`).
 
 ## Exact Next Moves
 
-1. Read `Obj_TitleMenu loc_1BB02`, `Load_DemoPlay`, and the `Load_InGame` camera preload path in `.cache/upstream/kid-chameleon-disasm/kid.asm` before touching native code again.
-2. Explain why the later Start-skip intro-return lineage keeps the hidden demo bootstrap camera at `0x0228_0000` on frame 17404 while native reuses the plain timeout-restart preload row `0x0220_0000`.
-3. Add one focused regression for frame 17404 only after ASM + the narrow diff agree on the exact preload-camera write path.
+1. Read `sub_1C246`, `loc_1BA5C`, `Load_IntroSequence5`, and `loc_1BCD0` in `.cache/upstream/kid-chameleon-disasm/kid.asm` before touching native code again.
+2. Explain why oracle re-enters `Game_Mode=$24` with the `loc_1BCD0` slot-2 pose by frame 20835 while native stays in title mode for 4 extra frames.
+3. Add one focused regression for frame 20835 only after ASM + the narrow diff agree on the exact return path.
 
 ## Verification To Re-run
 
+- `cargo test -q -p kid-core published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame_11043 -- --nocapture`
 - `cargo test -q -p kid-core published_tas_intro_return_title_waits_until_frame_17347_to_start_demo_play -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_return_title_keeps_kid_hidden_through_frame_16798 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_second_timeout_restart_starts_demo_play_on_frame_10986 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 17342 --frame-end 17350 --include-advisory`
 - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 17400 --frame-end 17408 --include-advisory`
 - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16650 --bisect`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20831 --frame-end 20839 --include-advisory`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not shift `TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_HIDDEN_FRAMES` globally. The plain timeout-restart path already matches frame 10438.
-- Do not reopen the frame-16798 hidden-pose gate. That frontier is fixed; the authoritative break moved beyond it.
-- Do not change the plain timeout-restart direct-return title-arm shortening that already matches frame 10986.
-- Do not assume frame 17404 is another title-idle fencepost. The narrow diff now shows only `camera_y_pos`.
+- Do not change `DEMO_2_CAMERA_PRELOAD_Y_FP` globally. The plain timeout-restart path still needs `$02200000` on frame 11043.
+- Do not thread the demo-2 preload row off `demo_uses_start_skip_intro_return_camera_wrap`; that flag does not cover the later timeout-restart intro-return lineage.
+- Do not reopen frame 17404 as a gameplay-state bug. Oracle WRAM + ASM show this was a one-frame preload-row parity issue.
+- Do not assume frame 20835 is another demo bootstrap miss. The narrow diff is back in title vs intro-sequence-5 mode/pose territory.
