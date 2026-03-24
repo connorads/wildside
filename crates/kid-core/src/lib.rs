@@ -164,7 +164,9 @@ pub struct NativeRuntime {
     timeout_restart_title_intro_sequence_3_pose: bool,
     /// ASM loc_1B96A switches to `Game_Mode=$20` before Load_IntroSequence4 /
     /// sub_1B988 clear the old intro-sequence-3 roster, so timeout-restart
-    /// intro sequence 4 briefly keeps the previous pose visible.
+    /// intro sequence 4 briefly keeps the previous pose visible. The same
+    /// latch also carries sub_1B988's `Camera_Y_pos=4` hand-off through the
+    /// later intro-sequence-5 window until title setup takes over.
     timeout_restart_intro_sequence_4_pose_carry: bool,
     /// After the live snapshot is fully cleared, oracle traces still keep Kid
     /// hidden for a longer title-object rebuild window on the demo-return path.

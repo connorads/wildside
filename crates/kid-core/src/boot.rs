@@ -697,9 +697,13 @@ impl NativeRuntime {
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =
                             *segment == 2 && intro_sequence_3_frames_override.is_some();
+                        let carry_intro_sequence_4_camera_into_intro_sequence_5 = *segment == 3
+                            && intro_sequence_4_frames_override.is_some()
+                            && self.timeout_restart_intro_sequence_4_pose_carry;
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry =
-                            carry_intro_sequence_3_pose_into_intro_sequence_4;
+                            carry_intro_sequence_3_pose_into_intro_sequence_4
+                                || carry_intro_sequence_4_camera_into_intro_sequence_5;
                         *segment += 1;
                         activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;

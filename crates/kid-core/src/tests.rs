@@ -14277,6 +14277,52 @@ fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_98
 }
 
 #[test]
+fn published_tas_second_timeout_restart_carries_camera_into_intro_sequence_5_on_frame_9949() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9948 = None;
+    let mut frame_9949 = None;
+    let mut frame_9950 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_951) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_948 => {
+                frame_9948 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_949 => {
+                frame_9949 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_950 => {
+                frame_9950 = Some((trace.game_mode, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B988 stores `#loc_1B9B2,$44(a5)` and immediately calls
+    // sub_1C204, whose `addi.w #$10,($FFFFF876).w` / `cmpi.w #$100` fade loop
+    // delays the later `loc_1B9B2` DBF countdown. Once loc_1B9B2 finally
+    // flips `Game_Mode=$24`, the carried `Camera_Y_pos=4` still survives into
+    // intro sequence 5.
+    assert_eq!(
+        frame_9948,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9948 should still be intro sequence 4 while sub_1C204's delayed loc_1B9B2 timeout finishes",
+    );
+    assert_eq!(
+        frame_9949,
+        Some((GameMode::IntroSequence5, 0x0004_0000)),
+        "frame 9949 should reach intro sequence 5 but keep the carried camera_y_pos=4 hand-off",
+    );
+    assert_eq!(
+        frame_9950,
+        Some((GameMode::IntroSequence5, 0x0004_0000)),
+        "frame 9950 should remain in intro sequence 5 with the carried camera hand-off still latched",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
