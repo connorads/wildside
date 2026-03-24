@@ -105,6 +105,23 @@ impl NativeRuntime {
         )
     }
 
+    fn intro_sequence_5_uses_timeout_restart_slot_2_pose(&self) -> bool {
+        matches!(
+            self.boot_state,
+            // ASM loc_1BCD0 allocates five title gfx slots and writes the
+            // third one with `x=0`, `y=$E0`. The verifier reads WRAM slot 2
+            // directly from $FF24FA/$FF24FE, and oracle probes show that this
+            // timeout-restart intro-sequence-5 slot stays zero through frame
+            // 10006 before the loc_1BCD0 write becomes visible on 10007.
+            BootState::IntroSequence {
+                segment: 4,
+                elapsed,
+                ..
+            } if self.timeout_restart_intro_sequence_4_pose_carry
+                && elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
+        )
+    }
+
     fn title_hides_demo_return_player(&self) -> bool {
         let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
             TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
@@ -1034,6 +1051,11 @@ impl NativeRuntime {
                 Some(PlayerState::intro_sequence_3_pose_for_roster(
                     self.active_intro_sequence_3_roster_index,
                 ))
+            }
+            BootState::IntroSequence { segment: 4, .. }
+                if self.intro_sequence_5_uses_timeout_restart_slot_2_pose() =>
+            {
+                Some(PlayerState::intro_sequence_5_slot_2_pose())
             }
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {

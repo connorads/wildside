@@ -14369,6 +14369,60 @@ fn published_tas_second_timeout_restart_clears_intro_sequence_5_camera_on_frame_
 }
 
 #[test]
+fn published_tas_second_timeout_restart_exposes_intro_sequence_5_slot_2_on_frame_10007() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_10006 = None;
+    let mut frame_10007 = None;
+    let mut frame_10008 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(10_009) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            10_006 => {
+                frame_10006 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_007 => {
+                frame_10007 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            10_008 => {
+                frame_10008 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1BCD0 allocates the third title gfx slot with
+    // `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle probes of the
+    // verifier's fixed slot-2 WRAM reads ($FF24FA/$FF24FE) keep those words at
+    // zero through frame 10006, then expose the loc_1BCD0 slot-2 pose on
+    // frame 10007 while `Game_Mode=$24` still points at intro sequence 5.
+    assert_eq!(
+        frame_10006,
+        Some((GameMode::IntroSequence5, None, None)),
+        "frame 10006 should still keep the intro-sequence-5 slot-2 kid_gfx words cleared",
+    );
+    assert_eq!(
+        frame_10007,
+        Some((
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10007 should expose loc_1BCD0's slot-2 title pose while intro sequence 5 stays active",
+    );
+    assert_eq!(
+        frame_10008,
+        Some((
+            GameMode::IntroSequence5,
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 10008 should keep the loc_1BCD0 slot-2 title pose latched",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;

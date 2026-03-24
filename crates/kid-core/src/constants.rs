@@ -94,6 +94,14 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize =
 // for the first 31 intro-sequence-5 frames, through frame 9979, and clear it
 // on frame 9980.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES: usize = 31;
+// ASM loc_1BCD0 writes the third allocated title gfx slot with
+// `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle probes of the verifier's
+// fixed slot-2 WRAM reads ($FF24FA/$FF24FE) keep that slot zero through frame
+// 10006, then expose the loc_1BCD0 slot-2 coordinates on frame 10007 while
+// intro sequence 5 is still active.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES: usize = 58;
+pub(crate) const INTRO_SEQUENCE_5_SLOT_2_X_POS: u32 = 0x0000_0000;
+pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

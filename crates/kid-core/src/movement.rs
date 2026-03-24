@@ -71,6 +71,24 @@ impl PlayerState {
             wall_cling_direction: None,
         }
     }
+
+    pub(crate) fn intro_sequence_5_slot_2_pose() -> Self {
+        Self {
+            x_pos: INTRO_SEQUENCE_5_SLOT_2_X_POS,
+            y_pos: INTRO_SEQUENCE_5_SLOT_2_Y_POS,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        }
+    }
 }
 
 impl OpeningSliceState {
