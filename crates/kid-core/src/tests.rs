@@ -14589,6 +14589,102 @@ fn published_tas_second_timeout_restart_carries_intro_sequence_5_pose_into_title
 }
 
 #[test]
+fn published_tas_second_timeout_restart_starts_demo_play_on_frame_10986() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_10985 = None;
+    let mut frame_10986 = None;
+    let mut frame_10987 = None;
+    let mut frame_10988 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(10_989) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            10_985 => {
+                frame_10985 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            10_986 => {
+                frame_10986 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            10_987 => {
+                frame_10987 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            10_988 => {
+                frame_10988 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1C246 returns straight to title after the shared 2-frame Start
+    // deferral, so the reused title shell is already two frames into its
+    // pre-menu attract wait when the direct title return becomes visible.
+    // Oracle therefore reaches Obj_TitleMenu's `loc_1BB02:
+    // move.w #$10,(Game_Mode).w` two frames earlier than the cold-boot title
+    // path while the visible title pose stays unchanged.
+    assert_eq!(
+        frame_10985,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 10985 should still be the settled timeout-restart title state before Obj_TitleMenu reaches loc_1BB02",
+    );
+    assert_eq!(
+        frame_10986,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 10986 should flip into demo playback two frames earlier on the intro-sequence-5 direct-return path",
+    );
+    assert_eq!(
+        frame_10987,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 10987 should stay in demo playback while the preserved title pose is still visible",
+    );
+    assert_eq!(
+        frame_10988,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 10988 should still be demo playback on the accelerated timeout-restart title path",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
