@@ -772,12 +772,12 @@ fn starts_level_after_title_start_press() {
     assert_eq!(trace.active_platform_object_count, 1);
     assert_eq!(trace.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
     assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
-    assert_eq!(trace.kid_x_pos, Some(OPENING_ENTRY_KID_X_POS));
-    assert_eq!(trace.kid_y_pos, Some(OPENING_ENTRY_KID_Y_POS));
+    assert_eq!(trace.kid_x_pos, Some(0x0020_0000));
+    assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
     assert_eq!(trace.kid_x_velocity, Some(0));
     assert_eq!(trace.kid_y_velocity, Some(0));
     assert_eq!(trace.kid_facing, Some(Direction::Right));
-    assert_eq!(trace.kid_on_ground, Some(false));
+    assert_eq!(trace.kid_on_ground, Some(true));
     assert_eq!(trace.active_objects.len(), 3);
     assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
     assert_eq!(
@@ -791,7 +791,7 @@ fn starts_level_after_title_start_press() {
             subtype: 0x00,
         }
     );
-    assert_eq!(trace.camera_y_pos, OPENING_ENTRY_CAMERA_Y_FP);
+    assert_eq!(trace.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
 }
 
 #[test]
@@ -1551,7 +1551,7 @@ fn timing_regression_just_jumped_skips_air_control_and_gravity_for_one_frame() {
     slice.player.just_jumped = true;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1595,7 +1595,7 @@ fn timing_regression_grounded_jump_moves_on_takeoff_frame() {
     slice.player.on_ground = true;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1686,7 +1686,7 @@ fn timing_regression_airborne_within_ground_snap_tolerance_cannot_jump_early() {
     slice.player.on_ground = false;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1722,7 +1722,7 @@ fn timing_regression_buffers_jump_pressed_just_before_landing() {
     slice.player.on_ground = false;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1741,7 +1741,7 @@ fn timing_regression_buffers_jump_pressed_just_before_landing() {
     assert!(slice.player.jump_buffer_frames > 0);
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1779,7 +1779,7 @@ fn timing_regression_near_floor_jump_press_skips_last_airborne_horizontal_step()
     slice.player.on_ground = false;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1848,7 +1848,7 @@ fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
     slice.player.on_ground = false;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -1917,7 +1917,7 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
 
     for frame in 1..=20 {
         slice.step_with_order(
-            OPENING_SCROLL_START_FRAME,
+
             FrameInput {
                 right: true,
                 a: true,
@@ -2024,7 +2024,7 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
 
     for frame in 1..=20 {
         slice.step_with_order(
-            OPENING_SCROLL_START_FRAME,
+
             FrameInput {
                 right: true,
                 a: true,
@@ -2114,7 +2114,7 @@ fn solid_to_slope_up_transition_stays_grounded() {
     let mut frames_log = Vec::new();
     for frame in 1..=30 {
         slice.step_with_order(
-            OPENING_SCROLL_START_FRAME,
+
             FrameInput {
                 right: true,
                 a: true,
@@ -2214,7 +2214,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
     };
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -2232,7 +2232,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
     assert_eq!(slice.player.y_pos, 0x008F_0000);
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -2265,7 +2265,7 @@ fn grounded_frame_clears_released_jump_buffer_before_auto_jump() {
     slice.player.jump_buffer_frames = 1;
 
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput {
             right: true,
             a: true,
@@ -5795,7 +5795,7 @@ fn trace_frame_reports_prize_diamond_frontier_debug_fields() {
 }
 
 #[test]
-fn opening_level_one_object_counts_keep_the_early_scroll_buffer() {
+fn opening_level_one_object_counts_at_grounded_camera() {
     assert_eq!(
         opening_level_one_object_counts(LevelId(0), 2, 429u32 << 16, OPENING_GROUNDED_CAMERA_Y_FP,),
         Some((4, 5))
@@ -12062,7 +12062,7 @@ fn skycutter_on_board_skips_normal_gravity_in_step() {
 
     // Step with skycutter_on_board=true — normal gravity should be skipped
     slice.step(
-        OPENING_SCROLL_START_FRAME,
+
         FrameInput::default(),
         false,
         PlayerForm::Skycutter,

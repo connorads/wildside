@@ -95,12 +95,12 @@ impl OpeningSliceState {
     pub(crate) fn new(bounds: LevelBounds) -> Self {
         Self {
             player: PlayerState {
-                x_pos: OPENING_ENTRY_KID_X_POS,
-                y_pos: OPENING_ENTRY_KID_Y_POS,
+                x_pos: 0x0020_0000,
+                y_pos: OPENING_GROUNDED_KID_Y_POS,
                 x_velocity: 0,
                 y_velocity: 0,
                 facing: Direction::Right,
-                on_ground: false,
+                on_ground: true,
                 on_spikes: false,
                 just_jumped: false,
                 jump_buffer_frames: 0,
@@ -111,7 +111,7 @@ impl OpeningSliceState {
             },
             camera: CameraState {
                 x_pos: 0,
-                y_pos: OPENING_ENTRY_CAMERA_Y_FP,
+                y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
             },
             terrain: TerrainState {
                 floor_y_pos: OPENING_GROUNDED_KID_Y_POS,
@@ -141,7 +141,7 @@ impl OpeningSliceState {
         Self::respawn_from_pose(
             bounds,
             LevelStartPose {
-                kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                kid_x_pos: 0x0020_0000,
                 kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
                 camera_x_pos: 0,
                 camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
@@ -196,7 +196,6 @@ impl OpeningSliceState {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step(
         &mut self,
-        level_elapsed: usize,
         input: FrameInput,
         jump_pressed: bool,
         form: PlayerForm,
@@ -206,7 +205,6 @@ impl OpeningSliceState {
         y_look_offset: i16,
     ) {
         self.step_with_order(
-            level_elapsed,
             input,
             jump_pressed,
             form,
@@ -223,7 +221,6 @@ impl OpeningSliceState {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn step_with_order(
         &mut self,
-        level_elapsed: usize,
         input: FrameInput,
         jump_pressed: bool,
         form: PlayerForm,
@@ -235,10 +232,6 @@ impl OpeningSliceState {
         allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
-        if level_elapsed < OPENING_SCROLL_START_FRAME {
-            self.run_entry_animation(level_elapsed);
-            return;
-        }
         // ASM pull-up animation (stru_8BB4): Hibernate_UntilAnimFinished
         // loops for 21 frames after ledge snap, suppressing all physics.
         // Camera follow resumes on the final frame (ASM exits animation,
@@ -1193,40 +1186,6 @@ impl OpeningSliceState {
         self.terrain.floor_y_pos = floor_y_fp;
         self.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
         true
-    }
-
-    /// Pre-physics entry animation: player descends and settles to ground.
-    pub(crate) fn run_entry_animation(&mut self, level_elapsed: usize) {
-        let previous_y_pos = self.player.y_pos;
-        if level_elapsed <= OPENING_ENTRY_HOLD_FRAMES {
-            self.camera.y_pos = OPENING_ENTRY_CAMERA_Y_FP;
-            self.player.y_pos = OPENING_ENTRY_KID_Y_POS;
-            self.player.y_velocity = 0;
-            self.player.x_velocity = 0;
-            self.player.on_ground = false;
-            return;
-        }
-        let settle_progress = (level_elapsed - OPENING_ENTRY_HOLD_FRAMES)
-            .min(OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES);
-        let settle_span = OPENING_SCROLL_START_FRAME - OPENING_ENTRY_HOLD_FRAMES;
-        self.camera.y_pos = interpolate_u32(
-            OPENING_ENTRY_CAMERA_Y_FP,
-            OPENING_GROUNDED_CAMERA_Y_FP,
-            settle_progress,
-            settle_span,
-        );
-        self.player.y_pos = interpolate_u32(
-            OPENING_ENTRY_KID_Y_POS,
-            OPENING_GROUNDED_KID_Y_POS,
-            settle_progress,
-            settle_span,
-        );
-        self.player.y_velocity =
-            i32::try_from(self.player.y_pos.saturating_sub(previous_y_pos)).unwrap_or(i32::MAX);
-        self.player.x_velocity = 0;
-        self.player.on_ground = self.player.y_pos >= self.terrain.floor_y_pos;
-        self.camera.x_pos = 0;
-        self.player.x_pos = OPENING_ENTRY_KID_X_POS;
     }
 
     /// Horizontal velocity update only (sub_B084 equivalent).

@@ -161,17 +161,3 @@ pub(crate) fn apply_platform_collision(
         }
     }
 }
-
-pub(crate) fn interpolate_u32(start: u32, end: u32, progress: usize, span: usize) -> u32 {
-    if span == 0 {
-        return end;
-    }
-    let clamped = progress.min(span) as u64;
-    let start = u64::from(start);
-    let end = u64::from(end);
-    if end >= start {
-        (start + ((end - start) * clamped) / span as u64) as u32
-    } else {
-        (start - ((start - end) * clamped) / span as u64) as u32
-    }
-}

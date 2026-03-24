@@ -33,10 +33,6 @@ impl NativeRuntime {
             }
         }
 
-        // The original ASM has no entry animation — the player appears
-        // instantly at the spawn point. Always skip the native entry
-        // animation so parity timing matches the oracle.
-        self.skip_entry_animation = true;
         // Reset the opening slice to the correct spawn position. Floor-snap
         // places the player on the actual floor (header spawn Y is approximate).
         // After floor-snap, simulate the camera's gravity-following path to

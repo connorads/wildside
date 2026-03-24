@@ -11,16 +11,13 @@ pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// oracle's Pal_FadeOut + setup duration stays absolute.
 pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
 // The native playtest host should open on the first fully settled Level 1 frame,
-// past the long entry animation where the kid drifts into place.
+// after gravity settling places the kid on the floor.
 pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
-pub(crate) const OPENING_ENTRY_CAMERA_Y_FP: u32 = 0x0093_0000;
 pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // The opening Dragon hit lands earlier under the walk-only gameplay script than
 // under the run-held trace used by the focused timing regression.
 pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK: usize = 289;
 pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN: usize = 300;
-pub(crate) const OPENING_SCROLL_START_FRAME: usize = 260;
-pub(crate) const OPENING_ENTRY_HOLD_FRAMES: usize = TITLE_TO_LEVEL_FRAMES + 1;
 // Oracle boot-to-level traces use an early intro-skip sequence, then one
 // Start press to arm the title menu and a later Start press to select 1P.
 pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = [33, 77, 135, 137, 178, 360, 460];
@@ -151,8 +148,6 @@ pub(crate) const TITLE_SCREEN_READY_GLOBAL_FRAME: usize = 287;
 // entry. The title rebuild still needs 150 local frames before Kid appears,
 // even when the absolute boot-ready frame has already nearly been reached.
 pub(crate) const TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES: usize = 150;
-pub(crate) const OPENING_ENTRY_KID_X_POS: u32 = 0x0020_0000;
-pub(crate) const OPENING_ENTRY_KID_Y_POS: u32 = 0x0109_0000;
 pub(crate) const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
 pub(crate) const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B2_0000;
 pub(crate) const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 701;

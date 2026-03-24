@@ -613,12 +613,6 @@ fn initialise_runtime(
 ) -> NativeRuntime {
     let mut runtime = NativeRuntime::new(manifest.clone());
     runtime.set_block_grid(session_assets.block_grid.clone());
-    // Skip the source port's camera-pan entry animation for dev shortcuts
-    // (warp/settled). Full boot path keeps the default (false) so the
-    // animation plays on first level entry.
-    if options.warp_level.is_some() || options.settled {
-        runtime.set_skip_entry_animation(true);
-    }
     if let Some(level_id) = options.warp_level {
         if options.settled {
             runtime.enter_level_playtest(LevelId(level_id));

@@ -2,7 +2,7 @@
 source: crates/kid-core/src/tests.rs
 expression: trace
 ---
-frame_index: 727
+frame_index: 528
 game_mode: InGame
 game_mode_value: 12
 start_press_count: 7
@@ -92,7 +92,7 @@ invulnerable_frames: 0
 diamond_power_active: false
 diamond_count: 0
 score: "[advisory]"
-level_timer_seconds: 175
+level_timer_seconds: 178
 level_damage_taken: false
 murder_wall_x: "[advisory]"
 active_projectiles: []

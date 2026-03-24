@@ -55,9 +55,6 @@ pub struct NativeRuntime {
     death_camera_lock: Option<CameraState>,
     level_skip_transition: Option<LevelSkipTransitionState>,
     level_skip_resume_hold: bool,
-    /// When true, skip the entry animation on the current level (used after
-    /// level-skip warp — the original game has no entry animation).
-    skip_entry_animation: bool,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
     active_platforms: Vec<ActivePlatform>,
@@ -283,7 +280,6 @@ impl NativeRuntime {
             death_camera_lock: None,
             level_skip_transition: None,
             level_skip_resume_hold: false,
-            skip_entry_animation: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             active_platforms: Vec::new(),
@@ -386,13 +382,6 @@ impl NativeRuntime {
     /// Enable sub-frame physics tracing for TAS debugging.
     pub fn set_trace_physics(&mut self, enabled: bool) {
         self.trace_physics = enabled;
-    }
-
-    /// Skip the source port's opening entry animation (camera pan + player
-    /// float). The original ROM has no entry animation — set this to true
-    /// for ROM-faithful play.
-    pub fn set_skip_entry_animation(&mut self, skip: bool) {
-        self.skip_entry_animation = skip;
     }
 
     /// Set the block collision grid for the current level.
@@ -941,16 +930,6 @@ impl NativeRuntime {
         }
         self.update_demo_transform_parity();
 
-        let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
-        // When skip_entry_animation is set (after level-skip warp), pretend
-        // the level has been running long enough to bypass the entry animation.
-        // The original game has no entry animation — the player appears
-        // instantly at the spawn point.
-        let effective_elapsed = if self.skip_entry_animation || self.demo_gameplay_active() {
-            level_elapsed + OPENING_SCROLL_START_FRAME
-        } else {
-            level_elapsed
-        };
         let bounds = self.level_bounds(self.current_level);
         let mut slice = self.opening_slice.unwrap_or_else(|| {
             if matches!(self.boot_state, BootState::DemoPlay { .. })
@@ -1158,7 +1137,6 @@ impl NativeRuntime {
                     custom_gravity,
                 );
                 slice.step_with_order(
-                    effective_elapsed,
                     input,
                     jump_pressed,
                     self.progression.current_form,
@@ -1197,7 +1175,7 @@ impl NativeRuntime {
         let demo_bootstrap_support_active = self
             .demo_startup_frame()
             .is_some_and(|frame| frame <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
-        let spawn_support_snapped = (self.skip_entry_animation || demo_bootstrap_support_active)
+        let spawn_support_snapped = demo_bootstrap_support_active
             && self
                 .block_grid
                 .as_ref()

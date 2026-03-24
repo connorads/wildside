@@ -651,13 +651,11 @@ impl NativeRuntime {
             self.opening_slice = Some(slice);
             return;
         }
-        let level_elapsed = self.level_elapsed_frames().unwrap_or(0);
         let bounds = self.level_bounds(self.current_level);
         let mut slice = self
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
         slice.step(
-            level_elapsed,
             FrameInput::default(),
             false,
             self.progression.current_form,

@@ -367,7 +367,6 @@ impl NativeRuntime {
             let prev_player = (slice.player.x_pos, slice.player.y_pos);
             let prev_camera = (slice.camera.x_pos, slice.camera.y_pos);
             slice.step(
-                OPENING_SCROLL_START_FRAME + frame,
                 settle_input,
                 false,
                 self.progression.current_form,
@@ -525,7 +524,7 @@ impl NativeRuntime {
     ) -> LevelStartPose {
         let Some(header) = self.level_header(level_id) else {
             return LevelStartPose {
-                kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                kid_x_pos: 0x0020_0000,
                 kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
                 camera_x_pos: 0,
                 camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
@@ -577,7 +576,7 @@ impl NativeRuntime {
                     number_gfx_objects: 4,
                 })
                 .unwrap_or(LevelSkipHoldPose {
-                    kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                    kid_x_pos: 0x0020_0000,
                     kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
                     camera_x_pos: 0,
                     camera_y_pos: 0,
@@ -799,7 +798,7 @@ impl NativeRuntime {
             && resume_entry_elapsed < LEVEL_SKIP_RESUME_ENTRY_FRAMES
         {
             return Some(PlayerState {
-                x_pos: OPENING_ENTRY_KID_X_POS,
+                x_pos: 0x0020_0000,
                 y_pos: LEVEL_ONE_SKIP_RESUME_ENTRY_PLAYER_Y_FP[resume_entry_elapsed],
                 x_velocity: 0,
                 y_velocity: 0,
@@ -923,7 +922,7 @@ impl NativeRuntime {
             return OpeningSliceState::respawn_from_pose(
                 bounds,
                 LevelStartPose {
-                    kid_x_pos: OPENING_ENTRY_KID_X_POS,
+                    kid_x_pos: 0x0020_0000,
                     kid_y_pos: 0x00BF_0000,
                     camera_x_pos: 0,
                     camera_y_pos: 0x0014_0000,

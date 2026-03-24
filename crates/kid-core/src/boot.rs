@@ -1061,7 +1061,6 @@ impl NativeRuntime {
             return;
         }
         self.level_skip_resume_hold = false;
-        self.skip_entry_animation = true;
         self.level_start_frame = Some(self.frame_index);
         self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
     }
