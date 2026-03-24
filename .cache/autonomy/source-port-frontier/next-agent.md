@@ -1,72 +1,67 @@
 ---
-slug: any-percent-published-frame-12430-native-keeps-kid-after-oracle-zeroes-pose
-cycle: 57
-updated_at: 2026-03-24T04:26:00Z
+slug: any-percent-published-frame-13188-demo-bootstrap-hidden-camera-y-high
+cycle: 58
+updated_at: 2026-03-24T04:41:48Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Re-read the ROM labels behind the frame-12430 handoff note and corrected the first investigation target.
-- `loc_1B920` is not a title/demo hand-off object. It is the `sub_1B8F4` intro-sequence-1 wait loop: hibernate for `#$12B+1` frames, then set `Game_Mode=$18`.
-- The live `Game_Mode=$2C` hand-off labels are elsewhere: `loc_119D8` (demo Start-abort -> title), `sub_1C246` (intro-sequence-3/5 Start skip -> title), `Obj_TitleMenu loc_1BB02` (title -> demo/options/start), and the later `loc_1BCD0` / `Load_IntroSequence6` title rebuild path.
-- No native code changed this cycle. This commit only removes the stale ROM lead from the handoff so the next agent starts on the right labels.
+- Fixed the frame-12430 hidden-Kid frontier.
+- The bug was not a demo-return snapshot issue. A targeted regression proved frame 12429 is still `IntroSequence1`, so the live path is `sub_1B8F4` / `loc_1B920` polling `sub_1C246`, not `loc_119D8`.
+- Native was exposing the standard title pose immediately after `sub_1C246` switched to `Game_Mode=$2C`. The ROM still needs the later `Load_IntroSequence6` / `loc_1BCD0` title rebuild settle window before Kid appears.
+- Added `enter_title_screen_from_intro_return()` so intro-sequence returns reuse the local title-ready delay instead of showing the standard title pose on the first title frame.
+- Added `published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430`.
 
 ## Current Model
 
-- The frame-11549 prize-block frontier remains solved; the first authoritative mismatch is still frame `12430`.
-- The important correction is source identity: the handoff’s `0x01B920` target was wrong. That label belongs to intro sequence 1, not to the frame-12430 title/demo transition.
-- Frame `12430` still looks like a title-side hidden-Kid sequencing problem:
-  - Native frame 12430: `mode=0x002c level=00 kid=(0x002e0000,0x008c0000) vel=(0,0)`.
-  - Oracle frame 12430: `kid_x_pos=0`, `kid_y_pos=0`, with only one `0x30` gfx object left at `(0x00810000,0x00c80000)`.
-- Because `Game_Mode=$2C` is already active, the likely causes now sit in the title rebuild / visibility gates, not gameplay terrain:
-  - ROM side: `loc_119D8`, `sub_1C246`, `Obj_TitleMenu loc_1BB02`, `loc_1BCD0`.
-  - Native side: `BootState::TitleScreen`, `title_hides_demo_return_player()`, carried snapshot latches, and the `trace.rs` player-projection order.
+- The frame-12430 title return is now authoritative-clean; `tas-diff --frame-start 12426 --frame-end 12434 --include-advisory` shows only advisory `number_objects` drift.
+- The new first authoritative mismatch is frame `13188`.
+- Current evidence says this is a one-frame hidden demo-bootstrap camera mismatch, not another visible title-pose bug:
+  - Native frame 13188: `mode=0x0010 level=15 kid=(0x00000000,0x00000000) camera_y=0xff000000`
+  - Oracle frame 13188: `mode=0x0010 level=15 kid=(0x00000000,0x00000000) camera_y=0xff200000`
+- Frames 13189..13191 rejoin immediately on authoritative state; only advisory `number_objects` drift remains.
 
 ## Strongest Evidence
 
 - ASM
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `sub_1B8F4` writes `loc_1B920` into `$44(a5)`.
-    - `loc_1B920` loops for `#$12B+1` frames, then writes `Game_Mode=$18`.
-    - `loc_119D8` writes `Game_Mode=$2C` when demo Start-abort wakes.
-    - `sub_1C246` writes `Game_Mode=$2C` on intro-sequence Start skip.
-    - `Obj_TitleMenu loc_1BB02` writes `Game_Mode=$10`.
-    - `loc_1BCD0` is the title rebuild that allocates the carried slot-2 Kid/title gfx objects.
-- Native model
+    - `sub_1B8F4` allocates the intro-sequence-1 text object and stores `loc_1B920` in `$44(a5)`.
+    - `loc_1B920` hibernates and calls `sub_1C246` every frame before naturally writing `Game_Mode=$18`.
+    - `sub_1C246` writes `Game_Mode=$2C` immediately on Start, then returns through the shared title path.
+    - `Load_IntroSequence6` / `loc_1BCD0` are the later title rebuild path, so the first `Game_Mode=$2C` frame should not expose the standard title pose yet.
+- Native
   - `crates/kid-core/src/boot.rs`
-    - `BootState::TitleScreen` owns the `0x002C` hand-off logic.
-    - `finish_demo_title_return()`, `finish_demo_auto_timeout_return()`, `finish_timeout_restart_intro_sequence_3_title_return()`, and `finish_timeout_restart_intro_sequence_5_title_return()` set the title-side carry/hide latches.
-  - `crates/kid-core/src/trace.rs`
-    - `title_hides_demo_return_player()` decides whether Kid is still hidden while `Game_Mode=$2C` is already active.
-    - `current_player_state()` prefers carried snapshot / carried intro poses before falling back to hidden or standard title pose.
-- Existing parity evidence
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11548 --frame-end 11551 --include-advisory --include-physics-trace`
-    - frames 11548..11550 now show advisory-only drift
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
-    - first CRC divergence moved to frame `12430`
+    - `enter_title_screen_from_intro_return()` now forces the local title-ready delay on intro-sequence returns.
+    - `step_boot_state()` uses that helper for both deferred Start skips and natural intro completion returns.
+  - `crates/kid-core/src/tests.rs`
+    - `published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430` locks the fixed path down.
+- Verification
   - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 12426 --frame-end 12434 --include-advisory`
-    - first authoritative diff is frame `12430`
-    - native keeps Kid at `(0x002e0000,0x008c0000)` while oracle zeroes Kid pose
+    - frames 12426..12433 are advisory-only (`number_objects`)
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
+    - first CRC divergence moved to frame `13188`
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13184 --frame-end 13192 --include-advisory`
+    - only authoritative diff is `camera_y_pos` on frame `13188` (`native=0xff000000`, `oracle=0xff200000`)
 
 ## Exact Next Moves
 
-1. Do not read `loc_1B920` again for this frontier. Start from the real `Game_Mode=$2C` labels instead: `loc_119D8`, `sub_1C246`, `Obj_TitleMenu loc_1BB02`, and `loc_1BCD0`.
-2. Explain which of the existing title-side native latches is wrong on frame 12430: preserved demo snapshot, hidden-Kid rebuild window, or carried intro/title pose. Compare the oracle frame against `title_hides_demo_return_player()` and the `current_player_state()` branch order in `crates/kid-core/src/trace.rs`.
-3. Once the cause is proven, add a focused regression around frames 12429..12430 and fix the frontier.
+1. Read the cold-boot demo-start camera/bootstrap ASM that runs after the intro-sequence title shell returns to `Game_Mode=$10`. Do not reopen the fixed 12430 title-hide path.
+2. Explain why oracle uses hidden `camera_y_pos=0xff200000` on frame 13188 while native keeps `0xff000000` for one frame. This looks like another hidden-camera bootstrap constant/write-site issue.
+3. Add a focused regression for frame 13188 once the exact oracle write path is proven, then fix the camera settle.
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549 -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11548 --frame-end 11551 --include-advisory --include-physics-trace`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
+- `cargo test -q -p kid-core published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430 -- --nocapture`
 - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 12426 --frame-end 12434 --include-advisory`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13184 --frame-end 13192 --include-advisory`
+- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not reopen Cyclone Y-acceleration or `loc_B214..loc_B26C`; frame 11549 was a prize-block collision-visibility problem, not a vertical integrator bug.
-- Do not revive the deleted “frame 11549 re-hits the restored prize smash block” diagnostic; it described the fixed native bug, not current truth.
-- Do not trust `.cache/autonomy/source-port-frontier/next-task.json` for this frontier. It is still stale and points at the old frame-7969 Knights Isle work.
-- Do not chase `loc_1B920` for frame 12430. That label is `sub_1B8F4`'s intro-sequence-1 wait loop, not the live title/demo hand-off.
+- Do not treat frame 12430 as `loc_119D8` demo abort. The regression proves frame 12429 is still `IntroSequence1`.
+- Do not chase preserved demo snapshots or `title_hides_demo_return_player()` for frame 12430. The bug was a too-eager standard title-ready gate on the intro-return path.
+- Do not reopen `loc_1B920` as if it were unrelated noise. It was the right intro-sequence-1 loop for this fix; the mistake was assuming it was a demo-return path.
+- Do not go back to the stale frame-11043 frontier. Current bisect evidence lands the first authoritative break at frame 13188.

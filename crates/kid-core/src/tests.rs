@@ -17738,6 +17738,54 @@ fn demo_title_return_keeps_kid_hidden_until_frame_1924() {
 }
 
 #[test]
+fn published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_12429 = None;
+    let mut frame_12430 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(12_431) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            12_429 => {
+                frame_12429 = Some((
+                    mask,
+                    trace.game_mode,
+                    runtime.current_level,
+                    matches!(runtime.boot_state, BootState::IntroSequence { .. }),
+                ));
+            }
+            12_430 => {
+                frame_12430 = Some((
+                    trace.game_mode,
+                    runtime.current_level,
+                    trace.paused,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    matches!(runtime.boot_state, BootState::TitleScreen { .. }),
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B8F4 / loc_1B920 hibernate intro sequence 1 while polling
+    // sub_1C246 for Start skips. When sub_1C246 writes `Game_Mode=$2C`, the
+    // later Load_IntroSequence6 / loc_1BCD0 title rebuild still needs its
+    // local settle window, so the first title frame must keep Kid hidden.
+    assert_eq!(
+        frame_12429,
+        Some((0x00, GameMode::IntroSequence1, LevelId(0x00), true)),
+        "frame 12429 should still be the hibernating intro-sequence frame after the Start press arms sub_1C246",
+    );
+    assert_eq!(
+        frame_12430,
+        Some((GameMode::TitleScreen, LevelId(0x00), false, None, None, true)),
+        "frame 12430 should enter title mode with Kid still hidden on the intro-sequence-1 Start-skip path",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

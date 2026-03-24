@@ -42,6 +42,16 @@ impl NativeRuntime {
         self.pending_prize_diamond_awards.clear();
     }
 
+    fn enter_title_screen_from_intro_return(&mut self) {
+        self.enter_title_screen();
+        // ASM sub_1C246 writes `Game_Mode=$2C` immediately, but the later
+        // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs the local
+        // settle window before the standard title pose appears.
+        self.title_screen_ready_frame = self
+            .frame_index
+            .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
+    }
+
     pub(crate) fn title_screen_ready(&self) -> bool {
         self.frame_index >= self.title_screen_ready_frame
     }
@@ -651,7 +661,7 @@ impl NativeRuntime {
                         } else if self.timeout_restart_title_intro_sequence_5_return_pending {
                             self.finish_timeout_restart_intro_sequence_5_title_return();
                         } else {
-                            self.enter_title_screen();
+                            self.enter_title_screen_from_intro_return();
                         }
                         return;
                     }
@@ -734,7 +744,7 @@ impl NativeRuntime {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
-                        self.enter_title_screen();
+                        self.enter_title_screen_from_intro_return();
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =
                             *segment == 2 && intro_sequence_3_frames_override.is_some();
