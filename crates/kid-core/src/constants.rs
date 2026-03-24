@@ -104,12 +104,12 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES:
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_X_POS: u32 = 0x0000_0000;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // ASM loc_1BA28 dispatches to the shared fade helper sub_1C204 before
-// loc_1BA5C starts its `move.w #$1BC,d0` / `Hibernate_Object_1Frame` / `dbf`
-// countdown. Native therefore cannot reuse the shared 80-frame intro timer on
-// the timeout-restart path; this segment must stay alive for the 17-frame fade
-// plus the full `0x1BD` DBF loop unless Start drives the earlier sub_1C246
-// title return.
-pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD;
+// loc_1BA5C starts its long intro-sequence-5 timeout. Oracle traces of the
+// published TAS later timeout-restart revisit keep `Game_Mode=$24` alive
+// through frame 20893 and only reach loc_1BA5C's `move.w #$28,(Game_Mode).w`
+// hand-off on 20894, so the older `17 + 0x1BD` approximation was 59 frames
+// short on the real timeout path.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD + 59;
 // The later Start-skip intro-return lineage revisits the timeout-restart copy
 // of intro sequence 5 one shared sub_1C204 fade window earlier than the plain
 // timeout path. Oracle keeps `Game_Mode=$24` alive through frame 16649 and

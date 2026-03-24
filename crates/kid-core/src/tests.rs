@@ -18235,6 +18235,42 @@ fn published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404(
 }
 
 #[test]
+fn published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_20835 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(20_836) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 20_835 {
+            frame_20835 = Some((
+                trace.game_mode,
+                trace.current_level,
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+            ));
+            break;
+        }
+    }
+
+    // ASM loc_1BA28 hands intro sequence 5 to the shared fade helper
+    // `sub_1C204`, then `loc_1BA5C` keeps hibernating inside `Game_Mode=$24`
+    // until its long timeout finally reaches `move.w #$28,(Game_Mode).w`.
+    // Oracle probes show the later Start-skip intro-return lineage has not
+    // reached that `$28` hand-off yet on frame 20835, so the carried
+    // loc_1BCD0 slot-2 pose must still be visible there.
+    assert_eq!(
+        frame_20835,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 20835 should still be intro sequence 5 with loc_1BCD0's slot-2 pose on the later timeout-restart revisit",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;
