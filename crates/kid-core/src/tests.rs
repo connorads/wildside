@@ -2025,7 +2025,11 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
     for frame in 1..=20 {
         slice.step_with_order(
             OPENING_SCROLL_START_FRAME,
-            FrameInput { right: true, a: true, ..FrameInput::default() },
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
@@ -2045,8 +2049,16 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
             y_px - (slice.player.y_pos >> 16) as i32 // self-reference for log
         ));
 
-        assert!(on_ground, "fell off slope frame {frame}!\n{}", frames_log.join("\n"));
-        assert!(x_px > prev_x_px, "no rightward motion frame {frame}!\n{}", frames_log.join("\n"));
+        assert!(
+            on_ground,
+            "fell off slope frame {frame}!\n{}",
+            frames_log.join("\n")
+        );
+        assert!(
+            x_px > prev_x_px,
+            "no rightward motion frame {frame}!\n{}",
+            frames_log.join("\n")
+        );
 
         let col = x_px >> 4;
         if col >= 2 && col <= 5 {
@@ -2103,7 +2115,11 @@ fn solid_to_slope_up_transition_stays_grounded() {
     for frame in 1..=30 {
         slice.step_with_order(
             OPENING_SCROLL_START_FRAME,
-            FrameInput { right: true, a: true, ..FrameInput::default() },
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
             false,
             PlayerForm::TheKid,
             Some(&mut grid),
@@ -14167,6 +14183,50 @@ fn published_tas_second_timeout_restart_delays_intro_sequence_4_camera_until_sub
         frame_9393,
         Some((GameMode::IntroSequence4, 0x0004_0000)),
         "once sub_1B988 has run, the intro-sequence-4 camera should stay at y=4",
+    );
+}
+
+#[test]
+fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_9435() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9434 = None;
+    let mut frame_9435 = None;
+    let mut frame_9436 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_437) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_434 => {
+                frame_9434 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_435 => {
+                frame_9435 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_436 => {
+                frame_9436 = Some((trace.game_mode, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1B9B2 counts `move.w #$21B,d0` down with `dbf` before the
+    // `move.w #$24,(Game_Mode).w` hand-off, so the timeout-restart path must
+    // still be in intro sequence 4 across the old frame-9435 frontier.
+    assert_eq!(
+        frame_9434,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9434 should still be in intro sequence 4 with the latched camera hand-off",
+    );
+    assert_eq!(
+        frame_9435,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9435 should stay in intro sequence 4 because loc_1B9B2 has not timed out yet",
+    );
+    assert_eq!(
+        frame_9436,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "the following frame should remain in intro sequence 4 until the ROM timer expires",
     );
 }
 

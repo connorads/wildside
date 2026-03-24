@@ -146,6 +146,9 @@ pub struct NativeRuntime {
     /// Its direct title return is still Start-driven; the natural timeout
     /// path continues through the later intro sequences.
     demo_auto_timeout_intro_sequence_3_frames_override: Option<usize>,
+    /// ASM sub_1B988 / loc_1B9B2 hibernate intro sequence 4 for `#$21B+1`
+    /// frames before exposing intro sequence 5 on the timeout-restart path.
+    demo_auto_timeout_intro_sequence_4_frames_override: Option<usize>,
     /// A Start-driven timeout-restart intro-sequence-3 title jump can still
     /// pass through the shared deferred Start→title skip countdown before
     /// title mode becomes visible, so the later handoff must remember to keep
@@ -293,6 +296,7 @@ impl NativeRuntime {
             demo_auto_timeout_intro_sequence_1_frames_override: None,
             demo_auto_timeout_intro_sequence_2_frames_override: None,
             demo_auto_timeout_intro_sequence_3_frames_override: None,
+            demo_auto_timeout_intro_sequence_4_frames_override: None,
             timeout_restart_title_intro_sequence_3_return_pending: false,
             preserve_demo_title_snapshot: false,
             timeout_restart_title_intro_sequence_3_pose: false,

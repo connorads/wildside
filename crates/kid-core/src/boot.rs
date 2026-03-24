@@ -29,6 +29,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
+        self.demo_auto_timeout_intro_sequence_4_frames_override = None;
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
@@ -123,6 +124,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
+        self.demo_auto_timeout_intro_sequence_4_frames_override = None;
         self.timeout_restart_title_intro_sequence_3_pose = false;
         self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
@@ -159,6 +161,8 @@ impl NativeRuntime {
             Some(DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES);
         self.demo_auto_timeout_intro_sequence_3_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES);
+        self.demo_auto_timeout_intro_sequence_4_frames_override =
+            Some(DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
@@ -587,6 +591,8 @@ impl NativeRuntime {
             self.demo_auto_timeout_intro_sequence_2_frames_override;
         let intro_sequence_3_frames_override =
             self.demo_auto_timeout_intro_sequence_3_frames_override;
+        let intro_sequence_4_frames_override =
+            self.demo_auto_timeout_intro_sequence_4_frames_override;
         let mut activate_intro_sequence_3_roster = false;
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
@@ -633,6 +639,7 @@ impl NativeRuntime {
                     0 => intro_sequence_1_frames_override.unwrap_or(INTRO_FIRST_SEGMENT_FRAMES),
                     1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
+                    3 => intro_sequence_4_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
                 // ASM sub_1B93E / loc_1B96A naturally count intro sequence 3
@@ -657,6 +664,8 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
                     } else if *segment == 2 {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
+                    } else if *segment == 3 {
+                        self.demo_auto_timeout_intro_sequence_4_frames_override = None;
                     }
                     if *segment >= 4 || timeout_restart_start_returns_to_title {
                         self.timeout_restart_title_intro_sequence_3_return_pending =
@@ -678,6 +687,8 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
                     } else if *segment == 2 {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
+                    } else if *segment == 3 {
+                        self.demo_auto_timeout_intro_sequence_4_frames_override = None;
                     }
                     if *segment >= 4 {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;

@@ -69,6 +69,11 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
 // visible `move.w #4,(Camera_Y_pos).w` does not surface until frame 9392 in
 // the timeout-restart published TAS window, after a short zero-camera gap.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize = 37;
+// ASM sub_1B988 / loc_1B9B2 run `move.w #$21B,d0` then `dbf d0,loc_1B9B6`
+// before switching to `Game_Mode=$24`, so the timeout-restart copy of intro
+// sequence 4 cannot reuse the shared 80-frame timer. Oracle traces still show
+// `game_mode=0x0020` on frame 9435 because this segment lasts 0x21C frames.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize = 0x021C;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.
