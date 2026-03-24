@@ -408,14 +408,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 fading_in = false;
             }
 
-            let title_start_bootstrapped = options.warp_level.is_none()
-                && !options.settled
-                && prev_trace.start_press_count < 6
-                && trace.start_press_count >= 6
-                && matches!(trace.game_mode, GameMode::InGame);
-            if title_start_bootstrapped {
-                runtime.enter_level_playtest(LevelId(trace.current_level.0));
-                trace = runtime.trace_frame();
+            // Show level card when the engine first enters gameplay
+            // (title → StartingLevel maps to GameMode::InGame in trace)
+            let entered_gameplay = !matches!(prev_trace.game_mode, GameMode::InGame)
+                && matches!(trace.game_mode, GameMode::InGame)
+                && options.warp_level.is_none()
+                && !options.settled;
+            if entered_gameplay {
                 level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
             }
         }
@@ -442,8 +441,17 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         if level_changed || entered_in_game {
             let new_level = trace.current_level.0;
             if level_changed {
-                runtime.enter_level_playtest(LevelId(new_level));
-                trace = runtime.trace_frame();
+                // Reload presentation assets only — engine already set up the new level
+                // (advance_level calls reload_block_grid_for_level internally)
+                match load_native_session_assets(manifest, new_level) {
+                    Ok(new_assets) => {
+                        session_assets = new_assets;
+                        current_level_id = new_level;
+                    }
+                    Err(error) => {
+                        eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
+                    }
+                }
                 fade_alpha = 255;
                 fading_in = true;
                 level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
@@ -456,17 +464,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     .map(|h| h.level_theme);
                 if let Some(bgm) = level_theme.and_then(theme_to_bgm) {
                     gems.play_sound(bgm);
-                }
-            }
-            if level_changed {
-                match load_native_session_assets(manifest, new_level) {
-                    Ok(new_assets) => {
-                        session_assets = new_assets;
-                        current_level_id = new_level;
-                    }
-                    Err(error) => {
-                        eprintln!("failed to load visuals for level 0x{new_level:02X}: {error:#}");
-                    }
                 }
             }
             if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay) {
