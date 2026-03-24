@@ -1426,8 +1426,8 @@ pub(crate) enum DeferredPrizeBlockPhase {
 }
 
 /// ASM sub_1007A prize-block lifecycle: after a headbutt the block stays Solid
-/// (0x6F), then briefly restores the original prize cell, then clears and
-/// creates the prize object.
+/// (0x6F), then briefly restores the original prize cell, then writes the
+/// collision-solid Smash cell `$E001` and creates the prize object.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DeferredCeilingClear {
     pub(crate) col: u16,

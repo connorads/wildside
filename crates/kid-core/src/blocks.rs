@@ -101,9 +101,9 @@ impl NativeRuntime {
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
 
-    /// Tick prize-block bounce lifecycles. The oracle shows a three-step
-    /// sequence: hold 0x6F, briefly restore the original prize cell, then clear
-    /// the tile and create the prize object.
+    /// Tick prize-block bounce lifecycles. ASM sub_1007A holds 0x6F, briefly
+    /// restores the original prize cell, then writes `$E001` and creates the
+    /// prize object.
     pub(crate) fn step_deferred_ceiling_clears(&mut self) {
         if let Some(grid) = &mut self.block_grid {
             self.block_state

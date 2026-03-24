@@ -1,66 +1,69 @@
 ---
 slug: any-percent-published-frame-11549-demo-2-cyclone-flight-y-high
-cycle: 54
-updated_at: 2026-03-24T04:05:00Z
+cycle: 55
+updated_at: 2026-03-24T03:59:36Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Re-read the Cyclone flight ASM in `.cache/upstream/kid-chameleon-disasm/kid.asm` around `sub_B168` `loc_B214..loc_B26C`.
-- Re-ran `tas-diff` for frames `11548..11550` to confirm the first authoritative break is still `camera_y_pos=0x00730000 -> 0x00720000` and `kid_y_pos=0x010F0000 -> 0x010E9A00` on frame `11549`.
-- Added ignored regression `published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549` in `crates/kid-core/src/tests.rs` so the live 11548/11549/11550 Cyclone window is explicit in the test suite without locking in the current bug.
-- Verified the focused timeout-restart test slice and `mise run verify-slice-fast`; no runtime behaviour changed this cycle.
-- Noted a context hazard: `.cache/autonomy/source-port-frontier/next-task.json` is stale and still points at the older frame-7969 Knights Isle frontier. Follow this note, not that JSON, until the task package is regenerated.
+- Re-read `sub_B168` and `sub_1007A` in `.cache/upstream/kid-chameleon-disasm/kid.asm`. `sub_B168 loc_B214..loc_B26C` is still just the Cyclone Y-acceleration path; `sub_1007A` explicitly writes `$E001` before spawning the prize object.
+- Added ignored diagnostic `published_tas_second_timeout_restart_frame_11549_rehits_the_restored_prize_smash_block` in [crates/kid-core/src/tests.rs](/home/connor/git/kc/crates/kid-core/src/tests.rs) to pin the live native behaviour on frame 11549.
+- Corrected stale native comments in [crates/kid-core/src/types.rs](/home/connor/git/kc/crates/kid-core/src/types.rs) and [crates/kid-core/src/blocks.rs](/home/connor/git/kc/crates/kid-core/src/blocks.rs): the prize lifecycle does not clear straight to empty after the restore phase; `sub_1007A` writes collision-solid Smash cell `$E001` and then spawns the prize object.
+- Verified the new ignored diagnostic and a nearby non-ignored published-TAS smoke test. The older ignored frame-11549 parity test still fails earlier at its frame-11548 camera expectation, so do not use that assertion as current truth until it is rebased.
 
 ## Current Model
 
-- The live blocker is still frame 11549 in Skydragon Castle demo gameplay. Native keeps Cyclone one pixel higher on the first authoritative break:
-  - native `camera_y_pos=0x00730000`, oracle `0x00720000`
-  - native `kid_y_pos=0x010F0000`, oracle `0x010E9A00`
-- `sub_B168` `loc_B214..loc_B26C` is the relevant ROM path once `Cyclone_flying` is set: it increments the 16-bit `Cyclone_YAcceleration` by `$400`, optionally subtracts `$3000` on a consumed C-edge, stores the wrapped word back, sign-extends it into `d7`, adds it to `y_vel(a3)`, then clamps velocity to `[-$30000, $28000]`.
-- Native probes already show `helmet=0x0002`, `cyclone_flying=1`, and `custom_gravity=1`, so the next likely cause is still Cyclone's flying Y-acceleration / post-flight vertical hand-off rather than title/demo bootstrap state.
-- `number_objects` drift in this window is still advisory and comes from prize-diamond / floating-item state; do not chase that before the Cyclone Y path.
+- The frame-11549 blocker is no longer “Cyclone gravity/hand-off is wrong”. Native `step_cyclone_flight()` and the AsmFaithful vertical integrator both reach the oracle-backed post-vertical pose on frame 11549.
+- The actual native break is an immediate re-hit on the restored prize-block cell at `(22,14)` after the post-vertical rise:
+  - `physics.post_vertical = (0x010E9A00, 0xFFFF9A00)`
+  - final native `kid_y_pos = 0x010F0000`, `kid_y_vel = 0`
+  - `block_destroy_effects` contains `(352,224,8)` on the same frame
+  - the floating prize item is already live at `level_col=22`, `level_row=14`, `remaining=499`
+- By the time the diagnostic inspects the grid on frame 11549, both edge probes at the head row are empty. That means the in-frame snap is not a generic empty-space ceiling hit; native has already cleared the restored Smash block during the same frame.
+- So the live question is now prize-cell collision visibility/timing around the restored `$E001` cell, not Cyclone Y-acceleration. Either native exposes that restored Smash block to Kid one frame too early on the timeout-restart path, or the player/block update ordering around that object coroutine is still wrong.
 
 ## Strongest Evidence
 
 - ASM
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `sub_B168` `loc_B214`..`loc_B26C`: Cyclone flying path updates `Cyclone_YAcceleration`, integrates it into `y_vel(a3)`, then clamps to `#-$30000 .. #$28000`
-- Native/oracle diagnostics
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10982 --frame-end 10994 --include-advisory`
-    - frames `10982..10993`: `MATCH`
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11038 --frame-end 11048 --include-advisory`
-    - frames `11038..11047`: `MATCH`
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11548 --frame-end 11551 --include-advisory`
-    - frame `11548`: advisory-only `number_objects`
-    - frame `11549`: first authoritative break on `camera_y_pos` (`0x00730000` vs `0x00720000`) and `kid_y_pos` (`0x010F0000` vs `0x010E9A00`)
-    - frame `11550`: drift continues to `camera_y_pos` (`0x00720000` vs `0x00710000`) and `kid_y_pos` (`0x010E9E00` vs `0x010DD200`)
-    - native gameplay probes on `11548..11550` show `cyclone_flying=1`, `custom_gravity=1`, and `Cyclone_YAcceleration=-27136 -> -26112 -> -25088`
-  - `cargo test -q -p kid-core published_tas_second_timeout_restart_ -- --nocapture`
-    - passes; the new frame-11549 oracle parity test is ignored as intended until the fix lands
-  - `mise run verify-slice-fast`
+    - `sub_B168` `loc_B214..loc_B26C`: Cyclone flying path only updates `Cyclone_YAcceleration` and `y_vel(a3)`.
+    - `sub_1007A` around `loc_10120`: after the bounce coroutine, the ROM writes `$E001` via `sub_11530` and then spawns the prize object.
+- Native diagnostic
+  - `cargo test -q -p kid-core published_tas_second_timeout_restart_frame_11549_rehits_the_restored_prize_smash_block -- --ignored --nocapture`
     - passes
+    - pins `physics.pre_vertical = (0x010F0000, 0xFFFF9A00)`
+    - pins `physics.post_vertical = (0x010E9A00, 0xFFFF9A00)`
+    - pins final native `kid_y_pos = 0x010F0000`, `kid_y_vel = 0`
+    - proves `floating_items` already contains the prize at `(22,14)` with `remaining=499`
+    - proves `block_destroy_effects` already contains `(352,224,8)` on that same frame
+    - proves the grid is empty at both ceiling edge probes by frame end, so the block was re-hit and cleared during the frame
+- Smoke test
+  - `cargo test -q -p kid-core published_tas_demo_2_resumes_demo_play_on_frame_6906 -- --nocapture`
+    - passes
+- Known stale regression
+  - `cargo test -q -p kid-core published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549 -- --ignored --nocapture`
+    - currently fails at its frame-11548 camera expectation (`0x00740000` asserted vs native `0x00730000`)
+    - this failure predates the new diagnostic and means the ignored parity test needs rebasing before it can serve as the fix gate
 
 ## Exact Next Moves
 
-1. Fix the native Cyclone flight vertical hand-off so `published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549` can be unignored and pass. Start in `crates/kid-core/src/helmets.rs` and the surrounding post-physics path that feeds `step_cyclone_flight()`.
-2. Re-read the surrounding player path that runs after `sub_B168` on the same frame to find where native freezes at `kid_y_pos=0x010F0000` even though `y_vel` has already advanced to `0xFFFF9A00`.
-3. Once the fix lands, unignore the new frame-11549 regression, rerun the 11548..11550 `tas-diff`, then rerun the bisect from frame `9531`.
+1. Re-read the surrounding object-order ASM for the prize-block restore/spawn path and the player update order on this timeout-restart demo path. Start from `sub_1007A` and the object scheduler it runs under, then compare that ordering to `step_deferred_ceiling_clears()` / `finish_deferred_ceiling_clears()` in native.
+2. Fix the collision-visibility timing so frame 11549 keeps the oracle-backed `post_vertical` rise instead of re-hitting the restored Smash block. Bias towards lifecycle/order corrections in [crates/kid-core/src/blocks.rs](/home/connor/git/kc/crates/kid-core/src/blocks.rs) and [crates/kid-core/src/movement.rs](/home/connor/git/kc/crates/kid-core/src/movement.rs), not Cyclone gravity changes in [crates/kid-core/src/helmets.rs](/home/connor/git/kc/crates/kid-core/src/helmets.rs).
+3. Once the fix lands, rebase the ignored frame-11549 parity test so its pre-frontier frame-11548 expectation matches current truth, then use it as the oracle gate for the final patch.
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core published_tas_second_timeout_restart_ -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 10982 --frame-end 10994 --include-advisory`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11038 --frame-end 11048 --include-advisory`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11548 --frame-end 11551 --include-advisory`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
-- `mise run verify-slice-fast`
+- `cargo test -q -p kid-core published_tas_second_timeout_restart_frame_11549_rehits_the_restored_prize_smash_block -- --ignored --nocapture`
+- `cargo test -q -p kid-core published_tas_demo_2_resumes_demo_play_on_frame_6906 -- --nocapture`
+- After the fix: `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 11548 --frame-end 11551 --include-advisory --include-physics-trace`
+- After the fix: `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9531 --bisect`
+- After the fix: `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not reopen the timeout-restart title-arm/timer theory for this frontier. The 10982..10994 and 11038..11048 slices are now clean.
-- Do not move the preload frame itself earlier or later. Frame 11042 already matches; only the hidden preload row value on 11043 was wrong.
-- Do not chase `number_objects` at frame 11549 before fixing the Cyclone Y path. That object-count drift is advisory and already starts one frame earlier.
-- Do not follow `.cache/autonomy/source-port-frontier/next-task.json` for this session. It is stale and still points at the old frame-7969 frontier.
+- Do not keep pushing on Cyclone Y-acceleration or post-physics `step_cyclone_activation()`. The frame-11549 diagnostic proves native already reaches the oracle-backed `post_vertical` rise before the snap.
+- Do not treat the empty end-of-frame ceiling probes as proof that `apply_ceiling_collision()` never fired. The restored Smash block is already gone by the time the diagnostic inspects the grid; the same frame also spawns the matching `block_destroy_effect`.
+- Do not rely on the existing ignored `published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549` expectations until its frame-11548 camera assertion is rebased.
+- Do not follow `.cache/autonomy/source-port-frontier/next-task.json` for this frontier. It is still stale and points at the old frame-7969 Knights Isle work.
