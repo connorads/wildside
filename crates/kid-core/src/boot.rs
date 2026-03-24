@@ -683,7 +683,7 @@ impl NativeRuntime {
                     return;
                 }
                 *elapsed += 1;
-                let segment_frames = match *segment {
+                let mut segment_frames = match *segment {
                     0 => intro_sequence_1_frames_override.unwrap_or(INTRO_FIRST_SEGMENT_FRAMES),
                     1 => intro_sequence_2_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
@@ -691,6 +691,21 @@ impl NativeRuntime {
                     4 => intro_sequence_5_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
+                if *segment == 4
+                    && intro_sequence_5_frames_override.is_some()
+                    && self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility
+                {
+                    // ASM loc_1BA28 / sub_1C204 keep the timeout-restart copy
+                    // of intro sequence 5 hibernating before loc_1BA5C starts
+                    // polling sub_1C246. Oracle's later Start-skip
+                    // intro-return lineage still sits in `Game_Mode=$24` on
+                    // frame 16649 and only lets the frame-16648 Start press
+                    // land on sub_1C246's shared 2-frame deferral. Hold this
+                    // lineage for one extra sub_1C204 fade window instead of
+                    // expiring to title before that Start edge arrives.
+                    segment_frames +=
+                        DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES;
+                }
                 // ASM sub_1B93E / loc_1B96A naturally count intro sequence 3
                 // down to `Game_Mode=$20` (intro sequence 4). Only ASM
                 // sub_1C246 / loc_1C250 jumps straight to title here, and that

@@ -1,81 +1,80 @@
 ---
-slug: any-percent-published-frame-16633-intro-sequence-5-title-return-too-early
-cycle: 60
-updated_at: 2026-03-24T05:31:08Z
+slug: any-percent-published-post-16659-next-frontier-pending-bisect
+cycle: 61
+updated_at: 2026-03-24T05:47:20Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the frame-16228 `kid_y_pos` frontier without regressing the older frame-10007 intro-sequence-5 window.
-- Read the owning ASM: `sub_1B988` flips to `Game_Mode=$24`, `Load_IntroSequence5` allocates `loc_1BA28` and `loc_1BCD0`, and `loc_1BCD0` writes the slot-2 pose with `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`.
-- Added `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228`.
-- Preserved Start-skip intro-return lineage through the later demo auto-timeout path so only that lineage exposes `loc_1BCD0`'s slot-2 pose one frame earlier; the normal timeout-restart path still waits until frame 10007.
+- Fixed the frame-16633 intro-sequence-5 frontier by keeping the Start-skip intro-return lineage in `Game_Mode=$24` for one extra fade window.
+- Added `published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press`.
+- Updated the timeout-restart intro-sequence-5 timer so this lineage no longer expires to title before the real frame-16648 Start press can arm `sub_1C246`.
 
 ## Current Model
 
-- The frame-16228 frontier is now authoritative-clean; `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` shows only advisory `number_objects` drift on frames 16227..16231.
-- The blunt global fix was wrong: shifting the shared intro-sequence-5 slot-2 threshold to frame 57 made frame 10006 visible too early. The correct model is lineage-specific, not a universal timer change.
-- The new first authoritative mismatch is frame `16633`.
-- Current evidence says native exits intro sequence 5 into title too early on the same Start-skip intro-return lineage:
-  - Native frames 16633..16636: `game_mode=0x002c`, `kid_y_pos=0x00000000`
-  - Oracle frames 16633..16636: `game_mode=0x0024`, `kid_y_pos=0x00e00000`
-- Frames 16629..16632 are authoritative-clean apart from advisory `number_objects=3`.
+- The old frame-16633 theory was wrong. Native was not reaching `finish_timeout_restart_intro_sequence_5_title_return()` early.
+- ASM `loc_1BA5C` only leaves intro sequence 5 via natural timeout or `sub_1C246`.
+- The published TAS has no Start input on frames 16620..16647. The real Start press is frame 16648.
+- Oracle stays in `Game_Mode=$24` with `loc_1BCD0` slot 2 at `(x=0,y=$E0)` through frame 16649, then the shared 2-frame `sub_1C246` deferral reaches title on frame 16650.
+- Native had been expiring the timeout-restart copy of intro sequence 5 seventeen frames too early on the Start-skip intro-return lineage. Holding that lineage for one extra fade window clears the old authoritative break.
+- `tas-diff --frame-start 16629 --frame-end 16660 --include-advisory` is now authoritative-clean through frame 16659; only advisory `number_objects` drift remains there.
+- `verify-tas --frame-start 13189 --bisect` now lands at frame `16798`.
 
 ## Strongest Evidence
 
 - ASM
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `sub_1B988`: `move.w #$24,(Game_Mode).w` is the intro-sequence-4 -> intro-sequence-5 hand-off.
-    - `Load_IntroSequence5`: allocates `loc_1BA28` and `loc_1BCD0`.
-    - `loc_1BCD0`: writes the slot-2 pose with `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`.
-    - `loc_1BA5C` polls `sub_1C246` during intro sequence 5, so the next frontier likely sits in that Start-driven title-return path.
+    - `loc_1BA28` calls `sub_1C204` before dispatching to `loc_1BA5C`.
+    - `loc_1BA5C` is only `Hibernate_Object_1Frame` + `sub_1C246` polling + DBF loop.
+    - `sub_1C246` writes `move.w #$2C,(Game_Mode).w` only on a latched Start press.
+- Oracle
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16633 --frame-end 16645 --watches 0xFFFFFBCA:u16,0x00FF24FA:u16,0x00FF24FE:u16`
+    - frames 16633..16645 keep `Game_Mode=0x24`, `slot2_x=0`, `slot2_y=0xE0`
+  - `jq '.inputs[16646:16651]' .cache/tas-imports/any-percent-published/scenario.json`
+    - `[0,0,128,0,0]`
 - Native
-  - `crates/kid-core/src/lib.rs`
-    - carries a new Start-skip intro-return lineage bit through the later demo auto-timeout return.
   - `crates/kid-core/src/boot.rs`
-    - preserves that lineage across `finish_demo_auto_timeout_return()`.
-  - `crates/kid-core/src/trace.rs`
-    - uses the lineage bit to expose `loc_1BCD0` slot 2 one frame earlier only on the intro-return-derived timeout-restart visit.
+    - adds one extra fade window only when `demo_timeout_restart_uses_intro_return_slot_2_early_visibility` is set on timeout-restart intro sequence 5
+  - `crates/kid-core/src/constants.rs`
+    - `DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES`
   - `crates/kid-core/src/tests.rs`
-    - `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228` locks the fixed frame down.
+    - `published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press`
 - Verification
+  - `cargo test -q -p kid-core published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press -- --nocapture`
   - `cargo test -q -p kid-core published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228 -- --nocapture`
   - `cargo test -q -p kid-core published_tas_second_timeout_restart_exposes_intro_sequence_5_slot_2_on_frame_10007 -- --nocapture`
   - `cargo test -q -p kid-core published_tas_second_timeout_restart_keeps_intro_sequence_5_alive_past_frame_10029 -- --nocapture`
   - `cargo test -q -p kid-core published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188 -- --nocapture`
   - `cargo test -q -p kid-core demo_1_bootstrap_keeps_camera_hidden_through_frame_2537 -- --nocapture`
   - `cargo test -q -p kid-core published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430 -- --nocapture`
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16224 --frame-end 16232 --include-advisory`
-    - frame 16228 is now advisory-only
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16629 --frame-end 16660 --include-advisory`
   - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13189 --bisect`
-    - first CRC divergence moved to frame `16633`
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16629 --frame-end 16637 --include-advisory`
-    - frames 16633..16636 diverge on `game_mode` (`0x002c` vs `0x0024`) and `kid_y_pos` (`0` vs `0x00e00000`)
+    - first CRC divergence moved to frame `16798`
   - `mise run verify-slice-fast`
 
 ## Exact Next Moves
 
-1. Read `loc_1BA5C` and `sub_1C246` around the frame-16633 frontier. Prove why oracle stays in `Game_Mode=$24` with the `loc_1BCD0` slot-2 pose through frames 16633..16636.
-2. Explain which native branch reaches `finish_timeout_restart_intro_sequence_5_title_return()` too early on the Start-skip intro-return lineage.
-3. Add a focused regression for the frame-16633..16636 window, then fix the intro-sequence-5 -> title hand-off without reopening the cleared frame-16228 slot-visibility frontier.
+1. Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16794 --frame-end 16802 --include-advisory` to classify the new frame-16798 frontier.
+2. Once the new divergent fields are known, inspect the owning ASM before changing code again. Do not assume it is still intro-sequence timing.
+3. Add one focused regression for frame 16798 only after ASM + narrow diff agree on the real cause.
 
 ## Verification To Re-run
 
+- `cargo test -q -p kid-core published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press -- --nocapture`
 - `cargo test -q -p kid-core published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228 -- --nocapture`
 - `cargo test -q -p kid-core published_tas_second_timeout_restart_exposes_intro_sequence_5_slot_2_on_frame_10007 -- --nocapture`
 - `cargo test -q -p kid-core published_tas_second_timeout_restart_keeps_intro_sequence_5_alive_past_frame_10029 -- --nocapture`
 - `cargo test -q -p kid-core published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188 -- --nocapture`
 - `cargo test -q -p kid-core demo_1_bootstrap_keeps_camera_hidden_through_frame_2537 -- --nocapture`
 - `cargo test -q -p kid-core published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430 -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16224 --frame-end 16232 --include-advisory`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16629 --frame-end 16660 --include-advisory`
 - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13189 --bisect`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16629 --frame-end 16637 --include-advisory`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not change `TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES` globally. Frame 10006 immediately regresses if the shared threshold moves from 58 to 57.
-- Do not reopen frame 16228 as a generic mode-`$24` timer bug. The fixed behaviour is lineage-specific: only the Start-skip intro-return-derived timeout-restart visit exposes slot 2 one frame earlier.
-- Do not treat frame 16633 as another slot-visibility threshold bug. The next frontier is a premature `Game_Mode=$2C` title return while oracle is still in intro sequence 5.
+- Do not debug `finish_timeout_restart_intro_sequence_5_title_return()` for the old frame-16633 frontier. The published TAS had no Start edge before frame 16648, so that helper could not be the cause.
+- Do not move the shared timeout-restart intro-sequence-5 timer globally. The older frame-10007/frame-10029 regressions still need the plain timeout path unchanged.
+- Do not reopen frame 16228 as a generic mode-`$24` visibility issue. That slot-2 frontier remains fixed.

@@ -110,6 +110,14 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // plus the full `0x1BD` DBF loop unless Start drives the earlier sub_1C246
 // title return.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD;
+// The later Start-skip intro-return lineage revisits the timeout-restart copy
+// of intro sequence 5 one shared sub_1C204 fade window earlier than the plain
+// timeout path. Oracle keeps `Game_Mode=$24` alive through frame 16649 and
+// only lets the frame-16648 Start press arm sub_1C246's shared 2-frame title
+// return, so native must not expire this lineage before one extra fade window
+// elapses.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES: usize =
+    TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES;
 // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so the
 // loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
 // overwrites that WRAM slot 28 frames later.

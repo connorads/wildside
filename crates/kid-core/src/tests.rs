@@ -17921,6 +17921,103 @@ fn published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228() {
 }
 
 #[test]
+fn published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_16647 = None;
+    let mut frame_16648 = None;
+    let mut frame_16649 = None;
+    let mut frame_16650 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(16_651) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            16_647 => {
+                frame_16647 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            16_648 => {
+                frame_16648 = Some((
+                    mask,
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            16_649 => {
+                frame_16649 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            16_650 => {
+                frame_16650 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1BA5C keeps hibernating intro sequence 5 while polling
+    // sub_1C246. Oracle WRAM probes show the later Start-skip intro-return
+    // lineage still in `Game_Mode=$24` with loc_1BCD0's slot-2 pose on frame
+    // 16648, then sub_1C246's shared 2-frame Start deferral reaches title on
+    // frame 16650.
+    assert_eq!(
+        frame_16647,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 16647 should still be intro sequence 5 with loc_1BCD0's slot-2 pose visible",
+    );
+    assert_eq!(
+        frame_16648,
+        Some((
+            0x80,
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 16648 should be the published TAS Start press that arms sub_1C246 from intro sequence 5",
+    );
+    assert_eq!(
+        frame_16649,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 16649 should still be intro sequence 5 during sub_1C246's shared 2-frame Start deferral",
+    );
+    assert_eq!(
+        frame_16650,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 16650 should enter title mode while preserving the carried loc_1BCD0 slot-2 pose",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;
