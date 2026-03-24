@@ -1043,12 +1043,12 @@ impl NativeRuntime {
         // the player object is in the transform state and normal movement/physics
         // don't run. Suppress physics while form_change_flash_frames > 0.
         if self.progression.form_change_flash_frames == 0 {
-            let deferred_prize_ceiling_cells: Vec<(u16, u16)> = self
+            let deferred_prize_ceiling_cells: Vec<(u16, u16, DeferredPrizeBlockPhase)> = self
                 .block_state
                 .deferred_ceiling_clears
                 .iter()
                 .filter(|entry| entry.phase != DeferredPrizeBlockPhase::Deleted)
-                .map(|entry| (entry.col, entry.row))
+                .map(|entry| (entry.col, entry.row, entry.phase))
                 .collect();
             // Helmet abilities that override normal gravity
             let custom_gravity = self.helmet.skycutter_on_board

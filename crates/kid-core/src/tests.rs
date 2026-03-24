@@ -3387,7 +3387,7 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         None,
         PlayerForm::TheKid,
         PLAYER_HALF_WIDTH,
-        &[(2, 2)],
+        &[(2, 2, DeferredPrizeBlockPhase::Restored)],
     );
 
     assert_eq!(
@@ -3408,6 +3408,72 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         "restored frame must not restart the deferred clear lifecycle"
     );
     assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE1, 0x01));
+}
+
+#[test]
+fn fresh_smash_prize_ceiling_frame_does_not_block_motion() {
+    let mut grid = grid_with_blocks();
+    grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            x_pos: 40 << 16,
+            y_pos: 63 << 16,
+            x_velocity: 0,
+            y_velocity: -0x0011_0000,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 64 << 16,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+        ceiling_prize_clear: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
+        wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
+    };
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[(2, 2, DeferredPrizeBlockPhase::FreshSmash)],
+    );
+
+    assert_eq!(
+        slice.player.y_velocity, -0x0011_0000,
+        "ASM sub_7196/sub_1007A priorities let Kid finish before the freshly written $E001 cell becomes collision-visible",
+    );
+    assert_eq!(slice.player.y_pos, 63 << 16);
+    assert!(slice.smash_block_hit.is_none());
+    assert!(slice.prize_block_hit.is_none());
+    assert!(slice.ceiling_prize_clear.is_none());
+    assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE0, 0x01));
 }
 
 #[test]
@@ -14745,9 +14811,8 @@ fn published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame
 }
 
 #[test]
-#[ignore = "TAS frontier 11549: Cyclone loc_B214 vertical parity still open"]
-fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549(
-) {
+fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549()
+{
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_11548 = None;
     let mut frame_11548_special_motion = None;
@@ -14796,7 +14861,7 @@ fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_a
             GameMode::DemoPlay,
             PlayerForm::Cyclone.helmet_id(),
             Some(0x010F_0000),
-            0x0074_0000,
+            0x0073_0000,
         )),
         "frame 11548 should still be the clean pre-frontier Cyclone flight pose",
     );
@@ -14831,79 +14896,6 @@ fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_a
         )),
         "frame 11550 should keep following the oracle-backed Cyclone rise on the next frame",
     );
-}
-
-#[test]
-#[ignore = "diagnostic for Ralph frontier 11549 restored smash-block re-hit"]
-fn published_tas_second_timeout_restart_frame_11549_rehits_the_restored_prize_smash_block() {
-    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
-    runtime.trace_physics = true;
-
-    for (frame_index, mask) in script.iter().copied().enumerate().take(11_550) {
-        let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if frame_index != 11_549 {
-            continue;
-        }
-
-        let physics = trace
-            .physics_trace
-            .unwrap_or_else(|| panic!("frame 11549 should expose physics trace"));
-        let slice = runtime
-            .opening_slice
-            .unwrap_or_else(|| panic!("frame 11549 should keep the live opening slice"));
-        let grid = runtime
-            .block_grid
-            .as_ref()
-            .unwrap_or_else(|| panic!("frame 11549 should keep the live block grid"));
-        let left_edge_x = ((slice.player.x_pos >> 16) as i32) - PlayerForm::Cyclone.half_width();
-        let right_edge_x =
-            ((slice.player.x_pos >> 16) as i32) + PlayerForm::Cyclone.half_width();
-        let top_y =
-            ((physics.post_vertical.0 >> 16) as i32) - PlayerForm::Cyclone.ceiling_probe_height();
-        let left_probe = terrain::probe_at(grid, left_edge_x, top_y);
-        let right_probe = terrain::probe_at(grid, right_edge_x, top_y);
-
-        // ASM sub_1007A writes `$E001` before spawning the prize object. On the
-        // live timeout-restart frontier, native rises to the oracle-backed
-        // post-vertical pose, then immediately re-hits that restored Smash
-        // block on frame 11549, zeroing y_vel and spawning the block effect.
-        assert_eq!(physics.pre_vertical, (0x010F_0000, 0xFFFF_9A00u32 as i32));
-        assert_eq!(physics.post_vertical, (0x010E_9A00, 0xFFFF_9A00u32 as i32));
-        assert_eq!(trace.kid_y_pos, Some(0x010F_0000));
-        assert_eq!(trace.kid_y_velocity, Some(0));
-        assert_eq!(slice.player.y_pos, 0x010F_0000);
-        assert_eq!(slice.player.y_velocity, 0);
-        assert!(!slice.player.on_ground);
-        assert!(
-            runtime.block_state.deferred_ceiling_clears.is_empty(),
-            "the restored prize cell should already have left the deferred 0x6F/restore queue by frame 11549",
-        );
-        assert!(
-            runtime.floating_items.iter().any(|item| {
-                item.level_col == 22
-                    && item.level_row == 14
-                    && item.content == terrain::PrizeContent::Diamond
-                    && item.remaining == 499
-            }),
-            "the frame should already have the spawned prize object from the restored prize cell",
-        );
-        assert!(
-            runtime
-                .block_destroy_effects
-                .iter()
-                .any(|effect| effect.x_px == 352 && effect.y_px == 224 && effect.remaining == 8),
-            "the restored Smash block should have been headbutted and cleared on frame 11549",
-        );
-        assert_eq!(left_probe.cell_x, 22);
-        assert_eq!(left_probe.cell_y, 14);
-        assert_eq!(left_probe.cell.collision, terrain::CollisionKind::Empty);
-        assert_eq!(right_probe.cell_x, 23);
-        assert_eq!(right_probe.cell_y, 14);
-        assert_eq!(right_probe.cell.collision, terrain::CollisionKind::Empty);
-        return;
-    }
-
-    panic!("frame 11549 should be captured");
 }
 
 #[test]

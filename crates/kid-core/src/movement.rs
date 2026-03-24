@@ -233,7 +233,7 @@ impl OpeningSliceState {
         y_look_offset: i16,
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
-        deferred_prize_ceiling_cells: &[(u16, u16)],
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         if level_elapsed < OPENING_SCROLL_START_FRAME {
             self.run_entry_animation(level_elapsed);
@@ -672,8 +672,7 @@ impl OpeningSliceState {
                             let cell = grid.cell_at(col, row);
                             if matches!(
                                 cell.collision,
-                                terrain::CollisionKind::SlopeUp
-                                    | terrain::CollisionKind::SlopeDown
+                                terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
                             ) {
                                 let cell_top = i32::from(row) * 16;
                                 let floor_y =
@@ -1033,7 +1032,7 @@ impl OpeningSliceState {
         block_list: Option<&terrain::BlockList>,
         y_look_offset: i16,
         allow_asm_faithful_solid_touch_snap: bool,
-        deferred_prize_ceiling_cells: &[(u16, u16)],
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         let stage = self.kid_flip_follow_on_stage_state();
         self.kid_flip_follow_on_stages = Some(KidFlipFollowOnStages {
@@ -1833,7 +1832,7 @@ impl OpeningSliceState {
         block_list: Option<&terrain::BlockList>,
         form: PlayerForm,
         collision_hw: i32,
-        deferred_prize_ceiling_cells: &[(u16, u16)],
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
@@ -1864,9 +1863,16 @@ impl OpeningSliceState {
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
 
         if probe.hit {
-            let deferred_prize_ceiling_cell = deferred_prize_ceiling_cells
-                .iter()
-                .any(|&(col, row)| col == probe.cell_x && row == probe.cell_y);
+            let deferred_prize_ceiling_phase =
+                deferred_prize_ceiling_cells
+                    .iter()
+                    .find_map(|&(col, row, phase)| {
+                        (col == probe.cell_x && row == probe.cell_y).then_some(phase)
+                    });
+            if deferred_prize_ceiling_phase == Some(DeferredPrizeBlockPhase::FreshSmash) {
+                return;
+            }
+            let deferred_prize_ceiling_cell = deferred_prize_ceiling_phase.is_some();
             // Hidden block reveal: headbutting a hidden block from below
             // changes it to solid, making the block visible and functional.
             if !deferred_prize_ceiling_cell

@@ -1423,6 +1423,7 @@ pub(crate) enum DeferredPrizeBlockPhase {
     Deleted,
     Restored,
     PendingClear,
+    FreshSmash,
 }
 
 /// ASM sub_1007A prize-block lifecycle: after a headbutt the block stays Solid

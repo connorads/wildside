@@ -122,7 +122,9 @@ impl NativeRuntime {
                         entry.phase = DeferredPrizeBlockPhase::PendingClear;
                         true
                     }
-                    DeferredPrizeBlockPhase::PendingClear => true,
+                    DeferredPrizeBlockPhase::PendingClear | DeferredPrizeBlockPhase::FreshSmash => {
+                        true
+                    }
                 });
         }
     }
@@ -155,8 +157,16 @@ impl NativeRuntime {
                             content: entry.content,
                             collected: false,
                         });
-                        false
+                        // ASM sub_7196 creates Kid with priority #1, while
+                        // sub_1007A runs as object #$2001 and spawns Prize_Init
+                        // at #$1FFF. Kid therefore finishes this frame before the
+                        // prize-block coroutine writes $E001, so the freshly
+                        // restored Smash cell must stay non-blocking for Kid
+                        // until the next frame ends.
+                        entry.phase = DeferredPrizeBlockPhase::FreshSmash;
+                        true
                     }
+                    DeferredPrizeBlockPhase::FreshSmash => false,
                 });
             self.floating_items.extend(spawned_items);
         }
