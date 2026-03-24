@@ -633,11 +633,11 @@ impl NativeRuntime {
                     2 => intro_sequence_3_frames_override.unwrap_or(INTRO_SEGMENT_FRAMES),
                     _ => INTRO_SEGMENT_FRAMES,
                 };
-                // TODO(fidelity): the first published timeout-restart visit
-                // reaches title because frame 6207 presses Start. The later
-                // no-Start visit still diverges at frame 9312, so treating the
-                // override itself as a general natural title return is wrong.
-                let timeout_restart_returns_to_title =
+                // ASM sub_1B93E / loc_1B96A naturally count intro sequence 3
+                // down to `Game_Mode=$20` (intro sequence 4). Only ASM
+                // sub_1C246 / loc_1C250 jumps straight to title here, and that
+                // path is gated by a Start press.
+                let timeout_restart_start_returns_to_title =
                     *segment == 2 && intro_sequence_3_frames_override.is_some();
                 let start_advances_segment = start_pressed
                     && (*segment != 0 || *elapsed >= INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES);
@@ -655,9 +655,9 @@ impl NativeRuntime {
                     } else if *segment == 2 {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     }
-                    if *segment >= 4 || timeout_restart_returns_to_title {
+                    if *segment >= 4 || timeout_restart_start_returns_to_title {
                         self.timeout_restart_title_intro_sequence_3_return_pending =
-                            timeout_restart_returns_to_title;
+                            timeout_restart_start_returns_to_title;
                         *pending_title_skip = 2;
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
@@ -674,9 +674,7 @@ impl NativeRuntime {
                     } else if *segment == 2 {
                         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
                     }
-                    if timeout_restart_returns_to_title {
-                        self.finish_timeout_restart_intro_sequence_3_title_return();
-                    } else if *segment >= 4 {
+                    if *segment >= 4 {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.enter_title_screen();
                     } else {

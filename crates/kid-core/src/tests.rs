@@ -14007,6 +14007,49 @@ fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_
 }
 
 #[test]
+fn published_tas_second_timeout_restart_intro_sequence_3_visit_does_not_jump_to_title_without_start()
+{
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9312 = None;
+    let mut frame_9350 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_351) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_312 => {
+                frame_9312 = Some(trace.game_mode);
+            }
+            9_350 => {
+                frame_9350 = Some(trace.game_mode);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B93E naturally times out to `Game_Mode=$20` (intro sequence 4);
+    // only the Start-gated sub_1C246 path jumps straight to title.
+    assert!(
+        matches!(
+            frame_9312,
+            Some(
+                GameMode::IntroSequence3 | GameMode::IntroSequence4 | GameMode::IntroSequence5
+            )
+        ),
+        "without a frame-9312 Start press, the second timeout-restart intro-sequence-3 visit must stay on the intro path instead of jumping straight to title",
+    );
+    assert!(
+        matches!(
+            frame_9350,
+            Some(
+                GameMode::IntroSequence3 | GameMode::IntroSequence4 | GameMode::IntroSequence5
+            )
+        ),
+        "the no-Start second visit should stay out of title throughout the observed frame-9312..9350 window",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
