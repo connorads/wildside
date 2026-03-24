@@ -76,6 +76,26 @@ impl NativeRuntime {
         )
     }
 
+    fn intro_sequence_4_uses_timeout_restart_camera_handoff(&self) -> bool {
+        matches!(
+            self.boot_state,
+            // ASM sub_1B988: `move.w #4,(Camera_Y_pos).w`. The timeout-restart
+            // path exposes this only after the carried intro-sequence-3 pose
+            // has already cleared, then keeps the camera latched through the
+            // following intro-sequence-5 segment until title setup takes over.
+            BootState::IntroSequence {
+                segment: 3,
+                elapsed,
+                ..
+            } if self.timeout_restart_intro_sequence_4_pose_carry
+                && elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES
+        ) || matches!(
+            self.boot_state,
+            BootState::IntroSequence { segment: 4, .. }
+                if self.timeout_restart_intro_sequence_4_pose_carry
+        )
+    }
+
     fn title_hides_demo_return_player(&self) -> bool {
         let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
             TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
@@ -1053,6 +1073,12 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_camera_state();
+        }
+        if self.intro_sequence_4_uses_timeout_restart_camera_handoff() {
+            return CameraState {
+                x_pos: 0,
+                y_pos: 0x0004_0000,
+            };
         }
         if self.title_uses_demo_snapshot() {
             return self

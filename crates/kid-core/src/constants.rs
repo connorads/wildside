@@ -65,6 +65,10 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
 // setup fully takes over. Oracle-backed timeout-restart traces keep the second
 // roster pose alive through frames 9355..9381 and only clear it on 9382.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
+// ASM Load_IntroSequence4 only allocates the `sub_1B988` object; the first
+// visible `move.w #4,(Camera_Y_pos).w` does not surface until frame 9392 in
+// the timeout-restart published TAS window, after a short zero-camera gap.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize = 37;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

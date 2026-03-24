@@ -1,60 +1,62 @@
 ---
-slug: any-percent-published-frame-9392-intro-sequence-4-camera-y-lags-oracle
-cycle: 44
-updated_at: 2026-03-24T01:01:08Z
+slug: any-percent-published-frame-9435-intro-sequence-4-exits-too-early
+cycle: 45
+updated_at: 2026-03-24T01:11:51Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Re-read `Load_IntroSequence4`, `sub_1B988`, `sub_1C204`, `loc_1C7A0`, and the surrounding intro loaders in `kid.asm`.
-- Confirmed `Load_IntroSequence4` does not itself write `Camera_Y_pos`; it only allocates an object whose first routine is `sub_1B988`.
-- Re-ran `cargo test -p kid-core published_tas_second_timeout_restart_carries_intro_sequence_3_pose_into_intro_sequence_4 -- --nocapture` and `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9395 --include-advisory`.
-- Proved the naive fix is wrong: keying intro-sequence-4 camera directly off native `BootState::IntroSequence { segment: 3 }` would move the camera change back to frame 9355 and regress the clean `9355..9391` window.
-- Note: `next-task.json` is stale and still points at the older frame-7969 Knights Isle frontier. This handoff note is the correct fast-path context.
+- Re-read `Load_IntroSequence4` and `sub_1B988` in `.cache/upstream/kid-chameleon-disasm/kid.asm`.
+- Added a focused regression for the `9391 -> 9392` camera hand-off: `published_tas_second_timeout_restart_delays_intro_sequence_4_camera_until_sub_1b988`.
+- Modelled the timeout-restart intro-sequence-4 camera gap in native trace state with `TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES = 37`, matching the delayed `sub_1B988` `move.w #4,(Camera_Y_pos).w`.
+- Verified the old frame-9392 camera mismatch is gone. `tas-diff --frame-start 9388 --frame-end 9394 --include-advisory` is now authoritative-clean; only advisory `number_objects` drift remains there.
 
 ## Current Model
 
-- The frame-9355 intro-sequence-4 carry bug is fixed. Native now matches oracle on authoritative fields through frame 9381 while the old `loc_1B96A` roster remains visible.
-- Frame 9382 now clears the carried pose on both sides; from 9382 through 9391 the window is authoritative-clean apart from advisory `number_objects`.
-- The live blocker is still frame 9392: native reports `camera_y_pos=0x00000000`, while oracle has `camera_y_pos=0x00040000`.
-- `loc_1B96A` setting `Game_Mode=$20` on frame 9355 is not the same event as the visible `Camera_Y_pos=4` hand-off. The ROM only reaches that camera write when the `Load_IntroSequence4`-allocated object eventually runs `sub_1B988`.
-- The missing native behaviour is therefore a late intro-sequence-4 subphase or dispatch delay, not a plain “segment 3 means camera=4” rule in `current_camera_state()`.
+- The frame-9392 blocker is fixed: native now keeps `camera_y_pos=0` through frame 9391, then exposes `camera_y_pos=0x00040000` on frame 9392 exactly like oracle.
+- The new first authoritative divergence is frame 9435.
+- At frame 9435 native switches to `game_mode=0x0024` (intro sequence 5) and drops `camera_y_pos` back to `0`, while oracle is still in `game_mode=0x0020` (intro sequence 4) with `camera_y_pos=0x00040000`.
+- The next blocker is therefore no longer the delayed `sub_1B988` hand-off. It is the intro-sequence-4 duration itself: native still reuses the shared 80-frame segment timer, but ROM `loc_1B9B2` counts down `#$21B`.
 
 ## Strongest Evidence
 
 - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-  - `loc_1B96A` writes `Game_Mode=$20` after the intro-sequence-3 timeout.
-  - `Load_IntroSequence4` only allocates an object with `4(a0)=sub_1B988`; it does not write `Camera_Y_pos` itself.
-  - `sub_1B988` is the routine that finally writes `Camera_Y_pos=4`, allocates the intro-4 text object, then enters `sub_1C204`.
-  - `loc_1BA28` / `loc_1BA5C` do not explain the 9355..9391 zero-camera window; the missing timing sits before or at the first `sub_1B988` dispatch.
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9395 --include-advisory`
-  - frames `9355..9381`: advisory-only (`number_objects`)
-  - frame `9382`: advisory-only, carried pose gone on both sides
-  - frames `9382..9391`: authoritative-clean apart from advisory `number_objects`
-  - frame `9392`: first authoritative diff is `camera_y_pos` (`0x00000000` native vs `0x00040000` oracle)
-- The rejected native patch model was: “if boot state is intro sequence 4/5, force `camera_y_pos=4`”.
-  - That would have made frame `9355` diverge immediately, contradicting the oracle-clean `9355..9391` window.
+  - `Load_IntroSequence4` only allocates an object with `4(a0)=sub_1B988`.
+  - `sub_1B988` immediately writes `move.w #4,(Camera_Y_pos).w`, then enters `sub_1C204`.
+  - `loc_1B9B2` then runs `move.w #$21B,d0` and hibernates frame-by-frame before changing `Game_Mode` to `$24`.
+- Native code
+  - `[trace.rs](/home/connor/git/kc/crates/kid-core/src/trace.rs)` now has a timeout-restart intro-sequence-4 camera hand-off helper keyed off the proven frame-9392 threshold, and keeps that camera latch alive into segment 4 while the boot model still says intro sequence 5.
+  - `[tests.rs](/home/connor/git/kc/crates/kid-core/src/tests.rs)` now has a regression for the `9391 -> 9392` hand-off.
+- Oracle/native diagnostics
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9388 --frame-end 9394 --include-advisory`
+    - frames `9392..9393`: advisory-only (`number_objects`)
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect`
+    - `RESULT: first CRC divergence at frame 9435`
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9432 --frame-end 9438 --include-advisory`
+    - frames `9432..9434`: advisory-only (`number_objects`)
+    - frame `9435`: `game_mode native=0x0024 oracle=0x0020`, `camera_y_pos native=0x00000000 oracle=0x00040000`
 
 ## Exact Next Moves
 
-1. Trace why `Load_IntroSequence4`'s `move.l #sub_1B988,4(a0)` does not surface as visible `Camera_Y_pos=4` until frame 9392: inspect the intro loader / object-dispatch timing, not just `current_camera_state()`.
-2. Model that delayed `sub_1B988` hand-off in native boot progression without disturbing the fixed `9355..9381` pose carry or the clean `9382..9391` zero-camera window.
-3. Add a focused regression for the `9381 clean / 9392 camera_y_pos=4` window once the exact camera timing is proven.
+1. Read `loc_1B9B2` in `kid.asm` and model intro-sequence-4 duration from that ROM timer, not the shared native 80-frame segment default.
+2. Re-run `tas-diff --frame-start 9432 --frame-end 9438 --include-advisory` after the timer fix; frame 9435 should become advisory-only if the duration is correct.
+3. Add a focused regression for the `9434 clean / 9435 still intro-sequence-4` window once the timer threshold is proven.
 
 ## Verification To Re-run
 
 - `cargo test -p kid-core published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_frame_9312 -- --nocapture`
 - `cargo test -p kid-core published_tas_second_timeout_restart_carries_intro_sequence_3_pose_into_intro_sequence_4 -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9395 --include-advisory`
+- `cargo test -p kid-core published_tas_second_timeout_restart_delays_intro_sequence_4_camera_until_sub_1b988 -- --nocapture`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9388 --frame-end 9394 --include-advisory`
 - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9432 --frame-end 9438 --include-advisory`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not widen the intro-sequence-4 carry into a generic rule. Repo evidence still supports a timeout-restart-specific carry only.
-- Do not special-case `current_camera_state()` off native intro-sequence segment `3` or `4`; that collapses the ROM's delayed `sub_1B988` dispatch and would regress frames `9355..9391`.
-- Do not revisit the old intro-sequence-3 timer tweak. The 299-frame override is still correct and no longer the live blocker.
-- Do not chase advisory `number_objects` drift in this window; the live frontier is now camera timing on frame 9392.
-- Do not trust `next-task.json` over this handoff note until the machine task package is refreshed.
+- Do not reintroduce a generic “intro sequence 4 means camera_y_pos=4 immediately” rule; that regresses the now-clean `9355..9391` zero-camera gap.
+- Do not revisit `current_camera_state()` special-casing without an elapsed threshold. The ROM delay is real; only the thresholded hand-off matches oracle.
+- Do not chase advisory `number_objects` drift in the `9388..9434` window; the live blocker is the early native transition out of intro sequence 4 on frame 9435.
+- Do not trust `.cache/autonomy/source-port-frontier/next-task.json`; it is still stale and points at the older frame-7969 Knights Isle frontier.

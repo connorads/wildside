@@ -14127,6 +14127,50 @@ fn published_tas_second_timeout_restart_carries_intro_sequence_3_pose_into_intro
 }
 
 #[test]
+fn published_tas_second_timeout_restart_delays_intro_sequence_4_camera_until_sub_1b988() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9391 = None;
+    let mut frame_9392 = None;
+    let mut frame_9393 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_394) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_391 => {
+                frame_9391 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_392 => {
+                frame_9392 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_393 => {
+                frame_9393 = Some((trace.game_mode, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B988 writes `move.w #4,(Camera_Y_pos).w`, but the
+    // `Load_IntroSequence4`-allocated object only dispatches after the carried
+    // intro-sequence-3 pose has already cleared.
+    assert_eq!(
+        frame_9391,
+        Some((GameMode::IntroSequence4, 0)),
+        "frame 9391 should still be in the zero-camera gap before sub_1B988 runs",
+    );
+    assert_eq!(
+        frame_9392,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9392 should expose the delayed sub_1B988 camera_y_pos=4 hand-off",
+    );
+    assert_eq!(
+        frame_9393,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "once sub_1B988 has run, the intro-sequence-4 camera should stay at y=4",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
