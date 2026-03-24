@@ -205,23 +205,18 @@ pub(crate) fn run_recorded_trace(
             trace = runtime.step_frame(FrameInput::from_mask(buttons));
             let recorded_frame = trace.clone();
 
-            let title_start_bootstrapped = start.warp_level.is_none()
-                && !start.settled
-                && previous_trace.start_press_count < 6
-                && trace.start_press_count >= 6
-                && matches!(trace.game_mode, GameMode::InGame);
-            if title_start_bootstrapped {
-                runtime.enter_level_playtest(LevelId(trace.current_level.0));
-                trace = runtime.trace_frame();
+            // Show level card when the engine first enters gameplay
+            let entered_gameplay = !matches!(previous_trace.game_mode, GameMode::InGame)
+                && matches!(trace.game_mode, GameMode::InGame)
+                && start.warp_level.is_none()
+                && !start.settled;
+            if entered_gameplay {
                 level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
             }
 
             let level_changed = recorded_frame.current_level.0 != current_level_id;
             if level_changed {
-                let new_level = recorded_frame.current_level.0;
-                runtime.enter_level_playtest(LevelId(new_level));
-                trace = runtime.trace_frame();
-                current_level_id = new_level;
+                current_level_id = recorded_frame.current_level.0;
                 level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
             }
 
