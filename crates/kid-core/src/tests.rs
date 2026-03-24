@@ -14745,6 +14745,95 @@ fn published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame
 }
 
 #[test]
+#[ignore = "TAS frontier 11549: Cyclone loc_B214 vertical parity still open"]
+fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549(
+) {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_11548 = None;
+    let mut frame_11548_special_motion = None;
+    let mut frame_11549 = None;
+    let mut frame_11550 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(11_551) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            11_548 => {
+                frame_11548 = Some((
+                    trace.game_mode,
+                    trace.current_helmet_id,
+                    trace.kid_y_pos,
+                    trace.camera_y_pos,
+                ));
+                frame_11548_special_motion = trace
+                    .gameplay_debug_fields
+                    .get("kid_special_motion_probe")
+                    .cloned();
+            }
+            11_549 => {
+                frame_11549 = Some((
+                    trace.game_mode,
+                    trace.current_helmet_id,
+                    trace.kid_y_pos,
+                    trace.camera_y_pos,
+                ));
+            }
+            11_550 => {
+                frame_11550 = Some((
+                    trace.game_mode,
+                    trace.current_helmet_id,
+                    trace.kid_y_pos,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        frame_11548,
+        Some((
+            GameMode::DemoPlay,
+            PlayerForm::Cyclone.helmet_id(),
+            Some(0x010F_0000),
+            0x0074_0000,
+        )),
+        "frame 11548 should still be the clean pre-frontier Cyclone flight pose",
+    );
+    assert!(
+        frame_11548_special_motion
+            .as_deref()
+            .is_some_and(|debug| debug.contains("cyclone_flying=1")),
+        "frame 11548 should already be on the live Cyclone flight path before the vertical frontier opens",
+    );
+
+    // ASM sub_B168 loc_B214..loc_B26C: when `Cyclone_flying` is set, the ROM
+    // advances the 16-bit `Cyclone_YAcceleration`, integrates it into
+    // `y_vel(a3)`, and keeps the post-thrust rise on the oracle's upward arc
+    // across the first 11549/11550 authoritative mismatch window.
+    assert_eq!(
+        frame_11549,
+        Some((
+            GameMode::DemoPlay,
+            PlayerForm::Cyclone.helmet_id(),
+            Some(0x010E_9A00),
+            0x0072_0000,
+        )),
+        "frame 11549 should stay on the oracle-backed Cyclone rise instead of freezing one pixel higher",
+    );
+    assert_eq!(
+        frame_11550,
+        Some((
+            GameMode::DemoPlay,
+            PlayerForm::Cyclone.helmet_id(),
+            Some(0x010D_D200),
+            0x0071_0000,
+        )),
+        "frame 11550 should keep following the oracle-backed Cyclone rise on the next frame",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;
