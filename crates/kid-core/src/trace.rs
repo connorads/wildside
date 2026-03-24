@@ -116,6 +116,13 @@ impl NativeRuntime {
     }
 
     fn intro_sequence_5_uses_timeout_restart_slot_2_pose(&self) -> bool {
+        let visible_elapsed_frames = if self
+            .demo_timeout_restart_uses_intro_return_slot_2_early_visibility
+        {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES - 1
+        } else {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
+        };
         matches!(
             self.boot_state,
             // ASM loc_1BCD0 allocates five title gfx slots and writes the
@@ -123,12 +130,16 @@ impl NativeRuntime {
             // directly from $FF24FA/$FF24FE, and oracle probes show that this
             // timeout-restart intro-sequence-5 slot stays zero through frame
             // 10006 before the loc_1BCD0 write becomes visible on 10007.
+            // The later Start-skip intro-return lineage reaches the same
+            // loc_1BCD0 slot one frame earlier on the timeout-restart revisit,
+            // so keep that oracle-backed offset as a separate lineage bit
+            // rather than shifting the shared timer globally.
             BootState::IntroSequence {
                 segment: 4,
                 elapsed,
                 ..
             } if self.timeout_restart_intro_sequence_4_pose_carry
-                && elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
+                && elapsed >= visible_elapsed_frames
         )
     }
 

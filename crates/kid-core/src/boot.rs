@@ -41,6 +41,7 @@ impl NativeRuntime {
         self.ignore_demo_start_abort_until_gameplay = false;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
+        self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -150,6 +151,8 @@ impl NativeRuntime {
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
+        self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
+            start_skip_intro_return_camera_wrap;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.reload_block_grid_for_level(self.current_level);
     }
@@ -171,6 +174,8 @@ impl NativeRuntime {
     }
 
     pub(crate) fn finish_demo_auto_timeout_return(&mut self) {
+        let intro_return_slot_2_early_visibility =
+            self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         self.enter_title_screen();
         self.current_level = LevelId(0);
         self.paused = false;
@@ -190,6 +195,8 @@ impl NativeRuntime {
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
+        self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
+            intro_return_slot_2_early_visibility;
     }
 
     fn finish_timeout_restart_intro_sequence_3_title_return(&mut self) {

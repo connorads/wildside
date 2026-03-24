@@ -17850,6 +17850,77 @@ fn published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame
 }
 
 #[test]
+fn published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_16227 = None;
+    let mut frame_16228 = None;
+    let mut frame_16229 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(16_230) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            16_227 => {
+                frame_16227 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            16_228 => {
+                frame_16228 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            16_229 => {
+                frame_16229 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B988 flips to `Game_Mode=$24`, Load_IntroSequence5 allocates
+    // `loc_1BCD0`, and loc_1BCD0's third gfx slot writes
+    // `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle WRAM probes of the
+    // verifier's fixed slot-2 reads ($FF24FA/$FF24FE) keep that slot clear on
+    // frame 16227, then expose the same loc_1BCD0 pose from frame 16228.
+    assert_eq!(
+        frame_16227,
+        Some((GameMode::IntroSequence5, LevelId(0x00), None, None)),
+        "frame 16227 should still keep the timeout-restart intro-sequence-5 slot-2 pose hidden",
+    );
+    assert_eq!(
+        frame_16228,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 16228 should expose loc_1BCD0's slot-2 pose on this later mode-$24 visit",
+    );
+    assert_eq!(
+        frame_16229,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 16229 should keep the same loc_1BCD0 slot-2 pose latched on the next frame",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

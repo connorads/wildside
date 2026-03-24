@@ -98,7 +98,8 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES: usize = 3
 // `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle probes of the verifier's
 // fixed slot-2 WRAM reads ($FF24FA/$FF24FE) keep that slot zero through frame
 // 10006, then expose the loc_1BCD0 slot-2 coordinates on frame 10007 while
-// intro sequence 5 is still active.
+// intro sequence 5 is still active. Start-skip intro-return lineage handles
+// its one-frame-earlier revisit separately in `trace.rs`.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES: usize = 58;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_X_POS: u32 = 0x0000_0000;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
