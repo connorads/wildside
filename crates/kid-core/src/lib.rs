@@ -184,6 +184,12 @@ pub struct NativeRuntime {
     /// Timeout-restart demo playback ignores queued manual Start aborts until
     /// the restarted attract demo reaches its live gameplay hand-off.
     ignore_demo_start_abort_until_gameplay: bool,
+    /// The next demo start comes from a Start-skip intro return rather than
+    /// the cold-boot attract path.
+    next_demo_uses_start_skip_intro_return_camera_wrap: bool,
+    /// Active demo bootstrap should expose the Start-skip intro-return hidden
+    /// camera wrap instead of the cold-boot row.
+    demo_uses_start_skip_intro_return_camera_wrap: bool,
     /// Next Load_IntroSequence3 roster index from ROM byte `$FFFFFC83`.
     next_intro_sequence_3_roster_index: usize,
     /// Active/last Load_IntroSequence3 roster used by trace-visible intro pose.
@@ -318,6 +324,8 @@ impl NativeRuntime {
             timeout_restart_intro_sequence_4_pose_carry: false,
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,
+            next_demo_uses_start_skip_intro_return_camera_wrap: false,
+            demo_uses_start_skip_intro_return_camera_wrap: false,
             next_intro_sequence_3_roster_index: 0,
             active_intro_sequence_3_roster_index: 0,
             demo_toggle: false,

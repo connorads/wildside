@@ -17786,6 +17786,70 @@ fn published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430() {
 }
 
 #[test]
+fn published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_13187 = None;
+    let mut frame_13188 = None;
+    let mut frame_13189 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(13_190) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            13_187 => {
+                frame_13187 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            13_188 => {
+                frame_13188 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            13_189 => {
+                frame_13189 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B8F4 / loc_1B920 feed sub_1C246's Start-driven intro return
+    // into the title shell, and Obj_TitleMenu loc_1BB02 later re-enters
+    // `Game_Mode=$10` without rebuilding the cold-boot demo bootstrap. The
+    // following Load_DemoPlay / Load_InGame hand-off therefore inherits the
+    // wrapped hidden camera row on demo frame 60 before settling back.
+    assert_eq!(
+        frame_13187,
+        Some((GameMode::DemoPlay, LevelId(0x15), Some(59), 0x00E0_0000, None)),
+        "frame 13187 should still be the hidden Knights Isle warm-up row before the wrapped carry",
+    );
+    assert_eq!(
+        frame_13188,
+        Some((GameMode::DemoPlay, LevelId(0x15), Some(60), 0xFF20_0000, None)),
+        "frame 13188 should expose the oracle-backed wrapped hidden camera row on the intro-return path",
+    );
+    assert_eq!(
+        frame_13189,
+        Some((GameMode::DemoPlay, LevelId(0x15), Some(61), 0x00E0_0000, None)),
+        "frame 13189 should settle back to the standard hidden warm-up camera row",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;
