@@ -36,6 +36,7 @@ impl NativeRuntime {
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
         self.timeout_restart_title_intro_sequence_5_pose = false;
+        self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay = false;
         self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = false;
@@ -213,10 +214,14 @@ impl NativeRuntime {
     }
 
     fn finish_timeout_restart_intro_sequence_5_title_return(&mut self) {
+        let intro_return_hidden_delay =
+            self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         self.enter_title_screen();
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_5_pose = true;
+        self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay =
+            intro_return_hidden_delay;
         // ASM sub_1C246 returns to title after the shared 2-frame Start
         // deferral, so the reused Obj_TitleMenu coroutine is already two title
         // frames into its pre-menu attract wait when this direct return

@@ -116,13 +116,12 @@ impl NativeRuntime {
     }
 
     fn intro_sequence_5_uses_timeout_restart_slot_2_pose(&self) -> bool {
-        let visible_elapsed_frames = if self
-            .demo_timeout_restart_uses_intro_return_slot_2_early_visibility
-        {
-            TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES - 1
-        } else {
-            TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
-        };
+        let visible_elapsed_frames =
+            if self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES - 1
+            } else {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
+            };
         matches!(
             self.boot_state,
             // ASM loc_1BCD0 allocates five title gfx slots and writes the
@@ -147,7 +146,16 @@ impl NativeRuntime {
         let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
             TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
         } else if self.timeout_restart_title_intro_sequence_5_pose {
-            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_HIDDEN_FRAMES
+            let mut hidden_frames = TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_HIDDEN_FRAMES;
+            if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay {
+                // ASM sub_1C246 still jumps straight to `Game_Mode=$2C`, but
+                // oracle WRAM probes keep the later Start-skip intro-return
+                // lineage hidden through frame 16798 before the standard title
+                // pose reappears on 16799.
+                hidden_frames +=
+                    TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_START_SKIP_LINEAGE_EXTRA_HIDDEN_FRAMES;
+            }
+            hidden_frames
         } else {
             DEMO_TITLE_PLAYER_HIDDEN_FRAMES
         };

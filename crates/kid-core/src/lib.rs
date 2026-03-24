@@ -172,6 +172,11 @@ pub struct NativeRuntime {
     /// the timeout-restart intro-sequence-5 slot-2 pose survives briefly into
     /// title mode before Kid blanks again.
     timeout_restart_title_intro_sequence_5_pose: bool,
+    /// The later Start-skip intro-return lineage reaches the same
+    /// `sub_1C246 -> Game_Mode=$2C` hand-off, but oracle keeps the rebuilt
+    /// title pose hidden for one extra frame before the standard title pose
+    /// returns.
+    timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: bool,
     /// ASM loc_1B96A switches to `Game_Mode=$20` before Load_IntroSequence4 /
     /// sub_1B988 clear the old intro-sequence-3 roster, so timeout-restart
     /// intro sequence 4 briefly keeps the previous pose visible. The same
@@ -327,6 +332,7 @@ impl NativeRuntime {
             preserve_demo_title_snapshot: false,
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_5_pose: false,
+            timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
             timeout_restart_intro_sequence_4_pose_carry: false,
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,

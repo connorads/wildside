@@ -126,6 +126,13 @@ pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES: usize
 // slot 2 blank through frame 10437 and only restores the standard title pose
 // on 10438.
 pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_HIDDEN_FRAMES: usize = 148;
+// The later Start-skip intro-return lineage revisits the same
+// `sub_1C246 -> Game_Mode=$2C` title hand-off, but oracle WRAM probes keep the
+// standard title pose hidden through frame 16798 and only restore it on 16799.
+// Model that extra rebuild frame separately instead of shifting the plain
+// timeout-restart path that already matches frame 10438.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_START_SKIP_LINEAGE_EXTRA_HIDDEN_FRAMES:
+    usize = 1;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

@@ -17780,7 +17780,14 @@ fn published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430() {
     );
     assert_eq!(
         frame_12430,
-        Some((GameMode::TitleScreen, LevelId(0x00), false, None, None, true)),
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            false,
+            None,
+            None,
+            true
+        )),
         "frame 12430 should enter title mode with Kid still hidden on the intro-sequence-1 Start-skip path",
     );
 }
@@ -17834,17 +17841,35 @@ fn published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame
     // wrapped hidden camera row on demo frame 60 before settling back.
     assert_eq!(
         frame_13187,
-        Some((GameMode::DemoPlay, LevelId(0x15), Some(59), 0x00E0_0000, None)),
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(59),
+            0x00E0_0000,
+            None
+        )),
         "frame 13187 should still be the hidden Knights Isle warm-up row before the wrapped carry",
     );
     assert_eq!(
         frame_13188,
-        Some((GameMode::DemoPlay, LevelId(0x15), Some(60), 0xFF20_0000, None)),
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(60),
+            0xFF20_0000,
+            None
+        )),
         "frame 13188 should expose the oracle-backed wrapped hidden camera row on the intro-return path",
     );
     assert_eq!(
         frame_13189,
-        Some((GameMode::DemoPlay, LevelId(0x15), Some(61), 0x00E0_0000, None)),
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(61),
+            0x00E0_0000,
+            None
+        )),
         "frame 13189 should settle back to the standard hidden warm-up camera row",
     );
 }
@@ -18014,6 +18039,57 @@ fn published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press() {
             Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
         )),
         "frame 16650 should enter title mode while preserving the carried loc_1BCD0 slot-2 pose",
+    );
+}
+
+#[test]
+fn published_tas_intro_return_title_keeps_kid_hidden_through_frame_16798() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_16798 = None;
+    let mut frame_16799 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(16_800) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            16_798 => {
+                frame_16798 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            16_799 => {
+                frame_16799 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1C246 still jumps directly from `Game_Mode=$24` to `$2C`, but
+    // oracle WRAM probes of the later Start-skip intro-return lineage keep the
+    // title pose hidden through frame 16798 (`slot2_x/y = 0`) and only expose
+    // the rebuilt title pose on 16799.
+    assert_eq!(
+        frame_16798,
+        Some((GameMode::TitleScreen, LevelId(0x00), None, None)),
+        "frame 16798 should keep Kid hidden on the final pre-title-pose frame of the later intro-return title rebuild",
+    );
+    assert_eq!(
+        frame_16799,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 16799 should restore the standard title pose on the first post-rebuild frame of the later intro-return lineage",
     );
 }
 
