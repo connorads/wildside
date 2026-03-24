@@ -14231,6 +14231,52 @@ fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_94
 }
 
 #[test]
+fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_9895() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9894 = None;
+    let mut frame_9895 = None;
+    let mut frame_9896 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_897) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_894 => {
+                frame_9894 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_895 => {
+                frame_9895 = Some((trace.game_mode, trace.camera_y_pos));
+            }
+            9_896 => {
+                frame_9896 = Some((trace.game_mode, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence4 allocates the `sub_1B988` worker, and only that
+    // worker reaches loc_1B9B2's `move.w #$21B,d0` / `dbf` timeout loop. The
+    // timeout-restart path therefore cannot count from the frame where
+    // `Game_Mode=$20` first becomes visible; oracle still shows intro
+    // sequence 4 across the old frame-9895 frontier.
+    assert_eq!(
+        frame_9894,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9894 should still be in intro sequence 4 with the sub_1B988 camera hand-off latched",
+    );
+    assert_eq!(
+        frame_9895,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9895 should remain in intro sequence 4 because loc_1B9B2 started after the delayed sub_1B988 dispatch",
+    );
+    assert_eq!(
+        frame_9896,
+        Some((GameMode::IntroSequence4, 0x0004_0000)),
+        "frame 9896 should still be in intro sequence 4 until the delayed loc_1B9B2 loop actually expires",
+    );
+}
+
+#[test]
 fn published_tas_demo_2_resumes_demo_play_on_frame_6906() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_6905 = None;

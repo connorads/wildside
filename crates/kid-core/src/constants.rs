@@ -69,11 +69,15 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
 // visible `move.w #4,(Camera_Y_pos).w` does not surface until frame 9392 in
 // the timeout-restart published TAS window, after a short zero-camera gap.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize = 37;
-// ASM sub_1B988 / loc_1B9B2 run `move.w #$21B,d0` then `dbf d0,loc_1B9B6`
-// before switching to `Game_Mode=$24`, so the timeout-restart copy of intro
-// sequence 4 cannot reuse the shared 80-frame timer. Oracle traces still show
-// `game_mode=0x0020` on frame 9435 because this segment lasts 0x21C frames.
-pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize = 0x021C;
+// ASM sub_1B988 / loc_1B9B2 do not start the `move.w #$21B,d0` / `dbf`
+// countdown until the delayed `sub_1B988` worker finally runs. On the
+// timeout-restart path oracle keeps the carried intro-sequence-3 pose alive
+// for 27 frames, exposes the `Camera_Y_pos=4` hand-off on frame 9392, then
+// holds `Game_Mode=$20` for the full `0x21C`-frame loc_1B9B2 loop after that
+// worker dispatch. Native therefore needs the camera-handoff delay plus the
+// loc_1B9B2 loop length, not just the raw DBF duration from frame 9355.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize =
+    TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES + 0x021C;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.
