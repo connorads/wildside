@@ -159,6 +159,10 @@ pub struct NativeRuntime {
     /// the standard title pose appears; oracle traces keep the last intro pose
     /// alive for the first title frames, then hide Kid again.
     timeout_restart_title_intro_sequence_3_pose: bool,
+    /// ASM loc_1B96A switches to `Game_Mode=$20` before Load_IntroSequence4 /
+    /// sub_1B988 clear the old intro-sequence-3 roster, so timeout-restart
+    /// intro sequence 4 briefly keeps the previous pose visible.
+    timeout_restart_intro_sequence_4_pose_carry: bool,
     /// After the live snapshot is fully cleared, oracle traces still keep Kid
     /// hidden for a longer title-object rebuild window on the demo-return path.
     hide_demo_return_title_player: bool,
@@ -292,6 +296,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_3_return_pending: false,
             preserve_demo_title_snapshot: false,
             timeout_restart_title_intro_sequence_3_pose: false,
+            timeout_restart_intro_sequence_4_pose_carry: false,
             hide_demo_return_title_player: false,
             ignore_demo_start_abort_until_gameplay: false,
             next_intro_sequence_3_roster_index: 0,

@@ -14012,9 +14012,8 @@ fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_fr
     let mut frame_9311 = None;
     let mut frame_9312 = None;
     let mut frame_9354 = None;
-    let mut frame_9355 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(9_356) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_355) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
             9_311 => {
@@ -14025,9 +14024,6 @@ fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_fr
             }
             9_354 => {
                 frame_9354 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
-            }
-            9_355 => {
-                frame_9355 = Some(trace.game_mode);
                 break;
             }
             _ => {}
@@ -14064,10 +14060,69 @@ fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_fr
         )),
         "oracle keeps the second intro-sequence-3 visit alive through frame 9354 before the natural timeout lands",
     );
+}
+
+#[test]
+fn published_tas_second_timeout_restart_carries_intro_sequence_3_pose_into_intro_sequence_4() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9355 = None;
+    let mut frame_9381 = None;
+    let mut frame_9382 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_383) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            9_355 => {
+                frame_9355 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+            }
+            9_381 => {
+                frame_9381 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.kid_facing,
+                ));
+            }
+            9_382 => {
+                frame_9382 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1B96A flips into `Game_Mode=$20`, but Load_IntroSequence4 /
+    // sub_1B988 do not blank the old roster immediately; oracle keeps the
+    // second intro-sequence-3 pose alive until frame 9382.
     assert_eq!(
         frame_9355,
-        Some(GameMode::IntroSequence4),
-        "once loc_1B96A finally times out without Start, frame 9355 should flip `Game_Mode` to intro sequence 4",
+        Some((
+            GameMode::IntroSequence4,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+            Some(Direction::Left),
+        )),
+        "frame 9355 should enter intro sequence 4 without discarding the second intro-sequence-3 roster pose",
+    );
+    assert_eq!(
+        frame_9381,
+        Some((
+            GameMode::IntroSequence4,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+            Some(Direction::Left),
+        )),
+        "oracle keeps the carried intro-sequence-3 pose visible through frame 9381",
+    );
+    assert_eq!(
+        frame_9382,
+        Some((GameMode::IntroSequence4, None, None)),
+        "once sub_1B988 has taken over, frame 9382 should finally clear the carried intro-sequence-3 pose",
     );
 }
 

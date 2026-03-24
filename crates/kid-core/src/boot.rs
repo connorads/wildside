@@ -32,6 +32,7 @@ impl NativeRuntime {
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
+        self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = false;
         self.pending_prize_diamond_awards.clear();
@@ -123,6 +124,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
         self.timeout_restart_title_intro_sequence_3_pose = false;
+        self.timeout_restart_intro_sequence_4_pose_carry = false;
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
         self.reload_block_grid_for_level(self.current_level);
@@ -646,6 +648,7 @@ impl NativeRuntime {
                         || *segment >= 3);
                 if start_jumps_to_title {
                     self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                    self.timeout_restart_intro_sequence_4_pose_carry = false;
                     *pending_title_skip = 2;
                 } else if start_advances_segment {
                     if *segment == 0 {
@@ -658,9 +661,11 @@ impl NativeRuntime {
                     if *segment >= 4 || timeout_restart_start_returns_to_title {
                         self.timeout_restart_title_intro_sequence_3_return_pending =
                             timeout_restart_start_returns_to_title;
+                        self.timeout_restart_intro_sequence_4_pose_carry = false;
                         *pending_title_skip = 2;
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_intro_sequence_4_pose_carry = false;
                         *segment += 1;
                         activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;
@@ -676,9 +681,14 @@ impl NativeRuntime {
                     }
                     if *segment >= 4 {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_intro_sequence_4_pose_carry = false;
                         self.enter_title_screen();
                     } else {
+                        let carry_intro_sequence_3_pose_into_intro_sequence_4 =
+                            *segment == 2 && intro_sequence_3_frames_override.is_some();
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_intro_sequence_4_pose_carry =
+                            carry_intro_sequence_3_pose_into_intro_sequence_4;
                         *segment += 1;
                         activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;
@@ -690,6 +700,7 @@ impl NativeRuntime {
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
                     self.demo_auto_timeout_handoff_active = false;
+                    self.timeout_restart_intro_sequence_4_pose_carry = false;
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,
                         elapsed: 0,

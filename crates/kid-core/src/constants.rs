@@ -60,6 +60,11 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
 // the native boot-state model needs a 299-frame local timer here rather than
 // the earlier 256-frame approximation.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
+// ASM loc_1B96A flips `Game_Mode` to intro sequence 4 immediately, but the
+// previous intro-sequence-3 roster objects remain visible until the intro-4
+// setup fully takes over. Oracle-backed timeout-restart traces keep the second
+// roster pose alive through frames 9355..9381 and only clear it on 9382.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

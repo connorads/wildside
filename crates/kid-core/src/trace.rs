@@ -64,6 +64,18 @@ impl NativeRuntime {
             && self.title_screen_elapsed_frames < DEMO_TITLE_FULL_SNAPSHOT_FRAMES
     }
 
+    fn intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
+        matches!(
+            self.boot_state,
+            BootState::IntroSequence {
+                segment: 3,
+                elapsed,
+                ..
+            } if self.timeout_restart_intro_sequence_4_pose_carry
+                && elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES
+        )
+    }
+
     fn title_hides_demo_return_player(&self) -> bool {
         let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
             TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
@@ -979,6 +991,17 @@ impl NativeRuntime {
                 elapsed,
                 ..
             } if elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES => {
+                Some(PlayerState::intro_sequence_3_pose_for_roster(
+                    self.active_intro_sequence_3_roster_index,
+                ))
+            }
+            // ASM loc_1B96A writes `Game_Mode=$20`, but Load_IntroSequence4 /
+            // sub_1B988 do not clear the old intro-sequence-3 roster
+            // immediately. Oracle timeout-restart traces keep the previous
+            // roster pose visible through the early intro-sequence-4 frames.
+            BootState::IntroSequence { segment: 3, .. }
+                if self.intro_sequence_4_uses_timeout_restart_intro_sequence_3_pose() =>
+            {
                 Some(PlayerState::intro_sequence_3_pose_for_roster(
                     self.active_intro_sequence_3_roster_index,
                 ))
