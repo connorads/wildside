@@ -53,10 +53,13 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
 // sequence 2 alive through frame 5952 and only expose `game_mode=0x001C` on
 // frame 5953, so this restart path cannot reuse the shared 80-frame timer.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
-// ASM sub_1B93E keeps the timeout-restart copy of intro sequence 3 alive for
-// much longer than cold boot, but its natural timeout still feeds intro
-// sequence 4. The direct title return is Start-driven through sub_1C246.
-pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES: usize = 256;
+// ASM sub_1B93E / loc_1B96A keep the timeout-restart copy of intro sequence 3
+// polling the Start-gated sub_1C246 return until the natural timeout hands off
+// to `Game_Mode=$20`. Oracle-backed published TAS traces keep the second visit
+// alive through frame 9354 and only expose intro sequence 4 on frame 9355, so
+// the native boot-state model needs a 299-frame local timer here rather than
+// the earlier 256-frame approximation.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
 // After the partial handoff, the title objects rebuild for much longer before
 // the standard title pose returns. Oracle TAS traces keep Kid hidden through
 // local title frame 149 and only expose the pose again on frame 150.

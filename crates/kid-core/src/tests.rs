@@ -14007,45 +14007,67 @@ fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_
 }
 
 #[test]
-fn published_tas_second_timeout_restart_intro_sequence_3_visit_does_not_jump_to_title_without_start()
-{
+fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_frame_9312() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_9311 = None;
     let mut frame_9312 = None;
-    let mut frame_9350 = None;
+    let mut frame_9354 = None;
+    let mut frame_9355 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(9_351) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(9_356) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
-            9_312 => {
-                frame_9312 = Some(trace.game_mode);
+            9_311 => {
+                frame_9311 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
             }
-            9_350 => {
-                frame_9350 = Some(trace.game_mode);
+            9_312 => {
+                frame_9312 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            9_354 => {
+                frame_9354 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+            }
+            9_355 => {
+                frame_9355 = Some(trace.game_mode);
                 break;
             }
             _ => {}
         }
     }
 
-    // ASM sub_1B93E naturally times out to `Game_Mode=$20` (intro sequence 4);
-    // only the Start-gated sub_1C246 path jumps straight to title.
-    assert!(
-        matches!(
-            frame_9312,
-            Some(
-                GameMode::IntroSequence3 | GameMode::IntroSequence4 | GameMode::IntroSequence5
-            )
-        ),
-        "without a frame-9312 Start press, the second timeout-restart intro-sequence-3 visit must stay on the intro path instead of jumping straight to title",
+    // ASM sub_1B93E / loc_1B96A keep polling the Start-gated sub_1C246 path
+    // while the roster still points at the second Load_IntroSequence3 visit;
+    // oracle frame 9312 still exposes the same visible pose at $70,$CC.
+    assert_eq!(
+        frame_9311,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+        )),
+        "frame 9311 should still be the live second timeout-restart intro-sequence-3 roster pose",
     );
-    assert!(
-        matches!(
-            frame_9350,
-            Some(
-                GameMode::IntroSequence3 | GameMode::IntroSequence4 | GameMode::IntroSequence5
-            )
-        ),
-        "the no-Start second visit should stay out of title throughout the observed frame-9312..9350 window",
+    assert_eq!(
+        frame_9312,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+        )),
+        "oracle frame 9312 is still inside loc_1B96A with the second roster pose alive; native must not time out into intro sequence 4 yet",
+    );
+    assert_eq!(
+        frame_9354,
+        Some((
+            GameMode::IntroSequence3,
+            Some(0x0070_0000),
+            Some(0x00CC_0000),
+        )),
+        "oracle keeps the second intro-sequence-3 visit alive through frame 9354 before the natural timeout lands",
+    );
+    assert_eq!(
+        frame_9355,
+        Some(GameMode::IntroSequence4),
+        "once loc_1B96A finally times out without Start, frame 9355 should flip `Game_Mode` to intro sequence 4",
     );
 }
 

@@ -1,93 +1,94 @@
 {
   "version": 1,
-  "updated_at": "2026-03-23T04:19:08Z",
+  "updated_at": "2026-03-24T00:36:22Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-9312-native-enters-title-before-oracle-leaves-intro-sequence-3",
+    "slug": "any-percent-published-frame-9355-intro-sequence-4-clears-second-roster-pose-before-oracle",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Demo-1 timeout restart intro-sequence-3/title timing after the frame-9097 roster fix",
+    "area": "Demo-1 timeout restart intro-sequence-4 pose carry after the frame-9312 intro-sequence-3 timing fix",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 9312,
-    "authoritative_clean_through": 9311,
+    "frontier_frame": 9355,
+    "authoritative_clean_through": 9354,
     "pre_divergence_windows": [
       {
-        "frame_start": 9308,
-        "frame_end": 9311,
-        "reason": "Frames 9308..9311 are authoritative-clean after the ROM-roster fix and now differ only on advisory `number_objects`: `tas-diff --frame-start 9308 --frame-end 9316 --include-advisory` shows the first authoritative break at frame 9312."
+        "frame_start": 9351,
+        "frame_end": 9354,
+        "reason": "Frames 9351..9354 are authoritative-clean after the intro-sequence-3 timer retune and differ only on advisory `number_objects`: `tas-diff --frame-start 9308 --frame-end 9395 --include-advisory` shows the first authoritative break at frame 9355."
       }
     ],
-    "current_blocker": "After replacing the single hard-coded intro-sequence-3 pose with the ROM's rotating `Load_IntroSequence3` roster, native now matches the oracle on frame 9097 and stays CRC-clean through frame 9311. The first authoritative break is frame 9312, where native flips to `game_mode=0x002C` (title screen) with the second-roster pose still visible while oracle stays in `game_mode=0x001C` (intro sequence 3) with the same pose and only advisory object-count drift.",
+    "current_blocker": "After retuning the timeout-restart intro-sequence-3 timer to the oracle-backed 299-frame hand-off, native now stays in `game_mode=0x001C` through frame 9354 and flips to `game_mode=0x0020` on frame 9355 just like the oracle. The new first authoritative break is frame 9355 because native clears Kid immediately on intro-sequence-4 entry, while oracle still carries the second `Load_IntroSequence3` roster pose at `0x00700000,0x00CC0000` (with the roster still rooted at `loc_1B96A`) under the new mode.",
     "authoritative_diffs": [
-      "The old frame-9097 blocker is gone: `published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097` passes, and `tas-diff --frame-start 9094 --frame-end 9100 --include-advisory` is authoritative-clean after native starts mirroring the ROM's `$FFFFFC83` roster cycle.",
-      "The first CRC divergence moves from frame 9097 to frame 9312: `verify-tas --frame-start 6975 --frame-end 9530 --bisect` now reports `mode=0x002C level=00 kid=(0x00700000,0x00CC0000)` on the first native miss.",
-      "The new live blocker is an early intro-sequence-3 exit: `tas-diff --frame-start 9308 --frame-end 9316 --include-advisory` keeps frames 9308..9311 advisory-only, then shows native entering `game_mode=0x002C` on frame 9312 while oracle stays in `game_mode=0x001C` through at least frame 9315."
+      "The old frame-9312 blocker is gone: `published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_frame_9312` now passes, and `tas-diff --frame-start 9308 --frame-end 9395 --include-advisory` keeps frames 9308..9354 authoritative-clean.",
+      "The first CRC divergence moves from frame 9312 to frame 9355: `verify-tas --frame-start 6975 --frame-end 9530 --bisect` now reports `mode=0x0020 level=00 kid=(0x00000000,0x00000000)` on the first native miss.",
+      "The new live blocker is the early intro-sequence-4 pose clear: `tas-diff --frame-start 9308 --frame-end 9395 --include-advisory` shows native and oracle both on `game_mode=0x0020` at frame 9355, but native clears Kid while oracle keeps the second-roster `0x00700000,0x00CC0000` pose through frame 9381."
     ],
     "advisory_diffs": [
-      "Frames 9097..9099 and 9308..9311 still differ only on advisory `number_objects` because native trace state does not model the intro/title glyph object roster yet.",
-      "The preserved `kid_ground_probe` debug text remains irrelevant noise during this boot-only frontier; the authoritative mode/pose state is the useful signal."
+      "Frames 9308..9354 and 9382..9391 still differ only on advisory `number_objects` because native trace state does not model the intro/title glyph object roster yet.",
+      "The preserved `kid_ground_probe` debug text remains irrelevant noise during this boot-only frontier; the authoritative pose carry and camera state are the useful signals."
     ],
     "current_hypothesis": {
-      "name": "Native still exits the later demo-1 timeout-restart copy of intro sequence 3 too early",
-      "reason": "The pose itself now matches the ROM's second `unk_1AF78` roster, so the remaining gap is timing only. `sub_1B93E` / `loc_1B96A` keep `Game_Mode=0x001C` alive until the intro object decides to leave, and `tas-diff --frame-start 9308 --frame-end 9316 --include-advisory` shows native taking the title-screen path several frames before oracle does."
+      "name": "Native drops the carried second-roster intro-sequence-3 pose too early on intro-sequence-4 entry",
+      "reason": "The timer fix proves the `Game_Mode` hand-off now matches the oracle. The remaining frame-9355 mismatch is that native `current_player_state()` goes blank as soon as boot segment 3 starts, while oracle still exposes the old `loc_1B96A` roster pose under `game_mode=0x0020` through frame 9381."
     },
     "rejected_hypotheses": [
       {
-        "name": "The frame-9097 intro-sequence-3 pose mismatch is still the live frontier",
-        "reason": "That blocker is fixed. The new regression plus `tas-diff --frame-start 9094 --frame-end 9100 --include-advisory` prove native now exposes the second-roster pose `0x00700000,0x00CC0000` on the same frame as oracle."
+        "name": "The frame-9312 intro-sequence-3 lifetime mismatch is still the live frontier",
+        "reason": "That blocker is fixed. The retuned `DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES=299`, the focused regression, and `verify-tas --frame-start 6975 --frame-end 9530 --bisect` all move the first authoritative break out to frame 9355."
       },
       {
-        "name": "The single hard-coded intro-sequence-3 pose `0x00600000,0x00D00000` is still valid for later attract loops",
-        "reason": "The ROM's `Load_IntroSequence3` roster tables (`unk_1AF24` / `unk_1AF78`) rotate through four descriptor sets via `$FFFFFC83`, and oracle frame 9097 exposes the second roster's third descriptor `0x0070,0x00CC` instead."
+        "name": "The remaining frame-9355 bug is still an intro-sequence-3 timer problem",
+        "reason": "No: both native and oracle are already on `game_mode=0x0020` at frame 9355. The remaining blocker is the carried pose/object visibility under intro sequence 4, not the segment-2 timeout itself."
       },
       {
-        "name": "The new 9312 break is another pose-selection bug",
-        "reason": "Oracle and native now agree on the carried pose at frame 9312; only `game_mode` diverges. The live blocker is the intro-sequence-3 → title transition timing, not the selected coordinates."
+        "name": "Frame 9392 camera drift is the live frontier",
+        "reason": "It is downstream. `tas-diff --frame-start 9308 --frame-end 9395 --include-advisory` still shows authoritative Kid-pose divergence on frames 9355..9381, so the camera mismatch is not yet the first causal break."
       }
     ],
     "required_next_evidence": [
-      "Re-read `sub_1B93E`, `loc_1B96A`, and `sub_1C246` / `loc_1C250` in the ROM to pin down exactly which path should leave `Game_Mode=0x001C` on this later attract-loop visit.",
-      "Trace native segment-2 timing around frames 9311..9315 only, comparing `elapsed`, `pending_title_skip`, and any timeout-restart intro-sequence-3 return flags against the oracle's still-visible `0x001C` state.",
-      "Add the next focused regression once the frame-9312 early-title timing is proven."
+      "Read `Load_IntroSequence4` and `sub_1B988` in the ROM, then trace how the old `loc_1B96A` roster stays visible after `Game_Mode` has already changed to `$20`.",
+      "Compare native `current_player_state()` / boot-segment-3 handling against the oracle-backed `9355..9381` carry window; decide whether the missing behaviour belongs in trace state only or in the boot-state model.",
+      "Add a focused regression for the early intro-sequence-4 pose carry once the exact oracle window is proven."
     ],
     "verification_commands": [
-      "cargo test -p kid-core published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994 -- --nocapture",
+      "cargo test -p kid-core published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit -- --nocapture",
       "cargo test -p kid-core published_tas_demo_2_carries_intro_sequence_3_pose_into_the_first_title_frames -- --nocapture",
       "cargo test -p kid-core published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097 -- --nocapture",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9094 --frame-end 9100 --include-advisory",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9316 --include-advisory",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
+      "cargo test -p kid-core published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_frame_9312 -- --nocapture",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9395 --include-advisory",
+      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Investigate the frame-9312 intro-sequence-3 early title transition",
-      "summary": "The ROM-roster pose fix clears frame 9097 and moves the first authoritative divergence to frame 9312, where native reaches `TitleScreen (0x002C)` while oracle is still in `IntroSequence3 (0x001C)`. The next session should explain and fix that timing gap.",
+      "title": "Investigate the frame-9355 intro-sequence-4 pose-carry mismatch",
+      "summary": "The intro-sequence-3 timer fix clears the old frame-9312 `Game_Mode` bug and moves the first authoritative divergence to frame 9355, where native reaches intro sequence 4 and clears Kid while oracle still carries the second `Load_IntroSequence3` roster pose under the new mode. The next session should explain and fix that early intro-sequence-4 pose clear.",
       "sources": [
         ".cache/upstream/kid-chameleon-disasm/kid.asm",
-        "crates/kid-core/src/lib.rs",
         "crates/kid-core/src/boot.rs",
-        "crates/kid-core/src/movement.rs",
         "crates/kid-core/src/trace.rs",
-        "crates/kid-core/src/tests.rs"
+        "crates/kid-core/src/movement.rs",
+        "crates/kid-core/src/tests.rs",
+        "docs/source-port/frontier-state.yaml"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
         "crates/kid-core/src/boot.rs",
         "crates/kid-core/src/trace.rs",
         "crates/kid-core/src/tests.rs",
         "docs/source-port/frontier-state.yaml"
       ],
       "commands": [
+        "cargo test -p kid-core published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit -- --nocapture",
+        "cargo test -p kid-core published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_frame_9312 -- --nocapture",
+        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9395 --include-advisory",
         "cargo test -p kid-core published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_9097 -- --nocapture",
-        "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9316 --include-advisory",
-        "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
+        "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
         "mise run verify-slice-fast"
       ],
       "done_criteria": [
-        "A focused regression captures frame 9311 clean and the next authoritative intro-sequence-3/title mismatch at frame 9312.",
-        "The engine fix explains why native reaches `TitleScreen (0x002C)` before oracle leaves `IntroSequence3 (0x001C)` on the later demo-1 timeout restart path.",
-        "The first authoritative divergence moves past frame 9312."
+        "A focused regression captures the oracle-backed pose carry under intro sequence 4 starting at frame 9355.",
+        "The engine fix explains why oracle keeps the second `Load_IntroSequence3` roster pose visible under `game_mode=0x0020` while native clears it immediately.",
+        "The first authoritative divergence moves past frame 9355."
       ]
     }
   },
