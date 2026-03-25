@@ -292,14 +292,12 @@ pub(super) fn select_enemy_frame<'a>(
     if object.stationary {
         return &enemy_visuals.frames[0];
     }
-    // Use per-enemy walk_phase when available so enemies animate independently.
-    // ASM uses per-object animation counters at $36(a3)/$38(a3), not a global
-    // frame counter.
-    let frame_index = if let Some(phase) = object.walk_phase {
-        usize::from(phase) % enemy_visuals.frames.len()
-    } else {
-        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len()
-    };
+    // Offset animation by layout_index so enemies of the same type don't
+    // animate in lockstep. ASM uses per-object animation counters at
+    // $36(a3)/$38(a3); this is a visual approximation.
+    let offset = object.layout_index.unwrap_or(0);
+    let frame_index = ((trace.frame_index + offset * 3) / enemy_visuals.frame_duration.max(1))
+        % enemy_visuals.frames.len();
     &enemy_visuals.frames[frame_index]
 }
 

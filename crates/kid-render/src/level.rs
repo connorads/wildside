@@ -31,12 +31,10 @@ pub struct LevelVisuals {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockVisualMapping {
     terrain_by_skin: Vec<TileQuad>,
-    generic_block: TileQuad,
-    smash_by_skin: Vec<TileQuad>,
-    prize_by_skin: Vec<TileQuad>,
-    ice_by_skin: Vec<TileQuad>,
-    metal_by_skin: Vec<TileQuad>,
-    rubber_by_skin: Vec<TileQuad>,
+    /// Block_Mappings: flat array indexed by cell skin byte.
+    /// ASM uses skin byte × 8 as offset into Block_Mappings for ALL block
+    /// types — the skin byte is a direct index, not per-block-type.
+    block_quads: Vec<TileQuad>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,19 +122,9 @@ impl BlockVisualMapping {
             );
         }
 
-        let mut block_quads = block_quads.into_iter();
-        let generic_block = block_quads
-            .next()
-            .expect("validated block mapping quad count includes the generic block");
-
         Ok(Self {
             terrain_by_skin,
-            generic_block,
-            smash_by_skin: take_block_skin_group(&mut block_quads),
-            prize_by_skin: take_block_skin_group(&mut block_quads),
-            ice_by_skin: take_block_skin_group(&mut block_quads),
-            metal_by_skin: take_block_skin_group(&mut block_quads),
-            rubber_by_skin: take_block_skin_group(&mut block_quads),
+            block_quads,
         })
     }
 
@@ -151,44 +139,17 @@ impl BlockVisualMapping {
                     quad,
                 }),
             Some(block_type) => {
+                // ASM uses the skin byte as a flat index into Block_Mappings
+                // for ALL block types. The block type affects gameplay (collision)
+                // but NOT the visual tile — skin byte alone determines the quad.
                 let kind = block_visual_kind(block_type)?;
-                match kind {
-                    BlockVisualKind::Terrain => unreachable!(),
-                    BlockVisualKind::GenericBlock => Some(ResolvedBlockVisual {
-                        kind,
-                        quad: &self.generic_block,
-                    }),
-                    BlockVisualKind::Smash => Some(ResolvedBlockVisual {
-                        kind,
-                        quad: self.smash_by_skin.get(index).unwrap_or(&self.generic_block),
-                    }),
-                    BlockVisualKind::Prize => Some(ResolvedBlockVisual {
-                        kind,
-                        quad: self.prize_by_skin.get(index).unwrap_or(&self.generic_block),
-                    }),
-                    BlockVisualKind::Ice => Some(ResolvedBlockVisual {
-                        kind,
-                        quad: self.ice_by_skin.get(index).unwrap_or(&self.generic_block),
-                    }),
-                    BlockVisualKind::Metal => Some(ResolvedBlockVisual {
-                        kind,
-                        quad: self.metal_by_skin.get(index).unwrap_or(&self.generic_block),
-                    }),
-                    BlockVisualKind::Rubber => Some(ResolvedBlockVisual {
-                        kind,
-                        quad: self
-                            .rubber_by_skin
-                            .get(index)
-                            .unwrap_or(&self.generic_block),
-                    }),
-                }
+                self.block_quads
+                    .get(index)
+                    .or(self.block_quads.first())
+                    .map(|quad| ResolvedBlockVisual { kind, quad })
             }
         }
     }
-}
-
-fn take_block_skin_group(block_quads: &mut impl Iterator<Item = TileQuad>) -> Vec<TileQuad> {
-    block_quads.take(BLOCK_VARIANT_SKIN_COUNT).collect()
 }
 
 fn block_visual_kind(block_type: u8) -> Option<BlockVisualKind> {
