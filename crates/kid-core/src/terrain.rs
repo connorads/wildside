@@ -1466,8 +1466,8 @@ mod tests {
             0x00, 0x42, // layout_addr (non-zero → valid)
             0x00, 0x07, // col = 7
             0x00, 0x03, // row = 3
-            0x80,       // disguised bit set
-            0x05,       // content = 5 (Eyeclops)
+            0x80, // disguised bit set
+            0x05, // content = 5 (Eyeclops)
         ]);
 
         // --- Ghost block entry (16 bytes) ---
@@ -1477,15 +1477,15 @@ mod tests {
         // count_nibble=0x03→4, vertical=1
         data.extend_from_slice(&[
             0x00, 0x00, // timer = 0 (doubles as prize terminator)
-            0x00,       // flags
-            0x00,       // mapping_frame = 0 → solid
+            0x00, // flags
+            0x00, // mapping_frame = 0 → solid
             0x00, 0x19, // solid_time = 25
             0x00, 0x0F, // vanished_time = 15
             0x00, 0x20, // layout_addr (non-zero → valid ghost)
             0x00, 0x04, // col = 4
             0x00, 0x06, // row = 6
-            0x03,       // count nibble = 3 → count = 4
-            0x01,       // vertical = true
+            0x03, // count nibble = 3 → count = 4
+            0x01, // vertical = true
         ]);
         // Ghost terminator (all zeros — timer=0, layout_addr=0, solid_time=0)
         data.extend_from_slice(&[0u8; 16]);
@@ -1495,8 +1495,8 @@ mod tests {
             0x00, 0x10, // layout_addr
             0x00, 0x09, // col = 9
             0x00, 0x02, // row = 2
-            0x05,       // dest_map_id = 5
-            0x0B,       // dest_y = 11
+            0x05, // dest_map_id = 5
+            0x0B, // dest_y = 11
             0x00, 0x18, // dest_x = 24
         ]);
         // Teleporter terminator (layout_addr=0)
@@ -1507,8 +1507,8 @@ mod tests {
             0x00, 0x08, // layout_addr
             0x00, 0x01, // col = 1
             0x00, 0x0A, // row = 10
-            0xAB,       // block_type
-            0xCD,       // block_setting
+            0xAB, // block_type
+            0xCD, // block_setting
         ]);
         // Hidden terminator
         data.extend_from_slice(&[0x00, 0x00]);
@@ -1579,7 +1579,11 @@ mod tests {
 
         let bl = BlockList::from_raw(&data, 20);
         let hb = bl.hidden_block_at(3, 7);
-        assert!(hb.is_some(), "hidden block at (3,7) should exist, got {:?}", bl.hidden_blocks);
+        assert!(
+            hb.is_some(),
+            "hidden block at (3,7) should exist, got {:?}",
+            bl.hidden_blocks
+        );
         assert_eq!(hb.unwrap().block_type, 0x42);
         assert_eq!(hb.unwrap().block_setting, 0x01);
         assert!(bl.hidden_block_at(99, 99).is_none());
@@ -1606,7 +1610,11 @@ mod tests {
             PrizeContent::TenDiamonds,
         ];
         for v in &variants {
-            assert_eq!(PrizeContent::from_id(v.to_id()), *v, "round-trip failed for {v:?}");
+            assert_eq!(
+                PrizeContent::from_id(v.to_id()),
+                *v,
+                "round-trip failed for {v:?}"
+            );
         }
     }
 
@@ -1896,8 +1904,8 @@ mod tests {
             0x00, 0x30, // layout_addr
             0x00, 0x02, // col=2
             0x00, 0x04, // row=4
-            0x01,       // count=2
-            0x00,       // horizontal
+            0x01, // count=2
+            0x00, // horizontal
         ]);
         data.extend_from_slice(&[0u8; 16]); // ghost terminator
 
@@ -1918,8 +1926,8 @@ mod tests {
             0x00, 0x10, // layout_addr
             0x00, 0x01, // col=1
             0x00, 0x02, // row=2
-            0x03,       // dest_map_id=3
-            0x04,       // dest_y=4
+            0x03, // dest_map_id=3
+            0x04, // dest_y=4
             0x01, 0x00, // dest_x=256 (big-endian)
         ]);
         data.extend_from_slice(&[0x00, 0x00]); // teleporter terminator

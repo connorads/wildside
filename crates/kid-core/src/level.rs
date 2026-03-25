@@ -46,9 +46,14 @@ impl NativeRuntime {
         self.current_level = next_level;
         self.reload_block_grid_for_level(next_level);
         self.level_start_frame = Some(self.frame_index);
-        self.opening_slice = Some(self.level_respawn_slice(next_level));
+        // Use floor-snap so the player spawns on solid ground.
+        // The header spawn Y is approximate; ASM relies on gravity + sub_902A
+        // to settle the player on the first frame. Without floor-snap, the
+        // player can float above terrain and then drop into the void.
+        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(next_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
+        self.killed_enemies.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();

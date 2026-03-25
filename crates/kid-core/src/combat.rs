@@ -184,12 +184,16 @@ impl NativeRuntime {
             }
         }
 
-        // Remove dead enemies, spawn death effects, and award points
+        // Remove dead enemies, spawn death effects, and award points.
+        // Track killed identity so activate_enemies won't respawn them
+        // (ASM uses per-segment killed bitfield at $FFFFF66A).
         for &idx in kill_indices.iter().rev() {
             let enemy = &self.active_enemies[idx];
             let family = enemy.family;
             let x_pos = enemy.x_pos;
             let y_pos = enemy.y_pos;
+            self.killed_enemies
+                .insert((enemy.segment_index, enemy.layout_index));
             self.spawn_enemy_death_effect(family, x_pos, y_pos);
             // Fire Demon: spawn fire trail on death
             if matches!(family, EnemyFamily::FireDemon) {
@@ -946,9 +950,11 @@ impl NativeRuntime {
             return true;
         }
 
-        // Projectiles: advance and damage player on hit
+        // Projectiles: advance and damage player on hit.
+        // ASM Character_CheckCollision checks invulnerability timer before all
+        // non-spike damage, including projectiles.
         self.step_projectiles();
-        if self.projectile_hits_player(slice) {
+        if self.progression.invulnerable_frames == 0 && self.projectile_hits_player(slice) {
             self.opening_slice = Some(*slice);
             self.apply_damage();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;

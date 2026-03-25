@@ -349,15 +349,6 @@ pub(crate) const MANIAXE_STARTUP_FRAMES: u8 = 6;
 pub(crate) const MANIAXE_BASE_SPEED: i32 = 5;
 pub(crate) const MANIAXE_TRAVEL_FRAMES: u8 = 12;
 
-// === Mushroom block ===
-
-/// Mushroom block minimum bounce velocity (ensures a visible bounce even at low speed).
-// DEVIATION: ASM SoftPlatform bounces the platform object (player riding velocity / form
-// divisor, decelerated by $7000/frame, cap -$18000). Native bounces the player directly
-// with 3/4 attenuation. Structural difference: ASM uses platform objects, native applies
-// bounce inline. Visual result is similar; exact platform-object system would be #066.
-pub(crate) const MUSHROOM_MIN_BOUNCE: i32 = -0x2_0000;
-
 // === Eyeclops ===
 
 /// Eyeclops beam: C press fires a horizontal beam projectile.

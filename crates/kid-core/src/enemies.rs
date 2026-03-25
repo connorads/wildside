@@ -928,6 +928,7 @@ pub(crate) fn build_enemy_roster(
 
 /// Activate enemies that enter the camera window and deactivate those that leave.
 /// Newly activated enemies start at their layout position.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn activate_enemies(
     active: &mut Vec<ActiveEnemy>,
     layout: &EnemyLayout,
@@ -936,6 +937,7 @@ pub(crate) fn activate_enemies(
     camera_y_px: u32,
     level_bounds: physics::LevelBounds,
     player_x: u32,
+    killed: &std::collections::HashSet<(usize, usize)>,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
@@ -965,6 +967,10 @@ pub(crate) fn activate_enemies(
             .iter()
             .any(|e| e.segment_index == view.segment_index && e.layout_index == index)
         {
+            continue;
+        }
+        // Don't respawn killed enemies (ASM: per-segment killed bitfield).
+        if killed.contains(&(view.segment_index, index)) {
             continue;
         }
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
@@ -4341,6 +4347,7 @@ impl NativeRuntime {
                     camera_y_px,
                     level_bounds,
                     slice.player.x_pos,
+                    &self.killed_enemies,
                 );
                 step_active_enemies(
                     &mut self.active_enemies,

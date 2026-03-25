@@ -29,6 +29,7 @@ pub use scenario::{
     run_script_with_warp,
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
+use std::collections::HashSet;
 use std::fs;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
@@ -57,6 +58,10 @@ pub struct NativeRuntime {
     level_skip_resume_hold: bool,
     active_enemy_roster: Vec<NativeObjectSnapshot>,
     active_enemies: Vec<ActiveEnemy>,
+    /// Enemies killed during this level — (segment_index, layout_index).
+    /// Prevents respawn when their spawn point re-enters the activation window.
+    /// ASM: per-segment killed bitfield at $FFFFF66A.
+    killed_enemies: HashSet<(usize, usize)>,
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,
@@ -282,6 +287,7 @@ impl NativeRuntime {
             level_skip_resume_hold: false,
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
+            killed_enemies: HashSet::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
             platform_script_table: None,

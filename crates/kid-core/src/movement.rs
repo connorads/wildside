@@ -2104,21 +2104,12 @@ impl OpeningSliceState {
                         self.player.y_pos =
                             (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
                     }
-                    // TODO(fidelity): ASM off_933E index 9 (Mushroom) is a NOP — mushroom
-                    // blocks do NOT bounce the player in the ROM. Rubber blocks (index 6)
-                    // also don't bounce — loc_91C0 just spawns a visual jiggle effect via
-                    // j_loc_10DA4 and plays sfx_Rubber_block, without touching y_vel.
-                    // This mushroom bounce was added as a placeholder approximation.
-                    // Remove once the block interaction table is modelled faithfully.
-                    if probe.cell.block_type == terrain::BlockType::Mushroom {
-                        self.player.y_velocity =
-                            -(self.player.y_velocity.abs() * 3 / 4).max(MUSHROOM_MIN_BOUNCE);
-                        self.player.on_ground = false;
-                    } else {
-                        self.player.on_ground = true;
-                        self.player.y_velocity = 0;
-                        self.player.wall_cling_direction = None;
-                    }
+                    // ASM off_933E: Mushroom (index 9) is a NOP — no bounce.
+                    // Rubber (index 6) spawns a visual jiggle (j_loc_10DA4) but
+                    // does NOT modify y_vel. All block types land normally.
+                    self.player.on_ground = true;
+                    self.player.y_velocity = 0;
+                    self.player.wall_cling_direction = None;
                     // Teleporter blocks warp player on contact
                     if probe.cell.has_block
                         && probe.cell.block_type == terrain::BlockType::Teleporter

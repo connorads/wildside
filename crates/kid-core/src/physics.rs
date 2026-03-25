@@ -1299,7 +1299,8 @@ mod tests {
     fn walk_left_above_walk_cap_decelerates() {
         // Walking left at above-walk speed: decel with walk_run_decel
         let vel = -(NORMAL_KID.max_walk_speed + 0x8000);
-        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
         // vel + walk_run_decel (towards zero, i.e. less negative)
         assert_eq!(result, vel + NORMAL_KID.walk_run_decel);
     }
@@ -1308,7 +1309,8 @@ mod tests {
     fn walk_left_above_run_cap_snaps_to_run_cap() {
         // Walking left at above-run speed: snap to -max_run_speed
         let vel = -(NORMAL_KID.max_run_speed + 0x1_0000);
-        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
         assert_eq!(result, -NORMAL_KID.max_run_speed);
     }
 
@@ -1316,7 +1318,8 @@ mod tests {
     fn walk_left_below_walk_cap_accelerates() {
         // Walking left, speed below walk cap: accelerate with walk_accel
         let vel = -0x1_0000; // below max_walk (0x2_0000)
-        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
         assert_eq!(result, -(0x1_0000 + NORMAL_KID.walk_accel));
     }
 
@@ -1324,7 +1327,8 @@ mod tests {
     fn walk_left_acceleration_caps_at_walk_speed() {
         // Just below max_walk: accel should not overshoot
         let vel = -(NORMAL_KID.max_walk_speed - 0x100);
-        let (result, _) = update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Left, left_walk(), &NORMAL_KID);
         assert_eq!(result, -NORMAL_KID.max_walk_speed);
     }
 
@@ -1334,7 +1338,8 @@ mod tests {
     fn decel_positive_subtracts_walk_run_decel() {
         // loc_9BEE: vel > 0, no input → subtract walk_run_decel
         let vel = NORMAL_KID.max_walk_speed;
-        let (result, _) = update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Right, no_input(), &NORMAL_KID);
         assert_eq!(result, vel - NORMAL_KID.walk_run_decel);
     }
 
@@ -1414,12 +1419,8 @@ mod tests {
     #[test]
     fn jump_air_left_accelerates() {
         // Holding left from standstill: should go negative
-        let (vel, dir) = update_jump_horizontal_velocity(
-            0,
-            Direction::Right,
-            left_walk(),
-            JUMP_AIR_PROFILES[0],
-        );
+        let (vel, dir) =
+            update_jump_horizontal_velocity(0, Direction::Right, left_walk(), JUMP_AIR_PROFILES[0]);
         assert!(vel < 0, "holding left should produce negative velocity");
         assert_eq!(dir, Direction::Left);
     }
@@ -1430,12 +1431,7 @@ mod tests {
         // But: 0 is not < 0 (min_speed check path), so: next = 0 - accel = -accel
         // -accel >= min_speed (-max_speed) since accel < max_speed, so result = -accel
         let profile = JUMP_AIR_PROFILES[0];
-        let (vel, _) = update_jump_horizontal_velocity(
-            0,
-            Direction::Right,
-            left_walk(),
-            profile,
-        );
+        let (vel, _) = update_jump_horizontal_velocity(0, Direction::Right, left_walk(), profile);
         assert_eq!(vel, -profile.accel);
     }
 
@@ -1457,12 +1453,8 @@ mod tests {
     fn jump_air_no_input_decel_positive() {
         // No input, positive velocity: should decelerate by 0x400, snapping to zero
         let profile = JUMP_AIR_PROFILES[0];
-        let (result, _) = update_jump_horizontal_velocity(
-            0x2_0000,
-            Direction::Right,
-            no_input(),
-            profile,
-        );
+        let (result, _) =
+            update_jump_horizontal_velocity(0x2_0000, Direction::Right, no_input(), profile);
         assert_eq!(result, 0x2_0000 - 0x400);
     }
 
@@ -1470,36 +1462,24 @@ mod tests {
     fn jump_air_no_input_decel_negative() {
         // No input, negative velocity: should decelerate towards zero
         let profile = JUMP_AIR_PROFILES[0];
-        let (result, _) = update_jump_horizontal_velocity(
-            -0x2_0000,
-            Direction::Left,
-            no_input(),
-            profile,
-        );
+        let (result, _) =
+            update_jump_horizontal_velocity(-0x2_0000, Direction::Left, no_input(), profile);
         assert_eq!(result, -0x2_0000 + 0x400);
     }
 
     #[test]
     fn jump_air_no_input_snap_positive_to_zero() {
         let profile = JUMP_AIR_PROFILES[0];
-        let (result, _) = update_jump_horizontal_velocity(
-            0x100,
-            Direction::Right,
-            no_input(),
-            profile,
-        );
+        let (result, _) =
+            update_jump_horizontal_velocity(0x100, Direction::Right, no_input(), profile);
         assert_eq!(result, 0, "small positive vel should snap to zero");
     }
 
     #[test]
     fn jump_air_no_input_snap_negative_to_zero() {
         let profile = JUMP_AIR_PROFILES[0];
-        let (result, _) = update_jump_horizontal_velocity(
-            -0x100,
-            Direction::Left,
-            no_input(),
-            profile,
-        );
+        let (result, _) =
+            update_jump_horizontal_velocity(-0x100, Direction::Left, no_input(), profile);
         assert_eq!(result, 0, "small negative vel should snap to zero");
     }
 
@@ -1542,7 +1522,8 @@ mod tests {
     fn run_right_from_moving_left_uses_strong_brake() {
         // loc_9B62: running right but vel < 0 → vel + strong_brake (towards zero)
         let vel = -NORMAL_KID.max_walk_speed;
-        let (result, _) = update_horizontal_velocity(vel, Direction::Right, right_run(), &NORMAL_KID);
+        let (result, _) =
+            update_horizontal_velocity(vel, Direction::Right, right_run(), &NORMAL_KID);
         assert_eq!(result, vel + NORMAL_KID.strong_brake);
         assert!(result > vel, "should move towards zero (less negative)");
     }

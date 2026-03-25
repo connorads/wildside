@@ -287,13 +287,19 @@ pub(super) fn push_player_sprite(
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
-    stationary: bool,
+    object: &NativeObjectSnapshot,
 ) -> &'a kid_render::SpriteFrame {
-    if stationary {
+    if object.stationary {
         return &enemy_visuals.frames[0];
     }
-    let frame_index =
-        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len();
+    // Use per-enemy walk_phase when available so enemies animate independently.
+    // ASM uses per-object animation counters at $36(a3)/$38(a3), not a global
+    // frame counter.
+    let frame_index = if let Some(phase) = object.walk_phase {
+        usize::from(phase) % enemy_visuals.frames.len()
+    } else {
+        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % enemy_visuals.frames.len()
+    };
     &enemy_visuals.frames[frame_index]
 }
 
@@ -317,7 +323,7 @@ pub(super) fn push_enemy_sprite(
         }
     };
 
-    let frame = select_enemy_frame(trace, enemy_visuals, object.stationary);
+    let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let facing = object.facing.unwrap_or(Direction::Right);
     // Enemy VRAM art is stored facing left (the ROM uses the H-flip bit to
