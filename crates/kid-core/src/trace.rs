@@ -398,6 +398,12 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_pos, e.y_pos, e.remaining))
                 .collect(),
+            death_windup_elapsed: match self.player_lifecycle {
+                PlayerLifecycle::DeathWindup { remaining_frames } => {
+                    (PLAYER_DEATH_WINDUP_FRAMES.saturating_sub(remaining_frames)) as u16
+                }
+                _ => 0,
+            },
             form_change_flash_frames: self.progression.form_change_flash_frames,
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,

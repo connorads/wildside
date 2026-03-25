@@ -871,6 +871,9 @@ pub struct NativeTraceFrame {
     pub floating_items: Vec<(u16, u16, u8, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
     pub enemy_death_effects: Vec<(u32, u32, u16)>,
+    /// Death windup elapsed frames (0=not dying). Used by renderer for tumble animation.
+    #[serde(default)]
+    pub death_windup_elapsed: u16,
     /// Form-change visual flash countdown (0=no flash).
     pub form_change_flash_frames: u8,
     /// True if a stomp occurred this frame (for SFX).

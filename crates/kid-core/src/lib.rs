@@ -1262,6 +1262,13 @@ impl NativeRuntime {
                     deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
                     phase: DeferredPrizeBlockPhase::Deleted,
                 });
+            // Visual: shake the prize block (same as Metal block bounce).
+            // ASM sub_1007A bounce coroutine wiggles the block for ~31 frames.
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: col,
+                cell_y: row,
+                remaining: 8,
+            });
         }
 
         self.process_block_effects(&mut slice);

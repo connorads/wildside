@@ -700,6 +700,7 @@ mod tests {
             block_destroy_effects: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
+            death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,

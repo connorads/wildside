@@ -1,5 +1,6 @@
 ---
 source: crates/kid-core/src/tests.rs
+assertion_line: 12944
 expression: trace
 ---
 frame_index: 581
@@ -101,6 +102,7 @@ block_bounces: []
 block_destroy_effects: []
 floating_items: []
 enemy_death_effects: []
+death_windup_elapsed: 0
 form_change_flash_frames: 0
 stomped_this_frame: false
 blocks_hit_this_frame: 0

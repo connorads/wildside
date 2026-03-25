@@ -407,6 +407,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 fade_alpha = 80;
                 fading_in = false;
             }
+            // Respawn: fade back in when death windup ends
+            if prev_trace.death_windup_elapsed > 0
+                && trace.death_windup_elapsed == 0
+                && fade_alpha > 0
+            {
+                fading_in = true;
+            }
 
             // Show level card when the engine first enters gameplay
             // (title → StartingLevel maps to GameMode::InGame in trace)
@@ -1316,6 +1323,7 @@ mod tests {
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
+            death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             blocks_hit_this_frame: 0,
             sound_test_track: None,
