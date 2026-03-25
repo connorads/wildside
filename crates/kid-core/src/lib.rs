@@ -1156,6 +1156,39 @@ impl NativeRuntime {
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
             }
+            // ASM sub_AF7A: IronKnight breaks floor blocks on landing.
+            // Checks after physics so we know the player just touched a floor cell.
+            if self.progression.current_form == PlayerForm::IronKnight
+                && slice.player.on_ground
+                && pre_physics_y_velocity > 0
+            {
+                let px = (slice.player.x_pos >> 16) as i32;
+                let py = (slice.player.y_pos >> 16) as i32;
+                let hw = self.progression.current_form.half_width();
+                if let Some(ref mut grid) = self.block_grid {
+                    let probe = terrain::probe_floor_hitbox(grid, px, py, hw);
+                    if probe.on_ground && probe.cell.has_block {
+                        let bt = probe.cell.block_type as u8;
+                        // off_AFD8: types 0-5 (Smash, Prize, Ice, SolidGhost,
+                        // Teleporter, Metal) are breakable by IronKnight.
+                        if bt <= 5 {
+                            grid.set_cell_at(
+                                probe.cell_x,
+                                probe.cell_y,
+                                terrain::Cell::from_be_bytes(0x00, 0x00),
+                            );
+                            self.block_destroy_effects.push(BlockDestroyEffect {
+                                x_px: probe.cell_x * 16,
+                                y_px: probe.cell_y * 16,
+                                remaining: 8,
+                            });
+                            slice.player.y_velocity = -0x8000;
+                            slice.player.on_ground = false;
+                        }
+                    }
+                }
+            }
+
             self.note_kid_same_frame_stomp_probe(
                 &slice,
                 pre_physics_y_velocity,
