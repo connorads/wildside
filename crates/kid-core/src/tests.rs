@@ -15184,6 +15184,23 @@ fn respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x() {
 }
 
 #[test]
+fn respawn_settle_level_52_uses_stair_step_support_path() {
+    let mut runtime = cached_generated_runtime();
+    runtime.warp_to_level(LevelId(0x52));
+    let frames = runtime.inspect_respawn_settle(LevelId(0x52), 16);
+    let settle_step_1 = frames.get(1).expect("step 1 should exist");
+    let settled = frames
+        .last()
+        .expect("settle trace should contain the final frame");
+
+    // ASM sub_914A's landing-row scan finds the side stair-step support in
+    // Elsewhere 9 before the deeper centre-column floor finishes the fall.
+    assert!(settle_step_1.wide_support_applied);
+    assert_eq!(settle_step_1.kid_y_pos, 0x014F_0000);
+    assert_eq!(settled.kid_y_pos, 0x014F_0000);
+}
+
+#[test]
 fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frames = BTreeMap::new();

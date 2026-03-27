@@ -493,6 +493,7 @@ impl NativeRuntime {
         if let Some((floor_y_px, collision)) = fallback_floor
             && floor_y_px > probe.floor_y_px
             && collision != terrain::CollisionKind::Spikes
+            && !Self::spawn_support_forms_stair_step(grid, x_px, probe)
         {
             return false;
         }
@@ -520,6 +521,28 @@ impl NativeRuntime {
         slice.terrain.floor_y_pos = floor_y_fp;
         slice.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
         true
+    }
+
+    fn spawn_support_forms_stair_step(
+        grid: &terrain::BlockGrid,
+        center_x_px: i32,
+        probe: terrain::FloorProbe,
+    ) -> bool {
+        let center_col = terrain::pixel_to_cell(center_x_px).max(0) as u16;
+        if probe.cell_y == 0 || probe.cell_x == center_col {
+            return false;
+        }
+
+        // ASM sub_914A scans the entire landing row under Kid's width. Oracle-
+        // backed level 0x52 traces show that this catches a one-row-higher
+        // stair-step continuation before the deeper centre-column floor wins.
+        let outward_col = if probe.cell_x > center_col {
+            probe.cell_x.saturating_add(1)
+        } else {
+            probe.cell_x.saturating_sub(1)
+        };
+        grid.cell_at(outward_col, probe.cell_y.saturating_sub(1))
+            .is_solid_floor()
     }
 
     pub(crate) fn level_start_pose(
