@@ -1702,22 +1702,14 @@ impl OpeningSliceState {
             }
         }
 
+        // ASM sub_8F26 only latches wall-cling from the direct side-wall probe
+        // (`sub_922C`). A top-edge-only overhang contact is used later by
+        // loc_AAC8/sub_ADB8/sub_AE6E to retain an existing sticky cling, not to
+        // create a fresh wall hit. Promoting `probe_wall_top_edge` into a new
+        // collision source falsely attached Kid on the level-0x15 frame-24921
+        // frontier where the oracle keeps drifting right past the overhang.
         let mut probe =
             terrain::probe_wall(grid, x_px, y_px, collision_hw, PLAYER_HEIGHT, moving_right);
-
-        if !probe.hit && !self.player.on_ground {
-            let top_edge_probe = terrain::probe_wall_top_edge(
-                grid,
-                x_px,
-                y_px,
-                collision_hw,
-                PLAYER_HEIGHT,
-                moving_right,
-            );
-            if top_edge_probe.hit {
-                probe = top_edge_probe;
-            }
-        }
 
         // Right wall top-edge retention (overhang sticky)
         if !probe.hit && moving_right && self.player.right_wall_sticky {

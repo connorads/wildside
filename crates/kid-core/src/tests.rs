@@ -6872,6 +6872,67 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
 }
 
 #[test]
+fn airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit() {
+    let w = 5u16;
+    let h = 5u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let offset = (usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2;
+    data[offset] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            // ASM sub_8F26 only sees the direct wall probe here. At y=56 the
+            // right-side probe has already cleared the overhang, so a top-edge-
+            // only contact must not create a fresh wall-cling latch.
+            x_pos: 27 << 16,
+            y_pos: 56 << 16,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 64 << 16,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: LevelBounds {
+            width_pixels: 80,
+            height_pixels: 80,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        smash_block_hit: None,
+        teleporter_contact: None,
+        ceiling_prize_clear: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
+        wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
+    };
+
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+    assert_eq!(slice.player.x_pos, 27 << 16);
+    assert_eq!(slice.player.x_velocity, 0x0001_0000);
+    assert!(!slice.player.right_wall_sticky);
+    assert_eq!(slice.player.wall_cling_direction, None);
+}
+
+#[test]
 fn landing_frame_rewinds_airborne_horizontal_step() {
     let grid = grid_with_floor_at_row(4);
     let previous_x_pos = 100 << 16;

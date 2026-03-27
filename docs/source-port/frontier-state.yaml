@@ -1,37 +1,38 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T04:03:48Z",
+  "updated_at": "2026-03-27T04:19:54Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-24921-level-15-gameplay-divergence",
+    "slug": "any-percent-published-frame-27603-mode-24-kid-y-blank",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Level 0x15 gameplay diverges after the repaired later demo-2 timeout-return title-pose restore",
+    "area": "Mode-0x24 hand-off blanks Kid one frame too early after the repaired level-0x15 wall-cling attach",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 24921,
-    "authoritative_clean_through": 24920,
+    "frontier_frame": 27603,
+    "authoritative_clean_through": 27602,
     "pre_divergence_windows": [
       {
-        "frame_start": 23948,
-        "frame_end": 23964,
-        "reason": "The repaired later demo-2 timeout-return title window now matches oracle through frame 23964; the generic demo-title rebuild re-exposes loc_1B5CE's title pose on frames 23955..23956 instead of hiding Kid two extra frames."
+        "frame_start": 27598,
+        "frame_end": 27602,
+        "reason": "The level-0x15 gameplay window stays authoritative-clean through frame 27602 after removing the non-ASM top-edge-only wall-cling attach; only advisory object-count drift remains on frame 27602."
       }
     ],
-    "current_blocker": "The frame-23955/23956 later demo-2 timeout-return title-pose miss is cleared. The next authoritative break is now frame 24921 in level 0x15 gameplay; capture the first divergent fields around that frame before coding.",
+    "current_blocker": "The frame-24921 level-0x15 gameplay miss is cleared. The next first authoritative break is frame 27603, where native blanks `kid_y_pos` to `0x00000000` in `mode=0x0024`, `level=0x00`, while oracle keeps `kid_y_pos=0x00E00000` for one frame.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
       "The frame-22700 later IntroSequence6 demo-return title-pose miss is cleared: `published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701` passes, `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory` now shows 8/8 matches, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 23248.",
       "The frame-23248 later IntroSequence6 demo re-entry hold is cleared: `published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248` passes, and the manual Start-abort title return now seeds Obj_TitleMenu's shared idle counter with the two frames that loc_1B5CE had already burned before the later demo started.",
-      "The frame-23955 later demo-2 timeout-return title-pose miss is cleared: `published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956` passes, `tas-diff --frame-start 23948 --frame-end 23964 --include-advisory` now shows 16/16 matches, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 24921."
+      "The frame-23955 later demo-2 timeout-return title-pose miss is cleared: `published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956` passes, `tas-diff --frame-start 23948 --frame-end 23964 --include-advisory` now shows 16/16 matches, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 24921.",
+      "The frame-24921 level-0x15 gameplay miss is cleared: `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit` proves native no longer promotes a top-edge-only overhang probe into a fresh wall-cling, `verify-tas --frame-start 24918 --frame-end 24928 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 27603."
     ],
     "advisory_diffs": [
-      "The repaired IntroSequence6 windows still carry only the known advisory `number_objects` tail around the hidden bootstrap/title-shell rebuild."
+      "The repaired level-0x15 window still carries only the known advisory `number_objects` drift at frame 27602 and through the mode-0x24 hand-off."
     ],
     "current_hypothesis": {
-      "name": "The next blocker is no longer in the later title/demo shell",
-      "reason": "ASM `loc_1B5CE` / `Obj_TitleMenu loc_1BAEA -> loc_1BB02` now match through the later demo-2 timeout-return title restore, and the rebisect moved the first CRC divergence into live level-0x15 gameplay at frame 24921."
+      "name": "Native blanks the first mode-0x24 Kid pose one frame too early",
+      "reason": "The live diff at frame 27603 is `kid_y_pos` only (`native=0x00000000`, `oracle=0x00E00000`) while neighbouring authoritative state rejoins immediately. The fixed level-0x15 wall-cling attach proves the previous blocker was gameplay-side; the next write site is now in the shared mode-0x24 pose/visibility hand-off rather than live movement."
     },
     "rejected_hypotheses": [
       {
@@ -41,22 +42,22 @@
       {
         "name": "Frame 22700 was a pure demo auto-timeout bug",
         "reason": "That was wrong. The published TAS script has a Start press on frame 22550, so the later IntroSequence6 demo re-enters title through the generic demo-title return path; the fix was the hidden title window ending two frames early on that lineage."
+      },
+      {
+        "name": "Frame 24921 needed another sub_ADB8/sub_AE6E release tweak",
+        "reason": "That was too late in the flow. ASM `sub_8F26` never promotes a top-edge-only overhang probe into a fresh wall hit, so native was incorrectly entering wall-cling before the release helpers ever ran."
       }
     ],
     "required_next_evidence": [
-      "Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --include-advisory` to capture the first divergent fields around frame 24921.",
-      "Run `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1` if you need the exact first authoritative checkpoint metadata around the new gameplay blocker.",
-      "Read the relevant level-0x15 gameplay ASM before coding; the later `Obj_TitleMenu loc_1BAEA -> loc_1BB02` title countdown is no longer the active divergence."
+      "Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --include-advisory` to capture the one-frame `kid_y_pos` blank at frame 27603.",
+      "Read the `mode=0x0024` ASM path that owns the frame-27603 pose/visibility settle before touching native code; the level-0x15 wall-cling logic is now authoritative-clean.",
+      "Add the next focused regression only after the one-frame oracle-backed `kid_y_pos=0x00E00000` settle is proven against ASM plus oracle."
     ],
     "verification_commands": [
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_enters_demo_play_on_frame_21765 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956 -- --nocapture",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23948 --frame-end 23964 --include-advisory",
+      "cargo test -q -p kid-core airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit -- --nocapture",
+      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --include-advisory",
       "mise run verify-slice-fast"
     ]
   },
