@@ -3050,6 +3050,9 @@ mod tests {
             kid_collision_type: Some(0),
             invulnerable_frames: Some(0),
             just_received_damage: Some(false),
+            kid_ground_probe: None,
+            kid_grounded_release_probe: None,
+            kid_jump_gravity_probe: None,
             number_objects: 3,
             number_gfx_objects: 3,
         }

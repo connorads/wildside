@@ -716,6 +716,15 @@ fn gameplay_state_debug_summary(state: &GameplayState) -> Option<String> {
     if let Some(value) = state.just_received_damage {
         fields.push(format!("just_received_damage={}", u8::from(value)));
     }
+    if let Some(value) = &state.kid_jump_gravity_probe {
+        fields.push(format!("kid_jump_gravity_probe={value}"));
+    }
+    if let Some(value) = &state.kid_ground_probe {
+        fields.push(format!("kid_ground_probe={value}"));
+    }
+    if let Some(value) = &state.kid_grounded_release_probe {
+        fields.push(format!("kid_grounded_release_probe={value}"));
+    }
     (!fields.is_empty()).then(|| fields.join(", "))
 }
 

@@ -86,6 +86,12 @@ pub(crate) struct GameplayState {
     pub(crate) kid_collision_type: Option<u16>,
     pub(crate) invulnerable_frames: Option<u8>,
     pub(crate) just_received_damage: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) kid_ground_probe: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) kid_grounded_release_probe: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) kid_jump_gravity_probe: Option<String>,
     pub(crate) number_objects: u16,
     pub(crate) number_gfx_objects: u16,
 }
@@ -327,6 +333,9 @@ pub(crate) fn gameplay_state_from_probe(
         kid_collision_type: Some(snapshot.kid_collision_type),
         invulnerable_frames: Some(snapshot.invulnerable_frames),
         just_received_damage: Some(snapshot.just_received_damage),
+        kid_ground_probe: None,
+        kid_grounded_release_probe: None,
+        kid_jump_gravity_probe: None,
         number_objects: snapshot.number_objects,
         number_gfx_objects: snapshot.number_gfx_objects,
     }
@@ -407,6 +416,18 @@ pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> G
         kid_collision_type: None,
         invulnerable_frames: Some(snapshot.invulnerable_frames.try_into().unwrap_or(u8::MAX)),
         just_received_damage: Some(snapshot.just_received_damage),
+        kid_ground_probe: snapshot
+            .gameplay_debug_fields
+            .get("kid_ground_probe")
+            .cloned(),
+        kid_grounded_release_probe: snapshot
+            .gameplay_debug_fields
+            .get("kid_grounded_release_probe")
+            .cloned(),
+        kid_jump_gravity_probe: snapshot
+            .gameplay_debug_fields
+            .get("kid_jump_gravity_probe")
+            .cloned(),
         number_objects: snapshot.number_objects,
         number_gfx_objects: snapshot.number_gfx_objects,
     }

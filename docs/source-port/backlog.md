@@ -313,6 +313,13 @@ For `death-respawn-level1`, the bounded pre-window `--frame-start 1212 --frame-e
 the first authoritative miss is now isolated to the frame-`1217` bounce/launch transition instead
 of the coarser `death_tail@1439` checkpoint.
 
+New evidence (2026-03-27, diagnostic carry-through): `kidcli diagnose-native-gameplay-drift
+--scenario death-respawn-level1 --from-frame 900` now prints the native
+`kid_ground_probe`, `kid_grounded_release_probe`, and `kid_jump_gravity_probe` summaries alongside
+the frame diff. That keeps the frame-`1217` context attached to the failing report itself instead of
+requiring a second `probe-native-gameplay` pass just to learn that native settled onto a rubber
+support tile and stayed in `grounded_hold` while oracle was already airborne.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
