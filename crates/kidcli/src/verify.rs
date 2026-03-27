@@ -346,7 +346,8 @@ pub(crate) fn verify_progress_two_transitions(capture: &GameplayCapture) -> Resu
         );
     }
     let level_settle = gameplay_checkpoint(capture, "level_settle")?;
-    let run_end = gameplay_checkpoint(capture, "run_end")?;
+    let level_2_settle = gameplay_checkpoint(capture, "level_2_settle")?;
+    let level_2_live_tail = gameplay_checkpoint(capture, "level_2_live_tail")?;
     if level_settle.game_mode != 0x000C {
         bail!("progress_two_transitions never reached stable in-level gameplay");
     }
@@ -357,16 +358,39 @@ pub(crate) fn verify_progress_two_transitions(capture: &GameplayCapture) -> Resu
             distinct_levels
         );
     }
-    if run_end.number_objects == 0 || run_end.number_gfx_objects == 0 {
-        bail!("progress_two_transitions ended without active gameplay objects");
+    if level_2_settle.current_level_id != 0x0002 || level_2_settle.game_mode != 0x000C {
+        bail!(
+            "progress_two_transitions never resumed stable Level 2 gameplay (level {}, mode 0x{:04X})",
+            level_2_settle.current_level_id,
+            level_2_settle.game_mode
+        );
     }
-    if run_end.number_lives == 0 {
-        bail!("progress_two_transitions exhausted all lives before the run finished");
+    if level_2_live_tail.current_level_id != 0x0002 || level_2_live_tail.game_mode != 0x000C {
+        bail!(
+            "progress_two_transitions did not stay in Level 2 gameplay through the live tail (level {}, mode 0x{:04X})",
+            level_2_live_tail.current_level_id,
+            level_2_live_tail.game_mode
+        );
     }
-    if run_end.current_level_id != *distinct_levels.last().unwrap_or(&run_end.current_level_id) {
+    if level_2_live_tail.number_objects == 0 || level_2_live_tail.number_gfx_objects == 0 {
+        bail!("progress_two_transitions reached Level 2 without active gameplay objects");
+    }
+    if level_2_live_tail.number_lives == 0 {
+        bail!("progress_two_transitions exhausted all lives before the Level 2 live tail");
+    }
+    if level_2_live_tail.kid_x_pos <= level_2_settle.kid_x_pos
+        && level_2_live_tail.camera_x_pos <= level_2_settle.camera_x_pos
+    {
+        bail!("progress_two_transitions never advanced through live Level 2 gameplay");
+    }
+    if level_2_live_tail.current_level_id
+        != *distinct_levels
+            .last()
+            .unwrap_or(&level_2_live_tail.current_level_id)
+    {
         bail!(
             "progress_two_transitions ended on level {:04X} after visiting {:?}",
-            run_end.current_level_id,
+            level_2_live_tail.current_level_id,
             distinct_levels
         );
     }

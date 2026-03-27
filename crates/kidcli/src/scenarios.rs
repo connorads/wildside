@@ -180,7 +180,7 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
 ];
 
-const PROGRESS_TWO_TRANSITIONS_CHECKPOINTS: [GameplayCheckpoint; 5] = [
+const PROGRESS_TWO_TRANSITIONS_CHECKPOINTS: [GameplayCheckpoint; 6] = [
     GameplayCheckpoint {
         label: "level_settle",
         frame_index: 719,
@@ -198,8 +198,12 @@ const PROGRESS_TWO_TRANSITIONS_CHECKPOINTS: [GameplayCheckpoint; 5] = [
         frame_index: 2_479,
     },
     GameplayCheckpoint {
-        label: "run_end",
-        frame_index: 3_199,
+        label: "level_2_settle",
+        frame_index: 2_701,
+    },
+    GameplayCheckpoint {
+        label: "level_2_live_tail",
+        frame_index: 3_300,
     },
 ];
 
@@ -532,7 +536,7 @@ impl GameplayScenario {
         match self {
             Self::PauseResumeLevel1 => 1_120,
             Self::DeathRespawnLevel1 => 1_920,
-            Self::ProgressTwoTransitions => 3_200,
+            Self::ProgressTwoTransitions => 3_301,
             Self::SoakLevel10m => 36_720,
         }
     }
@@ -581,7 +585,7 @@ impl GameplayScenario {
                 apply_range(&mut script, 720, 899, 1 << 3);
                 apply_single_frames(
                     &mut script,
-                    &[900, 2_100, 2_140, 2_180],
+                    &[900, 2_100, 2_140, 2_180, 2_700],
                     (1 << 5) | (1 << 6) | 0x80,
                 );
                 apply_range(&mut script, 1_280, 1_499, 1 << 3);
@@ -704,6 +708,7 @@ mod tests {
             .expect("gameplay scenario script should build");
         assert_eq!(script[720] & (1 << 3), 1 << 3);
         assert_eq!(script[900], (1 << 5) | (1 << 6) | 0x80);
+        assert_eq!(script[2_700], (1 << 3) | (1 << 5) | (1 << 6) | 0x80);
     }
 
     #[test]
@@ -874,6 +879,19 @@ mod tests {
         assert_eq!(dynamic.slug, "pause_resume_level1");
         assert_eq!(dynamic.frame_count, 1_120);
         assert_eq!(dynamic.checkpoints.len(), 4);
+    }
+
+    #[test]
+    fn gameplay_progress_scenario_reaches_level_2_live_tail() {
+        let dynamic = GameplayScenario::ProgressTwoTransitions
+            .to_dynamic()
+            .expect("to_dynamic");
+        assert_eq!(dynamic.frame_count, 3_301);
+        assert_eq!(dynamic.checkpoints.len(), 6);
+        assert_eq!(dynamic.checkpoints[4].label, "level_2_settle");
+        assert_eq!(dynamic.checkpoints[4].frame_index, 2_701);
+        assert_eq!(dynamic.checkpoints[5].label, "level_2_live_tail");
+        assert_eq!(dynamic.checkpoints[5].frame_index, 3_300);
     }
 
     #[test]

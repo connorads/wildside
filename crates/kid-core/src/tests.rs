@@ -246,11 +246,11 @@ fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
     if (720..=899).contains(&frame_index)
         || (1_280..=1_499).contains(&frame_index)
         || (1_920..=1_999).contains(&frame_index)
-        || (2_480..=3_199).contains(&frame_index)
+        || (2_480..=3_300).contains(&frame_index)
     {
         input.right = true;
     }
-    if [900usize, 2_100, 2_140, 2_180].contains(&frame_index) {
+    if [900usize, 2_100, 2_140, 2_180, 2_700].contains(&frame_index) {
         input.start = true;
         input.a = true;
         input.c = true;
@@ -1100,6 +1100,38 @@ fn progress_two_transitions_skip_cheat_matches_resume_timeline() {
     assert_eq!(frame_2214.kid_y_pos, Some(0x00C5_E000));
     assert_eq!(frame_2214.number_objects, 15);
     assert_eq!(frame_2214.number_gfx_objects, 14);
+}
+
+#[test]
+fn progress_two_transitions_rearms_level_2_into_live_gameplay() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    let mut frames = BTreeMap::new();
+    while runtime.trace_frame().frame_index <= 2_701 {
+        let frame_index = runtime.trace_frame().frame_index;
+        let trace = runtime.step_frame(progress_two_transitions_script_input(frame_index));
+        if (2_699..=2_701).contains(&trace.frame_index) {
+            frames.insert(trace.frame_index, trace);
+        }
+    }
+
+    let frame_2699 = frames.get(&2_699).expect("frame 2699 should be captured");
+    assert_eq!(frame_2699.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_2699.current_level, LevelId(2));
+    assert_eq!(frame_2699.kid_x_pos, Some(0x0030_0000));
+    assert_eq!(frame_2699.kid_y_pos, Some(0x0040_0000));
+
+    let frame_2700 = frames.get(&2_700).expect("frame 2700 should be captured");
+    assert_eq!(frame_2700.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_2700.current_level, LevelId(2));
+
+    let frame_2701 = frames.get(&2_701).expect("frame 2701 should be captured");
+    assert_eq!(frame_2701.game_mode, GameMode::InGame);
+    assert_eq!(frame_2701.current_level, LevelId(2));
+    assert_eq!(frame_2701.kid_x_pos, Some(0x0030_0000));
+    assert_eq!(frame_2701.kid_y_pos, Some(0x0040_0000));
+    assert_eq!(frame_2701.number_objects, 15);
+    assert_eq!(frame_2701.number_gfx_objects, 14);
 }
 
 #[test]

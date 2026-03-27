@@ -138,7 +138,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 119 | [x] | P2 | fidelity | TAS frame 6945: `any-percent-published` drops back into the paused title-return helper two frames after demo 1 restarts | Timeout-restart demo playback now ignores manual Start aborts until live gameplay starts, so the queued frame-6943 Start bit no longer arms the paused title helper during the restarted demo bootstrap. Added `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap`, re-ran `cargo test -p kid-core published_tas_demo_2 -- --nocapture`, `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect`, `mise run audit-debug-fields`, and `mise run verify-slice-fast`. Frontier 6945→6966. |
 | 120 | [x] | P2 | fidelity | TAS frame 6966: `any-percent-published` exposes the wrong wrapped demo 1 camera Y during the hidden warm-up after the fixed 6945 abort window | Fixed by carrying the timeout-restart IntroSequence6 lineage into demo playback so the hidden warm-up reuses the oracle-backed demo-1 camera wrap; frontier later advanced through the repaired title/demo shell. |
 | 121 | [x] | P2 | fidelity | TAS frame 24921: level `0x15` gameplay falsely enters right-wall cling from a top-edge-only overhang probe | Matched ASM `sub_8F26` by refusing to promote `probe_wall_top_edge()` into a fresh airborne wall hit. Added `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, and `mise run verify-slice-fast`. Frontier 24921→27603. |
-| 122 | [ ] | P0 | level | Level 2 entry can spawn Kid in midair, then fall through the floor and die | Boot -> finish Level 1 -> enter Level 2 -> confirm stable landing and 10s of live play |
+| 122 | [x] | P0 | level | Level 2 entry can spawn Kid in midair, then fall through the floor and die | Boot -> finish Level 1 -> enter Level 2 -> confirm stable landing and 10s of live play |
 | 123 | [ ] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
 | 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
 | 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now uses the ASM block group as well as skin, so post-prize `$E001` cells render smash-family art instead of prize-family art |
@@ -168,19 +168,20 @@ The ASM uses a velocity-direction cross-product: `y_overlap × |rel_x_vel| < x_o
 to determine approach direction. Reimplemented to match ASM — stomps are now detected based
 on vertical approach direction, not prior-frame position history.
 
-### 122 — Level 2 entry can spawn Kid in midair, then fall through the floor and die (OPEN)
-Evidence source: repeated native play reports. Native repro: reported, needs canonical recording slug.
+### 122 — Level 2 entry can spawn Kid in midair, then fall through the floor and die (FIXED)
+Evidence source: repeated native play reports plus strengthened native smoke coverage.
+Native repro: the old `progress-two-transitions` gate never actually resumed Level 2 gameplay.
 Oracle repro: unknown. Minimum gate: `1p-playable`.
 
-The current release gate proves the narrow `progress-two-transitions` compare, but that is not
-strong enough to dismiss this failure. The next fix must start by capturing a reproducible native
-recording for the Level 1 -> Level 2 transition and turning it into a permanent smoke scenario.
+Fix: extend `progress-two-transitions` so it re-arms the second skip hold on frame `2700`,
+records `level_2_settle@2701`, and then survives through `level_2_live_tail@3300`. The native
+gate now proves stable Level 2 landing plus 10 seconds of live gameplay instead of stopping in
+`game_mode=$0008` transition mode.
 
 Surprise worth keeping: the real Blue Lake Woods 2 header spawn is intentionally midair at
-`(32,160)`. Asset-backed `inspect-respawn-settle` traces now show the hidden `Load_InGame` settle
-path landing safely on frame 16 at `kid_y_pos=$00BF0000`, so the current gap is not the basic
-floor-snap helper. The missing evidence is a canonical live-play recording slug that proves where
-the reported fall-through happens after entry.
+`(32,160)`, and the hidden `Load_InGame` settle path was already landing safely. The real gap was
+the smoke scenario: it ended before sending the second resume input, so we were treating a
+transition-shell check as if it proved live Level 2 play.
 
 ### 123 — Death/respawn still leaves camera drift, stuck-from-start, or broken restart state (OPEN)
 Evidence source: repeated native play reports. Native repro: reported, needs canonical recording slug.
