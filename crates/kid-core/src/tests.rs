@@ -1894,7 +1894,7 @@ fn timing_regression_airborne_within_ground_snap_tolerance_cannot_jump_early() {
 }
 
 #[test]
-fn timing_regression_buffers_jump_pressed_just_before_landing() {
+fn timing_regression_landing_clears_generic_jump_buffer_before_next_grounded_frame() {
     let mut slice = OpeningSliceState::respawn(LevelBounds {
         width_pixels: 320,
         height_pixels: 224,
@@ -1922,7 +1922,7 @@ fn timing_regression_buffers_jump_pressed_just_before_landing() {
 
     assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
     assert!(slice.player.on_ground);
-    assert!(slice.player.jump_buffer_frames > 0);
+    assert_eq!(slice.player.jump_buffer_frames, 0);
 
     slice.step(
         FrameInput {
@@ -1939,11 +1939,9 @@ fn timing_regression_buffers_jump_pressed_just_before_landing() {
         0,
     );
 
-    assert!(!slice.player.on_ground);
-    assert_eq!(slice.player.x_pos, 0x00B3_0A80);
-    assert!(slice.player.y_pos < slice.terrain.floor_y_pos);
-    assert_eq!(slice.player.x_velocity, 0x0001_E780);
-    assert!(slice.player.y_velocity < 0);
+    assert!(slice.player.on_ground);
+    assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
+    assert_eq!(slice.player.y_velocity, 0);
     assert!(!slice.player.just_jumped);
     assert_eq!(slice.player.jump_buffer_frames, 0);
 }
@@ -1978,7 +1976,7 @@ fn timing_regression_near_floor_jump_press_skips_last_airborne_horizontal_step()
     assert_eq!(slice.player.x_pos, 0x00B1_2300);
     assert_eq!(slice.player.y_pos, slice.terrain.floor_y_pos);
     assert!(slice.player.on_ground);
-    assert!(slice.player.jump_buffer_frames > 0);
+    assert_eq!(slice.player.jump_buffer_frames, 0);
 }
 
 #[test]
@@ -16194,6 +16192,45 @@ fn death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_
             .abs_diff(0x00E2_7600)
             <= 0x0004_0000
     );
+}
+
+#[test]
+fn death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing() {
+    let mut runtime = cached_generated_runtime();
+    let mut script = vec![0u8; 1_920 + 1];
+    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
+        script[frame] |= 0x80;
+    }
+    for slot in &mut script[600..=899] {
+        *slot |= 1 << 3;
+    }
+    for slot in &mut script[900..=1_350] {
+        *slot |= (1 << 3) | (1 << 6);
+    }
+    for frame in (940..=1_350).step_by(24) {
+        let jump_end = 1_350.min(frame + 3);
+        for slot in &mut script[frame..=jump_end] {
+            *slot |= 1 << 4;
+        }
+    }
+
+    let mut frame_990 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(991) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 990 {
+            frame_990 = Some(trace);
+        }
+    }
+
+    let frame_990 = frame_990.expect("frame 990 trace");
+    // ASM loc_9F18 consumes only the single-frame `Ctrl_Pressed` jump edge.
+    // After the frame-989 landing, the Level 1 death-respawn route must stay
+    // grounded on frame 990 instead of replaying a buffered jump on the next
+    // grounded frame.
+    assert_eq!(frame_990.kid_y_pos, Some(0x00AF_0000));
+    assert_eq!(frame_990.kid_y_velocity, Some(0));
+    assert_eq!(frame_990.kid_on_ground, Some(true));
+    assert_eq!(frame_990.number_hitpoints, 1);
 }
 
 #[test]

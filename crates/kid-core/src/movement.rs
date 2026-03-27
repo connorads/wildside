@@ -2105,6 +2105,14 @@ impl OpeningSliceState {
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
                     self.player.wall_cling_direction = None;
+                    if !was_on_ground {
+                        // ASM loc_9F18 consumes only the single-frame
+                        // `Ctrl_Pressed` edge. A generic buffered jump request
+                        // must not survive a fresh floor landing into the next
+                        // grounded frame, or native auto-jumps one frame early
+                        // on the Level 1 death-respawn route.
+                        self.player.jump_buffer_frames = 0;
+                    }
                     if !was_on_ground
                         && probe.cell.has_block
                         && probe.cell.block_type == terrain::BlockType::Rubber

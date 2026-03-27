@@ -259,6 +259,17 @@ frame `990` on `kid_y_pos`, and keeps `mise run verify-slice-fast` green. `compa
 the remaining work is now the later airborne Y/death trigger path rather than the old slope-cap X
 run-up.
 
+New evidence (2026-03-27, landing edge): ASM `loc_8C70` / `loc_9F18` consume only the single-frame
+`Ctrl_Pressed` jump edge; they do not carry a generic buffered jump request through a fresh floor
+landing. Native was keeping a buffered jump alive after the frame-`989` landing, which replayed an
+extra launch on frame `990` and reopened the death path immediately. Clearing that generic buffer on
+fresh landings adds `death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing`, keeps
+`mise run verify-slice-fast` green, and moves the first
+`diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 900` miss later to
+frame `993` on `kid_x_pos` / `kid_y_pos`. `compare-native-gameplay --scenario death-respawn-level1`
+still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining work is the later
+grounded slope hand-off and downstream death trigger, not the old buffered re-jump.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
