@@ -13441,77 +13441,105 @@ fn soak_all_105_levels_no_panic() {
 // --- 2P alternating mode tests ---
 
 #[test]
-fn two_player_toggle_in_options() {
+fn options_menu_toggles_two_player_controller_mode_with_left_or_right() {
     let mut runtime = NativeRuntime::new(manifest());
-    assert!(!runtime.two_player);
-
-    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
-    runtime.step_frame(FrameInput::default()); // settle
     runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
 
-    // Press A to toggle 2P on
     runtime.step_frame(FrameInput {
-        a: true,
+        right: true,
         ..FrameInput::default()
     });
-    assert!(runtime.two_player, "A press on cursor 0 should enable 2P");
+    assert!(
+        runtime.options_two_player_two_controllers,
+        "right on cursor 0 should toggle the ROM's one-controller/two-controller option"
+    );
 
-    // Press A again to toggle off
-    runtime.prior_input = FrameInput::default(); // reset so A counts as fresh press
+    runtime.prior_input = FrameInput::default();
     runtime.step_frame(FrameInput {
-        a: true,
+        left: true,
         ..FrameInput::default()
     });
-    assert!(!runtime.two_player, "second A press should disable 2P");
+    assert!(
+        !runtime.options_two_player_two_controllers,
+        "left on cursor 0 should toggle the option back"
+    );
 }
 
 #[test]
-fn sound_test_enter_navigate_exit() {
+fn options_menu_tracks_controls_speed_and_exit_like_the_rom() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
 
-    // A enters sound test
     runtime.step_frame(FrameInput {
-        a: true,
+        right: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.options_controls_scheme, 1,
+        "right on cursor 1 should increment the controls scheme"
+    );
+
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        left: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.options_controls_scheme, 0,
+        "left on cursor 1 should decrement the controls scheme"
+    );
+
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        down: true,
         ..FrameInput::default()
     });
     assert!(matches!(
         runtime.boot_state,
-        BootState::SoundTest { track: 0 }
+        BootState::OptionsMenu { cursor: 2 }
     ));
-
-    // Right increments track
     runtime.prior_input = FrameInput::default();
     runtime.step_frame(FrameInput {
         right: true,
         ..FrameInput::default()
     });
-    assert!(matches!(
-        runtime.boot_state,
-        BootState::SoundTest { track: 1 }
-    ));
+    assert!(
+        runtime.options_speed_button_fast,
+        "right on cursor 2 should toggle the speed-button mode"
+    );
 
-    // Up adds 16
     runtime.prior_input = FrameInput::default();
     runtime.step_frame(FrameInput {
-        up: true,
+        down: true,
         ..FrameInput::default()
     });
     assert!(matches!(
         runtime.boot_state,
-        BootState::SoundTest { track: 17 }
+        BootState::OptionsMenu { cursor: 3 }
     ));
 
-    // B exits back to options
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 0 },
+        "right on EXIT should follow ASM Option_Exit back to title"
+    );
+
+    runtime.boot_state = BootState::OptionsMenu { cursor: 2 };
     runtime.prior_input = FrameInput::default();
     runtime.step_frame(FrameInput {
         b: true,
         ..FrameInput::default()
     });
-    assert!(matches!(
+    assert_eq!(
         runtime.boot_state,
-        BootState::OptionsMenu { cursor: 1 }
-    ));
+        BootState::TitleScreen { cursor: 0 },
+        "B should also exit options back to title"
+    );
 }
 
 #[test]

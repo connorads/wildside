@@ -1164,26 +1164,44 @@ impl NativeRuntime {
             }
             BootState::OptionsMenu { cursor } => {
                 let b_pressed = input.b && !self.prior_input.b;
-                let a_pressed = input.a && !self.prior_input.a;
-                let c_pressed = input.c && !self.prior_input.c;
-                // Up/Down navigate cursor (3 items: 2P, SOUND TEST, EXIT)
+                let left_pressed = input.left && !self.prior_input.left;
+                let right_pressed = input.right && !self.prior_input.right;
+                // ASM OptionScreen_Input: 4 items:
+                // 0 = 2 PLAYERS (one/two controllers), 1 = CONTROLS (0..5),
+                // 2 = SPEED BUTTON (normal/fast), 3 = EXIT.
                 if input.up && !self.prior_input.up && *cursor > 0 {
                     *cursor -= 1;
                 }
-                if input.down && !self.prior_input.down && *cursor < 2 {
+                if input.down && !self.prior_input.down && *cursor < 3 {
                     *cursor += 1;
                 }
-                let cur = *cursor;
-                // A/C on "2 PLAYERS" toggles the flag
-                if cur == 0 && (a_pressed || c_pressed) {
-                    self.two_player = !self.two_player;
+
+                match *cursor {
+                    0 if left_pressed || right_pressed => {
+                        // ASM Option_2PInput toggles `Options_Suboption_2PController`
+                        // with either left or right.
+                        self.options_two_player_two_controllers =
+                            !self.options_two_player_two_controllers;
+                    }
+                    1 if left_pressed => {
+                        // ASM Option_Controls_Left decrements within 0..=5.
+                        self.options_controls_scheme =
+                            self.options_controls_scheme.saturating_sub(1);
+                    }
+                    1 if right_pressed => {
+                        // ASM Option_Controls_Right increments within 0..=5.
+                        self.options_controls_scheme =
+                            self.options_controls_scheme.saturating_add(1).min(5);
+                    }
+                    2 if left_pressed || right_pressed => {
+                        // ASM Option_SpeedButton toggles the fast-action flag
+                        // with either left or right.
+                        self.options_speed_button_fast = !self.options_speed_button_fast;
+                    }
+                    _ => {}
                 }
-                // A/C on "SOUND TEST" enters sound test screen
-                if cur == 1 && (a_pressed || c_pressed) {
-                    self.boot_state = BootState::SoundTest { track: 0 };
-                }
-                // A/C on "EXIT" or Start/B exits back to title
-                else if (cur == 2 && (a_pressed || c_pressed)) || start_pressed || b_pressed {
+
+                if *cursor == 3 && (left_pressed || right_pressed) || start_pressed || b_pressed {
                     self.enter_title_screen();
                 }
                 self.title_screen_elapsed_frames += 1;

@@ -338,29 +338,42 @@ pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
     ));
 
     let cursor = trace.options_cursor.unwrap_or(0) as i32;
-    let two_p_label = if trace.two_player {
-        "2 PLAYERS: ON"
+    let two_p_label = if trace.options_two_player_two_controllers {
+        "2 PLAYERS: TWO CONTROLLERS"
     } else {
-        "2 PLAYERS: OFF"
+        "2 PLAYERS: ONE CONTROLLER"
     };
-    let items = [two_p_label, "SOUND TEST", "EXIT"];
+    let controls_label = match trace.options_controls_scheme {
+        0 => "CONTROLS: A SPD  B JMP  C SPC",
+        1 => "CONTROLS: A JMP  B SPD  C SPC",
+        2 => "CONTROLS: A SPD  B SPC  C JMP",
+        3 => "CONTROLS: A SPC  B SPD  C JMP",
+        4 => "CONTROLS: A JMP  B SPC  C SPD",
+        _ => "CONTROLS: A SPC  B JMP  C SPD",
+    };
+    let speed_label = if trace.options_speed_button_fast {
+        "SPEED BUTTON: FAST ACTION"
+    } else {
+        "SPEED BUTTON: NORMAL ACTION"
+    };
+    let items = [two_p_label, controls_label, speed_label, "EXIT"];
     for (i, item) in items.iter().enumerate() {
-        let y = 80 + i as i32 * 24;
+        let y = 72 + i as i32 * 24;
         let colour = if i as i32 == cursor {
             [255, 255, 255]
         } else {
             [120, 120, 120]
         };
-        commands.push(text(100, y, item, colour, 1));
+        commands.push(text(44, y, item, colour, 1));
         if i as i32 == cursor {
-            commands.push(text(80, y, ">", [255, 220, 80], 1));
+            commands.push(text(28, y, ">", [255, 220, 80], 1));
         }
     }
 
     commands.push(text(
-        60,
-        172,
-        "Up/Down select  A/C toggle  Start/B back",
+        24,
+        184,
+        "Up/Down select  Left/Right change  Start/B back",
         [100, 100, 100],
         1,
     ));

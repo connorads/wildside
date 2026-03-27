@@ -2400,6 +2400,9 @@ mod tests {
             physics_trace: None,
             options_cursor: None,
             two_player: false,
+            options_two_player_two_controllers: false,
+            options_controls_scheme: 0,
+            options_speed_button_fast: false,
         };
 
         let state = native_trace_to_oracle_state("enemy_window_open", 810, &frame);

@@ -149,7 +149,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 130 | [~] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry ROM/build provenance plus replay commands; still need remote-ingest workflow and legacy trace-schema compatibility |
 | 131 | [ ] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [x] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
-| 133 | [ ] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | Document ASM path, native support status, and explicit implementation decision |
+| 133 | [x] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | ASM title/options flow is documented; stock ROM has no password entry, and native options now mirror the four-option ROM screen |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -258,6 +258,26 @@ and `--scenario death-respawn-level1` still diverge from the emulator-backed cap
 at `level_settle@719`, so this gate intentionally stays native-first until that harness
 drift is traced separately. The playable smoke path still needs a durable local gate now,
 not after the compare harness is repaired.
+
+### 133 — Password flow / options scope (FIXED)
+Evidence source: ASM audit of `Obj_TitleMenu`, `OptionScreen_Input`, and the options text tables in
+`kid.asm`. Native repro: yes — native still exposed a simplified `2 PLAYERS / SOUND TEST / EXIT`
+stub rather than the ROM menu. Oracle repro: ASM-backed. Minimum gate: `fast-slice`.
+
+Root cause: the native title/options flow had grown a convenient stub menu and we had implicitly
+treated "password flow" as a missing feature without first checking the stock ROM path.
+
+Fix: re-read `kid.asm` `Title_InputLoop` and `OptionScreen_Input`. The stock game exposes
+`1 PLAYER / 2 PLAYERS / OPTIONS` on the title screen, then a four-row options screen:
+`2 PLAYERS`, `CONTROLS`, `SPEED BUTTON`, and `EXIT`. There is no password entry in the stock ROM
+path. Native now mirrors that menu structure, stores the ROM-backed option state
+(`Options_Suboption_2PController`, `Options_Suboption_Controls`, `Options_Suboption_Speed`), and
+updates the native player options scene accordingly.
+
+Surprise worth keeping: the earlier native `Sound Test` submenu was a project-local convenience,
+not a stock-ROM behaviour. The right fix for the backlog item was to document "no password flow in
+the shipped ROM" and align native options with the actual disassembly instead of inventing another
+menu branch.
 
 ### 132 — Verify 2-player alternating mode against oracle-backed or strong native scenarios (FIXED)
 Evidence source: backlog triage after the 1P gates stabilised. Native repro: existing behaviour, but only partially covered by tests.

@@ -95,6 +95,12 @@ pub struct NativeRuntime {
     blocks_hit_this_frame: u8,
     /// Sound test play pending (consumed each frame).
     sound_test_play_pending: bool,
+    /// ASM OptionScreen_Input `Option_2PInput`: false = one controller, true = two.
+    options_two_player_two_controllers: bool,
+    /// ASM OptionScreen_Input `Options_Suboption_Controls`: 0..=5.
+    options_controls_scheme: u8,
+    /// ASM OptionScreen_Input `Option_SpeedButton`: false = normal action, true = fast.
+    options_speed_button_fast: bool,
     level_timer: LevelTimer,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
@@ -361,6 +367,9 @@ impl NativeRuntime {
             pending_stomp_bounce: None,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
+            options_two_player_two_controllers: false,
+            options_controls_scheme: 0,
+            options_speed_button_fast: false,
             level_timer: LevelTimer::new(),
             y_look_offset: 0,
             level_damage_taken: false,

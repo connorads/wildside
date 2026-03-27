@@ -863,6 +863,9 @@ pub struct NativeTraceFrame {
     pub options_cursor: Option<u8>,
     pub sound_test_track: Option<u8>,
     pub two_player: bool,
+    pub options_two_player_two_controllers: bool,
+    pub options_controls_scheme: u8,
+    pub options_speed_button_fast: bool,
     pub invulnerable_frames: usize,
     pub diamond_power_active: bool,
     pub diamond_count: u16,
@@ -1135,6 +1138,7 @@ pub(crate) enum BootState {
     OptionsMenu {
         cursor: u8,
     },
+    #[allow(dead_code)]
     SoundTest {
         track: u8,
     },
