@@ -27,8 +27,8 @@ pub enum CollisionKind {
     // 1 unused
     HiddenBlock = 2,
     // 3 unused
-    SlopeDown = 4,
-    SlopeUp = 5,
+    SlopeUp = 4,
+    SlopeDown = 5,
     Solid = 6,
     Spikes = 7,
 }
@@ -38,8 +38,8 @@ impl CollisionKind {
         match bits {
             0 => Self::Empty,
             2 => Self::HiddenBlock,
-            4 => Self::SlopeDown,
-            5 => Self::SlopeUp,
+            4 => Self::SlopeUp,
+            5 => Self::SlopeDown,
             6 => Self::Solid,
             7 => Self::Spikes,
             _ => Self::Empty,
@@ -573,8 +573,8 @@ pub fn probe_at(grid: &BlockGrid, x_px: i32, y_px: i32) -> TerrainProbe {
 /// Compute the floor Y surface within a slope cell using linear interpolation.
 ///
 /// Slopes span 15 pixels vertically within a 16x16 cell (full diagonal).
-/// - `SlopeUp`: floor rises left-to-right (higher on the left, lower on the right). `\`
-/// - `SlopeDown`: floor falls left-to-right (lower on the left, higher on the right). `/`
+/// - `SlopeUp`: floor rises left-to-right (higher on the left, lower on the right). `/`
+/// - `SlopeDown`: floor falls left-to-right (lower on the left, higher on the right). `\`
 ///   Public wrapper for slope_floor_y used by movement.rs sub_9386 Y-snap.
 pub fn slope_floor_y_pub(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
     slope_floor_y(collision, cell_top_y, x_px)
@@ -583,10 +583,12 @@ pub fn slope_floor_y_pub(collision: CollisionKind, cell_top_y: i32, x_px: i32) -
 fn slope_floor_y(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
     let x_within_cell = (x_px & 0x0F).clamp(0, 15);
     match collision {
-        // ASM upslope (colid_slopeup $14): high on left, low on right.
+        // ASM `sub_9386` / `sub_A254`: `$4000` stores `x + y`, so the
+        // surface rises as X increases.
         // y = cell_top + 15 - x_within_cell
         CollisionKind::SlopeUp => cell_top_y + 15 - x_within_cell,
-        // ASM downslope (colid_slopedown $18): low on left, high on right.
+        // ASM `sub_9386` / `sub_A254`: `$5000` stores `y - x`, so the
+        // surface falls as X increases.
         // y = cell_top + x_within_cell
         CollisionKind::SlopeDown => cell_top_y + x_within_cell,
         _ => cell_top_y,
@@ -1101,13 +1103,13 @@ mod tests {
 
     #[test]
     fn cell_from_be_bytes_parses_slopes() {
-        // 0x40 = collision=4 (slope down)
+        // 0x40 = collision=4 (slope up)
         let cell = Cell::from_be_bytes(0x40, 0x00);
-        assert_eq!(cell.collision, CollisionKind::SlopeDown);
-
-        // 0x50 = collision=5 (slope up)
-        let cell = Cell::from_be_bytes(0x50, 0x00);
         assert_eq!(cell.collision, CollisionKind::SlopeUp);
+
+        // 0x50 = collision=5 (slope down)
+        let cell = Cell::from_be_bytes(0x50, 0x00);
+        assert_eq!(cell.collision, CollisionKind::SlopeDown);
     }
 
     // -----------------------------------------------------------------------
@@ -1232,9 +1234,9 @@ mod tests {
     fn probe_wall_ignores_slopes() {
         // Slopes should not block horizontal movement
         let mut data = vec![0u8; 4 * 3 * 2];
-        // Put a slope-up (collision=5) at col 2, row 1
+        // Put a slope-up (collision=4) at col 2, row 1
         let offset = (1 * 4 + 2) * 2;
-        data[offset] = 0x50; // collision=5 = SlopeUp
+        data[offset] = 0x40; // collision=4 = SlopeUp
         let grid = BlockGrid::from_level_layout(&data, 4, 3);
 
         // Player at x=30, right edge=35, pixel_to_cell(35)=2 → slope cell
@@ -1320,12 +1322,12 @@ mod tests {
         let w = 4u16;
         let h = 2u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        // Row 1, col 0: SlopeUp (collision=5)
+        // Row 1, col 0: SlopeUp (collision=4)
         let offset = (1 * 4 + 0) * 2;
-        data[offset] = 0x50; // collision=5 = SlopeUp
-        // Row 1, col 1: SlopeDown (collision=4)
+        data[offset] = 0x40; // collision=4 = SlopeUp
+        // Row 1, col 1: SlopeDown (collision=5)
         let offset = (1 * 4 + 1) * 2;
-        data[offset] = 0x40; // collision=4 = SlopeDown
+        data[offset] = 0x50; // collision=5 = SlopeDown
         // Row 1, col 2: Solid (collision=6)
         let offset = (1 * 4 + 2) * 2;
         data[offset] = 0x60; // collision=6 = Solid
@@ -1410,8 +1412,8 @@ mod tests {
         let w = 3u16;
         let h = 3u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        // SlopeDown at (col 1, row 1): collision=4
-        data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x40;
+        // SlopeDown at (col 1, row 1): collision=5
+        data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x50;
         // Solid at (col 0, row 2): collision=6
         data[(usize::from(2u16) * usize::from(w) + usize::from(0u16)) * 2] = 0x60;
         let grid = BlockGrid::from_level_layout(&data, w, h);

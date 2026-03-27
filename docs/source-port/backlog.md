@@ -212,6 +212,15 @@ misses later at `resumed_tail@1119` (`camera_x` native `0x028E0000`, oracle `0x0
 `death-respawn-level1` now first misses later at `pre_death@1279` (`hp` native `0`, oracle `1`).
 The remaining work is still the respawn/camera hand-off, not the smoke setup itself.
 
+Latest evidence (2026-03-27): the Level 1 slope collision decode was still reversed against
+ASM `sub_9386` / `sub_A254`, so `$4000` and `$5000` ground tiles were entering the wrong slope
+family. Fixing that decode clears `compare-native-gameplay --scenario pause-resume-level1` and
+removes the old pause-resume camera drift from this backlog item. `death-respawn-level1` is still
+open, but it is now a narrower death-path issue: `diagnose-native-gameplay-drift` first diverges at
+frame `936` on `kid_x_pos` / `kid_y_pos`, and the checkpoint compare still dies early at
+`pre_death@1279` (`hp` native `0`, oracle `1`). The remaining work is the late Level 1 death trigger,
+not the previously parked slope/camera hand-off.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

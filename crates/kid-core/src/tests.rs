@@ -1809,8 +1809,8 @@ fn airborne_landing_prefers_center_slope_before_edge_solid() {
     let w = 4u16;
     let h = 4u16;
     let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-    // SlopeDown at (col 1, row 1): new formula floor_y = 16 + x_within_cell
-    data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x40;
+    // SlopeDown at (col 1, row 1): floor_y = 16 + x_within_cell
+    data[(usize::from(1u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x50;
     // Solid at (col 2, row 1)
     data[(usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2] = 0x60;
     let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
@@ -1991,7 +1991,7 @@ fn slope_ground_run_right_brakes_before_level_one_jump() {
             right: true,
             run: true,
         },
-        terrain::CollisionKind::SlopeDown,
+        terrain::CollisionKind::SlopeUp,
         PlayerForm::TheKid,
         TerrainType::Normal,
     );
@@ -2010,7 +2010,7 @@ fn slope_ground_run_right_uses_shared_table_for_cyclone() {
             right: true,
             run: true,
         },
-        terrain::CollisionKind::SlopeDown,
+        terrain::CollisionKind::SlopeUp,
         PlayerForm::Cyclone,
         TerrainType::Normal,
     );
@@ -2030,7 +2030,7 @@ fn slope_ground_special_form_auto_slides_without_input() {
             right: false,
             run: false,
         },
-        terrain::CollisionKind::SlopeDown,
+        terrain::CollisionKind::SlopeUp,
         PlayerForm::RedStealth,
         TerrainType::Normal,
     );
@@ -2042,17 +2042,17 @@ fn slope_ground_special_form_auto_slides_without_input() {
             right: false,
             run: false,
         },
-        terrain::CollisionKind::SlopeUp,
+        terrain::CollisionKind::SlopeDown,
         PlayerForm::RedStealth,
         TerrainType::Normal,
     );
 
     // ASM loc_9E6C ignores held input for Red Stealth and converges to
     // +/-$1000 depending on the slope direction.
-    assert_eq!(down_vel, 0x0000_1000);
-    assert_eq!(down_facing, Direction::Right);
-    assert_eq!(up_vel, -0x0000_1000);
-    assert_eq!(up_facing, Direction::Left);
+    assert_eq!(down_vel, -0x0000_1000);
+    assert_eq!(down_facing, Direction::Left);
+    assert_eq!(up_vel, 0x0000_1000);
+    assert_eq!(up_facing, Direction::Right);
 }
 
 #[test]
@@ -2064,14 +2064,14 @@ fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
         let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
         data[offset] = hi;
     };
-    set_collision(&mut data, 50, 11, 0x40);
+    set_collision(&mut data, 50, 11, 0x50);
     set_collision(&mut data, 51, 11, 0x60);
-    set_collision(&mut data, 52, 11, 0x50);
-    set_collision(&mut data, 49, 12, 0x40);
+    set_collision(&mut data, 52, 11, 0x40);
+    set_collision(&mut data, 49, 12, 0x50);
     set_collision(&mut data, 50, 12, 0x60);
     set_collision(&mut data, 51, 12, 0x60);
     set_collision(&mut data, 52, 12, 0x60);
-    set_collision(&mut data, 53, 12, 0x50);
+    set_collision(&mut data, 53, 12, 0x40);
     let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
     let mut slice = OpeningSliceState::respawn(LevelBounds {
         width_pixels: w * 16,
@@ -2098,7 +2098,7 @@ fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
         0,
     );
 
-    // With corrected slope formula (ASM-matching), the SlopeDown surface
+    // With corrected slope decode (ASM `sub_9386` / `sub_A254`), the SlopeUp surface
     // at this position is higher than before, so the player remains airborne.
     assert_eq!(slice.player.x_pos, 0x0328_09EA);
     assert_eq!(slice.player.y_pos, 0x00B4_1100);
@@ -2122,7 +2122,7 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
     };
     // SlopeUp at (2..5, 6)
     for col in 2..=5 {
-        set(&mut data, col, 6, 0x50); // SlopeUp = collision 5
+        set(&mut data, col, 6, 0x40); // SlopeUp = collision 4
         set(&mut data, col, 7, 0x60); // Solid beneath
     }
     // Also solid at row 7 cols 0-1 so the player doesn't fall off the left edge
@@ -2231,7 +2231,7 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
     };
     // SlopeDown at (2..5, 5), solid beneath at (2..5, 6)
     for col in 2..=5 {
-        set(&mut data, col, 5, 0x40); // SlopeDown = collision 4
+        set(&mut data, col, 5, 0x50); // SlopeDown = collision 5
         set(&mut data, col, 6, 0x60); // Solid beneath
     }
     // Solid at row 6 cols 0-1
@@ -2324,7 +2324,7 @@ fn solid_to_slope_up_transition_stays_grounded() {
     }
     // SlopeUp at cols 4-7 at row 7, solid beneath at row 8
     for col in 4..=7 {
-        set(&mut data, col, 7, 0x50); // SlopeUp
+        set(&mut data, col, 7, 0x40); // SlopeUp
         set(&mut data, col, 8, 0x60); // Solid beneath
     }
     let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
