@@ -369,6 +369,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) y_pos: u32,
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
+    /// Per-axis desired velocity for acceleration-driven flyers.
+    pub(crate) target_x_velocity: i32,
+    pub(crate) target_y_velocity: i32,
     /// Per-frame acceleration (UFO, Tornado)
     pub(crate) x_acceleration: i32,
     pub(crate) y_acceleration: i32,
@@ -1015,7 +1018,7 @@ pub(crate) fn activate_enemies(
                 base_y
             };
 
-            active.push(ActiveEnemy {
+            let mut enemy = ActiveEnemy {
                 segment_index: view.segment_index,
                 layout_index: index,
                 family,
@@ -1023,6 +1026,8 @@ pub(crate) fn activate_enemies(
                 y_pos: head_y,
                 x_velocity: spawn_x_velocity(family, enemy_level),
                 y_velocity: spawn_y_velocity(family),
+                target_x_velocity: 0,
+                target_y_velocity: 0,
                 x_acceleration: spawn_x_acceleration(family),
                 y_acceleration: spawn_y_acceleration(family),
                 facing: spawn_facing(family, head_x, player_x),
@@ -1067,7 +1072,11 @@ pub(crate) fn activate_enemies(
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
-            });
+            };
+            if matches!(family, EnemyFamily::Tornado) {
+                reload_tornado_pattern(&mut enemy);
+            }
+            active.push(enemy);
         }
     }
 }
@@ -1359,36 +1368,217 @@ pub(crate) fn step_ufo_beam(
     }
 }
 
-/// Tornado: acceleration-based flight. ASM: shared `Enemy_HandleAcceleration`
-/// with UFO. Default acceleration from `loc_35444` is $C00 when random table
-/// entry is 0. Terminal velocity from table entries: $18000 is common.
-/// Cycle timer from `unk_3588C`: 60/40/30 by enemy_level.
-// DEVIATION: ASM picks from 16 random patterns (unk_35344) each sub-cycle
-// using (random_byte XOR x_pos) & 0xF. Each pattern sets target_x_vel,
-// target_y_vel, x_accel, y_accel. Native uses fixed acceleration reversal.
-// RNG-dependent — would require full RNG synchronisation to match oracle.
+/// Tornado: acceleration-based flight. ASM UFO.asm loc_35326/unk_35344/loc_35444
+/// shares `Enemy_HandleAcceleration` with UFO. Terminal velocity from the table
+/// entries is typically $18000. Cycle timer from `unk_3588C`: 60/40/30 by enemy_level.
 pub(crate) const TORNADO_ACCELERATION: i32 = 0xC00;
 pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x1_8000;
 /// Per-level cycle timers: level 0 = 60, level 1 = 40, level 2 = 30 (unk_3588C).
 pub(crate) const TORNADO_PATTERN_FRAMES: [u16; 3] = [60, 40, 30];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TornadoPattern {
+    pub(crate) target_x_velocity: i32,
+    pub(crate) target_y_velocity: i32,
+    pub(crate) x_acceleration: i32,
+    pub(crate) y_acceleration: i32,
+}
+
+// ASM UFO.asm unk_35344: 16 entries of {target_x_vel, target_y_vel, x_accel, y_accel}.
+pub(crate) const TORNADO_PATTERNS: [TornadoPattern; 16] = [
+    TornadoPattern {
+        target_x_velocity: 0x0000_0000,
+        target_y_velocity: -0x0002_0000,
+        x_acceleration: 0x0000_0000,
+        y_acceleration: -0x0000_1000,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0001_0000,
+        target_y_velocity: -0x0002_0000,
+        x_acceleration: 0x0000_0800,
+        y_acceleration: -0x0000_1000,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: 0x0000_0C00,
+        y_acceleration: -0x0000_0C00,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0002_0000,
+        target_y_velocity: -0x0001_0000,
+        x_acceleration: 0x0000_1000,
+        y_acceleration: -0x0000_0800,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0002_0000,
+        target_y_velocity: 0x0000_0000,
+        x_acceleration: 0x0000_1000,
+        y_acceleration: 0x0000_0000,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0002_0000,
+        target_y_velocity: 0x0001_0000,
+        x_acceleration: 0x0000_1000,
+        y_acceleration: 0x0000_0800,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: 0x0000_0C00,
+        y_acceleration: 0x0000_0C00,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0001_0000,
+        target_y_velocity: 0x0002_0000,
+        x_acceleration: 0x0000_0800,
+        y_acceleration: 0x0000_1000,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0000_0000,
+        target_y_velocity: 0x0002_0000,
+        x_acceleration: 0x0000_0000,
+        y_acceleration: 0x0000_1000,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_0000,
+        target_y_velocity: 0x0002_0000,
+        x_acceleration: -0x0000_0800,
+        y_acceleration: 0x0000_1000,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: -0x0000_0C00,
+        y_acceleration: 0x0000_0C00,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0002_0000,
+        target_y_velocity: 0x0001_0000,
+        x_acceleration: -0x0000_1000,
+        y_acceleration: 0x0000_0800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0002_0000,
+        target_y_velocity: 0x0000_0000,
+        x_acceleration: -0x0000_1000,
+        y_acceleration: 0x0000_0000,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0002_0000,
+        target_y_velocity: -0x0001_0000,
+        x_acceleration: -0x0000_1000,
+        y_acceleration: -0x0000_0800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: -0x0000_0C00,
+        y_acceleration: -0x0000_0C00,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_0000,
+        target_y_velocity: -0x0002_0000,
+        x_acceleration: -0x0000_0800,
+        y_acceleration: -0x0000_1000,
+    },
+];
+
+pub(crate) fn tornado_pattern_index(enemy: &ActiveEnemy) -> usize {
+    // ASM UFO.asm loc_35326: `Get_RandomNumber_byte`; `eor.b x_pos(a3),d7`; `andi #$F`.
+    // DEVIATION: shared ROM RNG is not ported yet, so derive a stable local byte
+    // from live state before applying the same XOR-and-mask selection rule.
+    let state_mix = (enemy.x_pos >> 16)
+        ^ ((enemy.y_pos >> 16) << 8)
+        ^ (enemy.x_velocity as u32)
+        ^ (enemy.y_velocity as u32)
+        ^ (u32::from(enemy.hit_points) << 4);
+    let random_byte = state_mix.wrapping_mul(0x045D_9F3B) as u8;
+    let x_low_byte = ((enemy.x_pos >> 16) & 0xFF) as u8;
+    usize::from((random_byte ^ x_low_byte) & 0x0F)
+}
+
+fn acceleration_for_target(
+    current_velocity: i32,
+    target_velocity: i32,
+    base_acceleration: i32,
+) -> i32 {
+    if base_acceleration == 0 {
+        // ASM UFO.asm loc_3545A/loc_35496: zero accel entry means "$C00 toward zero".
+        return if current_velocity < 0 {
+            TORNADO_ACCELERATION
+        } else {
+            -TORNADO_ACCELERATION
+        };
+    }
+
+    let mut acceleration = base_acceleration;
+    if current_velocity >= 0 {
+        if target_velocity >= 0 && target_velocity < current_velocity {
+            acceleration = -acceleration;
+        }
+    } else if target_velocity >= 0 || target_velocity > current_velocity {
+        acceleration = -acceleration;
+    }
+    acceleration
+}
+
+fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, acceleration: i32) -> i32 {
+    let next_velocity = current_velocity.saturating_add(acceleration);
+    if acceleration >= 0 {
+        next_velocity.min(target_velocity)
+    } else {
+        next_velocity.max(target_velocity)
+    }
+}
+
+pub(crate) fn reload_tornado_pattern(enemy: &mut ActiveEnemy) {
+    // ASM UFO.asm loc_35326 -> loc_35444: choose a table row, then derive the
+    // signed per-axis acceleration that drives Enemy_HandleAcceleration.
+    let pattern = TORNADO_PATTERNS[tornado_pattern_index(enemy)];
+    enemy.target_x_velocity = pattern.target_x_velocity;
+    enemy.target_y_velocity = pattern.target_y_velocity;
+    enemy.x_acceleration = acceleration_for_target(
+        enemy.x_velocity,
+        pattern.target_x_velocity,
+        pattern.x_acceleration,
+    );
+    enemy.y_acceleration = acceleration_for_target(
+        enemy.y_velocity,
+        pattern.target_y_velocity,
+        pattern.y_acceleration,
+    );
+    enemy.facing = if pattern.target_x_velocity < 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    };
+}
+
 pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
-    // Apply acceleration
-    enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
-        .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
-    enemy.y_velocity = (enemy.y_velocity + enemy.y_acceleration)
-        .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+    // ASM UFO.asm Enemy_HandleAcceleration: move toward desired axis speeds.
+    enemy.x_velocity = apply_acceleration_axis(
+        enemy.x_velocity,
+        enemy.target_x_velocity,
+        enemy.x_acceleration,
+    )
+    .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+    enemy.y_velocity = apply_acceleration_axis(
+        enemy.y_velocity,
+        enemy.target_y_velocity,
+        enemy.y_acceleration,
+    )
+    .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
 
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-    // Periodic direction change — cycle timer from unk_3588C per enemy_level
+    // ASM UFO.asm loc_35326 + unk_3588C: reload a new pattern on each sub-cycle.
     if enemy.wait_timer == 0 {
         let level = (enemy.hit_points.saturating_sub(1) as usize).min(2);
         enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
-        enemy.x_acceleration = -enemy.x_acceleration;
-        enemy.y_acceleration = -enemy.y_acceleration;
+        reload_tornado_pattern(enemy);
     } else {
         enemy.wait_timer -= 1;
     }

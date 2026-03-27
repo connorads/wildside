@@ -4856,6 +4856,8 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
         y_pos: 0x01C0_0000,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -4983,6 +4985,8 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         y_pos: 272u32 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -6153,6 +6157,8 @@ fn hopper_lands_on_terrain_before_launching() {
         y_pos: 224u32 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -6223,6 +6229,8 @@ fn hopper_launches_into_an_air_arc() {
         y_pos: 224u32 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -6345,6 +6353,8 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         y_pos: floor_y_fp,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -6425,6 +6435,8 @@ fn hopper_targets_player_direction_before_launch() {
         y_pos: floor_y_fp,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -6505,6 +6517,8 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         y_pos: floor_y_fp,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8307,6 +8321,8 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         y_pos: y_px << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8473,6 +8489,8 @@ fn cloud_flies_horizontally() {
         y_pos: 100 << 16,
         x_velocity: -0x3000,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8533,6 +8551,8 @@ fn cloud_reverses_at_wall() {
         y_pos: 96 << 16,
         x_velocity: -0x3000,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8621,6 +8641,8 @@ fn fireball_gravity_scales_with_hp() {
         y_pos: 0,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8675,6 +8697,8 @@ fn fireball_bounce_cap_scales_with_live_hp() {
         y_pos: (159u32 << 16) + 0xC000,
         x_velocity: 0,
         y_velocity: 0x80000,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8740,6 +8764,8 @@ fn fireball_floor_bounce_applies_signed_rom_perturbation_before_cap() {
         y_pos: (159u32 << 16) + 0xC000,
         x_velocity: 0,
         y_velocity: 0x3_0000,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8803,6 +8829,8 @@ fn fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule() {
         y_pos: 0x0031_0000,
         x_velocity: 0,
         y_velocity: -0x2_8000,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -8903,6 +8931,8 @@ fn sphere_applies_gravity() {
         y_pos: 64 << 16,
         x_velocity: 0x10000,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -8962,6 +8992,8 @@ fn sphere_bounces_off_floor() {
         y_pos: 155 << 16,
         x_velocity: 0x10000,
         y_velocity: 0x5000, // falling
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -9027,6 +9059,8 @@ fn sphere_bounces_off_wall() {
         y_pos: 112 << 16,
         x_velocity: 0x10000, // moving right
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -9096,6 +9130,8 @@ fn emo_rock_hovers_above_player_then_drops() {
         y_pos: 50 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9168,6 +9204,8 @@ fn emo_rock_lands_and_walks() {
         y_pos: 60 << 16, // above the floor
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9310,6 +9348,8 @@ fn archer_faces_player_direction() {
         y_pos: 100 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9364,6 +9404,8 @@ fn archer_fires_arrow_when_timer_expires() {
         y_pos: 100 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9466,6 +9508,8 @@ fn tank_fires_bullet_after_timer_expires() {
         y_pos: 100 << 16,
         x_velocity: 0x8000,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -9524,6 +9568,8 @@ fn tank_does_not_fire_while_timer_active() {
         y_pos: 100 << 16,
         x_velocity: 0x8000,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -9596,6 +9642,8 @@ fn tracker_chases_player_rightward() {
         y_pos: 100 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9653,6 +9701,8 @@ fn tracker_chases_player_leftward() {
         y_pos: 100 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -9713,6 +9763,8 @@ fn boss_fires_projectiles_when_stomped() {
         y_pos: 120 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9805,6 +9857,8 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
         y_pos: 120 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,
@@ -9985,6 +10039,8 @@ fn ufo_beam_fires_when_player_below() {
         y_pos: 50 << 16,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Right,
@@ -10076,16 +10132,27 @@ fn ufo_reverses_acceleration_on_timer() {
 }
 
 #[test]
-fn tornado_reverses_acceleration_on_timer() {
-    let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
-    enemy.x_acceleration = TORNADO_ACCELERATION;
-    enemy.y_acceleration = -TORNADO_ACCELERATION;
+fn tornado_loads_rom_pattern_on_timer_expiry() {
+    let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
     enemy.wait_timer = 0;
     step_tornado(&mut enemy, None);
+    assert_eq!(enemy.target_x_velocity, 0);
+    assert_eq!(enemy.target_y_velocity, -0x0002_0000);
     assert_eq!(enemy.x_acceleration, -TORNADO_ACCELERATION);
-    assert_eq!(enemy.y_acceleration, TORNADO_ACCELERATION);
-    // HP=1, tier=(1-1).min(2)=0, so cycle timer = level-0 = 60 frames
+    assert_eq!(enemy.y_acceleration, -0x0000_1000);
     assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[0]);
+}
+
+#[test]
+fn tornado_accelerates_toward_pattern_targets() {
+    let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
+    enemy.target_x_velocity = 0x0001_0000;
+    enemy.target_y_velocity = -0x0001_0000;
+    enemy.x_acceleration = 0x0000_0800;
+    enemy.y_acceleration = -0x0000_0800;
+    step_tornado(&mut enemy, None);
+    assert_eq!(enemy.x_velocity, 0x0000_0800);
+    assert_eq!(enemy.y_velocity, -0x0000_0800);
 }
 
 // --- Ninja ---
@@ -13106,6 +13173,8 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
         y_pos: y,
         x_velocity: 0,
         y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
         facing: Direction::Left,

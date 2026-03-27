@@ -475,6 +475,14 @@ fixed speed every time. Regressions:
 `fireball_floor_bounce_applies_signed_rom_perturbation_before_cap` and
 `fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule`.
 
+Progress (2026-03-27): Tornado flight now uses ASM `UFO.asm` `unk_35344` target-speed patterns
+instead of the old fixed accel-flip placeholder. Native reloads one of the 16 ROM pattern rows,
+derives signed per-axis acceleration the same way as `loc_35444`, and then steps with the shared
+`Enemy_HandleAcceleration` shape. Remaining gap: pattern selection still uses a deterministic
+local byte until the shared ROM RNG is ported. Regressions:
+`tornado_loads_rom_pattern_on_timer_expiry` and
+`tornado_accelerates_toward_pattern_targets`.
+
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
 Audio init now reports specific SDL2 errors with troubleshooting hints (SDL_AUDIODRIVER,
