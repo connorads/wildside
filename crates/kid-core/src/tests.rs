@@ -18432,6 +18432,87 @@ fn published_tas_intro_sequence_6_starts_hidden_camera_ramp_on_frame_21142() {
 }
 
 #[test]
+fn published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21223 = None;
+    let mut frame_21224 = None;
+    let mut frame_21225 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_226) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_223 => {
+                frame_21223 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_224 => {
+                frame_21224 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_225 => {
+                frame_21225 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1B5CE is the worker that finally writes Kid's visible title
+    // pose during the mode-$28 rebuild: `move.w #$2E,x_pos(a3)` /
+    // `move.w #$8C,y_pos(a3)`. Oracle keeps Kid hidden through local
+    // mode-$28 frame 329 and only exposes that pose on frame 330.
+    assert_eq!(
+        frame_21223,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(329),
+            None,
+            None
+        )),
+        "frame 21223 should still keep Kid hidden one frame before loc_1B5CE exposes the rebuilt title pose",
+    );
+    assert_eq!(
+        frame_21224,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(330),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21224 should be the first mode-$28 frame where loc_1B5CE's rebuilt title pose becomes visible",
+    );
+    assert_eq!(
+        frame_21225,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(331),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21225 should keep the rebuilt mode-$28 title pose visible on the following frame",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

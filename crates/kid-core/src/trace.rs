@@ -1144,6 +1144,16 @@ impl NativeRuntime {
                 // hand-off window before the rebuilt title shell clears it.
                 Some(PlayerState::intro_sequence_5_slot_2_pose())
             }
+            BootState::IntroSequence6 { .. }
+                if self.title_screen_elapsed_frames
+                    >= TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_POSE_VISIBLE_ELAPSED_FRAMES =>
+            {
+                // ASM loc_1B5CE: once the mode-$28 title-shell rebuild reaches
+                // `move.w #$2E,x_pos(a3); move.w #$8C,y_pos(a3)`, oracle starts
+                // exposing the standard title pose even though Game_Mode stays
+                // at `$28` until Obj_TitleMenu later reaches loc_1BB02.
+                Some(PlayerState::title_pose())
+            }
             BootState::IntroSequence6 { .. } => None,
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {

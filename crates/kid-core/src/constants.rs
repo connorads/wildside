@@ -135,6 +135,11 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES: us
 // one pixel per frame beginning on local mode-$28 frame 248.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES: usize = 248;
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES: usize = 16;
+// ASM loc_1B5CE is the first timeout-restart mode-$28 worker that writes the
+// standard title pose directly (`move.w #$2E,x_pos(a3); move.w #$8C,y_pos(a3)`).
+// Oracle-backed traces keep Kid hidden through local mode-$28 frame 329 and
+// only expose that pose on frame 330, while `Game_Mode` still remains `$28`.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_POSE_VISIBLE_ELAPSED_FRAMES: usize = 330;
 // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so the
 // loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
 // overwrites that WRAM slot 28 frames later.
