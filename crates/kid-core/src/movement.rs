@@ -2235,7 +2235,11 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     let _ = terrain_type;
     let _ = facing;
     let slope_descends_right = collision == terrain::CollisionKind::SlopeDown;
-    let mut canonical_vel = if slope_descends_right { x_vel } else { -x_vel };
+    // ASM sub_9386 stores `$FFFFFA26=0` for `$4000` SlopeUp and `$FF` for
+    // `$5000` SlopeDown. loc_9D94 only negates/swallows inputs when `$FA26`
+    // is set, so the canonical slope frame keeps live `x_vel` for SlopeUp and
+    // flips it for SlopeDown.
+    let mut canonical_vel = if slope_descends_right { -x_vel } else { x_vel };
 
     // ASM loc_9D22 uses three slope-velocity families: the shared `unk_9EB0`
     // table for Kid/Skycutter/Cyclone/Juggernaut/IronKnight/Berzerker, the
@@ -2395,9 +2399,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     };
 
     let next_x_vel = if slope_descends_right {
-        canonical_vel
-    } else {
         -canonical_vel
+    } else {
+        canonical_vel
     };
     (next_x_vel, next_facing)
 }

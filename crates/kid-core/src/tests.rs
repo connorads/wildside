@@ -2023,6 +2023,28 @@ fn slope_ground_run_right_on_slope_up_bleeds_speed_by_rom_uphill_step() {
 }
 
 #[test]
+fn slope_ground_run_right_on_slope_up_holds_rom_uphill_cap() {
+    let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+        0x0001_0000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+
+    // ASM sub_9386 writes `$FA26=0` for `$4000` SlopeUp, so loc_9D94 keeps the
+    // live positive `x_vel` in canonical space. At the exact uphill cap, the
+    // ROM takes loc_9DD4's add+clamp path and holds `$10000` for one more frame.
+    assert_eq!(new_vel, 0x0001_0000);
+    assert_eq!(new_facing, Direction::Left);
+}
+
+#[test]
 fn slope_ground_run_right_uses_shared_table_for_cyclone() {
     let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
         0x0003_8000,

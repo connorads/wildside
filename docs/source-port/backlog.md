@@ -247,6 +247,18 @@ from `0x00010000` to `0x0000C000` while oracle keeps the same run-up window aliv
 the first authoritative miss to land later at frame `946`. The next gameplay patch should trace
 the ROM path that owns this frame-`939` slope-step rather than guessing at the jump take-off.
 
+New evidence (2026-03-27, cap hold): ASM `sub_9386` writes `$FFFFFA26=0` on `$4000` SlopeUp, so
+`loc_9D94` keeps the live positive `x_vel` in canonical space instead of flipping it. Native had
+that slope canonicalisation backwards, which made the frame-`939` / frame-`940` Level 1 uphill
+run-up bleed off to `$C000/$8000` two frames early. Fixing the canonical slope frame makes
+`probe-native-gameplay --scenario death-respawn-level1 --trace-physics --frame-start 936 --frame-end 942`
+match the oracle-backed run-up window again through frame `941`, moves the first
+`diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 900` miss later to
+frame `990` on `kid_y_pos`, and keeps `mise run verify-slice-fast` green. `compare-native-gameplay
+--scenario death-respawn-level1` still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so
+the remaining work is now the later airborne Y/death trigger path rather than the old slope-cap X
+run-up.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
