@@ -596,6 +596,7 @@ pub(crate) fn ym2612_register_writes_are_audible(values: &[Ym2612RegisterWrite])
 fn print_trace_frames_in_range(
     trace: &[NativeTraceFrame],
     script: &[u8],
+    trace_physics: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) {
@@ -611,7 +612,7 @@ fn print_trace_frames_in_range(
                 .map(kid_core::FrameInput::from_mask)
                 .unwrap_or_default();
             println!(
-                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} invuln {} form_flash {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
                 frame.frame_index,
                 describe_frame_input(input),
                 frame.game_mode,
@@ -622,6 +623,7 @@ fn print_trace_frames_in_range(
                 frame.kid_x_velocity.unwrap_or_default() as u32,
                 frame.kid_y_velocity.unwrap_or_default() as u32,
                 frame.kid_on_ground,
+                frame.kid_on_slope,
                 frame.invulnerable_frames,
                 frame.form_change_flash_frames,
                 frame.number_lives,
@@ -630,6 +632,30 @@ fn print_trace_frames_in_range(
                 frame.active_platform_object_count,
                 describe_active_objects(frame)
             );
+            if trace_physics && let Some(physics) = frame.physics_trace {
+                println!(
+                    "  physics: pre_h {:08X},{:08X} post_h {:08X},{:08X} pre_v {:08X},{:08X} post_v {:08X},{:08X} jump {} jump_y {} floor_hit {} floor_y {:?} landing {:?} wall_hit {} wall_x {:?} final_pos {:08X},{:08X} final_vel {:08X},{:08X}",
+                    physics.pre_horizontal.0,
+                    physics.pre_horizontal.1 as u32,
+                    physics.post_horizontal.0,
+                    physics.post_horizontal.1 as u32,
+                    physics.pre_vertical.0,
+                    physics.pre_vertical.1 as u32,
+                    physics.post_vertical.0,
+                    physics.post_vertical.1 as u32,
+                    physics.jump_initiated,
+                    physics.jump_y_vel.unwrap_or_default() as u32,
+                    physics.floor_hit,
+                    physics.floor_y_px,
+                    physics.landing_path,
+                    physics.wall_hit,
+                    physics.wall_snap_x.map(|x| format!("{x:08X}")),
+                    physics.final_pos.0,
+                    physics.final_pos.1,
+                    physics.final_vel.0 as u32,
+                    physics.final_vel.1 as u32,
+                );
+            }
         }
     }
 }
@@ -702,7 +728,7 @@ pub(crate) fn probe_native_scenario(
         }
     }
 
-    print_trace_frames_in_range(&trace, &script, frame_start, frame_end);
+    print_trace_frames_in_range(&trace, &script, false, frame_start, frame_end);
 
     Ok(())
 }
@@ -710,11 +736,16 @@ pub(crate) fn probe_native_scenario(
 pub(crate) fn probe_native_gameplay_scenario(
     manifest: &AssetManifest,
     scenario: GameplayScenario,
+    trace_physics: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
     let script = scenario.script()?;
-    let trace = run_native_script_for_gameplay(manifest, &script, scenario);
+    let trace = if trace_physics {
+        run_native_script_for_gameplay_with_trace(manifest, &script, scenario)
+    } else {
+        run_native_script_for_gameplay(manifest, &script, scenario)
+    };
     let final_frame = trace.last().ok_or_else(|| {
         anyhow!(
             "native trace was empty for gameplay scenario {}",
@@ -779,7 +810,7 @@ pub(crate) fn probe_native_gameplay_scenario(
         }
     }
 
-    print_trace_frames_in_range(&trace, &script, frame_start, frame_end);
+    print_trace_frames_in_range(&trace, &script, trace_physics, frame_start, frame_end);
 
     Ok(())
 }

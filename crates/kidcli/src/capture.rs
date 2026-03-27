@@ -1,4 +1,5 @@
 use super::*;
+use kid_core::run_script_with_trace;
 
 pub(crate) const AUDIO_SAMPLE_RATE: u32 = 44_100;
 pub(crate) const AUDIO_FRAME_SAMPLES: usize = 735;
@@ -592,4 +593,12 @@ pub(crate) fn run_native_script_for_gameplay(
     scenario: GameplayScenario,
 ) -> Vec<NativeTraceFrame> {
     run_script(manifest.clone(), script, scenario.frame_count())
+}
+
+pub(crate) fn run_native_script_for_gameplay_with_trace(
+    manifest: &AssetManifest,
+    script: &[u8],
+    scenario: GameplayScenario,
+) -> Vec<NativeTraceFrame> {
+    run_script_with_trace(manifest.clone(), script, scenario.frame_count(), None)
 }

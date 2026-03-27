@@ -247,6 +247,8 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
         scenario: GameplayScenario,
+        #[arg(long, default_value_t = false)]
+        trace_physics: bool,
         #[arg(long)]
         frame_start: Option<usize>,
         #[arg(long)]
@@ -951,6 +953,7 @@ fn main() -> Result<()> {
             rom,
             dir,
             scenario,
+            trace_physics,
             frame_start,
             frame_end,
         } => {
@@ -959,7 +962,13 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
-            probe_native_gameplay_scenario(&manifest, scenario, frame_start, frame_end)?;
+            probe_native_gameplay_scenario(
+                &manifest,
+                scenario,
+                trace_physics,
+                frame_start,
+                frame_end,
+            )?;
         }
         Commands::InspectLevel { rom, dir, level } => {
             let repo_root = current_dir()?;

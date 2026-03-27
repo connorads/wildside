@@ -240,6 +240,13 @@ miss later to frame `946` on `kid_x_pos`. `compare-native-gameplay --scenario de
 still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining work is the
 late jump/run-up X parity and downstream death trigger, not the old grounded jump regression.
 
+New evidence (2026-03-27, follow-up): `kidcli probe-native-gameplay --scenario death-respawn-level1
+--trace-physics --frame-start 939 --frame-end 941` now exposes the exact sub-step drift. Native is
+still clean through frame `938`, but frame `939` already drops the slope run-up `post_h x_vel`
+from `0x00010000` to `0x0000C000` while oracle keeps the same run-up window alive long enough for
+the first authoritative miss to land later at frame `946`. The next gameplay patch should trace
+the ROM path that owns this frame-`939` slope-step rather than guessing at the jump take-off.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
