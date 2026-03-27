@@ -74,6 +74,14 @@ impl NativeRuntime {
             // re-exposes the same pose on local title frames 148 and 149.
             ready_frame = ready_frame
                 .saturating_sub(DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES);
+            // ASM sub_1C246 already returned to `Game_Mode=$2C`, so once that
+            // rebuilt loc_1B5CE pose reappears two title frames early this
+            // lineage is also two frames farther through Obj_TitleMenu
+            // `loc_1BAEA`'s shared `$280` DBF idle before `loc_1BB02`
+            // flips back into demo play.
+            self.title_idle_frames = DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES
+                .try_into()
+                .expect("two-frame intro-sequence-1 title restore offset should fit in u16");
         }
         self.title_screen_ready_frame = ready_frame;
     }
