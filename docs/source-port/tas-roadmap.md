@@ -110,7 +110,6 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | Demo camera settling | active | M1 |
 | 14 enemy behaviour gaps | phase4 | M3-M7 |
 | 6 RNG DEVIATIONs | research-map | M5-M7 |
-| Shooter timer DEVIATION | #065 | M3-M5 |
 | Mushroom bounce DEVIATION | #066 | M3-M7 |
 
 ## Infrastructure

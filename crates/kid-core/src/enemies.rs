@@ -4309,6 +4309,7 @@ impl NativeRuntime {
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
             self.block_state.evanescent_blocks.clear();
+            self.block_state.shooter_blocks.clear();
             self.block_state.ghost_groups.clear();
             return;
         }

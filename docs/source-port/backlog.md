@@ -84,7 +84,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 062 | [~] | P3 | enemy | HeadyMetal death wobble visual (rendering-only) | ASM-timed wobble death effect wired; still needs oracle-backed visual verification |
 | 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
 | 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
-| 065 | [-] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | DEVIATION — structural: ASM EvanescentBlock_Trigger per-block, native global timer |
+| 065 | [x] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | Shooter blocks now register per visible cell, fire on entry, and recycle after the ROM's 22-frame slot lifetime |
 | 066 | [-] | P3 | block | Mushroom bounce uses direct player velocity; ASM bounces platform object | DEVIATION — structural: ASM uses SoftPlatform objects, native bounces player inline |
 | 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
 | 068 | [-] | P3 | block | Shifting block grid swap is instant (correct); visual uses sub_113C0 sprite | DEVIATION — visual only: ASM animates sprite with shared lift coroutine |
@@ -147,7 +147,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
 | 130 | [~] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry ROM/build provenance plus replay commands; still need remote-ingest workflow and legacy trace-schema compatibility |
-| 131 | [ ] | P2 | fidelity | Burn down the six parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
+| 131 | [ ] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [ ] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
 | 133 | [ ] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | Document ASM path, native support status, and explicit implementation decision |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |

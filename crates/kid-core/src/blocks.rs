@@ -95,9 +95,8 @@ impl NativeRuntime {
     /// move the block up one cell.
     /// Shooter blocks (type 0x8): fire projectiles in directions encoded in the
     /// skin byte (bit 0=up, 1=right, 2=down, 3=left). Speed: 4px/frame.
-    // DEVIATION: ASM uses per-block registration via EvanescentBlock_Trigger — each
-    // block fires once when it enters the visible area, slot freed after $16 (22) frames.
-    // Native uses a global repeating timer for simplicity. Visual result is similar.
+    /// ASM loc_EB72 -> LoadBulletsFromEvanescentBlock registers each visible
+    /// shooter once, fires on age 0, then frees the slot again at age $16.
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
 
@@ -177,14 +176,8 @@ impl NativeRuntime {
             return;
         };
 
-        // Tick timer
-        if self.block_state.shooter_block_timer > 0 {
-            self.block_state.shooter_block_timer -= 1;
-            return;
-        }
-        self.block_state.shooter_block_timer = Self::SHOOTER_FIRE_INTERVAL;
-
-        // Scan visible area for shooter blocks
+        // ASM loc_EB72: scan the visible layout window and register each
+        // visible shooter cell at most once while its slot is alive.
         let cam_x = slice.camera.x_pos >> 16;
         let cam_y = slice.camera.y_pos >> 16;
         let start_col = (cam_x / 16).saturating_sub(1) as u16;
@@ -192,24 +185,64 @@ impl NativeRuntime {
         let start_row = (cam_y / 16).saturating_sub(1) as u16;
         let end_row = ((cam_y + 224) / 16 + 2).min(u32::from(grid.height_cells)) as u16;
 
+        self.block_state.shooter_blocks.retain(|entry| {
+            entry.col >= start_col
+                && entry.col < end_col
+                && entry.row >= start_row
+                && entry.row < end_row
+        });
+
         for row in start_row..end_row {
             for col in start_col..end_col {
                 let cell = grid.cell_at(col, row);
                 if !cell.has_block || cell.block_type != terrain::BlockType::Shooter {
                     continue;
                 }
-                let block_x = u32::from(col) * 16 + 8; // centre of block
-                let block_y = u32::from(row) * 16 + 8;
-                let skin = cell.skin;
+                let already_registered = self
+                    .block_state
+                    .shooter_blocks
+                    .iter()
+                    .any(|entry| entry.col == col && entry.row == row);
+                if !already_registered {
+                    self.block_state.shooter_blocks.push(ShooterBlockEntry {
+                        col,
+                        row,
+                        directions: cell.skin,
+                        age: 0,
+                    });
+                }
+            }
+        }
 
+        self.block_state.shooter_blocks.retain_mut(|entry| {
+            let still_visible = entry.col >= start_col
+                && entry.col < end_col
+                && entry.row >= start_row
+                && entry.row < end_row;
+            let still_shooter = still_visible
+                && matches!(
+                    grid.cell_at(entry.col, entry.row),
+                    terrain::Cell {
+                        has_block: true,
+                        block_type: terrain::BlockType::Shooter,
+                        ..
+                    }
+                );
+            if !still_shooter {
+                return false;
+            }
+
+            if entry.age == 0 {
+                let block_x = u32::from(entry.col) * 16 + 8;
+                let block_y = u32::from(entry.row) * 16 + 8;
                 let directions: [(u8, i32, i32); 4] = [
-                    (1, 0, -Self::SHOOTER_PROJECTILE_SPEED), // up
-                    (2, Self::SHOOTER_PROJECTILE_SPEED, 0),  // right
-                    (4, 0, Self::SHOOTER_PROJECTILE_SPEED),  // down
-                    (8, -Self::SHOOTER_PROJECTILE_SPEED, 0), // left
+                    (1, 0, -Self::SHOOTER_PROJECTILE_SPEED),
+                    (2, Self::SHOOTER_PROJECTILE_SPEED, 0),
+                    (4, 0, Self::SHOOTER_PROJECTILE_SPEED),
+                    (8, -Self::SHOOTER_PROJECTILE_SPEED, 0),
                 ];
                 for (mask, xv, yv) in directions {
-                    if skin & mask != 0 {
+                    if entry.directions & mask != 0 {
                         self.projectiles.push(EnemyProjectile {
                             x_pos: block_x << 16,
                             y_pos: block_y << 16,
@@ -225,7 +258,10 @@ impl NativeRuntime {
                     }
                 }
             }
-        }
+
+            entry.age += 1;
+            entry.age < Self::SHOOTER_FIRE_INTERVAL
+        });
     }
 
     pub(crate) fn apply_shifting_blocks(&mut self, slice: &OpeningSliceState) {

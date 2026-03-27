@@ -687,6 +687,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
+        self.block_state.shooter_blocks.clear();
         self.block_state.ghost_groups.clear();
         self.death_camera_lock = None;
         self.player_lifecycle = PlayerLifecycle::Dying {

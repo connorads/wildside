@@ -121,9 +121,8 @@ Low impact: Driller block drilling, speed caps at high HP, probe half-width per-
 - **Stateful property testing**: implement `proptest-state-machine` test for `PlayerLifecycle`. Model lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
 - **1P playable gate**: add a separate native-playability smoke gate covering Level 1 completion, Level 2 entry, death/respawn, slopes, bounce surfaces, and common block interactions. The current `1p-accurate` gate remains valuable but too narrow to stand in for "game works".
 
-### Known deviations (6 DEVIATION annotations, intentional)
+### Known deviations (5 DEVIATION annotations, intentional)
 - Tornado, Fireball (×2), Robot: RNG-dependent behaviours. ASM uses deterministic global RNG, native uses independent RNG per enemy. Behaviour is statistically equivalent but not frame-identical.
-- Shooter timer: ASM registers per-block on visibility, native uses global timer.
 - Mushroom bounce: ASM bounces via SoftPlatform objects, native bounces player inline.
 - Shifting block: ASM animates sprite with shared lift coroutine, native swaps grid instantly.
 
@@ -137,7 +136,7 @@ Low impact: Driller block drilling, speed caps at high HP, probe half-width per-
 - BigHoppingSkull continuous bouncer rework (#056) — ASM $FA0 gravity, wall/floor/ceiling/slope deflection
 - Orca X-accel, slope re-lunge, wall-pin (#061) — all 3 from ASM
 - Lift block ASM coroutine timing (#067) — 2px/frame×8 up, erase, 1px/frame×16 down
-- Shooter mechanism (#065) — documented as DEVIATION (ASM per-block registration vs native global timer)
+- Shooter mechanism (#065) — resolved: visible shooter cells now register independently, fire on entry, and recycle after the ROM's 22-frame slot lifetime
 - Mushroom bounce (#066) — documented as DEVIATION (ASM SoftPlatform objects vs native inline bounce)
 - Shifting block (#068) — documented as DEVIATION (visual sprite animation only, grid swap correct)
 

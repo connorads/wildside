@@ -509,12 +509,21 @@ pub(crate) struct BlockInteractionState {
     pub(crate) evanescent_blocks: Vec<EvanescentEntry>,
     pub(crate) ghost_groups: Vec<GhostGroup>,
     pub(crate) lift_platforms: Vec<LiftPlatform>,
-    /// Global shooter block fire timer: fires every 22 frames.
-    pub(crate) shooter_block_timer: u16,
+    /// ASM loc_EB72 -> LoadBulletsFromEvanescentBlock: visible shooter blocks
+    /// register once, fire immediately, then keep their slot for 22 frames.
+    pub(crate) shooter_blocks: Vec<ShooterBlockEntry>,
     /// Prize blocks headbutted from below: ASM sub_1007A owns the full
     /// lifecycle — keep the cell Solid (0x6F), run the bounce coroutine,
     /// then clear the tile and spawn the prize object.
     pub(crate) deferred_ceiling_clears: Vec<DeferredCeilingClear>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterBlockEntry {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) directions: u8,
+    pub(crate) age: u16,
 }
 
 /// Weather system state for the current level.
