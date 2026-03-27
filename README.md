@@ -25,6 +25,7 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 - `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
 - `kidcli play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace so manual bugs can become deterministic artefacts.
 - `kidcli verify-recording --slug <slug>` replays a recorded repro, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
+- `kidcli view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.
 - `kidcli release-gate --target 1p-accurate` is the canonical sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.

@@ -24,6 +24,7 @@ mod tas;
 mod tas_diff;
 mod tui_debugger;
 mod verify;
+mod view_tas;
 
 use verify::*;
 
@@ -555,6 +556,28 @@ enum Commands {
         /// Only run up to this frame
         #[arg(long)]
         frame_end: Option<usize>,
+    },
+    /// SDL viewer for stepping a TAS scenario with native, oracle, and diff panels.
+    ViewTas {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to a DynamicScenario JSON
+        #[arg(long)]
+        scenario: PathBuf,
+        /// First frame to include in the loaded window
+        #[arg(long)]
+        frame_start: Option<usize>,
+        /// Stop before this frame
+        #[arg(long)]
+        frame_end: Option<usize>,
+        /// Load the full scenario even when it exceeds the default viewer limit
+        #[arg(long, default_value_t = false)]
+        whole_run: bool,
+        /// Diff classification for state comparisons
+        #[arg(long, value_enum, default_value_t = sweep::FrontierKind::Gameplay)]
+        frontier_kind: sweep::FrontierKind,
     },
     /// Probe oracle RAM at arbitrary addresses across a frame range.
     OracleProbe {
@@ -1307,53 +1330,55 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-
-            let scenario_json = fs::read_to_string(&scenario)?;
-            let mut dyn_scenario: crate::scenarios::DynamicScenario =
-                serde_json::from_str(&scenario_json)?;
-
-            if let Some(end) = frame_end {
-                dyn_scenario.script =
-                    dyn_scenario.script[..end.min(dyn_scenario.script.len())].to_vec();
-                dyn_scenario.frame_count = end;
-                dyn_scenario.checkpoints.retain(|cp| cp.frame_index < end);
-            }
-
-            // Run native
-            println!("Running native ({} frames)...", dyn_scenario.frame_count);
-            let native_trace = kid_core::run_script_with_warp(
-                manifest,
-                &dyn_scenario.script,
-                dyn_scenario.frame_count,
-                dyn_scenario.warp_to_level,
-            );
-
-            // Run oracle
-            println!("Running oracle ({} frames)...", dyn_scenario.frame_count);
-            let run_dir = repo_root.join(".cache/debug-tui");
-            fs::create_dir_all(&run_dir)?;
-            let scenario_file = run_dir.join("scenario.json");
-            fs::write(&scenario_file, serde_json::to_vec_pretty(&dyn_scenario)?)?;
-            let env = crate::oracle::ensure_oracles(&repo_root)?;
-            let oracle_dir = run_dir.join("oracle");
-            fs::create_dir_all(&oracle_dir)?;
-            let oracle = crate::oracle::run_jgenesis_capture_dynamic(
-                &env,
+            let dyn_scenario = view_tas::load_dynamic_scenario(&scenario)?;
+            let end = frame_end
+                .unwrap_or(dyn_scenario.frame_count)
+                .min(dyn_scenario.frame_count);
+            let comparison = view_tas::prepare_tas_comparison_run(
+                &repo_root,
                 &rom_path,
-                &scenario_file,
-                &oracle_dir,
-                None,
+                &manifest,
+                &dyn_scenario,
+                0,
+                end,
+                "debug-tui",
+                sweep::FrontierKind::Gameplay,
             )?;
 
             println!(
                 "Launching TUI ({} native frames, {} oracle checkpoints, {} CRCs)...",
-                native_trace.len(),
-                oracle.states.len(),
-                oracle.frame_crcs.len()
+                comparison.native_trace.len(),
+                comparison.oracle.states.len(),
+                comparison.oracle.frame_crcs.len()
             );
 
-            let debugger = tui_debugger::TuiDebugger::new(native_trace, &oracle);
+            let debugger =
+                tui_debugger::TuiDebugger::new(comparison.native_trace, &comparison.oracle);
             debugger.run()?;
+        }
+        Commands::ViewTas {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+            whole_run,
+            frontier_kind,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            view_tas::run_view_tas(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                &scenario,
+                frame_start,
+                frame_end,
+                whole_run,
+                frontier_kind,
+            )?;
         }
         Commands::OracleProbe {
             rom,
