@@ -1,24 +1,24 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T07:05:00Z",
+  "updated_at": "2026-03-27T06:21:31Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-29402-mode-28-demo-handoff",
+    "slug": "any-percent-published-frame-29462-demo-2-preload-camera-row",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Later mode-0x28 demo hand-off divergence after restoring the delayed title-pose visibility",
+    "area": "Later demo-2 preload camera row after the repaired mode-0x28 hand-off",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 29402,
-    "authoritative_clean_through": 29401,
+    "frontier_frame": 29462,
+    "authoritative_clean_through": 29461,
     "pre_divergence_windows": [
       {
         "frame_start": 27598,
-        "frame_end": 29401,
-        "reason": "The repaired later IntroSequence6 delayed title-pose visibility keeps frames 27598..29401 CRC-clean. `tas-diff --frame-start 28390 --frame-end 28402 --include-advisory` is advisory-only across the former frame-28396 window, and `verify-tas --frame-start 23250 --bisect` now moves the first CRC divergence to frame 29402."
+        "frame_end": 29461,
+        "reason": "The repaired later IntroSequence6 title-menu idle delay keeps frames 27598..29461 CRC-clean. `tas-diff --frame-start 29396 --frame-end 29408 --include-advisory` is now advisory-only across the former frame-29402 window, and `verify-tas --frame-start 23250 --bisect` moves the first CRC divergence to frame 29462."
       }
     ],
-    "current_blocker": "The later IntroSequence6 revisit now keeps Kid hidden through frame 28398 and only restores `loc_1B5CE`'s title pose on frame 28399, but native still flips from mode `$28` into demo play three frames early. Oracle starts the next authoritative miss on frame 29402, where native reports `game_mode=0x0010` while oracle still keeps `game_mode=0x0028` through frame 29404.",
+    "current_blocker": "The later IntroSequence6 revisit now keeps mode `$28` through frame 29404 and only enters demo play on 29405, but the next authoritative miss lands on the later demo-2 preload row. `tas-diff --frame-start 29456 --frame-end 29470 --include-advisory` shows frame 29462 only: native reports `camera_y_pos=0x02200000` while oracle keeps `camera_y_pos=0x02280000`.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -31,14 +31,15 @@
       "The frame-28098 later mode-0x28 hidden-camera-wrap miss is cleared: `published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098` now passes, the earlier guard `published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926` still passes, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28101.",
       "The frame-28101 later mode-0x28 delayed `sub_1B222` seed miss is cleared: `published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101` now passes, oracle probes show `($FFFFA656).w` / `Camera_Y_pos` staying zero through frame 28100 then switching to `$FFD00000` on 28101, `verify-tas --frame-start 28096 --frame-end 28108 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28317.",
       "The frame-28317 later mode-0x28 delayed camera-ramp miss is cleared: `published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317` now passes, `tas-diff --frame-start 28312 --frame-end 28324 --include-advisory` is advisory-only across frames 28312..28323, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28396.",
-      "The frame-28396 later mode-0x28 title-pose visibility miss is cleared: `published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398` now passes, `tas-diff --frame-start 28390 --frame-end 28402 --include-advisory` is advisory-only across frames 28390..28401, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 29402."
+      "The frame-28396 later mode-0x28 title-pose visibility miss is cleared: `published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398` now passes, `tas-diff --frame-start 28390 --frame-end 28402 --include-advisory` is advisory-only across frames 28390..28401, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 29402.",
+      "The frame-29402 later mode-0x28 demo hand-off miss is cleared: `published_tas_later_intro_sequence_6_revisit_keeps_mode_28_through_frame_29404` now passes, `tas-diff --frame-start 29396 --frame-end 29408 --include-advisory` is advisory-only across frames 29396..29407, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 29462."
     ],
     "advisory_diffs": [
       "The repaired later mode-0x28 window still carries only the known advisory `number_objects` drift from frame 27602 onward."
     ],
     "current_hypothesis": {
-      "name": "The later IntroSequence6 revisit still reaches `loc_1BB02 -> Load_DemoPlay` three frames too early",
-      "reason": "After matching the delayed `loc_1B5CE` title-pose restore, `tas-diff --frame-start 29396 --frame-end 29408 --include-advisory` shows the next authoritative miss on frames 29402..29404 only: native reports `game_mode=0x0010` while oracle still keeps `game_mode=0x0028`. That suggests the later title-restore revisit is still reusing the earlier timeout-restart `Obj_TitleMenu` idle / demo-hand-off timing, and the owning ASM around `loc_1BAEA` / `loc_1BB02` needs to prove the extra 3-frame hold."
+      "name": "The later demo-2 hand-off still uses the plain preload camera row instead of the title-restore-specific row",
+      "reason": "After the repaired `loc_1BB02` delay, `tas-diff --frame-start 29456 --frame-end 29470 --include-advisory` shows a single authoritative miss on frame 29462: native reports `camera_y_pos=0x02200000` while oracle keeps `camera_y_pos=0x02280000`. That matches the earlier demo-2 preload frontier shape, but now on the later title-restore lineage, so the next fix likely needs a preserved lineage bit through `Load_DemoPlay -> Load_InGame` rather than another mode-`$28` timing change."
     },
     "rejected_hypotheses": [
       {
@@ -71,9 +72,9 @@
       }
     ],
     "required_next_evidence": [
-      "Read the later mode-`$28` `Obj_TitleMenu` hand-off in `kid.asm` before touching native code again; the next frontier is no longer Kid visibility but the `game_mode` flip on frames 29402..29404.",
-      "Explain why oracle keeps `Game_Mode=$28` for three more local mode-`$28` frames after the later `loc_1B5CE` title-pose restore while native already reaches `loc_1BB02 -> Load_DemoPlay`.",
-      "Run a narrow `tas-diff --frame-start 29396 --frame-end 29408 --include-advisory` window after the next patch so the three-frame mode-`$28` settle, not the old title-pose window, is what moves."
+      "Read the later demo-2 `Load_DemoPlay -> Load_InGame` preload path in `kid.asm`; the next frontier is no longer `game_mode` timing but the one-frame `Camera_Y_pos` preload row on frame 29462.",
+      "Explain why oracle keeps `camera_y_pos=0x02280000` for the later demo-2 preload while native still reuses the plain `0x02200000` row.",
+      "Run a narrow `tas-diff --frame-start 29456 --frame-end 29470 --include-advisory` window after the next patch so the frame-29462 preload row, not the old mode-`$28` hand-off, is what moves."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603 -- --nocapture",
@@ -87,6 +88,7 @@
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28312 --frame-end 28324 --include-advisory",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28390 --frame-end 28402 --include-advisory",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 29396 --frame-end 29408 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 29456 --frame-end 29470 --include-advisory",
       "mise run verify-slice-fast"
     ]
   },

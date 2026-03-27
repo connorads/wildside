@@ -19713,6 +19713,109 @@ fn demo_prize_diamond_awards_on_frame_1438_without_score() {
     );
 }
 
+#[test]
+fn published_tas_later_intro_sequence_6_revisit_keeps_mode_28_through_frame_29404() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_29401 = None;
+    let mut frame_29402 = None;
+    let mut frame_29404 = None;
+    let mut frame_29405 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(29_406) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            29_401 => {
+                frame_29401 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            29_402 => {
+                frame_29402 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            29_404 => {
+                frame_29404 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            29_405 => {
+                frame_29405 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA: move.w #$280,d0` feeds the shared
+    // `loc_1BAEE` DBF-backed idle loop, and only `loc_1BB02` writes
+    // `Game_Mode=$10`. On the later title-restore revisit oracle keeps the
+    // already-visible title pose in mode `$28` for three extra local frames
+    // before that hand-off lands on frame 29405.
+    let intro_sequence_6_pose = Some((
+        GameMode::IntroSequence6,
+        LevelId(0x00),
+        Some(1335),
+        Some(TITLE_KID_X_POS),
+        Some(TITLE_KID_Y_POS),
+    ));
+    assert_eq!(
+        frame_29401, intro_sequence_6_pose,
+        "frame 29401 should still be the settled later IntroSequence6 title pose before the delayed loc_1BB02 hand-off",
+    );
+    assert_eq!(
+        frame_29402,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(1336),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 29402 should remain in mode $28 on the first extra later-lineage idle frame",
+    );
+    assert_eq!(
+        frame_29404,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(1338),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 29404 should still be the final later-lineage mode-$28 frame before loc_1BB02 flips to demo play",
+    );
+    assert_eq!(
+        frame_29405,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(0),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 29405 should be the first later-lineage demo-play frame after the delayed loc_1BB02 hand-off",
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

@@ -173,6 +173,12 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_TITLE_POSE_VISIBLE_ELAPSED_FRA
 // expose the standard title pose on frame 333.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES: usize =
     333;
+// ASM Obj_TitleMenu `loc_1BAEA` / `loc_1BAEE` still own the later
+// `Game_Mode=$28 -> $10` transition after the title pose is already visible.
+// Oracle-backed published TAS traces keep the later title-restore revisit in
+// mode `$28` through frames 29402..29404 and only let `loc_1BB02` fire on
+// frame 29405, i.e. three local mode-$28 frames after the earlier lineage.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAMES: u16 = 3;
 // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so the
 // loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
 // overwrites that WRAM slot 28 frames later.

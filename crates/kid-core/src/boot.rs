@@ -911,7 +911,11 @@ impl NativeRuntime {
                     }
                 }
             }
-            BootState::IntroSequence6 { cursor, .. } => {
+            BootState::IntroSequence6 {
+                cursor,
+                carry_timeout_restart_hidden_camera_wrap,
+                ..
+            } => {
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
@@ -965,8 +969,17 @@ impl NativeRuntime {
                     self.title_idle_frames = 0;
                     *cursor += 1;
                 } else {
+                    let mut title_idle_frames = demo::TITLE_IDLE_FRAMES;
+                    if !*carry_timeout_restart_hidden_camera_wrap {
+                        // ASM Obj_TitleMenu `loc_1BAEE` keeps the later
+                        // title-restore revisit polling inside the active menu
+                        // for three extra local frames before `loc_1BB02`
+                        // flips into demo play.
+                        title_idle_frames +=
+                            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAMES;
+                    }
                     self.title_idle_frames += 1;
-                    if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
+                    if self.title_idle_frames >= title_idle_frames {
                         self.title_idle_frames = 0;
                         self.demo_toggle = !self.demo_toggle;
                         self.begin_demo_play(self.demo_toggle);
