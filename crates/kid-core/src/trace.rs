@@ -1053,6 +1053,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 2, .. } => GameMode::IntroSequence3,
             BootState::IntroSequence { segment: 3, .. } => GameMode::IntroSequence4,
             BootState::IntroSequence { .. } => GameMode::IntroSequence5,
+            BootState::IntroSequence6 { .. } => GameMode::IntroSequence6,
             BootState::TitleScreen { .. } => GameMode::TitleScreen,
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
@@ -1094,6 +1095,11 @@ impl NativeRuntime {
             {
                 Some(PlayerState::intro_sequence_5_slot_2_pose())
             }
+            BootState::IntroSequence6 {
+                carry_intro_sequence_5_slot_2_pose: true,
+                ..
+            } => Some(PlayerState::intro_sequence_5_slot_2_pose()),
+            BootState::IntroSequence6 { .. } => None,
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
                 self.opening_slice.map(|slice| slice.player)

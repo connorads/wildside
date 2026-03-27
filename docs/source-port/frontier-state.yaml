@@ -1,36 +1,36 @@
 {
   "version": 1,
-  "updated_at": "2026-03-24T05:02:01Z",
+  "updated_at": "2026-03-26T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-16228-intro-sequence-5-kid-y-high",
+    "slug": "any-percent-published-frame-20912-intro-sequence-6-kid-hide",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Mode-0x24 intro-sequence pose hand-off after clearing the frame-13188 Start-skip demo-bootstrap camera mismatch",
+    "area": "Mode-0x28 intro-sequence-6 hand-off after fixing the frame-20894 intro-sequence-5 timeout mode gap",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 16228,
-    "authoritative_clean_through": 16227,
+    "frontier_frame": 20912,
+    "authoritative_clean_through": 20911,
     "pre_divergence_windows": [
       {
-        "frame_start": 16224,
-        "frame_end": 16227,
-        "reason": "Frames 16224..16226 are fully clean and frame 16227 differs only on advisory `number_objects`; `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` shows the first new authoritative break at frame 16228."
+        "frame_start": 20908,
+        "frame_end": 20911,
+        "reason": "Frames 20908..20911 are authoritative-clean after the new mode-$28 hand-off fix; `tas-diff --frame-start 20908 --frame-end 20916 --include-advisory` shows the next first authoritative break at frame 20912."
       }
     ],
-    "current_blocker": "The frame-13188 Start-skip demo-bootstrap camera frontier is fixed: `published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188` passes, and `tas-diff --frame-start 13184 --frame-end 13192 --include-advisory` now shows only advisory `number_objects` drift in that window. The next first authoritative break is frame 16228, where native reports `kid_y_pos=0x00000000` while oracle reports `0x00e00000` on `mode=0x0024`, `level=0x00`; frames 16229..16231 rejoin immediately apart from advisory object-count drift.",
+    "current_blocker": "The old frame-16228 intro-sequence-5 pose gap and the stale frame-20894 mode gap are both fixed: `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228` and `published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894` now pass, `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20912, and `tas-diff --frame-start 20908 --frame-end 20916 --include-advisory` shows the new live blocker there. Native still carries `kid_y_pos=0x00e00000` in `mode=0x0028` while oracle has already cleared Kid to `0x00000000`; `game_mode` now matches and only the pose-clear timing remains authoritative.",
     "authoritative_diffs": [
-      "The old frame-13188 blocker is gone: `published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188` now passes, and `tas-diff --frame-start 13184 --frame-end 13192 --include-advisory` keeps that window authoritative-clean apart from advisory `number_objects` drift.",
-      "The first CRC divergence moves from frame 13188 to frame 16228: `verify-tas --frame-start 13189 --bisect` now reports `mode=0x0024 level=00 kid=(0x00000000,0x00000000)` on the first native miss.",
-      "The new live blocker is a one-frame `kid_y_pos` miss: `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` shows only `kid_y_pos` diverging on frame 16228 (`native=0x00000000`, `oracle=0x00e00000`)."
+      "The frame-16228 intro-sequence-5 slot-2 hand-off is cleared: `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228` passes, and `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` now shows only advisory `number_objects` drift there.",
+      "The stale frame-20894 timeout-restart mode gap is cleared: native now enters `Game_Mode=$28` / `IntroSequence6` on the later timeout-restart revisit, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20912.",
+      "The new live blocker is a Kid-hide timing miss inside `Game_Mode=$28`: `tas-diff --frame-start 20908 --frame-end 20916 --include-advisory` shows `kid_y_pos` diverging from frame 20912 onward (`native=0x00e00000`, `oracle=0x00000000`) while `game_mode` remains authoritative-clean at `0x0028`."
     ],
     "advisory_diffs": [
-      "The cleared frame-13184..13192 window still differs only on advisory `number_objects`; the Start-skip demo bootstrap fix does not change that known object-roster gap.",
-      "Frames 16227..16231 still carry advisory `number_objects` drift (`native=0`, `oracle=2/4`) while the authoritative signal is the one-frame `kid_y_pos` miss on frame 16228."
+      "Frames 20908..20915 still carry advisory `number_objects` drift (`native=0`, `oracle=4`) while the authoritative signal is the carried `kid_y_pos` that oracle has already cleared.",
+      "The earlier intro-sequence windows cleared by the 16228 and 20894 fixes still differ only on the known advisory object-roster counts."
     ],
     "current_hypothesis": {
-      "name": "Native blanks the first mode-0x24 Kid pose one frame too early on frame 16228",
-      "reason": "The fixed 13184..13192 window proves the Start-skip demo bootstrap camera hand-off is now correct. The next slice, 16224..16232, shows a single-frame `kid_y_pos` miss on frame 16228 while the run immediately rejoins on authoritative state. `mode=0x0024` strongly suggests intro sequence 5, so the live blocker looks like an early pose/visibility clear rather than another camera bootstrap constant, but that still needs ASM confirmation."
+      "name": "Native keeps the carried loc_1BCD0 slot-2 pose alive too long after entering `Game_Mode=$28`",
+      "reason": "The new `IntroSequence6` hand-off proves the mode transition itself was the missing frame-20894 behaviour. The next slice, 20908..20916, shows native still reporting `kid_y_pos=0x00e00000` from frame 20912 onward while oracle has already cleared Kid to zero with no game-mode mismatch. That points to the pose-carry clear happening a few frames too late inside the new mode-$28 path rather than another boot-mode transition bug."
     },
     "rejected_hypotheses": [
       {
@@ -40,25 +40,28 @@
       {
         "name": "The old frame-13188 hidden demo-bootstrap camera settle is still the active frontier",
         "reason": "That state is cleared. A dedicated Start-skip intro-return latch makes `published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188` pass while preserving the cold-boot demo-1 wrap tested by `demo_1_bootstrap_keeps_camera_hidden_through_frame_2537`."
+      },
+      {
+        "name": "Frame 20894 still needs another direct title-mode shortcut",
+        "reason": "ASM `loc_1BA5C` clearly does `move.w #$28,(Game_Mode).w`, not `sub_1C246 -> $2C`, and the new focused regression confirms native now matches that `IntroSequence6` hand-off on frame 20894."
       }
     ],
     "required_next_evidence": [
-      "Read the `Game_Mode=$24` ASM path that owns frame 16228 before touching native code; confirm whether this is indeed intro sequence 5 and identify the exact pose/visibility write.",
-      "Explain why oracle keeps `kid_y_pos=0x00e00000` on frame 16228 while native blanks it to `0x00000000` for one frame.",
-      "Add a focused regression for the one-frame `kid_y_pos` settle once the exact oracle write path is proven."
+      "Read the early `Load_IntroSequence6` / `loc_1BAB0` / `loc_1B37C` object timeline in ASM and identify which title-shell worker clears the carried loc_1BCD0 slot-2 pose before frame 20912.",
+      "Explain why oracle clears `kid_y_pos` to `0x00000000` on frame 20912 while native still exposes the carried `0x00e00000` pose in `mode=0x0028`.",
+      "Add a focused regression for the first cleared-poses frame in the mode-$28 path once the exact overwrite/clear site is proven."
     ],
     "verification_commands": [
-      "cargo test -q -p kid-core published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188 -- --nocapture",
-      "cargo test -q -p kid-core demo_1_bootstrap_keeps_camera_hidden_through_frame_2537 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430 -- --nocapture",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13184 --frame-end 13192 --include-advisory",
-      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13189 --bisect",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16224 --frame-end 16232 --include-advisory",
+      "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20908 --frame-end 20916 --include-advisory",
+      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Investigate the frame-16228 mode-0x24 kid-y mismatch",
-      "summary": "The Start-skip intro-return demo-bootstrap camera fix clears the old frame-13188 frontier and moves the first authoritative divergence to frame 16228, where native blanks `kid_y_pos` to `0x00000000` while oracle still reports `0x00e00000` for one frame on `mode=0x0024`, `level=0x00`. The next session should explain and fix that pose/visibility settle.",
+      "title": "Investigate the frame-20912 mode-0x28 Kid-hide timing mismatch",
+      "summary": "Native now enters `Game_Mode=$28` / `IntroSequence6` on frame 20894, matching ASM `loc_1BA5C`, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20912. The next session should explain why oracle has already cleared the carried loc_1BCD0 slot-2 pose by frame 20912 while native still reports `kid_y_pos=0x00e00000` in `mode=0x0028`.",
       "sources": [
         ".cache/upstream/kid-chameleon-disasm/kid.asm",
         "crates/kid-core/src/boot.rs",
@@ -73,18 +76,17 @@
         "docs/source-port/frontier-state.yaml"
       ],
       "commands": [
-        "cargo test -q -p kid-core published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188 -- --nocapture",
-        "cargo test -q -p kid-core demo_1_bootstrap_keeps_camera_hidden_through_frame_2537 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430 -- --nocapture",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13184 --frame-end 13192 --include-advisory",
-        "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 13189 --bisect",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 16224 --frame-end 16232 --include-advisory",
+        "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
+        "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture",
+        "cargo test -q -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
+        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20908 --frame-end 20916 --include-advisory",
+        "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
         "mise run verify-slice-fast"
       ],
       "done_criteria": [
-        "A focused regression captures the oracle-backed one-frame `kid_y_pos=0x00e00000` settle on frame 16228.",
-        "The engine fix explains why native blanks the mode-0x24 Kid pose one frame too early.",
-        "The first authoritative divergence moves past frame 16228."
+        "A focused regression captures the first mode-$28 frame where oracle has already cleared the carried loc_1BCD0 slot-2 pose.",
+        "The engine fix explains why native keeps `kid_y_pos=0x00e00000` alive too long after entering `IntroSequence6`.",
+        "The first authoritative divergence moves past frame 20912."
       ]
     }
   },

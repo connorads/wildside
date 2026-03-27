@@ -56,6 +56,21 @@ impl NativeRuntime {
             .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
     }
 
+    fn enter_intro_sequence_6_from_timeout_restart_intro_sequence_5(&mut self) {
+        self.enter_title_screen();
+        self.boot_state = BootState::IntroSequence6 {
+            cursor: 0,
+            carry_intro_sequence_5_slot_2_pose: true,
+        };
+        // ASM loc_1BA5C: `move.w #$28,(Game_Mode).w` hands control to
+        // Load_IntroSequence6 rather than the direct `sub_1C246 -> $2C`
+        // title return. Keep the carried loc_1BCD0 slot-2 pose visible while
+        // this timeout-restart lineage rebuilds the title shell.
+        self.title_screen_ready_frame = self
+            .frame_index
+            .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
+    }
+
     pub(crate) fn title_screen_ready(&self) -> bool {
         self.frame_index >= self.title_screen_ready_frame
     }
@@ -468,6 +483,7 @@ impl NativeRuntime {
             BootState::IntroSequence { segment: 2, .. } => Some("intro_sequence_3"),
             BootState::IntroSequence { segment: 3, .. } => Some("intro_sequence_4"),
             BootState::IntroSequence { .. } => Some("intro_sequence_5"),
+            BootState::IntroSequence6 { .. } => Some("intro_sequence_6"),
             BootState::TitleScreen { .. } => Some("title_screen"),
             BootState::OptionsMenu { .. } => Some("options_menu"),
             BootState::SoundTest { .. } => Some("sound_test"),
@@ -483,7 +499,8 @@ impl NativeRuntime {
         match self.boot_state {
             BootState::SegaScreen { elapsed } => Some(elapsed),
             BootState::IntroSequence { elapsed, .. } => Some(elapsed),
-            BootState::TitleScreen { .. }
+            BootState::IntroSequence6 { .. }
+            | BootState::TitleScreen { .. }
             | BootState::OptionsMenu { .. }
             | BootState::SoundTest { .. } => Some(self.title_screen_elapsed_frames),
             BootState::StartingLevel { remaining_frames } => {
@@ -784,10 +801,16 @@ impl NativeRuntime {
                         self.demo_auto_timeout_intro_sequence_5_frames_override = None;
                     }
                     if *segment >= 4 {
+                        let intro_sequence_5_timeout_restart =
+                            *segment == 4 && intro_sequence_5_frames_override.is_some();
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
-                        self.enter_title_screen_from_intro_return();
+                        if intro_sequence_5_timeout_restart {
+                            self.enter_intro_sequence_6_from_timeout_restart_intro_sequence_5();
+                        } else {
+                            self.enter_title_screen_from_intro_return();
+                        }
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =
                             *segment == 2 && intro_sequence_3_frames_override.is_some();
@@ -805,7 +828,7 @@ impl NativeRuntime {
                     }
                 }
             }
-            BootState::TitleScreen { cursor } => {
+            BootState::IntroSequence6 { cursor, .. } | BootState::TitleScreen { cursor } => {
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {

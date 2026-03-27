@@ -610,6 +610,7 @@ pub enum GameMode {
     IntroSequence3,
     IntroSequence4,
     IntroSequence5,
+    IntroSequence6,
     TitleScreen,
     OptionsMenu,
     LevelTransition,
@@ -629,6 +630,7 @@ impl GameMode {
             Self::IntroSequence3 => 0x001C,
             Self::IntroSequence4 => 0x0020,
             Self::IntroSequence5 => 0x0024,
+            Self::IntroSequence6 => 0x0028,
             Self::TitleScreen => 0x002C,
             Self::OptionsMenu => 0x0014,
             Self::LevelTransition => 0x0008,
@@ -1102,6 +1104,15 @@ pub(crate) enum BootState {
         /// change: 1 frame for VBlank interrupt → game code, 1 frame for
         /// jmp loc_6E2 → Pal_FadeOut → next FrameRendered.
         pending_title_skip: u8,
+    },
+    IntroSequence6 {
+        cursor: u8,
+        /// ASM loc_1BA5C switches to `Game_Mode=$28`, then Load_IntroSequence6
+        /// rebuilds the title shell while the old loc_1BCD0 slot-2 pose still
+        /// survives in WRAM. This flag tracks that later timeout-restart
+        /// lineage so trace output keeps exposing the carried pose until a
+        /// later frontier models the overwrite precisely.
+        carry_intro_sequence_5_slot_2_pose: bool,
     },
     TitleScreen {
         cursor: u8,

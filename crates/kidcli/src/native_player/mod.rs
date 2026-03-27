@@ -760,6 +760,7 @@ fn game_mode_label(mode: GameMode) -> &'static str {
         GameMode::IntroSequence3 => "IntroSequence3",
         GameMode::IntroSequence4 => "IntroSequence4",
         GameMode::IntroSequence5 => "IntroSequence5",
+        GameMode::IntroSequence6 => "IntroSequence6",
         GameMode::TitleScreen => "TitleScreen",
         GameMode::LevelTransition => "LevelTransition",
         GameMode::InGame => "InGame",

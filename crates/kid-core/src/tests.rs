@@ -18167,6 +18167,62 @@ fn published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame
 }
 
 #[test]
+fn published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_20893 = None;
+    let mut frame_20894 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(20_895) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            20_893 => {
+                frame_20893 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            20_894 => {
+                frame_20894 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1BA5C: after the long `Game_Mode=$24` timeout, the later
+    // timeout-restart revisit does `move.w #$28,(Game_Mode).w` and lets
+    // Load_IntroSequence6 rebuild the title shell. The old loc_1BCD0 slot-2
+    // pose at `x=0`, `y=$E0` is still visible on the first mode-$28 frame.
+    assert_eq!(
+        frame_20893,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 20893 should still be the final intro-sequence-5 timeout frame before loc_1BA5C flips to mode $28",
+    );
+    assert_eq!(
+        frame_20894,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 20894 should enter Load_IntroSequence6 while preserving loc_1BCD0's carried slot-2 pose",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;
