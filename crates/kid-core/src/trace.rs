@@ -1098,7 +1098,15 @@ impl NativeRuntime {
             BootState::IntroSequence6 {
                 carry_intro_sequence_5_slot_2_pose: true,
                 ..
-            } => Some(PlayerState::intro_sequence_5_slot_2_pose()),
+            } if self.title_screen_elapsed_frames
+                < TIMEOUT_RESTART_INTRO_SEQUENCE_6_SLOT_2_POSE_CARRY_FRAMES =>
+            {
+                // ASM Load_IntroSequence6 swaps straight to `loc_1BAB0`,
+                // `loc_1B37C`, and `sub_1B43A`; the old loc_1BCD0 slot-2 pose
+                // only survives as stale WRAM for the brief oracle-backed
+                // hand-off window before the rebuilt title shell clears it.
+                Some(PlayerState::intro_sequence_5_slot_2_pose())
+            }
             BootState::IntroSequence6 { .. } => None,
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {

@@ -115,6 +115,13 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01
 // elapses.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES: usize =
     TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES;
+// ASM Load_IntroSequence6 no longer allocates loc_1BA28 / loc_1BCD0; it
+// switches to the new `loc_1BAB0` / `loc_1B37C` / `sub_1B43A` title-shell
+// workers immediately, so the carried slot-2 pose in the verifier's fixed
+// WRAM read is just stale state. Oracle-backed published TAS traces keep that
+// stale pose alive through frame 20911 and clear it on 20912, i.e. after 18
+// local mode-$28 frames.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_SLOT_2_POSE_CARRY_FRAMES: usize = 18;
 // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so the
 // loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
 // overwrites that WRAM slot 28 frames later.

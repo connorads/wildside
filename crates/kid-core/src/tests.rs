@@ -18223,6 +18223,57 @@ fn published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_2
 }
 
 #[test]
+fn published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_20911 = None;
+    let mut frame_20912 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(20_913) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            20_911 => {
+                frame_20911 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            20_912 => {
+                frame_20912 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence6 allocates `loc_1BAB0`, `loc_1B37C`, and
+    // `sub_1B43A` instead of reusing loc_1BCD0. Oracle probes therefore show
+    // the carried slot-2 pose only as a short stale-WRAM hand-off inside
+    // `Game_Mode=$28`: it survives through frame 20911, then clears on 20912.
+    assert_eq!(
+        frame_20911,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 20911 should still expose the carried loc_1BCD0 slot-2 pose during the early mode-$28 hand-off",
+    );
+    assert_eq!(
+        frame_20912,
+        Some((GameMode::IntroSequence6, LevelId(0x00), None, None)),
+        "frame 20912 should keep Game_Mode=$28 but clear the carried slot-2 pose",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;
