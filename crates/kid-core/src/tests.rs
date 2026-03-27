@@ -20327,6 +20327,51 @@ fn published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_fr
     );
 }
 
+#[test]
+fn published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_35146 = None;
+    let mut frame_35147 = None;
+    let mut frame_35148 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(35_149) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        let snapshot = (
+            trace.game_mode,
+            trace.current_level,
+            trace.paused,
+            matches!(runtime.boot_state, BootState::DemoPlay { .. }),
+        );
+        match frame_index {
+            35_146 => frame_35146 = Some(snapshot),
+            35_147 => frame_35147 = Some(snapshot),
+            35_148 => {
+                frame_35148 = Some(snapshot);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_119D8 polls Start for demo aborts, but Kid_Transform hibernates
+    // the regular gameplay/object loop while the later published-TAS demo-2
+    // transform is still in progress. Oracle therefore ignores the frame-35146
+    // Start press and keeps demo play active through frame 35148.
+    let demo_transform_pose = Some((GameMode::DemoPlay, LevelId(0x1B), false, true));
+    assert_eq!(
+        frame_35146, demo_transform_pose,
+        "frame 35146 should still be demo play when the later demo-2 Start press lands during Kid_Transform",
+    );
+    assert_eq!(
+        frame_35147, demo_transform_pose,
+        "frame 35147 should remain in demo play while the transform coroutine still hibernates the frame loop",
+    );
+    assert_eq!(
+        frame_35148, demo_transform_pose,
+        "frame 35148 should still ignore the queued Start abort until the later demo-2 transform hibernation ends",
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

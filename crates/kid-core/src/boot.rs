@@ -691,11 +691,19 @@ impl NativeRuntime {
         // everywhere else, including cold-boot demo starts.
         let manual_abort_locked =
             self.ignore_demo_start_abort_until_gameplay && frame_counter < gameplay_start_frame;
+        let transform_hibernating = self.gameplay_hibernating_for_transform();
         if input.start
             && !self.previous_input.start
             && self.pending_demo_title_return == 0
             && !manual_abort_locked
+            && !transform_hibernating
         {
+            // ASM loc_119D8 polls Start on the demo controller object, but
+            // Kid_Transform replaces the regular gameplay/object loop with a
+            // hibernating coroutine. Oracle-backed published TAS traces keep
+            // the later demo-2 transform window in `Game_Mode=$10` through
+            // frame 35148 even though Start is pressed on 35146, so suppress
+            // demo abort edges while Kid_Transform still owns the frame.
             self.pending_demo_title_return = 2;
         }
         if replay_timeout_handoff_frame {

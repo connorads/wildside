@@ -1,24 +1,24 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T13:05:00Z",
+  "updated_at": "2026-03-27T08:39:06Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-34916-post-intro-sequence-1-title-demo-handoff",
+    "slug": "any-percent-published-tail-clean-through-end",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Post-intro-sequence-1 title/demo hand-off after the repaired later timeout-restart title restore",
-    "status": "active",
+    "area": "Published any-percent TAS tail clean through frame 37759 after the later intro-sequence-1 hand-off and demo-2 transform-abort repairs",
+    "status": "complete",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 34916,
-    "authoritative_clean_through": 34915,
+    "frontier_frame": 37759,
+    "authoritative_clean_through": 37759,
     "pre_divergence_windows": [
       {
         "frame_start": 27598,
-        "frame_end": 34915,
-        "reason": "The repaired later demo-2 preload-row split, bounded intro-sequence-4 title camera carry, early title-pose restore, one-frame-earlier later-lineage attract hand-off, and the later intro-sequence-1 title rebuild now keep authoritative state clean through frame 34915. `verify-tas --frame-start 23250 --bisect` now moves the first CRC divergence to frame 34916."
+        "frame_end": 37759,
+        "reason": "The repaired later demo-2 preload-row split, bounded intro-sequence-4 title camera carry, early title-pose restore, one-frame-earlier later-lineage attract hand-off, later intro-sequence-1 title rebuild, and later demo-2 transform Start-abort suppression now keep authoritative state clean through the end of the published any-percent recording. Chunked CRC checks cover frames 34908..34940, 35140..36000, 36000..37000, and 37000..37759."
       }
     ],
-    "current_blocker": "The frame-34368 later intro-sequence-1 title-pose miss is repaired locally: `published_tas_later_timeout_restart_demo_return_reuses_title_pose_on_frames_34368_and_34369` now passes after shortening only that timeout-restart intro-sequence-1 title rebuild by two local ready frames, and `tas-diff --frame-start 34360 --frame-end 34376 --include-advisory` matches on frames 34368..34375. The new successor frontier is frame 34916, where oracle has already flipped from `Game_Mode=$2C` to `$10` while native still sits in title mode for two extra frames.",
+    "current_blocker": "None. `published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916` and `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148` both pass, `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect` is CRC-clean, the later tail chunks 36000..37000 and 37000..37759 are also CRC-clean, and `mise run verify-slice-fast` passes.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -38,14 +38,16 @@
       "The frame-32039 later timeout-restart title-camera settle miss is cleared: `published_tas_later_timeout_restart_title_clears_intro_sequence_4_camera_on_frame_32039` now passes, `tas-diff --frame-start 32034 --frame-end 32050 --include-advisory` matches on frames 32039..32049 with only the known advisory `number_objects` drift before that, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 32156.",
       "The frame-32156 later timeout-restart title-pose reveal miss is cleared locally: `published_tas_later_timeout_restart_title_restores_pose_on_frame_32156` now passes, and the later intro-sequence-4 title-return lineage exposes the standard `loc_1B5CE` pose on frame 32156 while keeping the earlier frame-32005 / frame-32039 camera regressions green.",
       "The frame-32704 later timeout-restart title-to-demo hand-off miss is cleared locally: `published_tas_later_timeout_restart_title_resumes_demo_play_on_frame_32704` now passes after shortening only that lineage's title attract-lock arm by one frame, `tas-diff --frame-start 32696 --frame-end 32712 --include-advisory` now matches on frames 32704..32711 with only the known advisory `number_objects` drift before that, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 34368.",
-      "The frame-34368 later timeout-restart intro-sequence-1 title-pose miss is cleared locally: `published_tas_later_timeout_restart_demo_return_reuses_title_pose_on_frames_34368_and_34369` now passes after preserving the already-restored `loc_1B5CE` pose through the later timeout-restart intro-sequence-1 Start-skip title rebuild, `tas-diff --frame-start 34360 --frame-end 34376 --include-advisory` now matches on frames 34368..34375 with only the known advisory `number_objects` drift before that, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 34916."
+      "The frame-34368 later timeout-restart intro-sequence-1 title-pose miss is cleared locally: `published_tas_later_timeout_restart_demo_return_reuses_title_pose_on_frames_34368_and_34369` now passes after preserving the already-restored `loc_1B5CE` pose through the later timeout-restart intro-sequence-1 Start-skip title rebuild, `tas-diff --frame-start 34360 --frame-end 34376 --include-advisory` now matches on frames 34368..34375 with only the known advisory `number_objects` drift before that, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 34916.",
+      "The frame-34916 later timeout-restart intro-sequence-1 title/demo hand-off miss is cleared locally: `published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916` now passes after seeding the later intro-sequence-1 title idle with the two frames that `loc_1B5CE` had already burned before `Obj_TitleMenu loc_1BB02` resumed demo play, and `verify-tas --frame-start 34908 --frame-end 34940 --checkpoint-interval 1 --bisect` is CRC-clean.",
+      "The frame-35148 later demo-2 transform Start-abort miss is cleared locally: `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148` now passes after suppressing demo abort edges while Kid_Transform still hibernates the gameplay/object loop, `tas-diff --frame-start 35140 --frame-end 35160 --include-advisory` is advisory-only across that window, and `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect` is CRC-clean."
     ],
     "advisory_diffs": [
       "The repaired later mode-0x28 / demo-2 preload / intro-sequence-4 title-return windows still carry only the known advisory `number_objects` drift from frame 27602 onward."
     ],
     "current_hypothesis": {
-      "name": "Frame 34916 is a later intro-sequence-1 title idle hand-off overshoot",
-      "reason": "This is an inference from `tas-diff --frame-start 34908 --frame-end 34924 --include-advisory`: frames 34908..34915 now match, then oracle flips `game_mode` from `$2C` to `$10` on frames 34916 and 34917 while native still reports title mode. Re-read the later `IntroSequence1 -> sub_1C246 -> Obj_TitleMenu loc_1BAEA/loc_1BB02` hand-off before shifting another global title idle constant."
+      "name": "No active authoritative frontier remains in the published any-percent tail",
+      "reason": "Frame 34916 needed the later intro-sequence-1 title idle seeded two frames ahead of the shared `Obj_TitleMenu loc_1BAEA -> loc_1BB02` hand-off, and frame 35148 needed demo Start-abort edges suppressed while Kid_Transform still hibernated the gameplay/object loop. With both fixes in place, chunked CRC checks keep the published tail clean through frame 37759."
     },
     "rejected_hypotheses": [
       {
@@ -94,9 +96,7 @@
       }
     ],
     "required_next_evidence": [
-      "Re-read the later `IntroSequence1` Start-skip path around `sub_1C246` and `Obj_TitleMenu loc_1BAEA/loc_1BB02` before shifting another title idle timer.",
-      "Capture a narrower `tas-diff` / probe window around frames 34916..34918 to confirm which later intro-sequence-1 lineage bit still keeps `Game_Mode=$2C` live for two extra title frames.",
-      "If the frontier stays in title/setup code, add a focused regression around frame 34916 before changing the later title/demo hand-off logic."
+      "No successor frontier is open in the published any-percent tail; rerun the full `verify-tas --frame-start 23250 --bisect` sweep only when a new regression or broader frontier is introduced."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_frame_32005 -- --nocapture",
@@ -104,6 +104,8 @@
       "cargo test -q -p kid-core published_tas_later_timeout_restart_title_restores_pose_on_frame_32156 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_timeout_restart_title_resumes_demo_play_on_frame_32704 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_timeout_restart_demo_return_reuses_title_pose_on_frames_34368_and_34369 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098 -- --nocapture",
@@ -116,6 +118,7 @@
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 32696 --frame-end 32712 --include-advisory",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 34360 --frame-end 34376 --include-advisory",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 34908 --frame-end 34924 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 35140 --frame-end 35160 --include-advisory",
       "mise run verify-slice-fast"
     ]
   },
