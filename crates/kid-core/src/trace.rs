@@ -1265,6 +1265,14 @@ impl NativeRuntime {
                 y_pos: 0x0004_0000,
             };
         }
+        if matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.timeout_restart_title_intro_sequence_4_camera_carry
+        {
+            return CameraState {
+                x_pos: 0,
+                y_pos: 0x0004_0000,
+            };
+        }
         if let Some(camera_y_pos) = self.intro_sequence_6_timeout_restart_hidden_camera_y() {
             return CameraState {
                 x_pos: 0,

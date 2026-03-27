@@ -19948,6 +19948,62 @@ fn published_tas_later_intro_sequence_6_revisit_uses_intro_return_demo_2_preload
     );
 }
 
+#[test]
+fn published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_frame_32005() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_32004 = None;
+    let mut frame_32005 = None;
+    let mut frame_32007 = None;
+    let mut frame_32011 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(32_012) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            32_004 => {
+                frame_32004 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+            }
+            32_005 => {
+                frame_32005 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+            }
+            32_007 => {
+                frame_32007 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+            }
+            32_011 => {
+                frame_32011 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B988 writes `move.w #4,(Camera_Y_pos).w`, and
+    // Load_IntroSequence5 only allocates `loc_1BA28` / `loc_1BCD0`, so the
+    // later timeout-restart revisit after the repaired demo-2 preload row
+    // must still carry that intro-sequence-4 camera into the opening
+    // intro-sequence-5 frames. Oracle keeps `Camera_Y_pos=$0004_0000`
+    // through frame 32011, even though the scene changes around it.
+    assert_eq!(
+        frame_32004,
+        Some((GameMode::IntroSequence4, LevelId(0x00), 0x0004_0000)),
+        "frame 32004 should still be the final intro-sequence-4 frame with sub_1B988's camera hand-off latched",
+    );
+    assert_eq!(
+        frame_32005,
+        Some((GameMode::IntroSequence4, LevelId(0x00), 0x0004_0000)),
+        "frame 32005 should keep the carried sub_1B988 camera hand-off instead of clearing Camera_Y_pos on the Start-tapped revisit",
+    );
+    assert_eq!(
+        frame_32007,
+        Some((GameMode::TitleScreen, LevelId(0x00), 0x0004_0000)),
+        "frame 32007 should expose the deferred `sub_1C246 -> Game_Mode=$2C` title return while preserving the carried camera hand-off",
+    );
+    assert_eq!(
+        frame_32011,
+        Some((GameMode::TitleScreen, LevelId(0x00), 0x0004_0000)),
+        "frame 32011 should still keep the carried intro-sequence-4 camera inside the early title-return window",
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

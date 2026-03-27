@@ -159,6 +159,9 @@ pub struct NativeRuntime {
     /// title mode becomes visible, so the later handoff must remember to keep
     /// the intro pose.
     timeout_restart_title_intro_sequence_3_return_pending: bool,
+    /// ASM sub_1C246 can also jump straight from the carried intro-sequence-4
+    /// camera hand-off into title after the shared 2-frame deferral.
+    timeout_restart_title_intro_sequence_4_return_pending: bool,
     /// ASM sub_1C246 can also jump straight from timeout-restart intro
     /// sequence 5 into title mode after the shared 2-frame Start deferral.
     timeout_restart_title_intro_sequence_5_return_pending: bool,
@@ -174,6 +177,9 @@ pub struct NativeRuntime {
     /// the timeout-restart intro-sequence-5 slot-2 pose survives briefly into
     /// title mode before Kid blanks again.
     timeout_restart_title_intro_sequence_5_pose: bool,
+    /// The later intro-sequence-4 Start return reaches title mode while the
+    /// carried `sub_1B988` camera hand-off is still latched.
+    timeout_restart_title_intro_sequence_4_camera_carry: bool,
     /// The later Start-skip intro-return lineage reaches the same
     /// `sub_1C246 -> Game_Mode=$2C` hand-off, but oracle keeps the rebuilt
     /// title pose hidden for one extra frame before the standard title pose
@@ -362,9 +368,11 @@ impl NativeRuntime {
             demo_auto_timeout_intro_sequence_4_frames_override: None,
             demo_auto_timeout_intro_sequence_5_frames_override: None,
             timeout_restart_title_intro_sequence_3_return_pending: false,
+            timeout_restart_title_intro_sequence_4_return_pending: false,
             timeout_restart_title_intro_sequence_5_return_pending: false,
             preserve_demo_title_snapshot: false,
             timeout_restart_title_intro_sequence_3_pose: false,
+            timeout_restart_title_intro_sequence_4_camera_carry: false,
             timeout_restart_title_intro_sequence_5_pose: false,
             timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
             timeout_restart_intro_sequence_4_pose_carry: false,

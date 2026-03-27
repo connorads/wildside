@@ -32,9 +32,11 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_4_frames_override = None;
         self.demo_auto_timeout_intro_sequence_5_frames_override = None;
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+        self.timeout_restart_title_intro_sequence_4_return_pending = false;
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
+        self.timeout_restart_title_intro_sequence_4_camera_carry = false;
         self.timeout_restart_title_intro_sequence_5_pose = false;
         self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay = false;
         self.timeout_restart_intro_sequence_4_pose_carry = false;
@@ -313,6 +315,12 @@ impl NativeRuntime {
         // timeout-restart attract window by one frame so the $280 title idle
         // countdown reaches demo mode on the correct frame.
         self.title_menu_arm_frame = self.title_menu_arm_frame.saturating_sub(1);
+    }
+
+    fn finish_timeout_restart_intro_sequence_4_title_return(&mut self) {
+        self.enter_title_screen_from_intro_return();
+        self.timeout_restart_title_intro_sequence_4_return_pending = false;
+        self.timeout_restart_title_intro_sequence_4_camera_carry = true;
     }
 
     fn finish_timeout_restart_intro_sequence_5_title_return(&mut self) {
@@ -788,6 +796,8 @@ impl NativeRuntime {
                     if *pending_title_skip == 0 {
                         if self.timeout_restart_title_intro_sequence_3_return_pending {
                             self.finish_timeout_restart_intro_sequence_3_title_return();
+                        } else if self.timeout_restart_title_intro_sequence_4_return_pending {
+                            self.finish_timeout_restart_intro_sequence_4_title_return();
                         } else if self.timeout_restart_title_intro_sequence_5_return_pending {
                             self.finish_timeout_restart_intro_sequence_5_title_return();
                         } else {
@@ -841,6 +851,8 @@ impl NativeRuntime {
                 // path is gated by a Start press.
                 let timeout_restart_start_returns_to_title =
                     *segment == 2 && intro_sequence_3_frames_override.is_some();
+                let timeout_restart_intro_sequence_4_title_return =
+                    *segment == 3 && self.timeout_restart_intro_sequence_4_pose_carry;
                 let timeout_restart_intro_sequence_5_title_return =
                     *segment == 4 && intro_sequence_5_frames_override.is_some();
                 let start_advances_segment = start_pressed
@@ -850,9 +862,13 @@ impl NativeRuntime {
                         || *segment >= 3);
                 if start_jumps_to_title {
                     self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                    self.timeout_restart_title_intro_sequence_4_return_pending =
+                        timeout_restart_intro_sequence_4_title_return;
                     self.timeout_restart_title_intro_sequence_5_return_pending =
                         timeout_restart_intro_sequence_5_title_return;
-                    if !timeout_restart_intro_sequence_5_title_return {
+                    if !timeout_restart_intro_sequence_4_title_return
+                        && !timeout_restart_intro_sequence_5_title_return
+                    {
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                     }
                     *pending_title_skip = 2;
@@ -871,6 +887,7 @@ impl NativeRuntime {
                     if *segment >= 4 || timeout_restart_start_returns_to_title {
                         self.timeout_restart_title_intro_sequence_3_return_pending =
                             timeout_restart_start_returns_to_title;
+                        self.timeout_restart_title_intro_sequence_4_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending =
                             timeout_restart_intro_sequence_5_title_return;
                         if !timeout_restart_intro_sequence_5_title_return {
@@ -879,6 +896,7 @@ impl NativeRuntime {
                         *pending_title_skip = 2;
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_title_intro_sequence_4_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                         *segment += 1;
@@ -902,6 +920,7 @@ impl NativeRuntime {
                         let intro_sequence_5_timeout_restart =
                             *segment == 4 && intro_sequence_5_frames_override.is_some();
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_title_intro_sequence_4_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                         if intro_sequence_5_timeout_restart {
@@ -912,10 +931,10 @@ impl NativeRuntime {
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =
                             *segment == 2 && intro_sequence_3_frames_override.is_some();
-                        let carry_intro_sequence_4_camera_into_intro_sequence_5 = *segment == 3
-                            && intro_sequence_4_frames_override.is_some()
-                            && self.timeout_restart_intro_sequence_4_pose_carry;
+                        let carry_intro_sequence_4_camera_into_intro_sequence_5 =
+                            *segment == 3 && self.timeout_restart_intro_sequence_4_pose_carry;
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
+                        self.timeout_restart_title_intro_sequence_4_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry =
                             carry_intro_sequence_3_pose_into_intro_sequence_4
