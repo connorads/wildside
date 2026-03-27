@@ -3104,6 +3104,29 @@ mod tests {
     }
 
     #[test]
+    fn prize_block_lifecycle_restores_smash_family_art_after_dispatch() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let data = [0xE0, 0x01];
+        let grid = BlockGrid::from_level_layout(&data, 1, 1);
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        let Some((tile_sheet, tile, _)) =
+            topmost_indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200)
+        else {
+            panic!("expected smash-family block art at the lifecycle-restored cell");
+        };
+        assert_eq!(tile_sheet.tiles.len(), 0x200);
+        assert_eq!(
+            tile.tile_index, 8,
+            "a post-prize $E001 smash block must use smash-family art, not prize-family art"
+        );
+    }
+
+    #[test]
     fn block_types_have_distinct_tile_mappings() {
         let visuals = sample_level_visuals();
         let tile_indices: Vec<_> = [Some(0), Some(1), Some(2), Some(6)]

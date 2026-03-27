@@ -141,7 +141,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 122 | [ ] | P0 | level | Level 2 entry can spawn Kid in midair, then fall through the floor and die | Boot -> finish Level 1 -> enter Level 2 -> confirm stable landing and 10s of live play |
 | 123 | [ ] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
 | 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
-| 125 | [ ] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Break affected blocks, capture before/after, confirm sprite/state progression is correct |
+| 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now uses the ASM block group as well as skin, so post-prize `$E001` cells render smash-family art instead of prize-family art |
 | 126 | [ ] | P1 | player | Walking up slopes is still observably wrong in native play | Traverse representative slopes in focused scenario and live play, confirm no hitching or bad grounding |
 | 127 | [ ] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Hit bounce blocks in focused scenario and live play, confirm bounce height/timing |
 | 128 | [ ] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Repro with affected form, confirm allowed blocks break and metal blocks remain intact |
@@ -196,6 +196,21 @@ Fix: centralised enemy removal so stomps, sword kills, friendly projectiles, Ber
 and diamond-power AoE all share the same kill bookkeeping and death side-effects. Regression:
 `red_stealth_sword_kill_marks_layout_enemy_dead` proves a sword-killed layout enemy no longer
 reactivates on the next activation pass.
+
+### 125 — Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals (FIXED)
+Evidence source: code-path audit plus failing render regressions. Native repro: reproduced in tests.
+Oracle repro: n/a for this render mapping bug. Minimum gate: `fast-slice`.
+
+Root cause: `kid-render`'s `BlockVisualMapping::resolve()` was treating the decoded
+`Block_Mappings` table as skin-only, even though the asset contains five 16-skin
+visual groups (smash, prize, ice, metal, rubber) after the terrain entry. That made
+cells such as the post-prize `$E001` smash block reuse the prize-family art for the
+same skin byte.
+
+Fix: index block visuals by both block family and skin. Regressions:
+`load_block_visual_mapping_from_skin_and_block_type`,
+`build_game_scene_emits_block_family_tiles_from_skin_and_block_type`, and
+`prize_block_lifecycle_restores_smash_family_art_after_dispatch`.
 
 ### 129 — Add a `1p-playable` gate (OPEN)
 Evidence source: roadmap decision after repeated native-play failures escaping the current gate.

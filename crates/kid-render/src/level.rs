@@ -139,12 +139,10 @@ impl BlockVisualMapping {
                     quad,
                 }),
             Some(block_type) => {
-                // ASM uses the skin byte as a flat index into Block_Mappings
-                // for ALL block types. The block type affects gameplay (collision)
-                // but NOT the visual tile — skin byte alone determines the quad.
-                let kind = block_visual_kind(block_type)?;
+                let (kind, group_index) = block_visual_kind(block_type)?;
+                let block_index = 1 + group_index * BLOCK_VARIANT_SKIN_COUNT + index;
                 self.block_quads
-                    .get(index)
+                    .get(block_index)
                     .or(self.block_quads.first())
                     .map(|quad| ResolvedBlockVisual { kind, quad })
             }
@@ -152,13 +150,13 @@ impl BlockVisualMapping {
     }
 }
 
-fn block_visual_kind(block_type: u8) -> Option<BlockVisualKind> {
+fn block_visual_kind(block_type: u8) -> Option<(BlockVisualKind, usize)> {
     match block_type {
-        0 => Some(BlockVisualKind::Smash),
-        1 => Some(BlockVisualKind::Prize),
-        2 => Some(BlockVisualKind::Ice),
-        5 => Some(BlockVisualKind::Metal),
-        6 => Some(BlockVisualKind::Rubber),
+        0 => Some((BlockVisualKind::Smash, 0)),
+        1 => Some((BlockVisualKind::Prize, 1)),
+        2 => Some((BlockVisualKind::Ice, 2)),
+        5 => Some((BlockVisualKind::Metal, 3)),
+        6 => Some((BlockVisualKind::Rubber, 4)),
         // Other block types (Mushroom, SolidGhost, Teleporter, Shifting, etc.)
         // keep their terrain skin — no override needed.
         _ => None,
