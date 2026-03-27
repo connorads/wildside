@@ -15,7 +15,7 @@ you do not restart from stale roadmap prose.
 
 ```bash
 cargo run --release -p kidcli -- verify-tas \
-  --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
+  --scenario tests/data/tas/kc_any_percent_2024/scenario.json \
   --frame-end 1000 --bisect --frontier-kind enemy
 ```
 
@@ -27,7 +27,7 @@ reserve `gameplay` for frontiers where gameplay/global state is already known to
 
 ```bash
 cargo run --release -p kidcli -- oracle-probe \
-  --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
+  --scenario tests/data/tas/kc_any_percent_2024/scenario.json \
   --frame-start 950 --frame-end 960 \
   --watches 0xFF24FE:u32,0xFF2502:i32,0xFFA056:u16
 ```
@@ -40,7 +40,7 @@ Outputs CSV to stdout — pipe to file or view directly. Watch addresses come fr
 ```bash
 # Dump full 64KB WRAM at consecutive frames
 cargo run --release -p kidcli -- oracle-probe \
-  --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json \
+  --scenario tests/data/tas/kc_any_percent_2024/scenario.json \
   --frame-start 954 --frame-end 956 \
   --wram-dump-frames 954,955,956
 

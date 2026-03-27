@@ -47,6 +47,7 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 
 - Runtime and build tooling live in this repo.
 - Upstream research repos are cached under `.cache/` and ignored by git.
+- Canonical imported TAS scenarios are tracked under `tests/data/tas/` so replay/viewer workflows work on a fresh clone.
 - Source-port reference docs live in `CLAUDE.md` and `docs/source-port/reference-index.md`.
 - `mise` now pins `cmake 3.30.9` for bundled SDL2 builds.
 - The only system package installed so far was `cmake` before the repo switched to the `mise` pin.

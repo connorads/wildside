@@ -15155,7 +15155,7 @@ fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>
         .join("../..")
         .canonicalize()
         .expect("repo root");
-    let scenario_path = repo_root.join(format!(".cache/tas-imports/{scenario_slug}/scenario.json"));
+    let scenario_path = repo_root.join(format!("tests/data/tas/{scenario_slug}/scenario.json"));
     let scenario_raw = fs::read_to_string(scenario_path).expect("read TAS scenario");
     let scenario_json: serde_json::Value =
         serde_json::from_str(&scenario_raw).expect("parse TAS scenario");

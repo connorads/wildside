@@ -109,13 +109,14 @@ TAS recordings are deterministic per-frame button sequences from real full-game 
 
 1. Obtain a BK2 file (BizHawk TAS format) from [TASVideos.org](https://tasvideos.org/UserFiles/Game/180)
 2. Import: `mise run import-tas path/to/recording.bk2`
-3. Quick test (first 1000 frames): `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/<slug>/scenario.json --frame-end 1000`
-4. Full run: `mise run verify-tas .cache/tas-imports/<slug>/scenario.json`
+3. Quick test (first 1000 frames): `cargo run -p kidcli -- verify-tas --scenario tests/data/tas/<slug>/scenario.json --frame-end 1000`
+4. Full run: `mise run verify-tas tests/data/tas/<slug>/scenario.json`
 
 **How it works:**
 
 - BK2 is a ZIP containing `Header.txt` (system metadata) and `Input Log.txt` (per-frame button state)
 - `import-tas` parses the BK2 and converts to `DynamicScenario` JSON with `warp_to_level: None` (power-on boot)
+- Canonical imported TAS scenarios live under `tests/data/tas/<slug>/scenario.json` so clones on other machines can replay and inspect them without rebuilding local cache state
 - `verify-tas` runs the scenario through both native and oracle from frame 0
 - Level transitions are auto-detected from the native trace and injected as additional checkpoints
 - The oracle scenario JSON includes transition checkpoints, giving diagnostic data at level boundaries

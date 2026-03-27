@@ -5,7 +5,7 @@
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
     "recording": "any-percent-published",
-    "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
+    "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "Published any-percent TAS tail clean through frame 37759 after the later intro-sequence-1 hand-off and demo-2 transform-abort repairs",
     "status": "complete",
     "recommended_frontier_kind": "gameplay",
@@ -112,13 +112,13 @@
       "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
-      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 32034 --frame-end 32050 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 32150 --frame-end 32166 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 32696 --frame-end 32712 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 34360 --frame-end 34376 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 34908 --frame-end 34924 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 35140 --frame-end 35160 --include-advisory",
+      "cargo run -q -p kidcli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 23250 --bisect",
+      "cargo run -q -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 32034 --frame-end 32050 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 32150 --frame-end 32166 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 32696 --frame-end 32712 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 34360 --frame-end 34376 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 34908 --frame-end 34924 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 35140 --frame-end 35160 --include-advisory",
       "mise run verify-slice-fast"
     ]
   },
@@ -140,8 +140,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory",
+      "cargo run -p kidcli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 21765 --bisect",
+      "cargo run -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory",
       "mise run verify-slice-fast"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

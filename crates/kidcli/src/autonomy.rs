@@ -1976,7 +1976,7 @@ mod tests {
   "active_frontier": {{
     "slug": "test-frontier",
     "recording": "any-percent-published",
-    "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
+    "scenario": "tests/data/tas/any-percent-published/scenario.json",
     "area": "title handoff",
     "status": "{status}",
     "frontier_frame": 6906,
