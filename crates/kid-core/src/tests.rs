@@ -20004,6 +20004,51 @@ fn published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_
     );
 }
 
+#[test]
+fn published_tas_later_timeout_restart_title_clears_intro_sequence_4_camera_on_frame_32039() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_32038 = None;
+    let mut frame_32039 = None;
+    let mut frame_32040 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(32_041) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            32_038 => {
+                frame_32038 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+            }
+            32_039 => {
+                frame_32039 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+            }
+            32_040 => {
+                frame_32040 = Some((trace.game_mode, trace.current_level, trace.camera_y_pos));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1C246 has already returned this lineage to `Game_Mode=$2C`;
+    // the carried `sub_1B988` camera only survives for the brief title
+    // rebuild window before oracle restores the cleared title camera on frame
+    // 32039.
+    assert_eq!(
+        frame_32038,
+        Some((GameMode::TitleScreen, LevelId(0x00), 0x0004_0000)),
+        "frame 32038 should still keep the carried intro-sequence-4 camera on the last oracle-backed title-settle frame",
+    );
+    assert_eq!(
+        frame_32039,
+        Some((GameMode::TitleScreen, LevelId(0x00), 0x0000_0000)),
+        "frame 32039 should clear the carried intro-sequence-4 camera once the title rebuild settles",
+    );
+    assert_eq!(
+        frame_32040,
+        Some((GameMode::TitleScreen, LevelId(0x00), 0x0000_0000)),
+        "frame 32040 should stay on the cleared title camera after the carry window ends",
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

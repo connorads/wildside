@@ -1267,7 +1267,13 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.timeout_restart_title_intro_sequence_4_camera_carry
+            && self.title_screen_elapsed_frames
+                < TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES
         {
+            // ASM sub_1C246 jumps straight to `Game_Mode=$2C`; oracle keeps
+            // sub_1B988's `move.w #4,(Camera_Y_pos).w` result only for the
+            // short title rebuild hand-off before the cleared title camera
+            // takes over again on frame 32039.
             return CameraState {
                 x_pos: 0,
                 y_pos: 0x0004_0000,

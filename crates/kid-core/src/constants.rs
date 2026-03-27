@@ -107,6 +107,12 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize =
 // for the first 31 intro-sequence-5 frames, through frame 9979, and clear it
 // on frame 9980.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES: usize = 31;
+// ASM sub_1C246 returns the later timeout-restart intro-sequence-4 revisit to
+// `Game_Mode=$2C`, but title rebuild traces only preserve sub_1B988's
+// `Camera_Y_pos=4` hand-off for the first 32 local title frames. Oracle clears
+// the carried camera on frame 32039, so keep the title-screen carry bounded to
+// that short settle window rather than the full title rebuild.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES: usize = 32;
 // ASM loc_1BCD0 writes the third allocated title gfx slot with
 // `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle probes of the verifier's
 // fixed slot-2 WRAM reads ($FF24FA/$FF24FE) keep that slot zero through frame
