@@ -2595,6 +2595,18 @@ pub(crate) const ROBOT_SHOOT_INTERVAL: u16 = 32;
 /// The charge is permanent until wall hit — no timed exit.
 pub(crate) const ROBOT_CHARGE_FLIP_BASE: u16 = 15;
 
+pub(crate) fn robot_charge_flip_reload(enemy: &ActiveEnemy) -> u16 {
+    // ASM loc_3A9F0: `Get_RandomNumber_byte`, `lsr.w #1,d7`, `addi.w #$F,d7`.
+    // We do not emulate the shared global RNG yet, so derive a stable local
+    // byte from Robot state and preserve the ROM's reload range exactly.
+    let state_mix = (enemy.x_pos >> 16)
+        ^ ((enemy.y_pos >> 16) << 8)
+        ^ u32::from(enemy.hit_points)
+        ^ u32::from(enemy.wait_timer);
+    let random_byte = state_mix.wrapping_mul(0x045D_9F3B) as u8;
+    u16::from(random_byte >> 1) + ROBOT_CHARGE_FLIP_BASE
+}
+
 /// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
 pub(crate) const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
 
@@ -2736,9 +2748,7 @@ pub(crate) fn step_robot(
                 enemy.wait_timer -= 1;
             } else {
                 reverse_enemy_direction(enemy);
-                // DEVIATION: ASM reload uses (random_byte >> 1) + $F (range 15-142).
-                // Native uses fixed base — RNG-dependent, cosmetic timing difference.
-                enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
+                enemy.wait_timer = robot_charge_flip_reload(enemy);
             }
         }
     }

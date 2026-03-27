@@ -9863,7 +9863,8 @@ fn robot_charge_flips_direction_on_timer() {
     // Should flip direction but stay charging
     assert_eq!(enemy.robot_state, RobotState::Charging);
     assert_eq!(enemy.facing, Direction::Left);
-    assert_eq!(enemy.wait_timer, ROBOT_CHARGE_FLIP_BASE);
+    assert!((ROBOT_CHARGE_FLIP_BASE..=ROBOT_CHARGE_FLIP_BASE + 127).contains(&enemy.wait_timer));
+    assert_ne!(enemy.wait_timer, ROBOT_CHARGE_FLIP_BASE);
 }
 
 #[test]
