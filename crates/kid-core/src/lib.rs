@@ -218,6 +218,18 @@ pub struct NativeRuntime {
     /// plain timeout path, so keep that lineage alive through the demo's
     /// later auto-timeout return.
     demo_timeout_restart_uses_intro_return_slot_2_early_visibility: bool,
+    /// Only the earlier Start-skip intro-return lineage keeps intro sequence 5
+    /// alive for one extra shared fade window before `loc_1BA5C` reaches its
+    /// `move.w #$28,(Game_Mode).w` hand-off. The later intro-sequence-6 title
+    /// restore still inherits the one-frame-earlier slot-2 visibility, but it
+    /// must not reuse this extra intro-sequence-5 timeout delay.
+    demo_timeout_restart_uses_start_skip_intro_sequence_5_delay: bool,
+    /// A later attract demo that starts after IntroSequence6 has already
+    /// restored the standard title pose reaches the next timeout-restart
+    /// `loc_1BA5C -> Game_Mode=$28` edge one frame earlier than the earlier
+    /// Start-skip revisit, even though both lineages share the same early
+    /// `loc_1BCD0` slot-2 visibility.
+    demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff: bool,
     /// Next Load_IntroSequence3 roster index from ROM byte `$FFFFFC83`.
     next_intro_sequence_3_roster_index: usize,
     /// Active/last Load_IntroSequence3 roster used by trace-visible intro pose.
@@ -359,6 +371,8 @@ impl NativeRuntime {
             demo_uses_intro_sequence_6_early_title_restore: false,
             demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,
+            demo_timeout_restart_uses_start_skip_intro_sequence_5_delay: false,
+            demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff: false,
             next_intro_sequence_3_roster_index: 0,
             active_intro_sequence_3_roster_index: 0,
             demo_toggle: false,

@@ -46,6 +46,8 @@ impl NativeRuntime {
         self.demo_uses_intro_sequence_6_early_title_restore = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
+        self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay = false;
+        self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff = false;
         self.pending_prize_diamond_awards.clear();
     }
 
@@ -248,6 +250,9 @@ impl NativeRuntime {
     pub(crate) fn finish_demo_auto_timeout_return(&mut self) {
         let intro_return_slot_2_early_visibility =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
+        let start_skip_intro_sequence_5_delay = self.demo_uses_start_skip_intro_return_camera_wrap;
+        let intro_sequence_6_early_intro_sequence_5_handoff =
+            self.demo_uses_intro_sequence_6_early_title_restore;
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
         self.enter_title_screen();
@@ -273,6 +278,10 @@ impl NativeRuntime {
             intro_sequence_6_early_title_restore;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
             intro_return_slot_2_early_visibility;
+        self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay =
+            start_skip_intro_sequence_5_delay;
+        self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff =
+            intro_sequence_6_early_intro_sequence_5_handoff;
     }
 
     fn finish_timeout_restart_intro_sequence_3_title_return(&mut self) {
@@ -783,7 +792,19 @@ impl NativeRuntime {
                 };
                 if *segment == 4
                     && intro_sequence_5_frames_override.is_some()
-                    && self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility
+                    && self
+                        .demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff
+                {
+                    // ASM loc_1BA5C still owns the later timeout edge on this
+                    // lineage, but once IntroSequence6 has already restored
+                    // the standard title pose before the next attract demo,
+                    // oracle reaches the later `$24 -> $28` hand-off one frame
+                    // earlier than the older Start-skip revisit.
+                    segment_frames = segment_frames.saturating_sub(1);
+                }
+                if *segment == 4
+                    && intro_sequence_5_frames_override.is_some()
+                    && self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay
                 {
                     // ASM loc_1BA28 / sub_1C204 keep the timeout-restart copy
                     // of intro sequence 5 hibernating before loc_1BA5C starts

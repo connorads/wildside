@@ -19294,6 +19294,63 @@ fn published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_fram
 }
 
 #[test]
+fn published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_28065 = None;
+    let mut frame_28066 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(28_067) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            28_065 => {
+                frame_28065 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            28_066 => {
+                frame_28066 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1BA28 hands intro sequence 5 to the shared fade helper, then
+    // loc_1BA5C owns the later `move.w #$28,(Game_Mode).w` timeout edge.
+    // The later intro-sequence-6 title-restore lineage still inherits the
+    // one-frame-earlier loc_1BCD0 slot-2 visibility, but it must not also
+    // reuse the earlier Start-skip lineage's extra intro-sequence-5 delay.
+    assert_eq!(
+        frame_28065,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 28065 should still be the final intro-sequence-5 timeout frame before loc_1BA5C flips to mode $28 on the later revisit",
+    );
+    assert_eq!(
+        frame_28066,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 28066 should enter Load_IntroSequence6 while preserving loc_1BCD0's carried slot-2 pose on the later revisit",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;
