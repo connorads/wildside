@@ -2243,17 +2243,99 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     form: PlayerForm,
     terrain_type: TerrainType,
 ) -> (i32, Direction) {
-    if form != PlayerForm::TheKid {
-        return physics::update_horizontal_velocity(
-            x_vel,
-            facing,
-            input,
-            form.ground_speed_table(terrain_type),
-        );
-    }
-
+    let _ = terrain_type;
+    let _ = facing;
     let slope_descends_right = collision == terrain::CollisionKind::SlopeDown;
     let mut canonical_vel = if slope_descends_right { x_vel } else { -x_vel };
+
+    // ASM loc_9D22 uses three slope-velocity families: the shared `unk_9EB0`
+    // table for Kid/Skycutter/Cyclone/Juggernaut/IronKnight/Berzerker, the
+    // Micromax-specific `unk_9EE4` table, and the simplified loc_9E6C branch
+    // for Eyeclops/Red Stealth/Maniaxe.
+    if matches!(
+        form,
+        PlayerForm::RedStealth | PlayerForm::Eyeclops | PlayerForm::Maniaxe
+    ) {
+        let next_x_vel = if slope_descends_right {
+            let advanced = x_vel + SPECIAL_FORM_SLOPE_STEP_FP;
+            if advanced >= 0 {
+                SPECIAL_FORM_SLOPE_STEP_FP
+            } else {
+                advanced
+            }
+        } else {
+            let advanced = x_vel - SPECIAL_FORM_SLOPE_STEP_FP;
+            if advanced < 0 {
+                -SPECIAL_FORM_SLOPE_STEP_FP
+            } else {
+                advanced
+            }
+        };
+        let next_facing = if next_x_vel >= 0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        };
+        return (next_x_vel, next_facing);
+    }
+
+    let (
+        max_speed,
+        brake,
+        neutral_decel,
+        neutral_target,
+        uphill_cap,
+        uphill_accel,
+        downhill_cap,
+        downhill_accel,
+    ) = if input.run {
+        match form {
+            PlayerForm::Micromax => (
+                MICROMAX_SLOPE_MAX_SPEED_FP,
+                MICROMAX_SLOPE_BRAKE_FP,
+                MICROMAX_SLOPE_NEUTRAL_DECEL_FP,
+                MICROMAX_SLOPE_NEUTRAL_TARGET_FP,
+                MICROMAX_SLOPE_RUN_UPHILL_CAP_FP,
+                MICROMAX_SLOPE_RUN_UPHILL_ACCEL_FP,
+                MICROMAX_SLOPE_RUN_DOWNHILL_CAP_FP,
+                MICROMAX_SLOPE_RUN_DOWNHILL_ACCEL_FP,
+            ),
+            _ => (
+                KID_SLOPE_MAX_SPEED_FP,
+                KID_SLOPE_BRAKE_FP,
+                KID_SLOPE_NEUTRAL_DECEL_FP,
+                KID_SLOPE_NEUTRAL_TARGET_FP,
+                KID_SLOPE_RUN_UPHILL_CAP_FP,
+                KID_SLOPE_RUN_UPHILL_ACCEL_FP,
+                KID_SLOPE_RUN_DOWNHILL_CAP_FP,
+                KID_SLOPE_RUN_DOWNHILL_ACCEL_FP,
+            ),
+        }
+    } else {
+        match form {
+            PlayerForm::Micromax => (
+                MICROMAX_SLOPE_MAX_SPEED_FP,
+                MICROMAX_SLOPE_BRAKE_FP,
+                MICROMAX_SLOPE_NEUTRAL_DECEL_FP,
+                MICROMAX_SLOPE_NEUTRAL_TARGET_FP,
+                MICROMAX_SLOPE_WALK_UPHILL_CAP_FP,
+                MICROMAX_SLOPE_WALK_UPHILL_ACCEL_FP,
+                MICROMAX_SLOPE_WALK_DOWNHILL_CAP_FP,
+                MICROMAX_SLOPE_WALK_DOWNHILL_ACCEL_FP,
+            ),
+            _ => (
+                KID_SLOPE_MAX_SPEED_FP,
+                KID_SLOPE_BRAKE_FP,
+                KID_SLOPE_NEUTRAL_DECEL_FP,
+                KID_SLOPE_NEUTRAL_TARGET_FP,
+                KID_SLOPE_WALK_UPHILL_CAP_FP,
+                KID_SLOPE_WALK_UPHILL_ACCEL_FP,
+                KID_SLOPE_WALK_DOWNHILL_CAP_FP,
+                KID_SLOPE_WALK_DOWNHILL_ACCEL_FP,
+            ),
+        }
+    };
+
     let uphill_pressed = if slope_descends_right {
         input.right
     } else {
@@ -2263,21 +2345,6 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         input.left
     } else {
         input.right
-    };
-    let (uphill_cap, uphill_accel, downhill_cap, downhill_accel) = if input.run {
-        (
-            KID_SLOPE_RUN_UPHILL_CAP_FP,
-            KID_SLOPE_RUN_UPHILL_ACCEL_FP,
-            KID_SLOPE_RUN_DOWNHILL_CAP_FP,
-            KID_SLOPE_RUN_DOWNHILL_ACCEL_FP,
-        )
-    } else {
-        (
-            KID_SLOPE_WALK_UPHILL_CAP_FP,
-            KID_SLOPE_WALK_UPHILL_ACCEL_FP,
-            KID_SLOPE_WALK_DOWNHILL_CAP_FP,
-            KID_SLOPE_WALK_DOWNHILL_ACCEL_FP,
-        )
     };
 
     if uphill_pressed {
@@ -2289,9 +2356,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
                 canonical_vel = uphill_cap;
             }
         } else {
-            canonical_vel -= KID_SLOPE_BRAKE_FP;
-            if canonical_vel > KID_SLOPE_MAX_SPEED_FP {
-                canonical_vel = KID_SLOPE_MAX_SPEED_FP;
+            canonical_vel -= brake;
+            if canonical_vel > max_speed {
+                canonical_vel = max_speed;
             }
         }
     } else if downhill_pressed {
@@ -2303,20 +2370,20 @@ pub(crate) fn update_level_one_slope_ground_velocity(
                 canonical_vel = downhill_cap;
             }
         } else {
-            canonical_vel += KID_SLOPE_BRAKE_FP;
-            if canonical_vel < -KID_SLOPE_MAX_SPEED_FP {
-                canonical_vel = -KID_SLOPE_MAX_SPEED_FP;
+            canonical_vel += brake;
+            if canonical_vel < -max_speed {
+                canonical_vel = -max_speed;
             }
         }
-    } else if canonical_vel < KID_SLOPE_NEUTRAL_TARGET_FP {
-        canonical_vel += KID_SLOPE_NEUTRAL_DECEL_FP;
-        if canonical_vel > KID_SLOPE_NEUTRAL_TARGET_FP {
-            canonical_vel = KID_SLOPE_NEUTRAL_TARGET_FP;
+    } else if canonical_vel < neutral_target {
+        canonical_vel += neutral_decel;
+        if canonical_vel > neutral_target {
+            canonical_vel = neutral_target;
         }
     } else {
-        canonical_vel -= KID_SLOPE_NEUTRAL_DECEL_FP;
-        if canonical_vel < KID_SLOPE_NEUTRAL_TARGET_FP {
-            canonical_vel = KID_SLOPE_NEUTRAL_TARGET_FP;
+        canonical_vel -= neutral_decel;
+        if canonical_vel < neutral_target {
+            canonical_vel = neutral_target;
         }
     }
 

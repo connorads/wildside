@@ -1806,6 +1806,61 @@ fn slope_ground_run_right_brakes_before_level_one_jump() {
 }
 
 #[test]
+fn slope_ground_run_right_uses_shared_table_for_cyclone() {
+    let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+        0x0003_8000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+        terrain::CollisionKind::SlopeDown,
+        PlayerForm::Cyclone,
+        TerrainType::Normal,
+    );
+
+    // ASM loc_9D22 uses the shared `unk_9EB0` slope table for Cyclone.
+    assert_eq!(new_vel, 0x0003_4000);
+    assert_eq!(new_facing, Direction::Right);
+}
+
+#[test]
+fn slope_ground_special_form_auto_slides_without_input() {
+    let (down_vel, down_facing) = update_level_one_slope_ground_velocity(
+        0,
+        Direction::Left,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeDown,
+        PlayerForm::RedStealth,
+        TerrainType::Normal,
+    );
+    let (up_vel, up_facing) = update_level_one_slope_ground_velocity(
+        0,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::RedStealth,
+        TerrainType::Normal,
+    );
+
+    // ASM loc_9E6C ignores held input for Red Stealth and converges to
+    // +/-$1000 depending on the slope direction.
+    assert_eq!(down_vel, 0x0000_1000);
+    assert_eq!(down_facing, Direction::Right);
+    assert_eq!(up_vel, -0x0000_1000);
+    assert_eq!(up_facing, Direction::Left);
+}
+
+#[test]
 fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
     let w = 64u16;
     let h = 20u16;
