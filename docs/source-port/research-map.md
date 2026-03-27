@@ -84,10 +84,10 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
 - **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
 
-### Gameplay fidelity (1 open backlog item + active TAS frontier)
+### Gameplay fidelity (1 open backlog item + TAS recordings verified)
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
 - **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
-- **TAS frontier** [~] `kc_any_percent_2024` frame 3414 — the second-dragon stomp setup is now authoritative-clean through frame 3413 after matching DragonWalking overlap to `GfxObjects_CollisionKid`'s integer-inclusive edge contacts. The next live blocker starts two frames after the demo `Start` press on frame 3412: oracle has already frozen the pause snapshot by frame 3414, while native still keeps `camera=(0x02F60000,0x00E10000)` and `kid_y=0x017D0000` instead of the oracle-backed `camera=(0x02F80000,0x00E00000)` and `kid_y=0x017CC000`.
+- **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
 
 ### Game flow verification (not yet investigated)
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
