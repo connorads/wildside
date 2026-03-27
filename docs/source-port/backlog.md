@@ -463,6 +463,18 @@ newer fields, and `kidcli` regression coverage locks a real legacy trace example
 Remaining gap: remote-ingest workflow and any optional bundle artefacts still need their own
 follow-up before recordings become the default hand-off format for every playtest report.
 
+### 131 — Burn down the parked DEVIATION items (OPEN)
+Evidence source: fidelity audit of the remaining `DEVIATION:` markers in gameplay code.
+Native repro: mixed. Oracle repro: ASM-backed where noted. Minimum gate: `fast-slice`.
+
+Progress (2026-03-27): Fireball bounces no longer skip the ROM's signed rebound perturbation.
+Native now mirrors ASM `Enemy19_Fireball_BounceFloorCeiling`'s `Get_RandomNumber_byte` /
+`eor.b Camera_X_pos` / `asl.w #7` rebound shaping with a deterministic local byte source, so
+floor and ceiling rebounds vary within the original `±$4000` range instead of reflecting at a
+fixed speed every time. Regressions:
+`fireball_floor_bounce_applies_signed_rom_perturbation_before_cap` and
+`fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule`.
+
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
 Audio init now reports specific SDL2 errors with troubleshooting hints (SDL_AUDIODRIVER,

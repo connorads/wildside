@@ -1429,6 +1429,35 @@ pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
 pub(crate) const FIREBALL_UPWARD_CAP_BY_HP: [i32; 3] = [-0x4_0000, -0x5_0000, -0x5_0000];
 
+pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
+    // ASM Enemy19_Fireball_BounceFloorCeiling: `Get_RandomNumber_byte`,
+    // `eor.b (Camera_X_pos).w,d7`, `ext.w d7`, `asl.w #7,d7`.
+    // The shared ROM RNG is not ported yet, so derive a stable local byte from
+    // live fireball state while preserving the exact signed ±$4000 range.
+    let state_mix = (enemy.x_pos >> 16)
+        ^ ((enemy.y_pos >> 16) << 8)
+        ^ (u32::from(enemy.hit_points) << 16)
+        ^ u32::from(enemy.wait_timer);
+    let random_byte = state_mix.wrapping_mul(0x045D_9F3B) as u8;
+    let x_low_byte = ((enemy.x_pos >> 16) & 0xFF) as u8;
+    i32::from((random_byte ^ x_low_byte) as i8) << 7
+}
+
+pub(crate) fn fireball_bounce_y_velocity(enemy: &ActiveEnemy) -> i32 {
+    let perturbed = enemy
+        .y_velocity
+        .saturating_add(fireball_bounce_perturbation(enemy));
+    let mut rebound = perturbed.saturating_neg();
+    if rebound < 0 {
+        let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+        let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
+        if rebound < cap {
+            rebound = cap;
+        }
+    }
+    rebound
+}
+
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     match enemy.family {
         // Fireball.asm `Enemy19_Fireball_Init` indexes `unk_32BA6` with the raw
@@ -1548,13 +1577,7 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity > 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
-                // Fireball.asm `Enemy19_Fireball_BounceFloorCeiling`: negate + random
-                // perturbation, then clamp against the init-time `unk_32BA6` cap.
-                // DEVIATION: ASM adds ±$4000 random perturbation (RNG-dependent)
-                let new_yv = -enemy.y_velocity;
-                let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
-                let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
-                enemy.y_velocity = if new_yv < cap { cap } else { new_yv };
+                enemy.y_velocity = fireball_bounce_y_velocity(enemy);
             } else {
                 enemy.y_velocity = -enemy.y_velocity;
             }
@@ -1569,13 +1592,9 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
         if ceil.hit && enemy.y_velocity < 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
-                // Fireball.asm `Enemy19_Fireball_BounceFloorCeiling`: floor and ceiling
-                // collisions share the same capped rebound path.
-                // DEVIATION: ASM adds ±$4000 random perturbation (RNG-dependent)
-                let new_yv = -enemy.y_velocity;
-                let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
-                let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
-                enemy.y_velocity = if new_yv < cap { cap } else { new_yv };
+                // ASM Enemy19_Fireball_BounceFloorCeiling reuses the same
+                // perturb-and-negate path for both floor and ceiling contact.
+                enemy.y_velocity = fireball_bounce_y_velocity(enemy);
             } else {
                 // Sphere.asm: negate and halve
                 enemy.y_velocity = -(enemy.y_velocity >> 1);

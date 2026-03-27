@@ -8728,6 +8728,127 @@ fn fireball_bounce_cap_scales_with_live_hp() {
     assert_eq!(hp_3.y_velocity, -0x5_0000);
 }
 
+#[test]
+fn fireball_floor_bounce_applies_signed_rom_perturbation_before_cap() {
+    let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        family: EnemyFamily::Fireball,
+        x_pos: 0x0123_0000,
+        y_pos: (159u32 << 16) + 0xC000,
+        x_velocity: 0,
+        y_velocity: 0x3_0000,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 7,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+
+    let expected = {
+        let mut bounced = enemy;
+        bounced.y_velocity += enemies::bouncer_gravity(&bounced);
+        enemies::fireball_bounce_y_velocity(&bounced)
+    };
+    assert!(
+        (-0x4_0000..=0x4_0000).contains(&enemies::fireball_bounce_perturbation(&enemy)),
+        "ASM Enemy19_Fireball_BounceFloorCeiling keeps the perturbation inside signed ±$4000",
+    );
+
+    step_bouncer(&mut enemy, Some(&grid));
+
+    assert_eq!(enemy.y_velocity, expected);
+}
+
+#[test]
+fn fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule() {
+    let enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        family: EnemyFamily::Fireball,
+        x_pos: 0x0038_0000,
+        y_pos: 0x0031_0000,
+        x_velocity: 0,
+        y_velocity: -0x2_8000,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: false,
+        hit_points: 2,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 3,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+
+    let expected = {
+        let perturbation = enemies::fireball_bounce_perturbation(&enemy);
+        -(enemy.y_velocity + perturbation)
+    };
+
+    assert_eq!(enemies::fireball_bounce_y_velocity(&enemy), expected);
+}
+
 // --- Big Hopping Skull enemy ---
 
 #[test]
