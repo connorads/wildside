@@ -95,7 +95,7 @@ and `roadmap.md` for the programme-level workstreams.
 
 ### Gameplay fidelity (TAS recordings verified, native-play gaps still open)
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
-- **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
+- **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble, and native-player tests lock the body/eye sprite offsets at each ROM timer boundary; full oracle frame verification still remains.
 - **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
 - **Native playability** [ ] recurring player-facing failures still need canonical repros and regression coverage: death/respawn camera carry, Level 2 spawn/fall-through-floor failures, slope issues, bounce-block issues, post-kill enemy damage windows, and block-state visual regressions.
 

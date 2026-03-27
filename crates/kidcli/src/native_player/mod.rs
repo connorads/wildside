@@ -2465,6 +2465,50 @@ mod tests {
     }
 
     #[test]
+    fn build_effects_scene_steps_headymetal_wobble_at_each_timer_boundary() {
+        let visuals = sample_level_visuals();
+        let cases = [
+            // ASM Enemy20_HeadyMetal_Init seeds $40(a1) = $01C2 and the later
+            // death routine steps the wobble magnitude at the remaining-frame
+            // thresholds $015E, $00FA, $0096, and $0064.
+            (0x01C2, (88, 122), vec![(78, 102), (106, 102)]),
+            (0x015E, (88, 123), vec![(77, 102), (107, 102)]),
+            (0x00FA, (88, 124), vec![(76, 102), (108, 102)]),
+            (0x0096, (88, 125), vec![(75, 102), (109, 102)]),
+            (0x0064, (88, 126), vec![(74, 102), (110, 102)]),
+        ];
+
+        for (remaining, expected_body, expected_eyes) in cases {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.frame_index = 0;
+            trace.camera_x_pos = 0;
+            trace.camera_y_pos = 0;
+            trace.flag_x = None;
+            trace.flag_y = None;
+            trace.enemy_death_effects = vec![(100 << 16, 120 << 16, remaining)];
+
+            let scene = build_scene_filtered(
+                &trace,
+                false,
+                Some(&visuals),
+                None,
+                &LayerFilter::solo("effects"),
+            );
+
+            assert_eq!(
+                sprite_position(&scene, 61),
+                Some(expected_body),
+                "body wobble should match remaining timer 0x{remaining:04X}",
+            );
+            assert_eq!(
+                sprite_positions(&scene, 71),
+                expected_eyes,
+                "eye wobble should match remaining timer 0x{remaining:04X}",
+            );
+        }
+    }
+
+    #[test]
     fn native_scene_builder_uses_asset_backed_commands_for_visible_level1_families() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
@@ -3258,6 +3302,27 @@ mod tests {
             }
             _ => None,
         })
+    }
+
+    fn sprite_positions(scene: &Scene, signature: u8) -> Vec<(i32, i32)> {
+        let mut positions = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x, y, tile_sheet, ..
+                } if tile_sheet
+                    .tiles
+                    .first()
+                    .is_some_and(|tile| tile.pixels[0] == signature) =>
+                {
+                    Some((*x, *y))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        positions.sort_unstable();
+        positions
     }
 
     fn has_sprite_signature(scene: &Scene, signature: u8) -> bool {

@@ -135,7 +135,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 
 ## Bosses
 
-### HeadyMetal — Phase-dependent fire + X gate done; death wobble render path wired, oracle visual verification pending (#062)
+### HeadyMetal — Phase-dependent fire + X gate done; death wobble render path wired, ASM timer-boundary sprite regressions added, full oracle visual verification still pending (#062)
 ### Shishkaboss, BoomerangBosses, BagelBrothers — Multi-head system verified (#060)
 
 ---
