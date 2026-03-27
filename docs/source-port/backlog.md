@@ -176,6 +176,12 @@ The current release gate proves the narrow `progress-two-transitions` compare, b
 strong enough to dismiss this failure. The next fix must start by capturing a reproducible native
 recording for the Level 1 -> Level 2 transition and turning it into a permanent smoke scenario.
 
+Surprise worth keeping: the real Blue Lake Woods 2 header spawn is intentionally midair at
+`(32,160)`. Asset-backed `inspect-respawn-settle` traces now show the hidden `Load_InGame` settle
+path landing safely on frame 16 at `kid_y_pos=$00BF0000`, so the current gap is not the basic
+floor-snap helper. The missing evidence is a canonical live-play recording slug that proves where
+the reported fall-through happens after entry.
+
 ### 123 — Death/respawn still leaves camera drift, stuck-from-start, or broken restart state (OPEN)
 Evidence source: repeated native play reports. Native repro: reported, needs canonical recording slug.
 Oracle repro: mixed/unknown. Minimum gate: `1p-playable`.

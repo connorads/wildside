@@ -15284,6 +15284,43 @@ fn respawn_settle_level_51_matches_oracle_camera_convergence() {
 }
 
 #[test]
+fn respawn_settle_level_01_lands_on_blue_lake_woods_2_floor() {
+    let mut runtime = cached_generated_runtime();
+    runtime.warp_to_level(LevelId(0x01));
+    let frames = runtime.inspect_respawn_settle(LevelId(0x01), 40);
+    let spawn = frames.first().expect("spawn frame should exist");
+    let landing = frames.get(16).expect("landing frame should exist");
+    let settled = frames
+        .last()
+        .expect("settle trace should contain the final frame");
+
+    // ASM Load_InGame seeds the raw header pose from `player_start_x/y`, and
+    // level 0x01's header is intentionally midair at (32, 160). The hidden
+    // init frames then keep running gravity + sub_902A until Kid lands on the
+    // first safe floor row before camera convergence finishes.
+    assert_eq!(spawn.kid_x_pos, 0x0020_0000);
+    assert_eq!(spawn.kid_y_pos, 0x009F_0000);
+    assert!(
+        !spawn.kid_on_ground,
+        "raw header pose should start airborne"
+    );
+
+    assert_eq!(landing.kid_y_pos, 0x00BF_0000);
+    assert!(
+        landing.kid_on_ground,
+        "frame 16 should be the grounded landing"
+    );
+    assert!(
+        !landing.kid_on_spikes,
+        "Blue Lake Woods 2 entry should land on safe floor"
+    );
+
+    assert_eq!(settled.kid_x_pos, 0x0020_0000);
+    assert_eq!(settled.kid_y_pos, 0x00BF_0000);
+    assert_eq!(settled.camera_y_pos, 0x001C_0000);
+}
+
+#[test]
 fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frames = BTreeMap::new();
