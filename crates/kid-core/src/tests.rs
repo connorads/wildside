@@ -20119,6 +20119,81 @@ fn published_tas_later_timeout_restart_title_restores_pose_on_frame_32156() {
     );
 }
 
+#[test]
+fn published_tas_later_timeout_restart_title_resumes_demo_play_on_frame_32704() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_32703 = None;
+    let mut frame_32704 = None;
+    let mut frame_32705 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(32_706) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            32_703 => {
+                frame_32703 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            32_704 => {
+                frame_32704 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            32_705 => {
+                frame_32705 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA` / `loc_1BB02` own the final `$2C -> $10`
+    // attract hand-off after `sub_1C246` has already restored the later
+    // intro-sequence-4 title pose. Oracle reaches `loc_1BB02` on frame 32704
+    // without moving Kid off the standard title pose first.
+    assert_eq!(
+        frame_32703,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 32703 should still be the final settled later intro-sequence-4 title frame",
+    );
+    assert_eq!(
+        frame_32704,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 32704 should be the first demo-play frame after the later intro-sequence-4 title return reaches loc_1BB02",
+    );
+    assert_eq!(
+        frame_32705,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 32705 should stay in demo playback while the hidden bootstrap continues",
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

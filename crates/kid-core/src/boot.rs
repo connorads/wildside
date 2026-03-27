@@ -328,6 +328,13 @@ impl NativeRuntime {
         self.title_screen_ready_frame = self
             .title_screen_ready_frame
             .saturating_sub(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_READY_FRAMES);
+        // ASM Obj_TitleMenu `loc_1BAEA` / `loc_1BB02` own the later title idle
+        // countdown after `sub_1C246` returns. Once the rebuilt `loc_1B5CE`
+        // pose surfaces a frame early on this lineage, oracle also reaches
+        // the final `$2C -> $10` attract hand-off one title frame earlier.
+        self.title_menu_arm_frame = self
+            .title_menu_arm_frame
+            .saturating_sub(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_ATTRACT_LOCK_FRAMES);
     }
 
     fn finish_timeout_restart_intro_sequence_5_title_return(&mut self) {

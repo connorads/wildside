@@ -118,6 +118,11 @@ pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES: usi
 // the rebuilt title pose one local title frame earlier than the generic
 // `enter_title_screen_from_intro_return` settle window.
 pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_READY_FRAMES: usize = 1;
+// ASM Obj_TitleMenu `loc_1BAEA` / `loc_1BB02` count down the final title idle
+// loop after the later intro-sequence-4 pose is already visible. Because that
+// lineage restores `loc_1B5CE` one frame early, oracle also reaches the
+// `$2C -> $10` demo hand-off one frame earlier than the shared title arm.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_ATTRACT_LOCK_FRAMES: usize = 1;
 // ASM loc_1BCD0 writes the third allocated title gfx slot with
 // `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle probes of the verifier's
 // fixed slot-2 WRAM reads ($FF24FA/$FF24FE) keep that slot zero through frame
