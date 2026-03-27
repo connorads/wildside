@@ -594,6 +594,7 @@ impl NativeRuntime {
 
     pub(crate) fn apply_damage(&mut self) {
         self.level_damage_taken = true;
+        self.just_received_damage = true;
         // Clear wall-grab so the player isn't stuck to the wall during invulnerability
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.player.right_wall_sticky = false;

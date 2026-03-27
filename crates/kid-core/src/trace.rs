@@ -48,6 +48,41 @@ struct FloatingDiamondContactCandidate {
 }
 
 impl NativeRuntime {
+    fn current_character_movement(&self, player: PlayerState) -> u16 {
+        const MOVE_STANDINGSTILL: u16 = 0;
+        const MOVE_CRAWLING: u16 = 1;
+        const MOVE_WALKING: u16 = 2;
+        const MOVE_JUMP: u16 = 3;
+        const MOVE_WALL_CLIMBING: u16 = 4;
+        const MOVE_UPHILL_DOWNHILL: u16 = 6;
+
+        if self.helmet.iron_knight_climbing || player.wall_cling_direction.is_some() {
+            return MOVE_WALL_CLIMBING;
+        }
+        if !player.on_ground || player.just_jumped {
+            return MOVE_JUMP;
+        }
+        if self.trace_input.down {
+            return MOVE_CRAWLING;
+        }
+        let on_slope = self.block_grid.as_ref().is_some_and(|grid| {
+            let x_px = (player.x_pos >> 16) as i32;
+            let y_px = (player.y_pos >> 16) as i32;
+            let probe = terrain::probe_floor(grid, x_px, y_px);
+            matches!(
+                probe.cell.collision,
+                terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+            )
+        });
+        if on_slope && (self.trace_input.left || self.trace_input.right || player.x_velocity != 0) {
+            return MOVE_UPHILL_DOWNHILL;
+        }
+        if self.trace_input.left || self.trace_input.right || player.x_velocity != 0 {
+            return MOVE_WALKING;
+        }
+        MOVE_STANDINGSTILL
+    }
+
     fn title_uses_demo_snapshot(&self) -> bool {
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.preserve_demo_title_snapshot
@@ -378,6 +413,7 @@ impl NativeRuntime {
             kid_y_pos: player_state.map(|state| state.y_pos),
             kid_x_velocity: player_state.map(|state| state.x_velocity),
             kid_y_velocity: player_state.map(|state| state.y_velocity),
+            character_movement: player_state.map(|state| self.current_character_movement(state)),
             kid_facing: player_state.map(|state| state.facing),
             kid_on_ground: player_state.map(|state| state.on_ground),
             kid_on_slope: player_state
@@ -428,6 +464,7 @@ impl NativeRuntime {
             options_controls_scheme: self.options_controls_scheme,
             options_speed_button_fast: self.options_speed_button_fast,
             invulnerable_frames: self.progression.invulnerable_frames,
+            just_received_damage: self.just_received_damage,
             diamond_power_active: self.progression.diamond_power_frames > 0,
             diamond_count: self.progression.diamond_count,
             score: self.progression.score,

@@ -655,8 +655,10 @@ pub(crate) fn native_trace_to_oracle_state(
         murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
         kid_x_vel: frame.kid_x_velocity,
         kid_y_vel: frame.kid_y_velocity,
-        character_movement: None,
-        just_received_damage: None,
+        character_movement: frame.character_movement,
+        just_received_damage: Some(frame.just_received_damage),
+        kid_collision_type: None,
+        kid_collision_source: None,
         invulnerable_frames: Some(frame.invulnerable_frames as u8),
         currently_transforming: Some(frame.form_change_flash_frames > 0),
         rng_offset: None,
@@ -680,6 +682,8 @@ pub(crate) fn active_enemy_states_from_native_frame(
                 x_velocity: object.x_velocity.unwrap_or(0),
                 y_velocity: object.y_velocity.unwrap_or(0),
                 facing: enemy_facing_from_native(object.facing),
+                collision_type: None,
+                collision_source: None,
                 layout_index: object.layout_index,
                 layout_ptr: None,
                 parent_object_ptr: None,
@@ -843,6 +847,26 @@ pub(crate) fn compare_native_states_against_oracle(
                 run_dir.display()
             );
         }
+        if native.character_movement != oracle.character_movement {
+            bail!(
+                "state {}@{} diverged in character movement (native {:?}, oracle {:?}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.character_movement,
+                oracle.character_movement,
+                run_dir.display()
+            );
+        }
+        if native.just_received_damage != oracle.just_received_damage {
+            bail!(
+                "state {}@{} diverged in just_received_damage (native {:?}, oracle {:?}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                native.just_received_damage,
+                oracle.just_received_damage,
+                run_dir.display()
+            );
+        }
         if compare_enemy_snapshots {
             compare_enemy_snapshots_against_oracle(
                 run_dir,
@@ -943,6 +967,17 @@ pub(crate) fn compare_enemy_snapshots_against_oracle(
                 native.object_type,
                 native.facing,
                 oracle.facing,
+                run_dir.display()
+            );
+        }
+        if native.layout_index != oracle.layout_index {
+            bail!(
+                "state {}@{} diverged in enemy {:02X} layout index (native {:?}, oracle {:?}); artefacts in {}",
+                label,
+                frame_index,
+                native.object_type,
+                native.layout_index,
+                oracle.layout_index,
                 run_dir.display()
             );
         }

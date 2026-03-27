@@ -2249,6 +2249,8 @@ mod tests {
             x_velocity,
             y_velocity,
             facing,
+            collision_type: None,
+            collision_source: None,
             layout_index: None,
             layout_ptr: None,
             parent_object_ptr: None,
@@ -2293,6 +2295,8 @@ mod tests {
             kid_y_vel: None,
             character_movement: None,
             just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2331,6 +2335,7 @@ mod tests {
             kid_y_pos: Some(0x0010_0000),
             kid_x_velocity: Some(0),
             kid_y_velocity: Some(0),
+            character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(true),
             kid_on_slope: 0,
@@ -2387,6 +2392,7 @@ mod tests {
             ending_elapsed: None,
             number_continues: 3,
             invulnerable_frames: 0,
+            just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,
             score: 0,
@@ -2421,6 +2427,8 @@ mod tests {
         assert_eq!(state.active_enemies[1].object_type, 0x1C);
         assert_eq!(state.active_enemies[1].x_velocity, -0x0001_8000);
         assert_eq!(state.active_enemies[1].facing, EnemyFacing::Left);
+        assert_eq!(state.character_movement, None);
+        assert_eq!(state.just_received_damage, Some(false));
     }
 
     #[test]
@@ -2478,6 +2486,37 @@ mod tests {
 
         compare_native_states_against_oracle(run_dir.path(), &native, &native)
             .expect("matching enemy snapshots should pass");
+    }
+
+    #[test]
+    fn compare_native_states_against_oracle_rejects_enemy_layout_index_divergence() {
+        let run_dir = TempDir::new().expect("run dir");
+        let mut native_enemy = oracle_enemy(
+            0x1C,
+            0x0030_0000,
+            0x0010_0000,
+            -0x0001_8000,
+            -0x0002_0000,
+            EnemyFacing::Left,
+        );
+        native_enemy.layout_index = Some(7);
+        let mut oracle_enemy = oracle_enemy(
+            0x1C,
+            0x0030_0000,
+            0x0010_0000,
+            -0x0001_8000,
+            -0x0002_0000,
+            EnemyFacing::Left,
+        );
+        oracle_enemy.layout_index = Some(2);
+
+        let native = vec![oracle_state("enemy_window_open", 810, vec![native_enemy])];
+        let oracle = vec![oracle_state("enemy_window_open", 810, vec![oracle_enemy])];
+
+        let error = compare_native_states_against_oracle(run_dir.path(), &native, &oracle)
+            .expect_err("enemy layout index drift should fail");
+
+        assert!(format!("{error:#}").contains("layout index"));
     }
 
     #[test]

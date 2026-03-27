@@ -755,8 +755,10 @@ pub(crate) fn extract_checkpoint_states(
                 murder_wall_x: frame.murder_wall_x.map(|x| x as i32),
                 kid_x_vel: frame.kid_x_velocity,
                 kid_y_vel: frame.kid_y_velocity,
-                character_movement: None, // native doesn't track this separately
-                just_received_damage: None, // native doesn't track this separately
+                character_movement: frame.character_movement,
+                just_received_damage: Some(frame.just_received_damage),
+                kid_collision_type: None,
+                kid_collision_source: None,
                 invulnerable_frames: Some(frame.invulnerable_frames as u8),
                 currently_transforming: Some(frame.form_change_flash_frames > 0),
                 rng_offset: None,            // native uses different RNG system
@@ -939,6 +941,28 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "currently_transforming".into(),
                 native_value: format!("{n_transform}"),
                 oracle_value: format!("{o_transform}"),
+            });
+        }
+        if let (Some(n_movement), Some(o_movement)) =
+            (native.character_movement, oracle.character_movement)
+            && n_movement != o_movement
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "character_movement".into(),
+                native_value: format!("{n_movement:#06x}"),
+                oracle_value: format!("{o_movement:#06x}"),
+            });
+        }
+        if let (Some(n_damage), Some(o_damage)) =
+            (native.just_received_damage, oracle.just_received_damage)
+            && n_damage != o_damage
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "just_received_damage".into(),
+                native_value: format!("{n_damage}"),
+                oracle_value: format!("{o_damage}"),
             });
         }
         if native.game_paused != oracle.game_paused {
@@ -2310,6 +2334,8 @@ mod tests {
             kid_y_vel: None,
             character_movement: None,
             just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2357,6 +2383,8 @@ mod tests {
             kid_y_vel: None,
             character_movement: None,
             just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2379,6 +2407,8 @@ mod tests {
             x_velocity: 0,
             y_velocity: 0,
             facing: EnemyFacing::Left,
+            collision_type: None,
+            collision_source: None,
             layout_index: Some(4),
             layout_ptr: Some(0x00FF_A100),
             parent_object_ptr: Some(0x00FF_9120),
@@ -2416,6 +2446,8 @@ mod tests {
             kid_y_vel: None,
             character_movement: None,
             just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2493,6 +2525,7 @@ mod tests {
                 kid_y_pos: Some(0x00E0_0000),
                 kid_x_velocity: Some(0),
                 kid_y_velocity: Some(0),
+                character_movement: None,
                 kid_facing: None,
                 kid_on_ground: Some(true),
                 kid_on_slope: 0,
@@ -2512,6 +2545,7 @@ mod tests {
                 options_controls_scheme: 0,
                 options_speed_button_fast: false,
                 invulnerable_frames: 0,
+                just_received_damage: false,
                 diamond_power_active: false,
                 diamond_count: 0,
                 score: 0,
@@ -2578,6 +2612,7 @@ mod tests {
                 kid_y_pos: Some(0x00E0_0000),
                 kid_x_velocity: Some(0),
                 kid_y_velocity: Some(0),
+                character_movement: None,
                 kid_facing: None,
                 kid_on_ground: Some(true),
                 kid_on_slope: 0,
@@ -2597,6 +2632,7 @@ mod tests {
                 options_controls_scheme: 0,
                 options_speed_button_fast: false,
                 invulnerable_frames: 0,
+                just_received_damage: false,
                 diamond_power_active: false,
                 diamond_count: 0,
                 score: 0,
@@ -2676,6 +2712,7 @@ mod tests {
                 kid_y_pos: Some(0x00E0_0000),
                 kid_x_velocity: Some(0),
                 kid_y_velocity: Some(0),
+                character_movement: None,
                 kid_facing: None,
                 kid_on_ground: Some(true),
                 kid_on_slope: 0,
@@ -2695,6 +2732,7 @@ mod tests {
                 options_controls_scheme: 0,
                 options_speed_button_fast: false,
                 invulnerable_frames: 0,
+                just_received_damage: false,
                 diamond_power_active: false,
                 diamond_count: 0,
                 score: 0,
@@ -2757,6 +2795,8 @@ mod tests {
             kid_y_vel: None,
             character_movement: None,
             just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2872,6 +2912,7 @@ mod tests {
             kid_y_pos: Some(0x00E0_0000),
             kid_x_velocity: Some(0),
             kid_y_velocity: Some(0),
+            character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(true),
             kid_on_slope: 0,
@@ -2891,6 +2932,7 @@ mod tests {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,
             score,
@@ -2957,6 +2999,7 @@ mod tests {
             kid_y_pos: Some(0x00E0_0000),
             kid_x_velocity: Some(0),
             kid_y_velocity: Some(0),
+            character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(true),
             kid_on_slope: 0,
@@ -2976,6 +3019,7 @@ mod tests {
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: 0,
+            just_received_damage: false,
             diamond_power_active: false,
             diamond_count: 0,
             score: 0,

@@ -842,6 +842,8 @@ pub struct NativeTraceFrame {
     pub kid_y_pos: Option<u32>,
     pub kid_x_velocity: Option<i32>,
     pub kid_y_velocity: Option<i32>,
+    /// ROM `Character_Movement` mirror (`$FFFFFA56`).
+    pub character_movement: Option<u16>,
     pub kid_facing: Option<Direction>,
     pub kid_on_ground: Option<bool>,
     /// Slope direction the player is standing on: 0 = flat, 1 = SlopeUp, -1 = SlopeDown.
@@ -867,6 +869,8 @@ pub struct NativeTraceFrame {
     pub options_controls_scheme: u8,
     pub options_speed_button_fast: bool,
     pub invulnerable_frames: usize,
+    /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
+    pub just_received_damage: bool,
     pub diamond_power_active: bool,
     pub diamond_count: u16,
     pub score: u32,

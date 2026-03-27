@@ -111,6 +111,10 @@ pub struct OracleEnemyState {
     pub y_velocity: i32,
     pub facing: EnemyFacing,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collision_type: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collision_source: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout_index: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout_ptr: Option<u32>,
@@ -214,6 +218,10 @@ pub struct OracleState {
     pub character_movement: Option<u16>,
     #[serde(default)]
     pub just_received_damage: Option<bool>,
+    #[serde(default)]
+    pub kid_collision_type: Option<u16>,
+    #[serde(default)]
+    pub kid_collision_source: Option<u16>,
     #[serde(default)]
     pub invulnerable_frames: Option<u8>,
     #[serde(default)]

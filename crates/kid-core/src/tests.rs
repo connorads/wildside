@@ -1295,6 +1295,27 @@ fn opening_hazard_strips_helmet_before_life_loss() {
 }
 
 #[test]
+fn trace_frame_reports_damage_latch_for_exact_hit_frame() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    advance_past_level_entry_damage_grace(&mut runtime);
+
+    runtime.apply_damage();
+    let hit_frame = runtime.trace_frame();
+    assert!(
+        hit_frame.just_received_damage,
+        "trace should expose the exact frame where damage latched"
+    );
+
+    runtime.step_frame(FrameInput::default());
+    let next_frame = runtime.trace_frame();
+    assert!(
+        !next_frame.just_received_damage,
+        "damage latch should clear again on the next frame"
+    );
+}
+
+#[test]
 fn pauses_and_resumes_native_slice() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

@@ -846,6 +846,8 @@ pub(crate) fn native_state_to_oracle_state(state: &CapturedState) -> OracleState
         kid_y_vel: None,
         character_movement: None,
         just_received_damage: None,
+        kid_collision_type: None,
+        kid_collision_source: None,
         invulnerable_frames: None,
         currently_transforming: None,
         rng_offset: None,

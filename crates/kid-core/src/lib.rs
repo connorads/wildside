@@ -40,6 +40,7 @@ pub struct NativeRuntime {
     assets: AssetManifest,
     frame_index: usize,
     boot_state: BootState,
+    trace_input: FrameInput,
     prior_input: FrameInput,
     previous_input: FrameInput,
     start_press_count: usize,
@@ -107,6 +108,8 @@ pub struct NativeRuntime {
     y_look_offset: i16,
     /// Set to true when player takes damage during current level (for no-hit bonus).
     level_damage_taken: bool,
+    /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
+    just_received_damage: bool,
     /// Set to true when player collects any prize from a block (disqualifies no-prize bonus).
     level_prize_collected: bool,
     /// Number of clock pickups collected during current level (for completion time calc).
@@ -327,6 +330,7 @@ impl NativeRuntime {
             assets,
             frame_index: 0,
             boot_state: BootState::SegaScreen { elapsed: 0 },
+            trace_input: FrameInput::default(),
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
             start_press_count: 0,
@@ -373,6 +377,7 @@ impl NativeRuntime {
             level_timer: LevelTimer::new(),
             y_look_offset: 0,
             level_damage_taken: false,
+            just_received_damage: false,
             level_prize_collected: false,
             clocks_collected: 0,
             title_idle_frames: 0,
@@ -476,6 +481,8 @@ impl NativeRuntime {
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
         let raw_input = input;
+        self.trace_input = input;
+        self.just_received_damage = false;
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
@@ -504,8 +511,10 @@ impl NativeRuntime {
             self.finish_demo_auto_timeout_return();
         }
         let Some(input) = self.step_demo_input(input, replay_demo_1_timeout_handoff_frame) else {
+            self.trace_input = raw_input;
             return self.trace_frame();
         };
+        self.trace_input = input;
         self.maybe_begin_pending_level_skip();
         self.maybe_begin_pending_level_skip_resume();
         self.maybe_finish_level_skip_resume();
