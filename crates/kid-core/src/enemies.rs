@@ -1424,17 +1424,19 @@ pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
 /// ceiling→negate y_vel and halve.
 pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 
-/// Fireball max upward velocity per HP tier (unk_32BA6 second column).
-/// Level 0: -$30000, Level 1: -$40000, Level 2: -$50000.
-pub(crate) const FIREBALL_UPWARD_CAP: [i32; 3] = [-0x3_0000, -0x4_0000, -0x5_0000];
+/// Fireball max upward velocity indexed by live HP
+/// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
+/// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
+pub(crate) const FIREBALL_UPWARD_CAP_BY_HP: [i32; 3] = [-0x4_0000, -0x5_0000, -0x5_0000];
 
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     match enemy.family {
-        // Fireball.asm: gravity indexed by enemy_level ($1000/$2000/$3000)
+        // Fireball.asm `Enemy19_Fireball_Init` indexes `unk_32BA6` with the raw
+        // layout `hit_points_plus_one`, so live HP 1/2/3 maps to $2000/$3000/$3000.
         EnemyFamily::Fireball => {
-            const FIREBALL_GRAVITY: [i32; 3] = [0x1000, 0x2000, 0x3000];
-            let level = enemy.hit_points.saturating_sub(1) as usize;
-            FIREBALL_GRAVITY[level.min(2)]
+            const FIREBALL_GRAVITY_BY_HP: [i32; 3] = [0x2000, 0x3000, 0x3000];
+            let hp_index = enemy.hit_points.saturating_sub(1) as usize;
+            FIREBALL_GRAVITY_BY_HP[hp_index.min(2)]
         }
         _ => SPHERE_GRAVITY,
     }
@@ -1546,11 +1548,12 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity > 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
-                // Fireball.asm BounceFloorCeiling: negate + random perturbation + cap
+                // Fireball.asm `Enemy19_Fireball_BounceFloorCeiling`: negate + random
+                // perturbation, then clamp against the init-time `unk_32BA6` cap.
                 // DEVIATION: ASM adds ±$4000 random perturbation (RNG-dependent)
                 let new_yv = -enemy.y_velocity;
-                let tier = enemy.hit_points.saturating_sub(1).min(2) as usize;
-                let cap = FIREBALL_UPWARD_CAP[tier];
+                let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+                let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
                 enemy.y_velocity = if new_yv < cap { cap } else { new_yv };
             } else {
                 enemy.y_velocity = -enemy.y_velocity;
@@ -1566,11 +1569,12 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
         if ceil.hit && enemy.y_velocity < 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
-                // Fireball.asm BounceFloorCeiling: same formula for floor and ceiling
+                // Fireball.asm `Enemy19_Fireball_BounceFloorCeiling`: floor and ceiling
+                // collisions share the same capped rebound path.
                 // DEVIATION: ASM adds ±$4000 random perturbation (RNG-dependent)
                 let new_yv = -enemy.y_velocity;
-                let tier = enemy.hit_points.saturating_sub(1).min(2) as usize;
-                let cap = FIREBALL_UPWARD_CAP[tier];
+                let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+                let cap = FIREBALL_UPWARD_CAP_BY_HP[hp_index];
                 enemy.y_velocity = if new_yv < cap { cap } else { new_yv };
             } else {
                 // Sphere.asm: negate and halve

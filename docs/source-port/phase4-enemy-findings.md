@@ -91,8 +91,8 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - Terminal velocity: $60000 threshold, $40000 cap — correct (previously verified)
 - Hover step: $2000 — correct
 
-### Fireball — Gravity tier off-by-one + missing slopes
-- **Gravity tier off-by-one**: ASM indexes by `hit_points_plus_one` directly. Native subtracts 1. HP=1 Fireball gets gravity $1000 (native) vs $2000 (ASM). Same off-by-one affects bounce cap and initial X velocity.
+### Fireball — Missing slopes
+- Gravity and bounce cap now follow Fireball.asm `unk_32BA6`, so live HP 1/2/3 uses `$2000/$3000/$3000` gravity and `-$40000/-$50000/-$50000` as the capped rebound speed.
 - **Missing: Slope deflection**: ASM has explicit SlopeUp/SlopeDown handlers (swap X/Y velocities). Not in `step_bouncer`.
 - RNG perturbation on bounce: documented DEVIATION (±$4000 XOR'd with Camera_X_pos).
 

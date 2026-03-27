@@ -8545,9 +8545,74 @@ fn fireball_gravity_scales_with_hp() {
         shared_walker_dx_to_kid_px: None,
         shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
     };
-    assert_eq!(bouncer_gravity(&make(1)), 0x1000);
-    assert_eq!(bouncer_gravity(&make(2)), 0x2000);
+    // Fireball.asm `Enemy19_Fireball_Init`: raw `hit_points_plus_one` indexes
+    // `unk_32BA6`, so live HP 1/2/3 uses gravity $2000/$3000/$3000.
+    assert_eq!(bouncer_gravity(&make(1)), 0x2000);
+    assert_eq!(bouncer_gravity(&make(2)), 0x3000);
     assert_eq!(bouncer_gravity(&make(3)), 0x3000);
+}
+
+#[test]
+fn fireball_bounce_cap_scales_with_live_hp() {
+    let make = |hp| ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        family: EnemyFamily::Fireball,
+        x_pos: 0,
+        y_pos: (159u32 << 16) + 0xC000,
+        x_velocity: 0,
+        y_velocity: 0x80000,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: false,
+        hit_points: hp,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
+    let grid = grid_with_solid_cells(20, 15, &solid);
+
+    let mut hp_1 = make(1);
+    step_bouncer(&mut hp_1, Some(&grid));
+    assert_eq!(hp_1.y_velocity, -0x4_0000);
+
+    let mut hp_2 = make(2);
+    step_bouncer(&mut hp_2, Some(&grid));
+    assert_eq!(hp_2.y_velocity, -0x5_0000);
+
+    let mut hp_3 = make(3);
+    step_bouncer(&mut hp_3, Some(&grid));
+    assert_eq!(hp_3.y_velocity, -0x5_0000);
 }
 
 // --- Big Hopping Skull enemy ---
