@@ -88,7 +88,9 @@ pub(crate) const DEMO_INPUT_DATA_2: [u8; 499] = [
 pub(crate) const DEMO_1_LEVEL: u8 = 0x15;
 /// Demo 2 plays level Skydragon Castle 1 (0x1B).
 pub(crate) const DEMO_2_LEVEL: u8 = 0x1B;
-/// Title screen idle timeout before demo starts (ASM: $280 = 640).
+/// Title screen idle timeout before demo starts (ASM: $280 = 640). The
+/// timeout-restart `IntroSequence6` lineage adds its extra DBF-backed hold in
+/// `boot.rs`.
 pub(crate) const TITLE_IDLE_FRAMES: u16 = 640;
 /// Demo auto-ends after this many frames (ASM: $3F2 = 1010).
 pub(crate) const DEMO_MAX_FRAMES: u16 = 1010;

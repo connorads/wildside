@@ -1,24 +1,24 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T04:35:00Z",
+  "updated_at": "2026-03-27T08:05:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-21592-mode-0x28-demo-handoff",
+    "slug": "any-percent-published-frame-21719-mode-0x28-demo-handoff",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
     "area": "Mode-0x28 intro-sequence-6 demo hand-off after restoring the title pose",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 21592,
-    "authoritative_clean_through": 21591,
+    "frontier_frame": 21719,
+    "authoritative_clean_through": 21718,
     "pre_divergence_windows": [
       {
-        "frame_start": 21588,
-        "frame_end": 21591,
-        "reason": "Frames 21588..21591 are authoritative-clean apart from advisory `number_objects` drift after restoring the mode-$28 title pose; `tas-diff --frame-start 21588 --frame-end 21600 --include-advisory` shows the next first authoritative break at frame 21592."
+        "frame_start": 21715,
+        "frame_end": 21718,
+        "reason": "Frames 21715..21718 are authoritative-clean apart from advisory `number_objects` drift after matching Load_IntroSequence6 `loc_1BAB0`'s 185-frame pre-roll; `tas-diff --frame-start 21590 --frame-end 21730 --include-advisory` shows the next first authoritative break at frame 21719."
       }
     ],
-    "current_blocker": "The frame-21592 mode-$28 demo hand-off is fixed by matching Obj_TitleMenu `loc_1BAEA`'s `$280` `dbf` loop as 641 hibernated frames instead of a plain 640-frame threshold. The new focused regression `published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21592` passes, but this session did not finish a full post-fix bisect, so the next authoritative frontier still needs to be re-identified beyond frame 21592.",
+    "current_blocker": "The frame-21594 mode-$28 demo hand-off is fixed by matching Load_IntroSequence6 `loc_1BAB0`'s `$B8` `dbf` pre-roll as a 185-frame title-menu arm delay before the shared `$280` title idle loop. The new focused regression `published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718` passes, `verify-tas --frame-start 20895 --bisect` now moves the first CRC divergence to frame 21719, and the next session still needs to explain why oracle remains in `Game_Mode=$28` there while native has already entered demo playback.",
     "authoritative_diffs": [
       "The frame-16228 intro-sequence-5 slot-2 hand-off is cleared: `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228` passes, and `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` now shows only advisory `number_objects` drift there.",
       "The stale frame-20894 timeout-restart mode gap is cleared: native now enters `Game_Mode=$28` / `IntroSequence6` on the later timeout-restart revisit, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20912.",
@@ -26,17 +26,17 @@
       "The frame-20926 first wrapped hidden-camera row is cleared: `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` now shows only advisory `number_objects` drift there.",
       "The frame-21142 hidden-camera ramp is cleared: `tas-diff --frame-start 21136 --frame-end 21160 --include-advisory` now shows only advisory `number_objects` drift through frame 21223, and the focused regression confirms the `sub_1B43A -> GfxObjects_Collision_BottomBoundary4` ramp starts on frame 21142.",
       "The frame-21224 mode-$28 title-pose hand-off is cleared: `published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224` passes, `tas-diff --frame-start 21218 --frame-end 21320 --include-advisory` shows only advisory `number_objects` drift from frame 21224 onward, and `verify-tas --frame-start 21224 --frame-end 21450 --bisect` passes.",
-      "The later mode-$28 demo hand-off is cleared: ASM Obj_TitleMenu `loc_1BAEA` seeds `d0=$280` then uses `dbf`, so native now keeps frame 21592 in `Game_Mode=$28` and only reaches `loc_1BB02` / `Game_Mode=$10` on frame 21593, matching the focused oracle-backed regression `published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21592`."
+      "The frame-21594 mode-$28 demo hand-off is cleared: ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` and `dbf`s for 185 hibernated frames before Obj_TitleMenu `loc_1BAEA` even reaches its shared `$280` title idle loop. Native now keeps the timeout-restart rebuild in `Game_Mode=$28` through frame 21718, matching the focused oracle-backed regression `published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718`."
     ],
     "advisory_diffs": [
       "Frames 20908..20915 now carry only advisory `number_objects` drift (`native=0`, `oracle=4`) after the mode-$28 pose-clear fix lands.",
       "Frames 20926..20929 now carry only advisory `number_objects` drift (`native=0`, `oracle=3`) after the wrapped-camera fix lands.",
-      "Frames 21136..21156 now carry advisory `number_objects` drift (`native=0`, `oracle=4`) after the hidden-camera ramp fix lands; frames 21157..21592 carry only the advisory object-count tail (mostly `native=0`, `oracle=4`, with a short `oracle=5` blip on frames 21231..21232).",
+      "Frames 21136..21156 now carry advisory `number_objects` drift (`native=0`, `oracle=4`) after the hidden-camera ramp fix lands; frames 21157..21718 carry only the advisory object-count tail (mostly `native=0`, `oracle=4`, with a short `oracle=5` blip on frames 21231..21232).",
       "The earlier intro-sequence windows cleared by the 16228 and 20894 fixes still differ only on the known advisory object-roster counts."
     ],
     "current_hypothesis": {
-      "name": "Confirmed: Obj_TitleMenu `loc_1BAEA`'s `$280` `dbf` loop needs 641 title-idle frames before `loc_1BB02`",
-      "reason": "The ROM seeds `d0=$280` at `loc_1BAEA`, clears input, hibernates one frame, then uses `dbf d0,loc_1BAEE`; that loop executes 641 hibernated frames before `loc_1BB02` writes `Game_Mode=$10`. Native was treating the title idle as a plain 640-frame threshold, so the mode-$28 rebuild entered demo play one frame early on 21592. Adding one extra arm frame to the timeout-restart `Load_IntroSequence6` path makes the new focused regression pass."
+      "name": "Confirmed: Load_IntroSequence6 `loc_1BAB0` delays the timeout-restart title menu by 185 frames before Obj_TitleMenu `loc_1BAEA` starts its shared `$280` idle loop",
+      "reason": "The ROM enters `Game_Mode=$28` at `loc_1BA5C`, but `Load_IntroSequence6` allocates a worker at `loc_1BAB0` that seeds `d0=$B8` and `dbf`s through 185 hibernated frames before branching to Obj_TitleMenu `loc_1BAEA`. Native had been reusing the generic 58-frame title attract lock, so the timeout-restart rebuild started the shared title idle countdown 127 frames too early and entered demo playback on frame 21594. Matching `loc_1BAB0` with `INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES=185` moves the first CRC divergence to frame 21719."
     },
     "rejected_hypotheses": [
       {
@@ -70,12 +70,16 @@
       {
         "name": "Frame 21592 needs another hidden gameplay/camera fix before demo playback starts",
         "reason": "The remaining mismatch was not Kid pose or hidden camera state: ASM Obj_TitleMenu `loc_1BAEA` uses a `$280` `dbf` countdown, so the ROM stays in `Game_Mode=$28` for one more hibernated frame before `loc_1BB02` flips into demo play. A focused regression now confirms frame 21592 stays in `IntroSequence6` and frame 21593 is the first `DemoPlay` frame."
+      },
+      {
+        "name": "The timeout-restart mode-$28 hand-off only needed one extra shared title-idle frame",
+        "reason": "That explanation was incomplete. `tas-diff --frame-start 21590 --frame-end 21730 --include-advisory` still showed native entering demo early after the one-frame DBF tweak, and the full ASM path revealed the missing `loc_1BAB0` `$B8` pre-roll before Obj_TitleMenu reaches `loc_1BAEA`."
       }
     ],
     "required_next_evidence": [
-      "Re-run `verify-tas --frame-start 20895 --bisect` now that frame 21592 is cleared and record the next first authoritative divergence.",
-      "Run `tas-diff --frame-start 21588 --frame-end 21620 --include-advisory` after the fix lands so the next live blocker is documented with exact fields.",
-      "Promote the next post-21592 frontier into this file once the new first authoritative frame is known."
+      "Re-run `verify-tas --frame-start 20895 --bisect` now that the `loc_1BAB0` pre-roll is matched and record the next first authoritative divergence beyond frame 21718.",
+      "Run `tas-diff --frame-start 21715 --frame-end 21740 --include-advisory` so the remaining mode-$28 hand-off blocker is documented with exact fields near frame 21719.",
+      "Re-read Obj_TitleMenu / `loc_1BB02` with the updated clean window and explain what keeps oracle in `Game_Mode=$28` after local mode-$28 frame 824."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
@@ -88,14 +92,15 @@
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21160 --include-advisory",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21218 --frame-end 21230 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21588 --frame-end 21600 --include-advisory",
+      "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718 -- --nocapture",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21590 --frame-end 21730 --include-advisory",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21224 --frame-end 21450 --bisect",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Investigate the frame-21592 mode-0x28 demo hand-off mismatch",
-      "summary": "Native now matches the frame-21224 title-pose hand-off, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 21592. The next session should explain why oracle still stays in `Game_Mode=$28` there while native has already entered `game_mode=0x0010` (demo playback).",
+      "title": "Investigate the frame-21719 mode-0x28 demo hand-off mismatch",
+      "summary": "Native now matches Load_IntroSequence6 `loc_1BAB0`'s 185-frame pre-roll, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 21719. The next session should explain why oracle still stays in `Game_Mode=$28` there while native has already entered `game_mode=0x0010` (demo playback).",
       "sources": [
         ".cache/upstream/kid-chameleon-disasm/kid.asm",
         "crates/kid-core/src/boot.rs",
@@ -120,7 +125,8 @@
         "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory",
         "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21160 --include-advisory",
         "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21218 --frame-end 21230 --include-advisory",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21588 --frame-end 21600 --include-advisory",
+        "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718 -- --nocapture",
+        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21590 --frame-end 21730 --include-advisory",
         "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
         "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21224 --frame-end 21450 --bisect",
         "mise run verify-slice-fast"
@@ -128,7 +134,7 @@
       "done_criteria": [
         "A focused regression captures the first mode-$28 frame where oracle should still remain out of demo playback after the title pose has already become visible.",
         "The engine fix explains why native enters `game_mode=0x0010` earlier than oracle while the title-pose frames still match.",
-        "The first authoritative divergence moves past frame 21592."
+        "The first authoritative divergence moves past frame 21594."
       ]
     }
   },

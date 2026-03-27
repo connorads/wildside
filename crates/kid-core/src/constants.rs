@@ -10,6 +10,10 @@ pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// 2-frame intro→title deferral shifts enter_title_screen() later while the
 /// oracle's Pal_FadeOut + setup duration stays absolute.
 pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
+/// ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` then `dbf d0,loc_1BAB4`,
+/// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
+/// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
+pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
 // The native playtest host should open on the first fully settled Level 1 frame,
 // after gravity settling places the kid on the floor.
 pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;

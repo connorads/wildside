@@ -18513,17 +18513,16 @@ fn published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224() {
 }
 
 #[test]
-fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21592() {
+fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
-    let mut frame_21591 = None;
-    let mut frame_21592 = None;
-    let mut frame_21593 = None;
+    let mut frame_21717 = None;
+    let mut frame_21718 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(21_594) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_719) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
-            21_591 => {
-                frame_21591 = Some((
+            21_717 => {
+                frame_21717 = Some((
                     trace.game_mode,
                     trace.current_level,
                     trace.boot_phase_elapsed,
@@ -18531,17 +18530,8 @@ fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21592() {
                     trace.kid_y_pos,
                 ));
             }
-            21_592 => {
-                frame_21592 = Some((
-                    trace.game_mode,
-                    trace.current_level,
-                    trace.boot_phase_elapsed,
-                    trace.kid_x_pos,
-                    trace.kid_y_pos,
-                ));
-            }
-            21_593 => {
-                frame_21593 = Some((
+            21_718 => {
+                frame_21718 = Some((
                     trace.game_mode,
                     trace.current_level,
                     trace.boot_phase_elapsed,
@@ -18554,41 +18544,31 @@ fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21592() {
         }
     }
 
-    // ASM Obj_TitleMenu `loc_1BAEA` seeds `d0=$280` then loops with `dbf`,
-    // so the mode-$28 title rebuild spends 641 hibernated frames in that idle
-    // loop before `loc_1BB02` flips `Game_Mode=$10`.
+    // ASM Load_IntroSequence6 `loc_1BAB0` first burns a `$B8` DBF-backed
+    // pre-roll before Obj_TitleMenu `loc_1BAEA` even seeds the shared `$280`
+    // title idle loop. Oracle stays in mode `$28` through local frame 824 and
+    // only diverges after that clean edge.
     assert_eq!(
-        frame_21591,
+        frame_21717,
         Some((
             GameMode::IntroSequence6,
             LevelId(0x00),
-            Some(697),
+            Some(823),
             Some(TITLE_KID_X_POS),
             Some(TITLE_KID_Y_POS),
         )),
-        "frame 21591 should still be the rebuilt mode-$28 title pose one frame before the final idle loop hold",
+        "frame 21717 should still keep the rebuilt mode-$28 title pose visible one frame before the new clean frontier",
     );
     assert_eq!(
-        frame_21592,
+        frame_21718,
         Some((
             GameMode::IntroSequence6,
             LevelId(0x00),
-            Some(698),
+            Some(824),
             Some(TITLE_KID_X_POS),
             Some(TITLE_KID_Y_POS),
         )),
-        "frame 21592 should still stay in mode $28 while Obj_TitleMenu `loc_1BAEA` spends its last DBF-backed idle frame",
-    );
-    assert_eq!(
-        frame_21593,
-        Some((
-            GameMode::DemoPlay,
-            LevelId(0x00),
-            Some(0),
-            Some(TITLE_KID_X_POS),
-            Some(TITLE_KID_Y_POS),
-        )),
-        "frame 21593 should be the first demo-play frame after Obj_TitleMenu reaches `loc_1BB02`",
+        "frame 21718 should still stay in mode $28 after Load_IntroSequence6's `loc_1BAB0` pre-roll and Obj_TitleMenu's shared title idle countdown",
     );
 }
 
