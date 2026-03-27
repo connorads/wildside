@@ -44,6 +44,8 @@ impl NativeRuntime {
         self.ignore_demo_start_abort_until_gameplay = false;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
+        self.next_demo_uses_demo_title_return_camera_wrap = false;
+        self.demo_uses_demo_title_return_camera_wrap = false;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = false;
         self.demo_uses_intro_sequence_6_early_title_restore = false;
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
@@ -183,6 +185,8 @@ impl NativeRuntime {
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
+        let demo_title_return_camera_wrap =
+            !use_demo_2 && self.next_demo_uses_demo_title_return_camera_wrap;
         let title_screen_uses_timeout_restart_intro_sequence_4_title_restore = matches!(
             self.boot_state,
             // ASM Obj_TitleMenu `loc_1BAEA -> loc_1BB02` can also hand a demo
@@ -254,6 +258,7 @@ impl NativeRuntime {
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
+        self.demo_uses_demo_title_return_camera_wrap = demo_title_return_camera_wrap;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;
         self.demo_uses_intro_sequence_6_early_title_restore = intro_sequence_6_early_title_restore;
         self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
@@ -265,6 +270,7 @@ impl NativeRuntime {
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
             start_skip_intro_return_camera_wrap || intro_sequence_6_early_title_restore;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
+        self.next_demo_uses_demo_title_return_camera_wrap = false;
         self.reload_block_grid_for_level(self.current_level);
     }
 
@@ -281,6 +287,7 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
         self.hide_demo_return_title_player = true;
+        self.next_demo_uses_demo_title_return_camera_wrap = true;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore =
             intro_sequence_6_early_title_restore;
         if intro_sequence_6_early_title_restore {

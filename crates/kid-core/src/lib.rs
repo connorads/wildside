@@ -203,6 +203,12 @@ pub struct NativeRuntime {
     /// Active demo bootstrap should expose the Start-skip intro-return hidden
     /// camera wrap instead of the cold-boot row.
     demo_uses_start_skip_intro_return_camera_wrap: bool,
+    /// The next demo start comes from the generic `loc_119D8 -> loc_6E2`
+    /// demo-title return rather than the cold-boot attract path.
+    next_demo_uses_demo_title_return_camera_wrap: bool,
+    /// Active demo bootstrap should expose the demo-title-return hidden camera
+    /// wrap instead of the cold-boot row.
+    demo_uses_demo_title_return_camera_wrap: bool,
     /// Load_IntroSequence6 can also flow into Obj_TitleMenu `loc_1BB02 ->
     /// Load_DemoPlay -> Load_InGame`; oracle keeps that timeout-restart
     /// lineage's demo-1 hidden wrap distinct from cold boot and the earlier
@@ -387,6 +393,8 @@ impl NativeRuntime {
             ignore_demo_start_abort_until_gameplay: false,
             next_demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_start_skip_intro_return_camera_wrap: false,
+            next_demo_uses_demo_title_return_camera_wrap: false,
+            demo_uses_demo_title_return_camera_wrap: false,
             demo_uses_intro_sequence_6_hidden_camera_wrap: false,
             demo_uses_intro_sequence_6_early_title_restore: false,
             timeout_restart_intro_sequence_1_uses_early_title_restore: false,

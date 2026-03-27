@@ -15252,7 +15252,7 @@ fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
     assert_eq!(frame_2531.kid_y_pos, None);
 
     let frame_2532 = frames.get(&2_532).expect("frame 2532 should be captured");
-    assert_eq!(frame_2532.camera_y_pos, 0xFF00_0000);
+    assert_eq!(frame_2532.camera_y_pos, 0xFF20_0000);
 
     let frame_2537 = frames.get(&2_537).expect("frame 2537 should be captured");
     assert_eq!(frame_2537.camera_y_pos, 0x00E0_0000);

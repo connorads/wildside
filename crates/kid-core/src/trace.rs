@@ -1300,6 +1300,12 @@ impl NativeRuntime {
             let camera_y_pos = if !use_demo_2 {
                 if frame_counter == 60 && self.demo_uses_intro_sequence_6_hidden_camera_wrap {
                     demo::DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP
+                } else if frame_counter == 60 && self.demo_uses_demo_title_return_camera_wrap {
+                    // ASM `loc_119D8 -> loc_6E2 -> Obj_TitleMenu loc_1BB02 ->
+                    // Load_DemoPlay -> Load_InGame` keeps the later demo-1
+                    // startup on the same wrapped preload row that oracle
+                    // shows after the generic demo-title return.
+                    0xFF20_0000
                 } else if frame_counter == demo::DEMO_1_GAMEPLAY_START_FRAME
                     && self.demo_uses_intro_sequence_6_hidden_camera_wrap
                 {
