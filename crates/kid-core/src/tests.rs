@@ -2182,6 +2182,67 @@ fn timing_regression_airborne_slope_recontact_applies_same_frame_ground_step() {
 /// smoothly track the slope diagonal every frame. SlopeUp: floor_y = cell_top
 /// + 15 - (x_px & 0x0F). Each pixel of rightward movement should raise Y by 1px.
 #[test]
+fn asm_faithful_ground_precheck_skips_sub_b43a_when_already_on_slope() {
+    let w = 6u16;
+    let h = 8u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = hi;
+    };
+    for col in 1..=4 {
+        set(&mut data, col, 4, 0x40);
+        set(&mut data, col, 5, 0x60);
+    }
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    let start_x_px: i32 = 28;
+    let start_floor_y = 64 + 15 - (start_x_px & 0x0F);
+    slice.player.x_pos = (start_x_px as u32) << 16;
+    slice.player.y_pos = (start_floor_y as u32) << 16;
+    slice.player.on_ground = true;
+    slice.player.x_velocity = 0x0002_0000;
+    slice.player.facing = Direction::Right;
+
+    // ASM sub_B43A only scans Solid/Spikes, but the grounded slope path is
+    // owned by loc_9D22 after sub_9386/sub_A254. AsmFaithful native should
+    // therefore keep the slope run alive instead of forcing the flat-ground
+    // "lost floor" jump hand-off when the current support is already SlopeUp.
+    slice.step_with_order(
+        FrameInput {
+            right: true,
+            a: true,
+            ..FrameInput::default()
+        },
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+        PhysicsOrder::AsmFaithful,
+        true,
+        &[],
+    );
+
+    assert!(slice.player.on_ground);
+    assert_eq!(
+        slice.grounded_slope_collision(Some(&grid)),
+        Some(terrain::CollisionKind::SlopeUp)
+    );
+    assert!(slice.player.x_pos > ((start_x_px as u32) << 16));
+    assert!(slice.player.y_pos < ((start_floor_y as u32) << 16));
+}
+
+/// ASM sub_9386 + sub_A254: walking up a SlopeUp tile, the player's Y must
+/// smoothly track the slope diagonal every frame. SlopeUp: floor_y = cell_top
+/// + 15 - (x_px & 0x0F). Each pixel of rightward movement should raise Y by 1px.
+#[test]
 fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
     // Build a wide slope: 4 consecutive SlopeUp tiles at row 6, cols 2-5.
     // Solid floor beneath at row 7, cols 2-5.

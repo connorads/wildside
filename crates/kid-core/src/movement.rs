@@ -437,7 +437,13 @@ impl OpeningSliceState {
                 // (y_pos + 1) / 16 across player width BEFORE any velocity/position
                 // updates. If no Solid/Spikes cell found → loc_B5F6: y_pos += 1px,
                 // transition to Jump, skip sub_9A0A/sub_8F26 entirely.
-                if on_ground_before && let Some(grid) = block_grid.as_deref() {
+                let grounded_slope_before = self
+                    .grounded_slope_collision(block_grid.as_deref())
+                    .filter(|_| on_ground_before);
+                if on_ground_before
+                    && grounded_slope_before.is_none()
+                    && let Some(grid) = block_grid.as_deref()
+                {
                     let x_int = (self.player.x_pos >> 16) as i16 as i32;
                     let y_int = (self.player.y_pos >> 16) as i16 as i32;
                     let probe_row = ((y_int + 1) >> 4).max(0) as u16;
@@ -451,18 +457,7 @@ impl OpeningSliceState {
                         let cell = grid.cell_at(col, probe_row);
                         if matches!(
                             cell.collision,
-                            terrain::CollisionKind::Solid
-                                | terrain::CollisionKind::Spikes
-                                // ASM sub_B43A only checks Solid ($6000) and Spikes ($7000),
-                                // NOT slopes. In the ROM, failing this check transitions to
-                                // the Jump coroutine which yields and re-catches next frame
-                                // via sub_902A. The native code has no coroutines — an early
-                                // return here skips horizontal motion for the frame, causing
-                                // half-speed walking on slopes. Include slopes as valid floor
-                                // so the player continues the physics step normally.
-                                // DEVIATION: sub_B43A only checks Solid|Spikes in the ROM.
-                                | terrain::CollisionKind::SlopeUp
-                                | terrain::CollisionKind::SlopeDown
+                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
                         ) {
                             has_floor = true;
                             break;

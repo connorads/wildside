@@ -147,7 +147,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
 | 130 | [~] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry ROM/build provenance plus replay commands; still need remote-ingest workflow and legacy trace-schema compatibility |
-| 131 | [ ] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
+| 131 | [x] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [x] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
 | 133 | [x] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | ASM title/options flow is documented; stock ROM has no password entry, and native options now mirror the four-option ROM screen |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
@@ -463,7 +463,7 @@ newer fields, and `kidcli` regression coverage locks a real legacy trace example
 Remaining gap: remote-ingest workflow and any optional bundle artefacts still need their own
 follow-up before recordings become the default hand-off format for every playtest report.
 
-### 131 — Burn down the parked DEVIATION items (OPEN)
+### 131 — Burn down the parked DEVIATION items (FIXED)
 Evidence source: fidelity audit of the remaining `DEVIATION:` markers in gameplay code.
 Native repro: mixed. Oracle repro: ASM-backed where noted. Minimum gate: `fast-slice`.
 
@@ -484,6 +484,15 @@ bounce perturbations, and Robot charge flip timers all consume the same seeded b
 ROM uses. Regressions:
 `tornado_loads_rom_pattern_on_timer_expiry` and
 `tornado_accelerates_toward_pattern_targets`, plus the direct RNG and enemy reload tests.
+
+Closure evidence (2026-03-27): the final parked gameplay deviation at the
+`sub_B43A` flat-ground precheck is gone. Native now keeps the precheck literal
+for Solid/Spikes only, but skips that walking-coroutine gate when the current
+support is already a grounded slope owned by ASM `sub_9386` / `loc_9D22`.
+That removes the last in-code `DEVIATION:` marker without reintroducing the old
+half-speed slope regression. Regressions:
+`asm_faithful_ground_precheck_skips_sub_b43a_when_already_on_slope` and
+`walking_on_slope_up_y_tracks_diagonal_every_frame`, plus `mise run verify-slice-fast`.
 
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
