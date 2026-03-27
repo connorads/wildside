@@ -19412,6 +19412,77 @@ fn published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28
 }
 
 #[test]
+fn published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_28100 = None;
+    let mut frame_28101 = None;
+    let mut frame_28102 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(28_103) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            28_100 => {
+                frame_28100 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            28_101 => {
+                frame_28101 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            28_102 => {
+                frame_28102 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence6 still seeds `($FFFFA656).w` and `sub_1B222` on
+    // the later title-restore revisit, but unlike the earlier timeout path it
+    // never exposes the wrapped `$FFF0_0000` row here. Oracle RAM probes keep
+    // `Camera_Y_pos` cleared through local mode-$28 frame 34, then switch to
+    // the delayed seeded `$FFD00000` row on frame 35.
+    assert_eq!(
+        frame_28100,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(34), 0)),
+        "frame 28100 should still keep the later IntroSequence6 camera cleared before the delayed seed appears",
+    );
+    assert_eq!(
+        frame_28101,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(35),
+            0xFFD0_0000
+        )),
+        "frame 28101 should expose the delayed `sub_1B222` seeded camera row on the later revisit",
+    );
+    assert_eq!(
+        frame_28102,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(36),
+            0xFFD0_0000
+        )),
+        "frame 28102 should keep the delayed seeded camera row latched on the next frame",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

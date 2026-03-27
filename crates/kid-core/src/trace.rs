@@ -144,14 +144,23 @@ impl NativeRuntime {
 
     fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
         let BootState::IntroSequence6 {
-            carry_timeout_restart_hidden_camera_wrap: true,
             carry_intro_sequence_5_slot_2_pose: true,
+            carry_timeout_restart_hidden_camera_wrap,
             ..
         } = self.boot_state
         else {
             return None;
         };
         let elapsed = self.title_screen_elapsed_frames;
+        if !carry_timeout_restart_hidden_camera_wrap {
+            // ASM Load_IntroSequence6 still seeds `($FFFFA656).w` with
+            // `$FFD00000` and calls `sub_1B222` on the later title-restore
+            // revisit, but oracle keeps the carried cleared camera through
+            // local mode-$28 frame 34 before the delayed seed appears.
+            return (elapsed
+                >= TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES)
+                .then_some(0xFFD0_0000);
+        }
         if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES {
             return None;
         }

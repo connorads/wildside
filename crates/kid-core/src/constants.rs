@@ -144,6 +144,12 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_SLOT_2_POSE_CARRY_FRAMES: usiz
 // generic cleared title camera. Oracle-backed timeout-restart traces first
 // expose the wrapped `0xFFF0_0000` row on the local mode-$28 frame 32.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES: usize = 32;
+// Oracle-backed probes of the later title-restore revisit show the same
+// `Load_IntroSequence6 -> sub_1B222` seed eventually reappears, but only
+// after the cleared camera survives through local mode-$28 frame 34. Frame
+// 28101 is the first later-revisit frame where `($FFFFA656).w` and
+// `Camera_Y_pos` both become `$FFD00000`.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES: usize = 35;
 // ASM sub_1B43A eventually allocates GfxObjects_Collision_BottomBoundary4,
 // which waits through the title-shell animation and then applies
 // `sub.l d1,($FFFFA656).w; bsr.w sub_1B222` for 16 frames. Starting from the
