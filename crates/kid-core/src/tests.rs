@@ -18633,16 +18633,16 @@ fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21719() {
 }
 
 #[test]
-fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21720() {
+fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21764() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
-    let mut frame_21719 = None;
-    let mut frame_21720 = None;
+    let mut frame_21763 = None;
+    let mut frame_21764 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(21_721) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_765) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
-            21_719 => {
-                frame_21719 = Some((
+            21_763 => {
+                frame_21763 = Some((
                     trace.game_mode,
                     trace.current_level,
                     trace.boot_phase_elapsed,
@@ -18650,8 +18650,8 @@ fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21720() {
                     trace.kid_y_pos,
                 ));
             }
-            21_720 => {
-                frame_21720 = Some((
+            21_764 => {
+                frame_21764 = Some((
                     trace.game_mode,
                     trace.current_level,
                     trace.boot_phase_elapsed,
@@ -18664,22 +18664,82 @@ fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21720() {
         }
     }
 
-    // ASM Obj_TitleMenu `loc_1BAEA` only reaches `loc_1BB02` after the extra
-    // DBF terminal frame, so the fixed mode-$28 hold should now end exactly
-    // one frame later on the following step.
+    // TODO(fidelity): The ROM still keeps this timeout-restart title rebuild
+    // in `Game_Mode=$28` for 45 more frames than the raw `$280` DBF window
+    // would suggest. The oracle-backed guard here locks the currently proven
+    // hand-off while the exact pre-`loc_1BB02` gate is traced from ASM.
     assert_eq!(
-        frame_21719,
+        frame_21763,
         Some((
             GameMode::IntroSequence6,
             LevelId(0x00),
-            Some(825),
+            Some(869),
             Some(TITLE_KID_X_POS),
             Some(TITLE_KID_Y_POS),
         )),
-        "frame 21719 should still be the final mode-$28 title-pose frame before the demo flip",
+        "frame 21763 should still keep the rebuilt mode-$28 title pose visible one frame before the current oracle-backed hand-off",
     );
     assert_eq!(
-        frame_21720,
+        frame_21764,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(870),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21764 should still stay in mode $28 on the last oracle-backed title-pose frame before the later demo flip",
+    );
+}
+
+#[test]
+fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21765() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21764 = None;
+    let mut frame_21765 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_766) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_764 => {
+                frame_21764 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_765 => {
+                frame_21765 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // TODO(fidelity): The exact ROM gate that extends this timeout-restart
+    // mode-$28 hold beyond the plain `$280` DBF loop still needs tracing, but
+    // the oracle-backed hand-off itself is now locked to frame 21765.
+    assert_eq!(
+        frame_21764,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(870),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21764 should still be the final mode-$28 title-pose frame before the later demo flip",
+    );
+    assert_eq!(
+        frame_21765,
         Some((
             GameMode::DemoPlay,
             LevelId(0x00),
@@ -18687,7 +18747,7 @@ fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21720() {
             Some(TITLE_KID_X_POS),
             Some(TITLE_KID_Y_POS),
         )),
-        "frame 21720 should be the first demo-play frame after Obj_TitleMenu reaches loc_1BB02",
+        "frame 21765 should be the first demo-play frame after the oracle-backed timeout-restart title hold ends",
     );
 }
 

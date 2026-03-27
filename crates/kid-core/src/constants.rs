@@ -14,10 +14,12 @@ pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
 /// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
 /// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
 pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
-/// ASM Load_IntroSequence6 branches straight into Obj_TitleMenu `loc_1BAEA:
-/// move.w #$280,d0`, and `dbf d0,loc_1BAEE` therefore hibernates for 641
-/// frames before `loc_1BB02` flips into `Game_Mode=$10`.
-pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 = 0x0281;
+/// TODO(fidelity): ASM `Load_IntroSequence6 -> loc_1BAB0 -> loc_1BAEA`
+/// clearly owns the later `Game_Mode=$10` flip, but the published TAS oracle
+/// keeps the timeout-restart mode-$28 rebuild alive 45 frames beyond the raw
+/// `$280` DBF window. Keep the oracle-backed 686-frame hold here until the
+/// exact pre-`loc_1BB02` gate is traced from the ROM.
+pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 = 0x02AE;
 // The native playtest host should open on the first fully settled Level 1 frame,
 // after gravity settling places the kid on the floor.
 pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
