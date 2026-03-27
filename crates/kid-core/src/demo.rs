@@ -110,6 +110,12 @@ pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0220_0000;
 /// oracle WRAM keeps `Camera_Y_pos=$0228_0000` for that lineage's one hidden
 /// preload frame before `Load_InGame` snaps to `$02A0_0000`.
 pub(crate) const DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP: u32 = 0x0228_0000;
+/// Oracle-backed timeout-restart `IntroSequence6` demo-1 hidden wrap. ASM
+/// `loc_1BA5C -> Load_IntroSequence6 -> loc_1BB02 -> Load_DemoPlay ->
+/// Load_InGame` leaves a different wrapped preload row than both the
+/// cold-boot demo (`0xFF00_0000`) and the earlier Start-skip intro return
+/// (`0xFF20_0000`).
+pub(crate) const DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP: u32 = 0xFD20_0000;
 /// Demo bootstrap holds the level camera on the respawn pose for these frames.
 pub(crate) const DEMO_CAMERA_HOLD_START_FRAME: u16 = 58;
 /// Demo bootstrap publishes widened object counts one frame before the player

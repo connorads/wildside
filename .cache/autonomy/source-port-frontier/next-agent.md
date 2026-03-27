@@ -1,64 +1,64 @@
 ---
-slug: any-percent-published-frame-21142-intro-sequence-6-camera-ramp
-cycle: 66
-updated_at: 2026-03-27T01:00:00Z
+slug: any-percent-published-frame-21837-demo-bootstrap-pose-release
+cycle: 67
+updated_at: 2026-03-27T02:57:53Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the frame-20926 frontier by teaching the timeout-restart `IntroSequence6` trace to expose the first wrapped hidden camera row in [`crates/kid-core/src/trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs).
-- Added [`published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926`](/home/connor/git/kc/crates/kid-core/src/tests.rs), which locks the oracle-backed `camera_y_pos=0xFFF00000` hand-off on frame 20926 and confirms the row persists on 20927.
-- Re-ran the nearby mode-$28 regressions plus `verify-slice-fast`; `verify-tas --frame-start 20895 --bisect` now moves the first CRC divergence to frame 21142.
+- Fixed the frame-21825 timeout-restart demo-1 hidden camera wrap by carrying an `IntroSequence6`-specific demo bootstrap lineage into [`boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs) and [`trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs).
+- Added [`DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP`](/home/connor/git/kc/crates/kid-core/src/demo.rs) and [`published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825`](/home/connor/git/kc/crates/kid-core/src/tests.rs), locking the oracle-backed `camera_y_pos=0xFD200000` on frame 21825.
+- Re-ran the focused camera-wrap regressions, `tas-diff --frame-start 21820 --frame-end 21830 --include-advisory`, `verify-tas --frame-start 21765 --bisect`, and `mise run verify-slice-fast`; the first authoritative divergence now moves to frame 21837.
 
 ## Current Model
 
-- ASM [`Load_IntroSequence6`](.cache/upstream/kid-chameleon-disasm/kid.asm) seeds `($FFFFA656).w` with `$FFD00000` and immediately calls [`sub_1B222`](.cache/upstream/kid-chameleon-disasm/kid.asm), so the early mode-$28 camera is driven by the hidden title-camera accumulator rather than the generic cleared title camera.
-- Native now matches the first wrapped row, but it still treats that wrapped value as a flat hold.
-- Oracle continues ramping the same hidden camera accumulator during early mode `$28`: frame 21142 is `0xFFF10000`, then `0xFFF20000`, `0xFFF30000`, and so on.
+- ASM `loc_1BA5C` enters `Load_IntroSequence6`, and the later `Obj_TitleMenu loc_1BB02 -> Load_DemoPlay -> Load_InGame` hand-off preserves a distinct hidden demo-1 wrap for the timeout-restart lineage that came from intro sequence 5.
+- Native now matches that hidden wrap on frame 21825 and stays authoritative-clean through frame 21836.
+- The next blocker opens when the demo bootstrap starts surfacing gameplay state: native still holds the demo bootstrap pose one frame too long on frame 21837, so the camera climbs eight pixels too early and Kid appears at `(0x00100000,0x00FF0000)` while oracle still keeps `(kid_x_pos,kid_y_pos)=(0,0)`.
 
 ## Strongest Evidence
 
 - ASM
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `Load_IntroSequence6` writes `move.l #$FFD00000,($FFFFA656).w` and calls `sub_1B222`.
-    - `sub_1B222` copies `($FFFFA656).w` into `Camera_Y_pos`.
-    - `GfxObjects_Collision_BottomBoundary4` repeatedly updates `($FFFFA656).w` and re-calls `sub_1B222`.
+    - `loc_1BA5C` flips into `Load_IntroSequence6`.
+    - `loc_1BB02` flips `Game_Mode` to `$10`, then `Load_DemoPlay` immediately calls `Load_InGame`.
+    - `Load_InGame` seeds `Camera_Y_pos` from `PlayerStart_Y_pos` and starts the normal level bootstrap.
 - Native
-  - [`crates/kid-core/src/constants.rs`](/home/connor/git/kc/crates/kid-core/src/constants.rs)
-    - `TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES` now records the oracle-backed first wrapped row at local mode-$28 frame 32.
-  - [`crates/kid-core/src/trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs)
-    - `intro_sequence_6_uses_timeout_restart_hidden_camera_wrap()` now exposes `camera_y_pos=0xFFF00000` for the timeout-restart `IntroSequence6` lineage once that wrapped row becomes visible.
-  - [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
-    - `published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926` passes.
+  - [`boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs)
+    - `begin_demo_play()` now remembers when demo playback came from `IntroSequence6` with the carried intro-sequence-5 lineage bit.
+  - [`trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs)
+    - Demo-1 hidden camera selection now distinguishes cold boot, Start-skip intro return, and `IntroSequence6`.
+  - [`tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
+    - `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.
 - Oracle / parity
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory`
-    - Frames 20926..20929 now differ only on advisory `number_objects`.
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect`
-    - First CRC divergence is now frame 21142.
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21148 --include-advisory`
-    - Frames 21142..21147 diverge on `camera_y_pos`: native stays `0xFFF00000`, oracle ramps `0xFFF10000`, `0xFFF20000`, `0xFFF30000`, `0xFFF40000`, `0xFFF50000`, `0xFFF60000`.
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21820 --frame-end 21830 --include-advisory`
+    - Frames 21824..21829 now differ only on advisory `number_objects`.
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect`
+    - First CRC divergence is now frame 21837.
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21834 --frame-end 21842 --include-advisory`
+    - Frame 21837 is the first authoritative break: `camera_y_pos native=0x00D80000 oracle=0x00E00000`, `kid_x_pos native=0x00100000 oracle=0x00000000`, `kid_y_pos native=0x00FF0000 oracle=0x00000000`.
 
 ## Exact Next Moves
 
-1. Read `Load_IntroSequence6`, `sub_1B222`, `sub_1B43A`, and `GfxObjects_Collision_BottomBoundary4` again and work out the exact per-frame `($FFFFA656).w` update that starts surfacing at frame 21142.
-2. Replace the flat wrapped-camera hold with an accumulator-backed ramp for the timeout-restart `IntroSequence6` lineage.
-3. Add one focused regression for frame 21142 only after the exact first post-wrap increment is proven.
+1. Read the first visible demo-bootstrap path after `loc_1BB02 -> Load_DemoPlay -> Load_InGame` and trace why native releases the hidden demo bootstrap pose on frame 21837 while oracle keeps Kid hidden for one more frame.
+2. Inspect the native demo bootstrap hold logic that currently reports `kid_gameplay_path_probe=demo_bootstrap_pose_hold` on frame 21837 and line it up with the ROM/bootstrap timing.
+3. Add one focused regression for frame 21837 only after the exact pose/camera release is proven.
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21148 --include-advisory`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect`
+- `cargo test -q -p kid-core published_tas_intro_sequence_6_enters_demo_play_on_frame_21765 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825 -- --nocapture`
+- `cargo test -q -p kid-core demo_1_bootstrap_keeps_camera_hidden_through_frame_2537 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188 -- --nocapture`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21820 --frame-end 21830 --include-advisory`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21834 --frame-end 21842 --include-advisory`
+- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not reopen the frame-20926 blank-camera hold. The first wrapped row is now proven and covered by a focused regression.
-- Do not treat this as another player visibility issue. Frames 21142..21147 diverge only on `camera_y_pos`; Kid stays hidden.
-- Do not patch a second magic constant without tracing the `($FFFFA656).w` accumulator. The next mismatch is a ramp, not a one-off row.
+- Do not reopen the old cold-boot demo-1 wrap. `demo_1_bootstrap_keeps_camera_hidden_through_frame_2537` still expects `0xFF000000` on the cold-boot path.
+- Do not reuse the Start-skip intro-return wrap. That path is already covered by `published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188` and still expects `0xFF200000`.
+- Do not patch another shared hidden-camera magic constant. The next blocker is no longer the hidden wrap; it is the first visible demo-bootstrap pose/camera release at frame 21837.

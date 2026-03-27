@@ -42,6 +42,7 @@ impl NativeRuntime {
         self.ignore_demo_start_abort_until_gameplay = false;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
+        self.demo_uses_intro_sequence_6_hidden_camera_wrap = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
         self.pending_prize_diamond_awards.clear();
     }
@@ -138,6 +139,17 @@ impl NativeRuntime {
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
+        let intro_sequence_6_hidden_camera_wrap = matches!(
+            self.boot_state,
+            // ASM loc_1BA5C enters Load_IntroSequence6, and the later
+            // Obj_TitleMenu `loc_1BB02 -> Load_DemoPlay -> Load_InGame`
+            // hand-off preserves a distinct demo-1 hidden camera wrap on the
+            // timeout-restart lineage that came from intro sequence 5.
+            BootState::IntroSequence6 {
+                carry_intro_sequence_5_slot_2_pose: true,
+                ..
+            }
+        );
         self.boot_state = BootState::DemoPlay {
             frame_counter: 0,
             data_index: 0,
@@ -175,6 +187,7 @@ impl NativeRuntime {
         self.hide_demo_return_title_player = false;
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
+        self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
             start_skip_intro_return_camera_wrap;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;

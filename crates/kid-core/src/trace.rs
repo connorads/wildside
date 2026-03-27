@@ -1232,7 +1232,10 @@ impl NativeRuntime {
             && frame_counter < demo::gameplay_start_frame(use_demo_2)
         {
             let camera_y_pos = if !use_demo_2 {
-                if frame_counter == 60 && self.demo_uses_start_skip_intro_return_camera_wrap {
+                if frame_counter == 60 && self.demo_uses_intro_sequence_6_hidden_camera_wrap {
+                    demo::DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP
+                } else if frame_counter == 60 && self.demo_uses_start_skip_intro_return_camera_wrap
+                {
                     // ASM sub_1B8F4 / loc_1B920 reach title via sub_1C246's
                     // deferred Start skip, and the later Obj_TitleMenu
                     // loc_1BB02 -> Load_DemoPlay -> Load_InGame hand-off keeps
