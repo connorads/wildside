@@ -564,11 +564,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 )
             })?;
         let recording = build_recording(
+            manifest,
             slug,
             recording_start_from_options(&options),
             recorded_script,
             recorded_trace,
-        );
+        )?;
         save_recording(record_to, &recording)?;
         println!(
             "recording saved to {}. verify with: cargo run -p kidcli -- verify-recording --slug {}",

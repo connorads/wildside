@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
 const RECORDING_SETTLED_ORACLE_PREFIX_FRAMES: usize = 60;
+const RECORDING_BUNDLE_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RecordingStart {
@@ -23,9 +24,29 @@ pub(crate) struct RecordingStart {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct NativeRecordingManifest {
+    #[serde(default)]
+    pub(crate) bundle_version: u32,
     pub(crate) slug: String,
     pub(crate) recorded_at: String,
     pub(crate) start: RecordingStart,
+    #[serde(default)]
+    pub(crate) rom_sha1: String,
+    #[serde(default)]
+    pub(crate) script_sha1: String,
+    #[serde(default)]
+    pub(crate) trace_sha1: String,
+    #[serde(default)]
+    pub(crate) host_os: String,
+    #[serde(default)]
+    pub(crate) host_arch: String,
+    #[serde(default)]
+    pub(crate) git_commit: Option<String>,
+    #[serde(default)]
+    pub(crate) git_dirty: Option<bool>,
+    #[serde(default)]
+    pub(crate) record_command: String,
+    #[serde(default)]
+    pub(crate) verify_command: String,
     pub(crate) scenario: DynamicScenario,
 }
 
@@ -84,17 +105,34 @@ pub(crate) fn validate_recording_slug(slug: &str) -> Result<&str> {
 }
 
 pub(crate) fn build_recording(
+    manifest: &AssetManifest,
     slug: &str,
     start: RecordingStart,
     script: Vec<u8>,
     trace: Vec<NativeTraceFrame>,
-) -> NativeRecording {
+) -> Result<NativeRecording> {
     let frame_count = script.len();
-    NativeRecording {
+    let git_status = current_git_status();
+    let verify_command = format!("cargo run -p kidcli -- verify-recording --slug {slug}");
+    let record_command = recording_command(slug, start);
+    let script_sha1 = sha1_hex(&script);
+    let trace_sha1 = sha1_hex(&serde_json::to_vec(&trace)?);
+
+    Ok(NativeRecording {
         manifest: NativeRecordingManifest {
+            bundle_version: RECORDING_BUNDLE_VERSION,
             slug: slug.to_owned(),
             recorded_at: unix_timestamp(),
             start,
+            rom_sha1: manifest.rom_sha1.clone(),
+            script_sha1,
+            trace_sha1,
+            host_os: std::env::consts::OS.to_owned(),
+            host_arch: std::env::consts::ARCH.to_owned(),
+            git_commit: git_status.as_ref().and_then(|status| status.commit.clone()),
+            git_dirty: git_status.as_ref().map(|status| status.dirty),
+            record_command,
+            verify_command,
             scenario: DynamicScenario {
                 slug: slug.to_owned(),
                 checkpoints: recording_checkpoints(frame_count),
@@ -104,7 +142,7 @@ pub(crate) fn build_recording(
             },
         },
         trace,
-    }
+    })
 }
 
 pub(crate) fn save_recording(record_to: &Path, recording: &NativeRecording) -> Result<()> {
@@ -139,6 +177,11 @@ pub(crate) fn save_recording(record_to: &Path, recording: &NativeRecording) -> R
         serde_json::to_vec_pretty(&recording.trace)?,
     )
     .with_context(|| format!("failed to write {}", record_to.join("trace.json").display()))?;
+    fs::write(
+        record_to.join("README.txt"),
+        recording_bundle_summary(recording),
+    )
+    .with_context(|| format!("failed to write {}", record_to.join("README.txt").display()))?;
     Ok(())
 }
 
@@ -156,7 +199,7 @@ fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
     })?;
     let trace = fs::read(record_dir.join("trace.json"))
         .with_context(|| format!("failed to read {}", record_dir.join("trace.json").display()))?;
-    Ok(NativeRecording {
+    let mut recording = NativeRecording {
         manifest: serde_json::from_slice(&manifest).with_context(|| {
             format!(
                 "failed to parse {}",
@@ -169,7 +212,9 @@ fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
                 record_dir.join("trace.json").display()
             )
         })?,
-    })
+    };
+    normalise_loaded_recording(&mut recording)?;
+    Ok(recording)
 }
 
 pub(crate) fn run_recorded_trace(
@@ -637,10 +682,143 @@ fn unix_timestamp() -> String {
     format!("{}", since_epoch.as_secs())
 }
 
+fn normalise_loaded_recording(recording: &mut NativeRecording) -> Result<()> {
+    if recording.manifest.bundle_version == 0 {
+        recording.manifest.bundle_version = 1;
+    }
+    if recording.manifest.script_sha1.is_empty() {
+        recording.manifest.script_sha1 = sha1_hex(&recording.manifest.scenario.script);
+    }
+    if recording.manifest.trace_sha1.is_empty() {
+        recording.manifest.trace_sha1 = sha1_hex(&serde_json::to_vec(&recording.trace)?);
+    }
+    if recording.manifest.host_os.is_empty() {
+        recording.manifest.host_os = String::from("unknown");
+    }
+    if recording.manifest.host_arch.is_empty() {
+        recording.manifest.host_arch = String::from("unknown");
+    }
+    if recording.manifest.record_command.is_empty() {
+        recording.manifest.record_command =
+            recording_command(&recording.manifest.slug, recording.manifest.start);
+    }
+    if recording.manifest.verify_command.is_empty() {
+        recording.manifest.verify_command = format!(
+            "cargo run -p kidcli -- verify-recording --slug {}",
+            recording.manifest.slug
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GitStatus {
+    commit: Option<String>,
+    dirty: bool,
+}
+
+fn current_git_status() -> Option<GitStatus> {
+    let commit = run_git(["rev-parse", "HEAD"]);
+    let dirty_output = run_git(["status", "--short"]);
+    if commit.is_none() && dirty_output.is_none() {
+        return None;
+    }
+    Some(GitStatus {
+        commit,
+        dirty: dirty_output.is_some_and(|output| !output.is_empty()),
+    })
+}
+
+fn run_git<const N: usize>(args: [&str; N]) -> Option<String> {
+    let output = std::process::Command::new("git").args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_owned())
+    }
+}
+
+fn recording_command(slug: &str, start: RecordingStart) -> String {
+    let mut command = String::from("cargo run --release -p kidcli -- play-native");
+    if let Some(level) = start.warp_level {
+        command.push_str(&format!(" --warp-level {level:02X}"));
+    }
+    if start.settled {
+        command.push_str(" --settled");
+    }
+    command.push_str(&format!(" --record {slug}"));
+    command
+}
+
+fn recording_bundle_summary(recording: &NativeRecording) -> String {
+    let manifest = &recording.manifest;
+    let mut lines = vec![
+        format!(
+            "Kid Chameleon native recording bundle v{}",
+            manifest.bundle_version
+        ),
+        format!("slug: {}", manifest.slug),
+        format!("recorded_at_unix: {}", manifest.recorded_at),
+        format!("rom_sha1: {}", manifest.rom_sha1),
+        format!("frame_count: {}", manifest.scenario.frame_count),
+        format!("trace_len: {}", recording.trace.len()),
+        format!("script_sha1: {}", manifest.script_sha1),
+        format!("trace_sha1: {}", manifest.trace_sha1),
+        format!("host: {}/{}", manifest.host_os, manifest.host_arch),
+    ];
+    if let Some(commit) = &manifest.git_commit {
+        lines.push(format!("git_commit: {commit}"));
+    }
+    if let Some(dirty) = manifest.git_dirty {
+        lines.push(format!("git_dirty: {dirty}"));
+    }
+    lines.push(format!("start_warp_level: {:?}", manifest.start.warp_level));
+    lines.push(format!("start_settled: {}", manifest.start.settled));
+    lines.push(String::new());
+    lines.push(String::from("record_command:"));
+    lines.push(manifest.record_command.clone());
+    lines.push(String::new());
+    lines.push(String::from("verify_command:"));
+    lines.push(manifest.verify_command.clone());
+    lines.push(String::new());
+    lines.push(String::from("bundle_files:"));
+    lines.push(String::from("- manifest.json"));
+    lines.push(String::from("- scenario.json"));
+    lines.push(String::from("- trace.json"));
+    lines.push(String::from("- README.txt"));
+    lines.join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    fn fixture_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: 8,
+            rom_sha1: String::from("fixture-rom"),
+            upstream_commit: String::from("upstream"),
+            source_root: PathBuf::from("/tmp/source"),
+            output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
 
     fn sample_trace_frame(frame_index: usize) -> NativeTraceFrame {
         NativeTraceFrame {
@@ -733,6 +911,7 @@ mod tests {
     #[test]
     fn build_recording_uses_script_len_for_frame_count() {
         let recording = build_recording(
+            &fixture_manifest(),
             "level1-tree-bug",
             RecordingStart {
                 warp_level: Some(0),
@@ -744,9 +923,15 @@ mod tests {
                 sample_trace_frame(1),
                 sample_trace_frame(2),
             ],
-        );
+        )
+        .expect("recording");
         assert_eq!(recording.manifest.scenario.frame_count, 3);
         assert_eq!(recording.manifest.scenario.warp_to_level, Some(0));
+        assert_eq!(recording.manifest.rom_sha1, "fixture-rom");
+        assert_eq!(
+            recording.manifest.verify_command,
+            "cargo run -p kidcli -- verify-recording --slug level1-tree-bug"
+        );
     }
 
     #[test]
@@ -765,6 +950,7 @@ mod tests {
     #[test]
     fn settled_recordings_translate_to_oracle_warp_with_prefix() {
         let recording = build_recording(
+            &fixture_manifest(),
             "level1-tree-bug",
             RecordingStart {
                 warp_level: Some(0),
@@ -776,7 +962,8 @@ mod tests {
                 sample_trace_frame(1),
                 sample_trace_frame(2),
             ],
-        );
+        )
+        .expect("recording");
 
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
@@ -797,6 +984,7 @@ mod tests {
     #[test]
     fn unsettled_recordings_keep_original_oracle_scenario() {
         let recording = build_recording(
+            &fixture_manifest(),
             "title-start",
             RecordingStart {
                 warp_level: None,
@@ -808,11 +996,82 @@ mod tests {
                 sample_trace_frame(1),
                 sample_trace_frame(2),
             ],
-        );
+        )
+        .expect("recording");
 
         let (oracle_scenario, prefix) = oracle_scenario_for_recording(&recording);
 
         assert_eq!(prefix, 0);
         assert_eq!(oracle_scenario, recording.manifest.scenario);
+    }
+
+    #[test]
+    fn save_recording_writes_human_readable_bundle_summary() {
+        let temp = TempDir::new().expect("temp dir");
+        let recording = build_recording(
+            &fixture_manifest(),
+            "level1-tree-bug",
+            RecordingStart {
+                warp_level: Some(0x01),
+                settled: true,
+            },
+            vec![1, 2, 3],
+            vec![
+                sample_trace_frame(0),
+                sample_trace_frame(1),
+                sample_trace_frame(2),
+            ],
+        )
+        .expect("recording");
+
+        save_recording(temp.path(), &recording).expect("save recording");
+
+        let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
+        assert!(readme.contains("Kid Chameleon native recording bundle v2"));
+        assert!(readme.contains("rom_sha1: fixture-rom"));
+        assert!(readme.contains("--warp-level 01 --settled --record level1-tree-bug"));
+        assert!(readme.contains("cargo run -p kidcli -- verify-recording --slug level1-tree-bug"));
+    }
+
+    #[test]
+    fn load_recording_backfills_legacy_metadata_fields() {
+        let temp = TempDir::new().expect("temp dir");
+        fs::write(
+            temp.path().join("manifest.json"),
+            r#"{
+  "slug": "legacy-level2-entry",
+  "recorded_at": "123",
+  "start": { "warp_level": 1, "settled": true },
+  "scenario": {
+    "slug": "legacy-level2-entry",
+    "checkpoints": [{ "label": "start", "frame_index": 0 }],
+    "frame_count": 1,
+    "script": [0],
+    "warp_to_level": 1
+  }
+}"#,
+        )
+        .expect("legacy manifest");
+        fs::write(
+            temp.path().join("trace.json"),
+            serde_json::to_vec(&vec![sample_trace_frame(0)]).expect("trace json"),
+        )
+        .expect("trace");
+
+        let recording = load_recording(temp.path()).expect("load legacy recording");
+
+        assert_eq!(recording.manifest.bundle_version, 1);
+        assert_eq!(recording.manifest.host_os, "unknown");
+        assert_eq!(recording.manifest.host_arch, "unknown");
+        assert_eq!(
+            recording.manifest.record_command,
+            "cargo run --release -p kidcli -- play-native --warp-level 01 --settled --record legacy-level2-entry"
+        );
+        assert_eq!(
+            recording.manifest.verify_command,
+            "cargo run -p kidcli -- verify-recording --slug legacy-level2-entry"
+        );
+        assert!(!recording.manifest.script_sha1.is_empty());
+        assert!(!recording.manifest.trace_sha1.is_empty());
     }
 }

@@ -146,7 +146,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
-| 130 | [ ] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Capture a recording on one machine, replay and verify it locally, and use the slug as a bug artefact |
+| 130 | [~] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry ROM/build provenance plus replay commands; still need remote-ingest workflow and legacy trace-schema compatibility |
 | 131 | [ ] | P2 | fidelity | Burn down the six parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [ ] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
 | 133 | [ ] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | Document ASM path, native support status, and explicit implementation decision |
@@ -290,12 +290,21 @@ The current `1p-accurate` artefact remains useful, but it is too narrow to stand
 works". This item is complete only when there is a standard smoke gate covering the real 1P path
 and the recurring native-play failures above.
 
-### 130 — Turn recordings into the standard playtest evidence pipeline (OPEN)
+### 130 — Turn recordings into the standard playtest evidence pipeline (IN PROGRESS)
 Evidence source: existing `play-native --record` / `verify-recording` support plus current workflow gaps.
 Native repro: partial. Oracle repro: partial. Minimum gate: n/a.
 
 The repo already records input + trace. The missing work is packaging, remote-ingest workflow,
 optional artefacts, and making the recording slug the normal reproduction handle for future bugs.
+
+Progress landed: new recording bundles now persist ROM SHA-1, script/trace hashes, host OS/arch,
+best-effort git commit/dirty state, and explicit record/verify commands in `manifest.json`, plus
+a human-readable `README.txt` so a copied slug is self-describing before verification runs.
+
+Remaining gap: older `trace.json` bundles can still fail replay verification because the recorded
+`NativeTraceFrame` schema predates newer fields. The pipeline now backfills manifest metadata for
+legacy bundles, but trace-schema compatibility still needs its own follow-up if old artefacts must
+remain replayable indefinitely.
 
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
