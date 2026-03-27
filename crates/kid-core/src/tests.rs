@@ -19559,6 +19559,87 @@ fn published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_fr
 }
 
 #[test]
+fn published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_28396 = None;
+    let mut frame_28398 = None;
+    let mut frame_28399 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(28_400) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            28_396 => {
+                frame_28396 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            28_398 => {
+                frame_28398 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            28_399 => {
+                frame_28399 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1B5CE still owns the eventual `move.w #$2E,x_pos(a3)` /
+    // `move.w #$8C,y_pos(a3)` write on the later mode-$28 revisit, but oracle
+    // keeps Kid hidden through local frame 332 after the delayed `$FFD00000`
+    // camera-ramp lineage and only exposes the standard title pose on 333.
+    assert_eq!(
+        frame_28396,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(330),
+            None,
+            None
+        )),
+        "frame 28396 should still keep Kid hidden on the later mode-$28 revisit even though the earlier timeout-restart lineage already shows the title pose",
+    );
+    assert_eq!(
+        frame_28398,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(332),
+            None,
+            None
+        )),
+        "frame 28398 should still be hidden on the final pre-title-pose frame of the later revisit",
+    );
+    assert_eq!(
+        frame_28399,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(333),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 28399 should be the first later-revisit frame where loc_1B5CE's standard title pose becomes visible",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;
