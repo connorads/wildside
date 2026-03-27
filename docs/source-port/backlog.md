@@ -144,7 +144,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now uses the ASM block group as well as skin, so post-prize `$E001` cells render smash-family art instead of prize-family art |
 | 126 | [ ] | P1 | player | Walking up slopes is still observably wrong in native play | Traverse representative slopes in focused scenario and live play, confirm no hitching or bad grounding |
 | 127 | [ ] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Hit bounce blocks in focused scenario and live play, confirm bounce height/timing |
-| 128 | [ ] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Repro with affected form, confirm allowed blocks break and metal blocks remain intact |
+| 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [ ] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run` gate is green only when the core 1P smoke path survives those scenarios |
 | 130 | [ ] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Capture a recording on one machine, replay and verify it locally, and use the slug as a bug artefact |
 | 131 | [ ] | P2 | fidelity | Burn down the six parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
@@ -217,6 +217,21 @@ Fix: index block visuals by both block family and skin. Regressions:
 `load_block_visual_mapping_from_skin_and_block_type`,
 `build_game_scene_emits_block_family_tiles_from_skin_and_block_type`, and
 `prize_block_lifecycle_restores_smash_family_art_after_dispatch`.
+
+### 128 — Form-specific block breaking can now destroy metal blocks that should stay solid (FIXED)
+Evidence source: code-path audit after the Iron Knight landing shortcut. Native repro: reproduced in tests.
+Oracle repro: ASM-backed via `sub_AF7A`, `off_AFD8`, and `loc_110D0/sub_11120`. Minimum gate: `fast-slice`.
+
+Root cause: native had collapsed Iron Knight's landing block-break dispatch into
+"delete every block type `0..5`". The ROM does not do that. `off_AFD8` sends
+Smash/Prize/Ice to destructive handlers, SolidGhost/Teleporter to a no-op path,
+and Metal to `loc_110D0`, which plays the steel bounce animation and restores
+`$E50B` instead of clearing the cell.
+
+Fix: restore that block-type dispatch in the landing path. Regression:
+`iron_knight_landing_on_metal_block_bounces_without_destroying_it` proves a
+landing Iron Knight now bounces off a metal block, leaves the cell intact, and
+queues the steel bounce effect instead of deleting the tile.
 
 ### 129 — Add a `1p-playable` gate (OPEN)
 Evidence source: roadmap decision after repeated native-play failures escaping the current gate.

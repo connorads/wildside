@@ -1230,22 +1230,38 @@ impl NativeRuntime {
                 if let Some(ref mut grid) = self.block_grid {
                     let probe = terrain::probe_floor_hitbox(grid, px, py, hw);
                     if probe.on_ground && probe.cell.has_block {
-                        let bt = probe.cell.block_type as u8;
-                        // off_AFD8: types 0-5 (Smash, Prize, Ice, SolidGhost,
-                        // Teleporter, Metal) are breakable by IronKnight.
-                        if bt <= 5 {
-                            grid.set_cell_at(
-                                probe.cell_x,
-                                probe.cell_y,
-                                terrain::Cell::from_be_bytes(0x00, 0x00),
-                            );
-                            self.block_destroy_effects.push(BlockDestroyEffect {
-                                x_px: probe.cell_x * 16,
-                                y_px: probe.cell_y * 16,
-                                remaining: 8,
-                            });
-                            slice.player.y_velocity = -0x8000;
-                            slice.player.on_ground = false;
+                        match probe.cell.block_type {
+                            // ASM sub_AF7A/off_AFD8: Smash, Prize, and Ice
+                            // dispatch to their destructive handlers and then
+                            // bounce Iron Knight back upward.
+                            terrain::BlockType::Smash
+                            | terrain::BlockType::Prize
+                            | terrain::BlockType::Ice => {
+                                grid.set_cell_at(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    terrain::Cell::from_be_bytes(0x00, 0x00),
+                                );
+                                self.block_destroy_effects.push(BlockDestroyEffect {
+                                    x_px: probe.cell_x * 16,
+                                    y_px: probe.cell_y * 16,
+                                    remaining: 8,
+                                });
+                                slice.player.y_velocity = -0x8000;
+                                slice.player.on_ground = false;
+                            }
+                            // ASM off_AFD8 -> loc_110D0/sub_11120: metal
+                            // blocks bounce, play the steel hit effect, then
+                            // restore $E50B instead of being deleted.
+                            terrain::BlockType::Metal => {
+                                slice.metal_block_hit = Some((probe.cell_x, probe.cell_y));
+                                slice.player.y_velocity = -0x8000;
+                                slice.player.on_ground = false;
+                            }
+                            // ASM off_AFD8 -> sub_AFD4: SolidGhost and
+                            // Teleporter blocks are not broken by this path.
+                            terrain::BlockType::SolidGhost | terrain::BlockType::Teleporter => {}
+                            _ => {}
                         }
                     }
                 }

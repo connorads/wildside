@@ -11905,6 +11905,48 @@ fn iron_knight_landing_stops_climb() {
 }
 
 #[test]
+fn iron_knight_landing_on_metal_block_bounces_without_destroying_it() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+    let mut grid = grid_with_floor_at_row(14);
+    // ASM sub_AF7A/off_AFD8 -> loc_110D0/sub_11120 restores `$E50B`
+    // after the steel bounce animation instead of deleting the block.
+    grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+    runtime.block_grid = Some(grid);
+
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = (5 * 16 + 8) << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.y_velocity = 0x0002_0000;
+    slice.player.on_ground = false;
+    runtime.opening_slice = Some(slice);
+
+    runtime.step_frame(FrameInput::default());
+
+    let cell_after = runtime
+        .block_grid()
+        .expect("block grid should remain active")
+        .cell_at(5, 14);
+    assert!(cell_after.has_block, "metal block should stay solid");
+    assert_eq!(cell_after.block_type, terrain::BlockType::Metal);
+    assert_eq!(cell_after.collision, terrain::CollisionKind::Solid);
+    assert_eq!(runtime.block_bounces.len(), 1, "steel hit should bounce");
+
+    let slice_after = runtime
+        .opening_slice
+        .expect("opening slice should remain active");
+    assert_eq!(slice_after.player.y_velocity, -0x8000);
+    assert!(
+        !slice_after.player.on_ground,
+        "steel hit should kick Iron Knight back airborne"
+    );
+}
+
+#[test]
 fn iron_knight_non_iron_knight_clears_state() {
     let mut rt = iron_knight_runtime_with_wall();
     rt.helmet.iron_knight_climbing = true;
