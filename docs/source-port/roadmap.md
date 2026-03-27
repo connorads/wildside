@@ -1,169 +1,166 @@
-# Long-Tail Roadmap: Finish Kid Chameleon Source Port
+# Source-Port Roadmap: Make 1P Actually Work
 
-## Current approach
+## Current truth
 
-All 10 milestones below are done or substantially complete. The project is now in **playtest-driven iteration** — bugs and missing features are tracked in `docs/source-port/backlog.md`. See `CLAUDE.md` for the iteration protocol and `docs/source-port/methodology.md` for the deep validation methodology.
+The TAS frontier is in a good place:
 
-## Context
+- `kc_any_percent_2024` is authoritative-clean through frame `4916`
+- `any-percent-published` is authoritative-clean through frame `37759`
+- the current active frontier in `frontier-state.yaml` is `status: complete`
 
-All 10 milestones are complete. The port is a full playable game: all 10 forms, 28 enemy families (ASM-verified), 4 bosses, full audio (GemsAudioEngine), 105 levels loadable, menus (title, pause, game over, continue, score, sound test), ending sequence, demo playback, Diamond Power (20 form/tier combos), per-helmet transform timing, original transform sprites, and multi-level progression. 63/69 BCD levels pass oracle sweep at 0px tolerance (6 errors are jgenesis oracle bugs). 69/69 gameplay scenarios pass. Perf baseline tracking done (#031). What remains: 2 visual fidelity items (fire trail sprites, floating item sprites), 2 gameplay items (#037 floor-snap settling, #062 HeadyMetal death wobble), and 6 documented deviations (RNG, structural differences). See `research-map.md` for details.
+That does **not** mean the game is nearly finished.
 
----
+The current `1p-accurate` release gate is useful, but it is narrower than "the game
+works". Native play still has open breakage around deaths, transitions, block
+behaviour, slopes, bounce surfaces, and visual/state regressions. This roadmap treats
+those failures as first-class work, not as noise beneath a mostly-complete port.
 
-## Milestone 1: Tier 1 Enemy Families + Archetype System — Done
+## Finish line for this phase
 
-**Goal:** Every early level has moving enemies. Refactor enemy dispatch into reusable archetypes.
+Primary target: **single-player boot-to-credits that works in native play and converges on oracle-backed accuracy**.
 
-### Tier 1 families — Pacer archetype
+Out of scope for this phase's finish line:
 
-| obj ID | Family | ASM lines | Speed (FP) by HP | Timers ($48/$4A) |
-|--------|--------|-----------|-------------------|------------------|
-| `$10` | Goat | 192 | 3HP:`$18000` 4HP:`$28000` 5HP:`$38000` | 9/16 |
-| `$04` | Armadillo | 196 | 1HP:`$8000` 2HP:`$18000` 3HP:`$28000` | —/— |
-| `$0A` | Tank | 163 | (shared with shooting) | —/— |
-| `$09` | Crab | 262 | 2HP:`$8000` 3HP:`$18000` | 12/30 |
-| `$13` | Scorpion | 260 | fixed `$18000` | 9/22 |
-| `$1A` | Driller | 185 | 2HP:`$8000` 3HP:`$10000` 4HP:`$18000` | 12/16 |
+- 2-player alternation as a release blocker
+- password flow as a release blocker
+- built-in narrated playtest capture or microphone support
 
-All use: walk at speed, probe floor ahead for edge, probe wall ahead for reversal, reverse facing on either.
+Those remain visible backlog epics, but 1P stability and fidelity come first.
 
-### Work items
-1. Add `Pacer` archetype — `step_pacer(enemy, block_grid)`: walk at `walk_speed`, call `probe_wall` and floor-edge detection, reverse facing. Parameterised by per-family constants.
-2. Wire 6 families — add `EnemyFamily` variants with `from_layout_object` mapping from IDs `$10`, `$04`, `$0A`, `$09`, `$13`, `$1A`.
-3. Per-family constants — extract speed/HP from ASM init routines. HP formula: `current_hp = enemy_level + N`.
-4. Tank shooting (`$0B`) — fires projectiles at intervals. Add lightweight `EnemyProjectile` system.
-5. Oracle per-enemy regression — extend `trace-oracle-enemy-layout` for scenarios beyond Level 1.
-6. Tier 1 enemy sprites — extend `EnemyVisuals` in `kid-render`.
+## Workstreams
 
----
+### 1. Truth reset and canonical tracking
 
-## Milestone 2: Block Interactions + Prize System — Done
+Goal: stop future sessions from treating stale completion prose as source of truth.
 
-**Goal:** Blocks do things — prizes drop, blocks break, ice is slippery.
+Tasks:
 
-### Work items
-1. Prize block contents — parse prize-type from block data. Spawn correct pickup: diamond, clock, ankh, helmet, 1-up.
-2. Pickup entities — ankh (extra life + invulnerability), clock (time bonus), coin (continue), helmet pickups. Diamond Power at 20/50 diamonds.
-3. Evanescent blocks — solid -> fading -> gone -> regenerating cycle.
-4. Terrain type physics — wire `PlayerForm` to correct speed table. Ice/rubber selection based on block type under player.
-5. Smash blocks — full clear-on-hit.
-6. Ghost blocks — timer-driven solid/vanished cycle.
+- keep this roadmap as the top-level programme document
+- treat `backlog.md` as the canonical queue for active source-port work
+- keep `frontier-state.yaml` as the compact truth for TAS/frontier status only
+- archive or rewrite any doc that still says "full playable game", "all done", or similar
 
----
+Exit criteria:
 
-## Milestone 3: Platform Collision + Multi-Theme Visuals — Done
+- roadmap, research map, and whole-game index agree on current status
+- no active doc claims the project is effectively complete
 
-**Goal:** Player can stand on platforms. Levels beyond Cave theme render correctly.
+### 2. 1P playability closure
 
-### Work items
-1. Platform collision — AABB overlap, riding logic, head-bump from below.
-2. Platform movement scripts — parse and execute `ptfm_move` commands.
-3. Generalise visual pipeline — `load_level_visuals(manifest, level_id)` replacing Level 1 hardcoding.
-4. Decode all 11 themes — extend `extract-assets` for all themes.
-5. Background rendering per theme — chunked (Sky/Ice/Island/Swamp/Cave/City) and layered (Hills/Desert/Mountain/Forest).
+Goal: fix the bugs that make native play unreliable even when narrow parity gates are green.
 
----
+First queue:
 
-## Milestone 4: Tier 2 Enemy Families — Done
+- death/respawn camera drift and stuck-from-start failures
+- Level 2 entry / spawn / floor-fall regressions
+- enemy death timing or hurtbox bugs that still damage Kid after a kill
+- block visual/state regressions
+- slope traversal problems
+- bounce-block behaviour
+- form-specific block-breaking permission regressions
 
-**Goal:** Enemies that fly, hop, and shoot arrows.
+Rules:
 
-| obj ID | Family | Archetype | Key constants |
-|--------|--------|-----------|---------------|
-| `$1D` | Big Hopping Skull | Hopper | HP table: 0->2, 1->3, 2->4 |
-| `$0E` | Cloud | Flyer | x-vel: `-$3000`/`-$5000`/`-$7000` |
-| `$06` | Sphere | Bouncer | gravity `+$800`/frame, bounces all surfaces |
-| `$07` | Archer | Stationary Attacker | fire timers: `$1E`/`$14`/`$0A` |
-| `$1B` | Emo Rock | Stationary | hover step `$2000`, random timer |
-| `$19` | Fireball | Launcher | gravity by HP: `$1000`/`$2000`/`$3000` |
+- every bug gets a native repro artefact before or alongside the fix
+- every fix lands with a focused regression test or scenario
+- every fix is assigned to a gate: fast slice, 1P playable, 1P accurate, or visual parity
 
----
+Exit criteria:
 
-## Milestone 5: Helmet Abilities (Movement) — Done
+- native boot -> Level 1 -> Level 2 is stable
+- death and respawn no longer leave the player or camera in broken states
+- the recurring playtest failures above have permanent regression coverage
 
-**Goal:** Transform and conquer — the game's signature mechanic.
+### 3. Native playtest evidence pipeline
 
-### Work items
-1. Wire form-specific speed tables — select by `(form, terrain_type)` instead of hardcoded `NORMAL_KID`.
-2. Helmet pickup logic — prize blocks with helmet content trigger `queue_form_change`.
-3. Skycutter flight — horizontal flight with gradual descent.
-4. Cyclone wall climb — wall contact detection, climb state, vertical movement.
-5. IronKnight climb — shares Cyclone infrastructure, different parameters.
-6. Micromax wall/ceiling stick — gravity-direction state.
-7. Juggernaut charge — high-momentum movement, breaks certain blocks.
+Goal: make real play sessions reproducible, reviewable, and useful to future agents.
 
----
+Tasks:
 
-## Milestone 6: Native Audio — Done
+- extend `play-native --record <slug>` from "input + trace" into a standard playtest bundle
+- record enough metadata to replay and verify a run on another machine
+- add ingestion and verification workflow for copied-in remote playtest bundles
+- support optional sidecar artefacts such as frame captures, audio, and user notes
+- keep narration/transcript support as an optional sidecar, not a phase-1 prerequisite
 
-**Goal:** The game has a voice. Transformative quality-of-life.
+Bundle contract:
 
-Architecture: reuse Z80+GEMS binary from ROM via existing `z80` crate + `ymfm-sys` for perfect audio fidelity.
+- manifest version
+- ROM identity / build identity
+- input script
+- native trace
+- checkpoint list
+- optional frame/audio artefacts
+- optional user-notes sidecar
 
-### Work items
-1. Study GEMS command protocol — map game events to GEMS command IDs.
-2. Audio subsystem in native player — SDL2 AudioQueue<f32>.
-3. Z80+GEMS integration — instantiate Z80 with GEMS driver, YM2612, PSG.
-4. Game event -> GEMS mapping — jump, land, damage, death, level complete, etc.
-5. Music state machine — play on level load, pause, stop on death, crossfade on transition.
-6. Audio mixing — FM + PSG -> SDL2 audio queue at 44100 Hz stereo.
+Exit criteria:
 
-**Note:** largely independent — can run in parallel with other milestones.
+- a playtest captured elsewhere can be copied into `.cache/recordings/` and replayed locally
+- bug reports can cite a recording slug instead of free-text reproduction only
 
----
+### 4. Verification hardening
 
-## Milestone 7: Tier 3-4 Enemies + Bosses — Done
+Goal: widen "green" so it reflects player-visible reality, not just a narrow oracle slice.
 
-**Goal:** The full bestiary. Boss fights are playable.
+Tracks:
 
-### Tier 3 (275-500 ASM lines each)
-Ninja, Dragon (walking), Orca, Hand, Robot, Spinning Twins, Tar Monster
+- keep `1p-accurate` as the oracle-heavy release target
+- add a separate `1p-playable` gate for native smoke coverage
+- implement framewise checksumming and structured sweep history
+- classify divergences explicitly instead of burying them in prose
+- promote repeated debug fields into typed or tracked state when they become relied on
 
-### Tier 4 (280-1300 ASM lines)
-Dragon Flying, Lion, UFO (1294 lines), Drips (1308 lines), Fire Demon, Tornado
+`1p-playable` must cover at minimum:
 
-### Bosses
-HeadyMetal (L$05), Shishkaboss (L$10), BoomerangBosses (L$1E), BagelBrothers (L$2A)
+- boot to Level 1
+- complete Level 1
+- enter and survive Level 2
+- die and respawn cleanly
+- break common blocks and collect common prizes
+- traverse slopes and bounce surfaces
 
----
+Exit criteria:
 
-## Milestone 8: Helmet Abilities (Combat) + Remaining Blocks — Done
+- a green top-level status means the game is both parity-clean on known slices and playable through the core 1P path
 
-**Goal:** Full combat toolkit, full block vocabulary.
+### 5. Fidelity debt burn-down
 
-Combat: RedStealth sword, Eyeclops beam, Maniaxe throw, Berzerker push.
-Blocks: Teleporter, Elevator/Lift, Shifting, Shooter, Hidden, Drill, Mushroom, Berzerker-pushable.
+Goal: remove "documented debt" as a resting state.
 
----
+Tracks:
 
-## Milestone 9: Weather, Murder Wall, Camera — Done
+- movement and collision fidelity
+- block and prize fidelity
+- enemy lifecycle and damage fidelity
+- rendering and visual fidelity
+- shell/progression fidelity
 
-**Goal:** Environmental hazards complete the atmosphere.
+Policy:
 
-Murder wall, weather effects (lava/storm/hail/snow), camera Y look-ahead, lava geyser blocks.
+- the six documented DEVIATIONs are debt to remove or reclassify with evidence
+- enemy gaps from `phase4-enemy-findings.md` move into the canonical active backlog
+- visual TODOs stay visible until oracle-backed or frame-backed verification closes them
 
----
+Exit criteria:
 
-## Milestone 10: Menus, Progression, Polish — Done
+- no active deviation remains merely because it was once documented
+- remaining fidelity gaps are either verified oracle limitations or explicitly deferred beyond 1P-perfect scope
 
-**Goal:** A complete game from title to credits.
+### 6. Post-1P epics
 
-Done: game over/continue screen, score system, Diamond Power (20 form/tier combos), ending sequence, 105 levels loadable, full multi-level progression, demo playback (2 demos from ROM data), intro sequence (5 segments), per-helmet transform timing.
-Remaining: no open transform-animation backlog item; Juggernaut split-body rendering is now handled by the composite player-frame path.
+These stay visible, but they do not block the 1P finish line:
 
----
+- 2-player alternating-mode verification
+- password-system investigation and implementation decision
+- richer narrated-playtest tooling
 
-## Dependency Graph
+## Gates
 
-```
-M1 (Tier 1 Enemies) ───┐
-                        ├──► M4 (Tier 2 Enemies) ──► M7 (Tier 3-4 + Bosses)
-M2 (Blocks + Prizes) ──┤                                       │
-                        ├──► M5 (Helmets: Movement) ──► M8 (Helmets: Combat + Blocks)
-M3 (Platforms + Themes)─┘                                       │
-                                                                ▼
-M6 (Audio) ─── independent, parallel ──────────────► M9 (Weather, Murder Wall)
-                                                                │
-                                                                ▼
-                                                     M10 (Menus, Polish)
-```
+Use four explicit gate buckets:
+
+- `fast-slice`: focused regression tests used before most commits
+- `1p-playable`: native smoke coverage for real player-facing failures
+- `1p-accurate`: oracle-backed release gate and sweep evidence
+- `visual-parity`: frame/pixel-backed checks for rendering fidelity
+
+Every new backlog item should name its minimum required gate before it is considered done.

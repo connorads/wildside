@@ -8,7 +8,16 @@ This map records what the source port still needs to learn, where to source that
 
 ## Current frontier
 
-All 10 original milestones are done. The project is now in **playtest-driven iteration** — see `backlog.md` for the canonical bug/feature tracker and `CLAUDE.md` for the iteration protocol.
+The live TAS frontier is currently closed:
+
+- `kc_any_percent_2024` is authoritative-clean through frame `4916`
+- `any-percent-published` is authoritative-clean through frame `37759`
+- `frontier-state.yaml` is the compact source of truth for reopening TAS work
+
+That is not the same thing as whole-game completion. The active programme now shifts
+from "close the next TAS window" to "make 1P actually work in native play while
+continuing to burn down fidelity debt". See `backlog.md` for the canonical active queue
+and `roadmap.md` for the programme-level workstreams.
 
 ## Done
 
@@ -84,10 +93,11 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
 - **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
 
-### Gameplay fidelity (1 open backlog item + TAS recordings verified)
+### Gameplay fidelity (TAS recordings verified, native-play gaps still open)
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
 - **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
 - **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
+- **Native playability** [ ] recurring player-facing failures still need canonical repros and regression coverage: death/respawn camera carry, Level 2 spawn/fall-through-floor failures, slope issues, bounce-block issues, post-kill enemy damage windows, and block-state visual regressions.
 
 ### Game flow verification (not yet investigated)
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
@@ -104,11 +114,12 @@ Low impact: Driller block drilling, speed caps at high HP, probe half-width per-
 - **Divergence classification output**: methodology.md describes a taxonomy (authoritative/advisory/accumulation/RNG/oracle limitation) and JSON tracking format. Sweep currently doesn't output structured divergence categories. Add per-level category logging to `.cache/metrics/sweep-history.jsonl`.
 - **Full-frame pixel comparison sweep**: run frame capture on all 105 levels at key frames (0, 30, 60, 120, 300), compare pixel-for-pixel against oracle. Extend `kidcli` with `sweep --tier frames`. Each pixel difference classified as rendering, palette, timing, sprite priority, or position error.
 
-### Testing infrastructure (not yet implemented)
-- **Input replay recording**: add `--record` flag to `play-native` capturing per-frame `FrameInput`. Write `DynamicScenario` JSON output — live play sessions become regression tests. Chocolate Doom-style demo regression.
+### Testing infrastructure
+- **Native replay recording**: `play-native --record <slug>` and `verify-recording --slug <slug>` already exist for input + trace capture. The next step is to turn them into a fuller playtest bundle with stable metadata, remote-ingest workflow, optional artefacts, and tighter integration with bug triage.
 - **Mutation testing baseline**: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p kid-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
 - **Fuzz testing for parsers**: set up `cargo fuzz` targets for level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), audio bank loading (complex binary format). Run each for a few hours, fix crashes.
 - **Stateful property testing**: implement `proptest-state-machine` test for `PlayerLifecycle`. Model lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
+- **1P playable gate**: add a separate native-playability smoke gate covering Level 1 completion, Level 2 entry, death/respawn, slopes, bounce surfaces, and common block interactions. The current `1p-accurate` gate remains valuable but too narrow to stand in for "game works".
 
 ### Known deviations (6 DEVIATION annotations, intentional)
 - Tornado, Fireball (×2), Robot: RNG-dependent behaviours. ASM uses deterministic global RNG, native uses independent RNG per enemy. Behaviour is statistically equivalent but not frame-identical.

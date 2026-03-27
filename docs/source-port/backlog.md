@@ -1,9 +1,22 @@
 # Playtest Backlog
 
-Canonical tracker for bugs and missing features. See `CLAUDE.md` for iteration protocol and `docs/source-port/methodology.md` for the investigation playbook.
+Canonical tracker for bugs, missing features, and verification gaps. See `CLAUDE.md`
+for iteration protocol, `docs/source-port/methodology.md` for the investigation
+playbook, and `docs/source-port/roadmap.md` for the programme-level workstreams.
+
+Important: a green TAS frontier or a green `1p-accurate` release artefact does **not**
+mean the game is nearly finished. Native-play breakage, wider verification gaps, and
+documented deviations belong here too.
 
 Status: `[ ]` open, `[~]` in progress, `[x]` done, `[-]` won't fix / not a bug
 Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
+
+For newly opened items, capture these facts in the investigation notes:
+
+- evidence source: playtest, recording slug, oracle, or frame capture
+- native repro status: reproduced / not yet reproduced
+- oracle repro status: authoritative / advisory / unknown / oracle limitation
+- minimum gate: `fast-slice`, `1p-playable`, `1p-accurate`, or `visual-parity`
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
@@ -125,6 +138,18 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 119 | [x] | P2 | fidelity | TAS frame 6945: `any-percent-published` drops back into the paused title-return helper two frames after demo 1 restarts | Timeout-restart demo playback now ignores manual Start aborts until live gameplay starts, so the queued frame-6943 Start bit no longer arms the paused title helper during the restarted demo bootstrap. Added `published_tas_demo_2_ignores_queued_start_during_timeout_restart_demo_bootstrap`, re-ran `cargo test -p kid-core published_tas_demo_2 -- --nocapture`, `cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6940 --frame-end 6952 --include-advisory`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 3000 --frame-end 12000 --bisect`, `mise run audit-debug-fields`, and `mise run verify-slice-fast`. Frontier 6945→6966. |
 | 120 | [x] | P2 | fidelity | TAS frame 6966: `any-percent-published` exposes the wrong wrapped demo 1 camera Y during the hidden warm-up after the fixed 6945 abort window | Fixed by carrying the timeout-restart IntroSequence6 lineage into demo playback so the hidden warm-up reuses the oracle-backed demo-1 camera wrap; frontier later advanced through the repaired title/demo shell. |
 | 121 | [x] | P2 | fidelity | TAS frame 24921: level `0x15` gameplay falsely enters right-wall cling from a top-edge-only overhang probe | Matched ASM `sub_8F26` by refusing to promote `probe_wall_top_edge()` into a fresh airborne wall hit. Added `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, and `mise run verify-slice-fast`. Frontier 24921→27603. |
+| 122 | [ ] | P0 | level | Level 2 entry can spawn Kid in midair, then fall through the floor and die | Boot -> finish Level 1 -> enter Level 2 -> confirm stable landing and 10s of live play |
+| 123 | [ ] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
+| 124 | [ ] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Kill/stomp enemy in live play and focused regression scenario; confirm post-kill hurtbox timing matches oracle or intended native evidence |
+| 125 | [ ] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Break affected blocks, capture before/after, confirm sprite/state progression is correct |
+| 126 | [ ] | P1 | player | Walking up slopes is still observably wrong in native play | Traverse representative slopes in focused scenario and live play, confirm no hitching or bad grounding |
+| 127 | [ ] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Hit bounce blocks in focused scenario and live play, confirm bounce height/timing |
+| 128 | [ ] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Repro with affected form, confirm allowed blocks break and metal blocks remain intact |
+| 129 | [ ] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run` gate is green only when the core 1P smoke path survives those scenarios |
+| 130 | [ ] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Capture a recording on one machine, replay and verify it locally, and use the slug as a bug artefact |
+| 131 | [ ] | P2 | fidelity | Burn down the six parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
+| 132 | [ ] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
+| 133 | [ ] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | Document ASM path, native support status, and explicit implementation decision |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -142,6 +167,43 @@ requiring the player's feet to be precisely above the enemy's top edge on the pr
 The ASM uses a velocity-direction cross-product: `y_overlap × |rel_x_vel| < x_overlap × |rel_y_vel|`
 to determine approach direction. Reimplemented to match ASM — stomps are now detected based
 on vertical approach direction, not prior-frame position history.
+
+### 122 — Level 2 entry can spawn Kid in midair, then fall through the floor and die (OPEN)
+Evidence source: repeated native play reports. Native repro: reported, needs canonical recording slug.
+Oracle repro: unknown. Minimum gate: `1p-playable`.
+
+The current release gate proves the narrow `progress-two-transitions` compare, but that is not
+strong enough to dismiss this failure. The next fix must start by capturing a reproducible native
+recording for the Level 1 -> Level 2 transition and turning it into a permanent smoke scenario.
+
+### 123 — Death/respawn still leaves camera drift, stuck-from-start, or broken restart state (OPEN)
+Evidence source: repeated native play reports. Native repro: reported, needs canonical recording slug.
+Oracle repro: mixed/unknown. Minimum gate: `1p-playable`.
+
+This issue stays separate from the closed floor-snap and TAS frontier items. It is a player-facing
+native stability bug until a recording or focused scenario proves otherwise.
+
+### 124 — Enemy kill timing still allows Kid to get hurt after the enemy should already be dead (OPEN)
+Evidence source: native play reports. Native repro: reported, not yet captured.
+Oracle repro: unknown. Minimum gate: `fast-slice`.
+
+Treat this as an enemy lifecycle / damage-order problem, not as a generic "combat feels off" note.
+The fix needs a focused regression around the exact kill frame and the immediately following frame.
+
+### 129 — Add a `1p-playable` gate (OPEN)
+Evidence source: roadmap decision after repeated native-play failures escaping the current gate.
+Native repro: n/a. Oracle repro: n/a. Minimum gate: n/a.
+
+The current `1p-accurate` artefact remains useful, but it is too narrow to stand in for "the game
+works". This item is complete only when there is a standard smoke gate covering the real 1P path
+and the recurring native-play failures above.
+
+### 130 — Turn recordings into the standard playtest evidence pipeline (OPEN)
+Evidence source: existing `play-native --record` / `verify-recording` support plus current workflow gaps.
+Native repro: partial. Oracle repro: partial. Minimum gate: n/a.
+
+The repo already records input + trace. The missing work is packaging, remote-ingest workflow,
+optional artefacts, and making the recording slug the normal reproduction handle for future bugs.
 
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
