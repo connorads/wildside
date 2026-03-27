@@ -2472,12 +2472,15 @@ mod tests {
         let cases = [
             // ASM Enemy20_HeadyMetal_Init seeds $40(a1) = $01C2 and the later
             // death routine steps the wobble magnitude at the remaining-frame
-            // thresholds $015E, $00FA, $0096, and $0064.
-            (0x01C2, (88, 122), vec![(78, 102), (106, 102)]),
-            (0x015E, (88, 123), vec![(77, 102), (107, 102)]),
-            (0x00FA, (88, 124), vec![(76, 102), (108, 102)]),
-            (0x0096, (88, 125), vec![(75, 102), (109, 102)]),
-            (0x0064, (88, 126), vec![(74, 102), (110, 102)]),
+            // thresholds $015E, $00FA, $0096, and $0064. The quiver sizes come
+            // from sub_37708/sub_3787C/sub_378A2: $30D40, $493E0, $61A80,
+            // $7A120, and $927C0, truncated to whole pixels for the native
+            // renderer's sprite offsets.
+            (0x01C2, (88, 123), vec![(77, 102), (107, 102)]),
+            (0x015E, (88, 124), vec![(76, 102), (108, 102)]),
+            (0x00FA, (88, 126), vec![(74, 102), (110, 102)]),
+            (0x0096, (88, 127), vec![(73, 102), (111, 102)]),
+            (0x0064, (88, 129), vec![(71, 102), (113, 102)]),
         ];
 
         for (remaining, expected_body, expected_eyes) in cases {

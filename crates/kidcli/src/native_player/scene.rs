@@ -1693,12 +1693,17 @@ fn push_heady_metal_death_wobble(
 ) {
     let screen_x = (x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
     let screen_y = (y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+    // ASM sub_37708/sub_3787C/sub_378A2 applies wobble velocities
+    // -$30D40/$30D40, -$493E0/$493E0, -$61A80/$61A80, -$7A120/$7A120,
+    // and -$927C0/$927C0 as the countdown crosses $015E/$00FA/$0096/$0064.
+    // Use those stage magnitudes directly instead of the earlier hand-tuned
+    // 2..6px approximation so the render path follows the ROM's quiver tiers.
     let amplitude = match remaining {
-        r if r > HEADYMETAL_WOBBLE_STAGE_1 => 2,
-        r if r > HEADYMETAL_WOBBLE_STAGE_2 => 3,
-        r if r > HEADYMETAL_WOBBLE_STAGE_3 => 4,
-        r if r > HEADYMETAL_WOBBLE_STAGE_4 => 5,
-        _ => 6,
+        r if r > HEADYMETAL_WOBBLE_STAGE_1 => 0x30D40 >> 16,
+        r if r > HEADYMETAL_WOBBLE_STAGE_2 => 0x493E0 >> 16,
+        r if r > HEADYMETAL_WOBBLE_STAGE_3 => 0x61A80 >> 16,
+        r if r > HEADYMETAL_WOBBLE_STAGE_4 => 0x7A120 >> 16,
+        _ => 0x927C0 >> 16,
     };
     let phase = if (trace.frame_index & 0x2) == 0 {
         -1
