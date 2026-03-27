@@ -15137,15 +15137,25 @@ fn cached_any_percent_published_runtime_and_script() -> (NativeRuntime, Vec<u8>)
     cached_tas_runtime_and_script("any-percent-published")
 }
 
-fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>) {
+fn cached_generated_runtime() -> NativeRuntime {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .expect("repo root");
     let manifest_path = repo_root
         .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
-    let scenario_path = repo_root.join(format!(".cache/tas-imports/{scenario_slug}/scenario.json"));
     let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
+    let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+    runtime.set_trace_physics(false);
+    runtime
+}
+
+fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>) {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("repo root");
+    let scenario_path = repo_root.join(format!(".cache/tas-imports/{scenario_slug}/scenario.json"));
     let scenario_raw = fs::read_to_string(scenario_path).expect("read TAS scenario");
     let scenario_json: serde_json::Value =
         serde_json::from_str(&scenario_raw).expect("parse TAS scenario");
@@ -15156,9 +15166,21 @@ fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>
         .map(|value| value.as_u64().expect("script byte") as u8)
         .collect();
 
-    let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
-    runtime.set_trace_physics(false);
-    (runtime, script)
+    (cached_generated_runtime(), script)
+}
+
+#[test]
+fn respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x() {
+    let mut runtime = cached_generated_runtime();
+    runtime.warp_to_level(LevelId(0x29));
+    let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x29));
+
+    // ASM Load_InGame writes the raw header pose, but the first settle frames
+    // still resolve the spawn-side overlap before camera convergence finishes.
+    // Oracle-backed focused sweeps for backlog #037 settle on x=$02A50000 and
+    // camera_x=$02090000 for The Nightmare Peaks 2.
+    assert_eq!(settled.player.x_pos, 0x02A5_0000);
+    assert_eq!(settled.camera.x_pos, 0x0209_0000);
 }
 
 #[test]

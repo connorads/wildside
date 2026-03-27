@@ -1,51 +1,52 @@
 ---
 slug: any-percent-published-tail-clean-through-end
-cycle: 75
-updated_at: 2026-03-27T08:44:53Z
+cycle: 76
+updated_at: 2026-03-27T08:54:44Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Refreshed the frontier handoff after the published any-percent tail was proven authoritative-clean through frame 37759. The previous note still pointed at the already-fixed frame-29402 `mode=$28` demo hand-off.
-- Synced the TAS metadata with the live frontier state: [`docs/source-port/tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md) now marks `any-percent-published` verified through frame 37759 and closes milestones M7/M8.
-- Re-ran the existing tail evidence from [`docs/source-port/frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml): `published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916`, `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148`, `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect`, the 36000..37000 and 37000..37759 chunk checks, and `mise run verify-slice-fast`.
+- Took the next live non-tail fidelity item from the published-TAS handoff: backlog `#037`.
+- Added `respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x` in [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs) so the cached manifest now locks level `0x29` to the oracle-backed settle result `kid_x=$02A50000`, `camera_x=$02090000`.
+- Narrowed the tracker text in [`docs/source-port/backlog.md`](/home/connor/git/kc/docs/source-port/backlog.md) and [`docs/source-port/research-map.md`](/home/connor/git/kc/docs/source-port/research-map.md): level `0x29` is no longer part of the live `#037` tail.
 
 ## Current Model
 
-- There is no open authoritative successor frontier in the published any-percent recording. [`frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml) is correct: the later intro/title/demo repairs keep the run clean through the last recorded frame, 37759.
-- The stale autonomy artefacts were the remaining problem, not gameplay parity. Future TAS work should start from a new regression or a different incomplete tracker item, not from frame 29402 / 16228 / 7969.
-- If a new TAS regression appears, restart from the compact frontier state and re-bisect from frame 23250; do not revive the older roadmap note or this note's predecessors.
+- The published any-percent tail is still complete through frame `37759`; no TAS successor frontier reopened.
+- `#037` remains open, but only for the real residual settle debt:
+  - level `0x52` support-path mismatch
+  - levels `0x24` / `0x51` `camera_y` off by 1px
+- Level `0x29` was stale tracker debt. The current code path already reaches the oracle-backed wall-nudged spawn X; the missing piece was a regression test so future settle refactors do not reopen it.
 
 ## Strongest Evidence
 
-- [`frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml)
-  - Active frontier slug `any-percent-published-tail-clean-through-end`, status `complete`, clean through frame 37759, blocker `None`.
-- Tail verification
-  - `cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916 -- --nocapture`
-  - `cargo test -q -p kid-core published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148 -- --nocapture`
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect`
-  - Chunked CRC checks for frames 36000..37000 and 37000..37759
-  - `mise run verify-slice-fast`
-- Metadata alignment
-  - [`tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md) now agrees with the compact frontier state instead of advertising the old frame-7969 blocker as live.
+- [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
+  - `respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x`
+- Local inspection
+  - `cargo run -q -p kidcli -- inspect-respawn-settle --level 29 --steps 80`
+  - final state settles at `kid_x=0x02A50000`, `camera_x=0x02090000`
+- Tracker updates
+  - [`docs/source-port/backlog.md`](/home/connor/git/kc/docs/source-port/backlog.md)
+  - [`docs/source-port/research-map.md`](/home/connor/git/kc/docs/source-port/research-map.md)
 
 ## Exact Next Moves
 
-1. Do not resume the published any-percent tail from an old stale frame. Start from [`docs/source-port/frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml); it is already complete through frame 37759.
-2. If a new TAS regression is introduced, rerun `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect` and open a fresh frontier from the first new authoritative mismatch.
-3. If no new TAS regression exists, take the next non-tail fidelity item from the live tracker instead of reopening this frontier. Backlog `#037` and `#062` are the remaining obvious candidates.
+1. Re-read the init-settle path around [`crates/kid-core/src/level.rs`](/home/connor/git/kc/crates/kid-core/src/level.rs) and the floor/camera code in [`crates/kid-core/src/movement.rs`](/home/connor/git/kc/crates/kid-core/src/movement.rs) for the remaining `#037` levels only.
+2. Use `cargo run -q -p kidcli -- inspect-respawn-settle --level 52 --steps 180` and `cargo run -q -p kidcli -- inspect-spawn-probe --level 52` to isolate why the current support guard still misses the shallower oracle-backed landing path.
+3. After `0x52`, tackle the shared `0x24` / `0x51` 1px `camera_y` residue as a single camera-convergence fix, not two level-specific tweaks.
 
 ## Verification To Re-run
 
-- `mise run frontier-status`
-- `cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148 -- --nocapture`
+- `cargo test -q -p kid-core respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x -- --nocapture`
+- `cargo run -q -p kidcli -- inspect-respawn-settle --level 29 --steps 80`
+- `cargo run -q -p kidcli -- inspect-respawn-settle --level 52 --steps 180`
+- `cargo run -q -p kidcli -- inspect-spawn-probe --level 52`
 - `mise run verify-slice-fast`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
 
 ## Dead Ends / Do Not Retry
 
-- Do not reopen frame 29402, frame 16228, or frame 7969 as if they were still active. Those notes are historical artefacts now.
-- Do not use [`tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md) as the live frontier source without first checking [`frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml).
+- Do not reopen the published any-percent tail; that frontier is still complete through frame `37759`.
+- Do not keep treating level `0x29` as an unfixed slope-settle bug unless the new regression test fails.
+- Do not trust the generic `sweep` oracle output that currently falls back to the paused boot state for these isolated settle checks; use the focused cached-manifest test plus `inspect-respawn-settle` while narrowing `#037`.
