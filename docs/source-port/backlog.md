@@ -295,6 +295,14 @@ frame `1161` (`number_hitpoints`, `camera_x_pos`). `compare-native-gameplay --sc
 death-respawn-level1` still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the
 remaining work is now the later damage/camera trigger rather than the old plateau seam.
 
+New evidence (2026-03-27, late-hazard shim removal): oracle-backed Level 1 gameplay stays alive on
+frame `1161`, but native was still forcing a synthetic kill once `camera_x_pos > $03B20000`.
+Removing that native-only late-hazard hook adds
+`death_respawn_level_1_stays_alive_past_frame_1161`, keeps `mise run verify-slice-fast` green, and
+moves `compare-native-gameplay --scenario death-respawn-level1` past `pre_death@1279` to the later
+`death_tail@1439` checkpoint (`camera_x` native `0x05CB0000`, oracle `0x063A0000`). The remaining
+work is now the later death-tail camera/Y path rather than the old frame-`1161` false death.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

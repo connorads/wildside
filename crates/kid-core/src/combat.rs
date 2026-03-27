@@ -529,16 +529,6 @@ impl NativeRuntime {
             .map(|t| (t.dest_map_id, t.dest_x, t.dest_y))
     }
 
-    pub(crate) fn should_apply_level_one_late_hazard(&self, slice: &OpeningSliceState) -> bool {
-        self.current_level == LevelId(0)
-            && self.progression.number_hitpoints == 1
-            && self.progression.invulnerable_frames == 0
-            && slice.camera.x_pos > LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP
-            && self
-                .level_elapsed_frames()
-                .is_some_and(|elapsed| elapsed >= LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES)
-    }
-
     pub(crate) fn queue_form_change(&mut self, form: PlayerForm) {
         self.progression.pending_form = Some(form);
     }
@@ -632,12 +622,7 @@ impl NativeRuntime {
         if matches!(self.boot_state, BootState::LevelSkipHold) || self.paused {
             return;
         }
-        if self.current_level == LevelId(0)
-            && (self.level_one_opening_idle_death_arc
-                || self
-                    .death_camera_lock
-                    .is_some_and(|camera| camera.x_pos == LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP))
-        {
+        if self.current_level == LevelId(0) && self.level_one_opening_idle_death_arc {
             let bounds = self.level_bounds(self.current_level);
             let mut slice = self
                 .opening_slice
@@ -649,17 +634,14 @@ impl NativeRuntime {
             );
             if first_windup_frame {
                 slice.player.on_ground = false;
-                slice.player.x_velocity = LEVEL_ONE_LATE_HAZARD_DEATH_X_VELOCITY_FP;
-                slice.player.y_velocity = LEVEL_ONE_LATE_HAZARD_DEATH_Y_VELOCITY_FP;
+                slice.player.x_velocity = 0x0000_8000;
+                slice.player.y_velocity = -0x0003_D000;
             } else {
                 let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
                 let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
                 slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
                 slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-                slice.player.y_velocity = slice
-                    .player
-                    .y_velocity
-                    .saturating_add(LEVEL_ONE_LATE_HAZARD_DEATH_GRAVITY_FP);
+                slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
                 slice.player.on_ground = false;
             }
             if let Some(camera_lock) = self.death_camera_lock {
@@ -1051,15 +1033,6 @@ impl NativeRuntime {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelOneOpeningHit;
             return true;
         }
-        if self.should_apply_level_one_late_hazard(slice) {
-            slice.camera.x_pos = LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP;
-            slice.camera.y_pos = 0;
-            self.opening_slice = Some(*slice);
-            self.apply_damage();
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelOneLateHazard;
-            return true;
-        }
-
         false
     }
 }

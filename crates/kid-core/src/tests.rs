@@ -16094,9 +16094,7 @@ fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>
     (cached_generated_runtime(), script)
 }
 
-#[test]
-fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
-    let mut runtime = cached_generated_runtime();
+fn death_respawn_level_1_script() -> Vec<u8> {
     let mut script = vec![0u8; 1_920 + 1];
     for &frame in &BOOT_TO_LEVEL_START_FRAMES {
         script[frame] |= 0x80;
@@ -16113,6 +16111,13 @@ fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
             *slot |= 1 << 4;
         }
     }
+    script
+}
+
+#[test]
+fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
 
     let mut frame_936 = None;
     for (frame_index, mask) in script.iter().copied().enumerate().take(937) {
@@ -16147,22 +16152,7 @@ fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
 fn death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_945() {
     let mut runtime = cached_generated_runtime();
     runtime.set_trace_physics(true);
-    let mut script = vec![0u8; 1_920 + 1];
-    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
-        script[frame] |= 0x80;
-    }
-    for slot in &mut script[600..=899] {
-        *slot |= 1 << 3;
-    }
-    for slot in &mut script[900..=1_350] {
-        *slot |= (1 << 3) | (1 << 6);
-    }
-    for frame in (940..=1_350).step_by(24) {
-        let jump_end = 1_350.min(frame + 3);
-        for slot in &mut script[frame..=jump_end] {
-            *slot |= 1 << 4;
-        }
-    }
+    let script = death_respawn_level_1_script();
 
     let mut frame_941 = None;
     let mut frame_945 = None;
@@ -16218,22 +16208,7 @@ fn death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_
 #[test]
 fn death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing() {
     let mut runtime = cached_generated_runtime();
-    let mut script = vec![0u8; 1_920 + 1];
-    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
-        script[frame] |= 0x80;
-    }
-    for slot in &mut script[600..=899] {
-        *slot |= 1 << 3;
-    }
-    for slot in &mut script[900..=1_350] {
-        *slot |= (1 << 3) | (1 << 6);
-    }
-    for frame in (940..=1_350).step_by(24) {
-        let jump_end = 1_350.min(frame + 3);
-        for slot in &mut script[frame..=jump_end] {
-            *slot |= 1 << 4;
-        }
-    }
+    let script = death_respawn_level_1_script();
 
     let mut frame_990 = None;
     for (frame_index, mask) in script.iter().copied().enumerate().take(991) {
@@ -16257,22 +16232,7 @@ fn death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing() {
 #[test]
 fn death_respawn_level_1_waits_until_frame_990_to_land() {
     let mut runtime = cached_generated_runtime();
-    let mut script = vec![0u8; 1_920 + 1];
-    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
-        script[frame] |= 0x80;
-    }
-    for slot in &mut script[600..=899] {
-        *slot |= 1 << 3;
-    }
-    for slot in &mut script[900..=1_350] {
-        *slot |= (1 << 3) | (1 << 6);
-    }
-    for frame in (940..=1_350).step_by(24) {
-        let jump_end = 1_350.min(frame + 3);
-        for slot in &mut script[frame..=jump_end] {
-            *slot |= 1 << 4;
-        }
-    }
+    let script = death_respawn_level_1_script();
 
     let mut frame_989 = None;
     let mut frame_990 = None;
@@ -16301,22 +16261,7 @@ fn death_respawn_level_1_waits_until_frame_990_to_land() {
 #[test]
 fn death_respawn_level_1_keeps_flat_runup_grounded_through_frame_1012() {
     let mut runtime = cached_generated_runtime();
-    let mut script = vec![0u8; 1_920 + 1];
-    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
-        script[frame] |= 0x80;
-    }
-    for slot in &mut script[600..=899] {
-        *slot |= 1 << 3;
-    }
-    for slot in &mut script[900..=1_350] {
-        *slot |= (1 << 3) | (1 << 6);
-    }
-    for frame in (940..=1_350).step_by(24) {
-        let jump_end = 1_350.min(frame + 3);
-        for slot in &mut script[frame..=jump_end] {
-            *slot |= 1 << 4;
-        }
-    }
+    let script = death_respawn_level_1_script();
 
     let mut frames = BTreeMap::new();
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_013) {
@@ -16352,6 +16297,42 @@ fn death_respawn_level_1_keeps_flat_runup_grounded_through_frame_1012() {
         }
         previous_x = frame.kid_x_pos;
     }
+}
+
+#[test]
+fn death_respawn_level_1_stays_alive_past_frame_1161() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1161 = None;
+    let mut frame_1163 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_164) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_161 {
+            frame_1161 = Some(trace);
+        } else if frame_index == 1_163 {
+            frame_1163 = Some(trace);
+        }
+    }
+
+    let frame_1161 = frame_1161.expect("frame 1161 trace");
+    let frame_1163 = frame_1163.expect("frame 1163 trace");
+    // ASM `Check_for_recent_damge` / `Death` do not trigger on this Level 1
+    // route yet; oracle-backed gameplay stays alive here and the normal
+    // `sub_71E4` camera follow continues advancing instead of snapping to a
+    // synthetic death camera.
+    assert_eq!(frame_1161.number_hitpoints, 1);
+    assert_eq!(frame_1161.camera_x_pos, 0x0415_0000);
+    assert_eq!(frame_1161.kid_y_pos, Some(0x0077_8F80));
+    assert_eq!(frame_1163.number_hitpoints, 1);
+    assert_eq!(frame_1163.camera_x_pos, 0x041A_0000);
+    assert!(
+        frame_1163
+            .kid_y_pos
+            .expect("frame 1163 y")
+            .abs_diff(0x006F_AF80)
+            <= 0x0001_0000
+    );
 }
 
 #[test]

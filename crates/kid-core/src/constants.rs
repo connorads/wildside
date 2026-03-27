@@ -231,12 +231,6 @@ pub(crate) const TITLE_SCREEN_READY_GLOBAL_FRAME: usize = 287;
 // even when the absolute boot-ready frame has already nearly been reached.
 pub(crate) const TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES: usize = 150;
 pub(crate) const OPENING_GROUNDED_KID_Y_POS: u32 = 0x010F_0000;
-pub(crate) const LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP: u32 = 0x03B2_0000;
-pub(crate) const LEVEL_ONE_LATE_HAZARD_LEVEL_ELAPSED_FRAMES: usize = 701;
-pub(crate) const LEVEL_ONE_LATE_HAZARD_DEATH_X_VELOCITY_FP: i32 = 0x0000_8000;
-pub(crate) const LEVEL_ONE_LATE_HAZARD_DEATH_Y_VELOCITY_FP: i32 = -0x0003_D000;
-pub(crate) const LEVEL_ONE_LATE_HAZARD_DEATH_GRAVITY_FP: i32 = 0x0000_3000;
-
 // === Enemy contact ===
 
 // Default enemy contact box: 16x16 pixels, centred on position.
