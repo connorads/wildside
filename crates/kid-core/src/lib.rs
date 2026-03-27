@@ -208,18 +208,25 @@ pub struct NativeRuntime {
     /// lineage's demo-1 hidden wrap distinct from cold boot and the earlier
     /// Start-skip intro return.
     demo_uses_intro_sequence_6_hidden_camera_wrap: bool,
-    /// A later attract demo can also start from the title screen that already
-    /// had loc_1B5CE's standard pose restored on the timeout-restart lineage.
+    /// A later attract demo can also start from a title shell that already had
+    /// loc_1B5CE's standard pose restored, either on the timeout-restart
+    /// IntroSequence6 lineage or the later intro-sequence-4 title return.
     /// When that demo returns to title, oracle re-exposes the pose two frames
     /// earlier than the generic demo-title rebuild.
     demo_uses_intro_sequence_6_early_title_restore: bool,
+    /// A later demo auto-timeout can re-enter intro sequence 1 after the
+    /// timeout-restart shell already restored loc_1B5CE's standard title pose.
+    /// If Start skips that intro-1 revisit back to title, oracle exposes the
+    /// rebuilt title pose two local frames earlier than the generic
+    /// intro-return settle window.
+    timeout_restart_intro_sequence_1_uses_early_title_restore: bool,
     /// ASM Obj_TitleMenu `loc_1BB02 -> Load_DemoPlay -> Load_InGame` keeps a
     /// distinct demo-2 preload row only on the later IntroSequence6 revisit
     /// that still carries the old `loc_1BCD0` slot-2 pose but no longer uses
     /// the earlier hidden-camera wrap.
     demo_uses_intro_sequence_6_later_demo_2_preload_row: bool,
-    /// ASM loc_1B5CE has already restored the standard title pose before the
-    /// later IntroSequence6 demo starts. When that lineage returns to title,
+    /// ASM loc_1B5CE has already restored the standard title pose before a
+    /// later timeout-restart demo starts. When that lineage returns to title,
     /// oracle exposes the pose two frames earlier than the generic demo-title
     /// rebuild window before the usual hide/rebuild choreography finishes.
     demo_title_return_uses_intro_sequence_6_early_title_restore: bool,
@@ -382,6 +389,7 @@ impl NativeRuntime {
             demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_intro_sequence_6_hidden_camera_wrap: false,
             demo_uses_intro_sequence_6_early_title_restore: false,
+            timeout_restart_intro_sequence_1_uses_early_title_restore: false,
             demo_uses_intro_sequence_6_later_demo_2_preload_row: false,
             demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,

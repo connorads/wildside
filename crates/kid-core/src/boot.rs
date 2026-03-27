@@ -46,6 +46,7 @@ impl NativeRuntime {
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = false;
         self.demo_uses_intro_sequence_6_early_title_restore = false;
+        self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
@@ -54,14 +55,27 @@ impl NativeRuntime {
         self.pending_prize_diamond_awards.clear();
     }
 
-    fn enter_title_screen_from_intro_return(&mut self) {
+    fn enter_title_screen_from_intro_return(
+        &mut self,
+        intro_sequence_1_uses_early_title_restore: bool,
+    ) {
         self.enter_title_screen();
         // ASM sub_1C246 writes `Game_Mode=$2C` immediately, but the later
         // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs the local
         // settle window before the standard title pose appears.
-        self.title_screen_ready_frame = self
+        let mut ready_frame = self
             .frame_index
             .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
+        if intro_sequence_1_uses_early_title_restore {
+            // ASM loc_1B5CE had already restored the standard title pose
+            // before this timeout-restart demo timed out back into intro
+            // sequence 1. When Start skips that later intro-1 revisit back to
+            // title, oracle ends the local rebuild two frames early and
+            // re-exposes the same pose on local title frames 148 and 149.
+            ready_frame = ready_frame
+                .saturating_sub(DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES);
+        }
+        self.title_screen_ready_frame = ready_frame;
     }
 
     fn enter_intro_sequence_6_from_timeout_restart_intro_sequence_5(&mut self) {
@@ -161,6 +175,14 @@ impl NativeRuntime {
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
+        let title_screen_uses_timeout_restart_intro_sequence_4_title_restore = matches!(
+            self.boot_state,
+            // ASM Obj_TitleMenu `loc_1BAEA -> loc_1BB02` can also hand a demo
+            // off from the later intro-sequence-4 title return after
+            // `loc_1B5CE` has already restored the standard title pose.
+            BootState::TitleScreen { .. }
+        ) && self
+            .timeout_restart_title_intro_sequence_4_camera_carry;
         let intro_sequence_6_hidden_camera_wrap = matches!(
             self.boot_state,
             // ASM loc_1BA5C enters Load_IntroSequence6, and the later
@@ -185,6 +207,7 @@ impl NativeRuntime {
             }
         );
         let intro_sequence_6_early_title_restore = intro_sequence_6_hidden_camera_wrap
+            || title_screen_uses_timeout_restart_intro_sequence_4_title_restore
             || self.demo_title_return_uses_intro_sequence_6_early_title_restore;
         self.boot_state = BootState::DemoPlay {
             frame_counter: 0,
@@ -225,6 +248,7 @@ impl NativeRuntime {
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;
         self.demo_uses_intro_sequence_6_early_title_restore = intro_sequence_6_early_title_restore;
+        self.timeout_restart_intro_sequence_1_uses_early_title_restore = false;
         self.demo_uses_intro_sequence_6_later_demo_2_preload_row =
             intro_sequence_6_later_demo_2_preload_row;
         // ASM loc_1BCD0 still owns the later mode-$24 slot-2 pose after the
@@ -296,6 +320,8 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore =
             intro_sequence_6_early_title_restore;
+        self.timeout_restart_intro_sequence_1_uses_early_title_restore =
+            intro_sequence_6_early_title_restore;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
             intro_return_slot_2_early_visibility;
         self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay =
@@ -318,7 +344,7 @@ impl NativeRuntime {
     }
 
     fn finish_timeout_restart_intro_sequence_4_title_return(&mut self) {
-        self.enter_title_screen_from_intro_return();
+        self.enter_title_screen_from_intro_return(false);
         self.timeout_restart_title_intro_sequence_4_return_pending = false;
         self.timeout_restart_title_intro_sequence_4_camera_carry = true;
         // ASM sub_1C246 already switched back to `Game_Mode=$2C`; on this
@@ -815,7 +841,11 @@ impl NativeRuntime {
                         } else if self.timeout_restart_title_intro_sequence_5_return_pending {
                             self.finish_timeout_restart_intro_sequence_5_title_return();
                         } else {
-                            self.enter_title_screen_from_intro_return();
+                            let intro_sequence_1_uses_early_title_restore = *segment == 0
+                                && self.timeout_restart_intro_sequence_1_uses_early_title_restore;
+                            self.enter_title_screen_from_intro_return(
+                                intro_sequence_1_uses_early_title_restore,
+                            );
                             self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
                         }
                         return;
@@ -940,7 +970,7 @@ impl NativeRuntime {
                         if intro_sequence_5_timeout_restart {
                             self.enter_intro_sequence_6_from_timeout_restart_intro_sequence_5();
                         } else {
-                            self.enter_title_screen_from_intro_return();
+                            self.enter_title_screen_from_intro_return(false);
                         }
                     } else {
                         let carry_intro_sequence_3_pose_into_intro_sequence_4 =

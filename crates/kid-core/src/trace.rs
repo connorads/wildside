@@ -224,10 +224,11 @@ impl NativeRuntime {
             let mut hidden_frames = DEMO_TITLE_PLAYER_HIDDEN_FRAMES;
             if self.demo_title_return_uses_intro_sequence_6_early_title_restore {
                 // ASM loc_1B5CE has already written the standard title pose on
-                // this lineage before the later demo starts. Oracle therefore
-                // drops the generic title-hidden rebuild two frames earlier
-                // after the later demo-title return and begins exposing that
-                // same pose on local title elapsed frames 148 and 149.
+                // this lineage before the later timeout-restart demo starts.
+                // Oracle therefore drops the generic title-hidden rebuild two
+                // frames earlier after the later demo-title return and begins
+                // exposing that same pose on local title elapsed frames 148
+                // and 149.
                 hidden_frames = hidden_frames
                     .saturating_sub(DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES);
             }
