@@ -16299,6 +16299,62 @@ fn death_respawn_level_1_waits_until_frame_990_to_land() {
 }
 
 #[test]
+fn death_respawn_level_1_keeps_flat_runup_grounded_through_frame_1012() {
+    let mut runtime = cached_generated_runtime();
+    let mut script = vec![0u8; 1_920 + 1];
+    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
+        script[frame] |= 0x80;
+    }
+    for slot in &mut script[600..=899] {
+        *slot |= 1 << 3;
+    }
+    for slot in &mut script[900..=1_350] {
+        *slot |= (1 << 3) | (1 << 6);
+    }
+    for frame in (940..=1_350).step_by(24) {
+        let jump_end = 1_350.min(frame + 3);
+        for slot in &mut script[frame..=jump_end] {
+            *slot |= 1 << 4;
+        }
+    }
+
+    let mut frames = BTreeMap::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_013) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (1_003..=1_012).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    for frame_index in 1_003..=1_012 {
+        let frame = frames
+            .get(&frame_index)
+            .unwrap_or_else(|| panic!("frame {frame_index} should be captured"));
+        // ASM sub_914A keeps the deeper flat support alive under Kid's hitbox
+        // across this Level 1 seam, so oracle stays on the `y=$CF` plateau
+        // until the late frame-1013 jump. Native must not step onto the
+        // adjacent slope and fall airborne during this run-up.
+        assert_eq!(frame.kid_y_pos, Some(0x00CF_0000));
+        assert_eq!(frame.kid_on_ground, Some(true));
+        assert_eq!(frame.number_hitpoints, 1);
+    }
+
+    let mut previous_x = None;
+    for frame_index in 1_003..=1_012 {
+        let frame = frames
+            .get(&frame_index)
+            .unwrap_or_else(|| panic!("frame {frame_index} should be captured"));
+        if let Some(previous_x) = previous_x {
+            assert!(
+                frame.kid_x_pos.expect("frame x") > previous_x,
+                "flat run-up should keep moving right on frame {frame_index}",
+            );
+        }
+        previous_x = frame.kid_x_pos;
+    }
+}
+
+#[test]
 fn respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x() {
     let mut runtime = cached_generated_runtime();
     runtime.warp_to_level(LevelId(0x29));

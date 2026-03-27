@@ -283,6 +283,18 @@ frame `1012` on `kid_x_pos` only. `compare-native-gameplay --scenario death-resp
 fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining work is now the later
 post-landing X parity and downstream death trigger, not the old early landing.
 
+New evidence (2026-03-27, flat plateau seam): ASM `sub_914A` keeps the deeper edge support alive
+while the grounded hitbox still straddles the flat-to-slope seam. Native was only preserving that
+deeper support when the edge probe was already flagged `on_ground`, so the Level 1 death route fell
+off the `y=$CF` plateau on frame `1006` and re-landed on frame `1012`. Letting grounded seam
+selection reuse any solid edge support adds
+`death_respawn_level_1_keeps_flat_runup_grounded_through_frame_1012`, keeps
+`mise run verify-slice-fast` green, and moves the first
+`diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 980` miss later to
+frame `1161` (`number_hitpoints`, `camera_x_pos`). `compare-native-gameplay --scenario
+death-respawn-level1` still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the
+remaining work is now the later damage/camera trigger rather than the old plateau seam.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

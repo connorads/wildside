@@ -1976,7 +1976,11 @@ impl OpeningSliceState {
                     terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
                 )
             {
-                let edge_probe = match (left_edge_probe.on_ground, right_edge_probe.on_ground) {
+                let left_edge_support =
+                    left_edge_probe.on_ground || left_edge_probe.cell.is_solid_floor();
+                let right_edge_support =
+                    right_edge_probe.on_ground || right_edge_probe.cell.is_solid_floor();
+                let edge_probe = match (left_edge_support, right_edge_support) {
                     (true, true) => {
                         if left_edge_probe.floor_y_px >= right_edge_probe.floor_y_px {
                             Some(left_edge_probe)
@@ -1991,6 +1995,11 @@ impl OpeningSliceState {
                 if let Some(edge_probe) = edge_probe
                     && edge_probe.floor_y_px > probe.floor_y_px
                 {
+                    // ASM sub_914A keeps the previously grounded support under
+                    // either hitbox edge while a flat-to-slope seam is still
+                    // carrying Kid. The death-respawn Level 1 run-up stays on
+                    // the deeper flat plateau through frame 1012 instead of
+                    // dropping onto the adjacent slope early.
                     probe = edge_probe;
                 }
             }
