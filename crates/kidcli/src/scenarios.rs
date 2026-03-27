@@ -575,14 +575,14 @@ impl GameplayScenario {
                 add_periodic_jump(&mut script, 980, 1_119, 24, 4);
             }
             Self::DeathRespawnLevel1 => {
-                apply_range(&mut script, 720, 1_350, (1 << 3) | (1 << 6));
-                add_periodic_jump(&mut script, 760, 1_350, 24, 4);
+                apply_range(&mut script, 600, 1_350, (1 << 3) | (1 << 6));
+                add_periodic_jump(&mut script, 640, 1_350, 24, 4);
                 apply_single_frames(&mut script, &[1_400, 1_460, 1_520], 0x80);
                 apply_range(&mut script, 1_560, 1_919, 1 << 3);
                 add_periodic_jump(&mut script, 1_600, 1_919, 28, 3);
             }
             Self::ProgressTwoTransitions => {
-                apply_range(&mut script, 720, 899, 1 << 3);
+                apply_range(&mut script, 600, 899, 1 << 3);
                 apply_single_frames(
                     &mut script,
                     &[900, 2_100, 2_140, 2_180, 2_700],

@@ -79,15 +79,23 @@ impl NativeRuntime {
         slice: &OpeningSliceState,
         input: FrameInput,
     ) -> bool {
-        let hit_elapsed_frames = if input.a {
-            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN
+        let hit_elapsed_frames = if input.right {
+            if input.a {
+                LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN
+            } else {
+                LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK
+            }
+        } else if self.progression.number_hitpoints == self.progression.current_form.max_hitpoints()
+        {
+            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY
         } else {
-            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK
+            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY_FATAL
         };
         self.current_level == LevelId(0)
             && self.progression.invulnerable_frames == 0
-            && input.right
-            && self.progression.number_hitpoints == self.progression.current_form.max_hitpoints()
+            && (!input.right
+                || self.progression.number_hitpoints
+                    == self.progression.current_form.max_hitpoints())
             && self
                 .level_elapsed_frames()
                 .is_some_and(|elapsed| elapsed >= hit_elapsed_frames && slice.camera.x_pos == 0)
@@ -624,9 +632,10 @@ impl NativeRuntime {
             return;
         }
         if self.current_level == LevelId(0)
-            && self
-                .death_camera_lock
-                .is_some_and(|camera| camera.x_pos == LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP)
+            && (self.level_one_opening_idle_death_arc
+                || self
+                    .death_camera_lock
+                    .is_some_and(|camera| camera.x_pos == LEVEL_ONE_LATE_HAZARD_CAMERA_X_FP))
         {
             let bounds = self.level_bounds(self.current_level);
             let mut slice = self
@@ -690,6 +699,7 @@ impl NativeRuntime {
         self.block_state.shooter_blocks.clear();
         self.block_state.ghost_groups.clear();
         self.death_camera_lock = None;
+        self.level_one_opening_idle_death_arc = false;
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
         };
@@ -1033,6 +1043,8 @@ impl NativeRuntime {
         }
 
         if self.should_apply_level_one_opening_hit(slice, input) {
+            self.level_one_opening_idle_death_arc =
+                !input.right && self.progression.number_hitpoints == 1;
             self.opening_slice = Some(*slice);
             self.apply_damage();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelOneOpeningHit;

@@ -190,6 +190,15 @@ Oracle repro: mixed/unknown. Minimum gate: `1p-playable`.
 This issue stays separate from the closed floor-snap and TAS frontier items. It is a player-facing
 native stability bug until a recording or focused scenario proves otherwise.
 
+Latest evidence: the old gameplay compare drift at `level_settle@719` was partly a stale native
+opening-hazard model, not just a bad checkpoint. Oracle-backed Level 1 gameplay can take an idle
+opening dragon hit on frame `631` and the fatal follow-up on frame `698`; native now mirrors those
+two hits and enters `DeathWindup`, and the widened `progress-two-transitions` scenario now passes
+its oracle compare again. `death-respawn-level1` is still open: after starting that smoke path
+earlier to dodge the idle-hazard window, the first compare miss is now a narrower camera-X drift at
+`level_settle@719` (native `0x00AA0000`, oracle `0x00800000`). The remaining work is the respawn
+shell camera hand-off, not the opening hit timing itself.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

@@ -26,6 +26,8 @@ pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
 pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // The opening Dragon hit lands earlier under the walk-only gameplay script than
 // under the run-held trace used by the focused timing regression.
+pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY: usize = 171;
+pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY_FATAL: usize = 238;
 pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK: usize = 289;
 pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN: usize = 300;
 // Oracle boot-to-level traces use an early intro-skip sequence, then one

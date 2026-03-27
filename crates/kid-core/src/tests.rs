@@ -176,9 +176,26 @@ fn press_skip_cheat(runtime: &mut NativeRuntime) -> NativeTraceFrame {
 }
 
 fn start_level_settled(runtime: &mut NativeRuntime) {
-    start_level(runtime);
+    if runtime.block_grid().is_none() {
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+    }
     while runtime.trace_frame().frame_index < 719 {
-        runtime.step_frame(FrameInput::default());
+        let next_frame = runtime.trace_frame().frame_index + 1;
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&next_frame) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else if (600..=719).contains(&next_frame) {
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        runtime.step_frame(input);
     }
 }
 
@@ -223,7 +240,7 @@ fn enter_level_playtest_starts_on_a_settled_ingame_frame() {
 
 fn pause_resume_script_input(frame_index: usize) -> FrameInput {
     let mut input = FrameInput::default();
-    if (720..=839).contains(&frame_index) || (960..=1_119).contains(&frame_index) {
+    if (600..=839).contains(&frame_index) || (960..=1_119).contains(&frame_index) {
         input.right = true;
         input.a = true;
     } else if (841..=919).contains(&frame_index) {
@@ -243,7 +260,7 @@ fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
     if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
         input.start = true;
     }
-    if (720..=899).contains(&frame_index)
+    if (600..=899).contains(&frame_index)
         || (1_280..=1_499).contains(&frame_index)
         || (1_920..=1_999).contains(&frame_index)
         || (2_480..=3_300).contains(&frame_index)
@@ -1431,7 +1448,7 @@ fn moves_camera_when_holding_right_in_game() {
                 start: true,
                 ..FrameInput::default()
             }
-        } else if (720..=1_019).contains(&frame) {
+        } else if (600..=1_019).contains(&frame) {
             FrameInput {
                 right: true,
                 ..FrameInput::default()
@@ -1448,36 +1465,25 @@ fn moves_camera_when_holding_right_in_game() {
     assert_eq!(trace.kid_y_pos, Some(0x010F_0000));
     // Player should be ahead of camera (to the right)
     assert!(trace.kid_x_pos.is_some_and(|x| x > trace.camera_x_pos));
-    // Opening hit should have reduced HP (right + full HP + camera past threshold)
-    assert!(
-        trace.number_hitpoints < PlayerForm::TheKid.max_hitpoints(),
-        "opening hit should have reduced HP"
-    );
 }
 
 #[test]
-fn level_one_opening_run_path_takes_damage_on_frame_760() {
+fn level_one_opening_idle_path_takes_first_damage_on_frame_631() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
     let mut first_hit_frame = None;
 
-    for frame in 0..900 {
+    for frame in 0..700 {
         let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
-                ..FrameInput::default()
-            }
-        } else if (720..900).contains(&frame) {
-            FrameInput {
-                right: true,
-                a: true,
                 ..FrameInput::default()
             }
         } else {
             FrameInput::default()
         };
         let trace = runtime.step_frame(input);
-        if frame >= 720 && trace.number_hitpoints == 1 {
+        if frame >= 600 && trace.number_hitpoints == 1 {
             first_hit_frame = Some(frame);
             break;
         }
@@ -1485,9 +1491,69 @@ fn level_one_opening_run_path_takes_damage_on_frame_760() {
 
     assert_eq!(
         first_hit_frame,
-        Some(760),
-        "the run-right opening path should match the traced dragon-contact frame"
+        Some(631),
+        "the idle opening path should match the oracle-backed first dragon hit"
     );
+}
+
+#[test]
+fn level_one_opening_idle_path_reaches_fatal_hit_on_frame_698() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    let mut fatal_hit_frame = None;
+
+    for frame in 0..760 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        if frame >= 650 && trace.number_hitpoints == 0 {
+            fatal_hit_frame = Some(frame);
+            break;
+        }
+    }
+
+    assert_eq!(
+        fatal_hit_frame,
+        Some(698),
+        "the idle opening path should match the oracle-backed fatal follow-up hit"
+    );
+}
+
+#[test]
+fn level_one_opening_idle_hit_keeps_spawn_pose() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+
+    for frame in 0..632 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        if frame == 631 {
+            assert_eq!(
+                trace.kid_x_pos,
+                Some(0x0020_0000),
+                "the first idle opening hit should not displace Kid horizontally"
+            );
+            assert_eq!(
+                trace.kid_y_pos,
+                Some(0x010F_0000),
+                "the first idle opening hit should leave the grounded spawn pose intact"
+            );
+            assert_eq!(trace.number_hitpoints, 1);
+        }
+    }
 }
 
 #[test]
@@ -1495,7 +1561,7 @@ fn progress_two_transitions_takes_opening_damage_by_frame_749() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
 
-    for frame in 0..750 {
+    for frame in 0..632 {
         let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
@@ -1515,7 +1581,7 @@ fn progress_two_transitions_takes_opening_damage_by_frame_749() {
     let trace = runtime.trace_frame();
     assert_eq!(
         trace.number_hitpoints, 1,
-        "progress-two-transitions should take the traced opening dragon hit by frame 749"
+        "progress-two-transitions should carry the oracle-backed idle opening hit before any movement input"
     );
     assert!(
         trace.invulnerable_frames > 0,
@@ -1524,42 +1590,28 @@ fn progress_two_transitions_takes_opening_damage_by_frame_749() {
 }
 
 #[test]
-fn timing_regression_level_one_opening_hit_keeps_advanced_position() {
+fn timing_regression_level_one_opening_fatal_hit_enters_death_windup() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
-    let mut hit_trace = None;
 
-    for frame in 0..900 {
+    for frame in 0..700 {
         let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
             }
-        } else if (720..900).contains(&frame) {
-            FrameInput {
-                right: true,
-                ..FrameInput::default()
-            }
         } else {
             FrameInput::default()
         };
-        let trace = runtime.step_frame(input);
-        if frame >= 720 && trace.number_hitpoints == 1 {
-            hit_trace = Some((frame, trace));
-            break;
+        runtime.step_frame(input);
+        if frame == 699 {
+            assert!(matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ));
+            assert_eq!(runtime.progression.number_hitpoints, 0);
         }
     }
-
-    let (hit_frame, trace) = hit_trace.expect("opening hit should land during the opening run");
-    assert_eq!(
-        hit_frame, 749,
-        "opening hit should match the traced walk-only frame"
-    );
-    assert_eq!(
-        trace.kid_x_pos,
-        Some(0x003B_3000),
-        "opening hit should preserve the stepped X position on the hit frame"
-    );
 }
 
 #[test]
