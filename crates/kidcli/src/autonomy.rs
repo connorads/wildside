@@ -199,6 +199,8 @@ pub(crate) struct CycleReport {
     goal_complete: bool,
     stalled: bool,
     selected_task: Option<TaskPackage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    task_package: Option<TaskPackage>,
     blocker: Option<BlockerReport>,
     capabilities: Vec<CapabilityReport>,
     progress_fingerprint: String,
@@ -495,7 +497,7 @@ pub(crate) fn run_autonomous_loop(
             &cycle,
         )?;
         let next_task_path = run_dir.join("next-task.json");
-        if let Some(task) = &cycle.selected_task {
+        if let Some(task) = &cycle.task_package {
             write_json(&next_task_path, task)?;
         } else if next_task_path.exists() {
             fs::remove_file(&next_task_path)
@@ -591,9 +593,10 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
     let state = load_source_port_frontier_state(repo_root)?;
     let frontier = &state.active_frontier;
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
-    let task_package = frontier.task_package_spec();
+    let task_package_spec = frontier.task_package_spec();
+    let task_package = source_port_frontier_task(frontier, &note);
     let task_ready = frontier.status == "active";
-    let selected_task = task_ready.then(|| source_port_frontier_task(frontier, &note));
+    let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
         .and_then(|task| detect_blocker(repo_root, task));
@@ -610,7 +613,7 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
     };
     let capabilities = vec![CapabilityReport {
         id: CapabilityId::SourcePortFrontierTask,
-        title: task_package.title.clone(),
+        title: task_package_spec.title.clone(),
         status: if task_ready {
             CapabilityStatus::Ready
         } else {
@@ -624,6 +627,7 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
         cycle,
         goal_complete: !task_ready,
         stalled: false,
+        task_package: Some(task_package),
         selected_task,
         blocker,
         progress_fingerprint: format!(
@@ -787,6 +791,7 @@ fn evaluate_cycle(
         cycle,
         goal_complete,
         stalled: false,
+        task_package: selected_task.clone(),
         selected_task,
         blocker,
         progress_fingerprint: fingerprint_for_capabilities(&capabilities),
@@ -2059,8 +2064,17 @@ mod tests {
 
         assert!(cycle.goal_complete);
         assert!(cycle.selected_task.is_none());
+        let task_package = cycle
+            .task_package
+            .expect("task package should still be emitted");
         assert_eq!(cycle.capabilities.len(), 1);
         assert_eq!(cycle.capabilities[0].title, "No open TAS frontier");
         assert_eq!(cycle.capabilities[0].status, CapabilityStatus::Complete);
+        assert_eq!(task_package.title, "No open TAS frontier");
+        assert!(
+            task_package
+                .summary
+                .contains("authoritative-clean through frame 6905")
+        );
     }
 }
