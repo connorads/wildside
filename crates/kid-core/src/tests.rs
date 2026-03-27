@@ -13604,6 +13604,102 @@ fn two_player_game_over_switches_when_other_has_lives() {
 }
 
 #[test]
+fn two_player_game_over_prefers_continue_countdown_before_switching_players() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    runtime.two_player = true;
+    runtime.current_player_index = 0;
+    runtime.progression.number_lives = 0;
+    runtime.progression.number_continues = 1;
+    runtime.player_slots[0].lives = 0;
+    runtime.player_slots[0].continues = 1;
+    runtime.player_slots[1].lives = 2;
+    runtime.player_slots[1].level_id = LevelId(2);
+    runtime.player_lifecycle = PlayerLifecycle::GameOver {
+        remaining_frames: 1,
+    };
+    runtime.boot_state = BootState::InGame;
+
+    runtime.step_frame(FrameInput::default());
+
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::ContinueCountdown { .. }
+    ));
+    assert_eq!(
+        runtime.current_player_index, 0,
+        "continue countdown should stay on the player who just ran out of lives"
+    );
+}
+
+#[test]
+fn two_player_continue_input_respawns_same_player_and_preserves_other_slot() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    runtime.two_player = true;
+    runtime.current_player_index = 0;
+    runtime.current_level = LevelId(0);
+    runtime.progression.number_lives = 0;
+    runtime.progression.number_continues = 1;
+    runtime.player_slots[0].lives = 0;
+    runtime.player_slots[0].continues = 1;
+    runtime.player_slots[0].level_id = LevelId(0);
+    runtime.player_slots[1].lives = 2;
+    runtime.player_slots[1].continues = 0;
+    runtime.player_slots[1].level_id = LevelId(2);
+    runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+        remaining_frames: 10,
+    };
+    runtime.boot_state = BootState::InGame;
+
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::Respawning { .. }
+    ));
+    assert_eq!(runtime.current_player_index, 0);
+    assert_eq!(runtime.progression.number_continues, 0);
+    assert_eq!(runtime.progression.number_lives, 3);
+    assert_eq!(runtime.current_level, LevelId(0));
+    assert_eq!(
+        runtime.player_slots[1].level_id,
+        LevelId(2),
+        "using P1's continue should not disturb P2's stored level"
+    );
+}
+
+#[test]
+fn two_player_continue_timeout_returns_to_title_without_switching_players() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    runtime.two_player = true;
+    runtime.current_player_index = 0;
+    runtime.progression.number_lives = 0;
+    runtime.progression.number_continues = 1;
+    runtime.player_slots[0].lives = 0;
+    runtime.player_slots[0].continues = 1;
+    runtime.player_slots[1].lives = 2;
+    runtime.player_slots[1].level_id = LevelId(2);
+    runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+        remaining_frames: 1,
+    };
+    runtime.boot_state = BootState::InGame;
+
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(runtime.boot_state, BootState::TitleScreen { cursor: 0 });
+    assert!(!runtime.two_player, "title return should clear 2P mode");
+    assert_eq!(
+        runtime.current_player_index, 0,
+        "continue timeout should not implicitly swap to P2"
+    );
+}
+
+#[test]
 fn save_load_player_slot_round_trips() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.current_player_index = 0;

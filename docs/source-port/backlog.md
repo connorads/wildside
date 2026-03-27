@@ -148,7 +148,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
 | 130 | [~] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry ROM/build provenance plus replay commands; still need remote-ingest workflow and legacy trace-schema compatibility |
 | 131 | [ ] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
-| 132 | [ ] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
+| 132 | [x] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
 | 133 | [ ] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | Document ASM path, native support status, and explicit implementation decision |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
@@ -258,6 +258,21 @@ and `--scenario death-respawn-level1` still diverge from the emulator-backed cap
 at `level_settle@719`, so this gate intentionally stays native-first until that harness
 drift is traced separately. The playable smoke path still needs a durable local gate now,
 not after the compare harness is repaired.
+
+### 132 — Verify 2-player alternating mode against oracle-backed or strong native scenarios (FIXED)
+Evidence source: backlog triage after the 1P gates stabilised. Native repro: existing behaviour, but only partially covered by tests.
+Oracle repro: not required — this closure uses strong native scenarios. Minimum gate: `fast-slice`.
+
+Fix: extend the 2P regression coverage in `kid-core` so the alternation rules are explicit:
+game over enters `ContinueCountdown` before any player swap, using a continue respawns the
+same player without disturbing the other slot, and letting the continue countdown expire
+returns to title instead of silently swapping players.
+
+Closure evidence: `cargo test -q -p kid-core two_player_ -- --nocapture` passes with the new
+`two_player_game_over_prefers_continue_countdown_before_switching_players`,
+`two_player_continue_input_respawns_same_player_and_preserves_other_slot`, and
+`two_player_continue_timeout_returns_to_title_without_switching_players` regressions, and
+`mise run verify-slice-fast` stays green.
 
 ### 124 — Enemy kill timing still allows Kid to get hurt after the enemy should already be dead (FIXED)
 Evidence source: native play reports. Native repro: reported, not yet captured.
