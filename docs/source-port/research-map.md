@@ -84,8 +84,8 @@ All 10 original milestones are done. The project is now in **playtest-driven ite
 - **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
 - **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
 
-### Gameplay fidelity (2 open backlog items + active TAS frontier)
-- **#037** [~] Floor-snap settling diffs on 2 levels — residuals are now small but real. Current live tail is `0x24` / `0x51` (`camera_y` +1px). Level `0x29` is locked down by a cached-manifest regression test at the oracle-backed `kid_x=0x02A50000` / `camera_x=0x02090000` settle result, and level `0x52` is now locked to the stair-step support landing via `respawn_settle_level_52_uses_stair_step_support_path`. Root cause for the remaining debt is still the init-time shortcut versus the original frame-step camera convergence.
+### Gameplay fidelity (1 open backlog item + active TAS frontier)
+- **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
 - **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble; still needs oracle-backed visual verification.
 - **TAS frontier** [~] `kc_any_percent_2024` frame 3414 — the second-dragon stomp setup is now authoritative-clean through frame 3413 after matching DragonWalking overlap to `GfxObjects_CollisionKid`'s integer-inclusive edge contacts. The next live blocker starts two frames after the demo `Start` press on frame 3412: oracle has already frozen the pause snapshot by frame 3414, while native still keeps `camera=(0x02F60000,0x00E10000)` and `kid_y=0x017D0000` instead of the oracle-backed `camera=(0x02F80000,0x00E00000)` and `kid_y=0x017CC000`.
 

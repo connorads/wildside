@@ -15201,6 +15201,31 @@ fn respawn_settle_level_52_uses_stair_step_support_path() {
 }
 
 #[test]
+fn respawn_settle_level_24_matches_oracle_camera_convergence() {
+    let mut runtime = cached_generated_runtime();
+    runtime.warp_to_level(LevelId(0x24));
+    let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x24));
+
+    // ASM Load_InGame seeds the header pose, then the hidden init frames run
+    // the normal `sub_71E4` camera follow while Kid settles onto the floor.
+    // Focused backlog #037 traces for Wind Castles 1 converge at camera_y=$36E.
+    assert_eq!(settled.player.y_pos, 0x040F_0000);
+    assert_eq!(settled.camera.y_pos, 0x036E_0000);
+}
+
+#[test]
+fn respawn_settle_level_51_matches_oracle_camera_convergence() {
+    let mut runtime = cached_generated_runtime();
+    runtime.warp_to_level(LevelId(0x51));
+    let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x51));
+
+    // ASM sub_71E4 uses the same hidden init camera-follow path here; the
+    // cached backlog #037 tracker for Elsewhere 10 converges at camera_y=$28E.
+    assert_eq!(settled.player.y_pos, 0x032F_0000);
+    assert_eq!(settled.camera.y_pos, 0x028E_0000);
+}
+
+#[test]
 fn demo_1_bootstrap_keeps_camera_hidden_through_frame_2537() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frames = BTreeMap::new();

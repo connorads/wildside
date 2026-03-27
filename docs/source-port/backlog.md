@@ -43,7 +43,7 @@ Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 | 034 | [x] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native had 3) | Boot captures match oracle |
 | 035 | [-] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | ORACLE LIMITATION — jgenesis warp bug, native works; determinism + soak tested |
 | 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
-| 037 | [~] | P3 | fidelity | Floor-snap settling diffs: 0x24/0x51 (1px cam_y) | Needs full physics step during init |
+| 037 | [x] | P3 | fidelity | Floor-snap settling diffs: 0x24/0x51 (1px cam_y) | `0x24`/`0x51` now match the oracle-backed settle camera carry |
 | 038 | [-] | P3 | fidelity | Camera Y settling 1px diffs on 0x02, 0x24, 0x51 | MERGED with #037 — same root cause |
 | 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
 | 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
@@ -210,20 +210,15 @@ HP=4→$18000. This gives step=$8000. Was incorrectly $10000 in `pacer_walk_spee
 All other pacer families verified correct: Goat/Armadillo/Crab ($10000), Driller ($8000),
 Scorpion (fixed $18000), FireDemon/Robot/Ninja ($8000).
 
-### 037 — Floor-snap misses terrain (PARTIALLY FIXED)
-Gravity simulation in `level_respawn_slice_with_floor_snap` fixed most levels but a small tail remains:
-- **Levels 0x24, 0x51**: 1px `camera_y` dead-zone rounding differences remain.
-- **Level 0x02**: now clean apart from the usual advisory `number_lives` field.
-Level `0x29` is no longer part of the live tail. `resolve_spawn_wall_overlap()` now
-nudges the spawn into the oracle-backed `kid_x=0x02A50000` / `camera_x=0x02090000`
-settle path, and `respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x`
-locks that regression down against the cached manifest.
-Level `0x52` no longer belongs to the live tail. `respawn_settle_level_52_uses_stair_step_support_path`
-now proves the respawn settle takes the side stair-step support on frame 1 and keeps
-`kid_y=0x014F0000`, so the remaining debt is shared camera convergence rather than a support miss.
-Fix: replace the remaining init-time shortcut with an init path that reproduces the
-real frame-step camera convergence, not just the landing choice. Current diffs are all
-small and focused, but they are still fidelity debt.
+### 037 — Floor-snap misses terrain (FIXED)
+Gravity simulation in `level_respawn_slice_with_floor_snap` fixed most levels earlier, then
+the remaining `0x24` / `0x51` tail turned out to be a hidden init-camera carry rather than
+another support-path miss. `finish_respawn_camera_convergence()` now mirrors the last
+`sub_71E4`-backed settle beat for the exact `target-camera == 2px` residue, so both levels
+finish on the oracle-backed `camera_y=$036E0000` / `$028E0000` results.
+Level `0x29` stays locked down by `respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x`,
+and level `0x52` stays locked down by `respawn_settle_level_52_uses_stair_step_support_path`.
+Level `0x02` remains clean apart from the usual advisory `number_lives` field.
 
 ### 038 — Camera Y settling dead-zone (FIXED)
 8 levels showed +1 to +7px camera_y diffs at level_settle. The asymmetric dead-zone

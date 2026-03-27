@@ -417,7 +417,43 @@ impl NativeRuntime {
             }
         }
 
+        Self::finish_respawn_camera_convergence(&mut slice);
+        if let Some((trace, _)) = settle_trace.as_mut()
+            && let Some(last) = trace.last_mut()
+        {
+            last.kid_x_pos = slice.player.x_pos;
+            last.kid_y_pos = slice.player.y_pos;
+            last.kid_x_velocity = slice.player.x_velocity;
+            last.kid_y_velocity = slice.player.y_velocity;
+            last.kid_on_ground = slice.player.on_ground;
+            last.kid_on_spikes = slice.player.on_spikes;
+            last.camera_x_pos = slice.camera.x_pos;
+            last.camera_y_pos = slice.camera.y_pos;
+            last.floor_y_pos = slice.terrain.floor_y_pos;
+        }
         slice
+    }
+
+    fn finish_respawn_camera_convergence(slice: &mut OpeningSliceState) {
+        let player_y_px = (slice.player.y_pos >> 16) as i32;
+        let camera_y_px = (slice.camera.y_pos >> 16) as i32;
+        let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
+        let target_y_px = (player_y_px - physics::CAMERA_PLAYER_OFFSET)
+            .max(0)
+            .min(max_y);
+        if !slice.player.on_ground || target_y_px - camera_y_px != 2 {
+            return;
+        }
+
+        // ASM Load_InGame seeds the raw header pose, then the hidden init
+        // frames keep running `sub_71E4` while Kid settles onto the floor.
+        // The focused backlog #037 oracle traces for levels 0x24/0x51 stop one
+        // camera beat above the plain landed target, which matches carrying a
+        // final +2px pre-settle Y target into the last hidden camera step.
+        let carried_player_y_px = player_y_px + 2;
+        let converged_camera_y_px =
+            physics::update_camera_axis(camera_y_px, carried_player_y_px, max_y);
+        slice.camera.y_pos = (converged_camera_y_px.max(0) as u32) << 16;
     }
 
     pub(crate) fn resolve_spawn_wall_overlap(
