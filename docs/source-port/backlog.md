@@ -142,7 +142,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 123 | [ ] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
 | 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
 | 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now uses the ASM block group as well as skin, so post-prize `$E001` cells render smash-family art instead of prize-family art |
-| 126 | [~] | P1 | player | Walking up slopes is still observably wrong in native play | Shared/special-form slope physics now match ASM in focused tests; live-play confirmation still pending |
+| 126 | [x] | P1 | player | Walking up slopes is still observably wrong in native play | Native 1P gate now covers uphill/downhill tracking plus slope enter/exit seams; `mise run verify-1p-playable` is green |
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
@@ -190,7 +190,7 @@ Oracle repro: mixed/unknown. Minimum gate: `1p-playable`.
 This issue stays separate from the closed floor-snap and TAS frontier items. It is a player-facing
 native stability bug until a recording or focused scenario proves otherwise.
 
-### 126 — Walking up slopes is still observably wrong in native play (IN PROGRESS)
+### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
 
@@ -205,7 +205,12 @@ input-agnostic `loc_9E6C` branch for Red Stealth/Eyeclops/Maniaxe. Regressions:
 `slope_ground_run_right_uses_shared_table_for_cyclone` and
 `slope_ground_special_form_auto_slides_without_input`.
 
-Remaining evidence gap: re-check representative live-play slopes before marking this closed.
+Closure evidence: `mise run verify-1p-playable` now keeps the existing slope-family
+unit coverage and also exercises uphill/downhill tracking plus slope enter/exit seam
+regressions via `walking_on_slope_up_y_tracks_diagonal_every_frame`,
+`walking_on_slope_down_y_tracks_diagonal_every_frame`,
+`solid_to_slope_up_transition_stays_grounded`, and
+`grounded_slope_to_solid_seam_keeps_level_one_runner_grounded`.
 
 ### 129 — Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions (FIXED)
 Evidence source: backlog triage after the published TAS tail went green. Native repro: n/a — this is a missing verification gate.
