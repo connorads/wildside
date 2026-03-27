@@ -632,6 +632,12 @@ fn print_trace_frames_in_range(
                 frame.active_platform_object_count,
                 describe_active_objects(frame)
             );
+            if !frame.gameplay_debug_fields.is_empty() {
+                println!(
+                    "  gameplay: {}",
+                    format_debug_fields(&frame.gameplay_debug_fields)
+                );
+            }
             if trace_physics && let Some(physics) = frame.physics_trace {
                 println!(
                     "  physics: pre_h {:08X},{:08X} post_h {:08X},{:08X} pre_v {:08X},{:08X} post_v {:08X},{:08X} jump {} jump_y {} floor_hit {} floor_y {:?} landing {:?} wall_hit {} wall_x {:?} final_pos {:08X},{:08X} final_vel {:08X},{:08X}",
@@ -658,6 +664,14 @@ fn print_trace_frames_in_range(
             }
         }
     }
+}
+
+fn format_debug_fields(fields: &std::collections::BTreeMap<String, String>) -> String {
+    fields
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 pub(crate) fn probe_native_scenario(
