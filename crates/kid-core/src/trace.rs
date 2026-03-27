@@ -1185,7 +1185,7 @@ impl NativeRuntime {
             }
             BootState::DemoPlay { frame_counter, .. }
                 if demo_use_demo_2.is_some_and(|use_demo_2| {
-                    frame_counter < demo::gameplay_start_frame(use_demo_2)
+                    frame_counter < self.demo_gameplay_start_frame(use_demo_2)
                 }) =>
             {
                 None
@@ -1229,11 +1229,20 @@ impl NativeRuntime {
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())
-            && frame_counter < demo::gameplay_start_frame(use_demo_2)
+            && frame_counter < self.demo_gameplay_start_frame(use_demo_2)
         {
             let camera_y_pos = if !use_demo_2 {
                 if frame_counter == 60 && self.demo_uses_intro_sequence_6_hidden_camera_wrap {
                     demo::DEMO_1_INTRO_SEQUENCE_6_CAMERA_WRAP_Y_FP
+                } else if frame_counter == demo::DEMO_1_GAMEPLAY_START_FRAME
+                    && self.demo_uses_intro_sequence_6_hidden_camera_wrap
+                {
+                    // ASM `loc_1BB02 -> Load_DemoPlay -> Load_InGame` has
+                    // already advanced the hidden Knights Isle bootstrap, but
+                    // oracle keeps the timeout-restart `IntroSequence6`
+                    // lineage on the last `$00E0_0000` hidden row for one
+                    // extra trace frame before the visible bootstrap starts.
+                    0x00E0_0000
                 } else if frame_counter == 60 && self.demo_uses_start_skip_intro_return_camera_wrap
                 {
                     // ASM sub_1B8F4 / loc_1B920 reach title via sub_1C246's
@@ -1318,7 +1327,7 @@ impl NativeRuntime {
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())
-            && frame_counter < demo::gameplay_start_frame(use_demo_2)
+            && frame_counter < self.demo_gameplay_start_frame(use_demo_2)
         {
             return Vec::new();
         }
@@ -1377,7 +1386,7 @@ impl NativeRuntime {
         {
             return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
-            } else if frame_counter >= demo::gameplay_start_frame(use_demo_2) {
+            } else if frame_counter >= self.demo_gameplay_start_frame(use_demo_2) {
                 (5, 4)
             } else if frame_counter >= demo::DEMO_OBJECT_WARMUP_FRAME {
                 (5, 2)

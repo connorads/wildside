@@ -18833,6 +18833,70 @@ fn published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825(
 }
 
 #[test]
+fn published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21837 = None;
+    let mut frame_21838 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_839) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_837 => {
+                frame_21837 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_838 => {
+                frame_21838 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM `loc_1BB02 -> Load_DemoPlay -> Load_InGame` has already started the
+    // hidden Knights Isle bootstrap here, but the timeout-restart
+    // `IntroSequence6` lineage keeps frame 21837 on the `$00E0_0000` hidden
+    // row before exposing the already-advanced bootstrap pose on frame 21838.
+    assert_eq!(
+        frame_21837,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(72),
+            0x00E0_0000,
+            None,
+            None
+        )),
+        "frame 21837 should keep the IntroSequence6 demo-1 bootstrap hidden for one extra frame",
+    );
+    assert_eq!(
+        frame_21838,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x15),
+            Some(73),
+            0x00D8_0000,
+            Some(0x0010_0000),
+            Some(0x00FF_0000),
+        )),
+        "frame 21838 should expose the already-advanced demo bootstrap pose after the hidden hold",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

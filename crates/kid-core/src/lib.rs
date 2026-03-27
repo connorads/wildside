@@ -490,7 +490,7 @@ impl NativeRuntime {
                 };
                 let demo_use_demo_2 = self.demo_uses_second_recording();
                 let demo_gameplay_start = demo_use_demo_2
-                    .map(demo::gameplay_start_frame)
+                    .map(|use_demo_2| self.demo_gameplay_start_frame(use_demo_2))
                     .unwrap_or(demo::DEMO_GAMEPLAY_START_FRAME);
                 match self.demo_startup_frame() {
                     Some(frame)

@@ -100,7 +100,19 @@ impl NativeRuntime {
     pub(crate) fn demo_gameplay_active(&self) -> bool {
         self.demo_startup_frame()
             .zip(self.demo_uses_second_recording())
-            .is_some_and(|(frame, use_demo_2)| frame >= demo::gameplay_start_frame(use_demo_2))
+            .is_some_and(|(frame, use_demo_2)| frame >= self.demo_gameplay_start_frame(use_demo_2))
+    }
+
+    pub(crate) fn demo_gameplay_start_frame(&self, use_demo_2: bool) -> u16 {
+        let mut frame = demo::gameplay_start_frame(use_demo_2);
+        if !use_demo_2 && self.demo_uses_intro_sequence_6_hidden_camera_wrap {
+            // ASM `loc_1BB02 -> Load_DemoPlay -> Load_InGame` still runs on the
+            // timeout-restart `IntroSequence6` lineage, but oracle keeps the
+            // first demo-1 bootstrap frame hidden for one extra startup frame
+            // after the wrapped `$FD20_0000` preload row.
+            frame = frame.saturating_add(1);
+        }
+        frame
     }
 
     pub(crate) fn demo_level_id(use_demo_2: bool) -> LevelId {
@@ -558,7 +570,7 @@ impl NativeRuntime {
             }
         }
 
-        let gameplay_start_frame = demo::gameplay_start_frame(use_demo_2);
+        let gameplay_start_frame = self.demo_gameplay_start_frame(use_demo_2);
         if self.ignore_demo_start_abort_until_gameplay && frame_counter >= gameplay_start_frame {
             self.ignore_demo_start_abort_until_gameplay = false;
         }
