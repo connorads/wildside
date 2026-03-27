@@ -1,55 +1,51 @@
 ---
-slug: any-percent-published-frame-29402-mode-28-demo-handoff
-cycle: 74
-updated_at: 2026-03-27T07:05:00Z
+slug: any-percent-published-tail-clean-through-end
+cycle: 75
+updated_at: 2026-03-27T08:44:53Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the frame-28396 later mode-0x28 title-pose miss by splitting the later `IntroSequence6` revisit from the earlier timeout-restart visibility threshold: the non-wrap lineage now keeps Kid hidden through local mode-`$28` frame 332 and only exposes `loc_1B5CE`'s standard title pose on frame 333.
-- Added [`published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398`](/home/connor/git/kc/crates/kid-core/src/tests.rs), locking the oracle-backed window where the later revisit keeps `kid_x_pos` / `kid_y_pos` at zero through frames 28396..28398 and only restores `x=$2E`, `y=$8C` on frame 28399.
-- Re-ran `cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398 -- --nocapture`, `cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317 -- --nocapture`, `cargo test -q -p kid-core published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224 -- --nocapture`, `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28390 --frame-end 28402 --include-advisory`, `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 29396 --frame-end 29408 --include-advisory`, and `mise run verify-slice-fast`.
+- Refreshed the frontier handoff after the published any-percent tail was proven authoritative-clean through frame 37759. The previous note still pointed at the already-fixed frame-29402 `mode=$28` demo hand-off.
+- Synced the TAS metadata with the live frontier state: [`docs/source-port/tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md) now marks `any-percent-published` verified through frame 37759 and closes milestones M7/M8.
+- Re-ran the existing tail evidence from [`docs/source-port/frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml): `published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916`, `published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148`, `verify-tas --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect`, the 36000..37000 and 37000..37759 chunk checks, and `mise run verify-slice-fast`.
 
 ## Current Model
 
-- ASM [`loc_1B5CE`](/home/connor/git/kc/.cache/upstream/kid-chameleon-disasm/kid.asm) still owns the standard title-pose write on both lineages, but the later non-wrap revisit does not surface that pose until three local mode-`$28` frames after the earlier timeout-restart copy.
-- [`trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs) now models the later `IntroSequence6` title-pose threshold separately from the wrapped timeout-restart path, so frames 28390..28401 are advisory-only.
-- The next frontier is the later `Game_Mode` hand-off: native reaches `0x0010` on frame 29402 while oracle remains in mode `0x0028` through frame 29404, so the remaining bug is in the `loc_1BAEA` / `loc_1BB02` idle-to-demo transition rather than camera state or Kid visibility.
+- There is no open authoritative successor frontier in the published any-percent recording. [`frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml) is correct: the later intro/title/demo repairs keep the run clean through the last recorded frame, 37759.
+- The stale autonomy artefacts were the remaining problem, not gameplay parity. Future TAS work should start from a new regression or a different incomplete tracker item, not from frame 29402 / 16228 / 7969.
+- If a new TAS regression appears, restart from the compact frontier state and re-bisect from frame 23250; do not revive the older roadmap note or this note's predecessors.
 
 ## Strongest Evidence
 
-- Native
-  - [`trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs)
-    - `current_player_state()` now keeps the non-wrap later revisit hidden until local mode-`$28` frame 333 instead of reusing the earlier timeout-restart frame-330 title-pose threshold.
-  - [`tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
-    - `published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398` passes and proves the new 3-frame hide on the later revisit.
-- Oracle / parity
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28390 --frame-end 28402 --include-advisory`
-    - Frames 28390..28401 are now advisory-only; the old `kid_x_pos` / `kid_y_pos` miss is gone.
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
-    - The first CRC divergence moved to frame 29402.
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 29396 --frame-end 29408 --include-advisory`
-    - Frames 29402..29404 now show the next authoritative miss: native `game_mode=0x0010`; oracle keeps `game_mode=0x0028`.
+- [`frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml)
+  - Active frontier slug `any-percent-published-tail-clean-through-end`, status `complete`, clean through frame 37759, blocker `None`.
+- Tail verification
+  - `cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916 -- --nocapture`
+  - `cargo test -q -p kid-core published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148 -- --nocapture`
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 35140 --frame-end 36000 --checkpoint-interval 1 --bisect`
+  - Chunked CRC checks for frames 36000..37000 and 37000..37759
+  - `mise run verify-slice-fast`
+- Metadata alignment
+  - [`tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md) now agrees with the compact frontier state instead of advertising the old frame-7969 blocker as live.
 
 ## Exact Next Moves
 
-1. Read the later mode-`$28` `Obj_TitleMenu` hand-off around `loc_1BAEA` / `loc_1BB02` in [`kid.asm`](/home/connor/git/kc/.cache/upstream/kid-chameleon-disasm/kid.asm) before touching native code again.
-2. Add a focused regression for frames 29402..29404 proving oracle keeps `Game_Mode=$28` while native currently reaches `0x0010` too early.
-3. Re-run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 29396 --frame-end 29408 --include-advisory` after the next patch so the three-frame mode-`$28` settle is what moves.
+1. Do not resume the published any-percent tail from an old stale frame. Start from [`docs/source-port/frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml); it is already complete through frame 37759.
+2. If a new TAS regression is introduced, rerun `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect` and open a fresh frontier from the first new authoritative mismatch.
+3. If no new TAS regression exists, take the next non-tail fidelity item from the live tracker instead of reopening this frontier. Backlog `#037` and `#062` are the remaining obvious candidates.
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_frame_28398 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224 -- --nocapture`
+- `mise run frontier-status`
+- `cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_later_demo_2_transform_ignores_start_abort_on_frame_35148 -- --nocapture`
 - `mise run verify-slice-fast`
 - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28390 --frame-end 28402 --include-advisory`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 29396 --frame-end 29408 --include-advisory`
 
 ## Dead Ends / Do Not Retry
 
-- Do not fold the later title-pose threshold back into the earlier wrapped timeout-restart constant. Frame 28396 proves the later revisit needs its own 3-frame hide.
-- Do not keep debugging camera state or Kid visibility for this frontier. `tas-diff` now shows the next blocker is the `game_mode` flip (`0x0028 -> 0x0010`), not `camera_y_pos` or `kid_x_pos`.
+- Do not reopen frame 29402, frame 16228, or frame 7969 as if they were still active. Those notes are historical artefacts now.
+- Do not use [`tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md) as the live frontier source without first checking [`frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml).
