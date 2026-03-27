@@ -113,6 +113,11 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES: usize = 3
 // the carried camera on frame 32039, so keep the title-screen carry bounded to
 // that short settle window rather than the full title rebuild.
 pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_CAMERA_CARRY_FRAMES: usize = 32;
+// The later intro-sequence-4 Start return still reaches title through
+// `sub_1C246 -> Game_Mode=$2C`, but oracle-backed published TAS traces expose
+// the rebuilt title pose one local title frame earlier than the generic
+// `enter_title_screen_from_intro_return` settle window.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_READY_FRAMES: usize = 1;
 // ASM loc_1BCD0 writes the third allocated title gfx slot with
 // `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. Oracle probes of the verifier's
 // fixed slot-2 WRAM reads ($FF24FA/$FF24FE) keep that slot zero through frame

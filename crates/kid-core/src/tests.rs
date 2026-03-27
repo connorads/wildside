@@ -20049,6 +20049,76 @@ fn published_tas_later_timeout_restart_title_clears_intro_sequence_4_camera_on_f
     );
 }
 
+#[test]
+fn published_tas_later_timeout_restart_title_restores_pose_on_frame_32156() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_32155 = None;
+    let mut frame_32156 = None;
+    let mut frame_32157 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(32_158) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            32_155 => {
+                frame_32155 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            32_156 => {
+                frame_32156 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            32_157 => {
+                frame_32157 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1C246 has already returned the later intro-sequence-4 revisit to
+    // `Game_Mode=$2C`, and oracle-backed TAS traces show the rebuilt title
+    // shell exposes the standard `loc_1B5CE` pose on frame 32156 rather than
+    // waiting for another generic intro-return rebuild frame.
+    assert_eq!(
+        frame_32155,
+        Some((GameMode::TitleScreen, LevelId(0x00), None, None)),
+        "frame 32155 should still be the final hidden title-rebuild frame on the later intro-sequence-4 revisit",
+    );
+    assert_eq!(
+        frame_32156,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 32156 should be the first title frame that re-exposes the standard title pose on the later intro-sequence-4 revisit",
+    );
+    assert_eq!(
+        frame_32157,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0x00),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 32157 should keep the restored title pose visible on the following frame",
+    );
+}
+
 /// Determinism: running the same scenario twice must produce identical traces.
 /// Non-determinism would invalidate all oracle comparisons.
 #[test]

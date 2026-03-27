@@ -321,6 +321,13 @@ impl NativeRuntime {
         self.enter_title_screen_from_intro_return();
         self.timeout_restart_title_intro_sequence_4_return_pending = false;
         self.timeout_restart_title_intro_sequence_4_camera_carry = true;
+        // ASM sub_1C246 already switched back to `Game_Mode=$2C`; on this
+        // later intro-sequence-4 revisit oracle exposes the rebuilt
+        // `loc_1B5CE` title pose one title frame earlier than the generic
+        // intro-return settle window.
+        self.title_screen_ready_frame = self
+            .title_screen_ready_frame
+            .saturating_sub(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_READY_FRAMES);
     }
 
     fn finish_timeout_restart_intro_sequence_5_title_return(&mut self) {
