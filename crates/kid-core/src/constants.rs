@@ -128,6 +128,13 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_SLOT_2_POSE_CARRY_FRAMES: usiz
 // generic cleared title camera. Oracle-backed timeout-restart traces first
 // expose the wrapped `0xFFF0_0000` row on the local mode-$28 frame 32.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES: usize = 32;
+// ASM sub_1B43A eventually allocates GfxObjects_Collision_BottomBoundary4,
+// which waits through the title-shell animation and then applies
+// `sub.l d1,($FFFFA656).w; bsr.w sub_1B222` for 16 frames. Starting from the
+// wrapped `$FFF0_0000` accumulator, oracle ramps the hidden camera upward by
+// one pixel per frame beginning on local mode-$28 frame 248.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES: usize = 248;
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES: usize = 16;
 // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so the
 // loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
 // overwrites that WRAM slot 28 frames later.

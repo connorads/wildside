@@ -18350,6 +18350,88 @@ fn published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926() {
 }
 
 #[test]
+fn published_tas_intro_sequence_6_starts_hidden_camera_ramp_on_frame_21142() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21141 = None;
+    let mut frame_21142 = None;
+    let mut frame_21143 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_144) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_141 => {
+                frame_21141 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_142 => {
+                frame_21142 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_143 => {
+                frame_21143 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM sub_1B43A allocates GfxObjects_Collision_BottomBoundary4, which
+    // later does `move.l ($FFFFA656).w,d1; asr.l #4,d1` and then
+    // `sub.l d1,($FFFFA656).w; bsr.w sub_1B222` for 16 frames. Starting from
+    // the wrapped `$FFF0_0000` seed, that increments the hidden camera by
+    // one pixel per frame from local mode-$28 frame 248 onward.
+    assert_eq!(
+        frame_21141,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(247),
+            0xFFF0_0000,
+            None,
+        )),
+        "frame 21141 should still expose the pre-ramp wrapped hidden camera row",
+    );
+    assert_eq!(
+        frame_21142,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(248),
+            0xFFF1_0000,
+            None,
+        )),
+        "frame 21142 should start the oracle-backed sub_1B222 hidden camera ramp",
+    );
+    assert_eq!(
+        frame_21143,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(249),
+            0xFFF2_0000,
+            None,
+        )),
+        "frame 21143 should continue the one-pixel-per-frame hidden camera ramp",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

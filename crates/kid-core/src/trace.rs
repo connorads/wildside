@@ -142,22 +142,41 @@ impl NativeRuntime {
         )
     }
 
-    fn intro_sequence_6_uses_timeout_restart_hidden_camera_wrap(&self) -> bool {
-        matches!(
-            self.boot_state,
-            // ASM Load_IntroSequence6 seeds `($FFFFA656).w` with `$FFD00000`
-            // and immediately calls `sub_1B222`; the later
-            // GfxObjects_Collision_BottomBoundary4 worker keeps feeding the
-            // hidden title-camera accumulator back through `sub_1B222`
-            // instead of the generic cleared title camera. Oracle-backed
-            // timeout-restart traces first expose that wrapped row on local
-            // mode-$28 frame 32.
-            BootState::IntroSequence6 {
-                carry_intro_sequence_5_slot_2_pose: true,
-                ..
-            } if self.title_screen_elapsed_frames
-                >= TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES
-        )
+    fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
+        let BootState::IntroSequence6 {
+            carry_intro_sequence_5_slot_2_pose: true,
+            ..
+        } = self.boot_state
+        else {
+            return None;
+        };
+        let elapsed = self.title_screen_elapsed_frames;
+        if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES {
+            return None;
+        }
+
+        // ASM Load_IntroSequence6 seeds `($FFFFA656).w` with `$FFD00000`,
+        // adds `$20` on the timeout-restart lineage, then calls `sub_1B222`
+        // so the first exposed hidden row is the wrapped `$FFF0_0000`.
+        // Later sub_1B43A allocates GfxObjects_Collision_BottomBoundary4,
+        // which delays, derives `d1 = ($FFFFA656).w >> 4`, then repeats
+        // `sub.l d1,($FFFFA656).w; bsr.w sub_1B222` for 16 frames. With the
+        // `$FFF0_0000` seed, that means `d1=$FFFF0000`, so oracle ramps the
+        // hidden camera upward by exactly one pixel per frame from local
+        // mode-$28 frame 248 until the worker deletes itself.
+        if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES {
+            return Some(0xFFF0_0000);
+        }
+
+        let ramp_frame = elapsed - TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES;
+        if ramp_frame < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES {
+            return Some(
+                0xFFF0_0000_u32
+                    .wrapping_add(((ramp_frame as u32).wrapping_add(1)).wrapping_mul(0x0001_0000)),
+            );
+        }
+
+        Some(0)
     }
 
     fn title_hides_demo_return_player(&self) -> bool {
@@ -1185,10 +1204,10 @@ impl NativeRuntime {
                 y_pos: 0x0004_0000,
             };
         }
-        if self.intro_sequence_6_uses_timeout_restart_hidden_camera_wrap() {
+        if let Some(camera_y_pos) = self.intro_sequence_6_timeout_restart_hidden_camera_y() {
             return CameraState {
                 x_pos: 0,
-                y_pos: 0xFFF0_0000,
+                y_pos: camera_y_pos,
             };
         }
         if self.title_uses_demo_snapshot() {
