@@ -188,7 +188,7 @@ Feature-flagged: enabled in debug/test builds, disabled in release. Violations p
 
 ### Planned improvements
 
-Testing infrastructure improvements are tracked in `backlog.md`: #028 (insta snapshots — done), #029 (proptest — done), #030 (CI gate — done), #031 (perf baselines — open).
+Testing infrastructure improvements are tracked in `backlog.md`: #028 (insta snapshots — done), #029 (proptest — done), #030 (local-first regression gate — done; CI deferred), #031 (perf baselines — open).
 
 ---
 

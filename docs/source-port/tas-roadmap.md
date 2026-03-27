@@ -118,6 +118,7 @@ Run `mise run frontier-status` before using this roadmap as wider historical con
 | Improvement | Milestone | Status |
 |-------------|-----------|--------|
 | `--bisect` flag for `verify-tas` | M1 | [x] |
+| Local-first TAS frontier gate (`mise run verify-tas-frontier`) | M4 | [x] |
 | CI TAS gate | M4 | [ ] |
 | TAS frontier tracking (`frontier-state.yaml` + `mise run frontier-status`) | M2 | [x] |
 | Framewise CRC checksumming | M7 | [ ] |

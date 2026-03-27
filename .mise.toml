@@ -147,8 +147,8 @@ FRONTIER=tests/tas_frontier.json
 if [ ! -f "$FRONTIER" ]; then echo "missing $FRONTIER"; exit 1; fi
 FAIL=0
 for slug in $(jq -r '"'"'.recordings | keys[]'"'"' "$FRONTIER"); do
-  scenario=$(jq -r ".recordings[\"$slug\"].scenario" "$FRONTIER")
-  frame=$(jq -r ".recordings[\"$slug\"].frontier_frame" "$FRONTIER")
+  scenario=$(jq -r --arg slug "$slug" ".recordings[\\$slug].scenario" "$FRONTIER")
+  frame=$(jq -r --arg slug "$slug" ".recordings[\\$slug].frontier_frame" "$FRONTIER")
   echo "checking $slug up to frame $frame..."
   if ! cargo run --release -q -p kidcli -- verify-tas --scenario "$scenario" --frame-end "$frame"; then
     echo "FAIL: $slug regressed before frame $frame"
@@ -159,7 +159,7 @@ if [ "$FAIL" -eq 1 ]; then echo "TAS frontier regression detected"; exit 1; fi
 echo "TAS frontier: all recordings pass"
 '
 """
-description = "Verify no TAS regression before current frontier frame"
+description = "Local-first TAS frontier gate; verify no regression before current frontier frame"
 
 [tasks.frontier-status]
 run = "python3 scripts/frontier_status.py"
