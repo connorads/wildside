@@ -16234,6 +16234,50 @@ fn death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing() {
 }
 
 #[test]
+fn death_respawn_level_1_waits_until_frame_990_to_land() {
+    let mut runtime = cached_generated_runtime();
+    let mut script = vec![0u8; 1_920 + 1];
+    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
+        script[frame] |= 0x80;
+    }
+    for slot in &mut script[600..=899] {
+        *slot |= 1 << 3;
+    }
+    for slot in &mut script[900..=1_350] {
+        *slot |= (1 << 3) | (1 << 6);
+    }
+    for frame in (940..=1_350).step_by(24) {
+        let jump_end = 1_350.min(frame + 3);
+        for slot in &mut script[frame..=jump_end] {
+            *slot |= 1 << 4;
+        }
+    }
+
+    let mut frame_989 = None;
+    let mut frame_990 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(991) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 989 {
+            frame_989 = Some(trace);
+        } else if frame_index == 990 {
+            frame_990 = Some(trace);
+        }
+    }
+
+    let frame_989 = frame_989.expect("frame 989 trace");
+    let frame_990 = frame_990.expect("frame 990 trace");
+    // ASM sub_902A keeps the last sub-half-pixel gap airborne until the
+    // contact row is reached. The Level 1 death-respawn route should still be
+    // falling on frame 989, then land on frame 990 without taking an extra X
+    // step before the grounded run-up resumes.
+    assert_eq!(frame_989.kid_on_ground, Some(false));
+    assert_eq!(frame_990.kid_y_pos, Some(0x00AF_0000));
+    assert_eq!(frame_990.kid_on_ground, Some(true));
+    assert_eq!(frame_990.kid_x_pos, frame_989.kid_x_pos);
+    assert_eq!(frame_990.number_hitpoints, 1);
+}
+
+#[test]
 fn respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x() {
     let mut runtime = cached_generated_runtime();
     runtime.warp_to_level(LevelId(0x29));

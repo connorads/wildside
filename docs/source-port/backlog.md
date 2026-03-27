@@ -270,6 +270,19 @@ frame `993` on `kid_x_pos` / `kid_y_pos`. `compare-native-gameplay --scenario de
 still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining work is the later
 grounded slope hand-off and downstream death trigger, not the old buffered re-jump.
 
+New evidence (2026-03-27, contact-row gate): ASM `sub_902A` still waits for the real solid contact
+row in normal gameplay; the half-pixel touch snap is not part of the `AsmFaithful` path. Native was
+still enabling that shortcut outside demo playback, which landed the Level 1 death-respawn arc one
+frame early on frame `989` and pulled the grounded run-up / downslope seam forward with it. Gating
+the touch snap off for `PhysicsOrder::AsmFaithful` adds
+`death_respawn_level_1_waits_until_frame_990_to_land`, keeps
+`death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing` green, keeps
+`mise run verify-slice-fast` green, and moves the first
+`diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 980` miss later to
+frame `1012` on `kid_x_pos` only. `compare-native-gameplay --scenario death-respawn-level1` still
+fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining work is now the later
+post-landing X parity and downstream death trigger, not the old early landing.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

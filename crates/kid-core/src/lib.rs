@@ -1206,10 +1206,13 @@ impl NativeRuntime {
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
             } else {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
-                // Demo playback keeps a hidden shadow arc with one last airborne
-                // sub-half-pixel gap before landing. Letting AsmFaithful collapse
-                // that gap lands frame 2625 of demo 1 one frame early.
-                let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
+                // ASM sub_902A lands only after the contact row is reached. The
+                // legacy touch-snap shortcut is useful for non-AsmFaithful
+                // orders, but AsmFaithful must preserve the remaining
+                // sub-half-pixel gap until the real contact row or gameplay and
+                // demo arcs land one frame early.
+                let allow_asm_faithful_solid_touch_snap =
+                    self.physics_order != PhysicsOrder::AsmFaithful;
                 self.begin_kid_grounded_release_probe(
                     slice.player,
                     input,
