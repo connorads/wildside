@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Scenario {
@@ -613,8 +614,71 @@ impl GameplayScenario {
         Ok(script)
     }
 
+    pub fn to_dynamic_window(
+        self,
+        frame_start: usize,
+        frame_end: usize,
+        checkpoint_interval: usize,
+    ) -> Result<DynamicScenario> {
+        anyhow::ensure!(
+            frame_start <= frame_end,
+            "gameplay window start {frame_start} exceeds end {frame_end}"
+        );
+        anyhow::ensure!(
+            frame_end < self.frame_count(),
+            "gameplay window end {frame_end} must be < scenario frame count {}",
+            self.frame_count()
+        );
+        anyhow::ensure!(
+            checkpoint_interval != 0,
+            "gameplay window checkpoint interval must be non-zero"
+        );
+
+        let mut labels_by_frame = BTreeMap::new();
+        for checkpoint in self
+            .checkpoints()
+            .iter()
+            .filter(|checkpoint| (frame_start..=frame_end).contains(&checkpoint.frame_index))
+        {
+            labels_by_frame.insert(checkpoint.frame_index, checkpoint.label.to_string());
+        }
+
+        let mut frame = frame_start;
+        while frame <= frame_end {
+            labels_by_frame
+                .entry(frame)
+                .or_insert_with(|| format!("frame_{frame:05}"));
+            if frame == frame_end {
+                break;
+            }
+            frame = frame.saturating_add(checkpoint_interval);
+            if frame > frame_end {
+                labels_by_frame
+                    .entry(frame_end)
+                    .or_insert_with(|| format!("frame_{frame_end:05}"));
+                break;
+            }
+        }
+
+        let mut script = self.script()?;
+        script.truncate(frame_end.saturating_add(2));
+
+        Ok(DynamicScenario {
+            slug: format!(
+                "{}_window_{frame_start:05}_{frame_end:05}_step_{checkpoint_interval}",
+                self.slug()
+            ),
+            frame_count: frame_end.saturating_add(1),
+            script,
+            checkpoints: labels_by_frame
+                .into_iter()
+                .map(|(frame_index, label)| DynamicCheckpoint { label, frame_index })
+                .collect(),
+            warp_to_level: None,
+        })
+    }
+
     /// Convert a static gameplay scenario into the runtime DynamicScenario representation.
-    #[cfg(test)]
     pub fn to_dynamic(self) -> Result<DynamicScenario> {
         Ok(DynamicScenario {
             slug: self.slug().to_string(),
@@ -791,6 +855,50 @@ mod tests {
             .expect("gameplay scenario script should build");
         assert_eq!(script[1_400], 0x80);
         assert_eq!(script[1_560] & (1 << 3), 1 << 3);
+    }
+
+    #[test]
+    fn gameplay_scenario_window_preserves_static_checkpoints_and_adds_frame_labels() {
+        let dynamic = GameplayScenario::DeathRespawnLevel1
+            .to_dynamic_window(1_216, 1_220, 2)
+            .expect("dynamic gameplay window");
+        assert_eq!(
+            dynamic.slug,
+            "death_respawn_level1_window_01216_01220_step_2"
+        );
+        assert_eq!(dynamic.frame_count, 1_221);
+        assert_eq!(dynamic.script.len(), 1_222);
+        assert_eq!(
+            dynamic
+                .checkpoints
+                .iter()
+                .map(|checkpoint| (checkpoint.label.as_str(), checkpoint.frame_index))
+                .collect::<Vec<_>>(),
+            vec![
+                ("frame_01216", 1_216),
+                ("frame_01218", 1_218),
+                ("frame_01220", 1_220),
+            ]
+        );
+    }
+
+    #[test]
+    fn gameplay_scenario_window_keeps_named_checkpoint_labels_when_they_land_in_range() {
+        let dynamic = GameplayScenario::DeathRespawnLevel1
+            .to_dynamic_window(1_278, 1_280, 1)
+            .expect("dynamic gameplay window");
+        assert_eq!(
+            dynamic
+                .checkpoints
+                .iter()
+                .map(|checkpoint| (checkpoint.label.as_str(), checkpoint.frame_index))
+                .collect::<Vec<_>>(),
+            vec![
+                ("frame_01278", 1_278),
+                ("pre_death", 1_279),
+                ("frame_01280", 1_280),
+            ]
+        );
     }
 
     #[test]

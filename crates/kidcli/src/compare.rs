@@ -1,4 +1,5 @@
 use super::*;
+use crate::scenarios::DynamicScenario;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct GameplayDriftReport {
@@ -87,6 +88,36 @@ pub(crate) fn compare_native_gameplay(
     Ok(())
 }
 
+pub(crate) fn compare_native_gameplay_window(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    scenario: GameplayScenario,
+    frame_start: usize,
+    frame_end: usize,
+    checkpoint_interval: usize,
+) -> Result<()> {
+    let window = scenario.to_dynamic_window(frame_start, frame_end, checkpoint_interval)?;
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    compare_dynamic_gameplay_with(
+        repo_root,
+        &window.slug,
+        scenario,
+        || capture_dynamic_gameplay_scenario(&rom_bytes, &window, scenario.uses_level_skip_cheat()),
+        || capture_native_dynamic_gameplay_scenario(manifest, &window),
+        || capture_native_dynamic_gameplay_frame_evidence(manifest, &window),
+    )?;
+    println!(
+        "native gameplay window comparison passed for {} frames {}..={} step {}",
+        scenario.slug(),
+        frame_start,
+        frame_end,
+        checkpoint_interval
+    );
+    Ok(())
+}
+
 pub(crate) fn diagnose_native_gameplay_drift(
     repo_root: &Path,
     rom_path: &Path,
@@ -141,9 +172,27 @@ where
     FO: FnOnce() -> Result<GameplayCapture>,
     FN: FnOnce() -> Result<GameplayCapture>,
 {
+    capture_dynamic_gameplay_run(
+        repo_root,
+        scenario.slug(),
+        oracle_capture_fn,
+        native_capture_fn,
+    )
+}
+
+pub(crate) fn capture_dynamic_gameplay_run<FO, FN>(
+    repo_root: &Path,
+    run_slug: &str,
+    oracle_capture_fn: FO,
+    native_capture_fn: FN,
+) -> Result<(PathBuf, GameplayCapture, GameplayCapture)>
+where
+    FO: FnOnce() -> Result<GameplayCapture>,
+    FN: FnOnce() -> Result<GameplayCapture>,
+{
     let run_dir = repo_root
         .join(".cache/native-gameplay-oracle-runs")
-        .join(scenario.slug());
+        .join(run_slug);
     let native_dir = run_dir.join("native");
     let oracle_dir = run_dir.join("oracle");
     let review_dir = run_dir.join("review");
@@ -185,8 +234,31 @@ where
     FN: FnOnce() -> Result<GameplayCapture>,
     FE: FnOnce() -> Result<Vec<GameplayFrameEvidence>>,
 {
+    compare_dynamic_gameplay_with(
+        repo_root,
+        scenario.slug(),
+        scenario,
+        oracle_capture_fn,
+        native_capture_fn,
+        frame_evidence_fn,
+    )
+}
+
+pub(crate) fn compare_dynamic_gameplay_with<FO, FN, FE>(
+    repo_root: &Path,
+    run_slug: &str,
+    scenario: GameplayScenario,
+    oracle_capture_fn: FO,
+    native_capture_fn: FN,
+    frame_evidence_fn: FE,
+) -> Result<()>
+where
+    FO: FnOnce() -> Result<GameplayCapture>,
+    FN: FnOnce() -> Result<GameplayCapture>,
+    FE: FnOnce() -> Result<Vec<GameplayFrameEvidence>>,
+{
     let (run_dir, native_capture, oracle_capture) =
-        capture_native_gameplay_run(repo_root, scenario, oracle_capture_fn, native_capture_fn)?;
+        capture_dynamic_gameplay_run(repo_root, run_slug, oracle_capture_fn, native_capture_fn)?;
     compare_gameplay_checkpoints_against_oracle(
         &run_dir,
         scenario,
@@ -205,6 +277,14 @@ pub(crate) fn capture_native_gameplay_frame_evidence(
     let script = scenario.script()?;
     let trace = run_native_script_for_gameplay(manifest, &script, scenario);
     render_gameplay_frame_evidence(manifest, &trace, scenario.checkpoints())
+}
+
+pub(crate) fn capture_native_dynamic_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+) -> Result<Vec<GameplayFrameEvidence>> {
+    let trace = run_native_script_dynamic(manifest, &scenario.script, scenario.frame_count);
+    render_dynamic_gameplay_frame_evidence(manifest, &trace, &scenario.checkpoints)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -360,6 +440,28 @@ pub(crate) fn gameplay_checkpoint_tolerance(
     label: &str,
 ) -> GameplayCheckpointTolerance {
     match (scenario, label) {
+        (GameplayScenario::PauseResumeLevel1, frame_label) if frame_label.starts_with("frame_") => {
+            GameplayCheckpointTolerance {
+                camera_x: 0x0020_0000,
+                camera_y: CAMERA_POSITION_TOLERANCE,
+                kid_x: 0x0020_0000,
+                kid_y: CAMERA_POSITION_TOLERANCE,
+                number_objects: 6,
+                number_gfx_objects: 6,
+            }
+        }
+        (GameplayScenario::DeathRespawnLevel1, frame_label)
+            if frame_label.starts_with("frame_") =>
+        {
+            GameplayCheckpointTolerance {
+                camera_x: CAMERA_POSITION_TOLERANCE,
+                camera_y: CAMERA_POSITION_TOLERANCE,
+                kid_x: CAMERA_POSITION_TOLERANCE,
+                kid_y: CAMERA_POSITION_TOLERANCE,
+                number_objects: 8,
+                number_gfx_objects: 8,
+            }
+        }
         (GameplayScenario::PauseResumeLevel1, "resumed_tail") => GameplayCheckpointTolerance {
             camera_x: 0x0020_0000,
             camera_y: 0x0060_0000,

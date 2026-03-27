@@ -303,6 +303,16 @@ moves `compare-native-gameplay --scenario death-respawn-level1` past `pre_death@
 `death_tail@1439` checkpoint (`camera_x` native `0x05CB0000`, oracle `0x063A0000`). The remaining
 work is now the later death-tail camera/Y path rather than the old frame-`1161` false death.
 
+New evidence (2026-03-27, windowed compare tooling): `kidcli compare-native-gameplay-window`
+can now derive a bounded oracle/native gameplay scenario from the existing scripted smoke path,
+which makes the late death frontier reproducible without the brittle ad-hoc oracle probe flow.
+For `death-respawn-level1`, the bounded pre-window `--frame-start 1212 --frame-end 1216
+--checkpoint-interval 1` passes, while the next five-frame window `--frame-start 1216 --frame-end
+1220 --checkpoint-interval 1` fails immediately at `frame_01217` on `kid Y` (`native 0x00FF0000`,
+`oracle 0x00F74000`). The remaining work is still the post-landing death-path Y/camera logic, but
+the first authoritative miss is now isolated to the frame-`1217` bounce/launch transition instead
+of the coarser `death_tail@1439` checkpoint.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

@@ -1,4 +1,5 @@
 use super::*;
+use crate::scenarios::DynamicCheckpoint;
 
 pub(super) fn build_player_sprite_tiles(
     frame: &kid_render::SpriteFrame,
@@ -382,6 +383,14 @@ pub(crate) fn render_gameplay_frame_evidence(
     render_gameplay_frame_evidence_for_level(manifest, trace, checkpoints, 0x00)
 }
 
+pub(crate) fn render_dynamic_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[DynamicCheckpoint],
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    render_dynamic_gameplay_frame_evidence_for_level(manifest, trace, checkpoints, 0x00)
+}
+
 pub(crate) fn render_gameplay_frame_evidence_for_level(
     manifest: &AssetManifest,
     trace: &[NativeTraceFrame],
@@ -413,6 +422,46 @@ pub(crate) fn render_gameplay_frame_evidence_for_level(
             render_scene(&scene, &mut rgb);
             Ok((
                 checkpoint.label.to_string(),
+                checkpoint.frame_index,
+                FRAME_WIDTH as usize,
+                FRAME_HEIGHT as usize,
+                rgb,
+            ))
+        })
+        .collect()
+}
+
+pub(crate) fn render_dynamic_gameplay_frame_evidence_for_level(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[DynamicCheckpoint],
+    level_id: u8,
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    let session_assets = load_native_session_assets(manifest, level_id)?;
+    checkpoints
+        .iter()
+        .map(|checkpoint| {
+            let frame = trace
+                .iter()
+                .find(|frame| frame.frame_index == checkpoint.frame_index)
+                .or_else(|| trace.get(checkpoint.frame_index))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "missing native gameplay frame evidence {}@{}",
+                        checkpoint.label,
+                        checkpoint.frame_index
+                    )
+                })?;
+            let scene = build_scene(
+                frame,
+                false,
+                Some(&session_assets.level_visuals),
+                Some(&session_assets.block_grid),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            Ok((
+                checkpoint.label.clone(),
                 checkpoint.frame_index,
                 FRAME_WIDTH as usize,
                 FRAME_HEIGHT as usize,

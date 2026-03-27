@@ -1,4 +1,5 @@
 use super::*;
+use crate::scenarios::DynamicScenario;
 use kid_core::run_script_with_trace;
 
 pub(crate) const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -244,19 +245,30 @@ pub(crate) fn capture_gameplay_scenario(
     rom_bytes: &[u8],
     scenario: GameplayScenario,
 ) -> Result<GameplayCapture> {
+    capture_dynamic_gameplay_scenario(
+        rom_bytes,
+        &scenario.to_dynamic()?,
+        scenario.uses_level_skip_cheat(),
+    )
+}
+
+pub(crate) fn capture_dynamic_gameplay_scenario(
+    rom_bytes: &[u8],
+    scenario: &DynamicScenario,
+    uses_level_skip_cheat: bool,
+) -> Result<GameplayCapture> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
-    let script = scenario.script()?;
-    let checkpoints = scenario.checkpoints();
+    let checkpoints = &scenario.checkpoints;
     let mut checkpoint_index = 0usize;
-    let mut states = Vec::with_capacity(scenario.frame_count());
+    let mut states = Vec::with_capacity(scenario.frame_count);
     let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
     let mut missed_vblank_frames = 0usize;
 
-    for frame_index in 0..scenario.frame_count() {
-        if scenario.uses_level_skip_cheat() && frame_index >= 720 {
+    for frame_index in 0..scenario.frame_count {
+        if uses_level_skip_cheat && frame_index >= 720 {
             runtime.set_level_skip_cheat_enabled(true);
         }
-        let buttons = script.get(frame_index).copied().unwrap_or(0);
+        let buttons = scenario.script.get(frame_index).copied().unwrap_or(0);
         runtime.set_controller_1(buttons);
         if !runtime.run_until_vblank(500_000) {
             missed_vblank_frames += 1;
@@ -266,9 +278,9 @@ pub(crate) fn capture_gameplay_scenario(
         while checkpoint_index < checkpoints.len()
             && checkpoints[checkpoint_index].frame_index == frame_index
         {
-            let checkpoint = checkpoints[checkpoint_index];
+            let checkpoint = &checkpoints[checkpoint_index];
             captured_checkpoints.push(GameplayState {
-                label: checkpoint.label.to_string(),
+                label: checkpoint.label.clone(),
                 ..state.clone()
             });
             checkpoint_index += 1;
@@ -277,8 +289,8 @@ pub(crate) fn capture_gameplay_scenario(
     }
 
     Ok(GameplayCapture {
-        scenario: scenario.slug().to_string(),
-        frame_count: scenario.frame_count(),
+        scenario: scenario.slug.clone(),
+        frame_count: scenario.frame_count,
         missed_vblank_frames,
         states,
         checkpoints: captured_checkpoints,
@@ -325,9 +337,15 @@ pub(crate) fn capture_native_gameplay_scenario(
         );
     }
 
-    let script = scenario.script()?;
-    let checkpoints = scenario.checkpoints();
-    let trace = run_native_script_for_gameplay(manifest, &script, scenario);
+    capture_native_dynamic_gameplay_scenario(manifest, &scenario.to_dynamic()?)
+}
+
+pub(crate) fn capture_native_dynamic_gameplay_scenario(
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+) -> Result<GameplayCapture> {
+    let checkpoints = &scenario.checkpoints;
+    let trace = run_native_script_dynamic(manifest, &scenario.script, scenario.frame_count);
     let mut checkpoint_index = 0usize;
     let mut states = Vec::with_capacity(trace.len());
     let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
@@ -337,9 +355,9 @@ pub(crate) fn capture_native_gameplay_scenario(
         while checkpoint_index < checkpoints.len()
             && checkpoints[checkpoint_index].frame_index == snapshot.frame_index
         {
-            let checkpoint = checkpoints[checkpoint_index];
+            let checkpoint = &checkpoints[checkpoint_index];
             captured_checkpoints.push(GameplayState {
-                label: checkpoint.label.to_string(),
+                label: checkpoint.label.clone(),
                 ..state.clone()
             });
             checkpoint_index += 1;
@@ -348,8 +366,8 @@ pub(crate) fn capture_native_gameplay_scenario(
     }
 
     Ok(GameplayCapture {
-        scenario: format!("native_{}", scenario.slug()),
-        frame_count: scenario.frame_count(),
+        scenario: format!("native_{}", scenario.slug),
+        frame_count: scenario.frame_count,
         missed_vblank_frames: 0,
         states,
         checkpoints: captured_checkpoints,
@@ -592,7 +610,7 @@ pub(crate) fn run_native_script_for_gameplay(
     script: &[u8],
     scenario: GameplayScenario,
 ) -> Vec<NativeTraceFrame> {
-    run_script(manifest.clone(), script, scenario.frame_count())
+    run_native_script_dynamic(manifest, script, scenario.frame_count())
 }
 
 pub(crate) fn run_native_script_for_gameplay_with_trace(
@@ -600,5 +618,21 @@ pub(crate) fn run_native_script_for_gameplay_with_trace(
     script: &[u8],
     scenario: GameplayScenario,
 ) -> Vec<NativeTraceFrame> {
-    run_script_with_trace(manifest.clone(), script, scenario.frame_count(), None)
+    run_native_script_dynamic_with_trace(manifest, script, scenario.frame_count())
+}
+
+pub(crate) fn run_native_script_dynamic(
+    manifest: &AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
+    run_script(manifest.clone(), script, frame_count)
+}
+
+pub(crate) fn run_native_script_dynamic_with_trace(
+    manifest: &AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
+    run_script_with_trace(manifest.clone(), script, frame_count, None)
 }

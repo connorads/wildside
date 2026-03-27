@@ -42,7 +42,10 @@ use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script};
 use kid_data::{AssetManifest, find_enemy_definition, load_level_asset_bundle, resource_level_id};
 use kid_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
 use kid_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
-use native_player::{NativePlayOptions, render_gameplay_frame_evidence, run_native_player};
+use native_player::{
+    NativePlayOptions, render_dynamic_gameplay_frame_evidence, render_gameplay_frame_evidence,
+    run_native_player,
+};
 use oracle::{
     EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
     OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
@@ -315,6 +318,20 @@ enum Commands {
         dir: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
         scenario: GameplayScenario,
+    },
+    CompareNativeGameplayWindow {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = GameplayScenario::PauseResumeLevel1)]
+        scenario: GameplayScenario,
+        #[arg(long)]
+        frame_start: usize,
+        #[arg(long)]
+        frame_end: usize,
+        #[arg(long, default_value_t = 1)]
+        checkpoint_interval: usize,
     },
     VerifyRecording {
         #[arg(long)]
@@ -1029,6 +1046,29 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             compare_native_gameplay(&repo_root, &rom_path, &manifest, scenario)?;
+        }
+        Commands::CompareNativeGameplayWindow {
+            rom,
+            dir,
+            scenario,
+            frame_start,
+            frame_end,
+            checkpoint_interval,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
+            compare_native_gameplay_window(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                scenario,
+                frame_start,
+                frame_end,
+                checkpoint_interval,
+            )?;
         }
         Commands::VerifyRecording { rom, dir, slug } => {
             let repo_root = current_dir()?;
@@ -2935,6 +2975,58 @@ mod tests {
             gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 920),
             String::from("paused_tail@919 -> resumed_tail@1119")
         );
+    }
+
+    #[test]
+    fn gameplay_regression_compare_dynamic_gameplay_with_uses_custom_window_slug() {
+        let repo_root = TempDir::new().expect("repo root");
+        let capture = GameplayCapture {
+            scenario: String::from("death_respawn_level1_window_01216_01220_step_1"),
+            frame_count: 5,
+            missed_vblank_frames: 0,
+            states: vec![
+                gameplay_state("frame_01216", 1_216),
+                gameplay_state("frame_01217", 1_217),
+                gameplay_state("frame_01218", 1_218),
+                gameplay_state("frame_01219", 1_219),
+                gameplay_state("frame_01220", 1_220),
+            ],
+            checkpoints: vec![
+                gameplay_state("frame_01216", 1_216),
+                gameplay_state("frame_01217", 1_217),
+                gameplay_state("frame_01218", 1_218),
+                gameplay_state("frame_01219", 1_219),
+                gameplay_state("frame_01220", 1_220),
+            ],
+        };
+
+        crate::compare::compare_dynamic_gameplay_with(
+            repo_root.path(),
+            "death_respawn_level1_window_01216_01220_step_1",
+            GameplayScenario::DeathRespawnLevel1,
+            || Ok(capture.clone()),
+            || Ok(capture.clone()),
+            || Ok(Vec::new()),
+        )
+        .expect("dynamic gameplay comparison should pass");
+
+        let run_dir = repo_root
+            .path()
+            .join(".cache/native-gameplay-oracle-runs")
+            .join("death_respawn_level1_window_01216_01220_step_1");
+        assert!(run_dir.join("native/checkpoints.json").is_file());
+        assert!(run_dir.join("oracle/checkpoints.json").is_file());
+    }
+
+    #[test]
+    fn gameplay_regression_dynamic_death_window_uses_hidden_object_tolerance() {
+        let tolerance = crate::compare::gameplay_checkpoint_tolerance(
+            GameplayScenario::DeathRespawnLevel1,
+            "frame_01217",
+        );
+        assert_eq!(tolerance.number_objects, 8);
+        assert_eq!(tolerance.number_gfx_objects, 8);
+        assert_eq!(tolerance.kid_y, crate::capture::CAMERA_POSITION_TOLERANCE);
     }
 
     fn gameplay_state(label: &str, frame_index: usize) -> GameplayState {

@@ -168,6 +168,7 @@ use sprites::*;
 
 pub(crate) use render::render_scene;
 pub(crate) use scene::{LayerFilter, build_scene, build_scene_filtered};
+pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
 
