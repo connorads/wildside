@@ -69,6 +69,13 @@ impl NativeRuntime {
         self.title_screen_ready_frame = self
             .frame_index
             .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
+        // ASM Load_IntroSequence6 `loc_1BAB0` finishes with `move.w #$280,d0`
+        // at Obj_TitleMenu `loc_1BAEA`, then `dbf d0,loc_1BAEE` burns 641
+        // hibernated title-idle frames before `loc_1BB02` flips
+        // `Game_Mode=$10`. The shared title path uses a plain 640-frame Rust
+        // threshold, so this mode-$28 rebuild needs one extra arm frame to
+        // keep the demo hand-off aligned with the ROM.
+        self.title_menu_arm_frame = self.title_menu_arm_frame.saturating_add(1);
     }
 
     pub(crate) fn title_screen_ready(&self) -> bool {

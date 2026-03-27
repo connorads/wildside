@@ -18513,6 +18513,86 @@ fn published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224() {
 }
 
 #[test]
+fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21592() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21591 = None;
+    let mut frame_21592 = None;
+    let mut frame_21593 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_594) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_591 => {
+                frame_21591 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_592 => {
+                frame_21592 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_593 => {
+                frame_21593 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA` seeds `d0=$280` then loops with `dbf`,
+    // so the mode-$28 title rebuild spends 641 hibernated frames in that idle
+    // loop before `loc_1BB02` flips `Game_Mode=$10`.
+    assert_eq!(
+        frame_21591,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(697),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21591 should still be the rebuilt mode-$28 title pose one frame before the final idle loop hold",
+    );
+    assert_eq!(
+        frame_21592,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(698),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21592 should still stay in mode $28 while Obj_TitleMenu `loc_1BAEA` spends its last DBF-backed idle frame",
+    );
+    assert_eq!(
+        frame_21593,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(0),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21593 should be the first demo-play frame after Obj_TitleMenu reaches `loc_1BB02`",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;
