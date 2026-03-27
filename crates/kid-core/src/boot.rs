@@ -43,6 +43,7 @@ impl NativeRuntime {
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = false;
+        self.demo_uses_intro_sequence_6_early_title_restore = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
         self.pending_prize_diamond_awards.clear();
@@ -163,6 +164,8 @@ impl NativeRuntime {
                 ..
             }
         );
+        let intro_sequence_6_early_title_restore = intro_sequence_6_hidden_camera_wrap
+            || self.demo_title_return_uses_intro_sequence_6_early_title_restore;
         self.boot_state = BootState::DemoPlay {
             frame_counter: 0,
             data_index: 0,
@@ -201,6 +204,7 @@ impl NativeRuntime {
         self.ignore_demo_start_abort_until_gameplay = timeout_restart_demo_bootstrap;
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;
+        self.demo_uses_intro_sequence_6_early_title_restore = intro_sequence_6_early_title_restore;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
             start_skip_intro_return_camera_wrap;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
@@ -209,7 +213,7 @@ impl NativeRuntime {
 
     pub(crate) fn finish_demo_title_return(&mut self, input: FrameInput) {
         let intro_sequence_6_early_title_restore =
-            self.demo_uses_intro_sequence_6_hidden_camera_wrap;
+            self.demo_uses_intro_sequence_6_early_title_restore;
         self.enter_title_screen();
         self.current_level = LevelId(0);
         // Demo abort returns to an inert title rebuild path rather than the
@@ -242,7 +246,7 @@ impl NativeRuntime {
         let intro_return_slot_2_early_visibility =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         let intro_sequence_6_early_title_restore =
-            self.demo_uses_intro_sequence_6_hidden_camera_wrap;
+            self.demo_uses_intro_sequence_6_early_title_restore;
         self.enter_title_screen();
         self.current_level = LevelId(0);
         self.paused = false;

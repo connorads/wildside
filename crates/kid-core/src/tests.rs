@@ -17488,6 +17488,71 @@ fn demo_title_return_keeps_live_snapshot_on_first_title_frames() {
 }
 
 #[test]
+fn published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_23954 = None;
+    let mut frame_23955 = None;
+    let mut frame_23956 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(23_957) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            23_954 => {
+                frame_23954 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            23_955 => {
+                frame_23955 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            23_956 => {
+                frame_23956 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM loc_1B5CE had already restored the standard title pose before the
+    // later Obj_TitleMenu loc_1BB02 hand-off started demo 2 on this lineage.
+    // When the published TAS aborts that later demo 2 with Start on frame
+    // 23805, oracle re-exposes the same title pose two frames earlier than
+    // the generic demo-title rebuild.
+    let hidden_title_pose = Some((GameMode::TitleScreen, LevelId(0x00), None, None));
+    let visible_title_pose = Some((
+        GameMode::TitleScreen,
+        LevelId(0x00),
+        Some(TITLE_KID_X_POS),
+        Some(TITLE_KID_Y_POS),
+    ));
+    assert_eq!(
+        frame_23954, hidden_title_pose,
+        "frame 23954 should still be the last hidden title-rebuild frame before the restored title pose returns",
+    );
+    assert_eq!(
+        frame_23955, visible_title_pose,
+        "frame 23955 should expose the already-restored loc_1B5CE title pose on the later demo-2 timeout-return lineage",
+    );
+    assert_eq!(
+        frame_23956, visible_title_pose,
+        "frame 23956 should keep the same title pose for one more oracle-backed frame",
+    );
+}
+
+#[test]
 fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1801 = None;

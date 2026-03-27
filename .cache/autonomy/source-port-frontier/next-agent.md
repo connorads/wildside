@@ -1,65 +1,57 @@
 ---
-slug: any-percent-published-frame-23248-intro-sequence-6-demo-return-stays-in-title-too-long
-cycle: 69
-updated_at: 2026-03-27T03:33:29Z
+slug: any-percent-published-frame-24921-level-15-gameplay-divergence
+cycle: 70
+updated_at: 2026-03-27T04:03:48Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the frame-22700 later IntroSequence6 demo-return title-pose miss by teaching the generic demo-title rebuild window to end two frames earlier for that lineage in [`boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs), [`constants.rs`](/home/connor/git/kc/crates/kid-core/src/constants.rs), [`lib.rs`](/home/connor/git/kc/crates/kid-core/src/lib.rs), and [`trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs).
-- Added [`published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701`](/home/connor/git/kc/crates/kid-core/src/tests.rs), locking the last hidden title frame at 22699 plus the oracle-backed standard title pose on 22700..22701.
-- Re-ran the focused IntroSequence6 regressions, `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory`, `verify-tas --frame-start 21765 --bisect`, and `mise run verify-slice-fast`; the first authoritative divergence now moves to frame 23248.
+- Fixed the later demo-2 timeout-return title-pose miss by carrying the “started from the already-restored loc_1B5CE title pose” lineage bit through `begin_demo_play()` and reusing it in both demo-return entry points in [`boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs) and [`lib.rs`](/home/connor/git/kc/crates/kid-core/src/lib.rs).
+- Added [`published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956`](/home/connor/git/kc/crates/kid-core/src/tests.rs), locking the last hidden title frame at 23954 plus the oracle-backed standard title pose on 23955..23956.
+- Re-ran `cargo test -q -p kid-core published_tas_demo_2 -- --nocapture`, `cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248 -- --nocapture`, `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23948 --frame-end 23964 --include-advisory`, `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, and `mise run verify-slice-fast`; the first authoritative divergence now moves to frame 24921.
 
 ## Current Model
 
-- ASM `loc_1B5CE` restores the standard title pose before the later IntroSequence6 demo starts, and the published TAS hits Start on frame 22550, so the frame-22700 return is the generic demo-title path rather than a pure auto-timeout-only branch.
-- Native now matches the earlier title-pose reappearance and stays authoritative-clean through frame 23247.
-- The next blocker opens when that same later title return should re-enter demo play: on frames 23248..23249 native still reports `mode=0x002C` / `level=0x00`, while oracle has already flipped back into `mode=0x0010`; frame 23250 rejoins.
+- The earlier intro-sequence-6 fixes only tagged demo 1 with the “later title already restored the pose” state. Demo 2, which starts from that repaired title shell on frame 23248, was still dropping back to the generic 150-frame hidden rebuild when the published TAS hit Start on frame 23805.
+- Carrying that lineage bit into later demos makes the frame-23955/23956 title return match oracle without disturbing the frame-23248 demo re-entry window.
+- The next blocker is no longer in title/demo choreography; `verify-tas --frame-start 23250 --bisect` now places the first CRC mismatch at frame 24921 in live level-0x15 gameplay.
 
 ## Strongest Evidence
 
 - ASM / script
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `loc_1B5CE` writes `x_pos=$2E`, `y_pos=$8C` for the standard title pose.
-    - `Obj_TitleMenu loc_1BAEA -> loc_1BB02` owns the later `$280` idle countdown and the eventual `move.w #$10,(Game_Mode).w` demo re-entry.
+    - `loc_1B5CE` writes the standard title pose (`x_pos=$2E`, `y_pos=$8C`) before the later title shell hands back into demo playback.
   - `.cache/tas-imports/any-percent-published/scenario.json`
-    - Frame 22550 carries the published TAS Start press, so the frame-22700 return is on the generic demo-title path rather than a pure auto-timeout-only branch.
+    - Frame 23805 carries a real Start press during the later demo 2, so the frame-23955 window is again on the generic demo-title return path.
 - Native
   - [`boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs)
-    - Both demo-return entry points now preserve the later IntroSequence6 lineage bit before `enter_title_screen()` clears the demo bootstrap flags.
-  - [`trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs)
-    - `title_hides_demo_return_player()` now shortens the hidden rebuild window by two frames only for that later IntroSequence6 demo-return lineage.
+    - `begin_demo_play()` now preserves whether the current demo started from a title shell that already had the loc_1B5CE pose restored, and both demo-return entry points reuse that bit before `enter_title_screen()` clears the title-state flags.
   - [`tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
-    - `published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701` passes.
+    - `published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956` passes.
 - Oracle / parity
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 22696 --frame-end 22704 --include-advisory`
-    - Frames 22696..22703 now all match.
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect`
-    - First CRC divergence is now frame 23248.
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory`
-    - Frames 23248..23249 diverge only on `game_mode` (`native=0x002C`, `oracle=0x0010`); frames 23244..23247 and 23250..23251 match.
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23948 --frame-end 23964 --include-advisory`
+    - Frames 23948..23963 now all match.
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
+    - First CRC divergence is now frame 24921.
 
 ## Exact Next Moves
 
-1. Read `Obj_TitleMenu loc_1BAEA -> loc_1BB02` in `.cache/upstream/kid-chameleon-disasm/kid.asm` and prove why oracle flips back into `Game_Mode=$10` on frames 23248..23249 while native stays in `Game_Mode=$2C`.
-2. Inspect the native title-idle countdown after the repaired frame-22700 title-pose restore and explain why the demo re-entry is two frames late.
-3. Add one focused regression for the frame-23248/23249 `Game_Mode` re-entry only after the exact ASM countdown path is proven.
+1. Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --include-advisory` to capture the first divergent fields around frame 24921.
+2. Read the relevant level-0x15 gameplay ASM before coding; the later title/demo shell is now authoritative-clean through frame 24920.
+3. Add the next focused gameplay regression only after the frame-24921 behaviour is proven against ASM plus oracle.
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_enters_demo_play_on_frame_21765 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701 -- --nocapture`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 22696 --frame-end 22704 --include-advisory`
-- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect`
+- `cargo test -q -p kid-core published_tas_demo_2 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248 -- --nocapture`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23948 --frame-end 23964 --include-advisory`
+- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
 - Do not reopen the old cold-boot demo-1 wrap. `demo_1_bootstrap_keeps_camera_hidden_through_frame_2537` still expects `0xFF000000` on the cold-boot path.
-- Do not reuse the Start-skip intro-return wrap. That path is already covered by `published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188` and still expects `0xFF200000`.
-- Do not keep treating frame 22700 as a pure auto-timeout bug. The published TAS script contains a real Start press on frame 22550, and the fixed behaviour belonged to the generic demo-title rebuild window.
+- Do not collapse the new lineage bit back onto `demo_uses_intro_sequence_6_hidden_camera_wrap`; frame 23955 proved that later demo 2 inherits the early title restore without sharing demo 1's hidden camera wrap.
+- Do not keep the frontier parked in title mode. The rebisect moved the first real mismatch into level-0x15 gameplay on frame 24921.
