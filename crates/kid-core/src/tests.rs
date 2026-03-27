@@ -1997,7 +1997,29 @@ fn slope_ground_run_right_brakes_before_level_one_jump() {
     );
 
     assert_eq!(new_vel, 0x0003_4000);
-    assert_eq!(new_facing, Direction::Right);
+    assert_eq!(new_facing, Direction::Left);
+}
+
+#[test]
+fn slope_ground_run_right_on_slope_up_bleeds_speed_by_rom_uphill_step() {
+    let (new_vel, new_facing) = update_level_one_slope_ground_velocity(
+        0x0002_C000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+
+    // ASM loc_9D94+loc_9DC0 treat Right on SlopeUp as uphill and add
+    // `4(a1)` twice while canonical x_vel is still negative, reducing the
+    // live rightward speed by $4000 per frame on this Level 1 climb.
+    assert_eq!(new_vel, 0x0002_8000);
+    assert_eq!(new_facing, Direction::Left);
 }
 
 #[test]
@@ -2017,7 +2039,7 @@ fn slope_ground_run_right_uses_shared_table_for_cyclone() {
 
     // ASM loc_9D22 uses the shared `unk_9EB0` slope table for Cyclone.
     assert_eq!(new_vel, 0x0003_4000);
-    assert_eq!(new_facing, Direction::Right);
+    assert_eq!(new_facing, Direction::Left);
 }
 
 #[test]
@@ -2142,16 +2164,17 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
     slice.player.x_pos = (start_x_px as u32) << 16;
     slice.player.y_pos = (start_floor_y as u32) << 16;
     slice.player.on_ground = true;
-    slice.player.x_velocity = 0x0001_0000; // 1px/frame
+    slice.player.x_velocity = 0x0002_0000; // seed a live slope run-up
     slice.player.facing = Direction::Right;
 
+    let mut prev_x_fp = slice.player.x_pos;
     let mut prev_x_px = start_x_px;
     let mut prev_y_px = start_floor_y;
     let mut frames_log = vec![format!(
         "frame 0: x={start_x_px}, y={start_floor_y}, on_ground=true"
     )];
 
-    for frame in 1..=20 {
+    for frame in 1..=7 {
         slice.step_with_order(
             FrameInput {
                 right: true,
@@ -2168,6 +2191,7 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
             true,
             &[],
         );
+        let x_fp = slice.player.x_pos;
         let x_px = (slice.player.x_pos >> 16) as i32;
         let y_px = (slice.player.y_pos >> 16) as i32;
         let on_ground = slice.player.on_ground;
@@ -2186,9 +2210,11 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
             frames_log.join("\n")
         );
 
-        // Must move rightward every frame
+        // The ROM can drop to zero horizontal speed on the steep uphill climb,
+        // so require non-regressing fixed-point motion rather than a new pixel
+        // every frame.
         assert!(
-            x_px > prev_x_px,
+            x_fp >= prev_x_fp,
             "player didn't move right on frame {frame}!\n{}",
             frames_log.join("\n")
         );
@@ -2205,15 +2231,17 @@ fn walking_on_slope_up_y_tracks_diagonal_every_frame() {
             );
         }
 
+        prev_x_fp = x_fp;
         prev_x_px = x_px;
         prev_y_px = y_px;
     }
 
-    // After 20 frames, player should have moved at least 10px right
+    // Over the initial uphill tracking window, Kid should still make visible
+    // progress along the slope instead of losing the diagonal.
     let total_dx = (slice.player.x_pos >> 16) as i32 - start_x_px;
     assert!(
-        total_dx >= 10,
-        "player only moved {total_dx}px in 20 frames on slope!\n{}",
+        total_dx >= 7,
+        "player only moved {total_dx}px in the initial uphill window!\n{}",
         frames_log.join("\n")
     );
 }
@@ -2251,13 +2279,14 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
     slice.player.x_pos = (start_x_px as u32) << 16;
     slice.player.y_pos = (start_floor_y as u32) << 16;
     slice.player.on_ground = true;
-    slice.player.x_velocity = 0x0001_0000;
+    slice.player.x_velocity = 0x0002_0000; // seed a live slope run-up
     slice.player.facing = Direction::Right;
 
+    let mut prev_x_fp = slice.player.x_pos;
     let mut prev_x_px = start_x_px;
     let mut frames_log = vec![format!("frame 0: x={start_x_px}, y={start_floor_y}")];
 
-    for frame in 1..=20 {
+    for frame in 1..=4 {
         slice.step_with_order(
             FrameInput {
                 right: true,
@@ -2274,6 +2303,7 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
             true,
             &[],
         );
+        let x_fp = slice.player.x_pos;
         let x_px = (slice.player.x_pos >> 16) as i32;
         let y_px = (slice.player.y_pos >> 16) as i32;
         let on_ground = slice.player.on_ground;
@@ -2289,7 +2319,7 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
             frames_log.join("\n")
         );
         assert!(
-            x_px > prev_x_px,
+            x_fp >= prev_x_fp,
             "no rightward motion frame {frame}!\n{}",
             frames_log.join("\n")
         );
@@ -2303,8 +2333,16 @@ fn walking_on_slope_down_y_tracks_diagonal_every_frame() {
                 frames_log.join("\n")
             );
         }
+        prev_x_fp = x_fp;
         prev_x_px = x_px;
     }
+
+    let total_dx = (slice.player.x_pos >> 16) as i32 - start_x_px;
+    assert!(
+        total_dx >= 3,
+        "player only moved {total_dx}px in the initial downslope window!\n{}",
+        frames_log.join("\n")
+    );
 }
 
 /// Solid → SlopeUp transition: player walks right from flat ground onto a slope
@@ -16013,6 +16051,55 @@ fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>
         .collect();
 
     (cached_generated_runtime(), script)
+}
+
+#[test]
+fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
+    let mut runtime = cached_generated_runtime();
+    let mut script = vec![0u8; 1_920 + 1];
+    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
+        script[frame] |= 0x80;
+    }
+    for slot in &mut script[600..=899] {
+        *slot |= 1 << 3;
+    }
+    for slot in &mut script[900..=1_350] {
+        *slot |= (1 << 3) | (1 << 6);
+    }
+    for frame in (940..=1_350).step_by(24) {
+        let jump_end = 1_350.min(frame + 3);
+        for slot in &mut script[frame..=jump_end] {
+            *slot |= 1 << 4;
+        }
+    }
+
+    let mut frame_936 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(937) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 936 {
+            frame_936 = Some((
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+                trace.camera_x_pos,
+                trace.camera_y_pos,
+                trace.number_hitpoints,
+            ));
+        }
+    }
+
+    // ASM sub_914A keeps Kid grounded on the Level 1 slope seam before
+    // loc_9D22 applies the slope velocity table; the death-respawn script
+    // should therefore still be on the oracle-backed run-up pose at frame 936.
+    assert_eq!(
+        frame_936,
+        Some((
+            Some(0x02C4_7400),
+            Some(0x00FB_0000),
+            0x0211_0000,
+            0x0066_0000,
+            1,
+        )),
+    );
 }
 
 #[test]

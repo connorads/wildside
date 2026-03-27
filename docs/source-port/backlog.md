@@ -221,6 +221,16 @@ frame `936` on `kid_x_pos` / `kid_y_pos`, and the checkpoint compare still dies 
 `pre_death@1279` (`hp` native `0`, oracle `1`). The remaining work is the late Level 1 death trigger,
 not the previously parked slope/camera hand-off.
 
+New evidence (2026-03-27): the late Level 1 uphill branch in ASM `loc_9D22` was still misread.
+On `SlopeUp`, held Right must take the uphill deceleration path, not the downhill branch. Native
+was therefore re-accelerating the run-up back to `$30000` instead of bleeding off `$4000` per frame
+like the oracle before the death window. Fixing that mapping adds oracle-backed regressions
+`slope_ground_run_right_on_slope_up_bleeds_speed_by_rom_uphill_step` and
+`death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936`, keeps `mise run verify-slice-fast`
+green, and moves the first `diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 900`
+miss to frame `941` on `kid_y_pos` only. `compare-native-gameplay --scenario death-respawn-level1`
+still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the backlog item stays open.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

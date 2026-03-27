@@ -2337,14 +2337,14 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     };
 
     let uphill_pressed = if slope_descends_right {
-        input.right
-    } else {
         input.left
+    } else {
+        input.right
     };
     let downhill_pressed = if slope_descends_right {
-        input.left
-    } else {
         input.right
+    } else {
+        input.left
     };
 
     if uphill_pressed {
