@@ -145,7 +145,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 126 | [~] | P1 | player | Walking up slopes is still observably wrong in native play | Shared/special-form slope physics now match ASM in focused tests; live-play confirmation still pending |
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
-| 129 | [ ] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run` gate is green only when the core 1P smoke path survives those scenarios |
+| 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
 | 130 | [ ] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Capture a recording on one machine, replay and verify it locally, and use the slug as a bug artefact |
 | 131 | [ ] | P2 | fidelity | Burn down the six parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [ ] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
@@ -205,6 +205,22 @@ input-agnostic `loc_9E6C` branch for Red Stealth/Eyeclops/Maniaxe. Regressions:
 `slope_ground_special_form_auto_slides_without_input`.
 
 Remaining evidence gap: re-check representative live-play slopes before marking this closed.
+
+### 129 — Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions (FIXED)
+Evidence source: backlog triage after the published TAS tail went green. Native repro: n/a — this is a missing verification gate.
+Oracle repro: n/a. Minimum gate: `1p-playable`.
+
+Fix: add `mise run verify-1p-playable` as the native-first smoke gate. It runs the
+existing `verify-native-gameplay` scenarios for pause/resume, death/respawn, and
+Level 1 -> Level 2 progression, then the focused slope, rubber-block, and metal-block
+regressions that cover the live-play issues behind backlog items `#122`, `#123`,
+`#126`, `#127`, and `#128`.
+
+Surprise worth keeping: `compare-native-gameplay --scenario progress-two-transitions`
+and `--scenario death-respawn-level1` still diverge from the emulator-backed capture
+at `level_settle@719`, so this gate intentionally stays native-first until that harness
+drift is traced separately. The playable smoke path still needs a durable local gate now,
+not after the compare harness is repaired.
 
 ### 124 — Enemy kill timing still allows Kid to get hurt after the enemy should already be dead (FIXED)
 Evidence source: native play reports. Native repro: reported, not yet captured.
