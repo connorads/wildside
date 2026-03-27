@@ -6,7 +6,9 @@ use kid_core::{
     FrameInput, GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
     NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
-use kid_data::{AssetManifest, LevelHeader};
+use kid_data::{
+    AssetManifest, DecodedLevelAssets, LevelHeader, resource_level_id, resource_level_record,
+};
 use kid_md::GemsAudioEngine;
 use kid_render::{NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use sdl2::audio::AudioQueue;
@@ -464,11 +466,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 level_card_frames_remaining = LEVEL_CARD_HOLD_FRAMES;
             }
             if let Some(ref mut gems) = gems_engine {
-                let level_theme = manifest
-                    .levels
-                    .get(new_level as usize)
-                    .and_then(|l| l.header_metadata.as_ref())
-                    .map(|h| h.level_theme);
+                let level_theme =
+                    resolved_level_header(manifest, new_level).map(|header| header.level_theme);
                 if let Some(bgm) = level_theme.and_then(theme_to_bgm) {
                     gems.play_sound(bgm);
                 }
@@ -1160,18 +1159,13 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
         return Ok(grid);
     }
 
-    let level = manifest
-        .levels
-        .iter()
-        .find(|level| level.level_id == level_id)
-        .ok_or_else(|| anyhow!("generated bundle does not contain level 0x{level_id:02X}"))?;
-    let header = level.header_metadata.as_ref().ok_or_else(|| {
-        anyhow!("generated bundle is missing header metadata for level 0x{level_id:02X}")
+    let resource_level = resource_level_id(manifest, level_id);
+    let header = resolved_level_header(manifest, level_id).ok_or_else(|| {
+        anyhow!(
+            "generated bundle is missing header metadata for logical level 0x{level_id:02X} (resource level 0x{resource_level:02X})"
+        )
     })?;
-    let decoded = manifest
-        .decoded_levels
-        .iter()
-        .find(|d| d.level_id == level_id);
+    let decoded = resolved_decoded_level(manifest, level_id);
     let Some(decoded) = decoded else {
         // Layout not yet extracted for this level — return an empty grid so the
         // level still loads (no block collision). The user can extract it with:
@@ -1192,6 +1186,32 @@ fn try_load_block_grid(manifest: &AssetManifest, level_id: u8) -> Result<BlockGr
     })?;
     let (width, height) = level_layout_dimensions(header);
     Ok(BlockGrid::from_level_layout(&data, width, height))
+}
+
+fn resolved_level_header(manifest: &AssetManifest, level_id: u8) -> Option<&LevelHeader> {
+    resource_level_record(manifest, level_id)
+        .and_then(|level| level.header_metadata.as_ref())
+        .or_else(|| {
+            manifest
+                .levels
+                .iter()
+                .find(|level| level.level_id == level_id)
+                .and_then(|level| level.header_metadata.as_ref())
+        })
+}
+
+fn resolved_decoded_level(manifest: &AssetManifest, level_id: u8) -> Option<&DecodedLevelAssets> {
+    let resource_level = resource_level_id(manifest, level_id);
+    manifest
+        .decoded_levels
+        .iter()
+        .find(|decoded| decoded.level_id == resource_level)
+        .or_else(|| {
+            manifest
+                .decoded_levels
+                .iter()
+                .find(|decoded| decoded.level_id == level_id)
+        })
 }
 
 fn try_load_generated_level_layout(
@@ -2624,6 +2644,195 @@ mod tests {
         assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Solid);
         assert_eq!(grid.cell_at(1, 0).skin, 0x07);
         assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Solid);
+    }
+
+    #[test]
+    fn try_load_block_grid_resolves_decoded_layout_through_map_order() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");
+        fs::remove_file(fixture._root.path().join("level-layout/00.json"))
+            .expect("remove layout metadata");
+
+        write_file(
+            fixture._root.path(),
+            "decoded/level/27/block.bin",
+            &[0x70, 0x11, 0x60, 0x22],
+        )
+        .expect("mapped decoded block");
+        fixture.manifest.map_order = (0..=0x1B).collect();
+        fixture.manifest.map_order[0x1B] = 0x27;
+        fixture.manifest.levels.push(LevelRecord {
+            level_id: 0x1B,
+            title_text_id: Some(0x39),
+            display_name: Some(String::from("Skydragon Castle 1")),
+            resource_paths: Vec::new(),
+            resources: LevelResources::default(),
+            header_metadata: None,
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        fixture.manifest.levels.push(LevelRecord {
+            level_id: 0x27,
+            title_text_id: Some(0x27),
+            display_name: Some(String::from("Caves of Ice")),
+            resource_paths: Vec::new(),
+            resources: LevelResources::default(),
+            header_metadata: Some(LevelHeader {
+                width_screens: 1,
+                height_screens: 1,
+                height_flag_bits: 0,
+                level_theme: 0x09,
+                murder_wall_flags: 0,
+                background_theme: 0x09,
+                weather_flags: 0,
+                player_start_x: 0x0020,
+                player_start_y: 0x0100,
+                flag_x: 0x0C50,
+                flag_y: 0x00B0,
+            }),
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        fixture.manifest.decoded_levels.push(DecodedLevelAssets {
+            contract_version: 3,
+            level_id: 0x27,
+            foreground: decoded_asset("decoded/level/27/foreground.bin"),
+            block: decoded_asset("decoded/level/27/block.bin"),
+            background: decoded_asset("decoded/level/27/background.bin"),
+        });
+
+        let grid = try_load_block_grid(&fixture.manifest, 0x1B).expect("mapped block grid");
+
+        assert_eq!(grid.width_cells, 20);
+        assert_eq!(grid.height_cells, 14);
+        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Spikes);
+        assert_eq!(grid.cell_at(0, 0).skin, 0x11);
+        assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Solid);
+        assert_eq!(grid.cell_at(1, 0).skin, 0x22);
+    }
+
+    #[test]
+    fn try_load_block_grid_prefers_logical_level_layout_over_mapped_resource_layout() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+
+        write_file(
+            fixture._root.path(),
+            "decoded/level/27/block.bin",
+            &[0xE1, 0x44, 0x60, 0x55],
+        )
+        .expect("mapped decoded block");
+        write_file(
+            fixture._root.path(),
+            "level-layout/1B.bin",
+            &[0x70, 0x66, 0x60, 0x77],
+        )
+        .expect("logical layout");
+        write_file(
+            fixture._root.path(),
+            "level-layout/1B.json",
+            br#"{"data_bytes":4,"width_blocks":20,"height_blocks":14}"#,
+        )
+        .expect("logical layout metadata");
+        fixture.manifest.map_order = (0..=0x1B).collect();
+        fixture.manifest.map_order[0x1B] = 0x27;
+        fixture.manifest.levels.push(LevelRecord {
+            level_id: 0x1B,
+            title_text_id: Some(0x39),
+            display_name: Some(String::from("Skydragon Castle 1")),
+            resource_paths: Vec::new(),
+            resources: LevelResources::default(),
+            header_metadata: None,
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        fixture.manifest.levels.push(LevelRecord {
+            level_id: 0x27,
+            title_text_id: Some(0x27),
+            display_name: Some(String::from("Caves of Ice")),
+            resource_paths: Vec::new(),
+            resources: LevelResources::default(),
+            header_metadata: Some(LevelHeader {
+                width_screens: 1,
+                height_screens: 1,
+                height_flag_bits: 0,
+                level_theme: 0x09,
+                murder_wall_flags: 0,
+                background_theme: 0x09,
+                weather_flags: 0,
+                player_start_x: 0x0020,
+                player_start_y: 0x0100,
+                flag_x: 0x0C50,
+                flag_y: 0x00B0,
+            }),
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        fixture.manifest.decoded_levels.push(DecodedLevelAssets {
+            contract_version: 3,
+            level_id: 0x27,
+            foreground: decoded_asset("decoded/level/27/foreground.bin"),
+            block: decoded_asset("decoded/level/27/block.bin"),
+            background: decoded_asset("decoded/level/27/background.bin"),
+        });
+
+        let grid = try_load_block_grid(&fixture.manifest, 0x1B).expect("logical block grid");
+
+        assert_eq!(grid.width_cells, 20);
+        assert_eq!(grid.height_cells, 14);
+        assert_eq!(grid.cell_at(0, 0).collision, CollisionKind::Spikes);
+        assert_eq!(grid.cell_at(0, 0).skin, 0x66);
+        assert_eq!(grid.cell_at(1, 0).collision, CollisionKind::Solid);
+        assert_eq!(grid.cell_at(1, 0).skin, 0x77);
+    }
+
+    #[test]
+    fn resolved_level_header_prefers_resource_level_header_metadata() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.map_order = (0..=0x1B).collect();
+        fixture.manifest.map_order[0x1B] = 0x27;
+        fixture.manifest.levels.push(LevelRecord {
+            level_id: 0x1B,
+            title_text_id: Some(0x39),
+            display_name: Some(String::from("Skydragon Castle 1")),
+            resource_paths: Vec::new(),
+            resources: LevelResources::default(),
+            header_metadata: None,
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+        fixture.manifest.levels.push(LevelRecord {
+            level_id: 0x27,
+            title_text_id: Some(0x27),
+            display_name: Some(String::from("Caves of Ice")),
+            resource_paths: Vec::new(),
+            resources: LevelResources::default(),
+            header_metadata: Some(LevelHeader {
+                width_screens: 1,
+                height_screens: 1,
+                height_flag_bits: 0,
+                level_theme: 0x09,
+                murder_wall_flags: 0,
+                background_theme: 0x04,
+                weather_flags: 0,
+                player_start_x: 0x0020,
+                player_start_y: 0x0100,
+                flag_x: 0x0C50,
+                flag_y: 0x00B0,
+            }),
+            enemy_layout_metadata: None,
+            bgscroll_metadata: None,
+            platform_metadata: None,
+        });
+
+        let header = resolved_level_header(&fixture.manifest, 0x1B).expect("resolved header");
+
+        assert_eq!(header.level_theme, 0x09);
+        assert_eq!(header.background_theme, 0x04);
     }
 
     #[test]
