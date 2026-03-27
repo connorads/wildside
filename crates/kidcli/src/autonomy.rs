@@ -307,7 +307,8 @@ struct ActiveFrontierState {
     rejected_hypotheses: Vec<HypothesisSummary>,
     required_next_evidence: Vec<String>,
     verification_commands: Vec<String>,
-    task_package: SourcePortTaskPackageSpec,
+    #[serde(default)]
+    task_package: Option<SourcePortTaskPackageSpec>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,6 +319,64 @@ struct SourcePortTaskPackageSpec {
     implementation_targets: Vec<String>,
     commands: Vec<String>,
     done_criteria: Vec<String>,
+}
+
+impl ActiveFrontierState {
+    fn task_package_spec(&self) -> SourcePortTaskPackageSpec {
+        self.task_package
+            .clone()
+            .unwrap_or_else(|| self.synthetic_task_package())
+    }
+
+    fn synthetic_task_package(&self) -> SourcePortTaskPackageSpec {
+        let is_active = self.status == "active";
+        SourcePortTaskPackageSpec {
+            title: if is_active {
+                format!("Advance source-port frontier: {}", self.area)
+            } else {
+                "No open TAS frontier".to_owned()
+            },
+            summary: if is_active {
+                format!(
+                    "Investigate `{}` for `{}` and advance the authoritative clean window past frame {}.",
+                    self.area, self.recording, self.frontier_frame
+                )
+            } else {
+                format!(
+                    "`{}` is authoritative-clean through frame {}. Only reopen TAS frontier work after a fresh verified regression.",
+                    self.recording, self.authoritative_clean_through
+                )
+            },
+            sources: vec![
+                SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+                SOURCE_PORT_FRONTIER_NOTE_PATH.to_owned(),
+                "docs/source-port/tas-roadmap.md".to_owned(),
+                "docs/source-port/research-map.md".to_owned(),
+            ],
+            implementation_targets: if is_active {
+                vec![SOURCE_PORT_FRONTIER_STATE_PATH.to_owned()]
+            } else {
+                vec![
+                    SOURCE_PORT_FRONTIER_NOTE_PATH.to_owned(),
+                    "docs/source-port/research-map.md".to_owned(),
+                ]
+            },
+            commands: self.verification_commands.clone(),
+            done_criteria: if is_active {
+                vec![
+                    "The live authoritative mismatch is reproduced and explained.".to_owned(),
+                    "The compact frontier state is updated with the current hypothesis and next evidence."
+                        .to_owned(),
+                ]
+            } else {
+                vec![
+                    "The frontier metadata agrees there is no open TAS frontier.".to_owned(),
+                    "Future TAS work starts from a fresh `verify-tas --bisect` regression."
+                        .to_owned(),
+                ]
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -532,6 +591,7 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
     let state = load_source_port_frontier_state(repo_root)?;
     let frontier = &state.active_frontier;
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
+    let task_package = frontier.task_package_spec();
     let task_ready = frontier.status == "active";
     let selected_task = task_ready.then(|| source_port_frontier_task(frontier, &note));
     let blocker = selected_task
@@ -550,7 +610,7 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
     };
     let capabilities = vec![CapabilityReport {
         id: CapabilityId::SourcePortFrontierTask,
-        title: frontier.task_package.title.clone(),
+        title: task_package.title.clone(),
         status: if task_ready {
             CapabilityStatus::Ready
         } else {
@@ -581,14 +641,15 @@ fn source_port_frontier_task(
     frontier: &ActiveFrontierState,
     note: &NextAgentNoteDirective,
 ) -> TaskPackage {
+    let task_package = frontier.task_package_spec();
     TaskPackage {
         capability: CapabilityId::SourcePortFrontierTask,
-        title: frontier.task_package.title.clone(),
-        summary: frontier.task_package.summary.clone(),
-        sources: frontier.task_package.sources.clone(),
-        implementation_targets: frontier.task_package.implementation_targets.clone(),
-        commands: frontier.task_package.commands.clone(),
-        done_criteria: frontier.task_package.done_criteria.clone(),
+        title: task_package.title,
+        summary: task_package.summary,
+        sources: task_package.sources,
+        implementation_targets: task_package.implementation_targets,
+        commands: task_package.commands,
+        done_criteria: task_package.done_criteria,
         evidence: vec![
             EvidenceItem {
                 label: "active-frontier".to_owned(),
@@ -1941,18 +2002,19 @@ mod tests {
     }
 
     #[test]
-    fn source_port_frontier_requires_task_package() {
+    fn source_port_frontier_synthesises_missing_task_package() {
         let temp_dir = source_port_repo();
         write_source_port_frontier(temp_dir.path(), false, "active");
 
-        let error = load_source_port_frontier_state(temp_dir.path())
-            .expect_err("missing task_package should fail");
-        assert!(
-            error
-                .chain()
-                .any(|cause| cause.to_string().contains("task_package")),
-            "unexpected error: {error}"
+        let state =
+            load_source_port_frontier_state(temp_dir.path()).expect("frontier state should load");
+        let task_package = state.active_frontier.task_package_spec();
+
+        assert_eq!(
+            task_package.title,
+            "Advance source-port frontier: title handoff"
         );
+        assert!(task_package.summary.contains("frame 6906"));
     }
 
     #[test]
@@ -1985,5 +2047,20 @@ mod tests {
         let note = source_port_next_agent_note(temp_dir.path(), "test-frontier");
         assert_eq!(note.status, NextAgentNoteStatus::Current);
         assert_eq!(note.frontmatter_slug.as_deref(), Some("test-frontier"));
+    }
+
+    #[test]
+    fn source_port_frontier_cycle_uses_synthetic_complete_task_package() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+
+        assert!(cycle.goal_complete);
+        assert!(cycle.selected_task.is_none());
+        assert_eq!(cycle.capabilities.len(), 1);
+        assert_eq!(cycle.capabilities[0].title, "No open TAS frontier");
+        assert_eq!(cycle.capabilities[0].status, CapabilityStatus::Complete);
     }
 }
