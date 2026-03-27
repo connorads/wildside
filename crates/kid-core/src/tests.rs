@@ -12395,6 +12395,64 @@ fn red_stealth_sword_kills_1hp_enemy() {
 }
 
 #[test]
+fn red_stealth_sword_kill_marks_layout_enemy_dead() {
+    let assets = manifest_with_static_skull();
+    let layout = assets.levels[0]
+        .enemy_layout_metadata
+        .clone()
+        .unwrap_or_else(|| panic!("static skull manifest should include an enemy layout"));
+    let mut rt = NativeRuntime::new(assets);
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0104_0000;
+    slice.player.y_pos = 0x00EA_0000;
+
+    rt.active_enemies.push(test_enemy(
+        EnemyFamily::MiniHoppingSkull,
+        0x0120_0000,
+        0x00E0_0000,
+        1,
+    ));
+
+    rt.process_sword_hits(&slice);
+
+    assert!(
+        rt.active_enemies.is_empty(),
+        "the sword hit should kill the skull"
+    );
+    assert!(
+        rt.killed_enemies.contains(&(0, 0)),
+        "a sword kill should record the layout kill bit so activate_enemies does not respawn it",
+    );
+
+    activate_enemies(
+        &mut rt.active_enemies,
+        &layout,
+        ActivationWindow {
+            x_min: 0,
+            x_max: 640,
+            y_min: 0,
+            y_max: 480,
+        },
+        0,
+        0,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
+        slice.player.x_pos,
+        &rt.killed_enemies,
+    );
+
+    assert!(
+        rt.active_enemies.is_empty(),
+        "layout-backed enemies killed by the sword should not reactivate while their spawn stays in the active window",
+    );
+}
+
+#[test]
 fn red_stealth_sword_no_hit_when_out_of_range() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::RedStealth;

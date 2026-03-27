@@ -140,7 +140,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 121 | [x] | P2 | fidelity | TAS frame 24921: level `0x15` gameplay falsely enters right-wall cling from a top-edge-only overhang probe | Matched ASM `sub_8F26` by refusing to promote `probe_wall_top_edge()` into a fresh airborne wall hit. Added `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, and `mise run verify-slice-fast`. Frontier 24921→27603. |
 | 122 | [ ] | P0 | level | Level 2 entry can spawn Kid in midair, then fall through the floor and die | Boot -> finish Level 1 -> enter Level 2 -> confirm stable landing and 10s of live play |
 | 123 | [ ] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
-| 124 | [ ] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Kill/stomp enemy in live play and focused regression scenario; confirm post-kill hurtbox timing matches oracle or intended native evidence |
+| 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
 | 125 | [ ] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Break affected blocks, capture before/after, confirm sprite/state progression is correct |
 | 126 | [ ] | P1 | player | Walking up slopes is still observably wrong in native play | Traverse representative slopes in focused scenario and live play, confirm no hitching or bad grounding |
 | 127 | [ ] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Hit bounce blocks in focused scenario and live play, confirm bounce height/timing |
@@ -183,12 +183,19 @@ Oracle repro: mixed/unknown. Minimum gate: `1p-playable`.
 This issue stays separate from the closed floor-snap and TAS frontier items. It is a player-facing
 native stability bug until a recording or focused scenario proves otherwise.
 
-### 124 — Enemy kill timing still allows Kid to get hurt after the enemy should already be dead (OPEN)
+### 124 — Enemy kill timing still allows Kid to get hurt after the enemy should already be dead (FIXED)
 Evidence source: native play reports. Native repro: reported, not yet captured.
 Oracle repro: unknown. Minimum gate: `fast-slice`.
 
-Treat this as an enemy lifecycle / damage-order problem, not as a generic "combat feels off" note.
-The fix needs a focused regression around the exact kill frame and the immediately following frame.
+Root cause: non-stomp kill paths removed the live enemy object, but only stomps updated the
+layout-backed `killed_enemies` bitfield. The next activation pass could therefore recreate a
+"dead" enemy from the layout while its spawn remained in the active window, which made the
+contact damage feel one frame late or outright wrong in live play.
+
+Fix: centralised enemy removal so stomps, sword kills, friendly projectiles, Berzerker charge,
+and diamond-power AoE all share the same kill bookkeeping and death side-effects. Regression:
+`red_stealth_sword_kill_marks_layout_enemy_dead` proves a sword-killed layout enemy no longer
+reactivates on the next activation pass.
 
 ### 129 — Add a `1p-playable` gate (OPEN)
 Evidence source: roadmap decision after repeated native-play failures escaping the current gate.

@@ -534,10 +534,7 @@ impl NativeRuntime {
         }
 
         for &idx in kill_indices.iter().rev() {
-            let enemy = &self.active_enemies[idx];
-            self.spawn_enemy_death_effect(enemy.family, enemy.x_pos, enemy.y_pos);
-            self.active_enemies.remove(idx);
-            self.add_score(1000);
+            self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self
@@ -590,10 +587,7 @@ impl NativeRuntime {
 
         // Remove dead enemies, spawn death effects, and award points
         for &idx in kill_indices.iter().rev() {
-            let enemy = &self.active_enemies[idx];
-            self.spawn_enemy_death_effect(enemy.family, enemy.x_pos, enemy.y_pos);
-            self.active_enemies.remove(idx);
-            self.add_score(1000);
+            self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
             self.active_enemy_roster = self
@@ -635,10 +629,7 @@ impl NativeRuntime {
         }
 
         for &idx in kill_indices.iter().rev() {
-            let enemy = &self.active_enemies[idx];
-            self.spawn_enemy_death_effect(enemy.family, enemy.x_pos, enemy.y_pos);
-            self.active_enemies.remove(idx);
-            self.add_score(1000);
+            self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self
@@ -1030,8 +1021,7 @@ impl NativeRuntime {
             }
         }
         for &idx in kill_indices.iter().rev() {
-            self.active_enemies.remove(idx);
-            self.add_score(1000);
+            self.remove_dead_enemy(idx);
         }
         if !kill_indices.is_empty() {
             self.active_enemy_roster = self

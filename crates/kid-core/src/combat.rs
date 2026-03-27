@@ -59,6 +59,21 @@ impl NativeRuntime {
         });
     }
 
+    pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
+        let enemy = &self.active_enemies[idx];
+        let family = enemy.family;
+        let x_pos = enemy.x_pos;
+        let y_pos = enemy.y_pos;
+        self.killed_enemies
+            .insert((enemy.segment_index, enemy.layout_index));
+        self.spawn_enemy_death_effect(family, x_pos, y_pos);
+        if matches!(family, EnemyFamily::FireDemon) {
+            spawn_fire_demon_death_trail(&mut self.projectiles, x_pos, y_pos);
+        }
+        self.active_enemies.remove(idx);
+        self.add_score(1000);
+    }
+
     pub(crate) fn should_apply_level_one_opening_hit(
         &self,
         slice: &OpeningSliceState,
@@ -188,19 +203,7 @@ impl NativeRuntime {
         // Track killed identity so activate_enemies won't respawn them
         // (ASM uses per-segment killed bitfield at $FFFFF66A).
         for &idx in kill_indices.iter().rev() {
-            let enemy = &self.active_enemies[idx];
-            let family = enemy.family;
-            let x_pos = enemy.x_pos;
-            let y_pos = enemy.y_pos;
-            self.killed_enemies
-                .insert((enemy.segment_index, enemy.layout_index));
-            self.spawn_enemy_death_effect(family, x_pos, y_pos);
-            // Fire Demon: spawn fire trail on death
-            if matches!(family, EnemyFamily::FireDemon) {
-                spawn_fire_demon_death_trail(&mut self.projectiles, x_pos, y_pos);
-            }
-            self.active_enemies.remove(idx);
-            self.add_score(1000);
+            self.remove_dead_enemy(idx);
         }
 
         // Rebuild roster after changes
