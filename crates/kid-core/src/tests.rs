@@ -351,11 +351,11 @@ fn enter_level_playtest_starts_on_a_settled_ingame_frame() {
 
 fn pause_resume_script_input(frame_index: usize) -> FrameInput {
     let mut input = FrameInput::default();
-    if (600..=839).contains(&frame_index) || (960..=1_119).contains(&frame_index) {
+    if (600..=839).contains(&frame_index) || (841..=919).contains(&frame_index) {
+        input.right = true;
+    } else if (960..=1_119).contains(&frame_index) {
         input.right = true;
         input.a = true;
-    } else if (841..=919).contains(&frame_index) {
-        input.right = true;
     }
     if frame_index == 840 || frame_index == 920 {
         input.start = true;

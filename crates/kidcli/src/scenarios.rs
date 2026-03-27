@@ -567,7 +567,7 @@ impl GameplayScenario {
         apply_boot_to_level_1(&mut script);
         match self {
             Self::PauseResumeLevel1 => {
-                apply_range(&mut script, 720, 839, (1 << 3) | (1 << 6));
+                apply_range(&mut script, 600, 839, 1 << 3);
                 apply_range(&mut script, 840, 840, 0x80);
                 apply_range(&mut script, 841, 919, 1 << 3);
                 apply_range(&mut script, 920, 920, 0x80);
@@ -575,8 +575,9 @@ impl GameplayScenario {
                 add_periodic_jump(&mut script, 980, 1_119, 24, 4);
             }
             Self::DeathRespawnLevel1 => {
-                apply_range(&mut script, 600, 1_350, (1 << 3) | (1 << 6));
-                add_periodic_jump(&mut script, 640, 1_350, 24, 4);
+                apply_range(&mut script, 600, 899, 1 << 3);
+                apply_range(&mut script, 900, 1_350, (1 << 3) | (1 << 6));
+                add_periodic_jump(&mut script, 940, 1_350, 24, 4);
                 apply_single_frames(&mut script, &[1_400, 1_460, 1_520], 0x80);
                 apply_range(&mut script, 1_560, 1_919, 1 << 3);
                 add_periodic_jump(&mut script, 1_600, 1_919, 28, 3);

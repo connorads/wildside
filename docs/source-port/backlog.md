@@ -204,9 +204,13 @@ rebuilds the current-level respawn shell with a clean object/effect/weather/came
 `killed_enemies`, projectiles, transient block/effect lists, murder wall/weather state, helmet
 ability state, Diamond Power state, and `y_look_offset` all reset before `Respawning` begins.
 Focused regressions `death_respawn_restarts_with_clean_level_runtime_state` and
-`continue_respawn_restarts_with_clean_level_runtime_state` lock this down. `mise run verify-1p-playable`
-still currently fails earlier on the unrelated `pause_resume_level1 did not advance before the pause point`
-gate, so this backlog item remains open for the remaining camera-hand-off work.
+`continue_respawn_restarts_with_clean_level_runtime_state` lock this down. The `pause_resume_level1`
+and `death_respawn_level1` smoke scripts now reuse the oracle-backed walk-only opening baseline
+before layering pause / death input, so `mise run verify-1p-playable` is green again. The oracle
+compare is still open, but the stale setup-window misses are gone: `pause-resume-level1` now first
+misses later at `resumed_tail@1119` (`camera_x` native `0x028E0000`, oracle `0x02AF0000`), and
+`death-respawn-level1` now first misses later at `pre_death@1279` (`hp` native `0`, oracle `1`).
+The remaining work is still the respawn/camera hand-off, not the smoke setup itself.
 
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
