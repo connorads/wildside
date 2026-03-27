@@ -158,6 +158,12 @@ pub(crate) fn diagnose_native_gameplay_drift(
                 gameplay_field_value(&report.oracle, field)
             );
         }
+        if let Some(summary) = gameplay_state_debug_summary(&report.native) {
+            println!("  native context: {summary}");
+        }
+        if let Some(summary) = gameplay_state_debug_summary(&report.oracle) {
+            println!("  oracle context: {summary}");
+        }
     }
     Ok(())
 }
@@ -506,14 +512,16 @@ pub(crate) fn compare_u32_delta(
     tolerance: u32,
 ) -> Result<()> {
     if native_value.abs_diff(oracle_value) > tolerance {
+        let debug_context = gameplay_debug_context(native);
         bail!(
-            "gameplay state {}@{} diverged in {} (native {:08X}, oracle {:08X}); artefacts in {}",
+            "gameplay state {}@{} diverged in {} (native {:08X}, oracle {:08X}); artefacts in {}{}",
             native.label,
             native.frame_index,
             field,
             native_value,
             oracle_value,
-            run_dir.display()
+            run_dir.display(),
+            debug_context
         );
     }
     Ok(())
@@ -528,14 +536,16 @@ pub(crate) fn compare_u16_delta(
     tolerance: u16,
 ) -> Result<()> {
     if native_value.abs_diff(oracle_value) > tolerance {
+        let debug_context = gameplay_debug_context(native);
         bail!(
-            "gameplay state {}@{} diverged in {} (native {}, oracle {}); artefacts in {}",
+            "gameplay state {}@{} diverged in {} (native {}, oracle {}); artefacts in {}{}",
             native.label,
             native.frame_index,
             field,
             native_value,
             oracle_value,
-            run_dir.display()
+            run_dir.display(),
+            debug_context
         );
     }
     Ok(())
@@ -650,10 +660,63 @@ pub(crate) fn gameplay_field_value(state: &GameplayState, field: &str) -> String
         "camera_y_pos" => format!("{:08X}", state.camera_y_pos),
         "kid_x_pos" => format!("{:08X}", state.kid_x_pos),
         "kid_y_pos" => format!("{:08X}", state.kid_y_pos),
+        "kid_x_vel" => state
+            .kid_x_vel
+            .map(|value| format!("{value:08X}"))
+            .unwrap_or_else(|| String::from("none")),
+        "kid_y_vel" => state
+            .kid_y_vel
+            .map(|value| format!("{value:08X}"))
+            .unwrap_or_else(|| String::from("none")),
+        "character_movement" => state
+            .character_movement
+            .map(|value| format!("{value:04X}"))
+            .unwrap_or_else(|| String::from("none")),
+        "kid_collision_type" => state
+            .kid_collision_type
+            .map(|value| format!("{value:04X}"))
+            .unwrap_or_else(|| String::from("none")),
+        "invulnerable_frames" => state
+            .invulnerable_frames
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| String::from("none")),
+        "just_received_damage" => state
+            .just_received_damage
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| String::from("none")),
         "number_objects" => state.number_objects.to_string(),
         "number_gfx_objects" => state.number_gfx_objects.to_string(),
         _ => String::from("<unknown>"),
     }
+}
+
+fn gameplay_debug_context(state: &GameplayState) -> String {
+    gameplay_state_debug_summary(state)
+        .map(|summary| format!("\n  context: {summary}"))
+        .unwrap_or_default()
+}
+
+fn gameplay_state_debug_summary(state: &GameplayState) -> Option<String> {
+    let mut fields = Vec::new();
+    if let Some(value) = state.kid_x_vel {
+        fields.push(format!("kid_x_vel={value:#010x}"));
+    }
+    if let Some(value) = state.kid_y_vel {
+        fields.push(format!("kid_y_vel={value:#010x}"));
+    }
+    if let Some(value) = state.character_movement {
+        fields.push(format!("character_movement={value:#06x}"));
+    }
+    if let Some(value) = state.kid_collision_type {
+        fields.push(format!("kid_collision_type={value:#06x}"));
+    }
+    if let Some(value) = state.invulnerable_frames {
+        fields.push(format!("invulnerable_frames={value}"));
+    }
+    if let Some(value) = state.just_received_damage {
+        fields.push(format!("just_received_damage={}", u8::from(value)));
+    }
+    (!fields.is_empty()).then(|| fields.join(", "))
 }
 
 pub(crate) fn run_port_loop(

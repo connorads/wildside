@@ -38,6 +38,12 @@ const CURRENT_HELMET_ID_ADDR: u32 = 0x00FF_FC46;
 const PLAYER_1_LEVEL_ID_ADDR: u32 = 0x00FF_FC5A;
 const KID_X_POS_ADDR: u32 = 0x00FF_24FA;
 const KID_Y_POS_ADDR: u32 = 0x00FF_24FE;
+const KID_X_VEL_ADDR: u32 = 0x00FF_2506;
+const KID_Y_VEL_ADDR: u32 = 0x00FF_250A;
+const KID_COLLISION_TYPE_ADDR: u32 = 0x00FF_2518;
+const CHARACTER_MOVEMENT_ADDR: u32 = 0x00FF_FA56;
+const INVULNERABLE_FRAMES_ADDR: u32 = 0x00FF_FA2B;
+const JUST_RECEIVED_DAMAGE_ADDR: u32 = 0x00FF_FA73;
 const VRAM_LEN: usize = 0x1_0000;
 const CRAM_LEN: usize = 0x80;
 const VSRAM_LEN: usize = 0x50;
@@ -126,6 +132,12 @@ pub struct CpuProbe {
     pub camera_y_pos: u32,
     pub kid_x_pos: u32,
     pub kid_y_pos: u32,
+    pub kid_x_vel: i32,
+    pub kid_y_vel: i32,
+    pub character_movement: u16,
+    pub kid_collision_type: u16,
+    pub invulnerable_frames: u8,
+    pub just_received_damage: bool,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub z80_interrupt_mode: u8,
@@ -643,6 +655,19 @@ pub fn probe_rom_with_script(
         camera_y_pos: runtime.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
         kid_x_pos: runtime.core.mem.read_work_ram_long(KID_X_POS_ADDR),
         kid_y_pos: runtime.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
+        kid_x_vel: runtime.core.mem.read_work_ram_long(KID_X_VEL_ADDR) as i32,
+        kid_y_vel: runtime.core.mem.read_work_ram_long(KID_Y_VEL_ADDR) as i32,
+        character_movement: runtime.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
+        kid_collision_type: runtime.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
+        invulnerable_frames: runtime
+            .core
+            .mem
+            .read_work_ram_byte(INVULNERABLE_FRAMES_ADDR),
+        just_received_damage: runtime
+            .core
+            .mem
+            .read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR)
+            != 0,
         number_objects: runtime.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
         number_gfx_objects: runtime.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
         z80_interrupt_mode: runtime.z80.interrupt_mode,
@@ -823,6 +848,12 @@ impl MdRuntime {
             camera_y_pos: self.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
             kid_x_pos: self.core.mem.read_work_ram_long(KID_X_POS_ADDR),
             kid_y_pos: self.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
+            kid_x_vel: self.core.mem.read_work_ram_long(KID_X_VEL_ADDR) as i32,
+            kid_y_vel: self.core.mem.read_work_ram_long(KID_Y_VEL_ADDR) as i32,
+            character_movement: self.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
+            kid_collision_type: self.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
+            invulnerable_frames: self.core.mem.read_work_ram_byte(INVULNERABLE_FRAMES_ADDR),
+            just_received_damage: self.core.mem.read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR) != 0,
             number_objects: self.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
             number_gfx_objects: self.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
             z80_interrupt_mode: self.z80.interrupt_mode,

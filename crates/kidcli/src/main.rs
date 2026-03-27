@@ -3044,6 +3044,12 @@ mod tests {
             camera_y_pos: 0x0008_0000,
             kid_x_pos: 0x0020_0000 + (frame_index as u32 * 0x0004_0000),
             kid_y_pos: 0x0010_0000,
+            kid_x_vel: Some(0x0002_0000),
+            kid_y_vel: Some(0),
+            character_movement: Some(0x0002),
+            kid_collision_type: Some(0),
+            invulnerable_frames: Some(0),
+            just_received_damage: Some(false),
             number_objects: 3,
             number_gfx_objects: 3,
         }
