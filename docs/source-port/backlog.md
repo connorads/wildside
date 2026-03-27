@@ -139,7 +139,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 120 | [x] | P2 | fidelity | TAS frame 6966: `any-percent-published` exposes the wrong wrapped demo 1 camera Y during the hidden warm-up after the fixed 6945 abort window | Fixed by carrying the timeout-restart IntroSequence6 lineage into demo playback so the hidden warm-up reuses the oracle-backed demo-1 camera wrap; frontier later advanced through the repaired title/demo shell. |
 | 121 | [x] | P2 | fidelity | TAS frame 24921: level `0x15` gameplay falsely enters right-wall cling from a top-edge-only overhang probe | Matched ASM `sub_8F26` by refusing to promote `probe_wall_top_edge()` into a fresh airborne wall hit. Added `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit`, verified `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`, `cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, and `mise run verify-slice-fast`. Frontier 24921→27603. |
 | 122 | [x] | P0 | level | Level 2 entry can spawn Kid in midair, then fall through the floor and die | Boot -> finish Level 1 -> enter Level 2 -> confirm stable landing and 10s of live play |
-| 123 | [ ] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
+| 123 | [~] | P0 | player | Death/respawn still leaves camera drift, stuck-from-start, or broken restart state | Die in live play, confirm camera settles correctly and movement resumes without soft-lock |
 | 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
 | 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now uses the ASM block group as well as skin, so post-prize `$E001` cells render smash-family art instead of prize-family art |
 | 126 | [x] | P1 | player | Walking up slopes is still observably wrong in native play | Native 1P gate now covers uphill/downhill tracking plus slope enter/exit seams; `mise run verify-1p-playable` is green |
@@ -198,6 +198,15 @@ its oracle compare again. `death-respawn-level1` is still open: after starting t
 earlier to dodge the idle-hazard window, the first compare miss is now a narrower camera-X drift at
 `level_settle@719` (native `0x00AA0000`, oracle `0x00800000`). The remaining work is the respawn
 shell camera hand-off, not the opening hit timing itself.
+
+New evidence: death/continue restart was also leaking stale per-level runtime state. Native now
+rebuilds the current-level respawn shell with a clean object/effect/weather/camera-look state:
+`killed_enemies`, projectiles, transient block/effect lists, murder wall/weather state, helmet
+ability state, Diamond Power state, and `y_look_offset` all reset before `Respawning` begins.
+Focused regressions `death_respawn_restarts_with_clean_level_runtime_state` and
+`continue_respawn_restarts_with_clean_level_runtime_state` lock this down. `mise run verify-1p-playable`
+still currently fails earlier on the unrelated `pause_resume_level1 did not advance before the pause point`
+gate, so this backlog item remains open for the remaining camera-hand-off work.
 
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.

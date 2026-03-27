@@ -1,6 +1,44 @@
 use super::*;
 
 impl NativeRuntime {
+    pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
+        let level_id = self.current_level;
+        self.reload_block_grid_for_level(level_id);
+        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(level_id));
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.killed_enemies.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.block_state.evanescent_blocks.clear();
+        self.block_state.shooter_blocks.clear();
+        self.block_state.ghost_groups.clear();
+        self.block_state.lift_platforms.clear();
+        self.projectiles.clear();
+        self.pending_prize_diamond_awards.clear();
+        self.enemy_death_effects.clear();
+        self.block_bounces.clear();
+        self.block_destroy_effects.clear();
+        self.floating_items.clear();
+        self.init_murder_wall(level_id, 0);
+        self.init_weather(level_id);
+        self.level_timer = LevelTimer::new();
+        self.level_prize_collected = false;
+        self.clocks_collected = 0;
+        self.y_look_offset = 0;
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.form_change_flash_frames = 0;
+        self.progression.form_width_delta = 0;
+        self.progression.diamond_power_frames = 0;
+        self.progression.diamond_power_type = helmets::DiamondPowerType::None;
+        self.progression.invulnerable_frames = 0;
+        self.helmet.reset();
+        self.paused = false;
+        self.pause_toggle_pending = false;
+        self.death_camera_lock = None;
+    }
+
     fn logical_level_ids(&self) -> Option<Vec<LevelId>> {
         if self.assets.map_order.is_empty() {
             return None;

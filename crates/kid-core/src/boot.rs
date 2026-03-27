@@ -1421,12 +1421,7 @@ impl NativeRuntime {
                     // 2P: both have lives, switch turns
                     self.player_lifecycle = PlayerLifecycle::Alive;
                 } else {
-                    self.reload_block_grid_for_level(self.current_level);
-                    self.opening_slice =
-                        Some(self.level_respawn_slice_with_floor_snap(self.current_level));
-                    self.level_timer = LevelTimer::new();
-                    self.level_prize_collected = false;
-                    self.clocks_collected = 0;
+                    self.reset_current_level_runtime_state_for_respawn();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };
@@ -1484,12 +1479,7 @@ impl NativeRuntime {
                     self.progression.current_form = PlayerForm::TheKid;
                     self.progression.pending_form = None;
                     self.progression.diamond_count = 0;
-                    self.reload_block_grid_for_level(self.current_level);
-                    self.opening_slice =
-                        Some(self.level_respawn_slice_with_floor_snap(self.current_level));
-                    self.level_timer = LevelTimer::new();
-                    self.level_prize_collected = false;
-                    self.clocks_collected = 0;
+                    self.reset_current_level_runtime_state_for_respawn();
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
                     };

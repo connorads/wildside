@@ -199,6 +199,117 @@ fn start_level_settled(runtime: &mut NativeRuntime) {
     }
 }
 
+fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
+    runtime.killed_enemies.insert((0, 0));
+    runtime.projectiles.push(EnemyProjectile {
+        x_pos: 0x0010_0000,
+        y_pos: 0x0020_0000,
+        x_velocity: 0x0001_0000,
+        y_velocity: 0,
+        lifetime: 30,
+        friendly: false,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+    });
+    runtime.pending_prize_diamond_awards.push(5);
+    runtime.enemy_death_effects.push(EnemyDeathEffect {
+        x_pos: 0x0030_0000,
+        y_pos: 0x0040_0000,
+        remaining: 12,
+    });
+    runtime.block_bounces.push(BlockBounceAnim {
+        cell_x: 3,
+        cell_y: 4,
+        remaining: 7,
+    });
+    runtime.block_destroy_effects.push(BlockDestroyEffect {
+        x_px: 80,
+        y_px: 96,
+        remaining: 6,
+    });
+    runtime.floating_items.push(FloatingItem {
+        x_pos: 0x0050_0000,
+        y_pos: 0x0060_0000,
+        y_velocity: 0x1388,
+        remaining: 120,
+        spawn_delay: 0,
+        level_col: 5,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+    runtime.block_state.lift_platforms.push(LiftPlatform {
+        x_pos: 0x0070_0000,
+        y_pos: 0x0080_0000,
+        y_velocity: 0,
+        age: 3,
+        width_px: 16,
+        source_col: 7,
+        source_row: 8,
+        block_erased: false,
+    });
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0x0090_0000,
+        speed: 0x1000,
+        max_speed: 0x4000,
+        reversed: true,
+    });
+    runtime.weather = WeatherState {
+        weather_type: 3,
+        hail_spawn_timer: 11,
+        hail_active: true,
+        hail_period_timer: 22,
+        lava_geysers: vec![LavaGeyser {
+            x_px: 32,
+            y_px: 48,
+            height_px: 64,
+            phase: 1,
+            timer: 5,
+            current_height: 24,
+        }],
+    };
+    runtime.y_look_offset = 30;
+    runtime.helmet.skycutter_on_board = true;
+    runtime.progression.current_form = PlayerForm::Cyclone;
+    runtime.progression.pending_form = Some(PlayerForm::Juggernaut);
+    runtime.progression.form_change_flash_frames = 9;
+    runtime.progression.form_width_delta = 3;
+    runtime.progression.diamond_power_frames = 40;
+    runtime.progression.diamond_power_type = crate::helmets::DiamondPowerType::ExtraLife;
+    runtime.progression.invulnerable_frames = 15;
+}
+
+fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
+    assert!(runtime.killed_enemies.is_empty());
+    assert!(runtime.projectiles.is_empty());
+    assert!(runtime.pending_prize_diamond_awards.is_empty());
+    assert!(runtime.enemy_death_effects.is_empty());
+    assert!(runtime.block_bounces.is_empty());
+    assert!(runtime.block_destroy_effects.is_empty());
+    assert!(runtime.floating_items.is_empty());
+    assert!(runtime.block_state.lift_platforms.is_empty());
+    assert_eq!(runtime.murder_wall, None);
+    assert_eq!(runtime.weather.weather_type, 1);
+    assert!(!runtime.weather.hail_active);
+    assert_eq!(runtime.weather.hail_spawn_timer, 0);
+    assert_eq!(runtime.weather.hail_period_timer, 0);
+    assert_eq!(runtime.y_look_offset, 0);
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+    assert_eq!(runtime.progression.pending_form, None);
+    assert_eq!(runtime.progression.form_change_flash_frames, 0);
+    assert_eq!(runtime.progression.form_width_delta, 0);
+    assert_eq!(runtime.progression.diamond_power_frames, 0);
+    assert_eq!(
+        runtime.progression.diamond_power_type,
+        crate::helmets::DiamondPowerType::None
+    );
+    assert_eq!(runtime.progression.invulnerable_frames, 0);
+    assert!(!runtime.helmet.skycutter_on_board);
+}
+
 fn advance_past_level_entry_damage_grace(runtime: &mut NativeRuntime) {
     let mut saw_spawn_invulnerability = runtime.progression.invulnerable_frames > 0;
     for _ in 0..128 {
@@ -2743,6 +2854,54 @@ fn continue_restores_lives_and_respawns() {
         matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
         "should be respawning after continue"
     );
+}
+
+#[test]
+fn death_respawn_restarts_with_clean_level_runtime_state() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.number_lives = 2;
+    runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+    runtime.player_lifecycle = PlayerLifecycle::Dying {
+        remaining_frames: 1,
+    };
+    seed_level_restart_leak_state(&mut runtime);
+
+    runtime.step_frame(FrameInput::default());
+
+    assert!(
+        matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+        "death restart should enter Respawning"
+    );
+    assert_level_restart_state_cleared(&runtime);
+}
+
+#[test]
+fn continue_respawn_restarts_with_clean_level_runtime_state() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.number_continues = 2;
+    runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+        remaining_frames: 10,
+    };
+    seed_level_restart_leak_state(&mut runtime);
+
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+
+    assert!(
+        matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+        "continue should enter Respawning"
+    );
+    assert_eq!(runtime.progression.number_continues, 1);
+    assert_eq!(runtime.progression.number_lives, 3);
+    assert_eq!(
+        runtime.progression.number_hitpoints,
+        PlayerForm::TheKid.max_hitpoints()
+    );
+    assert_level_restart_state_cleared(&runtime);
 }
 
 /// Helper: build a block grid with solid floor at a given row everywhere.
