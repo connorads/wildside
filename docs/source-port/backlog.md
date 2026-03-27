@@ -143,7 +143,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get hurt after the enemy should already be dead | Sword/projectile/charge/AoE kills now persist the ROM kill bit, so dead enemies do not reactivate into fresh contact damage |
 | 125 | [x] | P1 | block | Breakable blocks can render with the wrong lifecycle art or regress into prize-like visuals | Block-family render mapping now uses the ASM block group as well as skin, so post-prize `$E001` cells render smash-family art instead of prize-family art |
 | 126 | [ ] | P1 | player | Walking up slopes is still observably wrong in native play | Traverse representative slopes in focused scenario and live play, confirm no hitching or bad grounding |
-| 127 | [ ] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Hit bounce blocks in focused scenario and live play, confirm bounce height/timing |
+| 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [ ] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run` gate is green only when the core 1P smoke path survives those scenarios |
 | 130 | [ ] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Capture a recording on one machine, replay and verify it locally, and use the slug as a bug artefact |
@@ -217,6 +217,22 @@ Fix: index block visuals by both block family and skin. Regressions:
 `load_block_visual_mapping_from_skin_and_block_type`,
 `build_game_scene_emits_block_family_tiles_from_skin_and_block_type`, and
 `prize_block_lifecycle_restores_smash_family_art_after_dispatch`.
+
+### 127 — Black bouncy blocks do not produce the expected bounce behaviour (FIXED)
+Evidence source: backlog follow-up plus ASM review. Native repro: reproduced in code paths.
+Oracle repro: ASM-backed via `sub_902A`, `sub_914A`, `sub_8F26`, `sub_922C`, and `loc_10DA4`.
+Minimum gate: `fast-slice`.
+
+Root cause: native treated rubber blocks like ordinary solids on contact, so the ROM's
+contact-triggered jiggle effect never appeared on landings, head bonks, or wall hits.
+The earlier "bounce block" description was misleading: ASM `loc_10DA4` only plays
+`sfx_Rubber_block` and spawns the temporary jiggle object; it does not relaunch Kid.
+
+Fix: route rubber floor, ceiling, and wall contacts through the existing block-bounce
+visual channel while keeping the ROM-faithful landing and collision velocities intact.
+Regressions: `rubber_block_landing_queues_jiggle_without_bouncing_player`,
+`rubber_block_ceiling_hit_queues_jiggle_without_destroying_cell`, and
+`rubber_block_wall_hit_queues_jiggle_without_breaking_wall`.
 
 ### 128 — Form-specific block breaking can now destroy metal blocks that should stay solid (FIXED)
 Evidence source: code-path audit after the Iron Knight landing shortcut. Native repro: reproduced in tests.

@@ -362,6 +362,17 @@ impl NativeRuntime {
             });
         }
 
+        // ASM loc_10DA4: rubber contact spawns a temporary jiggle object and
+        // plays sfx_Rubber_block without changing the collision response.
+        if let Some((cx, cy)) = slice.rubber_block_hit {
+            self.blocks_hit_this_frame += 1;
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: cx,
+                cell_y: cy,
+                remaining: 8,
+            });
+        }
+
         // Smash block destruction effect
         if let Some((x_px, y_px)) = slice.smash_block_hit {
             self.blocks_hit_this_frame += 1;

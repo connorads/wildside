@@ -1033,6 +1033,7 @@ impl NativeRuntime {
         slice.lift_block_hit = None;
         slice.drill_projectile_hit = None;
         slice.metal_block_hit = None;
+        slice.rubber_block_hit = None;
         slice.smash_block_hit = None;
         slice.teleporter_contact = None;
         slice.ceiling_prize_clear = None;

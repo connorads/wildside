@@ -2186,6 +2186,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -3315,6 +3316,7 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -3390,6 +3392,7 @@ fn fresh_smash_prize_ceiling_frame_does_not_block_motion() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6314,6 +6317,7 @@ fn headbutt_prize_block_changes_to_empty() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6377,6 +6381,7 @@ fn ceiling_collision_skips_when_upward_motion_stays_within_same_tile() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6441,6 +6446,7 @@ fn headbutt_metal_block_does_not_clear() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6509,6 +6515,7 @@ fn headbutt_smash_block_changes_to_empty() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6573,6 +6580,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6644,6 +6652,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6724,6 +6733,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6781,6 +6791,7 @@ fn airborne_top_edge_contact_acquires_wall_sticky_on_first_overlap() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6840,6 +6851,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6915,6 +6927,7 @@ fn airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit()
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -6969,6 +6982,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -7023,6 +7037,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -7074,6 +7089,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -7125,6 +7141,7 @@ fn asm_faithful_solid_floor_snap_waits_for_contact_row() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10259,6 +10276,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10313,6 +10331,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10376,6 +10395,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10627,6 +10647,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10685,6 +10706,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10752,6 +10774,7 @@ fn evanescent_block_clears_after_timer_expires() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -10828,6 +10851,7 @@ fn evanescent_block_with_skin_delay() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -11024,6 +11048,7 @@ fn evanescent_block_not_triggered_twice() {
         lift_block_hit: None,
         drill_projectile_hit: None,
         metal_block_hit: None,
+        rubber_block_hit: None,
         smash_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
@@ -12151,6 +12176,127 @@ fn mushroom_block_lands_player_without_bounce() {
         "should land on mushroom like normal floor"
     );
     assert_eq!(slice.player.y_velocity, 0, "should stop on landing");
+}
+
+#[test]
+fn rubber_block_landing_queues_jiggle_without_bouncing_player() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let w: u16 = 16;
+    let h: u16 = 16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Rubber at cell (2, 4): has_block=1, collision=Solid(6), block_type=Rubber(6)
+    let idx = (4 * w + 2) as usize * 2;
+    data[idx] = 0xE6;
+    data[idx + 1] = 0x00;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    slice.player.y_velocity = 0x3_0000;
+    slice.player.x_pos = 0x0024_0000;
+    slice.player.y_pos = 0x003F_0000;
+
+    slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
+    runtime.process_block_effects(&mut slice);
+
+    assert!(slice.player.on_ground, "rubber landing should still settle");
+    assert_eq!(slice.player.y_velocity, 0, "rubber should not relaunch Kid");
+    assert_eq!(
+        runtime.block_bounces.len(),
+        1,
+        "ASM loc_10DA4 should queue the rubber jiggle effect on landing"
+    );
+    assert_eq!(runtime.block_bounces[0].cell_x, 2);
+    assert_eq!(runtime.block_bounces[0].cell_y, 4);
+}
+
+#[test]
+fn rubber_block_ceiling_hit_queues_jiggle_without_destroying_cell() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let w: u16 = 16;
+    let h: u16 = 16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Rubber ceiling at cell (2, 2)
+    let idx = (2 * w + 2) as usize * 2;
+    data[idx] = 0xE6;
+    data[idx + 1] = 0x00;
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    slice.player.y_velocity = -0x0011_0000;
+    slice.player.x_pos = 0x0028_0000;
+    slice.player.y_pos = 0x003F_0000;
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+    runtime.process_block_effects(&mut slice);
+
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "ceiling hit should stop upward motion"
+    );
+    assert_eq!(
+        runtime.block_bounces.len(),
+        1,
+        "ASM loc_10DA4 should queue the rubber jiggle effect on ceiling contact"
+    );
+    let cell_after = grid.cell_at(2, 2);
+    assert!(cell_after.has_block, "rubber cell should stay intact");
+    assert_eq!(cell_after.block_type, terrain::BlockType::Rubber);
+}
+
+#[test]
+fn rubber_block_wall_hit_queues_jiggle_without_breaking_wall() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Rubber wall at cell (2, 1), matching the existing direct wall-hit probe.
+    let idx = (w + 2) as usize * 2;
+    data[idx] = 0xE6;
+    data[idx + 1] = 0x00;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Match the existing direct wall-hit geometry so sub_8F26 crosses the
+    // tile boundary and reaches the side-wall probe.
+    slice.player.x_pos = 27 << 16;
+    slice.player.y_pos = 48 << 16;
+    slice.player.x_velocity = 0x0001_0000;
+
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+    runtime.process_block_effects(&mut slice);
+
+    assert_eq!(
+        slice.player.x_velocity, 0,
+        "wall hit should still clamp movement"
+    );
+    assert_eq!(
+        runtime.block_bounces.len(),
+        1,
+        "ASM sub_8F26/sub_922C should queue the rubber jiggle effect on wall contact"
+    );
+    assert_eq!(runtime.block_bounces[0].cell_x, 2);
+    assert_eq!(runtime.block_bounces[0].cell_y, 1);
 }
 
 #[test]

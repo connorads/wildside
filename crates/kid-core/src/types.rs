@@ -1535,6 +1535,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) drill_projectile_hit: Option<(u32, u32)>,
     /// Metal block bounced this frame — (cell_x, cell_y).
     pub(crate) metal_block_hit: Option<(u16, u16)>,
+    /// Rubber block contacted this frame — (cell_x, cell_y).
+    pub(crate) rubber_block_hit: Option<(u16, u16)>,
     /// Smash block destroyed this frame — (x_px, y_px).
     pub(crate) smash_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).

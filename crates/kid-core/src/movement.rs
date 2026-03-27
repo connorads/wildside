@@ -125,6 +125,7 @@ impl OpeningSliceState {
             lift_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
+            rubber_block_hit: None,
             smash_block_hit: None,
             teleporter_contact: None,
             ceiling_prize_clear: None,
@@ -182,6 +183,7 @@ impl OpeningSliceState {
             lift_block_hit: None,
             drill_projectile_hit: None,
             metal_block_hit: None,
+            rubber_block_hit: None,
             smash_block_hit: None,
             teleporter_contact: None,
             ceiling_prize_clear: None,
@@ -1740,6 +1742,12 @@ impl OpeningSliceState {
         }
 
         if probe.hit {
+            if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Rubber {
+                // ASM sub_8F26 -> sub_922C -> off_933E index 6 -> loc_10DA4:
+                // side contact with rubber spawns the jiggle effect but does
+                // not change the wall-clamp physics.
+                self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
+            }
             let clamped_center = if moving_right {
                 probe.wall_x_px - (collision_hw + 1)
             } else {
@@ -1937,6 +1945,12 @@ impl OpeningSliceState {
                     terrain::BlockType::Metal => {
                         self.metal_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
+                    terrain::BlockType::Rubber => {
+                        // ASM sub_902A -> sub_914A -> loc_91F6/loc_10DA4:
+                        // ceiling contact with rubber also spawns the jiggle
+                        // effect without deleting the block.
+                        self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
+                    }
                     _ => {}
                 }
             }
@@ -2102,6 +2116,15 @@ impl OpeningSliceState {
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
                     self.player.wall_cling_direction = None;
+                    if !was_on_ground
+                        && probe.cell.has_block
+                        && probe.cell.block_type == terrain::BlockType::Rubber
+                    {
+                        // ASM sub_902A -> sub_914A -> loc_91F6/loc_10DA4:
+                        // a fresh landing on rubber keeps normal landing
+                        // physics but still queues the contact jiggle.
+                        self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
+                    }
                     // Teleporter blocks warp player on contact
                     if probe.cell.has_block
                         && probe.cell.block_type == terrain::BlockType::Teleporter
