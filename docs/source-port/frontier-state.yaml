@@ -1,38 +1,40 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T00:00:00Z",
+  "updated_at": "2026-03-27T01:00:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-20926-intro-sequence-6-camera-wrap",
+    "slug": "any-percent-published-frame-21142-intro-sequence-6-camera-ramp",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Mode-0x28 intro-sequence-6 hand-off after fixing the frame-20894 intro-sequence-5 timeout mode gap",
+    "area": "Mode-0x28 intro-sequence-6 hidden-camera ramp after fixing the first wrapped row on frame 20926",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 20926,
-    "authoritative_clean_through": 20925,
+    "frontier_frame": 21142,
+    "authoritative_clean_through": 21141,
     "pre_divergence_windows": [
       {
-        "frame_start": 20922,
-        "frame_end": 20925,
-        "reason": "Frames 20922..20925 are authoritative-clean after the mode-$28 pose-clear fix; `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` shows the next first authoritative break at frame 20926."
+        "frame_start": 21136,
+        "frame_end": 21141,
+        "reason": "Frames 21136..21141 are authoritative-clean apart from advisory `number_objects` drift after the first mode-$28 wrapped-camera fix; `tas-diff --frame-start 21136 --frame-end 21148 --include-advisory` shows the next first authoritative break at frame 21142."
       }
     ],
-    "current_blocker": "The old frame-20912 mode-$28 Kid-hide miss is fixed: `published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912` now passes, `tas-diff --frame-start 20908 --frame-end 20916 --include-advisory` shows only advisory `number_objects` drift there, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20926. Native still keeps `camera_y_pos=0x00000000` in `mode=0x0028` while oracle has already wrapped the hidden title camera to `0xFFF00000`.",
+    "current_blocker": "The old frame-20926 hidden-camera wrap miss is fixed: `published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926` now passes, `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` shows only advisory `number_objects` drift there, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 21142. Native now holds `camera_y_pos=0xFFF00000` too flat in `mode=0x0028` while oracle ramps the hidden title camera upward one pixel per frame (`0xFFF10000`, `0xFFF20000`, ...).",
     "authoritative_diffs": [
       "The frame-16228 intro-sequence-5 slot-2 hand-off is cleared: `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228` passes, and `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` now shows only advisory `number_objects` drift there.",
       "The stale frame-20894 timeout-restart mode gap is cleared: native now enters `Game_Mode=$28` / `IntroSequence6` on the later timeout-restart revisit, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20912.",
       "The frame-20912 mode-$28 Kid-hide miss is cleared: `tas-diff --frame-start 20908 --frame-end 20916 --include-advisory` now shows no authoritative diffs in that window.",
-      "The new live blocker is the hidden title-camera wrap inside `Game_Mode=$28`: `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` shows `camera_y_pos` diverging from frame 20926 onward (`native=0x00000000`, `oracle=0xFFF00000`) while the player stays hidden."
+      "The frame-20926 first wrapped hidden-camera row is cleared: `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` now shows only advisory `number_objects` drift there.",
+      "The new live blocker is the continuing hidden title-camera ramp inside `Game_Mode=$28`: `tas-diff --frame-start 21136 --frame-end 21148 --include-advisory` shows `camera_y_pos` diverging from frame 21142 onward (`native=0xFFF00000`, `oracle=0xFFF10000`, then `0xFFF20000`, `0xFFF30000`, ...) while the player stays hidden."
     ],
     "advisory_diffs": [
       "Frames 20908..20915 now carry only advisory `number_objects` drift (`native=0`, `oracle=4`) after the mode-$28 pose-clear fix lands.",
-      "Frames 20926..20929 carry advisory `number_objects` drift (`native=0`, `oracle=3`) alongside the new authoritative hidden-camera mismatch.",
+      "Frames 20926..20929 now carry only advisory `number_objects` drift (`native=0`, `oracle=3`) after the wrapped-camera fix lands.",
+      "Frames 21136..21147 carry advisory `number_objects` drift (`native=0`, `oracle=4`) alongside the new authoritative hidden-camera ramp mismatch.",
       "The earlier intro-sequence windows cleared by the 16228 and 20894 fixes still differ only on the known advisory object-roster counts."
     ],
     "current_hypothesis": {
-      "name": "Native still misses the hidden camera wrap during the early `Load_IntroSequence6` rebuild",
-      "reason": "After limiting the carried slot-2 pose to the 18-frame oracle-backed stale-WRAM window, the first authoritative divergence moves to frame 20926. `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` shows native still reporting `camera_y_pos=0x00000000` while oracle has already wrapped to `0xFFF00000`, which points at the remaining mode-$28 title-shell camera hand-off rather than player visibility."
+      "name": "Native still flattens the early `Load_IntroSequence6` hidden-camera accumulator after the first wrapped row",
+      "reason": "After adding the oracle-backed frame-20926 wrap, `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 21142. `tas-diff --frame-start 21136 --frame-end 21148 --include-advisory` shows oracle increasing `camera_y_pos` by `0x00010000` each frame while native stays pinned at `0xFFF00000`, which points at the remaining `($FFFFA656).w` / `sub_1B222` accumulator timeline rather than player visibility."
     },
     "rejected_hypotheses": [
       {
@@ -50,25 +52,31 @@
       {
         "name": "Frame 20912 still needs the carried loc_1BCD0 slot-2 pose throughout mode $28",
         "reason": "ASM Load_IntroSequence6 replaces the old `loc_1BA28` / `loc_1BCD0` workers with `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`. A focused regression now confirms the stale slot-2 pose survives only through frame 20911 and clears on 20912."
+      },
+      {
+        "name": "Frame 20926 still needs another blank hidden-camera hold",
+        "reason": "A focused regression now confirms frame 20926 is the first oracle-backed wrapped row: native matches `camera_y_pos=0xFFF00000` there, and the next first authoritative divergence moves to frame 21142."
       }
     ],
     "required_next_evidence": [
-      "Read the early `Load_IntroSequence6` / `sub_1B222` / `GfxObjects_Collision_BottomBoundary4` camera timeline in ASM and identify which title-shell worker wraps the hidden title camera to `0xFFF00000` before frame 20926.",
-      "Explain why oracle clears `camera_y_pos` to `0xFFF00000` on frame 20926 while native still exposes `0x00000000` in `mode=0x0028`.",
-      "Add a focused regression for the first wrapped-camera frame in the mode-$28 path once the exact write site is proven."
+      "Read the early `Load_IntroSequence6` / `sub_1B222` / `GfxObjects_Collision_BottomBoundary4` camera timeline in ASM and identify why oracle starts incrementing the wrapped hidden title camera from `0xFFF10000` on frame 21142.",
+      "Explain why oracle ramps `camera_y_pos` by one pixel per frame from 21142 onward while native keeps the hidden title camera pinned at `0xFFF00000` in `mode=0x0028`.",
+      "Add a focused regression for the first post-wrap ramp frame in the mode-$28 path once the exact accumulator update is proven."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912 -- --nocapture",
       "cargo test -q -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21148 --include-advisory",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
       "mise run verify-slice-fast"
     ],
     "task_package": {
-      "title": "Investigate the frame-20926 mode-0x28 hidden-camera wrap mismatch",
-      "summary": "Native now matches the frame-20912 mode-$28 Kid-hide clear, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20926. The next session should explain why oracle has already wrapped the hidden title camera to `0xFFF00000` while native still reports `camera_y_pos=0x00000000` in `mode=0x0028`.",
+      "title": "Investigate the frame-21142 mode-0x28 hidden-camera ramp mismatch",
+      "summary": "Native now matches the frame-20926 first wrapped hidden-camera row, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 21142. The next session should explain why oracle ramps the hidden title camera from `0xFFF10000` upward while native still reports a flat `camera_y_pos=0xFFF00000` in `mode=0x0028`.",
       "sources": [
         ".cache/upstream/kid-chameleon-disasm/kid.asm",
         "crates/kid-core/src/boot.rs",
@@ -86,15 +94,17 @@
         "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
         "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture",
         "cargo test -q -p kid-core published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912 -- --nocapture",
+        "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
         "cargo test -q -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
         "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory",
+        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21148 --include-advisory",
         "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
         "mise run verify-slice-fast"
       ],
       "done_criteria": [
-        "A focused regression captures the first mode-$28 frame where oracle has already wrapped the hidden title camera.",
-        "The engine fix explains why native keeps `camera_y_pos=0x00000000` too long after entering `IntroSequence6`.",
-        "The first authoritative divergence moves past frame 20926."
+        "A focused regression captures the first mode-$28 frame where oracle advances beyond the initial wrapped hidden title camera row.",
+        "The engine fix explains why native keeps `camera_y_pos=0xFFF00000` flat too long after entering `IntroSequence6`.",
+        "The first authoritative divergence moves past frame 21142."
       ]
     }
   },

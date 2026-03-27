@@ -18274,6 +18274,82 @@ fn published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912() {
 }
 
 #[test]
+fn published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_20925 = None;
+    let mut frame_20926 = None;
+    let mut frame_20927 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(20_928) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            20_925 => {
+                frame_20925 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            20_926 => {
+                frame_20926 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            20_927 => {
+                frame_20927 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence6 writes `($FFFFA656).w = $FFD00000` and calls
+    // `sub_1B222`; the later GfxObjects_Collision_BottomBoundary4 worker
+    // keeps reusing that hidden camera accumulator instead of the generic
+    // cleared title camera. Oracle-backed traces first expose the wrapped
+    // `0xFFF0_0000` row on local mode-$28 frame 32.
+    assert_eq!(
+        frame_20925,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(31), 0, None)),
+        "frame 20925 should still expose the cleared hidden camera before the wrapped row appears",
+    );
+    assert_eq!(
+        frame_20926,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(32),
+            0xFFF0_0000,
+            None,
+        )),
+        "frame 20926 should expose the oracle-backed wrapped hidden camera row in mode $28",
+    );
+    assert_eq!(
+        frame_20927,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(33),
+            0xFFF0_0000,
+            None,
+        )),
+        "frame 20927 should keep the wrapped hidden camera row after the first mode-$28 wrap",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

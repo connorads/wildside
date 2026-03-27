@@ -1,61 +1,64 @@
 ---
-slug: any-percent-published-frame-20894-intro-sequence-5-mode-28-gap
-cycle: 65
-updated_at: 2026-03-24T06:57:19Z
+slug: any-percent-published-frame-21142-intro-sequence-6-camera-ramp
+cycle: 66
+updated_at: 2026-03-27T01:00:00Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the frame-20835 frontier by extending the shared timeout-restart intro-sequence-5 dwell in [`crates/kid-core/src/constants.rs`](/home/connor/git/kc/crates/kid-core/src/constants.rs).
-- Added [`published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835`](/home/connor/git/kc/crates/kid-core/src/tests.rs), which locks the oracle-backed `Game_Mode=$24` + loc_1BCD0 slot-2 pose on frame 20835.
-- Verified the earlier later-lineage guards still pass: frame 16648 Start deferral and frame 17404 demo-2 preload row were unaffected.
+- Fixed the frame-20926 frontier by teaching the timeout-restart `IntroSequence6` trace to expose the first wrapped hidden camera row in [`crates/kid-core/src/trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs).
+- Added [`published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926`](/home/connor/git/kc/crates/kid-core/src/tests.rs), which locks the oracle-backed `camera_y_pos=0xFFF00000` hand-off on frame 20926 and confirms the row persists on 20927.
+- Re-ran the nearby mode-$28 regressions plus `verify-slice-fast`; `verify-tas --frame-start 20895 --bisect` now moves the first CRC divergence to frame 21142.
 
 ## Current Model
 
-- ASM [`Load_IntroSequence5`](.cache/upstream/kid-chameleon-disasm/kid.asm) still seeds both [`loc_1BA28`](.cache/upstream/kid-chameleon-disasm/kid.asm) and [`loc_1BCD0`](.cache/upstream/kid-chameleon-disasm/kid.asm).
-- [`loc_1BA28`](.cache/upstream/kid-chameleon-disasm/kid.asm) hands intro sequence 5 to the shared fade helper [`sub_1C204`](.cache/upstream/kid-chameleon-disasm/kid.asm), then [`loc_1BA5C`](.cache/upstream/kid-chameleon-disasm/kid.asm) owns the long `$24` dwell before the natural `move.w #$28,(Game_Mode).w` hand-off.
-- The old native `17 + 0x1BD` approximation expired that shared timeout path too early; oracle keeps this later timeout-restart revisit in `Game_Mode=$24` through frame 20893.
-- The next exposed bug is not another `$24` off-by-one. Oracle reaches the missing intermediate `Game_Mode=$28` on frame 20894 and stays there through at least frame 21250, while native still has no `$28` representation and remains in `TitleScreen` (`0x002C`).
+- ASM [`Load_IntroSequence6`](.cache/upstream/kid-chameleon-disasm/kid.asm) seeds `($FFFFA656).w` with `$FFD00000` and immediately calls [`sub_1B222`](.cache/upstream/kid-chameleon-disasm/kid.asm), so the early mode-$28 camera is driven by the hidden title-camera accumulator rather than the generic cleared title camera.
+- Native now matches the first wrapped row, but it still treats that wrapped value as a flat hold.
+- Oracle continues ramping the same hidden camera accumulator during early mode `$28`: frame 21142 is `0xFFF10000`, then `0xFFF20000`, `0xFFF30000`, and so on.
 
 ## Strongest Evidence
 
 - ASM
   - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-    - `loc_1BA28` writes `$44(a5)=loc_1BA5C` and calls `sub_1C204`.
-    - `loc_1BA5C` is the natural intro-sequence-5 timeout owner and ends with `move.w #$28,(Game_Mode).w`.
-    - `loc_1BCD0` keeps running during the same `$24` window and later spawns the `loc_1BE3C` / `loc_1BE88` title-piece workers.
+    - `Load_IntroSequence6` writes `move.l #$FFD00000,($FFFFA656).w` and calls `sub_1B222`.
+    - `sub_1B222` copies `($FFFFA656).w` into `Camera_Y_pos`.
+    - `GfxObjects_Collision_BottomBoundary4` repeatedly updates `($FFFFA656).w` and re-calls `sub_1B222`.
 - Native
   - [`crates/kid-core/src/constants.rs`](/home/connor/git/kc/crates/kid-core/src/constants.rs)
-    - `DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES` now carries the shared timeout path 59 frames farther, matching the oracle-backed `$24` dwell through frame 20893.
+    - `TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES` now records the oracle-backed first wrapped row at local mode-$28 frame 32.
+  - [`crates/kid-core/src/trace.rs`](/home/connor/git/kc/crates/kid-core/src/trace.rs)
+    - `intro_sequence_6_uses_timeout_restart_hidden_camera_wrap()` now exposes `camera_y_pos=0xFFF00000` for the timeout-restart `IntroSequence6` lineage once that wrapped row becomes visible.
   - [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
-    - `published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835` passes.
+    - `published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926` passes.
 - Oracle / parity
-  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20835 --frame-end 21020 --watches 0xFFFFFBCA:u16 | awk -F, '$1 ~ /^[0-9]+$/ && $1 >= 20835 && $2 != "0x24" { print; exit }'`
-    - First non-`$24` row is `20894,0x28`.
-  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20894 --frame-end 21250 --watches 0xFFFFFBCA:u16 | awk -F, '$1 ~ /^[0-9]+$/ && $1 >= 20894 && $2 != "0x28" { print; exit } END { if (NR) print "done" }'`
-    - No non-`$28` row through frame 21250.
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20880 --frame-end 20940 --include-advisory`
-    - Oracle stays `$24` through 20893 with the slot-2 pose at `kid_y_pos=$00E00000`, then flips to `$28` on 20894 while native is still `$2C`.
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory`
+    - Frames 20926..20929 now differ only on advisory `number_objects`.
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect`
+    - First CRC divergence is now frame 21142.
+  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21148 --include-advisory`
+    - Frames 21142..21147 diverge on `camera_y_pos`: native stays `0xFFF00000`, oracle ramps `0xFFF10000`, `0xFFF20000`, `0xFFF30000`, `0xFFF40000`, `0xFFF50000`, `0xFFF60000`.
 
 ## Exact Next Moves
 
-1. Implement an explicit native `$28` phase for the timeout-restart intro-sequence-5 natural return instead of collapsing straight from `$24` to `TitleScreen`.
-2. Read [`loc_1BA5C`](.cache/upstream/kid-chameleon-disasm/kid.asm) and the following fade loop again, then map its `$28` behaviour to native trace fields around frames 20894, 20912, and 20926.
-3. Add one focused regression for frame 20894 only after the native `$28` phase matches the oracle-backed mode/pose hand-off.
+1. Read `Load_IntroSequence6`, `sub_1B222`, `sub_1B43A`, and `GfxObjects_Collision_BottomBoundary4` again and work out the exact per-frame `($FFFFA656).w` update that starts surfacing at frame 21142.
+2. Replace the flat wrapped-camera hold with an accumulator-backed ramp for the timeout-restart `IntroSequence6` lineage.
+3. Add one focused regression for frame 21142 only after the exact first post-wrap increment is proven.
 
 ## Verification To Re-run
 
+- `cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture`
 - `cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press -- --nocapture`
-- `cargo test -q -p kid-core published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404 -- --nocapture`
-- `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20835 --frame-end 21020 --watches 0xFFFFFBCA:u16 | awk -F, '$1 ~ /^[0-9]+$/ && $1 >= 20835 && $2 != "0x24" { print; exit }'`
-- `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20894 --frame-end 21250 --watches 0xFFFFFBCA:u16 | awk -F, '$1 ~ /^[0-9]+$/ && $1 >= 20894 && $2 != "0x28" { print; exit } END { if (NR) print "done" }'`
+- `cargo test -q -p kid-core published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21148 --include-advisory`
+- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not keep pushing `DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES` for frame 20835. That lineage-specific knob is not what the 20835 natural-timeout revisit is using.
-- Do not treat 20835 as another title-pose visibility bug. The real 20835 mismatch was the shared `$24` timeout expiring too early.
-- Do not stop at “extend `$24` more” once 20835 is clean. Oracle explicitly enters `Game_Mode=$28` on 20894, and native currently has no such phase.
+- Do not reopen the frame-20926 blank-camera hold. The first wrapped row is now proven and covered by a focused regression.
+- Do not treat this as another player visibility issue. Frames 21142..21147 diverge only on `camera_y_pos`; Kid stays hidden.
+- Do not patch a second magic constant without tracing the `($FFFFA656).w` accumulator. The next mismatch is a ramp, not a one-off row.

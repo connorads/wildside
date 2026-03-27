@@ -142,6 +142,24 @@ impl NativeRuntime {
         )
     }
 
+    fn intro_sequence_6_uses_timeout_restart_hidden_camera_wrap(&self) -> bool {
+        matches!(
+            self.boot_state,
+            // ASM Load_IntroSequence6 seeds `($FFFFA656).w` with `$FFD00000`
+            // and immediately calls `sub_1B222`; the later
+            // GfxObjects_Collision_BottomBoundary4 worker keeps feeding the
+            // hidden title-camera accumulator back through `sub_1B222`
+            // instead of the generic cleared title camera. Oracle-backed
+            // timeout-restart traces first expose that wrapped row on local
+            // mode-$28 frame 32.
+            BootState::IntroSequence6 {
+                carry_intro_sequence_5_slot_2_pose: true,
+                ..
+            } if self.title_screen_elapsed_frames
+                >= TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES
+        )
+    }
+
     fn title_hides_demo_return_player(&self) -> bool {
         let hidden_frames = if self.timeout_restart_title_intro_sequence_3_pose {
             TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES
@@ -1165,6 +1183,12 @@ impl NativeRuntime {
             return CameraState {
                 x_pos: 0,
                 y_pos: 0x0004_0000,
+            };
+        }
+        if self.intro_sequence_6_uses_timeout_restart_hidden_camera_wrap() {
+            return CameraState {
+                x_pos: 0,
+                y_pos: 0xFFF0_0000,
             };
         }
         if self.title_uses_demo_snapshot() {
