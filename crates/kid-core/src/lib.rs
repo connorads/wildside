@@ -202,6 +202,11 @@ pub struct NativeRuntime {
     /// lineage's demo-1 hidden wrap distinct from cold boot and the earlier
     /// Start-skip intro return.
     demo_uses_intro_sequence_6_hidden_camera_wrap: bool,
+    /// ASM loc_1B5CE has already restored the standard title pose before the
+    /// later IntroSequence6 demo starts. When that lineage returns to title,
+    /// oracle exposes the pose two frames earlier than the generic demo-title
+    /// rebuild window before the usual hide/rebuild choreography finishes.
+    demo_title_return_uses_intro_sequence_6_early_title_restore: bool,
     /// ASM sub_1B8F4 / loc_1B920 can re-enter the title shell via
     /// sub_1C246's deferred Start skip. Oracle later exposes that demo's
     /// timeout-restart `loc_1BCD0` slot-2 pose one frame earlier than the
@@ -346,6 +351,7 @@ impl NativeRuntime {
             next_demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_intro_sequence_6_hidden_camera_wrap: false,
+            demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,
             next_intro_sequence_3_roster_index: 0,
             active_intro_sequence_3_roster_index: 0,

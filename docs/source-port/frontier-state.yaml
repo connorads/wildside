@@ -1,162 +1,61 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T03:14:12Z",
+  "updated_at": "2026-03-27T03:33:29Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-22700-demo-timeout-title-pose-return",
+    "slug": "any-percent-published-frame-23248-intro-sequence-6-demo-return-stays-in-title-too-long",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Demo 1 timeout-return title pose after the repaired intro-sequence-6 bootstrap delay",
+    "area": "Later IntroSequence6 demo-return holds `Game_Mode=$2C` two frames too long before re-entering demo play",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 22700,
-    "authoritative_clean_through": 22699,
+    "frontier_frame": 23248,
+    "authoritative_clean_through": 23247,
     "pre_divergence_windows": [
       {
-        "frame_start": 22696,
-        "frame_end": 22699,
-        "reason": "The repaired timeout-restart `IntroSequence6` bootstrap delay keeps native authoritative-clean through frame 22699; the next blocker opens when demo timeout returns to title and Kid stays hidden for two frames."
+        "frame_start": 23244,
+        "frame_end": 23247,
+        "reason": "The repaired later IntroSequence6 demo-return title-pose window now matches oracle through frame 23247; the next blocker opens when oracle flips back into `Game_Mode=$10` for two frames while native stays in title mode."
       }
     ],
-    "current_blocker": "The timeout-restart `IntroSequence6` hand-off plus the repaired demo-1 bootstrap delay are now authoritative-clean through frame 22699. The next first authoritative break is frame 22700, where native flips back to `mode=0x002C` / `level=0x00` with Kid still hidden at `(0,0)` while oracle already restores the standard title pose at `(0x002E0000,0x008C0000)`; the same miss repeats on frame 22701 and clears on frame 22702.",
+    "current_blocker": "The repaired later IntroSequence6 demo-return title-pose window is now authoritative-clean through frame 23247. The next first authoritative break is frame 23248, where native still reports `mode=0x002C` / `level=0x00` while oracle has already flipped back into `mode=0x0010`; the same hold repeats on frame 23249 and clears on frame 23250.",
     "authoritative_diffs": [
-      "The frame-16228 intro-sequence-5 slot-2 hand-off is cleared: `published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228` passes, and `tas-diff --frame-start 16224 --frame-end 16232 --include-advisory` now shows only advisory `number_objects` drift there.",
-      "The stale frame-20894 timeout-restart mode gap is cleared: native now enters `Game_Mode=$28` / `IntroSequence6` on the later timeout-restart revisit, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 20912.",
-      "The frame-20912 mode-$28 Kid-hide miss is cleared: `tas-diff --frame-start 20908 --frame-end 20916 --include-advisory` now shows no authoritative diffs in that window.",
-      "The frame-20926 first wrapped hidden-camera row is cleared: `tas-diff --frame-start 20922 --frame-end 20930 --include-advisory` now shows only advisory `number_objects` drift there.",
-      "The frame-21142 hidden-camera ramp is cleared: `tas-diff --frame-start 21136 --frame-end 21160 --include-advisory` now shows only advisory `number_objects` drift through frame 21223, and the focused regression confirms the `sub_1B43A -> GfxObjects_Collision_BottomBoundary4` ramp starts on frame 21142.",
-      "The frame-21224 mode-$28 title-pose hand-off is cleared: `published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224` passes, `tas-diff --frame-start 21218 --frame-end 21320 --include-advisory` shows only advisory `number_objects` drift from frame 21224 onward, and `verify-tas --frame-start 21224 --frame-end 21450 --bisect` passes.",
-      "The frame-21594 mode-$28 demo hand-off is cleared: ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` and `dbf`s for 185 hibernated frames before Obj_TitleMenu `loc_1BAEA` even reaches its shared `$280` title idle loop. Native now keeps the timeout-restart rebuild in `Game_Mode=$28` through frame 21718, matching the focused oracle-backed regression `published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718`.",
-      "The frame-21764 timeout-restart title hold is cleared: focused regressions plus `tas-diff --frame-start 21760 --frame-end 21770 --include-advisory` now keep native in `Game_Mode=$28` through frame 21764 and enter demo play on frame 21765, moving the first authoritative divergence to frame 21825.",
-      "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes, `tas-diff --frame-start 21820 --frame-end 21830 --include-advisory` now shows only advisory `number_objects` drift there, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 21837.",
-      "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, `tas-diff --frame-start 21834 --frame-end 21842 --include-advisory` now shows only advisory `number_objects` drift there, and `verify-tas --frame-start 21765 --bisect` moves the first CRC divergence to frame 22700."
+      "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
+      "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
+      "The frame-22700 later IntroSequence6 demo-return title-pose miss is cleared: `published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701` passes, `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory` now shows 8/8 matches, and `verify-tas --frame-start 21765 --bisect` moves the first CRC divergence to frame 23248."
     ],
     "advisory_diffs": [
-      "Frames 20908..20915 now carry only advisory `number_objects` drift (`native=0`, `oracle=4`) after the mode-$28 pose-clear fix lands.",
-      "Frames 20926..20929 now carry only advisory `number_objects` drift (`native=0`, `oracle=3`) after the wrapped-camera fix lands.",
-      "Frames 21136..21156 now carry advisory `number_objects` drift (`native=0`, `oracle=4`) after the hidden-camera ramp fix lands; frames 21157..22699 carry only the advisory object-count tail during the repaired bootstrap window.",
-      "The earlier intro-sequence windows cleared by the 16228 and 20894 fixes still differ only on the known advisory object-roster counts."
+      "The repaired IntroSequence6 windows still carry only the known advisory `number_objects` tail around the hidden bootstrap/title-shell rebuild."
     ],
     "current_hypothesis": {
-      "name": "Confirmed: the timeout-restart demo bootstrap delay is fixed; next blocker is the demo timeout title-pose return on frame 22700",
-      "reason": "Focused regressions plus `verify-tas --frame-start 21765 --bisect` now keep the timeout-restart `IntroSequence6` lineage authoritative-clean through frame 22699. The first remaining mismatch opens when demo 1 times out back to title mode: `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory` shows frames 22700..22701 blanking Kid in `mode=0x002C` while oracle already restores the standard title pose at `(0x002E0000,0x008C0000)`."
+      "name": "The later IntroSequence6 demo-return reaches Obj_TitleMenu's demo re-entry two frames late",
+      "reason": "ASM `Obj_TitleMenu loc_1BAEA -> loc_1BB02` owns the title-idle countdown and the eventual `move.w #$10,(Game_Mode).w` flip back into demo play. `tas-diff --frame-start 23244 --frame-end 23252 --include-advisory` shows frames 23248..23249 diverging only on `game_mode` (`native=0x002C`, `oracle=0x0010`), then rejoining on 23250."
     },
     "rejected_hypotheses": [
-      {
-        "name": "Frame 12430 was a demo-return snapshot bug",
-        "reason": "The targeted regression showed frame 12429 is still `IntroSequence1`, not `DemoPlay`. The failing path was the `sub_1C246` intro-sequence Start skip feeding a too-eager title-ready gate."
-      },
-      {
-        "name": "The old frame-13188 hidden demo-bootstrap camera settle is still the active frontier",
-        "reason": "That state is cleared. A dedicated Start-skip intro-return latch makes `published_tas_intro_return_demo_1_uses_the_oracle_hidden_camera_wrap_on_frame_13188` pass while preserving the cold-boot demo-1 wrap tested by `demo_1_bootstrap_keeps_camera_hidden_through_frame_2537`."
-      },
-      {
-        "name": "Frame 21825 still needs the old cold-boot demo-1 wrapped row",
-        "reason": "That state is cleared. The timeout-restart `IntroSequence6` lineage now uses its own oracle-backed wrapped row (`0xFD200000`) on frame 21825 while the cold-boot and Start-skip intro-return camera-wrap regressions stay green."
-      },
       {
         "name": "Frame 21837 still needed a trace-only visibility mask",
         "reason": "That explanation was incomplete. The timeout-restart `IntroSequence6` lineage needed the effective demo gameplay start delayed by one frame, so the hidden bootstrap camera row and the first buffered demo input stayed aligned before Kid became visible on frame 21838."
       },
       {
-        "name": "Frame 20894 still needs another direct title-mode shortcut",
-        "reason": "ASM `loc_1BA5C` clearly does `move.w #$28,(Game_Mode).w`, not `sub_1C246 -> $2C`, and the new focused regression confirms native now matches that `IntroSequence6` hand-off on frame 20894."
-      },
-      {
-        "name": "Frame 20912 still needs the carried loc_1BCD0 slot-2 pose throughout mode $28",
-        "reason": "ASM Load_IntroSequence6 replaces the old `loc_1BA28` / `loc_1BCD0` workers with `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`. A focused regression now confirms the stale slot-2 pose survives only through frame 20911 and clears on 20912."
-      },
-      {
-        "name": "Frame 20926 still needs another blank hidden-camera hold",
-        "reason": "A focused regression now confirms frame 20926 is the first oracle-backed wrapped row: native matches `camera_y_pos=0xFFF00000` there, and the next first authoritative divergence moves to frame 21142."
-      },
-      {
-        "name": "Frame 21142 still needs another hidden-camera accumulator fix",
-        "reason": "ASM `sub_1B43A` allocates `GfxObjects_Collision_BottomBoundary4`, which applies `sub.l d1,($FFFFA656).w; bsr.w sub_1B222` for 16 frames. A focused regression now confirms native matches the oracle-backed one-pixel-per-frame ramp from frame 21142, and the next first authoritative divergence moves to frame 21224."
-      },
-      {
-        "name": "Frame 21224 still needs the `loc_1BAB0` title-pose hand-off",
-        "reason": "ASM `loc_1B5CE` is the first worker that writes `x_pos=$2E`, `y_pos=$8C` during mode `$28`. The focused regression now confirms native exposes Kid's rebuilt title pose on frame 21224, and `verify-tas --frame-start 20895 --bisect` moves the first CRC divergence to frame 21592."
-      },
-      {
-        "name": "Frame 21592 needs another hidden gameplay/camera fix before demo playback starts",
-        "reason": "The remaining mismatch was not Kid pose or hidden camera state: ASM Obj_TitleMenu `loc_1BAEA` uses a `$280` `dbf` countdown, so the ROM stays in `Game_Mode=$28` for one more hibernated frame before `loc_1BB02` flips into demo play. A focused regression now confirms frame 21592 stays in `IntroSequence6` and frame 21593 is the first `DemoPlay` frame."
-      },
-      {
-        "name": "The timeout-restart mode-$28 hand-off only needed one extra shared title-idle frame",
-        "reason": "That explanation was incomplete. `tas-diff --frame-start 21590 --frame-end 21730 --include-advisory` still showed native entering demo early after the one-frame DBF tweak, and the full ASM path revealed the missing `loc_1BAB0` `$B8` pre-roll before Obj_TitleMenu reaches `loc_1BAEA`."
+        "name": "Frame 22700 was a pure demo auto-timeout bug",
+        "reason": "That was wrong. The published TAS script has a Start press on frame 22550, so the later IntroSequence6 demo re-enters title through the generic demo-title return path; the fix was the hidden title window ending two frames early on that lineage."
       }
     ],
     "required_next_evidence": [
-      "Read the demo-1 timeout return path back into `Game_Mode=$2C` and trace why oracle restores the standard title pose on frames 22700..22701 while native keeps Kid hidden.",
-      "Run `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory` after the next fix so the two-frame title-pose return is documented.",
-      "Re-run `verify-tas --frame-start 21765 --bisect` after the title-return fix to record the next authoritative divergence beyond frame 22699."
+      "Read `Obj_TitleMenu loc_1BAEA -> loc_1BB02` in `.cache/upstream/kid-chameleon-disasm/kid.asm` and prove why oracle flips back into `Game_Mode=$10` on frames 23248..23249 while native stays in `Game_Mode=$2C`.",
+      "Inspect the native title-idle countdown after the repaired frame-22700 title-pose restore and explain why the later demo return holds title mode two frames too long before demo play resumes.",
+      "Add one focused regression for the frame-23248/23249 `Game_Mode` re-entry only after the exact ASM countdown path is proven."
     ],
     "verification_commands": [
-      "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_starts_hidden_camera_ramp_on_frame_21142 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224 -- --nocapture",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21160 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21218 --frame-end 21230 --include-advisory",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21719 -- --nocapture",
-      "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21764 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_enters_demo_play_on_frame_21765 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837 -- --nocapture",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21760 --frame-end 21770 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21820 --frame-end 21830 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21834 --frame-end 21842 --include-advisory",
+      "cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701 -- --nocapture",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 22696 --frame-end 22704 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect",
       "mise run verify-slice-fast"
-    ],
-    "task_package": {
-      "title": "Investigate the first post-21836 demo-bootstrap pose release mismatch",
-      "summary": "Native now matches the repaired timeout-restart `IntroSequence6` hand-off and the hidden demo-1 wrap through frame 21836. The next authoritative blocker is frame 21837, where native releases the demo bootstrap pose/camera one frame too early.",
-      "sources": [
-        ".cache/upstream/kid-chameleon-disasm/kid.asm",
-        "crates/kid-core/src/boot.rs",
-        "crates/kid-core/src/trace.rs",
-        "crates/kid-core/src/tests.rs",
-        "docs/source-port/frontier-state.yaml"
-      ],
-      "implementation_targets": [
-        "crates/kid-core/src/boot.rs",
-        "crates/kid-core/src/trace.rs",
-        "crates/kid-core/src/tests.rs",
-        "docs/source-port/frontier-state.yaml"
-      ],
-      "commands": [
-        "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_return_timeout_revisit_stays_in_intro_sequence_5_on_frame_20835 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_starts_hidden_camera_ramp_on_frame_21142 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_boot_title_keeps_kid_hidden_until_frame_289 -- --nocapture",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20922 --frame-end 20930 --include-advisory",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21136 --frame-end 21160 --include-advisory",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21218 --frame-end 21230 --include-advisory",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21719 -- --nocapture",
-        "cargo test -q -p kid-core published_tas_intro_sequence_6_enters_demo_play_on_frame_21720 -- --nocapture",
-        "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21590 --frame-end 21730 --include-advisory",
-        "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 20895 --bisect",
-        "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21224 --frame-end 21450 --bisect",
-        "mise run verify-slice-fast"
-      ],
-      "done_criteria": [
-        "Focused regressions capture the repaired timeout-restart hidden demo-1 wrap on frame 21825.",
-        "The next oracle-backed authoritative divergence is recorded at frame 21837.",
-        "The next blocker is documented as the first visible demo-bootstrap pose/camera release."
-      ]
-    }
+    ]
   },
   "candidate_promotions": [],
   "stuck_policy": {
@@ -176,8 +75,8 @@
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 6975 --frame-end 9530 --bisect",
-      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 9308 --frame-end 9316 --include-advisory",
+      "cargo run -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect",
+      "cargo run -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory",
       "mise run verify-slice-fast"
     ],
     "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."

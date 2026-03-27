@@ -48,6 +48,12 @@ pub(crate) const DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES: usize = 32;
 // then clears camera/progression one frame later as well.
 pub(crate) const DEMO_AUTO_TIMEOUT_FULL_SNAPSHOT_FRAMES: usize = 29;
 pub(crate) const DEMO_AUTO_TIMEOUT_PARTIAL_SNAPSHOT_FRAMES: usize = 33;
+// ASM loc_1B5CE has already restored the standard title pose before the later
+// timeout-restart demo starts. When that lineage eventually returns to title,
+// oracle ends the generic hidden rebuild window two frames earlier than the
+// other demo-timeout paths and starts exposing the standard title pose on the
+// last two local title frames of that window.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES: usize = 2;
 // Oracle-backed published TAS traces keep the timeout restart in the latched
 // mode-0 Sega handoff through local frame 176, then switch to intro sequence 1
 // on local frame 177 (trace frame 5143).
