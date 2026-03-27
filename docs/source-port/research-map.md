@@ -104,7 +104,7 @@ and `roadmap.md` for the programme-level workstreams.
 - **Password system**: the original game has a password system for level progression. Not yet investigated whether this is implemented or needed. Trace ASM for password generation/validation. Check whether `BootState` has a password entry screen.
 
 ### Enemy behaviour gaps (14 items — see `phase4-enemy-findings.md` for full details)
-High impact: Archer arrow lifetime + re-aiming, Dragon Flying fire velocity, Fireball gravity off-by-one, Tornado acceleration scaling.
+High impact: Archer arrow lifetime + re-aiming, Fireball gravity off-by-one, Tornado acceleration scaling.
 Medium impact: Crab proximity freeze, Cloud post-bounce idle removal, Dragon Flying wall-reversal, Tornado Cyclone interaction, Sphere/Fireball slope deflection.
 Low impact: Driller block drilling, speed caps at high HP, probe half-width per-family, Archer dx==0 aiming, Cloud lightning bolt attack.
 

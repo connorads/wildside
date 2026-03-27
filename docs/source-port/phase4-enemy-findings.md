@@ -106,8 +106,7 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 ### Dragon Flying — Fire velocity + collision gaps
 - All script constants verified correct (drift speeds, accelerations, caps, dive script entries)
 - All 3 variant scripts verified correct
-- **Fire y_velocity wrong**: ASM sets 3 px/frame downward. Native sets 0.
-- **Fire x_velocity wrong**: ASM uses dragon's current velocity. Native uses fixed $3_0000 (3 px/frame).
+- **Fixed: descent fire velocity**: ASM `loc_348A0` copies the dragon's live `x_vel` into the projectile and sets `y_vel=+3 px/frame`. Native now mirrors that path, with regression coverage for the descent fire spawn.
 - **Fire spawn X offset missing**: ASM applies ±10px mouth offset. Native spawns at dragon centre.
 - **Missing: Wall-reversal during Drift**: ASM reverses direction on terrain collision. Not in native.
 - **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.

@@ -5115,6 +5115,40 @@ fn dragon_flyer_fire_breath_cone_triggers_descent() {
 }
 
 #[test]
+fn dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc() {
+    let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
+    enemy.dragon_phase = DragonFlyingState::Descending;
+    enemy.dragon_descent_index = 3; // ASM unk_34554 sentinel $E19F
+    enemy.dragon_descent_frames = 0;
+    enemy.facing = Direction::Right;
+    enemy.x_velocity = -0x1_4000;
+    enemy.y_velocity = 0x3_0000;
+
+    let mut projectiles = Vec::new();
+    let mut projectile_slot = Some(&mut projectiles);
+    step_dragon(&mut enemy, None, None, &mut projectile_slot);
+
+    assert_eq!(
+        projectiles.len(),
+        1,
+        "descent fire should spawn one projectile"
+    );
+    assert_eq!(
+        projectiles[0].x_velocity, -0x1_4000,
+        "ASM loc_348A0 copies the dragon's live x_vel into descent fire"
+    );
+    assert_eq!(
+        projectiles[0].y_velocity,
+        3 << 16,
+        "ASM loc_348A0 stores +3px/frame downward in the projectile"
+    );
+    assert_eq!(
+        enemy.dragon_descent_index, 4,
+        "spawn-fire advances immediately"
+    );
+}
+
+#[test]
 fn dragon_walking_fires_breath_in_facing_direction() {
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
     enemy.on_ground = true;

@@ -1804,15 +1804,13 @@ fn step_dragon_descent(
             DragonDiveAction::SpawnFire => {
                 // Spawn fire-breath projectile during descent. ASM $E19F.
                 if let Some(projs) = projectiles {
-                    let breath_speed = match enemy.facing {
-                        Direction::Right => DRAGON_WALKING_BREATH_SPEED,
-                        Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
-                    };
                     projs.push(EnemyProjectile {
                         x_pos: enemy.x_pos,
                         y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
-                        x_velocity: breath_speed,
-                        y_velocity: 0,
+                        // ASM Dragon_Flying loc_348A0: copy the dragon's live
+                        // x_vel into the projectile and force y_vel to +3px/frame.
+                        x_velocity: enemy.x_velocity,
+                        y_velocity: 3 << 16,
                         lifetime: DRAGON_WALKING_BREATH_LIFETIME,
                         gravity: 0,
                         friendly: false,
