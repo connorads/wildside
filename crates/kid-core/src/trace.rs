@@ -157,9 +157,26 @@ impl NativeRuntime {
             // `$FFD00000` and calls `sub_1B222` on the later title-restore
             // revisit, but oracle keeps the carried cleared camera through
             // local mode-$28 frame 34 before the delayed seed appears.
-            return (elapsed
-                >= TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES)
-                .then_some(0xFFD0_0000);
+            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES {
+                return None;
+            }
+            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES {
+                return Some(0xFFD0_0000);
+            }
+
+            let ramp_frame =
+                elapsed - TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES;
+            if ramp_frame < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES {
+                // ASM GfxObjects_Collision_BottomBoundary4:
+                // `move.l ($FFFFA656).w,d1; asr.l #4,d1; ... sub.l d1,($FFFFA656).w`
+                // With the later `$FFD0_0000` seed, `d1=$FFFD_0000`, so the
+                // hidden camera rises by 3 pixels per frame for 16 frames.
+                return Some(0xFFD0_0000_u32.wrapping_add(
+                    ((ramp_frame as u32).wrapping_add(1)).wrapping_mul(0x0003_0000),
+                ));
+            }
+
+            return Some(0);
         }
         if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_WRAP_ELAPSED_FRAMES {
             return None;

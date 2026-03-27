@@ -19483,6 +19483,82 @@ fn published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_o
 }
 
 #[test]
+fn published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_28316 = None;
+    let mut frame_28317 = None;
+    let mut frame_28318 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(28_319) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            28_316 => {
+                frame_28316 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            28_317 => {
+                frame_28317 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            28_318 => {
+                frame_28318 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM GfxObjects_Collision_BottomBoundary4 snapshots
+    // `d1 = ($FFFFA656).w >> 4` once, then repeats
+    // `sub.l d1,($FFFFA656).w; bsr.w sub_1B222` for 16 frames. On the later
+    // revisit `($FFFFA656).w` is still `$FFD00000`, so `d1=$FFFD0000` and the
+    // hidden camera rises by 3 pixels per frame from local mode-$28 frame 251.
+    assert_eq!(
+        frame_28316,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(250),
+            0xFFD0_0000
+        )),
+        "frame 28316 should still keep the delayed seeded camera flat before the later ramp starts",
+    );
+    assert_eq!(
+        frame_28317,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(251),
+            0xFFD3_0000
+        )),
+        "frame 28317 should start the later IntroSequence6 +3px hidden camera ramp",
+    );
+    assert_eq!(
+        frame_28318,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(252),
+            0xFFD6_0000
+        )),
+        "frame 28318 should continue the later IntroSequence6 +3px hidden camera ramp",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

@@ -156,6 +156,11 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FR
 // wrapped `$FFF0_0000` accumulator, oracle ramps the hidden camera upward by
 // one pixel per frame beginning on local mode-$28 frame 248.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES: usize = 248;
+// The later title-restore revisit keeps the delayed `$FFD00000` seed flat for
+// three extra local mode-$28 frames before that same worker starts. Because
+// `($FFFFA656).w >> 4` becomes `$FFFD0000`, the later ramp moves by +3 pixels
+// per frame from local mode-$28 frame 251.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES: usize = 251;
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES: usize = 16;
 // ASM loc_1B5CE is the first timeout-restart mode-$28 worker that writes the
 // standard title pose directly (`move.w #$2E,x_pos(a3); move.w #$8C,y_pos(a3)`).

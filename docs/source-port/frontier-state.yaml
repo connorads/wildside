@@ -1,24 +1,24 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T05:28:58Z",
+  "updated_at": "2026-03-27T05:40:00Z",
   "scope": "source-port",
   "active_frontier": {
-    "slug": "any-percent-published-frame-28317-mode-28-delayed-camera-ramp",
+    "slug": "any-percent-published-frame-28396-mode-28-title-pose-hidden",
     "recording": "any-percent-published",
     "scenario": ".cache/tas-imports/any-percent-published/scenario.json",
-    "area": "Later mode-0x28 delayed camera-ramp divergence after restoring the later loc_1BA5C IntroSequence6 delayed `sub_1B222` seed on frame 28101",
+    "area": "Later mode-0x28 title-pose visibility divergence after restoring the delayed `GfxObjects_Collision_BottomBoundary4` camera ramp",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 28317,
-    "authoritative_clean_through": 28316,
+    "frontier_frame": 28396,
+    "authoritative_clean_through": 28395,
     "pre_divergence_windows": [
       {
         "frame_start": 27598,
-        "frame_end": 28316,
-        "reason": "The repaired later IntroSequence6 delayed seed keeps frames 27598..28316 CRC-clean; `verify-tas --frame-start 28096 --frame-end 28108 --checkpoint-interval 1` reports all 12 frames matching by CRC, and `tas-diff --frame-start 28312 --frame-end 28324 --include-advisory` stays advisory-only through frame 28316 before the next camera ramp miss starts on 28317."
+        "frame_end": 28395,
+        "reason": "The repaired later IntroSequence6 delayed seed and delayed ramp keep frames 27598..28395 CRC-clean. `tas-diff --frame-start 28312 --frame-end 28324 --include-advisory` is advisory-only across the former frame-28317 window, and `verify-tas --frame-start 23250 --bisect` now moves the first CRC divergence to frame 28396."
       }
     ],
-    "current_blocker": "The later IntroSequence6 revisit now exposes its delayed `$FFD00000` seed on frame 28101, but native still holds that row flat. Oracle starts the next authoritative miss on frame 28317, where `camera_y_pos` ramps to `0xFFD30000`, `0xFFD60000`, `0xFFD90000`... while native remains at `0xFFD00000`.",
+    "current_blocker": "The later IntroSequence6 revisit now matches the delayed `$FFD00000` seed and the subsequent +3px/frame camera ramp, but native exposes the title pose three frames early. Oracle starts the next authoritative miss on frame 28396, where native reports `kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000` while oracle still keeps both at `0x00000000` through frame 28398.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -29,14 +29,15 @@
       "The frame-27603 later mode-0x24 slot-2 miss is cleared: `published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603` now passes, `oracle-probe --frame-start 27598 --frame-end 27608 --watches 0xFF24FA:u16,0xFF24FE:u16` shows WRAM slot 2 switching to `x=0`, `y=$E0` on frames 27603..27608, `verify-tas --frame-start 27598 --frame-end 27608 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28066.",
       "The frame-28066 later mode-0x24 timeout miss is cleared: `published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066` now passes, the older guards `published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press` and `published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894` still pass, `verify-tas --frame-start 28060 --frame-end 28072 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28098.",
       "The frame-28098 later mode-0x28 hidden-camera-wrap miss is cleared: `published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098` now passes, the earlier guard `published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926` still passes, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28101.",
-      "The frame-28101 later mode-0x28 delayed `sub_1B222` seed miss is cleared: `published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101` now passes, oracle probes show `($FFFFA656).w` / `Camera_Y_pos` staying zero through frame 28100 then switching to `$FFD00000` on 28101, `verify-tas --frame-start 28096 --frame-end 28108 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28317."
+      "The frame-28101 later mode-0x28 delayed `sub_1B222` seed miss is cleared: `published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101` now passes, oracle probes show `($FFFFA656).w` / `Camera_Y_pos` staying zero through frame 28100 then switching to `$FFD00000` on 28101, `verify-tas --frame-start 28096 --frame-end 28108 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28317.",
+      "The frame-28317 later mode-0x28 delayed camera-ramp miss is cleared: `published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317` now passes, `tas-diff --frame-start 28312 --frame-end 28324 --include-advisory` is advisory-only across frames 28312..28323, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28396."
     ],
     "advisory_diffs": [
-      "The repaired mode-0x24 window still carries only the known advisory `number_objects` drift from frame 27602 onward."
+      "The repaired later mode-0x28 window still carries only the known advisory `number_objects` drift from frame 27602 onward."
     ],
     "current_hypothesis": {
-      "name": "The later IntroSequence6 title-restore revisit needs the delayed `GfxObjects_Collision_BottomBoundary4` ramp from the `$FFD00000` seed, not the earlier wrapped-row lineage",
-      "reason": "ASM `GfxObjects_Collision_BottomBoundary4` does `move.l ($FFFFA656).w,d1; asr.l #4,d1; sub.l d1,($FFFFA656).w; bsr.w sub_1B222`. Oracle probes now show the later revisit keeping `($FFFFA656).w` at `$FFD00000` through frame 28316, then ramping `Camera_Y_pos` by +3 pixels per frame from 28317 onward (`$FFD30000`, `$FFD60000`, `$FFD90000`...). Native restored the delayed seed on 28101 but has not yet modelled this later-revisit ramp."
+      "name": "The later IntroSequence6 title pose should stay hidden until three frames after the shared visibility constant",
+      "reason": "After matching the delayed `GfxObjects_Collision_BottomBoundary4` ramp, `tas-diff --frame-start 28390 --frame-end 28402 --include-advisory` shows the next authoritative miss on frames 28396..28398 only: native exposes the standard title pose (`kid_x_pos=0x002E0000`, `kid_y_pos=0x008C0000`) while oracle keeps Kid hidden at zero. That suggests the later title-restore revisit still uses the earlier timeout-restart title-pose visibility timing, and the owning ASM around `loc_1B5CE` / the later mode-`$28` hand-off needs to prove the extra 3-frame hide."
     },
     "rejected_hypotheses": [
       {
@@ -58,22 +59,28 @@
       {
         "name": "Frame 28066 needed the same extra intro-sequence-5 fade-window hold as the earlier Start-skip revisit",
         "reason": "That was wrong. The later IntroSequence6 title-restore lineage shares the earlier `loc_1BCD0` slot-2 visibility but reaches `loc_1BA5C`'s `Game_Mode=$28` hand-off one frame earlier than the Start-skip revisit, so the extra intro-sequence-5 hold had to be split into a separate lineage bit."
+      },
+      {
+        "name": "Frame 28317 was just another delayed-seed bug",
+        "reason": "That was too narrow. The later revisit needed the same `GfxObjects_Collision_BottomBoundary4` worker as the earlier timeout-restart path, but with the delayed `$FFD00000` seed. Matching that +3px/frame ramp clears frames 28317..28323 and moves the real frontier to title-pose visibility on frame 28396."
       }
     ],
     "required_next_evidence": [
-      "Read `GfxObjects_Collision_BottomBoundary4` in `kid.asm` before touching native code again; the later revisit now matches the delayed `$FFD00000` seed and the next frontier is the 16-frame ramp that follows.",
-      "Probe the 28317 window with `oracle-probe --frame-start 28100 --frame-end 28220 --watches 0xFFFFF820:u32,0xFFFFA656:u32` to confirm the +3px/frame ramp source stays in `($FFFFA656).w`.",
-      "Run a narrow `tas-diff --frame-start 28312 --frame-end 28324 --include-advisory` window after the next patch so the delayed ramp, not the earlier seed, is what moves."
+      "Read the later mode-`$28` title-pose write path in `kid.asm` before touching native code again; the next frontier is no longer camera state but Kid visibility on frames 28396..28398.",
+      "Explain why oracle keeps `kid_x_pos` / `kid_y_pos` at zero for three more local mode-`$28` frames after the delayed camera ramp completes while native already exposes the standard title pose.",
+      "Run a narrow `tas-diff --frame-start 28390 --frame-end 28402 --include-advisory` window after the next patch so the three-frame hidden title-pose settle, not the old camera ramp, is what moves."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_uses_delayed_seeded_camera_row_on_frame_28101 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_starts_delayed_camera_ramp_on_frame_28317 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28096 --frame-end 28108 --checkpoint-interval 1",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28312 --frame-end 28324 --include-advisory",
+      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28390 --frame-end 28402 --include-advisory",
       "mise run verify-slice-fast"
     ]
   },
