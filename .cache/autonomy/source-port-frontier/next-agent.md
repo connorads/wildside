@@ -1,57 +1,59 @@
 ---
-slug: any-percent-published-frame-27603-mode-24-kid-y-blank
-cycle: 71
-updated_at: 2026-03-27T04:19:54Z
+slug: any-percent-published-frame-28066-mode-24-follow-on
+cycle: 72
+updated_at: 2026-03-27T04:35:32Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Fixed the frame-24921 level-0x15 gameplay blocker by stopping [`apply_wall_collision()`](/home/connor/git/kc/crates/kid-core/src/movement.rs) from promoting `probe_wall_top_edge()` into a fresh airborne wall hit.
-- Added [`airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit`](/home/connor/git/kc/crates/kid-core/src/tests.rs), locking the `sub_8F26` rule that a top-edge-only overhang contact may retain an existing sticky cling but must not create a new one.
-- Re-ran `cargo test -q -p kid-core airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit -- --nocapture`, `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`, `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --include-advisory`, and `mise run verify-slice-fast`; the first CRC divergence now moves to frame 27603.
+- Fixed the frame-27603 mode-0x24 pose miss by keeping the later IntroSequence6 timeout-restore lineage bit alive when [`begin_demo_play()`](/home/connor/git/kc/crates/kid-core/src/boot.rs) starts the next demo from title.
+- Added [`published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603`](/home/connor/git/kc/crates/kid-core/src/tests.rs), locking the oracle-backed revisit where `loc_1BCD0`'s slot-2 pose reappears at frame 27603.
+- Re-ran `cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603 -- --nocapture`, `cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248 -- --nocapture`, `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --checkpoint-interval 1`, `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`, `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --include-advisory`, `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --watches 0xFF24FA:u16,0xFF24FE:u16`, and `mise run verify-slice-fast`; the first CRC divergence now moves to frame 28066.
 
 ## Current Model
 
-- The old level-0x15 miss was not a late `sub_ADB8` / `sub_AE6E` release bug. Native was entering wall-cling too early because [`apply_wall_collision()`](/home/connor/git/kc/crates/kid-core/src/movement.rs) treated a top-edge-only overhang probe as if ASM `sub_8F26` had reported a direct wall hit.
-- ASM [`sub_8F26`](/home/connor/git/kc/.cache/upstream/kid-chameleon-disasm/kid.asm) only sets `$FFFFFA72` after the direct `sub_922C` side-wall probe succeeds. Top-edge retention belongs to the later jump helpers once cling is already active.
-- With that false attach removed, the next blocker is frame 27603: native blanks `kid_y_pos` to `0x00000000` for one frame in `mode=0x0024`, `level=0x00`, while oracle keeps `kid_y_pos=0x00E00000`.
+- ASM [`Load_IntroSequence5`](/home/connor/git/kc/.cache/upstream/kid-chameleon-disasm/kid.asm) still reaches [`loc_1BCD0`](/home/connor/git/kc/.cache/upstream/kid-chameleon-disasm/kid.asm), whose third gfx slot writes `x=0`, `y=$E0`.
+- The frame-27603 miss was not a new gameplay bug. Native had dropped the existing later IntroSequence6 timeout-restore lineage bit when the next demo started from title, so the following timeout-restart revisit hid `loc_1BCD0`'s slot-2 pose one frame too long.
+- `begin_demo_play()` now preserves that lineage through `intro_sequence_6_early_title_restore`, so the frame-27603 revisit matches oracle and the frontier moves to frame 28066, still in `mode=0x0024`, `level=0x00`.
 
 ## Strongest Evidence
 
-- ASM / script
+- ASM
   - [`kid.asm`](/home/connor/git/kc/.cache/upstream/kid-chameleon-disasm/kid.asm)
-    - `sub_8F26` writes `$FFFFFA72` only after the direct wall collision path; there is no top-edge fallback in that routine.
+    - `Load_IntroSequence5` allocates `loc_1BCD0`, and `loc_1BCD0`'s third gfx slot still writes `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`.
 - Native
-  - [`movement.rs`](/home/connor/git/kc/crates/kid-core/src/movement.rs)
-    - `apply_wall_collision()` now uses `probe_wall_top_edge()` only for sticky retention paths, not fresh airborne latches.
+  - [`boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs)
+    - `begin_demo_play()` now keeps `demo_timeout_restart_uses_intro_return_slot_2_early_visibility` alive for the later `intro_sequence_6_early_title_restore` lineage instead of only the earlier immediate Start-skip return.
   - [`tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
-    - `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit` passes.
+    - `published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603` passes.
 - Oracle / parity
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`
-    - CRC-clean across the repaired gameplay window.
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --watches 0xFF24FA:u16,0xFF24FE:u16`
+    - Oracle WRAM slot 2 is `(0,0)` through frame 27602, then `(0,$E0)` on frames 27603..27608.
+  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --checkpoint-interval 1`
+    - CRC-clean across the repaired mode-0x24 window.
   - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
-    - First CRC divergence is now frame 27603.
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --include-advisory`
-    - Frames 27598..27601 match, frame 27602 is advisory-only, and frame 27603 diverges solely on `kid_y_pos`.
+    - First CRC divergence is now frame 28066, with native `mode=0x0024`, `level=0x00`, `kid=(0x00000000,0x00e00000)`, `vel=(0,0)`.
 
 ## Exact Next Moves
 
-1. Read the `mode=0x0024` ASM path that owns frame 27603 before touching native code.
-2. Explain why oracle preserves `kid_y_pos=0x00E00000` for one frame while native blanks Kid to zero.
-3. Add a focused regression for the one-frame `kid_y_pos` settle only after that write path is proven.
+1. Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28060 --frame-end 28072 --include-advisory` and name the exact authoritative field that first diverges at frame 28066.
+2. Re-read the `mode=0x0024` ASM path around `Load_IntroSequence5`, `loc_1BA28`, `loc_1BA5C`, and `loc_1BCD0` to identify which follow-on state transition owns frame 28066.
+3. Add the next focused regression only after ASM plus the narrow diff window prove what frame 28066 should do.
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit -- --nocapture`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 24918 --frame-end 24928 --checkpoint-interval 1`
+- `cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603 -- --nocapture`
+- `cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248 -- --nocapture`
 - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect`
+- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --checkpoint-interval 1`
 - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 27598 --frame-end 27608 --include-advisory`
+- `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28060 --frame-end 28072 --include-advisory`
 - `mise run verify-slice-fast`
 
 ## Dead Ends / Do Not Retry
 
-- Do not retune `sub_ADB8` / `sub_AE6E` first. Frame 24921 was caused by a false `sub_8F26`-stage attach before those helpers ran.
-- Do not revive the removed generic top-edge fallback in [`apply_wall_collision()`](/home/connor/git/kc/crates/kid-core/src/movement.rs). Existing sticky-retention paths already cover the legitimate overhang cases.
-- Do not park the frontier in level-0x15 movement anymore. The rebisect moved the first real mismatch to frame 27603 in the shared `mode=0x0024` hand-off.
+- Do not retune level-0x15 movement helpers again. The rebisect stays in `mode=0x0024`, `level=0x00`; the live gameplay blocker is gone.
+- Do not narrow the lineage carry to `BootState::IntroSequence6` alone. The later failing demo starts from title, so the surviving bit is the broader `intro_sequence_6_early_title_restore` lineage.
+- Do not revisit the removed generic top-edge wall-cling fallback. That was the previous frontier and is already verified clean.

@@ -19223,6 +19223,77 @@ fn published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23
 }
 
 #[test]
+fn published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_27602 = None;
+    let mut frame_27603 = None;
+    let mut frame_27604 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(27_605) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            27_602 => {
+                frame_27602 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            27_603 => {
+                frame_27603 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            27_604 => {
+                frame_27604 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence5 allocates `loc_1BCD0`, whose third gfx slot
+    // writes `move.w #0,$1A(a1)` / `move.w #$E0,$1E(a1)`. After the later
+    // IntroSequence6 timeout-return demo hand-off, the next timeout-restart
+    // revisit still follows the same start-skip lineage, so oracle exposes
+    // that slot-2 pose one frame earlier than the plain timeout-restart copy.
+    assert_eq!(
+        frame_27602,
+        Some((GameMode::IntroSequence5, LevelId(0x00), None, None)),
+        "frame 27602 should still keep the later timeout-restart intro-sequence-5 slot-2 pose hidden",
+    );
+    assert_eq!(
+        frame_27603,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 27603 should expose loc_1BCD0's slot-2 pose on the later timeout-restart revisit",
+    );
+    assert_eq!(
+        frame_27604,
+        Some((
+            GameMode::IntroSequence5,
+            LevelId(0x00),
+            Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+        )),
+        "frame 27604 should keep the same loc_1BCD0 slot-2 pose latched on the following frame",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

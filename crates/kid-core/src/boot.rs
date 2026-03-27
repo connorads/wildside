@@ -205,8 +205,11 @@ impl NativeRuntime {
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;
         self.demo_uses_intro_sequence_6_early_title_restore = intro_sequence_6_early_title_restore;
+        // ASM loc_1BCD0 still owns the later mode-$24 slot-2 pose after the
+        // timeout-restore title shell, so this lineage bit must survive the
+        // intermediate title screen before the next demo auto-timeout revisit.
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
-            start_skip_intro_return_camera_wrap;
+            start_skip_intro_return_camera_wrap || intro_sequence_6_early_title_restore;
         self.next_demo_uses_start_skip_intro_return_camera_wrap = false;
         self.reload_block_grid_for_level(self.current_level);
     }
