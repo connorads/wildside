@@ -1209,13 +1209,10 @@ impl OpeningSliceState {
         let grounded_slope = self
             .grounded_slope_collision(block_grid)
             .filter(|_| self.player.on_ground);
-        if self.player.on_ground
-            && self.player.y_velocity >= 0
-            && self.player.jump_buffer_frames > 0
-        {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             return false;
         }
-        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+        if self.player.on_ground && jump_pressed {
             if let Some(collision) = grounded_slope {
                 let h_input = HorizontalInput {
                     left: input.left,
@@ -1292,7 +1289,11 @@ impl OpeningSliceState {
     ) {
         let before = self.player;
         // Jump initiation
-        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+        if self.player.on_ground && jump_pressed {
+            // ASM loc_9F18 -> loc_B580 -> loc_A426: grounded slope jumps clear the
+            // temporary slope-tracking y_vel before sub_A432 launches the jump.
+            // Native mirrors x_vel into y_vel earlier in the frame, so the
+            // grounded jump gate cannot require y_vel >= 0.
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1318,10 +1319,7 @@ impl OpeningSliceState {
         }
 
         // Jump buffer initiation
-        if self.player.on_ground
-            && self.player.y_velocity >= 0
-            && self.player.jump_buffer_frames > 0
-        {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1426,13 +1424,10 @@ impl OpeningSliceState {
         let grounded_slope = self
             .grounded_slope_collision(block_grid)
             .filter(|_| self.player.on_ground);
-        if self.player.on_ground
-            && self.player.y_velocity >= 0
-            && self.player.jump_buffer_frames > 0
-        {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             return false;
         }
-        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+        if self.player.on_ground && jump_pressed {
             if let Some(collision) = grounded_slope {
                 let h_input = HorizontalInput {
                     left: input.left,
@@ -1523,7 +1518,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         custom_gravity: bool,
     ) {
-        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+        if self.player.on_ground && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1538,10 +1533,7 @@ impl OpeningSliceState {
             return;
         }
 
-        if self.player.on_ground
-            && self.player.y_velocity >= 0
-            && self.player.jump_buffer_frames > 0
-        {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1588,7 +1580,7 @@ impl OpeningSliceState {
         form: PlayerForm,
     ) {
         // Jump initiation (same as update_vertical_motion)
-        if self.player.on_ground && self.player.y_velocity >= 0 && jump_pressed {
+        if self.player.on_ground && jump_pressed {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;
@@ -1604,10 +1596,7 @@ impl OpeningSliceState {
         }
 
         // Jump buffer initiation
-        if self.player.on_ground
-            && self.player.y_velocity >= 0
-            && self.player.jump_buffer_frames > 0
-        {
+        if self.player.on_ground && self.player.jump_buffer_frames > 0 {
             let jump_height = physics::JUMP_HEIGHTS[usize::from(form.helmet_id())];
             let (new_x_vel, y_vel) = physics::initiate_jump(self.player.x_velocity, jump_height);
             self.player.x_velocity = new_x_vel;

@@ -231,6 +231,15 @@ green, and moves the first `diagnose-native-gameplay-drift --scenario death-resp
 miss to frame `941` on `kid_y_pos` only. `compare-native-gameplay --scenario death-respawn-level1`
 still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the backlog item stays open.
 
+New evidence (2026-03-27): grounded slope jumps were still gated on `y_vel >= 0` in native even
+though ASM `loc_9F18 -> loc_B580 -> loc_A426` clears the temporary slope-tracking `y_vel` before
+`sub_A432` launches the jump. Removing that grounded gate lets the first death-path slope jump
+leave the ground again, adds `death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_945`,
+and moves the first `diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 900`
+miss later to frame `946` on `kid_x_pos`. `compare-native-gameplay --scenario death-respawn-level1`
+still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining work is the
+late jump/run-up X parity and downstream death trigger, not the old grounded jump regression.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

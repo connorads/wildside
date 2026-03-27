@@ -16103,6 +16103,78 @@ fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
 }
 
 #[test]
+fn death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_945() {
+    let mut runtime = cached_generated_runtime();
+    runtime.set_trace_physics(true);
+    let mut script = vec![0u8; 1_920 + 1];
+    for &frame in &BOOT_TO_LEVEL_START_FRAMES {
+        script[frame] |= 0x80;
+    }
+    for slot in &mut script[600..=899] {
+        *slot |= 1 << 3;
+    }
+    for slot in &mut script[900..=1_350] {
+        *slot |= (1 << 3) | (1 << 6);
+    }
+    for frame in (940..=1_350).step_by(24) {
+        let jump_end = 1_350.min(frame + 3);
+        for slot in &mut script[frame..=jump_end] {
+            *slot |= 1 << 4;
+        }
+    }
+
+    let mut frame_941 = None;
+    let mut frame_945 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(946) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 941 {
+            frame_941 = Some(trace);
+        } else if frame_index == 945 {
+            frame_945 = Some(trace);
+        }
+    }
+
+    let frame_941 = frame_941.expect("frame 941 trace");
+    let frame_945 = frame_945.expect("frame 945 trace");
+    // ASM loc_9F18 -> loc_B580 -> loc_A426 clears the slope-tracking y_vel and
+    // launches the jump coroutine immediately. Oracle-backed gameplay drift now
+    // stays under the 4px live-compare tolerance through frame 945; the first
+    // remaining authoritative miss moved to frame 946 on x_pos.
+    assert!(
+        frame_941
+            .kid_x_pos
+            .expect("frame 941 x")
+            .abs_diff(0x02C9_7400)
+            <= 0x0004_0000
+    );
+    assert!(
+        frame_941
+            .kid_y_pos
+            .expect("frame 941 y")
+            .abs_diff(0x00F2_9E00)
+            <= 0x0004_0000
+    );
+    assert_eq!(frame_941.camera_x_pos, 0x021C_0000);
+    assert_eq!(frame_941.camera_y_pos, 0x0060_0000);
+    assert_eq!(frame_941.number_hitpoints, 1);
+    assert_eq!(frame_941.kid_on_ground, Some(false));
+    assert!(
+        frame_945
+            .kid_x_pos
+            .expect("frame 945 x")
+            .abs_diff(0x02CE_F900)
+            <= 0x0004_0000
+    );
+    assert!(
+        frame_945
+            .kid_y_pos
+            .expect("frame 945 y")
+            .abs_diff(0x00E2_7600)
+            <= 0x0004_0000
+    );
+}
+
+#[test]
 fn respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x() {
     let mut runtime = cached_generated_runtime();
     runtime.warp_to_level(LevelId(0x29));

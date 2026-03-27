@@ -860,9 +860,9 @@ impl NativeRuntime {
             jump_buffer_frames: player.jump_buffer_frames,
             custom_gravity,
             wall_cling_direction: player.wall_cling_direction,
-            velocity_branch: if player.on_ground && player.y_velocity >= 0 && jump_pressed {
+            velocity_branch: if player.on_ground && jump_pressed {
                 KidGroundedReleaseVelocityBranch::JumpPressed
-            } else if player.on_ground && player.y_velocity >= 0 && player.jump_buffer_frames > 0 {
+            } else if player.on_ground && player.jump_buffer_frames > 0 {
                 KidGroundedReleaseVelocityBranch::JumpBuffered
             } else if !player.on_ground && custom_gravity {
                 KidGroundedReleaseVelocityBranch::AirborneCustomGravity
