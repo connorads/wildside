@@ -19351,6 +19351,67 @@ fn published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame
 }
 
 #[test]
+fn published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_28097 = None;
+    let mut frame_28098 = None;
+    let mut frame_28099 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(28_100) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            28_097 => {
+                frame_28097 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            28_098 => {
+                frame_28098 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+            }
+            28_099 => {
+                frame_28099 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence6 still seeds `($FFFFA656).w` and calls
+    // `sub_1B222`, but on this later title-restore revisit oracle does not
+    // reuse the earlier timeout-restart hidden camera wrap. The stale
+    // loc_1BCD0 slot-2 pose survives, while `Camera_Y_pos` stays cleared
+    // through local mode-$28 frame 33 instead of jumping to `$FFF0_0000`.
+    assert_eq!(
+        frame_28097,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(31), 0)),
+        "frame 28097 should still expose the cleared camera on the later IntroSequence6 revisit",
+    );
+    assert_eq!(
+        frame_28098,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(32), 0)),
+        "frame 28098 should keep Camera_Y_pos cleared instead of reusing the earlier hidden wrap",
+    );
+    assert_eq!(
+        frame_28099,
+        Some((GameMode::IntroSequence6, LevelId(0x00), Some(33), 0)),
+        "frame 28099 should still keep the later IntroSequence6 camera cleared on the following frame",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

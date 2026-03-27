@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T04:53:28Z",
+  "updated_at": "2026-03-27T06:10:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-frame-28098-mode-28-camera-wrap-follow-on",
@@ -18,7 +18,7 @@
         "reason": "The repaired loc_1BA5C hand-off keeps frames 27598..28097 CRC-clean; `verify-tas --frame-start 28060 --frame-end 28072 --checkpoint-interval 1` now reports all 12 checkpoints matching, and `tas-diff --frame-start 28092 --frame-end 28104 --include-advisory` stays clean through frame 28097."
       }
     ],
-    "current_blocker": "The frame-28066 mode-0x24 timeout miss is cleared. The next first CRC break is frame 28098, where `tas-diff --frame-start 28092 --frame-end 28104 --include-advisory` reports authoritative `camera_y_pos` divergence with native `0xFFF00000` versus oracle `0x00000000` on the later mode-0x28 title-shell rebuild.",
+    "current_blocker": "The frame-28098 mode-0x28 hidden-camera-wrap miss is fixed locally. The exact successor frontier still needs a fresh full `verify-tas --frame-start 23250 --bisect` run; the long verifier did not finish within this session, but the repaired frame-28098 window and `verify-slice-fast` are green.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
@@ -27,14 +27,15 @@
       "The frame-23955 later demo-2 timeout-return title-pose miss is cleared: `published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956` passes, `tas-diff --frame-start 23948 --frame-end 23964 --include-advisory` now shows 16/16 matches, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 24921.",
       "The frame-24921 level-0x15 gameplay miss is cleared: `airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit` proves native no longer promotes a top-edge-only overhang probe into a fresh wall-cling, `verify-tas --frame-start 24918 --frame-end 24928 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 27603.",
       "The frame-27603 later mode-0x24 slot-2 miss is cleared: `published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603` now passes, `oracle-probe --frame-start 27598 --frame-end 27608 --watches 0xFF24FA:u16,0xFF24FE:u16` shows WRAM slot 2 switching to `x=0`, `y=$E0` on frames 27603..27608, `verify-tas --frame-start 27598 --frame-end 27608 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28066.",
-      "The frame-28066 later mode-0x24 timeout miss is cleared: `published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066` now passes, the older guards `published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press` and `published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894` still pass, `verify-tas --frame-start 28060 --frame-end 28072 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28098."
+      "The frame-28066 later mode-0x24 timeout miss is cleared: `published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066` now passes, the older guards `published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press` and `published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894` still pass, `verify-tas --frame-start 28060 --frame-end 28072 --checkpoint-interval 1` is CRC-clean, and `verify-tas --frame-start 23250 --bisect` moved the first CRC divergence to frame 28098.",
+      "The frame-28098 later mode-0x28 hidden-camera-wrap miss is cleared locally: `published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098` now passes, the earlier guard `published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926` still passes, and `mise run verify-slice-fast` is green after splitting the later IntroSequence6 pose-carry lineage from the earlier hidden-camera-wrap lineage."
     ],
     "advisory_diffs": [
       "The repaired mode-0x24 window still carries only the known advisory `number_objects` drift from frame 27602 onward."
     ],
     "current_hypothesis": {
-      "name": "The next later mode-0x28 divergence is the hidden camera-wrap hand-off, not another intro-sequence-5 timeout bug",
-      "reason": "After splitting the later IntroSequence6 title-restore lineage from the earlier Start-skip extra intro-sequence-5 delay, frames 28060..28097 rejoin cleanly and the new first mismatch is `camera_y_pos` at frame 28098 while both traces are already in `mode=0x0028`. The next fix should stay on Load_IntroSequence6's hidden camera state (`sub_1B222` / `GfxObjects_Collision_BottomBoundary4`) rather than revisiting `loc_1BA5C` timing."
+      "name": "The later IntroSequence6 title-restore revisit carries loc_1BCD0's stale slot-2 pose without reusing the earlier hidden camera wrap",
+      "reason": "ASM Load_IntroSequence6 still seeds `($FFFFA656).w` / `sub_1B222`, but the later title-restore revisit reaches mode `$28` through a different lineage than the earlier timeout-restart wrap. Native had keyed both behaviours off the same `carry_intro_sequence_5_slot_2_pose` flag, so frame 28098 incorrectly exposed `camera_y_pos=0xFFF00000`. Splitting the hidden-camera-wrap lineage from the stale slot-2-pose lineage keeps frame 28098 at `camera_y_pos=0x00000000` while preserving the older frame-20926 wrap."
     },
     "rejected_hypotheses": [
       {
@@ -59,16 +60,17 @@
       }
     ],
     "required_next_evidence": [
-      "Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28092 --frame-end 28104 --include-advisory` to capture the exact camera hand-off that first diverges at frame 28098.",
-      "Read the mode-0x28 ASM path (`Load_IntroSequence6` / `sub_1B222` / `GfxObjects_Collision_BottomBoundary4` / `sub_1B43A`) around the hidden camera wrap before touching native code again.",
-      "Add the next focused regression only after the frame-28098 oracle-backed `camera_y_pos` mismatch is named precisely from ASM plus the narrow diff window."
+      "Re-run `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect` to capture the next first CRC divergence after the repaired frame-28098 window.",
+      "Once the new frontier frame is known, run a narrow `tas-diff --include-advisory` window around it before touching native code again.",
+      "Replace the active frontier slug and blocker with that rebisected frame in this file and in the handoff note."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603 -- --nocapture",
       "cargo test -q -p kid-core published_tas_later_intro_sequence_5_revisit_enters_intro_sequence_6_on_frame_28066 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_intro_sequence_6_wraps_hidden_camera_on_frame_20926 -- --nocapture",
       "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect",
-      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28060 --frame-end 28072 --checkpoint-interval 1",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28092 --frame-end 28104 --include-advisory",
+      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 28092 --frame-end 28104 --checkpoint-interval 1",
       "mise run verify-slice-fast"
     ]
   },

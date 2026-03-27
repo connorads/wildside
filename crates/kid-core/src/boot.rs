@@ -62,10 +62,13 @@ impl NativeRuntime {
     }
 
     fn enter_intro_sequence_6_from_timeout_restart_intro_sequence_5(&mut self) {
+        let carry_timeout_restart_hidden_camera_wrap =
+            !self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff;
         self.enter_title_screen();
         self.boot_state = BootState::IntroSequence6 {
             cursor: 0,
             carry_intro_sequence_5_slot_2_pose: true,
+            carry_timeout_restart_hidden_camera_wrap,
         };
         // ASM loc_1BA5C: `move.w #$28,(Game_Mode).w` hands control to
         // Load_IntroSequence6 rather than the direct `sub_1C246 -> $2C`

@@ -144,6 +144,7 @@ impl NativeRuntime {
 
     fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
         let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap: true,
             carry_intro_sequence_5_slot_2_pose: true,
             ..
         } = self.boot_state

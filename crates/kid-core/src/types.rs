@@ -1113,6 +1113,12 @@ pub(crate) enum BootState {
         /// lineage so trace output keeps exposing the carried pose until a
         /// later frontier models the overwrite precisely.
         carry_intro_sequence_5_slot_2_pose: bool,
+        /// ASM Load_IntroSequence6 also seeds `($FFFFA656).w` and calls
+        /// `sub_1B222`, but only the earlier timeout-restart lineage reuses
+        /// the wrapped hidden camera row during the early mode-$28 rebuild.
+        /// The later title-restore revisit still carries the stale loc_1BCD0
+        /// pose without inheriting that hidden camera wrap.
+        carry_timeout_restart_hidden_camera_wrap: bool,
     },
     TitleScreen {
         cursor: u8,
