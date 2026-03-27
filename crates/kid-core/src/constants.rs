@@ -14,6 +14,10 @@ pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
 /// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
 /// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
 pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
+/// ASM Load_IntroSequence6 branches straight into Obj_TitleMenu `loc_1BAEA:
+/// move.w #$280,d0`, and `dbf d0,loc_1BAEE` therefore hibernates for 641
+/// frames before `loc_1BB02` flips into `Game_Mode=$10`.
+pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 = 0x0281;
 // The native playtest host should open on the first fully settled Level 1 frame,
 // after gravity settling places the kid on the floor.
 pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;

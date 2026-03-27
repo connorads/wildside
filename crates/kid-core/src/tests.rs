@@ -18573,6 +18573,125 @@ fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21718() {
 }
 
 #[test]
+fn published_tas_intro_sequence_6_stays_out_of_demo_play_on_frame_21719() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21718 = None;
+    let mut frame_21719 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_720) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_718 => {
+                frame_21718 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_719 => {
+                frame_21719 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Load_IntroSequence6 `loc_1BAB0` burns the separate `$B8` pre-roll,
+    // then `loc_1BAEA: move.w #$280,d0` feeds a DBF-backed idle loop. Because
+    // DBF counts the zero slot too, oracle still stays in mode `$28` on local
+    // frame 825 and only reaches `loc_1BB02` on the following frame.
+    assert_eq!(
+        frame_21718,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(824),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21718 should still be the final already-clean mode-$28 title frame",
+    );
+    assert_eq!(
+        frame_21719,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(825),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21719 should still stay in mode $28 because Obj_TitleMenu loc_1BAEA's DBF loop has one more hibernated frame before loc_1BB02",
+    );
+}
+
+#[test]
+fn published_tas_intro_sequence_6_enters_demo_play_on_frame_21720() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_21719 = None;
+    let mut frame_21720 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_721) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            21_719 => {
+                frame_21719 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            21_720 => {
+                frame_21720 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.boot_phase_elapsed,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA` only reaches `loc_1BB02` after the extra
+    // DBF terminal frame, so the fixed mode-$28 hold should now end exactly
+    // one frame later on the following step.
+    assert_eq!(
+        frame_21719,
+        Some((
+            GameMode::IntroSequence6,
+            LevelId(0x00),
+            Some(825),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21719 should still be the final mode-$28 title-pose frame before the demo flip",
+    );
+    assert_eq!(
+        frame_21720,
+        Some((
+            GameMode::DemoPlay,
+            LevelId(0x00),
+            Some(0),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        )),
+        "frame 21720 should be the first demo-play frame after Obj_TitleMenu reaches loc_1BB02",
+    );
+}
+
+#[test]
 fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_287 = None;

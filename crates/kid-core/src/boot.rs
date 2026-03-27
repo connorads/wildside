@@ -835,7 +835,75 @@ impl NativeRuntime {
                     }
                 }
             }
-            BootState::IntroSequence6 { cursor, .. } | BootState::TitleScreen { cursor } => {
+            BootState::IntroSequence6 { cursor, .. } => {
+                if self.demo_auto_timeout_handoff_active
+                    && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
+                {
+                    self.demo_auto_timeout_handoff_active = false;
+                    self.timeout_restart_intro_sequence_4_pose_carry = false;
+                    self.boot_state = BootState::IntroSequence {
+                        segment: 0,
+                        elapsed: 0,
+                        pending_title_skip: 0,
+                    };
+                    return;
+                }
+                let up_pressed = input.up && !self.prior_input.up;
+                let down_pressed = input.down && !self.prior_input.down;
+
+                if self.frame_index <= self.title_menu_arm_frame {
+                    // Oracle-backed imported TAS traces keep title fully inert for
+                    // one attract-lock window after entry, even if Start was
+                    // already being tapped during the intro skip path.
+                } else if !self.title_menu_active {
+                    if start_pressed {
+                        self.title_idle_frames = 0;
+                        self.title_menu_active = true;
+                    } else {
+                        self.title_idle_frames += 1;
+                        if self.title_idle_frames >= INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
+                            self.title_idle_frames = 0;
+                            self.demo_toggle = !self.demo_toggle;
+                            self.begin_demo_play(self.demo_toggle);
+                        }
+                    }
+                } else if start_pressed {
+                    self.title_idle_frames = 0;
+                    match *cursor {
+                        0 => {
+                            self.two_player = false;
+                            self.begin_level_entry(self.current_level);
+                        }
+                        1 => {
+                            self.two_player = true;
+                            self.begin_level_entry(self.current_level);
+                        }
+                        _ => {
+                            self.boot_state = BootState::OptionsMenu { cursor: 0 };
+                        }
+                    }
+                } else if up_pressed && *cursor > 0 {
+                    self.title_idle_frames = 0;
+                    *cursor -= 1;
+                } else if down_pressed && *cursor < 2 {
+                    self.title_idle_frames = 0;
+                    *cursor += 1;
+                } else {
+                    self.title_idle_frames += 1;
+                    if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
+                        self.title_idle_frames = 0;
+                        self.demo_toggle = !self.demo_toggle;
+                        self.begin_demo_play(self.demo_toggle);
+                    }
+                }
+                self.title_screen_elapsed_frames += 1;
+                if self.preserve_demo_title_snapshot
+                    && self.title_screen_elapsed_frames >= self.demo_title_partial_snapshot_frames()
+                {
+                    self.finish_demo_title_snapshot_handoff();
+                }
+            }
+            BootState::TitleScreen { cursor } => {
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
