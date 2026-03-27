@@ -1340,6 +1340,41 @@ pub(crate) struct CameraState {
     pub(crate) y_pos: u32,
 }
 
+/// ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RomRandomState {
+    ram: [u8; Self::RAM_LENGTH],
+    index: usize,
+}
+
+impl RomRandomState {
+    const RAM_LENGTH: usize = 56;
+    const TAP_OFFSET: usize = 31;
+    const SEED: [u8; Self::RAM_LENGTH] = [
+        0x89, 0x72, 0x2D, 0x8D, 0x66, 0x4F, 0x80, 0x62, 0xCA, 0x5D, 0x30, 0x30, 0x9D, 0x9E, 0x21,
+        0xB8, 0x93, 0x77, 0x7F, 0xE4, 0x2B, 0xBE, 0x8D, 0x9E, 0x56, 0xAA, 0xDD, 0xC2, 0xA8, 0x10,
+        0xBF, 0x08, 0xB2, 0x9B, 0x8A, 0xCF, 0xAC, 0x64, 0x59, 0x0E, 0x18, 0x4B, 0xC4, 0xF4, 0x89,
+        0x6C, 0x50, 0xFD, 0x99, 0x5F, 0x92, 0xD8, 0xD0, 0x90, 0x68, 0x00,
+    ];
+
+    pub(crate) fn next_byte(&mut self) -> u8 {
+        let tap_index = (self.index + Self::TAP_OFFSET) % Self::RAM_LENGTH;
+        let next = self.ram[self.index].wrapping_sub(self.ram[tap_index]);
+        self.ram[self.index] = next;
+        self.index = (self.index + 1) % Self::RAM_LENGTH;
+        next
+    }
+}
+
+impl Default for RomRandomState {
+    fn default() -> Self {
+        Self {
+            ram: Self::SEED,
+            index: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelStartPose {
     pub(crate) kid_x_pos: u32,

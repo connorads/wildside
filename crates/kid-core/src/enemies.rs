@@ -932,6 +932,7 @@ pub(crate) fn build_enemy_roster(
 /// Activate enemies that enter the camera window and deactivate those that leave.
 /// Newly activated enemies start at their layout position.
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 pub(crate) fn activate_enemies(
     active: &mut Vec<ActiveEnemy>,
     layout: &EnemyLayout,
@@ -941,6 +942,32 @@ pub(crate) fn activate_enemies(
     level_bounds: physics::LevelBounds,
     player_x: u32,
     killed: &std::collections::HashSet<(usize, usize)>,
+) {
+    let mut rng = RomRandomState::default();
+    activate_enemies_with_rng(
+        active,
+        layout,
+        window,
+        camera_x_px,
+        camera_y_px,
+        level_bounds,
+        player_x,
+        killed,
+        &mut rng,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn activate_enemies_with_rng(
+    active: &mut Vec<ActiveEnemy>,
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+    player_x: u32,
+    killed: &std::collections::HashSet<(usize, usize)>,
+    rng: &mut RomRandomState,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
@@ -1074,7 +1101,7 @@ pub(crate) fn activate_enemies(
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             };
             if matches!(family, EnemyFamily::Tornado) {
-                reload_tornado_pattern(&mut enemy);
+                reload_tornado_pattern_with_rng(&mut enemy, rng);
             }
             active.push(enemy);
         }
@@ -1082,13 +1109,38 @@ pub(crate) fn activate_enemies(
 }
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.
+#[cfg(test)]
 pub(crate) fn step_active_enemies(
     active: &mut [ActiveEnemy],
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     player_form: PlayerForm,
+    projectiles: Option<&mut Vec<EnemyProjectile>>,
+) {
+    let mut rng = RomRandomState::default();
+    step_active_enemies_with_rng(
+        active,
+        block_grid,
+        player_x_pos,
+        player_y_pos,
+        None,
+        player_form,
+        projectiles,
+        &mut rng,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn step_active_enemies_with_rng(
+    active: &mut [ActiveEnemy],
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    camera_x_px: Option<u32>,
+    player_form: PlayerForm,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
+    rng: &mut RomRandomState,
 ) {
     for enemy in active.iter_mut() {
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
@@ -1098,14 +1150,14 @@ pub(crate) fn step_active_enemies(
                 if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
                     step_big_hopping_skull(enemy, block_grid);
                 } else {
-                    step_bouncer(enemy, block_grid);
+                    step_bouncer_with_rng(enemy, block_grid, camera_x_px, rng);
                 }
             }
             EnemyArchetype::Flyer => {
                 if matches!(enemy.family, EnemyFamily::Dragon) {
                     step_dragon(enemy, player_x_pos, player_y_pos, &mut projectiles);
                 } else {
-                    step_flyer(enemy, block_grid);
+                    step_flyer_with_rng(enemy, block_grid, rng);
                     if matches!(enemy.family, EnemyFamily::UFO)
                         && let Some(ref mut projs) = projectiles
                     {
@@ -1123,7 +1175,7 @@ pub(crate) fn step_active_enemies(
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
-                    step_robot(enemy, block_grid, player_x_pos, &mut projectiles);
+                    step_robot_with_rng(enemy, block_grid, player_x_pos, &mut projectiles, rng);
                 } else if matches!(enemy.family, EnemyFamily::Orca) {
                     step_orca(enemy, block_grid, player_x_pos);
                 } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
@@ -1194,7 +1246,11 @@ pub(crate) fn step_active_enemies(
     }
 }
 
-pub(crate) fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+pub(crate) fn step_flyer_with_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    rng: &mut RomRandomState,
+) {
     // Cloud: horizontal flight with wall reversal
     if matches!(enemy.family, EnemyFamily::Cloud) {
         step_cloud(enemy, block_grid);
@@ -1209,7 +1265,7 @@ pub(crate) fn step_flyer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
 
     // Tornado: acceleration-based bouncing patrol with wall/floor reversal
     if matches!(enemy.family, EnemyFamily::Tornado) {
-        step_tornado(enemy, block_grid);
+        step_tornado_with_rng(enemy, block_grid, rng);
         return;
     }
 
@@ -1484,16 +1540,12 @@ pub(crate) const TORNADO_PATTERNS: [TornadoPattern; 16] = [
     },
 ];
 
-pub(crate) fn tornado_pattern_index(enemy: &ActiveEnemy) -> usize {
+pub(crate) fn tornado_pattern_index_with_rng(
+    enemy: &ActiveEnemy,
+    rng: &mut RomRandomState,
+) -> usize {
     // ASM UFO.asm loc_35326: `Get_RandomNumber_byte`; `eor.b x_pos(a3),d7`; `andi #$F`.
-    // DEVIATION: shared ROM RNG is not ported yet, so derive a stable local byte
-    // from live state before applying the same XOR-and-mask selection rule.
-    let state_mix = (enemy.x_pos >> 16)
-        ^ ((enemy.y_pos >> 16) << 8)
-        ^ (enemy.x_velocity as u32)
-        ^ (enemy.y_velocity as u32)
-        ^ (u32::from(enemy.hit_points) << 4);
-    let random_byte = state_mix.wrapping_mul(0x045D_9F3B) as u8;
+    let random_byte = rng.next_byte();
     let x_low_byte = ((enemy.x_pos >> 16) & 0xFF) as u8;
     usize::from((random_byte ^ x_low_byte) & 0x0F)
 }
@@ -1532,10 +1584,10 @@ fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, accelera
     }
 }
 
-pub(crate) fn reload_tornado_pattern(enemy: &mut ActiveEnemy) {
+pub(crate) fn reload_tornado_pattern_with_rng(enemy: &mut ActiveEnemy, rng: &mut RomRandomState) {
     // ASM UFO.asm loc_35326 -> loc_35444: choose a table row, then derive the
     // signed per-axis acceleration that drives Enemy_HandleAcceleration.
-    let pattern = TORNADO_PATTERNS[tornado_pattern_index(enemy)];
+    let pattern = TORNADO_PATTERNS[tornado_pattern_index_with_rng(enemy, rng)];
     enemy.target_x_velocity = pattern.target_x_velocity;
     enemy.target_y_velocity = pattern.target_y_velocity;
     enemy.x_acceleration = acceleration_for_target(
@@ -1555,7 +1607,17 @@ pub(crate) fn reload_tornado_pattern(enemy: &mut ActiveEnemy) {
     };
 }
 
+#[cfg(test)]
 pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    let mut rng = RomRandomState::default();
+    step_tornado_with_rng(enemy, block_grid, &mut rng);
+}
+
+pub(crate) fn step_tornado_with_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    rng: &mut RomRandomState,
+) {
     // ASM UFO.asm Enemy_HandleAcceleration: move toward desired axis speeds.
     enemy.x_velocity = apply_acceleration_axis(
         enemy.x_velocity,
@@ -1578,7 +1640,7 @@ pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
     if enemy.wait_timer == 0 {
         let level = (enemy.hit_points.saturating_sub(1) as usize).min(2);
         enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
-        reload_tornado_pattern(enemy);
+        reload_tornado_pattern_with_rng(enemy, rng);
     } else {
         enemy.wait_timer -= 1;
     }
@@ -1619,24 +1681,39 @@ pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
 pub(crate) const FIREBALL_UPWARD_CAP_BY_HP: [i32; 3] = [-0x4_0000, -0x5_0000, -0x5_0000];
 
+#[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
-    // ASM Enemy19_Fireball_BounceFloorCeiling: `Get_RandomNumber_byte`,
-    // `eor.b (Camera_X_pos).w,d7`, `ext.w d7`, `asl.w #7,d7`.
-    // The shared ROM RNG is not ported yet, so derive a stable local byte from
-    // live fireball state while preserving the exact signed ±$4000 range.
-    let state_mix = (enemy.x_pos >> 16)
-        ^ ((enemy.y_pos >> 16) << 8)
-        ^ (u32::from(enemy.hit_points) << 16)
-        ^ u32::from(enemy.wait_timer);
-    let random_byte = state_mix.wrapping_mul(0x045D_9F3B) as u8;
-    let x_low_byte = ((enemy.x_pos >> 16) & 0xFF) as u8;
-    i32::from((random_byte ^ x_low_byte) as i8) << 7
+    let mut rng = RomRandomState::default();
+    let camera_x_px = enemy.x_pos >> 16;
+    fireball_bounce_perturbation_with_rng(&mut rng, camera_x_px)
 }
 
+pub(crate) fn fireball_bounce_perturbation_with_rng(
+    rng: &mut RomRandomState,
+    camera_x_px: u32,
+) -> i32 {
+    // ASM Enemy19_Fireball_BounceFloorCeiling: `Get_RandomNumber_byte`,
+    // `eor.b (Camera_X_pos).w,d7`, `ext.w d7`, `asl.w #7,d7`.
+    let random_byte = rng.next_byte();
+    let camera_x_low_byte = (camera_x_px & 0xFF) as u8;
+    i32::from((random_byte ^ camera_x_low_byte) as i8) << 7
+}
+
+#[cfg(test)]
 pub(crate) fn fireball_bounce_y_velocity(enemy: &ActiveEnemy) -> i32 {
+    let mut rng = RomRandomState::default();
+    let camera_x_px = enemy.x_pos >> 16;
+    fireball_bounce_y_velocity_with_rng(enemy, &mut rng, camera_x_px)
+}
+
+pub(crate) fn fireball_bounce_y_velocity_with_rng(
+    enemy: &ActiveEnemy,
+    rng: &mut RomRandomState,
+    camera_x_px: u32,
+) -> i32 {
     let perturbed = enemy
         .y_velocity
-        .saturating_add(fireball_bounce_perturbation(enemy));
+        .saturating_add(fireball_bounce_perturbation_with_rng(rng, camera_x_px));
     let mut rebound = perturbed.saturating_neg();
     if rebound < 0 {
         let hp_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
@@ -1736,7 +1813,19 @@ pub(crate) fn step_big_hopping_skull(
     }
 }
 
+#[cfg(test)]
 pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    let mut rng = RomRandomState::default();
+    let camera_x_px = enemy.x_pos >> 16;
+    step_bouncer_with_rng(enemy, block_grid, Some(camera_x_px), &mut rng);
+}
+
+pub(crate) fn step_bouncer_with_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    camera_x_px: Option<u32>,
+    rng: &mut RomRandomState,
+) {
     // Apply gravity
     enemy.y_velocity = enemy.y_velocity.saturating_add(bouncer_gravity(enemy));
 
@@ -1767,7 +1856,8 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity > 0 {
             if matches!(enemy.family, EnemyFamily::Fireball) {
-                enemy.y_velocity = fireball_bounce_y_velocity(enemy);
+                enemy.y_velocity =
+                    fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px.unwrap_or(0));
             } else {
                 enemy.y_velocity = -enemy.y_velocity;
             }
@@ -1784,7 +1874,8 @@ pub(crate) fn step_bouncer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
             if matches!(enemy.family, EnemyFamily::Fireball) {
                 // ASM Enemy19_Fireball_BounceFloorCeiling reuses the same
                 // perturb-and-negate path for both floor and ceiling contact.
-                enemy.y_velocity = fireball_bounce_y_velocity(enemy);
+                enemy.y_velocity =
+                    fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px.unwrap_or(0));
             } else {
                 // Sphere.asm: negate and halve
                 enemy.y_velocity = -(enemy.y_velocity >> 1);
@@ -2806,15 +2897,9 @@ pub(crate) const ROBOT_SHOOT_INTERVAL: u16 = 32;
 /// The charge is permanent until wall hit — no timed exit.
 pub(crate) const ROBOT_CHARGE_FLIP_BASE: u16 = 15;
 
-pub(crate) fn robot_charge_flip_reload(enemy: &ActiveEnemy) -> u16 {
+pub(crate) fn robot_charge_flip_reload_with_rng(rng: &mut RomRandomState) -> u16 {
     // ASM loc_3A9F0: `Get_RandomNumber_byte`, `lsr.w #1,d7`, `addi.w #$F,d7`.
-    // We do not emulate the shared global RNG yet, so derive a stable local
-    // byte from Robot state and preserve the ROM's reload range exactly.
-    let state_mix = (enemy.x_pos >> 16)
-        ^ ((enemy.y_pos >> 16) << 8)
-        ^ u32::from(enemy.hit_points)
-        ^ u32::from(enemy.wait_timer);
-    let random_byte = state_mix.wrapping_mul(0x045D_9F3B) as u8;
+    let random_byte = rng.next_byte();
     u16::from(random_byte >> 1) + ROBOT_CHARGE_FLIP_BASE
 }
 
@@ -2823,11 +2908,23 @@ pub(crate) const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
 
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
+#[cfg(test)]
 pub(crate) fn step_robot(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+) {
+    let mut rng = RomRandomState::default();
+    step_robot_with_rng(enemy, block_grid, player_x_pos, projectiles, &mut rng);
+}
+
+pub(crate) fn step_robot_with_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
+    rng: &mut RomRandomState,
 ) {
     match enemy.robot_state {
         RobotState::Walking => {
@@ -2959,7 +3056,7 @@ pub(crate) fn step_robot(
                 enemy.wait_timer -= 1;
             } else {
                 reverse_enemy_direction(enemy);
-                enemy.wait_timer = robot_charge_flip_reload(enemy);
+                enemy.wait_timer = robot_charge_flip_reload_with_rng(rng);
             }
         }
     }
@@ -4561,7 +4658,7 @@ impl NativeRuntime {
         let platform_layout = self.platform_layout(self.current_level).cloned();
         if let Some(enemy_layout) = enemy_layout.as_ref() {
             if self.enemy_loading_enabled() {
-                activate_enemies(
+                activate_enemies_with_rng(
                     &mut self.active_enemies,
                     enemy_layout,
                     window,
@@ -4570,14 +4667,17 @@ impl NativeRuntime {
                     level_bounds,
                     slice.player.x_pos,
                     &self.killed_enemies,
+                    &mut self.rom_random,
                 );
-                step_active_enemies(
+                step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
                     Some(slice.player.x_pos),
                     Some(slice.player.y_pos),
+                    Some(camera_x_px),
                     self.progression.current_form,
                     Some(&mut self.projectiles),
+                    &mut self.rom_random,
                 );
                 self.active_enemy_roster = self
                     .active_enemies

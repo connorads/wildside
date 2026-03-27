@@ -478,10 +478,12 @@ fixed speed every time. Regressions:
 Progress (2026-03-27): Tornado flight now uses ASM `UFO.asm` `unk_35344` target-speed patterns
 instead of the old fixed accel-flip placeholder. Native reloads one of the 16 ROM pattern rows,
 derives signed per-axis acceleration the same way as `loc_35444`, and then steps with the shared
-`Enemy_HandleAcceleration` shape. Remaining gap: pattern selection still uses a deterministic
-local byte until the shared ROM RNG is ported. Regressions:
+`Enemy_HandleAcceleration` shape. Follow-up (2026-03-27): native now threads the shared ROM
+`Init_RNG` / `Get_RandomNumber_byte` state through gameplay, so Tornado pattern reloads, Fireball
+bounce perturbations, and Robot charge flip timers all consume the same seeded byte stream the
+ROM uses. Regressions:
 `tornado_loads_rom_pattern_on_timer_expiry` and
-`tornado_accelerates_toward_pattern_targets`.
+`tornado_accelerates_toward_pattern_targets`, plus the direct RNG and enemy reload tests.
 
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.

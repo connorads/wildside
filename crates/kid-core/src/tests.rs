@@ -32,6 +32,15 @@ fn imported_early_start_boot_script() -> Vec<u8> {
     script
 }
 
+#[test]
+fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
+    // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
+    let mut rng = RomRandomState::default();
+    let expected = [0x81, 0xC0, 0x92, 0x03, 0x97, 0xA3, 0x1C, 0x09];
+    let actual = expected.map(|_| rng.next_byte());
+    assert_eq!(actual, expected);
+}
+
 fn manifest() -> AssetManifest {
     AssetManifest {
         generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
@@ -8806,13 +8815,15 @@ fn fireball_floor_bounce_applies_signed_rom_perturbation_before_cap() {
 
     let expected = {
         let mut bounced = enemy;
+        let mut rng = RomRandomState::default();
         bounced.y_velocity += enemies::bouncer_gravity(&bounced);
-        enemies::fireball_bounce_y_velocity(&bounced)
+        enemies::fireball_bounce_y_velocity_with_rng(&bounced, &mut rng, bounced.x_pos >> 16)
     };
     assert!(
         (-0x4_0000..=0x4_0000).contains(&enemies::fireball_bounce_perturbation(&enemy)),
         "ASM Enemy19_Fireball_BounceFloorCeiling keeps the perturbation inside signed ±$4000",
     );
+    assert_eq!(enemies::fireball_bounce_perturbation(&enemy), -0x2F00);
 
     step_bouncer(&mut enemy, Some(&grid));
 
@@ -8870,10 +8881,13 @@ fn fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule() {
     };
 
     let expected = {
-        let perturbation = enemies::fireball_bounce_perturbation(&enemy);
+        let mut rng = RomRandomState::default();
+        let perturbation =
+            enemies::fireball_bounce_perturbation_with_rng(&mut rng, enemy.x_pos >> 16);
         -(enemy.y_velocity + perturbation)
     };
 
+    assert_eq!(enemies::fireball_bounce_perturbation(&enemy), -0x2380);
     assert_eq!(enemies::fireball_bounce_y_velocity(&enemy), expected);
 }
 
@@ -10136,9 +10150,10 @@ fn tornado_loads_rom_pattern_on_timer_expiry() {
     let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
     enemy.wait_timer = 0;
     step_tornado(&mut enemy, None);
-    assert_eq!(enemy.target_x_velocity, 0);
+    // ASM UFO.asm loc_35326: first seeded RNG byte is $81, so x=0 selects row 1.
+    assert_eq!(enemy.target_x_velocity, 0x0001_0000);
     assert_eq!(enemy.target_y_velocity, -0x0002_0000);
-    assert_eq!(enemy.x_acceleration, -TORNADO_ACCELERATION);
+    assert_eq!(enemy.x_acceleration, 0x0000_0800);
     assert_eq!(enemy.y_acceleration, -0x0000_1000);
     assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[0]);
 }
@@ -10441,7 +10456,7 @@ fn robot_charge_flips_direction_on_timer() {
     assert_eq!(enemy.robot_state, RobotState::Charging);
     assert_eq!(enemy.facing, Direction::Left);
     assert!((ROBOT_CHARGE_FLIP_BASE..=ROBOT_CHARGE_FLIP_BASE + 127).contains(&enemy.wait_timer));
-    assert_ne!(enemy.wait_timer, ROBOT_CHARGE_FLIP_BASE);
+    assert_eq!(enemy.wait_timer, 79);
 }
 
 #[test]
