@@ -1314,9 +1314,12 @@ impl NativeRuntime {
                 // exposes one hidden camera preload row before Load_InGame's
                 // `$02A0_0000` respawn camera snap takes over on the next
                 // frame. Oracle WRAM keeps the later Start-skip intro-return
-                // lineage eight pixels lower than the plain timeout-restart
-                // preload row here.
-                if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay {
+                // lineage and the later IntroSequence6 revisit that still
+                // carries `loc_1BCD0`'s slot-2 pose eight pixels lower than
+                // the plain timeout-restart preload row here.
+                if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay
+                    || self.demo_uses_intro_sequence_6_later_demo_2_preload_row
+                {
                     demo::DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP
                 } else {
                     demo::DEMO_2_CAMERA_PRELOAD_Y_FP

@@ -44,6 +44,7 @@ impl NativeRuntime {
         self.demo_uses_start_skip_intro_return_camera_wrap = false;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = false;
         self.demo_uses_intro_sequence_6_early_title_restore = false;
+        self.demo_uses_intro_sequence_6_later_demo_2_preload_row = false;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore = false;
         self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility = false;
         self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay = false;
@@ -169,6 +170,18 @@ impl NativeRuntime {
                 ..
             }
         );
+        let intro_sequence_6_later_demo_2_preload_row = matches!(
+            self.boot_state,
+            // ASM `loc_1BB02 -> Load_DemoPlay -> Load_InGame` keeps the later
+            // demo-2 preload row only on the revisit that still carries
+            // `loc_1BCD0`'s slot-2 pose but no longer reuses the earlier
+            // timeout-restart hidden-camera wrap.
+            BootState::IntroSequence6 {
+                carry_intro_sequence_5_slot_2_pose: true,
+                carry_timeout_restart_hidden_camera_wrap: false,
+                ..
+            }
+        );
         let intro_sequence_6_early_title_restore = intro_sequence_6_hidden_camera_wrap
             || self.demo_title_return_uses_intro_sequence_6_early_title_restore;
         self.boot_state = BootState::DemoPlay {
@@ -210,6 +223,8 @@ impl NativeRuntime {
         self.demo_uses_start_skip_intro_return_camera_wrap = start_skip_intro_return_camera_wrap;
         self.demo_uses_intro_sequence_6_hidden_camera_wrap = intro_sequence_6_hidden_camera_wrap;
         self.demo_uses_intro_sequence_6_early_title_restore = intro_sequence_6_early_title_restore;
+        self.demo_uses_intro_sequence_6_later_demo_2_preload_row =
+            intro_sequence_6_later_demo_2_preload_row;
         // ASM loc_1BCD0 still owns the later mode-$24 slot-2 pose after the
         // timeout-restore title shell, so this lineage bit must survive the
         // intermediate title screen before the next demo auto-timeout revisit.

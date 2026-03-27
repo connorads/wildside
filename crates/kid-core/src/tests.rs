@@ -19223,6 +19223,71 @@ fn published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23
 }
 
 #[test]
+fn published_tas_intro_sequence_6_timeout_restore_uses_plain_demo_2_preload_row_on_frame_23305() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_23304 = None;
+    let mut frame_23305 = None;
+    let mut frame_23306 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(23_307) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            23_304 => {
+                frame_23304 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+            }
+            23_305 => {
+                frame_23305 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+            }
+            23_306 => {
+                frame_23306 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BB02 -> Load_DemoPlay -> Load_InGame` still
+    // uses the plain demo-2 preload row on the earlier later-demo that starts
+    // immediately after the IntroSequence6 timeout title restore. The lower
+    // `$0228_0000` row belongs only to the later IntroSequence6 revisit.
+    assert_eq!(
+        frame_23304,
+        Some((GameMode::DemoPlay, Some(56), LevelId(0x1B), 0x0000_0000)),
+        "frame 23304 should still be on the blank hidden timeout-restore demo-2 bootstrap row",
+    );
+    assert_eq!(
+        frame_23305,
+        Some((
+            GameMode::DemoPlay,
+            Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
+            LevelId(0x1B),
+            demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
+        )),
+        "frame 23305 should keep the plain demo-2 preload row on the earlier timeout-restore lineage",
+    );
+    assert_eq!(
+        frame_23306,
+        Some((GameMode::DemoPlay, Some(58), LevelId(0x1B), 0x02A0_0000)),
+        "frame 23306 should return to Load_InGame's respawn camera snap",
+    );
+}
+
+#[test]
 fn published_tas_later_intro_sequence_5_revisit_exposes_loc_1bcd0_slot_2_on_frame_27603() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_27602 = None;
@@ -19813,6 +19878,73 @@ fn published_tas_later_intro_sequence_6_revisit_keeps_mode_28_through_frame_2940
             Some(TITLE_KID_Y_POS),
         )),
         "frame 29405 should be the first later-lineage demo-play frame after the delayed loc_1BB02 hand-off",
+    );
+}
+
+#[test]
+fn published_tas_later_intro_sequence_6_revisit_uses_intro_return_demo_2_preload_row_on_frame_29462()
+ {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_29461 = None;
+    let mut frame_29462 = None;
+    let mut frame_29463 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(29_464) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            29_461 => {
+                frame_29461 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+            }
+            29_462 => {
+                frame_29462 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+            }
+            29_463 => {
+                frame_29463 = Some((
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.current_level,
+                    trace.camera_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BB02` still reaches `Load_DemoPlay ->
+    // Load_InGame`, but on the later IntroSequence6 title-restore revisit
+    // oracle keeps the same `$0228_0000` hidden demo-2 preload row as the
+    // earlier Start-skip intro-return lineage before `Load_InGame` snaps to
+    // `$02A0_0000` on the following frame.
+    assert_eq!(
+        frame_29461,
+        Some((GameMode::DemoPlay, Some(56), LevelId(0x1B), 0x0000_0000)),
+        "frame 29461 should still be on the blank hidden later demo-2 bootstrap row",
+    );
+    assert_eq!(
+        frame_29462,
+        Some((
+            GameMode::DemoPlay,
+            Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
+            LevelId(0x1B),
+            demo::DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP,
+        )),
+        "frame 29462 should expose the oracle-backed later IntroSequence6 demo-2 preload row",
+    );
+    assert_eq!(
+        frame_29463,
+        Some((GameMode::DemoPlay, Some(58), LevelId(0x1B), 0x02A0_0000)),
+        "frame 29463 should return to Load_InGame's respawn camera snap",
     );
 }
 

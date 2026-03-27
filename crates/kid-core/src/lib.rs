@@ -207,6 +207,11 @@ pub struct NativeRuntime {
     /// When that demo returns to title, oracle re-exposes the pose two frames
     /// earlier than the generic demo-title rebuild.
     demo_uses_intro_sequence_6_early_title_restore: bool,
+    /// ASM Obj_TitleMenu `loc_1BB02 -> Load_DemoPlay -> Load_InGame` keeps a
+    /// distinct demo-2 preload row only on the later IntroSequence6 revisit
+    /// that still carries the old `loc_1BCD0` slot-2 pose but no longer uses
+    /// the earlier hidden-camera wrap.
+    demo_uses_intro_sequence_6_later_demo_2_preload_row: bool,
     /// ASM loc_1B5CE has already restored the standard title pose before the
     /// later IntroSequence6 demo starts. When that lineage returns to title,
     /// oracle exposes the pose two frames earlier than the generic demo-title
@@ -369,6 +374,7 @@ impl NativeRuntime {
             demo_uses_start_skip_intro_return_camera_wrap: false,
             demo_uses_intro_sequence_6_hidden_camera_wrap: false,
             demo_uses_intro_sequence_6_early_title_restore: false,
+            demo_uses_intro_sequence_6_later_demo_2_preload_row: false,
             demo_title_return_uses_intro_sequence_6_early_title_restore: false,
             demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,
             demo_timeout_restart_uses_start_skip_intro_sequence_5_delay: false,
