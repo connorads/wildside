@@ -19026,6 +19026,77 @@ fn published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22
 }
 
 #[test]
+fn published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248() {
+    let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_23247 = None;
+    let mut frame_23248 = None;
+    let mut frame_23249 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(23_250) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            23_247 => {
+                frame_23247 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            23_248 => {
+                frame_23248 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+            }
+            23_249 => {
+                frame_23249 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA` seeds the shared `$280` DBF-backed title
+    // idle loop, and `loc_1BB02` is the only site here that writes
+    // `Game_Mode=$10`. Because loc_1B5CE had already restored the standard
+    // title pose before this later IntroSequence6 demo ever started, oracle
+    // reaches that demo-play flip two title frames earlier than the generic
+    // demo-timeout return.
+    let title_pose = Some((
+        GameMode::TitleScreen,
+        LevelId(0x00),
+        Some(TITLE_KID_X_POS),
+        Some(TITLE_KID_Y_POS),
+    ));
+    let demo_pose = Some((
+        GameMode::DemoPlay,
+        LevelId(0x00),
+        Some(TITLE_KID_X_POS),
+        Some(TITLE_KID_Y_POS),
+    ));
+    assert_eq!(
+        frame_23247, title_pose,
+        "frame 23247 should still be the final title-mode frame before Obj_TitleMenu reaches loc_1BB02",
+    );
+    assert_eq!(
+        frame_23248, demo_pose,
+        "frame 23248 should be the first demo-play frame on the later IntroSequence6 timeout-return lineage",
+    );
+    assert_eq!(
+        frame_23249, demo_pose,
+        "frame 23249 should remain in demo playback after the earlier loc_1BB02 hand-off",
+    );
+}
+
+#[test]
 fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;

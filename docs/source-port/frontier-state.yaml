@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T03:33:29Z",
+  "updated_at": "2026-03-27T03:49:27Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-frame-23248-intro-sequence-6-demo-return-stays-in-title-too-long",
@@ -9,27 +9,28 @@
     "area": "Later IntroSequence6 demo-return holds `Game_Mode=$2C` two frames too long before re-entering demo play",
     "status": "active",
     "recommended_frontier_kind": "gameplay",
-    "frontier_frame": 23248,
-    "authoritative_clean_through": 23247,
+    "frontier_frame": 23250,
+    "authoritative_clean_through": 23249,
     "pre_divergence_windows": [
       {
         "frame_start": 23244,
-        "frame_end": 23247,
-        "reason": "The repaired later IntroSequence6 demo-return title-pose window now matches oracle through frame 23247; the next blocker opens when oracle flips back into `Game_Mode=$10` for two frames while native stays in title mode."
+        "frame_end": 23249,
+        "reason": "The repaired later IntroSequence6 demo-return title-idle window now matches oracle through frame 23249; the manual Start-abort title return now re-enters demo play on frame 23248 instead of holding `Game_Mode=$2C` for two extra frames."
       }
     ],
-    "current_blocker": "The repaired later IntroSequence6 demo-return title-pose window is now authoritative-clean through frame 23247. The next first authoritative break is frame 23248, where native still reports `mode=0x002C` / `level=0x00` while oracle has already flipped back into `mode=0x0010`; the same hold repeats on frame 23249 and clears on frame 23250.",
+    "current_blocker": "The frame-23248/23249 later IntroSequence6 title-idle hold is cleared. The next blocker has not been re-bisected yet in this session; start from frame 23250 and rerun `verify-tas --bisect` plus `tas-diff` to locate the new first authoritative break.",
     "authoritative_diffs": [
       "The frame-21825 timeout-restart demo-1 hidden camera wrap is cleared: `published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825` passes.",
       "The frame-21837 timeout-restart demo bootstrap delay is cleared: `published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837` passes, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 22700.",
-      "The frame-22700 later IntroSequence6 demo-return title-pose miss is cleared: `published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701` passes, `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory` now shows 8/8 matches, and `verify-tas --frame-start 21765 --bisect` moves the first CRC divergence to frame 23248."
+      "The frame-22700 later IntroSequence6 demo-return title-pose miss is cleared: `published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701` passes, `tas-diff --frame-start 22696 --frame-end 22704 --include-advisory` now shows 8/8 matches, and `verify-tas --frame-start 21765 --bisect` moved the first CRC divergence to frame 23248.",
+      "The frame-23248 later IntroSequence6 demo re-entry hold is cleared: `published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248` passes, and the manual Start-abort title return now seeds Obj_TitleMenu's shared idle counter with the two frames that loc_1B5CE had already burned before the later demo started."
     ],
     "advisory_diffs": [
       "The repaired IntroSequence6 windows still carry only the known advisory `number_objects` tail around the hidden bootstrap/title-shell rebuild."
     ],
     "current_hypothesis": {
-      "name": "The later IntroSequence6 demo-return reaches Obj_TitleMenu's demo re-entry two frames late",
-      "reason": "ASM `Obj_TitleMenu loc_1BAEA -> loc_1BB02` owns the title-idle countdown and the eventual `move.w #$10,(Game_Mode).w` flip back into demo play. `tas-diff --frame-start 23244 --frame-end 23252 --include-advisory` shows frames 23248..23249 diverging only on `game_mode` (`native=0x002C`, `oracle=0x0010`), then rejoining on 23250."
+      "name": "The next blocker is downstream of the repaired IntroSequence6 manual title-return idle counter",
+      "reason": "ASM `Obj_TitleMenu loc_1BAEA -> loc_1BB02` was the frame-23248 blocker, and the native Start-abort title return now seeds those two pre-burned idle frames correctly. Re-bisect from frame 23250 to find the next first authoritative divergence."
     },
     "rejected_hypotheses": [
       {
@@ -42,18 +43,19 @@
       }
     ],
     "required_next_evidence": [
-      "Read `Obj_TitleMenu loc_1BAEA -> loc_1BB02` in `.cache/upstream/kid-chameleon-disasm/kid.asm` and prove why oracle flips back into `Game_Mode=$10` on frames 23248..23249 while native stays in `Game_Mode=$2C`.",
-      "Inspect the native title-idle countdown after the repaired frame-22700 title-pose restore and explain why the later demo return holds title mode two frames too long before demo play resumes.",
-      "Add one focused regression for the frame-23248/23249 `Game_Mode` re-entry only after the exact ASM countdown path is proven."
+      "Re-run `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect` to locate the next first authoritative break after the repaired manual title-return re-entry.",
+      "Run `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23248 --frame-end <new frontier+4> --include-advisory` once the new frontier is known so the first divergent fields are captured in the handoff note.",
+      "Read the relevant ASM for the next blocker before coding; the `Obj_TitleMenu loc_1BAEA -> loc_1BB02` countdown is no longer the active divergence."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_intro_sequence_6_enters_demo_play_on_frame_21765 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_uses_demo_1_hidden_camera_wrap_on_frame_21825 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837 -- --nocapture",
       "cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reuses_title_pose_on_frames_22700_and_22701 -- --nocapture",
+      "cargo test -q -p kid-core published_tas_intro_sequence_6_timeout_restore_reenters_demo_play_on_frame_23248 -- --nocapture",
       "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 22696 --frame-end 22704 --include-advisory",
-      "cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory",
-      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 21765 --bisect",
+      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --checkpoint-interval 1",
+      "cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/any-percent-published/scenario.json --frame-start 23250 --bisect",
       "mise run verify-slice-fast"
     ]
   },

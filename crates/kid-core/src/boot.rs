@@ -222,6 +222,17 @@ impl NativeRuntime {
         self.hide_demo_return_title_player = true;
         self.demo_title_return_uses_intro_sequence_6_early_title_restore =
             intro_sequence_6_early_title_restore;
+        if intro_sequence_6_early_title_restore {
+            // ASM loc_1B5CE has already restored the standard title pose
+            // before the later IntroSequence6 demo starts. When the published
+            // TAS aborts that later demo with Start, oracle re-enters the
+            // shared Obj_TitleMenu loc_1BAEA idle loop two title frames ahead
+            // of the generic demo-title return, so seed those already-burned
+            // idle frames here before loc_1BB02 flips back into demo play.
+            self.title_idle_frames = DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES
+                .try_into()
+                .expect("two-frame IntroSequence6 title restore offset should fit in u16");
+        }
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.prior_input = input;
         self.previous_input = input;
