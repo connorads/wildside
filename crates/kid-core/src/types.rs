@@ -812,6 +812,7 @@ impl FrameInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NativeTraceFrame {
     pub frame_index: usize,
     pub game_mode: GameMode,
@@ -905,6 +906,81 @@ pub struct NativeTraceFrame {
     /// Sub-frame physics trace (populated when `trace_physics` is enabled).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub physics_trace: Option<PhysicsTrace>,
+}
+
+impl Default for NativeTraceFrame {
+    fn default() -> Self {
+        Self {
+            frame_index: 0,
+            game_mode: GameMode::SegaScreen,
+            game_mode_value: GameMode::SegaScreen.as_disassembly_value(),
+            start_press_count: 0,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            current_player: 0,
+            current_level: LevelId(0),
+            player_1_level_id: LevelId(0),
+            current_level_name: None,
+            player_start_x: None,
+            player_start_y: None,
+            flag_x: None,
+            flag_y: None,
+            level_enemy_object_count: None,
+            active_enemy_object_count: 0,
+            active_platform_object_count: 0,
+            number_lives: 0,
+            number_continues: 0,
+            number_hitpoints: 0,
+            current_helmet_id: 0,
+            paused: false,
+            kid_x_pos: None,
+            kid_y_pos: None,
+            kid_x_velocity: None,
+            kid_y_velocity: None,
+            character_movement: None,
+            kid_facing: None,
+            kid_on_ground: None,
+            kid_on_slope: 0,
+            active_objects: Vec::new(),
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            level_complete: false,
+            game_over: false,
+            continue_countdown: None,
+            game_complete: false,
+            ending_elapsed: None,
+            options_cursor: None,
+            sound_test_track: None,
+            two_player: false,
+            options_two_player_two_controllers: false,
+            options_controls_scheme: 0,
+            options_speed_button_fast: false,
+            invulnerable_frames: 0,
+            just_received_damage: false,
+            diamond_power_active: false,
+            diamond_count: 0,
+            score: 0,
+            level_timer_seconds: 0,
+            level_damage_taken: false,
+            murder_wall_x: None,
+            active_projectiles: Vec::new(),
+            active_geysers: Vec::new(),
+            block_bounces: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            floating_items: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            death_windup_elapsed: 0,
+            form_change_flash_frames: 0,
+            stomped_this_frame: false,
+            blocks_hit_this_frame: 0,
+            sound_test_play_pending: false,
+            gameplay_debug_fields: BTreeMap::new(),
+            physics_trace: None,
+        }
+    }
 }
 
 impl NativeTraceFrame {

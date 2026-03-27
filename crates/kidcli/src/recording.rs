@@ -1079,4 +1079,101 @@ mod tests {
         assert!(!recording.manifest.script_sha1.is_empty());
         assert!(!recording.manifest.trace_sha1.is_empty());
     }
+
+    #[test]
+    fn load_recording_accepts_legacy_trace_frames_missing_newer_fields() {
+        let temp = TempDir::new().expect("temp dir");
+        fs::write(
+            temp.path().join("manifest.json"),
+            r#"{
+  "slug": "legacy-trace-schema",
+  "recorded_at": "123",
+  "start": { "warp_level": 1, "settled": true },
+  "scenario": {
+    "slug": "legacy-trace-schema",
+    "checkpoints": [{ "label": "start", "frame_index": 0 }],
+    "frame_count": 1,
+    "script": [0],
+    "warp_to_level": 1
+  }
+}"#,
+        )
+        .expect("legacy manifest");
+        fs::write(
+            temp.path().join("trace.json"),
+            br#"[
+  {
+    "frame_index": 0,
+    "game_mode": "InGame",
+    "game_mode_value": 12,
+    "start_press_count": 0,
+    "boot_phase": null,
+    "boot_phase_elapsed": null,
+    "title_screen_ready": false,
+    "current_level": 0,
+    "player_1_level_id": 0,
+    "current_level_name": null,
+    "player_start_x": null,
+    "player_start_y": null,
+    "flag_x": null,
+    "flag_y": null,
+    "level_enemy_object_count": null,
+    "active_enemy_object_count": 0,
+    "active_platform_object_count": 0,
+    "number_lives": 3,
+    "number_hitpoints": 2,
+    "current_helmet_id": 0,
+    "kid_x_pos": 2097152,
+    "kid_y_pos": 5242880,
+    "kid_x_velocity": 0,
+    "kid_y_velocity": 0,
+    "kid_facing": "Right",
+    "kid_on_ground": true,
+    "active_objects": [],
+    "camera_x_pos": 0,
+    "camera_y_pos": 0,
+    "number_objects": 0,
+    "number_gfx_objects": 0,
+    "level_complete": false,
+    "game_over": false,
+    "game_complete": false,
+    "two_player": false,
+    "options_two_player_two_controllers": false,
+    "options_controls_scheme": 0,
+    "options_speed_button_fast": false,
+    "invulnerable_frames": 0,
+    "diamond_power_active": false,
+    "diamond_count": 0,
+    "score": 0,
+    "level_timer_seconds": 0,
+    "level_damage_taken": false,
+    "murder_wall_x": null,
+    "active_projectiles": [],
+    "active_geysers": [],
+    "block_bounces": [],
+    "block_destroy_effects": [],
+    "floating_items": [],
+    "enemy_death_effects": [],
+    "form_change_flash_frames": 0,
+    "stomped_this_frame": false,
+    "blocks_hit_this_frame": 0,
+    "sound_test_play_pending": false
+  }
+]"#,
+        )
+        .expect("legacy trace");
+
+        let recording = load_recording(temp.path()).expect("load legacy trace");
+        let frame = &recording.trace[0];
+
+        assert_eq!(frame.current_player, 0);
+        assert_eq!(frame.number_continues, 0);
+        assert!(!frame.paused);
+        assert_eq!(frame.character_movement, None);
+        assert_eq!(frame.kid_on_slope, 0);
+        assert!(!frame.just_received_damage);
+        assert_eq!(frame.death_windup_elapsed, 0);
+        assert!(frame.gameplay_debug_fields.is_empty());
+        assert_eq!(frame.physics_trace, None);
+    }
 }

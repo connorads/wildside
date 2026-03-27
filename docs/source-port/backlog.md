@@ -455,10 +455,13 @@ Progress landed: new recording bundles now persist ROM SHA-1, script/trace hashe
 best-effort git commit/dirty state, and explicit record/verify commands in `manifest.json`, plus
 a human-readable `README.txt` so a copied slug is self-describing before verification runs.
 
-Remaining gap: older `trace.json` bundles can still fail replay verification because the recorded
-`NativeTraceFrame` schema predates newer fields. The pipeline now backfills manifest metadata for
-legacy bundles, but trace-schema compatibility still needs its own follow-up if old artefacts must
-remain replayable indefinitely.
+Latest progress (2026-03-27): legacy `trace.json` bundles now deserialize through the current
+`NativeTraceFrame` schema again. `kid-core` `NativeTraceFrame` now supplies serde defaults for
+newer fields, and `kidcli` regression coverage locks a real legacy trace example so
+`load_recording()` backfills both manifest metadata and missing trace keys.
+
+Remaining gap: remote-ingest workflow and any optional bundle artefacts still need their own
+follow-up before recordings become the default hand-off format for every playtest report.
 
 ### 003 — Audio (FIXED)
 GEMS engine is fully wired: BGM per theme, SFX for jump/stomp/damage/death/form/block.
