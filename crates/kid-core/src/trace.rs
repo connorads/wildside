@@ -7,6 +7,23 @@ const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
 
+fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
+    // ASM Fire_Demon loc_3A63C initialises a separate fire-trail object that
+    // cycles `stru_3A622`'s six flame frames. Native currently approximates
+    // that object with three arcing projectiles spawned by
+    // `spawn_fire_demon_death_trail`, so tag only that exact signature for the
+    // renderer instead of breaking trace compatibility for every projectile.
+    if !projectile.friendly
+        && projectile.gravity == 0x1800
+        && projectile.lifetime <= 45
+        && matches!(projectile.x_velocity, -0x1_8000 | 0 | 0x1_8000)
+    {
+        ActiveProjectileKind::FireDemonDeathTrail
+    } else {
+        ActiveProjectileKind::Generic
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KidObjectRelation {
     Below,
@@ -512,6 +529,17 @@ impl NativeRuntime {
                 .projectiles
                 .iter()
                 .map(|p| (p.x_pos, p.y_pos, p.friendly))
+                .collect(),
+            active_projectile_details: self
+                .projectiles
+                .iter()
+                .map(|p| ActiveProjectileSnapshot {
+                    x_pos: p.x_pos,
+                    y_pos: p.y_pos,
+                    friendly: p.friendly,
+                    remaining_frames: p.lifetime,
+                    kind: active_projectile_kind(p),
+                })
                 .collect(),
             active_geysers: self
                 .weather

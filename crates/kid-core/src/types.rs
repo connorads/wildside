@@ -69,6 +69,24 @@ pub enum LandingPath {
     ZeroSubPixel,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ActiveProjectileKind {
+    #[default]
+    Generic,
+    FireDemonDeathTrail,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ActiveProjectileSnapshot {
+    pub x_pos: u32,
+    pub y_pos: u32,
+    pub friendly: bool,
+    #[serde(default)]
+    pub remaining_frames: u16,
+    #[serde(default)]
+    pub kind: ActiveProjectileKind,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum KidFrameMotionBranch {
     #[default]
@@ -878,6 +896,11 @@ pub struct NativeTraceFrame {
     pub murder_wall_x: Option<i64>,
     /// Active projectiles: (x_pos, y_pos, friendly).
     pub active_projectiles: Vec<(u32, u32, bool)>,
+    /// Active projectile details for the native player renderer. This stays
+    /// additive so older recordings that only serialised `active_projectiles`
+    /// still load cleanly.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub active_projectile_details: Vec<ActiveProjectileSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
     /// Metal block bounce animations: (cell_x, cell_y, remaining_frames).
@@ -967,6 +990,7 @@ impl Default for NativeTraceFrame {
             level_damage_taken: false,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
+            active_projectile_details: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),

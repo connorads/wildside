@@ -5,6 +5,10 @@ const HEADYMETAL_WOBBLE_STAGE_1: u16 = 0x015E;
 const HEADYMETAL_WOBBLE_STAGE_2: u16 = 0x00FA;
 const HEADYMETAL_WOBBLE_STAGE_3: u16 = 0x0096;
 const HEADYMETAL_WOBBLE_STAGE_4: u16 = 0x0064;
+const FRIENDLY_PROJECTILE_COLOUR: [u8; 3] = [100, 255, 100];
+const ENEMY_PROJECTILE_COLOUR: [u8; 3] = [255, 80, 40];
+const FIRE_TRAIL_OUTER_COLOUR: [u8; 3] = [255, 120, 32];
+const FIRE_TRAIL_CORE_COLOUR: [u8; 3] = [255, 224, 128];
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
 #[derive(Debug, Clone, Copy)]
@@ -59,6 +63,42 @@ impl LayerFilter {
             _ => {}
         }
         f
+    }
+}
+
+fn push_fire_demon_trail(commands: &mut Vec<DrawCommand>, sx: i32, sy: i32, remaining_frames: u16) {
+    let phase = usize::from(remaining_frames % 6);
+    let outer_rects: &[(i32, i32, i32, i32)] = match phase {
+        0 => &[(-2, -4, 4, 2), (-3, -2, 6, 3), (-2, 1, 4, 1)],
+        1 => &[(-1, -5, 2, 2), (-3, -3, 6, 3), (-2, 0, 4, 2)],
+        2 => &[(-2, -5, 4, 2), (-2, -3, 4, 3), (-3, 0, 6, 2)],
+        3 => &[(-1, -4, 2, 2), (-3, -2, 6, 3), (-1, 1, 2, 1)],
+        4 => &[(-2, -4, 4, 2), (-3, -2, 6, 2), (-2, 0, 4, 2)],
+        _ => &[(-1, -5, 2, 2), (-2, -3, 4, 3), (-2, 0, 4, 1)],
+    };
+    for &(dx, dy, width, height) in outer_rects {
+        commands.push(DrawCommand::Rect {
+            x: sx + dx,
+            y: sy + dy,
+            width,
+            height,
+            colour: FIRE_TRAIL_OUTER_COLOUR,
+        });
+    }
+
+    let core_rects: &[(i32, i32, i32, i32)] = match phase {
+        0 | 4 => &[(-1, -2, 2, 2)],
+        1 | 5 => &[(-1, -3, 2, 3)],
+        _ => &[(-1, -2, 2, 3)],
+    };
+    for &(dx, dy, width, height) in core_rects {
+        commands.push(DrawCommand::Rect {
+            x: sx + dx,
+            y: sy + dy,
+            width,
+            height,
+            colour: FIRE_TRAIL_CORE_COLOUR,
+        });
     }
 }
 
@@ -1206,22 +1246,46 @@ fn build_game_scene_filtered(
             });
         }
 
-        // Projectiles: coloured dots (green=friendly, red=enemy)
-        for &(px, py, friendly) in &trace.active_projectiles {
-            let sx = (px >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
-            let sy = (py >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
-            let colour = if friendly {
-                [100, 255, 100]
+        // Projectiles: generic shots stay coloured dots, while the Fire Demon
+        // death trail gets its own flame-like footprint. ASM Fire_Demon
+        // `loc_3A63C` cycles `stru_3A622`'s six frames; the native player uses
+        // a small six-phase rect approximation until those ROM tiles are wired
+        // into the scene renderer.
+        let projectile_details: Vec<ActiveProjectileSnapshot> =
+            if trace.active_projectile_details.is_empty() {
+                trace
+                    .active_projectiles
+                    .iter()
+                    .map(|&(x_pos, y_pos, friendly)| ActiveProjectileSnapshot {
+                        x_pos,
+                        y_pos,
+                        friendly,
+                        remaining_frames: 0,
+                        kind: ActiveProjectileKind::Generic,
+                    })
+                    .collect()
             } else {
-                [255, 80, 40]
+                trace.active_projectile_details.clone()
             };
-            commands.push(DrawCommand::Rect {
-                x: sx - 2,
-                y: sy - 2,
-                width: 4,
-                height: 4,
-                colour,
-            });
+        for projectile in projectile_details {
+            let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            match projectile.kind {
+                ActiveProjectileKind::Generic => commands.push(DrawCommand::Rect {
+                    x: sx - 2,
+                    y: sy - 2,
+                    width: 4,
+                    height: 4,
+                    colour: if projectile.friendly {
+                        FRIENDLY_PROJECTILE_COLOUR
+                    } else {
+                        ENEMY_PROJECTILE_COLOUR
+                    },
+                }),
+                ActiveProjectileKind::FireDemonDeathTrail => {
+                    push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
+                }
+            }
         }
 
         // Metal block bounce animation: block shifts up then back

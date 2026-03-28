@@ -976,6 +976,11 @@ Only gaps: UFO beam (child object system, spawns beam segments) and Fire Demon f
 (child objects spawned on death). Both require a child-object spawning system not yet built.
 All simple projectile-based attacks are implemented.
 
+Follow-up (2026-03-28): the native player renderer now tags the existing Fire Demon death-trail
+projectiles and renders a dedicated six-phase flame footprint instead of the old generic enemy
+projectile dot. Exact ROM tile extraction for `Fire_Demon.asm` `stru_3A622` is still polish work,
+but live play now reads as a fire trail rather than a reused bullet marker.
+
 ### 011 — Bricks half-broken (FIXED)
 Resolved by palette permutation fix (#004). Verified via capture-frames comparison —
 block tiles render with correct colours matching original game.

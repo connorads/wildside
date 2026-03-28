@@ -6,8 +6,9 @@ use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    FrameInput, GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime,
-    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+    ActiveProjectileKind, ActiveProjectileSnapshot, FrameInput, GameMode, LevelId,
+    NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame, PlayerForm,
+    physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{
     AssetManifest, DecodedLevelAssets, LevelHeader, resource_level_id, resource_level_record,
@@ -1357,6 +1358,7 @@ mod tests {
             level_damage_taken: false,
             murder_wall_x: None,
             active_projectiles: Vec::new(),
+            active_projectile_details: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
             block_destroy_effects: Vec::new(),
@@ -1392,6 +1394,39 @@ mod tests {
         scene.commands.iter().any(
             |command| matches!(command, DrawCommand::Text { text, .. } if text.contains(needle)),
         )
+    }
+
+    #[test]
+    fn generic_enemy_projectile_uses_legacy_dot_render() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectiles = vec![(0x0030_0000, 0x0020_0000, false)];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]));
+    }
+
+    #[test]
+    fn fire_demon_death_trail_uses_flame_footprint() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectiles = vec![(0x0030_0000, 0x0020_0000, false)];
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            friendly: false,
+            remaining_frames: 45,
+            kind: ActiveProjectileKind::FireDemonDeathTrail,
+        }];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(has_rect(&scene, 31, 20, 2, 2, [255, 120, 32]));
+        assert!(has_rect(&scene, 29, 22, 6, 3, [255, 120, 32]));
+        assert!(has_rect(&scene, 31, 22, 2, 3, [255, 224, 128]));
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "fire trail should render its flame footprint instead of the generic projectile dot",
+        );
     }
 
     fn has_guide_rect(scene: &Scene) -> bool {
