@@ -890,7 +890,12 @@ Latest progress (2026-03-28): `kidcli verify-recording` now accepts either a loc
 (`--slug <slug>`) or a copied bundle path (`--bundle <path>`). That removes the old manual
 re-ingest step for remote repro bundles and makes the bundle itself a valid verification handle.
 
-Remaining gap: optional bundle artefacts still need their own follow-up before recordings become
+Latest progress (2026-03-28, artefact sidecars): `kidcli play-native --record <slug>` now saves a
+bundle-level `final-frame.png`, and `--record-notes <path>` copies plain-text player notes into
+`notes.txt`. The saved `manifest.json` lists those sidecars explicitly so copied bundles stay
+self-describing before any replay or oracle verification runs.
+
+Remaining gap: audio/transcript sidecars still need their own follow-up before recordings become
 the default hand-off format for every playtest report.
 
 ### 131 — Burn down the parked DEVIATION items (FIXED)

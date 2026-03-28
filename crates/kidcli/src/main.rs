@@ -107,6 +107,8 @@ enum Commands {
         settled: bool,
         #[arg(long)]
         record: Option<String>,
+        #[arg(long)]
+        record_notes: Option<PathBuf>,
     },
     ProbeCpu {
         #[arg(long)]
@@ -700,6 +702,7 @@ fn main() -> Result<()> {
             warp_level,
             settled,
             record,
+            record_notes,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -710,6 +713,14 @@ fn main() -> Result<()> {
                 .map(validate_recording_slug)
                 .transpose()?
                 .map(|slug| repo_root.join(".cache/recordings").join(slug));
+            let record_notes = match (&record_to, record_notes.as_deref()) {
+                (None, Some(_)) => bail!("--record-notes requires --record <slug>"),
+                (_, Some(path)) => Some(
+                    fs::read_to_string(path)
+                        .with_context(|| format!("failed to read {}", path.display()))?,
+                ),
+                (_, None) => None,
+            };
             run_native_player(
                 &manifest,
                 NativePlayOptions {
@@ -719,6 +730,7 @@ fn main() -> Result<()> {
                     warp_level,
                     settled,
                     record_to,
+                    record_notes,
                 },
             )?;
         }

@@ -1,4 +1,7 @@
-use crate::recording::{build_recording, recording_start_from_options, save_recording};
+use crate::recording::{
+    RecordingBundleArtifacts, build_recording, recording_start_from_options,
+    save_recording_with_artifacts,
+};
 use crate::scenarios::GameplayCheckpoint;
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
@@ -82,6 +85,7 @@ pub struct NativePlayOptions {
     pub warp_level: Option<u8>,
     pub settled: bool,
     pub record_to: Option<PathBuf>,
+    pub record_notes: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,6 +287,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut level_card_frames_remaining: usize = 0;
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
+    let mut final_frame_rgb = None;
 
     let scene = build_scene(
         &trace,
@@ -537,6 +542,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
+        if options.record_to.is_some() {
+            final_frame_rgb = Some(frame.clone());
+        }
         canvas.clear();
         canvas
             .copy(&texture, None, None)
@@ -571,7 +579,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             recorded_script,
             recorded_trace,
         )?;
-        save_recording(record_to, &recording)?;
+        let artifacts = RecordingBundleArtifacts {
+            user_notes: options.record_notes.clone(),
+            final_frame_rgb,
+        };
+        save_recording_with_artifacts(record_to, &recording, &artifacts)?;
         println!(
             "recording saved to {}. verify with: cargo run -p kidcli -- verify-recording --slug {}",
             record_to.display(),
@@ -3081,6 +3093,7 @@ mod tests {
                 warp_level: None,
                 settled: false,
                 record_to: None,
+                record_notes: None,
             },
         );
 
@@ -3115,6 +3128,7 @@ mod tests {
                 warp_level: Some(0x00),
                 settled: true,
                 record_to: None,
+                record_notes: None,
             },
         );
 

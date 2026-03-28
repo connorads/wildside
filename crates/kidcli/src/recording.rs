@@ -14,7 +14,22 @@ use serde::{Deserialize, Serialize};
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
 const RECORDING_SETTLED_ORACLE_PREFIX_FRAMES: usize = 60;
-const RECORDING_BUNDLE_VERSION: u32 = 2;
+const RECORDING_BUNDLE_VERSION: u32 = 3;
+
+const RECORDING_NOTES_FILENAME: &str = "notes.txt";
+const RECORDING_FINAL_FRAME_FILENAME: &str = "final-frame.png";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RecordingArtifactManifest {
+    pub(crate) path: String,
+    pub(crate) kind: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct RecordingBundleArtifacts {
+    pub(crate) user_notes: Option<String>,
+    pub(crate) final_frame_rgb: Option<Vec<u8>>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RecordingStart {
@@ -47,6 +62,8 @@ pub(crate) struct NativeRecordingManifest {
     pub(crate) record_command: String,
     #[serde(default)]
     pub(crate) verify_command: String,
+    #[serde(default)]
+    pub(crate) artifacts: Vec<RecordingArtifactManifest>,
     pub(crate) scenario: DynamicScenario,
 }
 
@@ -133,6 +150,7 @@ pub(crate) fn build_recording(
             git_dirty: git_status.as_ref().map(|status| status.dirty),
             record_command,
             verify_command,
+            artifacts: Vec::new(),
             scenario: DynamicScenario {
                 slug: slug.to_owned(),
                 checkpoints: recording_checkpoints(frame_count),
@@ -145,16 +163,23 @@ pub(crate) fn build_recording(
     })
 }
 
-pub(crate) fn save_recording(record_to: &Path, recording: &NativeRecording) -> Result<()> {
+pub(crate) fn save_recording_with_artifacts(
+    record_to: &Path,
+    recording: &NativeRecording,
+    artifacts: &RecordingBundleArtifacts,
+) -> Result<()> {
     if record_to.exists() {
         fs::remove_dir_all(record_to)
             .with_context(|| format!("failed to remove {}", record_to.display()))?;
     }
     fs::create_dir_all(record_to)
         .with_context(|| format!("failed to create {}", record_to.display()))?;
+    let mut manifest = recording.manifest.clone();
+    manifest.artifacts = write_recording_artifacts(record_to, artifacts)?;
+
     fs::write(
         record_to.join("manifest.json"),
-        serde_json::to_vec_pretty(&recording.manifest)?,
+        serde_json::to_vec_pretty(&manifest)?,
     )
     .with_context(|| {
         format!(
@@ -164,7 +189,7 @@ pub(crate) fn save_recording(record_to: &Path, recording: &NativeRecording) -> R
     })?;
     fs::write(
         record_to.join("scenario.json"),
-        serde_json::to_vec_pretty(&recording.manifest.scenario)?,
+        serde_json::to_vec_pretty(&manifest.scenario)?,
     )
     .with_context(|| {
         format!(
@@ -179,7 +204,7 @@ pub(crate) fn save_recording(record_to: &Path, recording: &NativeRecording) -> R
     .with_context(|| format!("failed to write {}", record_to.join("trace.json").display()))?;
     fs::write(
         record_to.join("README.txt"),
-        recording_bundle_summary(recording),
+        recording_bundle_summary(&manifest, recording.trace.len()),
     )
     .with_context(|| format!("failed to write {}", record_to.join("README.txt").display()))?;
     Ok(())
@@ -730,6 +755,42 @@ fn normalise_loaded_recording(recording: &mut NativeRecording) -> Result<()> {
     Ok(())
 }
 
+fn write_recording_artifacts(
+    record_to: &Path,
+    artifacts: &RecordingBundleArtifacts,
+) -> Result<Vec<RecordingArtifactManifest>> {
+    let mut manifest_entries = Vec::new();
+
+    if let Some(notes) = &artifacts.user_notes {
+        let notes_path = record_to.join(RECORDING_NOTES_FILENAME);
+        fs::write(&notes_path, notes)
+            .with_context(|| format!("failed to write {}", notes_path.display()))?;
+        manifest_entries.push(RecordingArtifactManifest {
+            path: String::from(RECORDING_NOTES_FILENAME),
+            kind: String::from("user-notes"),
+        });
+    }
+
+    if let Some(final_frame_rgb) = &artifacts.final_frame_rgb {
+        let frame_path = record_to.join(RECORDING_FINAL_FRAME_FILENAME);
+        image::save_buffer_with_format(
+            &frame_path,
+            final_frame_rgb,
+            NATIVE_FRAME_WIDTH,
+            NATIVE_FRAME_HEIGHT,
+            ColorType::Rgb8,
+            ImageFormat::Png,
+        )
+        .with_context(|| format!("failed to write {}", frame_path.display()))?;
+        manifest_entries.push(RecordingArtifactManifest {
+            path: String::from(RECORDING_FINAL_FRAME_FILENAME),
+            kind: String::from("final-frame"),
+        });
+    }
+
+    Ok(manifest_entries)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct GitStatus {
     commit: Option<String>,
@@ -774,8 +835,7 @@ fn recording_command(slug: &str, start: RecordingStart) -> String {
     command
 }
 
-fn recording_bundle_summary(recording: &NativeRecording) -> String {
-    let manifest = &recording.manifest;
+fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize) -> String {
     let mut lines = vec![
         format!(
             "Kid Chameleon native recording bundle v{}",
@@ -785,7 +845,7 @@ fn recording_bundle_summary(recording: &NativeRecording) -> String {
         format!("recorded_at_unix: {}", manifest.recorded_at),
         format!("rom_sha1: {}", manifest.rom_sha1),
         format!("frame_count: {}", manifest.scenario.frame_count),
-        format!("trace_len: {}", recording.trace.len()),
+        format!("trace_len: {}", trace_len),
         format!("script_sha1: {}", manifest.script_sha1),
         format!("trace_sha1: {}", manifest.trace_sha1),
         format!("host: {}/{}", manifest.host_os, manifest.host_arch),
@@ -810,6 +870,9 @@ fn recording_bundle_summary(recording: &NativeRecording) -> String {
     lines.push(String::from("- scenario.json"));
     lines.push(String::from("- trace.json"));
     lines.push(String::from("- README.txt"));
+    for artifact in &manifest.artifacts {
+        lines.push(format!("- {} ({})", artifact.path, artifact.kind));
+    }
     lines.join("\n")
 }
 
@@ -1048,13 +1111,79 @@ mod tests {
         )
         .expect("recording");
 
-        save_recording(temp.path(), &recording).expect("save recording");
+        save_recording_with_artifacts(
+            temp.path(),
+            &recording,
+            &RecordingBundleArtifacts::default(),
+        )
+        .expect("save recording");
 
         let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
-        assert!(readme.contains("Kid Chameleon native recording bundle v2"));
+        assert!(readme.contains("Kid Chameleon native recording bundle v3"));
         assert!(readme.contains("rom_sha1: fixture-rom"));
         assert!(readme.contains("--warp-level 01 --settled --record level1-tree-bug"));
         assert!(readme.contains("cargo run -p kidcli -- verify-recording --slug level1-tree-bug"));
+    }
+
+    #[test]
+    fn save_recording_writes_optional_artifacts() {
+        let temp = TempDir::new().expect("temp dir");
+        let recording = build_recording(
+            &fixture_manifest(),
+            "level1-tree-bug",
+            RecordingStart {
+                warp_level: Some(0x01),
+                settled: true,
+            },
+            vec![1, 2, 3],
+            vec![
+                sample_trace_frame(0),
+                sample_trace_frame(1),
+                sample_trace_frame(2),
+            ],
+        )
+        .expect("recording");
+
+        save_recording_with_artifacts(
+            temp.path(),
+            &recording,
+            &RecordingBundleArtifacts {
+                user_notes: Some(String::from("tree clip on the second bounce")),
+                final_frame_rgb: Some(vec![
+                    0;
+                    (NATIVE_FRAME_WIDTH as usize)
+                        * (NATIVE_FRAME_HEIGHT as usize)
+                        * 3
+                ]),
+            },
+        )
+        .expect("save recording with artifacts");
+
+        assert!(temp.path().join(RECORDING_NOTES_FILENAME).is_file());
+        assert!(temp.path().join(RECORDING_FINAL_FRAME_FILENAME).is_file());
+
+        let manifest: NativeRecordingManifest = serde_json::from_slice(
+            &fs::read(temp.path().join("manifest.json")).expect("manifest json"),
+        )
+        .expect("manifest");
+        assert_eq!(manifest.bundle_version, 3);
+        assert_eq!(
+            manifest.artifacts,
+            vec![
+                RecordingArtifactManifest {
+                    path: String::from(RECORDING_NOTES_FILENAME),
+                    kind: String::from("user-notes"),
+                },
+                RecordingArtifactManifest {
+                    path: String::from(RECORDING_FINAL_FRAME_FILENAME),
+                    kind: String::from("final-frame"),
+                },
+            ]
+        );
+
+        let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
+        assert!(readme.contains("- notes.txt (user-notes)"));
+        assert!(readme.contains("- final-frame.png (final-frame)"));
     }
 
     #[test]
@@ -1097,6 +1226,7 @@ mod tests {
         );
         assert!(!recording.manifest.script_sha1.is_empty());
         assert!(!recording.manifest.trace_sha1.is_empty());
+        assert!(recording.manifest.artifacts.is_empty());
     }
 
     #[test]
