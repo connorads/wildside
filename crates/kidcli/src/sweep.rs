@@ -677,14 +677,11 @@ fn classify_state_diff(
         return DivergenceCategory::Advisory;
     }
 
+    // When the oracle is paused (stuck in transition or pause menu), its
+    // entire game state is unreliable — not just positions. Classify all
+    // remaining diffs as oracle limitation.
     if oracle_paused_checkpoints.contains(diff.checkpoint.as_str()) {
-        match diff.field.as_str() {
-            "game_mode" | "kid_x_pos" | "kid_y_pos" | "camera_x_pos" | "camera_y_pos"
-            | "murder_wall_x" => {
-                return DivergenceCategory::OracleLimitation;
-            }
-            _ => {}
-        }
+        return DivergenceCategory::OracleLimitation;
     }
 
     DivergenceCategory::Authoritative
@@ -2830,6 +2827,31 @@ mod tests {
             classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
 
         assert_eq!(category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn paused_oracle_non_position_diff_is_also_oracle_limitation() {
+        // When the oracle is paused, ALL fields should be oracle_limitation,
+        // not just positions — the oracle's entire state is unreliable.
+        for field in ["game_paused", "current_level_id", "just_received_damage"] {
+            let diff = StateDiff {
+                checkpoint: "level_settle".into(),
+                field: field.into(),
+                native_value: "true".into(),
+                oracle_value: "false".into(),
+            };
+            let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+            let oracle_paused_checkpoints = std::collections::HashSet::from(["level_settle"]);
+
+            let category =
+                classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+            assert_eq!(
+                category,
+                DivergenceCategory::OracleLimitation,
+                "field '{field}' should be oracle limitation when oracle is paused"
+            );
+        }
     }
 
     #[test]
