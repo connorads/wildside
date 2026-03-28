@@ -1728,8 +1728,10 @@ impl OpeningSliceState {
         if probe.hit {
             if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Rubber {
                 // ASM sub_8F26 -> sub_922C -> off_933E index 6 -> loc_10DA4:
-                // side contact with rubber spawns the jiggle effect but does
-                // not change the wall-clamp physics.
+                // side contact with a rubber block takes sub_8F26's special
+                // `d7=-1` return, so the just-applied horizontal step is
+                // clamped, the bounce effect is queued, and sufficiently fast
+                // airborne motion rebounds instead of latching wall-cling.
                 self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
             }
             let clamped_center = if moving_right {
@@ -1751,7 +1753,20 @@ impl OpeningSliceState {
                 return;
             }
             self.player.x_pos = (clamped_center.max(0) as u32) << 16;
+            let incoming_x_velocity = self.player.x_velocity;
             self.player.x_velocity = 0;
+            if probe.cell.has_block
+                && probe.cell.block_type == terrain::BlockType::Rubber
+                && !self.player.on_ground
+            {
+                self.player.wall_cling_direction = None;
+                self.player.right_wall_sticky = false;
+                self.player.left_wall_sticky = false;
+                if incoming_x_velocity.unsigned_abs() >= 0x0000_8000 {
+                    self.player.x_velocity = -incoming_x_velocity;
+                }
+                return;
+            }
             self.player.right_wall_sticky = moving_right && !self.player.on_ground;
             self.player.left_wall_sticky = moving_left && !self.player.on_ground;
             // ASM loc_A8DE: enter wall-cling on airborne wall hit. Suppresses

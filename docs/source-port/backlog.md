@@ -343,6 +343,18 @@ rewind for fresh rubber contacts adds
 `1293`. The remaining miss is now a later wall-cling branch mismatch (`character_movement` native
 `0x0004`, oracle `0x0003`) rather than the rubber-contact carry itself.
 
+New evidence (2026-03-28, rubber wall rebound): ASM `sub_8F26 -> sub_922C -> off_933E[6]`
+marks airborne side contact with a rubber block as the special rebound path, not a normal wall
+cling. Native was still zeroing `x_vel` and entering `wall_cling=right` on frame `1293` of
+`death-respawn-level1`, even though the oracle keeps `MoveID_Jump` and rebounds left. Mirroring
+that rebound path adds
+`death_respawn_level_1_rubber_wall_hit_rebounds_without_entering_wall_cling`, removes the live
+drift entirely from `diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 1200`,
+and keeps `mise run verify-slice-fast` green. The full
+`compare-native-gameplay --scenario death-respawn-level1` run now gets past the old wall-cling miss
+and first fails later at `death_tail@1439` on object counts (`native 4`, `oracle 6`), so the
+remaining work is the late death-tail object lifecycle rather than the rubber-wall jump path.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

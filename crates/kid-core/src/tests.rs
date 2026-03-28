@@ -13083,6 +13083,42 @@ fn death_respawn_level_1_rubber_contact_rebounds_into_jump_path() {
 }
 
 #[test]
+fn death_respawn_level_1_rubber_wall_hit_rebounds_without_entering_wall_cling() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1291 = None;
+    let mut frame_1292 = None;
+    let mut frame_1293 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_294) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_291 {
+            frame_1291 = Some(trace);
+        } else if frame_index == 1_292 {
+            frame_1292 = Some(trace);
+        } else if frame_index == 1_293 {
+            frame_1293 = Some(trace);
+        }
+    }
+
+    let frame_1291 = frame_1291.expect("frame 1291 trace");
+    let frame_1292 = frame_1292.expect("frame 1292 trace");
+    let frame_1293 = frame_1293.expect("frame 1293 trace");
+    // ASM sub_8F26 -> sub_922C -> off_933E index 6 -> loc_10DA4 returns the
+    // special `d7=-1` wall-hit path for rubber. The death-respawn route must
+    // bounce back into MoveID_Jump instead of zeroing x_vel and entering the
+    // native wall-cling state on frame 1292/1293.
+    assert_eq!(frame_1291.kid_x_velocity, Some(0x0002_6DC0));
+    assert_eq!(frame_1291.character_movement, Some(3));
+    assert_eq!(frame_1292.kid_x_velocity, Some(-0x0002_6CC0));
+    assert_eq!(frame_1292.character_movement, Some(3));
+    assert_eq!(frame_1292.kid_on_ground, Some(false));
+    assert_eq!(frame_1293.kid_x_velocity, Some(-0x0002_2C40));
+    assert_eq!(frame_1293.character_movement, Some(3));
+    assert_eq!(frame_1293.kid_on_ground, Some(false));
+}
+
+#[test]
 fn rubber_block_ceiling_hit_queues_jiggle_without_destroying_cell() {
     let mut runtime = NativeRuntime::new(manifest());
     let w: u16 = 16;
