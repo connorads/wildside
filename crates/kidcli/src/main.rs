@@ -2987,6 +2987,121 @@ mod tests {
     }
 
     #[test]
+    fn gameplay_regression_verify_death_respawn_accepts_hidden_bootstrap_at_script_end() {
+        let capture = GameplayCapture {
+            scenario: String::from("death_respawn_level1"),
+            frame_count: 2_219,
+            missed_vblank_frames: 0,
+            states: vec![
+                GameplayState {
+                    label: String::from("respawn_tail"),
+                    frame_index: 1_919,
+                    game_mode: 0x0008,
+                    current_player: 0,
+                    number_lives: 2,
+                    number_hitpoints: 2,
+                    current_level_id: 0,
+                    player_1_level_id: 0,
+                    current_helmet_id: 0,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    kid_x_pos: 0x0040_0000,
+                    kid_y_pos: 0x0068_0000,
+                    kid_x_vel: Some(0),
+                    kid_y_vel: Some(0),
+                    character_movement: Some(0),
+                    kid_collision_type: Some(0),
+                    invulnerable_frames: Some(0),
+                    just_received_damage: Some(false),
+                    kid_ground_probe: None,
+                    kid_grounded_release_probe: None,
+                    kid_jump_gravity_probe: None,
+                    number_objects: 15,
+                    number_gfx_objects: 14,
+                },
+                GameplayState {
+                    label: String::from("frame_02218"),
+                    frame_index: 2_218,
+                    game_mode: 0x0008,
+                    current_player: 0,
+                    number_lives: 2,
+                    number_hitpoints: 2,
+                    current_level_id: 0,
+                    player_1_level_id: 0,
+                    current_helmet_id: 0,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    kid_x_pos: 0x0040_0000,
+                    kid_y_pos: 0x0068_0000,
+                    kid_x_vel: Some(0),
+                    kid_y_vel: Some(0),
+                    character_movement: Some(0),
+                    kid_collision_type: Some(0),
+                    invulnerable_frames: Some(0),
+                    just_received_damage: Some(false),
+                    kid_ground_probe: None,
+                    kid_grounded_release_probe: None,
+                    kid_jump_gravity_probe: None,
+                    number_objects: 15,
+                    number_gfx_objects: 14,
+                },
+            ],
+            checkpoints: vec![
+                GameplayState {
+                    label: String::from("level_settle"),
+                    frame_index: 719,
+                    number_lives: 3,
+                    number_hitpoints: 1,
+                    game_mode: 0x000C,
+                    ..gameplay_state("level_settle", 719)
+                },
+                GameplayState {
+                    label: String::from("pre_death"),
+                    frame_index: 1_680,
+                    number_lives: 3,
+                    number_hitpoints: 1,
+                    game_mode: 0x000C,
+                    ..gameplay_state("pre_death", 1_680)
+                },
+                GameplayState {
+                    label: String::from("death_tail"),
+                    frame_index: 1_762,
+                    number_lives: 2,
+                    number_hitpoints: 2,
+                    game_mode: 0x0008,
+                    ..gameplay_state("death_tail", 1_762)
+                },
+                GameplayState {
+                    label: String::from("respawn_tail"),
+                    frame_index: 1_919,
+                    game_mode: 0x0008,
+                    number_lives: 2,
+                    number_hitpoints: 2,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    kid_x_pos: 0x0040_0000,
+                    kid_y_pos: 0x0068_0000,
+                    kid_x_vel: Some(0),
+                    kid_y_vel: Some(0),
+                    character_movement: Some(0),
+                    kid_collision_type: Some(0),
+                    invulnerable_frames: Some(0),
+                    just_received_damage: Some(false),
+                    kid_ground_probe: None,
+                    kid_grounded_release_probe: None,
+                    kid_jump_gravity_probe: None,
+                    number_objects: 15,
+                    number_gfx_objects: 14,
+                    ..gameplay_state("respawn_tail", 1_919)
+                },
+            ],
+        };
+
+        crate::verify::verify_death_respawn_level_1(&capture)
+            .expect("current death/respawn smoke path should end on the hidden bootstrap");
+    }
+
+    #[test]
     fn gameplay_regression_compare_dynamic_gameplay_with_uses_custom_window_slug() {
         let repo_root = TempDir::new().expect("repo root");
         let capture = GameplayCapture {

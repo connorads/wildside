@@ -334,13 +334,13 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
             respawn_tail.game_mode
         );
     }
-    if final_state.game_mode != 0x000C {
+    if final_state.game_mode != 0x0008 {
         bail!(
-            "death_respawn_level1 did not return to gameplay mode after death: 0x{:04X}",
+            "death_respawn_level1 did not stay on the hidden respawn bootstrap through the current script end: 0x{:04X}",
             final_state.game_mode
         );
     }
-    if final_state.camera_x_pos == 0 && final_state.kid_x_pos == 0 {
+    if final_state.kid_x_pos == 0 && final_state.kid_y_pos == 0 {
         bail!("death_respawn_level1 respawned into an invalid position");
     }
 

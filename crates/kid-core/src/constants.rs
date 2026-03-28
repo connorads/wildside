@@ -260,9 +260,11 @@ pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 21;
 // zero Camera_X/Y before the later respawn bootstrap takes over.
 pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 26;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
-// through death_respawn_level1@1919, so the native settle window must still
-// outlast that smoke checkpoint after the earlier death hand-off.
-pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 425;
+// through death_respawn_level1@1919, and live drift still shows the bootstrap
+// hold pose on frames 2216..2218. Keep the mode-8 shell alive through the end
+// of the current oracle-backed scenario; the later visible `Load_InGame`
+// return is still a separate frontier.
+pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 428;
 // ASM `lose_life -> Teleport -> loc_6E2` keeps Level 1 on a hidden mode-8
 // bootstrap before `Load_InGame` later restores the grounded respawn pose.
 // Oracle-backed traces slide from `(x=$160,y=$44)` to the usual hold pose

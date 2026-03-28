@@ -503,6 +503,19 @@ item stays open, though: extending the compare window shows the oracle-backed re
 still later than native, so the remaining work is now that later `Load_InGame` hand-off timing
 rather than the stale smoke gate itself.
 
+Latest evidence (2026-03-28, verifier/helper alignment): the repo had drifted away from that note.
+`cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1` was still requiring
+the current script to end in visible `Game_Mode=$000C` gameplay even though both
+`probe-native-gameplay --scenario death-respawn-level1 --frame-start 2214 --frame-end 2218` and
+`diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 900` show the
+canonical run still ending on the hidden mode-`8` bootstrap with no live drift through frame 2218.
+Fix: align the shared `death_respawn_level_1_script()` helper with the 2219-frame `kidcli`
+scenario, add `death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2216`, and make
+`verify_death_respawn_level_1()` treat the current script end as hidden bootstrap rather than a
+visible return. The backlog item stays open, but the remaining work is now to extend the scenario
+far enough to capture the real visible `Load_InGame` return, not to "fix" a respawn drift that the
+current scripted window no longer reproduces.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
