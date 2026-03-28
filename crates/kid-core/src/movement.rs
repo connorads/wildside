@@ -2103,9 +2103,26 @@ impl OpeningSliceState {
                         self.player.y_pos =
                             (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
                     }
+                    let incoming_y_velocity = self.player.y_velocity;
+                    let rubber_rebound = !was_on_ground
+                        && probe.cell.has_block
+                        && probe.cell.block_type == terrain::BlockType::Rubber;
+                    if rubber_rebound {
+                        // ASM sub_902A -> sub_914A -> loc_91F6 -> loc_9082:
+                        // a fresh downward contact on rubber snaps to the
+                        // contact row, clears the sub-pixel, then restores the
+                        // negated incoming y_vel instead of settling grounded.
+                        self.player.on_ground = false;
+                        self.player.y_velocity = -incoming_y_velocity;
+                        self.player.on_spikes = false;
+                        self.terrain.floor_terrain_type =
+                            TerrainType::from_block_type(probe.cell.block_type);
+                        self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
+                        self.player.wall_cling_direction = None;
+                        return None;
+                    }
                     // ASM off_933E: Mushroom (index 9) is a NOP — no bounce.
-                    // Rubber (index 6) spawns a visual jiggle (j_loc_10DA4) but
-                    // does NOT modify y_vel. All block types land normally.
+                    // Non-rubber block types land normally here.
                     self.player.on_ground = true;
                     self.player.y_velocity = 0;
                     self.player.wall_cling_direction = None;
@@ -2116,15 +2133,6 @@ impl OpeningSliceState {
                         // grounded frame, or native auto-jumps one frame early
                         // on the Level 1 death-respawn route.
                         self.player.jump_buffer_frames = 0;
-                    }
-                    if !was_on_ground
-                        && probe.cell.has_block
-                        && probe.cell.block_type == terrain::BlockType::Rubber
-                    {
-                        // ASM sub_902A -> sub_914A -> loc_91F6/loc_10DA4:
-                        // a fresh landing on rubber keeps normal landing
-                        // physics but still queues the contact jiggle.
-                        self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
                     // Teleporter blocks warp player on contact
                     if probe.cell.has_block

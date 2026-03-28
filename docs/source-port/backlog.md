@@ -320,6 +320,18 @@ the frame diff. That keeps the frame-`1217` context attached to the failing repo
 requiring a second `probe-native-gameplay` pass just to learn that native settled onto a rubber
 support tile and stayed in `grounded_hold` while oracle was already airborne.
 
+New evidence (2026-03-27, rubber rebound): ASM `sub_902A -> sub_914A -> loc_91F6 -> loc_9082`
+does not treat a fresh rubber-floor hit as a normal landing. It snaps Kid to the contact row,
+queues `loc_10DA4`, and negates the incoming downward `y_vel`, so the Level 1 death-respawn route
+stays in `MoveID_Jump` through frames `1216..1220`. Native now matches the focused oracle window:
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1216 --frame-end
+1220 --checkpoint-interval 1` passes, `death_respawn_level_1_rubber_contact_rebounds_into_jump_path`
+locks the script-backed state, and the stale `rubber_block_landing_queues_jiggle_without_bouncing_player`
+assumption is replaced with the direct rebound regression. The full compare still fails later, but
+the first authoritative miss moves to frame `1283` on `kid_x_pos` (native `0x05F27340`, oracle
+`0x05F7B3C0`), so the remaining work is the later post-rebound airborne X path rather than the old
+frame-`1217` rubber contact.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

@@ -12974,7 +12974,7 @@ fn mushroom_block_lands_player_without_bounce() {
 }
 
 #[test]
-fn rubber_block_landing_queues_jiggle_without_bouncing_player() {
+fn rubber_block_landing_rebounds_player_and_queues_jiggle() {
     let mut runtime = NativeRuntime::new(manifest());
     let w: u16 = 16;
     let h: u16 = 16;
@@ -12998,8 +12998,18 @@ fn rubber_block_landing_queues_jiggle_without_bouncing_player() {
     slice.apply_floor_collision(Some(&grid), false, false, PLAYER_HALF_WIDTH, true);
     runtime.process_block_effects(&mut slice);
 
-    assert!(slice.player.on_ground, "rubber landing should still settle");
-    assert_eq!(slice.player.y_velocity, 0, "rubber should not relaunch Kid");
+    assert!(
+        !slice.player.on_ground,
+        "ASM sub_902A -> sub_914A -> loc_9082 should rebound a fresh rubber landing"
+    );
+    assert_eq!(
+        slice.player.y_pos, 0x003F_0000,
+        "the rebound still snaps Kid onto the rubber contact row first"
+    );
+    assert_eq!(
+        slice.player.y_velocity, -0x3_0000,
+        "rubber should negate the incoming landing velocity"
+    );
     assert_eq!(
         runtime.block_bounces.len(),
         1,
@@ -13007,6 +13017,37 @@ fn rubber_block_landing_queues_jiggle_without_bouncing_player() {
     );
     assert_eq!(runtime.block_bounces[0].cell_x, 2);
     assert_eq!(runtime.block_bounces[0].cell_y, 4);
+}
+
+#[test]
+fn death_respawn_level_1_rubber_contact_rebounds_into_jump_path() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1216 = None;
+    let mut frame_1217 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_218) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_216 {
+            frame_1216 = Some(trace);
+        } else if frame_index == 1_217 {
+            frame_1217 = Some(trace);
+        }
+    }
+
+    let frame_1216 = frame_1216.expect("frame 1216 trace");
+    let frame_1217 = frame_1217.expect("frame 1217 trace");
+    // ASM sub_902A -> sub_914A marks this rubber support as the loc_9082
+    // rebound path, so the death-respawn route stays in MoveID_Jump through
+    // the frame-1216 contact instead of settling into grounded walking.
+    assert_eq!(frame_1216.kid_y_pos, Some(0x00FF_0000));
+    assert_eq!(frame_1216.kid_y_velocity, Some(-0x0008_0000));
+    assert_eq!(frame_1216.character_movement, Some(3));
+    assert_eq!(frame_1216.kid_on_ground, Some(false));
+    assert_eq!(frame_1217.kid_y_pos, Some(0x00F7_4000));
+    assert_eq!(frame_1217.kid_y_velocity, Some(-0x0007_C000));
+    assert_eq!(frame_1217.character_movement, Some(3));
+    assert_eq!(frame_1217.kid_on_ground, Some(false));
 }
 
 #[test]
