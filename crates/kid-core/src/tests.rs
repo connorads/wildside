@@ -13696,8 +13696,12 @@ fn rubber_block_wall_hit_queues_jiggle_without_breaking_wall() {
     runtime.process_block_effects(&mut slice);
 
     assert_eq!(
-        slice.player.x_velocity, 0,
-        "wall hit should still clamp movement"
+        slice.player.x_velocity, -0x0001_0000,
+        "ASM sub_8F26 -> sub_922C -> off_933E index 6 should rebound airborne rubber wall hits instead of zeroing x_vel"
+    );
+    assert_eq!(
+        slice.player.wall_cling_direction, None,
+        "airborne rubber wall hits should not enter native wall-cling"
     );
     assert_eq!(
         runtime.block_bounces.len(),

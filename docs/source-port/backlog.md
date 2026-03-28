@@ -629,11 +629,13 @@ Level 1 -> Level 2 progression, then the focused slope, rubber-block, and metal-
 regressions that cover the live-play issues behind backlog items `#122`, `#123`,
 `#126`, `#127`, and `#128`.
 
-Surprise worth keeping: `compare-native-gameplay --scenario progress-two-transitions`
-and `--scenario death-respawn-level1` still diverge from the emulator-backed capture
-at `level_settle@719`, so this gate intentionally stays native-first until that harness
-drift is traced separately. The playable smoke path still needs a durable local gate now,
-not after the compare harness is repaired.
+Surprise worth keeping: the gate itself needed maintenance after the later ROM-backed
+rubber-wall rebound fix. `verify-1p-playable` had gone red because
+`rubber_block_wall_hit_queues_jiggle_without_breaking_wall` still asserted the older
+"zero x_vel" placeholder, even though ASM `sub_8F26 -> sub_922C -> off_933E[6] ->
+loc_10DA4` and the oracle-backed `death-respawn-level1` window both keep airborne
+rubber wall contact on the rebound path. Keeping this gate useful means updating the
+native-first regressions when the ROM-backed gameplay model gets sharper.
 
 ### 133 — Password flow / options scope (FIXED)
 Evidence source: ASM audit of `Obj_TitleMenu`, `OptionScreen_Input`, and the options text tables in
@@ -729,14 +731,6 @@ Fix: restore that block-type dispatch in the landing path. Regression:
 `iron_knight_landing_on_metal_block_bounces_without_destroying_it` proves a
 landing Iron Knight now bounces off a metal block, leaves the cell intact, and
 queues the steel bounce effect instead of deleting the tile.
-
-### 129 — Add a `1p-playable` gate (OPEN)
-Evidence source: roadmap decision after repeated native-play failures escaping the current gate.
-Native repro: n/a. Oracle repro: n/a. Minimum gate: n/a.
-
-The current `1p-accurate` artefact remains useful, but it is too narrow to stand in for "the game
-works". This item is complete only when there is a standard smoke gate covering the real 1P path
-and the recurring native-play failures above.
 
 ### 130 — Turn recordings into the standard playtest evidence pipeline (IN PROGRESS)
 Evidence source: existing `play-native --record` / `verify-recording` support plus current workflow gaps.
