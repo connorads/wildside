@@ -219,9 +219,23 @@ where
     }
 
     for level_id in missing_levels {
+        if oracle_warp_broken_level(level_id) {
+            // jgenesis still fails warped entry on a small set of levels with
+            // `game_mode=0x4E73`; native can fall back to the decoded block
+            // layout for those levels, so do not block gameplay verification
+            // on an oracle-only extraction failure.
+            continue;
+        }
         dump_level_layout_fn(rom_bytes, level_id, &layout_dir)?;
     }
     Ok(())
+}
+
+fn oracle_warp_broken_level(level_id: u8) -> bool {
+    matches!(
+        level_id,
+        0x09 | 0x32 | 0x33 | 0x50 | 0x57 | 0x5A | 0x5D | 0x5E | 0x63
+    )
 }
 
 pub(crate) fn prepare_generated_assets_with<FVerify, FBootstrap, FSync, FSplit, FExport>(

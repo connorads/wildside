@@ -2859,6 +2859,68 @@ mod tests {
     }
 
     #[test]
+    fn ensure_gameplay_level_layouts_skips_known_oracle_warp_broken_levels() {
+        let bundle_root = TempDir::new().expect("bundle root");
+        let layout_dir = bundle_root.path().join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir");
+        for level_id in [
+            0x00u8, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+            0x1D, 0x1E, 0x1F,
+        ] {
+            fs::write(layout_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                .expect("existing layout");
+            fs::write(
+                layout_dir.join(format!("{level_id:02X}.json")),
+                br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+            )
+            .expect("existing layout metadata");
+        }
+
+        let manifest = AssetManifest {
+            generated_bundle_version: 8,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("deadbeef"),
+            source_root: bundle_root.path().to_path_buf(),
+            output_root: bundle_root.path().to_path_buf(),
+            map_order: vec![],
+            levels: vec![],
+            constants: vec![],
+            ram_variables: vec![],
+            enemy_sources: vec![],
+            theme_assets: vec![],
+            scene_assets: vec![],
+            animation_assets: vec![],
+            sound_assets: vec![],
+            ingame_assets: vec![],
+            decoded_levels: vec![],
+        };
+
+        let dumped_levels = RefCell::new(Vec::new());
+        ensure_gameplay_level_layouts_with(
+            b"rom",
+            &manifest,
+            GameplayScenario::SoakLevel10m,
+            |_, level_id, out_dir| {
+                dumped_levels.borrow_mut().push(level_id);
+                fs::write(out_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                    .expect("dumped layout");
+                fs::write(
+                    out_dir.join(format!("{level_id:02X}.json")),
+                    br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+                )
+                .expect("dumped layout metadata");
+                Ok(())
+            },
+        )
+        .expect("oracle-warp-broken level should be skipped");
+
+        assert!(dumped_levels.borrow().is_empty());
+        assert!(!layout_dir.join("09.bin").exists());
+        assert!(!layout_dir.join("09.json").exists());
+    }
+
+    #[test]
     fn play_native_fails_fast_when_required_level1_visuals_are_invalid() {
         let source_root = TempDir::new().expect("source root");
         let bundle_root = TempDir::new().expect("bundle root");
