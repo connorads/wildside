@@ -181,7 +181,7 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 5] = [
     },
     GameplayCheckpoint {
         label: "respawn_bootstrap_tail",
-        frame_index: 3_305,
+        frame_index: 3_999,
     },
 ];
 
@@ -880,7 +880,7 @@ mod tests {
                 ("pre_death", 1_680),
                 ("death_tail", 1_762),
                 ("respawn_tail", 1_919),
-                ("respawn_bootstrap_tail", 3_305),
+                ("respawn_bootstrap_tail", 3_999),
             ]
         );
     }

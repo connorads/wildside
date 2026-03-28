@@ -13548,47 +13548,47 @@ fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3100() {
 }
 
 #[test]
-fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3305() {
+fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3999() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
 
-    let mut frame_3304 = None;
-    let mut frame_3305 = None;
-    for (frame_index, mask) in script.iter().copied().enumerate().take(3_306) {
+    let mut frame_3998 = None;
+    let mut frame_3999 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(4_000) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
-            3_304 => frame_3304 = Some(trace),
-            3_305 => {
-                frame_3305 = Some(trace);
+            3_998 => frame_3998 = Some(trace),
+            3_999 => {
+                frame_3999 = Some(trace);
                 break;
             }
             _ => {}
         }
     }
 
-    let frame_3304 = frame_3304.expect("frame 3304 trace");
-    let frame_3305 = frame_3305.expect("frame 3305 trace");
+    let frame_3998 = frame_3998.expect("frame 3998 trace");
+    let frame_3999 = frame_3999.expect("frame 3999 trace");
     // Oracle-backed `compare-native-gameplay-window --scenario
-    // death-respawn-level1 --frame-start 3098 --frame-end 3305
+    // death-respawn-level1 --frame-start 3300 --frame-end 3999
     // --checkpoint-interval 1` still keeps the hidden mode-8 bootstrap alive
     // here with the cleared camera, `(x=$40,y=$68)` hold pose, and 15/14
-    // object counts. Native must not expose `Load_InGame` before frame 3306.
-    assert_eq!(frame_3304.game_mode, GameMode::LevelTransition);
-    assert_eq!(frame_3304.camera_x_pos, 0);
-    assert_eq!(frame_3304.camera_y_pos, 0);
-    assert_eq!(frame_3304.kid_x_pos, Some(0x0040_0000));
-    assert_eq!(frame_3304.kid_y_pos, Some(0x0068_0000));
-    assert_eq!(frame_3304.number_objects, 15);
-    assert_eq!(frame_3304.number_gfx_objects, 14);
-    assert_eq!(frame_3305.game_mode, GameMode::LevelTransition);
-    assert_eq!(frame_3305.camera_x_pos, 0);
-    assert_eq!(frame_3305.camera_y_pos, 0);
-    assert_eq!(frame_3305.kid_x_pos, Some(0x0040_0000));
-    assert_eq!(frame_3305.kid_y_pos, Some(0x0068_0000));
-    assert_eq!(frame_3305.number_objects, 15);
-    assert_eq!(frame_3305.number_gfx_objects, 14);
-    assert_eq!(frame_3305.number_lives, 2);
-    assert_eq!(frame_3305.number_hitpoints, 2);
+    // object counts. Native must not expose `Load_InGame` before frame 4000.
+    assert_eq!(frame_3998.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_3998.camera_x_pos, 0);
+    assert_eq!(frame_3998.camera_y_pos, 0);
+    assert_eq!(frame_3998.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_3998.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_3998.number_objects, 15);
+    assert_eq!(frame_3998.number_gfx_objects, 14);
+    assert_eq!(frame_3999.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_3999.camera_x_pos, 0);
+    assert_eq!(frame_3999.camera_y_pos, 0);
+    assert_eq!(frame_3999.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_3999.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_3999.number_objects, 15);
+    assert_eq!(frame_3999.number_gfx_objects, 14);
+    assert_eq!(frame_3999.number_lives, 2);
+    assert_eq!(frame_3999.number_hitpoints, 2);
 }
 
 #[test]
