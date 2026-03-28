@@ -380,6 +380,14 @@ compare still fails later at `death_tail@1762` on `game_mode` (`native 0x000C`, 
 so the remaining work is now the later death/respawn shell hand-off rather than the late landing
 contact itself.
 
+New evidence (2026-03-28, checkpoint annotation): `kidcli compare-native-gameplay` now appends the
+first live drift after the scenario's first stable checkpoint when a later gameplay checkpoint
+fails. For `death-respawn-level1` that means the old `death_tail@1762` symptom now points straight
+at the earlier causal miss: frame `1574` in the `level_settle@719 -> pre_death@1680` window on
+`kid_x_pos`, with the native jump-gravity / ground-probe context attached in the same error line.
+This keeps the next gameplay patch focused on the first airborne X-path drift instead of the later
+death-shell hand-off.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

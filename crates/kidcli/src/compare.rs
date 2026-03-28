@@ -270,10 +270,46 @@ where
         scenario,
         &native_capture.checkpoints,
         &oracle_capture.checkpoints,
-    )?;
+    )
+    .map_err(|err| {
+        annotate_gameplay_checkpoint_failure(err, &native_capture, &oracle_capture, scenario)
+    })?;
     let frame_evidence = frame_evidence_fn()?;
     write_gameplay_frame_evidence(&run_dir.join("review"), &frame_evidence)?;
     Ok(())
+}
+
+fn annotate_gameplay_checkpoint_failure(
+    err: anyhow::Error,
+    native_capture: &GameplayCapture,
+    oracle_capture: &GameplayCapture,
+    scenario: GameplayScenario,
+) -> anyhow::Error {
+    let from_frame = native_capture
+        .checkpoints
+        .first()
+        .map(|state| state.frame_index)
+        .unwrap_or(0);
+    let Some(first_drift) =
+        find_gameplay_live_drifts(native_capture, oracle_capture, scenario, from_frame)
+            .into_iter()
+            .next()
+    else {
+        return err;
+    };
+
+    let mut message = err.to_string();
+    let mut context = format!(
+        "; first live drift frame {} [{}] fields: {}",
+        first_drift.frame_index,
+        first_drift.window,
+        first_drift.differing_fields.join(", ")
+    );
+    if let Some(summary) = gameplay_state_debug_summary(&first_drift.native) {
+        context.push_str(&format!("; native context: {summary}"));
+    }
+    message.push_str(&context);
+    anyhow!(message)
 }
 
 pub(crate) fn capture_native_gameplay_frame_evidence(
@@ -1158,4 +1194,77 @@ pub(crate) fn compare_enemy_snapshots_against_oracle(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn gameplay_state(frame_index: usize, label: &str, kid_x_pos: u32) -> GameplayState {
+        GameplayState {
+            label: label.into(),
+            frame_index,
+            game_mode: 0x000C,
+            current_player: 0,
+            number_lives: 3,
+            number_hitpoints: 2,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            current_helmet_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos,
+            kid_y_pos: 0,
+            kid_x_vel: Some(0),
+            kid_y_vel: Some(0),
+            character_movement: Some(2),
+            kid_collision_type: Some(0),
+            invulnerable_frames: Some(0),
+            just_received_damage: Some(false),
+            kid_ground_probe: Some("ground".into()),
+            kid_grounded_release_probe: None,
+            kid_jump_gravity_probe: None,
+            number_objects: 0,
+            number_gfx_objects: 0,
+        }
+    }
+
+    #[test]
+    fn annotate_gameplay_checkpoint_failure_appends_first_live_drift() {
+        let native_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 3,
+            missed_vblank_frames: 0,
+            states: vec![
+                gameplay_state(0, "frame_00000", 0),
+                gameplay_state(1, "frame_00001", 0x0010_0000),
+                gameplay_state(2, "frame_00002", 0x0020_0000),
+            ],
+            checkpoints: vec![gameplay_state(2, "death_tail", 0x0020_0000)],
+        };
+        let oracle_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 3,
+            missed_vblank_frames: 0,
+            states: vec![
+                gameplay_state(0, "frame_00000", 0),
+                gameplay_state(1, "frame_00001", 0x0018_0001),
+                gameplay_state(2, "frame_00002", 0x0028_0001),
+            ],
+            checkpoints: vec![gameplay_state(2, "death_tail", 0x0028_0001)],
+        };
+
+        let annotated = annotate_gameplay_checkpoint_failure(
+            anyhow!("gameplay state death_tail@2 diverged in kid X"),
+            &native_capture,
+            &oracle_capture,
+            GameplayScenario::DeathRespawnLevel1,
+        );
+
+        let message = annotated.to_string();
+        assert!(message.contains("death_tail@2 diverged in kid X"));
+        assert!(message.contains("first live drift frame 2"));
+        assert!(message.contains("fields: kid_x_pos"));
+        assert!(message.contains("native context:"));
+    }
 }
