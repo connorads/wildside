@@ -162,7 +162,7 @@ const PAUSE_RESUME_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
 ];
 
-const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
+const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 5] = [
     GameplayCheckpoint {
         label: "level_settle",
         frame_index: 719,
@@ -178,6 +178,10 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     GameplayCheckpoint {
         label: "respawn_tail",
         frame_index: 1_919,
+    },
+    GameplayCheckpoint {
+        label: "respawn_bootstrap_tail",
+        frame_index: 3_305,
     },
 ];
 
@@ -876,6 +880,7 @@ mod tests {
                 ("pre_death", 1_680),
                 ("death_tail", 1_762),
                 ("respawn_tail", 1_919),
+                ("respawn_bootstrap_tail", 3_305),
             ]
         );
     }

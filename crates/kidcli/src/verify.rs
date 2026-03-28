@@ -314,6 +314,7 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
     let pre_death = gameplay_checkpoint(capture, "pre_death")?;
     let death_tail = gameplay_checkpoint(capture, "death_tail")?;
     let respawn_tail = gameplay_checkpoint(capture, "respawn_tail")?;
+    let respawn_bootstrap_tail = gameplay_checkpoint(capture, "respawn_bootstrap_tail")?;
     let final_state = capture
         .states
         .last()
@@ -334,10 +335,10 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
             respawn_tail.game_mode
         );
     }
-    if final_state.game_mode != 0x0008 {
+    if respawn_bootstrap_tail.game_mode != 0x0008 {
         bail!(
-            "death_respawn_level1 did not stay on the hidden respawn bootstrap through the current script end: 0x{:04X}",
-            final_state.game_mode
+            "death_respawn_level1 did not stay on the hidden respawn bootstrap through respawn_bootstrap_tail: 0x{:04X}",
+            respawn_bootstrap_tail.game_mode
         );
     }
     if final_state.kid_x_pos == 0 && final_state.kid_y_pos == 0 {

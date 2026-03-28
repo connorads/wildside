@@ -545,6 +545,19 @@ The backlog item stays open: the first visible `Load_InGame` return is now known
 frame `3100`, so the next work is isolating that later boundary rather than re-opening the hidden
 bootstrap before it.
 
+Latest evidence (2026-03-28, frame-3305 lower bound): the wider oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_03098_03305_step_1/` shows the
+shared hidden bootstrap still holding through frame `3305`. Native was flipping back to
+`Game_Mode=$000C` on frame `3101`, but the standard `compare-native-gameplay` path missed that
+because `death-respawn-level1` had no late bootstrap checkpoint beyond `respawn_tail@1919`.
+Fix: raise the shared respawn settle lower bound from `1310` to `1515`, add
+`death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3305`, and add
+`respawn_bootstrap_tail@3305` to the canonical gameplay scenario so both `verify-native-gameplay`
+and `compare-native-gameplay` exercise the later hidden-bootstrap bound directly. The backlog item
+stays open: the first visible `Load_InGame` return is now known to be later than frame `3305`, so
+the next work is isolating that later boundary rather than re-opening the hidden bootstrap before
+it.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

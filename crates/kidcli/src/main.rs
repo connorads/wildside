@@ -2913,13 +2913,13 @@ mod tests {
         let capture =
             capture_native_gameplay_scenario(&manifest, GameplayScenario::DeathRespawnLevel1)
                 .expect("capture");
-        assert_eq!(capture.checkpoints.len(), 4);
+        assert_eq!(capture.checkpoints.len(), 5);
         assert!(
             capture
                 .checkpoints
                 .iter()
-                .any(|state| state.label == "respawn_tail"),
-            "default native gameplay capture should reach the scripted respawn checkpoint"
+                .any(|state| state.label == "respawn_bootstrap_tail"),
+            "default native gameplay capture should reach the late hidden respawn checkpoint"
         );
     }
 
@@ -2990,7 +2990,7 @@ mod tests {
     fn gameplay_regression_verify_death_respawn_accepts_hidden_bootstrap_at_script_end() {
         let capture = GameplayCapture {
             scenario: String::from("death_respawn_level1"),
-            frame_count: 3_100,
+            frame_count: 3_306,
             missed_vblank_frames: 0,
             states: vec![
                 GameplayState {
@@ -3020,8 +3020,8 @@ mod tests {
                     number_gfx_objects: 14,
                 },
                 GameplayState {
-                    label: String::from("frame_03099"),
-                    frame_index: 3_099,
+                    label: String::from("respawn_bootstrap_tail"),
+                    frame_index: 3_305,
                     game_mode: 0x0008,
                     current_player: 0,
                     number_lives: 2,
@@ -3093,6 +3093,29 @@ mod tests {
                     number_objects: 15,
                     number_gfx_objects: 14,
                     ..gameplay_state("respawn_tail", 1_919)
+                },
+                GameplayState {
+                    label: String::from("respawn_bootstrap_tail"),
+                    frame_index: 3_305,
+                    game_mode: 0x0008,
+                    number_lives: 2,
+                    number_hitpoints: 2,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    kid_x_pos: 0x0040_0000,
+                    kid_y_pos: 0x0068_0000,
+                    kid_x_vel: Some(0),
+                    kid_y_vel: Some(0),
+                    character_movement: Some(0),
+                    kid_collision_type: Some(0),
+                    invulnerable_frames: Some(0),
+                    just_received_damage: Some(false),
+                    kid_ground_probe: None,
+                    kid_grounded_release_probe: None,
+                    kid_jump_gravity_probe: None,
+                    number_objects: 15,
+                    number_gfx_objects: 14,
+                    ..gameplay_state("respawn_bootstrap_tail", 3_305)
                 },
             ],
         };
