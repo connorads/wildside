@@ -834,7 +834,7 @@ fn gameplay_phase_shift_hint(
     oracle_capture: &GameplayCapture,
     frame_index: usize,
 ) -> Option<String> {
-    const LOOKBACK_FRAMES: usize = 8;
+    const LOOKBACK_FRAMES: usize = 64;
     const MIN_MATCHES: usize = 3;
     const POSITION_HINT_TOLERANCE_FP: u32 = 0x0001_0000;
     const VELOCITY_HINT_TOLERANCE_FP: u32 = 0x0000_4000;
@@ -881,7 +881,7 @@ fn gameplay_phase_shift_hint(
     let start_frame = *matches.first()?;
     let end_frame = *matches.last()?;
     Some(format!(
-        "phase hint: native frames {start_frame}..{end_frame} more closely match oracle one frame earlier"
+        "phase hint: native frames {start_frame}..{end_frame} more closely match oracle one frame earlier; likely phase-slip onset at frame {start_frame}"
     ))
 }
 
@@ -1502,5 +1502,6 @@ mod tests {
             .expect("phase hint should be detected");
         assert!(hint.contains("native frames 1..5"));
         assert!(hint.contains("oracle one frame earlier"));
+        assert!(hint.contains("likely phase-slip onset at frame 1"));
     }
 }

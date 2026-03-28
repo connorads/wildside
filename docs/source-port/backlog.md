@@ -388,6 +388,14 @@ at the earlier causal miss: frame `1574` in the `level_settle@719 -> pre_death@1
 This keeps the next gameplay patch focused on the first airborne X-path drift instead of the later
 death-shell hand-off.
 
+New evidence (2026-03-28, phase-slip onset): the compare hint now searches a longer lookback
+window for one-frame-native-lag patterns and reports the likely onset frame directly in the error.
+For `death-respawn-level1`, the same failing compare now reports
+`phase hint: native frames 1510..1570 more closely match oracle one frame earlier; likely phase-slip onset at frame 1510`.
+That rules out treating frame `1574` as an isolated airborne miss: the next gameplay patch should
+start at the earlier slope/ground hand-off around frame `1510`, where native first falls a frame
+behind and stays there through the later drop / landing windows.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
