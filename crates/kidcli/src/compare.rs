@@ -320,6 +320,11 @@ fn annotate_gameplay_checkpoint_failure(
     if let Some(summary) = gameplay_state_debug_summary(&first_drift.native) {
         context.push_str(&format!("; native context: {summary}"));
     }
+    if let Some(phase_shift) =
+        gameplay_phase_shift_hint(native_capture, oracle_capture, first_drift.frame_index)
+    {
+        context.push_str(&format!("; {phase_shift}"));
+    }
     message.push_str(&context);
     anyhow!(message)
 }
@@ -822,6 +827,108 @@ fn gameplay_state_debug_summary(state: &GameplayState) -> Option<String> {
         fields.push(format!("kid_grounded_release_probe={value}"));
     }
     (!fields.is_empty()).then(|| fields.join(", "))
+}
+
+fn gameplay_phase_shift_hint(
+    native_capture: &GameplayCapture,
+    oracle_capture: &GameplayCapture,
+    frame_index: usize,
+) -> Option<String> {
+    const LOOKBACK_FRAMES: usize = 8;
+    const MIN_MATCHES: usize = 3;
+    const POSITION_HINT_TOLERANCE_FP: u32 = 0x0001_0000;
+    const VELOCITY_HINT_TOLERANCE_FP: u32 = 0x0000_4000;
+
+    let start = frame_index.saturating_sub(LOOKBACK_FRAMES);
+    let mut matches = Vec::new();
+
+    for native in native_capture
+        .states
+        .iter()
+        .filter(|state| (start..=frame_index).contains(&state.frame_index))
+    {
+        let Some(same_oracle) = oracle_capture
+            .states
+            .iter()
+            .find(|state| state.frame_index == native.frame_index)
+        else {
+            continue;
+        };
+        let Some(prev_oracle) = oracle_capture
+            .states
+            .iter()
+            .find(|state| state.frame_index + 1 == native.frame_index)
+        else {
+            continue;
+        };
+
+        let same_distance = gameplay_phase_distance(native, same_oracle);
+        let prev_distance = gameplay_phase_distance(native, prev_oracle);
+
+        if prev_distance.score < same_distance.score
+            && prev_distance.position_max <= POSITION_HINT_TOLERANCE_FP
+            && prev_distance.velocity_max <= VELOCITY_HINT_TOLERANCE_FP
+            && prev_distance.character_movement_matches
+        {
+            matches.push(native.frame_index);
+        }
+    }
+
+    if matches.len() < MIN_MATCHES {
+        return None;
+    }
+
+    let start_frame = *matches.first()?;
+    let end_frame = *matches.last()?;
+    Some(format!(
+        "phase hint: native frames {start_frame}..{end_frame} more closely match oracle one frame earlier"
+    ))
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct GameplayPhaseDistance {
+    score: u128,
+    position_max: u32,
+    velocity_max: u32,
+    character_movement_matches: bool,
+}
+
+fn gameplay_phase_distance(
+    native: &GameplayState,
+    oracle: &GameplayState,
+) -> GameplayPhaseDistance {
+    let position_diffs = [
+        native.kid_x_pos.abs_diff(oracle.kid_x_pos),
+        native.kid_y_pos.abs_diff(oracle.kid_y_pos),
+    ];
+    let velocity_diffs = [
+        optional_i32_abs_diff(native.kid_x_vel, oracle.kid_x_vel),
+        optional_i32_abs_diff(native.kid_y_vel, oracle.kid_y_vel),
+    ];
+
+    let score = position_diffs
+        .into_iter()
+        .chain(velocity_diffs)
+        .map(u128::from)
+        .sum::<u128>();
+
+    let position_max = position_diffs.into_iter().max().unwrap_or(0);
+    let velocity_max = velocity_diffs.into_iter().max().unwrap_or(0);
+    let character_movement_matches = native.character_movement == oracle.character_movement
+        && native.character_movement.is_some();
+
+    GameplayPhaseDistance {
+        score,
+        position_max,
+        velocity_max,
+        character_movement_matches,
+    }
+}
+
+fn optional_i32_abs_diff(left: Option<i32>, right: Option<i32>) -> u32 {
+    left.zip(right)
+        .map(|(left, right)| left.abs_diff(right))
+        .unwrap_or(u32::MAX)
 }
 
 pub(crate) fn run_port_loop(
@@ -1356,5 +1463,44 @@ mod tests {
         assert!(message.contains("first live drift frame 2"));
         assert!(message.contains("fields: kid_x_pos"));
         assert!(message.contains("native context:"));
+    }
+
+    #[test]
+    fn gameplay_phase_shift_hint_reports_one_frame_native_lag() {
+        let native_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 7,
+            missed_vblank_frames: 0,
+            checkpoints: vec![gameplay_state(6, "death_tail", 0x0016_0000)],
+            states: vec![
+                gameplay_state(0, "frame_00000", 0x000F_0000),
+                gameplay_state(1, "frame_00001", 0x0010_0000),
+                gameplay_state(2, "frame_00002", 0x0011_0000),
+                gameplay_state(3, "frame_00003", 0x0012_0000),
+                gameplay_state(4, "frame_00004", 0x0013_0000),
+                gameplay_state(5, "frame_00005", 0x0014_0000),
+                gameplay_state(6, "frame_00006", 0x0016_0000),
+            ],
+        };
+        let oracle_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 7,
+            missed_vblank_frames: 0,
+            checkpoints: vec![gameplay_state(6, "death_tail", 0x0017_0000)],
+            states: vec![
+                gameplay_state(0, "frame_00000", 0x0010_0000),
+                gameplay_state(1, "frame_00001", 0x0011_0000),
+                gameplay_state(2, "frame_00002", 0x0012_0000),
+                gameplay_state(3, "frame_00003", 0x0013_0000),
+                gameplay_state(4, "frame_00004", 0x0014_0000),
+                gameplay_state(5, "frame_00005", 0x0015_0000),
+                gameplay_state(6, "frame_00006", 0x0017_0000),
+            ],
+        };
+
+        let hint = gameplay_phase_shift_hint(&native_capture, &oracle_capture, 6)
+            .expect("phase hint should be detected");
+        assert!(hint.contains("native frames 1..5"));
+        assert!(hint.contains("oracle one frame earlier"));
     }
 }
