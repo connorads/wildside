@@ -58,6 +58,16 @@ impl NativeRuntime {
         )
     }
 
+    fn dying_hidden_camera_still_visible(&self) -> bool {
+        matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::Dying { remaining_frames }
+                if remaining_frames
+                    > PLAYER_DEATH_HIDE_FRAMES
+                        .saturating_sub(PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES)
+        )
+    }
+
     fn current_character_movement(&self, player: PlayerState) -> u16 {
         const MOVE_STANDINGSTILL: u16 = 0;
         const MOVE_CRAWLING: u16 = 1;
@@ -1429,14 +1439,26 @@ impl NativeRuntime {
                 y_pos: camera_y_pos,
             };
         }
-        if let Some(snapshot) = self.death_shell_snapshot.as_ref()
-            && matches!(
-                self.player_lifecycle,
-                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
-            )
-        {
-            snapshot.frozen_camera
-        } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+        if let Some(snapshot) = self.death_shell_snapshot.as_ref() {
+            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
+                return snapshot.frozen_camera;
+            }
+            if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
+                && self.dying_hidden_camera_still_visible()
+            {
+                // ASM `lose_life -> Teleport -> loc_6E2`: after the hidden
+                // shell camera window ends, the trace must expose the cleared
+                // transition camera until the respawn bootstrap takes over.
+                return snapshot.frozen_camera;
+            }
+        }
+        if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+            // ASM `lose_life -> Teleport -> loc_6E2`: mode 8 clears the
+            // transition camera before the hidden respawn bootstrap later
+            // rebuilds gameplay state.
+            return CameraState::default();
+        }
+        if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             CameraState::default()
         } else {
             self.opening_slice

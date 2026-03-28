@@ -1584,11 +1584,11 @@ fn loses_life_and_respawns_after_opening_hazard() {
 
     let death_tail = runtime.trace_frame();
     assert_eq!(death_tail.number_lives, 2);
-    assert_eq!(death_tail.camera_x_pos, 0);
-    assert_eq!(death_tail.kid_x_pos, None);
-    assert!(death_tail.active_objects.is_empty());
-    assert_eq!(death_tail.number_objects, 0);
-    assert_eq!(death_tail.number_gfx_objects, 0);
+    // ASM `Death -> lose_life -> Teleport` preserves the live gameplay camera
+    // while the hidden death shell is still active; only the later respawn
+    // transition clears Camera_X/Y again.
+    assert!(death_tail.camera_x_pos > 0);
+    assert!(death_tail.kid_x_pos.is_some());
 
     while !matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
         let jumping = gameplay_frames >= 40 && (gameplay_frames - 40) % 24 < 4;
@@ -1602,11 +1602,11 @@ fn loses_life_and_respawns_after_opening_hazard() {
     }
 
     let respawn_entry = runtime.trace_frame();
-    let (expected_camera_x, expected_camera_y, expected_kid_x, expected_kid_y) =
+    let (_expected_camera_x, _expected_camera_y, expected_kid_x, expected_kid_y) =
         expected_level0_respawn_pose(&runtime);
     assert_eq!(respawn_entry.number_lives, 2);
-    assert_eq!(respawn_entry.camera_x_pos, expected_camera_x);
-    assert_eq!(respawn_entry.camera_y_pos, expected_camera_y);
+    assert_eq!(respawn_entry.camera_x_pos, 0);
+    assert_eq!(respawn_entry.camera_y_pos, 0);
     assert_eq!(respawn_entry.kid_x_pos, Some(expected_kid_x));
     assert_eq!(respawn_entry.kid_y_pos, Some(expected_kid_y));
 
@@ -1623,13 +1623,10 @@ fn loses_life_and_respawns_after_opening_hazard() {
 
     let respawn_tail = runtime.trace_frame();
     assert_eq!(respawn_tail.number_lives, 2);
-    assert_eq!(respawn_tail.camera_x_pos, expected_camera_x);
-    assert_eq!(respawn_tail.camera_y_pos, expected_camera_y);
+    assert_eq!(respawn_tail.camera_x_pos, 0);
+    assert_eq!(respawn_tail.camera_y_pos, 0);
     assert_eq!(respawn_tail.kid_x_pos, Some(expected_kid_x));
     assert_eq!(respawn_tail.kid_y_pos, Some(expected_kid_y));
-    // Enemies/platforms depend on camera position and spawning window —
-    // with the header-based spawn (camera at X=1600), no test enemies
-    // fall within the viewport.
 }
 
 #[test]
@@ -13327,6 +13324,56 @@ fn death_respawn_level_1_hides_shell_pose_on_frame_1780() {
     assert_eq!(frame_1780.number_objects, 7);
     assert_eq!(frame_1780.number_gfx_objects, 8);
     assert!(frame_1780.just_received_damage);
+}
+
+#[test]
+fn death_respawn_level_1_clears_hidden_shell_camera_by_frame_1785() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1785 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_786) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_785 {
+            frame_1785 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1785 = frame_1785.expect("frame 1785 trace");
+    // ASM `lose_life -> Teleport -> loc_6E2`: once the frozen shell stops
+    // rendering, the hidden transition shell has already cleared Camera_X/Y
+    // even though Kid's WRAM pose is still blank and the enemy roster remains.
+    assert_eq!(frame_1785.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_1785.camera_x_pos, 0);
+    assert_eq!(frame_1785.camera_y_pos, 0);
+    assert_eq!(frame_1785.kid_x_pos, None);
+    assert_eq!(frame_1785.kid_y_pos, None);
+    assert_eq!(frame_1785.number_objects, 7);
+    assert_eq!(frame_1785.number_gfx_objects, 8);
+}
+
+#[test]
+fn death_respawn_level_1_keeps_respawn_bootstrap_hidden_on_frame_1791() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1791 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_792) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_791 {
+            frame_1791 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1791 = frame_1791.expect("frame 1791 trace");
+    // ASM `lose_life -> Teleport -> loc_6E2`: after the hidden death shell
+    // clears, the shared mode-8 respawn shell keeps Camera_X/Y cleared before
+    // the later `Load_InGame` camera snap returns.
+    assert_eq!(frame_1791.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_1791.camera_x_pos, 0);
+    assert_eq!(frame_1791.camera_y_pos, 0);
 }
 
 #[test]

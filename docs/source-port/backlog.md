@@ -462,6 +462,19 @@ zero. Native now mirrors that boundary, adds
 and the first live drift now moves to frame `1785` on `camera_x_pos` / `camera_y_pos`, so the next
 work is the hidden respawn camera hand-off rather than the stale shell-pose visibility.
 
+New evidence (2026-03-28, hidden respawn camera): ASM `lose_life -> Teleport -> loc_6E2` keeps the
+live death-shell camera through frame `1784`, then clears `Camera_X_pos` / `Camera_Y_pos` while the
+shared mode-`8` respawn shell is still running. Native was reusing the frozen shell camera for all
+`Dying` frames and exposing the stale `camera=(0x0835_0000,0x00BC_0000)` hand-off through frame
+`1785`. Splitting the hidden shell pose and hidden camera windows adds
+`death_respawn_level_1_clears_hidden_shell_camera_by_frame_1785` and
+`death_respawn_level_1_keeps_respawn_bootstrap_hidden_on_frame_1791`, keeps
+`mise run verify-slice-fast` green, and makes
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1778 --frame-end
+1792 --checkpoint-interval 1` advance past the camera miss. The first live drift is now frame
+`1791` on `kid_x_pos` / `kid_y_pos` (`native 0x0020_0000`, oracle `0x0016_0000` in X), so the next
+work is the respawn pose/bootstrap placement rather than the hidden camera reset.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

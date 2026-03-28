@@ -255,6 +255,10 @@ pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
 // shell pose visible only for the first 21 hidden frames before Kid's WRAM
 // coordinates clear while the respawn shell still holds camera/object state.
 pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 21;
+// Oracle-backed `lose_life -> Teleport -> loc_6E2` traces keep the frozen
+// shell camera for five extra hidden frames after Kid's WRAM pose clears, then
+// zero Camera_X/Y before the later respawn bootstrap takes over.
+pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 26;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // through death_respawn_level1@1919, so the native settle window must still
 // outlast that smoke checkpoint after the earlier death hand-off.
