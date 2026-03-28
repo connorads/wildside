@@ -588,6 +588,23 @@ again, and `mise run verify-slice-fast` stays green. Surprise worth keeping: the
 “frame-4000 visible return” hypothesis was only native surfacing `Load_InGame` too early; the ROM
 is still parked in the hidden title-card bootstrap well past that boundary.
 
+Latest evidence (2026-03-28, frame-5000 lower bound): extending the canonical
+`death-respawn-level1` scenario past the old `4499` checkpoint proved native was still exposing
+`Load_InGame` too early. `probe-native-gameplay --scenario death-respawn-level1 --frame-start 4498
+--frame-end 5000` showed native flipping back to visible `InGame` on frame `4500`, and the
+oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_04498_05000_step_1/` shows that the
+ROM is still in the hidden mode-`8` bootstrap with the cleared camera, `(x=$40,y=$68)` hold pose,
+and `number_lives=2` through `respawn_bootstrap_tail@5000`. Fix: raise the shared respawn settle
+lower bound from `2709` to `3210`, move the canonical `respawn_bootstrap_tail` checkpoint to frame
+`5000`, and replace the focused regression with
+`death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_5000`. Both
+`cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1` and
+`cargo run -q -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 4498 --frame-end 5000 --checkpoint-interval 1`
+are green again. Surprise worth keeping: the tempting “frame-4500 visible return” hypothesis was
+wrong for the same reason as the earlier 4000-frame guess; it was another native-only early
+`Load_InGame`, not the ROM finally leaving the hidden respawn bootstrap.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
