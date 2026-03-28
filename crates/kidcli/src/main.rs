@@ -2990,7 +2990,7 @@ mod tests {
     fn gameplay_regression_verify_death_respawn_accepts_hidden_bootstrap_at_script_end() {
         let capture = GameplayCapture {
             scenario: String::from("death_respawn_level1"),
-            frame_count: 2_219,
+            frame_count: 3_000,
             missed_vblank_frames: 0,
             states: vec![
                 GameplayState {
@@ -3020,8 +3020,8 @@ mod tests {
                     number_gfx_objects: 14,
                 },
                 GameplayState {
-                    label: String::from("frame_02218"),
-                    frame_index: 2_218,
+                    label: String::from("frame_02999"),
+                    frame_index: 2_999,
                     game_mode: 0x0008,
                     current_player: 0,
                     number_lives: 2,
@@ -3098,7 +3098,7 @@ mod tests {
         };
 
         crate::verify::verify_death_respawn_level_1(&capture)
-            .expect("current death/respawn smoke path should end on the hidden bootstrap");
+            .expect("extended death/respawn smoke path should still end on the hidden bootstrap");
     }
 
     #[test]

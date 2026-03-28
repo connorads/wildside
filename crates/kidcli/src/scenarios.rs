@@ -536,7 +536,7 @@ impl GameplayScenario {
     pub fn frame_count(self) -> usize {
         match self {
             Self::PauseResumeLevel1 => 1_120,
-            Self::DeathRespawnLevel1 => 2_219,
+            Self::DeathRespawnLevel1 => 3_000,
             Self::ProgressTwoTransitions => 3_301,
             Self::SoakLevel10m => 36_720,
         }
@@ -580,8 +580,8 @@ impl GameplayScenario {
                 apply_range(&mut script, 900, 1_350, (1 << 3) | (1 << 6));
                 add_periodic_jump(&mut script, 940, 1_350, 24, 4);
                 apply_range(&mut script, 1_351, 1_559, 1 << 3);
-                apply_range(&mut script, 1_560, 2_218, 1 << 3);
-                add_periodic_jump(&mut script, 1_600, 2_218, 28, 3);
+                apply_range(&mut script, 1_560, 3_000, 1 << 3);
+                add_periodic_jump(&mut script, 1_600, 3_000, 28, 3);
             }
             Self::ProgressTwoTransitions => {
                 apply_range(&mut script, 600, 899, 1 << 3);
@@ -857,12 +857,12 @@ mod tests {
         assert_eq!(script[1_460] & 0x80, 0);
         assert_eq!(script[1_520] & 0x80, 0);
         assert_eq!(script[1_560] & (1 << 3), 1 << 3);
-        assert_eq!(script[2_218] & (1 << 3), 1 << 3);
+        assert_eq!(script[3_000] & (1 << 3), 1 << 3);
     }
 
     #[test]
     fn gameplay_death_scenario_extends_past_the_hidden_respawn_bootstrap() {
-        assert_eq!(GameplayScenario::DeathRespawnLevel1.frame_count(), 2_219);
+        assert_eq!(GameplayScenario::DeathRespawnLevel1.frame_count(), 3_000);
         assert_eq!(
             GameplayScenario::DeathRespawnLevel1
                 .checkpoints()

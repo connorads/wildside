@@ -13466,6 +13466,45 @@ fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2216() {
 }
 
 #[test]
+fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2999() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_2998 = None;
+    let mut frame_2999 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_000) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            2_998 => frame_2998 = Some(trace),
+            2_999 => {
+                frame_2999 = Some(trace);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let frame_2998 = frame_2998.expect("frame 2998 trace");
+    let frame_2999 = frame_2999.expect("frame 2999 trace");
+    // Oracle-backed `compare-native-gameplay --scenario death-respawn-level1`
+    // still reports mode-8 hidden bootstrap frames through 2999. Until the
+    // later visible `Load_InGame` return is isolated, native must keep the
+    // same hidden hold pose instead of exposing gameplay early.
+    assert_eq!(frame_2998.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_2998.camera_x_pos, 0);
+    assert_eq!(frame_2998.camera_y_pos, 0);
+    assert_eq!(frame_2998.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_2998.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_2999.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_2999.camera_x_pos, 0);
+    assert_eq!(frame_2999.camera_y_pos, 0);
+    assert_eq!(frame_2999.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_2999.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_2999.number_lives, 2);
+    assert_eq!(frame_2999.number_hitpoints, 2);
+}
+
+#[test]
 fn death_respawn_level_1_releases_ground_once_post_step_support_is_gone() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
@@ -16825,7 +16864,7 @@ fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>
 }
 
 fn death_respawn_level_1_script() -> Vec<u8> {
-    let mut script = vec![0u8; 2_219 + 1];
+    let mut script = vec![0u8; 3_000 + 1];
     for &frame in &BOOT_TO_LEVEL_START_FRAMES {
         script[frame] |= 0x80;
     }
@@ -16841,11 +16880,11 @@ fn death_respawn_level_1_script() -> Vec<u8> {
             *slot |= 1 << 4;
         }
     }
-    for slot in &mut script[1_351..=2_218] {
+    for slot in &mut script[1_351..=3_000] {
         *slot |= 1 << 3;
     }
-    for frame in (1_600..=2_218).step_by(28) {
-        let jump_end = 2_218.min(frame + 2);
+    for frame in (1_600..=3_000).step_by(28) {
+        let jump_end = 3_000.min(frame + 2);
         for slot in &mut script[frame..=jump_end] {
             *slot |= 1 << 4;
         }
