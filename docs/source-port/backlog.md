@@ -366,6 +366,20 @@ still narrowed correctly: `compare-native-gameplay-window --scenario death-respa
 on object counts (`native 4`, `oracle 6`). The remaining work is unchanged: identify which late
 Level 1 objects the oracle keeps alive into the pause frame and mirror that lifecycle in native.
 
+New evidence (2026-03-28, dragon landing contact): the late Level 1 death route was still missing
+the walking-dragon edge contact on the fresh landing window. The native gameplay compare now uses
+the same extended `death_respawn_level_1_script()` as `kidcli`'s canonical
+`death-respawn-level1` scenario, and a focused regression
+`death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684` locks the ROM-backed result:
+the landing frame `1683` may expose the dragon touch, but the HP drop must wait until frame
+`1684`. Native now gives grounded, non-falling `DragonWalking` contact one extra pixel of reach
+while deferring that fresh-landing hit until the following frame, so
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1680 --frame-end
+1696 --checkpoint-interval 1` passes and `mise run verify-slice-fast` stays green. The full
+compare still fails later at `death_tail@1762` on `game_mode` (`native 0x000C`, oracle `0x0008`),
+so the remaining work is now the later death/respawn shell hand-off rather than the late landing
+contact itself.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.

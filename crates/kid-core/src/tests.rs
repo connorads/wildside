@@ -2760,18 +2760,17 @@ fn pit_death_triggers_death_and_respawn() {
         slice.player.y_pos = level_height_fp + (1 << 16);
         slice.player.on_ground = false;
     }
-    runtime.step_frame(FrameInput::default());
-
     let pre_lives = runtime.progression.number_lives;
     runtime.step_frame(FrameInput::default());
 
-    // Should be in death windup
+    // Pit deaths can skip straight into the hidden countdown if the forced
+    // below-level pose already satisfies the death hand-off on the next frame.
     assert!(
         matches!(
             runtime.player_lifecycle,
-            PlayerLifecycle::DeathWindup { .. }
+            PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
         ),
-        "expected DeathWindup, got {:?}",
+        "expected DeathWindup or Dying, got {:?}",
         runtime.player_lifecycle
     );
     assert_eq!(
@@ -2779,8 +2778,11 @@ fn pit_death_triggers_death_and_respawn() {
         "pit death sets HP to 0"
     );
 
-    // Advance through death windup + dying phases
+    // Advance until the hidden death countdown begins.
     for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+        if matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+            break;
+        }
         runtime.step_frame(FrameInput::default());
     }
     assert!(
@@ -2865,8 +2867,12 @@ fn spike_death_triggers_death_and_respawn() {
 
     let pre_lives = runtime.progression.number_lives;
 
-    // Advance through death windup
+    // Spike deaths can also short-circuit the visible windup if the contact
+    // already satisfied the death hand-off, so wait until the hidden countdown.
     for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+        if matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+            break;
+        }
         runtime.step_frame(FrameInput::default());
     }
     assert!(
@@ -2880,8 +2886,11 @@ fn spike_death_triggers_death_and_respawn() {
         "should lose a life"
     );
 
-    // Advance through dying phase
+    // Advance through the hidden death countdown.
     for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
+        if matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+            break;
+        }
         runtime.step_frame(FrameInput::default());
     }
     assert!(
@@ -13174,6 +13183,28 @@ fn death_respawn_level_1_rubber_wall_hit_rebounds_without_entering_wall_cling() 
 }
 
 #[test]
+fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1684 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_685) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_684 {
+            frame_1684 = Some(trace);
+        }
+    }
+
+    let frame_1684 = frame_1684.expect("frame 1684 trace");
+    // ASM Character_CheckCollision (kid.asm loc_B700/loc_B72C) consumes the
+    // walking dragon edge contact on the landing frame, so this late Level 1
+    // death path must already drop to 0 HP with Just_received_damage set on
+    // frame 1684 rather than surviving into a buffered jump on 1685.
+    assert_eq!(frame_1684.number_hitpoints, 0);
+    assert!(frame_1684.just_received_damage);
+}
+
+#[test]
 fn rubber_block_ceiling_hit_queues_jiggle_without_destroying_cell() {
     let mut runtime = NativeRuntime::new(manifest());
     let w: u16 = 16;
@@ -16513,6 +16544,15 @@ fn death_respawn_level_1_script() -> Vec<u8> {
     }
     for frame in (940..=1_350).step_by(24) {
         let jump_end = 1_350.min(frame + 3);
+        for slot in &mut script[frame..=jump_end] {
+            *slot |= 1 << 4;
+        }
+    }
+    for slot in &mut script[1_351..=1_919] {
+        *slot |= 1 << 3;
+    }
+    for frame in (1_600..=1_919).step_by(28) {
+        let jump_end = 1_919.min(frame + 2);
         for slot in &mut script[frame..=jump_end] {
             *slot |= 1 << 4;
         }

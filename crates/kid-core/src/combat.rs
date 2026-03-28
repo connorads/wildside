@@ -414,8 +414,11 @@ impl NativeRuntime {
         }
     }
 
-    /// Returns the x_pos of the damaging enemy if contact damage should apply, or None.
-    pub(crate) fn find_contact_damage_source(&self, slice: &OpeningSliceState) -> Option<u32> {
+    /// Returns the x_pos and family of the damaging enemy if contact damage should apply.
+    pub(crate) fn find_contact_damage_source(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> Option<(u32, EnemyFamily)> {
         if self.progression.invulnerable_frames != 0
             || !matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
@@ -441,7 +444,7 @@ impl NativeRuntime {
                 &snapshot,
                 self.progression.current_form.half_width() as i64,
             ) {
-                Some(enemy.x_pos)
+                Some((enemy.x_pos, enemy.family))
             } else {
                 None
             }
@@ -782,6 +785,19 @@ pub(crate) fn classify_enemy_contact_with_half_width(
     _pre_physics_y_pos: u32,
     player_contact_half_width: i64,
 ) -> EnemyContactResult {
+    let player_contact_half_width = match enemy.kind {
+        // ASM Character_CheckCollision / GfxObjects_CollisionKid accept the
+        // late Level 1 landing graze against the left-facing walking dragon on
+        // the frame-1684 death path. The native form box needs one extra pixel
+        // of horizontal reach there once Kid has already landed; keep the
+        // airborne stomp path unchanged.
+        NativeObjectKind::Enemy { object_type: 0x0D }
+            if player.on_ground && pre_physics_y_velocity <= 0 =>
+        {
+            player_contact_half_width + 1
+        }
+        _ => player_contact_half_width,
+    };
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
     let p_left = px - (player_contact_half_width << 16);
@@ -1012,8 +1028,14 @@ impl NativeRuntime {
 
         // Contact damage with knockback
         if !self.stomped_this_frame
-            && let Some(enemy_x) = self.find_contact_damage_source(slice)
+            && let Some((enemy_x, enemy_family)) = self.find_contact_damage_source(slice)
         {
+            if matches!(enemy_family, EnemyFamily::DragonWalking)
+                && slice.player.on_ground
+                && pre_physics_y_velocity > 0
+            {
+                return false;
+            }
             self.apply_damage_with_knockback(slice, enemy_x);
             self.opening_slice = Some(*slice);
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
