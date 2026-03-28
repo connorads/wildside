@@ -2990,7 +2990,7 @@ mod tests {
     fn gameplay_regression_verify_death_respawn_accepts_hidden_bootstrap_at_script_end() {
         let capture = GameplayCapture {
             scenario: String::from("death_respawn_level1"),
-            frame_count: 3_000,
+            frame_count: 3_100,
             missed_vblank_frames: 0,
             states: vec![
                 GameplayState {
@@ -3020,8 +3020,8 @@ mod tests {
                     number_gfx_objects: 14,
                 },
                 GameplayState {
-                    label: String::from("frame_02999"),
-                    frame_index: 2_999,
+                    label: String::from("frame_03099"),
+                    frame_index: 3_099,
                     game_mode: 0x0008,
                     current_player: 0,
                     number_lives: 2,

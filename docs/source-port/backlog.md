@@ -531,6 +531,20 @@ came from native-only probing after we extended the script, not from the oracle-
 remaining work is still to isolate the first visible `Load_InGame` return beyond frame `2999`,
 not to re-open the already-fixed hidden bootstrap shell before that bound.
 
+Latest evidence (2026-03-28, frame-3100 lower bound): extending the death/respawn tooling to probe
+past frame `2999` showed the native runtime exposing `Load_InGame` too early on frame `3000`, while
+the oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_02990_03100_step_1/` keeps
+`game_mode=0x0008`, `camera=(0,0)`, the hidden hold pose `(x=$40,y=$68)`, and `15/14` object
+counts through frame `3100`. Fix: raise the shared respawn settle lower bound from `1209` to
+`1310`, align the canonical `death-respawn-level1` scenario and verifier to a `3100`-frame hidden
+bootstrap capture, and add `death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3100`.
+Both `cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1` and
+`cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1` are green again.
+The backlog item stays open: the first visible `Load_InGame` return is now known to be later than
+frame `3100`, so the next work is isolating that later boundary rather than re-opening the hidden
+bootstrap before it.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

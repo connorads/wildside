@@ -13505,6 +13505,49 @@ fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_2999() {
 }
 
 #[test]
+fn death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_3100() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_3099 = None;
+    let mut frame_3100 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_101) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            3_099 => frame_3099 = Some(trace),
+            3_100 => {
+                frame_3100 = Some(trace);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let frame_3099 = frame_3099.expect("frame 3099 trace");
+    let frame_3100 = frame_3100.expect("frame 3100 trace");
+    // ASM `lose_life -> Teleport -> loc_6E2` still owns the hidden mode-8
+    // bootstrap here. Oracle-backed window compare keeps the cleared camera,
+    // `(x=$40,y=$68)` hold pose, and 15/14 object counts through frame 3100,
+    // so native must not expose `Load_InGame` on that frame yet.
+    assert_eq!(frame_3099.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_3099.camera_x_pos, 0);
+    assert_eq!(frame_3099.camera_y_pos, 0);
+    assert_eq!(frame_3099.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_3099.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_3099.number_objects, 15);
+    assert_eq!(frame_3099.number_gfx_objects, 14);
+    assert_eq!(frame_3100.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_3100.camera_x_pos, 0);
+    assert_eq!(frame_3100.camera_y_pos, 0);
+    assert_eq!(frame_3100.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_3100.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_3100.number_objects, 15);
+    assert_eq!(frame_3100.number_gfx_objects, 14);
+    assert_eq!(frame_3100.number_lives, 2);
+    assert_eq!(frame_3100.number_hitpoints, 2);
+}
+
+#[test]
 fn death_respawn_level_1_releases_ground_once_post_step_support_is_gone() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
@@ -16864,7 +16907,7 @@ fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>
 }
 
 fn death_respawn_level_1_script() -> Vec<u8> {
-    let mut script = vec![0u8; 3_000 + 1];
+    let mut script = vec![0u8; 4_000 + 1];
     for &frame in &BOOT_TO_LEVEL_START_FRAMES {
         script[frame] |= 0x80;
     }
