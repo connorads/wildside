@@ -169,6 +169,7 @@ impl NativeRuntime {
         self.boot_state = BootState::StartingLevel {
             remaining_frames: TITLE_TO_LEVEL_FRAMES,
         };
+        self.player_lifecycle = PlayerLifecycle::Alive;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.pending_level_skip = None;

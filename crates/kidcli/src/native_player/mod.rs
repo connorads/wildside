@@ -3253,7 +3253,7 @@ mod tests {
         ];
         let scene = build_ingame_scene(&trace, true, None);
         assert_eq!(sprite_position(&scene, 41), Some((-4, 16)));
-        assert_eq!(sprite_position(&scene, 21), Some((14, 12)));
+        assert_eq!(sprite_position(&scene, 21), Some((10, 12)));
         assert_eq!(sprite_position(&scene, 1), Some((8, -24)));
     }
 

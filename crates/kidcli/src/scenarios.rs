@@ -922,8 +922,9 @@ mod tests {
 
     #[test]
     fn gameplay_scenario_window_keeps_named_checkpoint_labels_when_they_land_in_range() {
+        // Window [1679, 1681] spans the pre_death checkpoint at frame 1680.
         let dynamic = GameplayScenario::DeathRespawnLevel1
-            .to_dynamic_window(1_278, 1_280, 1)
+            .to_dynamic_window(1_679, 1_681, 1)
             .expect("dynamic gameplay window");
         assert_eq!(
             dynamic
@@ -932,9 +933,9 @@ mod tests {
                 .map(|checkpoint| (checkpoint.label.as_str(), checkpoint.frame_index))
                 .collect::<Vec<_>>(),
             vec![
-                ("frame_01278", 1_278),
-                ("pre_death", 1_279),
-                ("frame_01280", 1_280),
+                ("frame_01679", 1_679),
+                ("pre_death", 1_680),
+                ("frame_01681", 1_681),
             ]
         );
     }
