@@ -661,6 +661,25 @@ counter drift” mystery; frame `6001` immediately exposed that native had re-en
 gameplay 500 frames too early, so the right fix was another oracle-backed lower-bound bump rather
 than a new hidden-bootstrap behaviour change.
 
+Latest evidence (2026-03-28, frame-7000 lower bound): extending the canonical
+`death-respawn-level1` scenario to frame `7000` proved the old `6500` cutoff was still too short.
+The widened oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_06498_07000_step_1/` keeps
+`Game_Mode=$0008`, the cleared camera, the hidden hold pose `(x=$40,y=$68)`, and `2/2` lives/HP
+through `respawn_bootstrap_tail@7000`. Native was still exposing `Load_InGame` on frame `6501`,
+so the shared respawn settle lower bound was still ending 500 frames too early. Fix: raise the
+shared respawn settle lower bound from `4710` to `5210`, move the canonical
+`respawn_bootstrap_tail` checkpoint to frame `7000`, replace the focused regression with
+`death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_7000`, and keep the shared
+scenario/verifier scaffolding aligned with the longer hidden shell. Both
+`cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1`,
+`cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1`, and
+`cargo run -q -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 6498 --frame-end 7000 --checkpoint-interval 1`
+are green again. Surprise worth keeping: the visible respawn return is still later than frame
+`7000`; the new oracle window shows the same hidden bootstrap shell all the way through the wider
+bound, so the next step is extending the scripted capture again rather than changing the bootstrap
+behaviour below that boundary.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
