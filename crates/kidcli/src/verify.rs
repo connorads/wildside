@@ -314,6 +314,10 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
     let pre_death = gameplay_checkpoint(capture, "pre_death")?;
     let death_tail = gameplay_checkpoint(capture, "death_tail")?;
     let respawn_tail = gameplay_checkpoint(capture, "respawn_tail")?;
+    let final_state = capture
+        .states
+        .last()
+        .context("death_respawn_level1 capture produced no gameplay states")?;
     if level_settle.game_mode != 0x000C || pre_death.game_mode != 0x000C {
         bail!("death_respawn_level1 never stabilised in gameplay before the death window");
     }
@@ -324,13 +328,19 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
             death_tail.number_lives
         );
     }
-    if respawn_tail.game_mode != 0x000C {
+    if respawn_tail.game_mode != 0x0008 {
         bail!(
-            "death_respawn_level1 did not return to gameplay mode after death: 0x{:04X}",
+            "death_respawn_level1 did not stay on the hidden respawn bootstrap at respawn_tail: 0x{:04X}",
             respawn_tail.game_mode
         );
     }
-    if respawn_tail.camera_x_pos == 0 && respawn_tail.kid_x_pos == 0 {
+    if final_state.game_mode != 0x000C {
+        bail!(
+            "death_respawn_level1 did not return to gameplay mode after death: 0x{:04X}",
+            final_state.game_mode
+        );
+    }
+    if final_state.camera_x_pos == 0 && final_state.kid_x_pos == 0 {
         bail!("death_respawn_level1 respawned into an invalid position");
     }
 

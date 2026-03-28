@@ -32,8 +32,8 @@ cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
   - `resumed_tail@1119`
 - `death_respawn_level1`
   - `level_settle@719`
-  - `pre_death@1279`
-  - `death_tail@1439`
+  - `pre_death@1680`
+  - `death_tail@1762`
   - `respawn_tail@1919`
 
 ## Rust-side targets
@@ -48,5 +48,6 @@ cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 
 - The gameplay lifecycle slice now uses `compare-native-gameplay` for pause/resume and death/respawn checkpoints.
 - The native runtime now models visible death windup, hidden death frames, and respawn settle as explicit lifecycle phases.
+- The smoke verifier now runs past `respawn_tail@1919` and checks the final scripted state for the later visible gameplay return, instead of treating the hidden mode-`8` bootstrap as if gameplay had already resumed.
 - There are no remaining open Level 1 gameplay lifecycle research tasks in this dossier for the pause/death/respawn slice.
 - The next tracked frontier after this slice is `docs/source-port/level-1-full-traversal.md`.

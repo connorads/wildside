@@ -493,6 +493,16 @@ oracle-backed compare proves the canonical capture is still in the hidden mode-`
 that checkpoint. The next work on `#123` is updating the smoke scenario/checkpoint to run through
 the later visible respawn return, not changing the hidden respawn bootstrap again.
 
+Latest evidence (2026-03-28, smoke checkpoint repair): the canonical `death-respawn-level1` script
+now runs past the old hidden-bootstrap cutoff, so `verify-native-gameplay` no longer mistakes
+`respawn_tail@1919` for the visible gameplay return. The smoke verifier now still requires the
+hidden mode-`8` bootstrap at `respawn_tail@1919`, then checks the final scripted state for the
+later visible return instead of hard-coding the old stale checkpoint. `cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1`
+and `cargo test -p kidcli gameplay_death_scenario_ -- --nocapture` pass again. The gameplay-parity
+item stays open, though: extending the compare window shows the oracle-backed respawn return is
+still later than native, so the remaining work is now that later `Load_InGame` hand-off timing
+rather than the stale smoke gate itself.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
