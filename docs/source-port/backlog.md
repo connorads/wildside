@@ -736,6 +736,26 @@ return is still later than frame `8500`; the oracle still holds the same hidden 
 the way through the wider bound, so the next step stays the same when this research line is picked
 up again.
 
+Latest evidence (2026-03-28, frame-9000 lower bound): extending the canonical
+`death-respawn-level1` scenario to frame `9000` proved the old `8500` cutoff was still too short.
+The widened oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_08498_09000_step_1/` keeps
+`Game_Mode=$0008`, the cleared camera, the hidden hold pose `(x=$40,y=$68)`, `2/2` lives/HP, and
+`15/14` object counts through `respawn_bootstrap_tail@9000`. Native would have exposed
+`Load_InGame` on frame `8501`, so the shared respawn settle lower bound was still ending 500 frames
+too early. Fix: raise the shared respawn settle lower bound from `6710` to `7210`, move the
+canonical `respawn_bootstrap_tail` checkpoint to frame `9000`, replace the focused regression with
+`death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_9000`, and keep the shared
+scenario/verifier scaffolding aligned with the longer hidden shell. Both
+`cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1` and the
+oracle-backed window summary for
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_08498_09000_step_1/` show native
+and oracle still matching the hidden bootstrap on frames `8501`, `8999`, and `9000`. Surprise
+worth keeping: the visible respawn return is still later than frame `9000`; another tempting
+"this must be the hand-off window" guess was wrong, so if this optional gameplay research line is
+reopened the next step remains extending the scripted capture rather than changing the hidden
+bootstrap behaviour below that boundary.
+
 Closure evidence (2026-03-28, project-state cleanup): that “next step” is no longer pending work.
 `cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1` now passes,
 `cargo run -q -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1212 --frame-end 1220 --checkpoint-interval 1`
