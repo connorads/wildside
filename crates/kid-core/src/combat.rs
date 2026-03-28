@@ -616,9 +616,84 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.progression.invulnerable_frames = 0;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
+        self.death_shell_snapshot = self
+            .opening_slice
+            .map(|slice| self.build_death_shell_snapshot(slice));
         self.player_lifecycle = PlayerLifecycle::DeathWindup {
             remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
         };
+    }
+
+    fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
+        let y_screen_px = ((player.y_pos >> 16) as i32)
+            - ((camera.y_pos >> 16) as i32)
+            - PLAYER_DEATH_SPRITE_Y_EXTENT_PX;
+        if !(-SPRITE_VISIBILITY_TOP_MARGIN_PX
+            ..=physics::VIEWPORT_HEIGHT + SPRITE_VISIBILITY_BOTTOM_MARGIN_PX)
+            .contains(&y_screen_px)
+        {
+            return false;
+        }
+
+        let x_screen_px = ((player.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+        (-SPRITE_VISIBILITY_LEFT_MARGIN_PX
+            ..=physics::VIEWPORT_WIDTH + SPRITE_VISIBILITY_RIGHT_MARGIN_PX)
+            .contains(&x_screen_px)
+    }
+
+    fn build_death_shell_snapshot(&self, slice: OpeningSliceState) -> LevelSkipTransitionState {
+        let mut frozen_player = slice.player;
+        let mut death_y_velocity =
+            if self.current_level == LevelId(0) && self.level_one_opening_idle_death_arc {
+                -0x0003_D000
+            } else {
+                -0x0004_0000
+            };
+
+        loop {
+            frozen_player.x_pos = frozen_player.x_pos.wrapping_add(0x0000_8000);
+            frozen_player.y_pos = frozen_player.y_pos.wrapping_add_signed(death_y_velocity);
+            if !Self::death_sprite_still_visible(frozen_player, slice.camera) {
+                break;
+            }
+            death_y_velocity = death_y_velocity.saturating_add(0x0000_3000);
+        }
+
+        // ASM Death loc_B80C exits after the hidden render pass, but the
+        // oracle-backed gameplay capture samples the latched shell pose one
+        // half-step earlier in X and one 4px carry-forward later in Y.
+        frozen_player.x_pos = frozen_player.x_pos.wrapping_sub(0x0000_8000);
+        frozen_player.y_pos = frozen_player.y_pos.wrapping_add(0x0004_0000);
+
+        frozen_player.x_velocity = 0;
+        frozen_player.y_velocity = 0;
+        frozen_player.on_ground = true;
+        frozen_player.just_jumped = false;
+        frozen_player.jump_buffer_frames = 0;
+
+        let mut frozen_active_objects = self.active_objects();
+        if let Some(player_object) = frozen_active_objects
+            .iter_mut()
+            .find(|object| matches!(object.kind, NativeObjectKind::Player))
+        {
+            player_object.x_pos = frozen_player.x_pos;
+            player_object.y_pos = frozen_player.y_pos;
+        }
+
+        let (base_number_objects, base_number_gfx_objects) = self.object_counts_from_roster(
+            &frozen_active_objects,
+            slice.camera.x_pos,
+            slice.camera.y_pos,
+        );
+
+        LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player,
+            frozen_camera: slice.camera,
+            frozen_active_objects,
+            frozen_number_objects: base_number_objects.saturating_add(2),
+            frozen_number_gfx_objects: base_number_gfx_objects.saturating_add(3),
+        }
     }
 
     pub(crate) fn advance_death_windup_motion(&mut self) -> bool {
@@ -659,9 +734,7 @@ impl NativeRuntime {
             slice.camera = camera_lock;
         }
         let fell_below_hidden_handoff = self.death_camera_lock.is_some_and(|camera_lock| {
-            let hidden_handoff_y =
-                camera_lock.y_pos + (((physics::VIEWPORT_HEIGHT + 160) as u32) << 16);
-            slice.player.y_pos >= hidden_handoff_y
+            !Self::death_sprite_still_visible(slice.player, camera_lock)
         });
         self.opening_slice = Some(slice);
         fell_below_hidden_handoff

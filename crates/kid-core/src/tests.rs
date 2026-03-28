@@ -1451,16 +1451,21 @@ fn death_windup_keeps_player_motion_alive() {
     runtime.begin_death_windup();
 
     let launch = runtime.step_frame(FrameInput::default());
+    let launch_slice = runtime.opening_slice.expect("launch slice");
     let after = runtime.step_frame(FrameInput::default());
+    let after_slice = runtime.opening_slice.expect("after slice");
 
     assert!(matches!(
         runtime.player_lifecycle,
-        PlayerLifecycle::DeathWindup { .. }
+        PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
     ));
     assert_eq!(launch.camera_x_pos, before.camera_x_pos);
     assert_eq!(launch.camera_y_pos, before.camera_y_pos);
-    assert_ne!(after.kid_x_pos, before.kid_x_pos);
-    assert_ne!(after.kid_y_pos, before.kid_y_pos);
+    assert_eq!(
+        launch_slice.player.x_pos,
+        before.kid_x_pos.expect("pre-death x")
+    );
+    assert_eq!(after_slice.player.x_pos, launch_slice.player.x_pos);
     assert_eq!(after.camera_x_pos, before.camera_x_pos);
     assert_eq!(after.camera_y_pos, before.camera_y_pos);
 }
@@ -1482,17 +1487,14 @@ fn grounded_death_windup_uses_tumble_arc_and_exits_before_fallback_timeout() {
     runtime.begin_death_windup();
 
     let launch = runtime.step_frame(FrameInput::default());
-    let arc_step = runtime.step_frame(FrameInput::default());
+    runtime.step_frame(FrameInput::default());
+    let arc_slice = runtime.opening_slice.expect("death arc slice");
     assert!(matches!(
         runtime.player_lifecycle,
         PlayerLifecycle::DeathWindup { .. }
     ));
-    assert!(
-        arc_step.kid_x_pos.expect("grounded death arc x") > before.kid_x_pos.expect("pre-death x")
-    );
-    assert!(
-        arc_step.kid_y_pos.expect("grounded death arc y") < before.kid_y_pos.expect("pre-death y")
-    );
+    assert!(arc_slice.player.x_pos > before.kid_x_pos.expect("pre-death x"));
+    assert!(arc_slice.player.y_pos < before.kid_y_pos.expect("pre-death y"));
     assert_eq!(launch.camera_y_pos, before.camera_y_pos);
 
     let mut frames = 2usize;
@@ -13202,6 +13204,33 @@ fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
     // frame 1684 rather than surviving into a buffered jump on 1685.
     assert_eq!(frame_1684.number_hitpoints, 0);
     assert!(frame_1684.just_received_damage);
+}
+
+#[test]
+fn death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1758 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_759) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_758 {
+            frame_1758 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1758 = frame_1758.expect("frame 1758 trace");
+    // Oracle-backed death-respawn traces expose the post-Death shell pose on
+    // frame 1758 even though `Game_Mode` is still `$000C` on that outer frame.
+    // Matching that frozen pose keeps the later shell hand-off narrowed to the
+    // following frame instead of drifting on the visible death arc itself.
+    assert_eq!(frame_1758.game_mode, GameMode::InGame);
+    assert_eq!(frame_1758.kid_x_pos, Some(0x08FF_0000));
+    assert_eq!(frame_1758.kid_y_pos, Some(0x023F_5000));
+    assert_eq!(frame_1758.number_objects, 7);
+    assert_eq!(frame_1758.number_gfx_objects, 8);
+    assert!(frame_1758.just_received_damage);
 }
 
 #[test]

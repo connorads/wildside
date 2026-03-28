@@ -407,6 +407,18 @@ already in the fresh post-damage shell (`just_received_damage=1`, `character_mov
 native is still on the airborne jump path. The remaining work is now that later post-damage
 death-tail hand-off, not the old late walking release.
 
+New evidence (2026-03-28, frozen shell pose): the fatal-hit path was still tracing native's
+invented visible death arc all the way to `death_tail@1762`, even though the oracle-backed gameplay
+capture already exposes the frozen post-`Death loc_B7FA -> loc_B80C` shell pose on frame `1758`.
+Precomputing that shell snapshot at fatal-hit start and reusing it in trace output adds
+`death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758`, makes
+`probe-native-gameplay --scenario death-respawn-level1 --frame-start 1758 --frame-end 1760`
+report the oracle-backed `kid=(0x08FF0000,0x023F5000)` / `objects=7/8` shell pose on frame `1758`,
+and moves the first authoritative miss in
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1758 --frame-end 1760 --checkpoint-interval 1`
+to frame `1759` on `game_mode`, `number_lives`, and `number_hitpoints`. The remaining work is now
+the next-frame `lose_life -> Game_Mode=$0008` hand-off, not the shell pose itself.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

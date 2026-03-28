@@ -37,6 +37,7 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.death_camera_lock = None;
+        self.death_shell_snapshot = None;
     }
 
     fn logical_level_ids(&self) -> Option<Vec<LevelId>> {
@@ -110,6 +111,7 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.progression.invulnerable_frames = 0;
         self.death_camera_lock = None;
+        self.death_shell_snapshot = None;
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
         };
@@ -153,6 +155,7 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.progression.invulnerable_frames = 0;
         self.death_camera_lock = None;
+        self.death_shell_snapshot = None;
         self.paused = false;
         self.boot_state = BootState::InGame;
         self.player_lifecycle = PlayerLifecycle::Respawning {
@@ -167,6 +170,7 @@ impl NativeRuntime {
             remaining_frames: TITLE_TO_LEVEL_FRAMES,
         };
         self.death_camera_lock = None;
+        self.death_shell_snapshot = None;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
         self.level_skip_transition = None;
@@ -257,6 +261,7 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.paused = false;
         self.pause_toggle_pending = false;
+        self.death_shell_snapshot = None;
         self.reload_block_grid_for_level(level_id);
     }
 

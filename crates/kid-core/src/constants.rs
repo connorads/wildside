@@ -255,6 +255,16 @@ pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
 // through death_respawn_level1@1919, so the native settle window must still
 // outlast that smoke checkpoint after the earlier death hand-off.
 pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 425;
+// ASM `Make_SpriteFromGfxObject` checks the death sprite against the normal
+// `$160/-$80` Y visibility window using the death frame's vertical extent, not
+// a generic "viewport + 160px" threshold. `kid_death.bin` carries height
+// `$1B`, so the hidden death shell does not latch until that full footprint
+// falls below the camera window.
+pub(crate) const PLAYER_DEATH_SPRITE_Y_EXTENT_PX: i32 = 0x1B;
+pub(crate) const SPRITE_VISIBILITY_BOTTOM_MARGIN_PX: i32 = 0x80;
+pub(crate) const SPRITE_VISIBILITY_TOP_MARGIN_PX: i32 = 0x80;
+pub(crate) const SPRITE_VISIBILITY_RIGHT_MARGIN_PX: i32 = 0x40;
+pub(crate) const SPRITE_VISIBILITY_LEFT_MARGIN_PX: i32 = 0x40;
 /// ASM: Game Over display holds for 0x1A3 (419) frames.
 pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
 /// ASM: Continue countdown: 28 initial pause + 291 countdown = 319 frames.

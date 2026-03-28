@@ -56,6 +56,15 @@ impl NativeRuntime {
         const MOVE_WALL_CLIMBING: u16 = 4;
         const MOVE_UPHILL_DOWNHILL: u16 = 6;
 
+        if self.death_shell_snapshot.is_some()
+            && matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            )
+        {
+            return MOVE_STANDINGSTILL;
+        }
+
         if self.helmet.iron_knight_climbing || player.wall_cling_direction.is_some() {
             return MOVE_WALL_CLIMBING;
         }
@@ -464,7 +473,12 @@ impl NativeRuntime {
             options_controls_scheme: self.options_controls_scheme,
             options_speed_button_fast: self.options_speed_button_fast,
             invulnerable_frames: self.progression.invulnerable_frames,
-            just_received_damage: self.just_received_damage,
+            just_received_damage: self.just_received_damage
+                || (self.death_shell_snapshot.is_some()
+                    && matches!(
+                        self.player_lifecycle,
+                        PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+                    )),
             diamond_power_active: self.progression.diamond_power_frames > 0,
             diamond_count: self.progression.diamond_count,
             score: self.progression.score,
@@ -1156,6 +1170,12 @@ impl NativeRuntime {
     }
 
     pub fn game_mode(&self) -> GameMode {
+        if matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::Dying { .. } | PlayerLifecycle::Respawning { .. }
+        ) {
+            return GameMode::LevelTransition;
+        }
         if matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.demo_auto_timeout_handoff_active
         {
@@ -1284,7 +1304,14 @@ impl NativeRuntime {
             }
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
-                if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+                if let Some(snapshot) = self.death_shell_snapshot.as_ref()
+                    && matches!(
+                        self.player_lifecycle,
+                        PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+                    )
+                {
+                    Some(snapshot.frozen_player)
+                } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
                     None
                 } else {
                     self.opening_slice.map(|slice| slice.player)
@@ -1395,7 +1422,14 @@ impl NativeRuntime {
                 y_pos: camera_y_pos,
             };
         }
-        if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+        if let Some(snapshot) = self.death_shell_snapshot.as_ref()
+            && matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            )
+        {
+            snapshot.frozen_camera
+        } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             CameraState::default()
         } else {
             self.opening_slice
@@ -1445,6 +1479,14 @@ impl NativeRuntime {
             && frame_counter < self.demo_gameplay_start_frame(use_demo_2)
         {
             return Vec::new();
+        }
+        if let Some(snapshot) = self.death_shell_snapshot.as_ref()
+            && matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            )
+        {
+            return snapshot.frozen_active_objects.clone();
         }
         if !matches!(
             self.boot_state,
@@ -1531,6 +1573,17 @@ impl NativeRuntime {
             } else {
                 (0, 0)
             };
+        }
+        if let Some(snapshot) = self.death_shell_snapshot.as_ref()
+            && matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            )
+        {
+            return (
+                snapshot.frozen_number_objects,
+                snapshot.frozen_number_gfx_objects,
+            );
         }
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             return (0, 0);
