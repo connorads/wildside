@@ -718,6 +718,24 @@ are green again. Surprise worth keeping: the visible respawn return is still lat
 bound, so the next step is extending the scripted capture again rather than changing the bootstrap
 behaviour below that boundary.
 
+Latest evidence (2026-03-28, frame-8500 lower bound): extending the canonical
+`death-respawn-level1` scenario to frame `8500` proved the old `8000` cutoff was still too short.
+The widened oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_07998_08500_step_1/` keeps
+`Game_Mode=$0008`, the cleared camera, the hidden hold pose `(x=$40,y=$68)`, and `2/2` lives/HP
+with `15/14` object counts through `respawn_bootstrap_tail@8500`. Native would have exposed
+`Load_InGame` on frame `8001`, so the shared respawn settle lower bound was still ending 500 frames
+too early. Fix: raise the shared respawn settle lower bound from `6210` to `6710`, move the
+canonical `respawn_bootstrap_tail` checkpoint to frame `8500`, replace the focused regression with
+`death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_8500`, and keep the shared
+scenario/verifier scaffolding aligned with the longer hidden shell. Both
+`cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1`,
+`cargo run -q -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 7998 --frame-end 8500 --checkpoint-interval 1`,
+and `mise run verify-slice-fast` are green again. Surprise worth keeping: the visible respawn
+return is still later than frame `8500`; the oracle still holds the same hidden bootstrap shell all
+the way through the wider bound, so the next step stays the same when this research line is picked
+up again.
+
 Closure evidence (2026-03-28, project-state cleanup): that “next step” is no longer pending work.
 `cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1` now passes,
 `cargo run -q -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1212 --frame-end 1220 --checkpoint-interval 1`
