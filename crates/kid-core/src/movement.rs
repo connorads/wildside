@@ -2072,6 +2072,9 @@ impl OpeningSliceState {
                     }
                 };
                 if can_land {
+                    let rubber_rebound = !was_on_ground
+                        && probe.cell.has_block
+                        && probe.cell.block_type == terrain::BlockType::Rubber;
                     let should_apply_slope_recontact = !was_on_ground
                         && self.player.y_velocity < 0
                         && matches!(
@@ -2080,6 +2083,7 @@ impl OpeningSliceState {
                         );
                     if !was_on_ground
                         && horizontal_step_applied
+                        && !rubber_rebound
                         && !matches!(
                             probe.cell.collision,
                             terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
@@ -2104,14 +2108,14 @@ impl OpeningSliceState {
                             (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
                     }
                     let incoming_y_velocity = self.player.y_velocity;
-                    let rubber_rebound = !was_on_ground
-                        && probe.cell.has_block
-                        && probe.cell.block_type == terrain::BlockType::Rubber;
                     if rubber_rebound {
                         // ASM sub_902A -> sub_914A -> loc_91F6 -> loc_9082:
                         // a fresh downward contact on rubber snaps to the
                         // contact row, clears the sub-pixel, then restores the
                         // negated incoming y_vel instead of settling grounded.
+                        // The rebound branch keeps the frame's horizontal carry;
+                        // unlike the normal landing path, loc_9082 does not
+                        // rewind x_pos after the contact-row snap.
                         self.player.on_ground = false;
                         self.player.y_velocity = -incoming_y_velocity;
                         self.player.on_spikes = false;

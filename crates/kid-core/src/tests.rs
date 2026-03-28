@@ -13020,6 +13020,38 @@ fn rubber_block_landing_rebounds_player_and_queues_jiggle() {
 }
 
 #[test]
+fn rubber_block_rebound_keeps_horizontal_carry_on_contact_frame() {
+    let w: u16 = 16;
+    let h: u16 = 16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let idx = (4 * w + 2) as usize * 2;
+    data[idx] = 0xE6;
+    data[idx + 1] = 0x00;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    slice.player.x_velocity = 0x0002_0000;
+    slice.player.y_velocity = 0x0003_0000;
+    slice.player.x_pos = 0x0026_0000;
+    slice.player.y_pos = 0x003F_0000;
+
+    slice.apply_floor_collision(Some(&grid), false, true, PLAYER_HALF_WIDTH, true);
+
+    // ASM sub_902A -> sub_914A -> loc_91F6 -> loc_9082 keeps the landing
+    // frame's horizontal carry when rubber flips the downward contact into a
+    // rebound; only normal floor landings rewind the just-applied x step.
+    assert_eq!(slice.player.x_pos, 0x0026_0000);
+    assert_eq!(slice.player.y_pos, 0x003F_0000);
+    assert_eq!(slice.player.y_velocity, -0x0003_0000);
+    assert!(!slice.player.on_ground);
+}
+
+#[test]
 fn death_respawn_level_1_rubber_contact_rebounds_into_jump_path() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();

@@ -332,6 +332,17 @@ the first authoritative miss moves to frame `1283` on `kid_x_pos` (native `0x05F
 `0x05F7B3C0`), so the remaining work is the later post-rebound airborne X path rather than the old
 frame-`1217` rubber contact.
 
+New evidence (2026-03-28, rebound carry): ASM `sub_902A -> sub_914A -> loc_91F6 -> loc_9082`
+keeps the fresh rubber rebound on the airborne path without rewinding the just-applied horizontal
+step. Native was still running the generic non-slope landing rewind before the rubber rebound
+branch, which froze `x_pos` on frame `1283` even though `x_vel` stayed positive. Skipping that
+rewind for fresh rubber contacts adds
+`rubber_block_rebound_keeps_horizontal_carry_on_contact_frame`, keeps the existing
+`death_respawn_level_1_*` regressions green, and moves
+`diagnose-native-gameplay-drift --scenario death-respawn-level1 --from-frame 1200` later to frame
+`1293`. The remaining miss is now a later wall-cling branch mismatch (`character_movement` native
+`0x0004`, oracle `0x0003`) rather than the rubber-contact carry itself.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
