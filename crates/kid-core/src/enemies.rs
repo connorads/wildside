@@ -2742,10 +2742,6 @@ pub(crate) fn step_hand(
     }
 }
 
-/// Lion charge detection range — primary trigger is $60 (96px) at loc_3E450/3E604.
-/// $A0 (160px) is used for turnaround hysteresis, not charge trigger.
-pub(crate) const LION_DETECT_RANGE: i32 = 0x60;
-
 /// Lion charge speed: $28000 for HP==8, $18000 otherwise (Lion.asm lines 36-48).
 /// Also used as walk speed — ASM sets both $50(a5) and $5E(a5) from same value.
 pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
@@ -2753,7 +2749,8 @@ pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
 }
 
 /// Lion charge timer: starts at $3C (60 frames), counts down while pacing.
-/// When timer expires and player is in range, Lion charges.
+/// ASM loc_3E078: on expiry, unconditionally starts roar → charge regardless
+/// of Kid distance.  Reload is $B4 (180) via LION_COOLDOWN_AFTER_FIRE.
 pub(crate) const LION_CHARGE_TIMER_INIT: u16 = 60;
 
 /// Lion post-projectile cooldown: $B4 (180 frames) before next charge after
@@ -2792,22 +2789,21 @@ pub(crate) fn step_lion(
             // Pace like normal
             step_pacer(enemy, block_grid);
 
-            // Count down charge timer
+            // Count down charge timer.  ASM loc_3E078: timer always ticks and
+            // the charge fires unconditionally on expiry (no Kid distance gate).
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
                 return;
             }
 
-            // Timer expired — check if player is in range ($60 = 96px)
+            // Timer expired — face the player and start charging.
+            // ASM loc_3E0D6/loc_3E0DA: after roar, always turns toward Kid.
             let Some(px) = player_x_pos else {
-                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+                // No player info (shouldn't happen in practice) — reload.
+                enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                 return;
             };
             let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-            if dx.abs() > i64::from(LION_DETECT_RANGE) {
-                enemy.wait_timer = LION_CHARGE_TIMER_INIT;
-                return;
-            }
 
             // Face the player and start charging
             enemy.facing = if dx >= 0 {

@@ -10670,22 +10670,29 @@ fn lion_paces_then_charges_when_timer_expires_and_player_in_range() {
 }
 
 #[test]
-fn lion_does_not_charge_when_player_out_of_range() {
+fn lion_charges_unconditionally_when_timer_expires_regardless_of_distance() {
+    // ASM loc_3E078: timer expiry always starts roar → charge, no distance gate.
+    // The distance check at loc_3E03C only affects facing direction and the $4E
+    // "has seen Kid" flag, NOT whether the timer ticks or fires.
     let grid = grid_with_platform(17, 0, 120);
     let floor_y = (17 * 16) << 16;
     let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
     enemy.lion_state = LionState::Walking;
     enemy.on_ground = true;
     enemy.wait_timer = 0;
-    let player_x = Some((60 + 0xFF) << 16); // far away, beyond $60 range
+    let player_x = Some((60 + 0xFF) << 16); // far away (255px)
     let mut projs = vec![];
     step_lion(&mut enemy, Some(&grid), player_x, &mut Some(&mut projs));
     assert_eq!(
         enemy.lion_state,
-        LionState::Walking,
-        "should not charge when player too far"
+        LionState::Charging,
+        "ASM charges unconditionally on timer expiry — no distance gate"
     );
-    assert!(projs.is_empty());
+    assert_eq!(
+        projs.len(),
+        1,
+        "should fire projectile even when Kid is far"
+    );
 }
 
 #[test]
