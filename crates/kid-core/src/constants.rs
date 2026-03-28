@@ -262,10 +262,10 @@ pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 26;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // far longer than the old 428-frame placeholder: the canonical
 // `death-respawn-level1` window compare still reports the mode-8 bootstrap hold
-// pose through frame 3999. Keep the shared respawn shell alive through that
+// pose through frame 4499. Keep the shared respawn shell alive through that
 // lower bound; the later visible `Load_InGame` return is still a separate
 // frontier.
-pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 2_209;
+pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 2_709;
 // ASM `lose_life -> Teleport -> loc_6E2` keeps Level 1 on a hidden mode-8
 // bootstrap before `Load_InGame` later restores the grounded respawn pose.
 // Oracle-backed traces slide from `(x=$160,y=$44)` to the usual hold pose
