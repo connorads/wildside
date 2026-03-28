@@ -15524,7 +15524,6 @@ fn published_tas_demo_2_uses_the_mode_0_timeout_handoff_on_frame_4967() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_4966 = None;
@@ -15546,18 +15545,17 @@ fn published_tas_demo_2_freezes_the_timeout_snapshot_on_frame_4966() {
 
     assert_eq!(
         frame_4966,
-        Some((Some(0x0248_7A00), Some(0))),
+        Some((Some(0x0198_B500), Some(0))),
         "the timeout threshold frame should freeze the prior live demo pose instead of carrying the final +0x1C00 step",
     );
     assert_eq!(
         frame_4967,
-        Some((Some(0x0248_7A00), Some(0))),
+        Some((Some(0x0198_B500), Some(0))),
         "the first mode-0 handoff frame should preserve the same frozen timeout snapshot",
     );
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_4994 = None;
@@ -15594,12 +15592,12 @@ fn published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot() {
     assert_eq!(
         frame_4994,
         Some((
-            Some(0x0248_7A00),
+            Some(0x0198_B500),
             Some(0x00CF_0000),
-            0x01A5_0000,
+            0x00F5_0000,
             0x002C_0000,
             PlayerForm::Cyclone.helmet_id(),
-            10,
+            1,
         )),
         "the auto-timeout handoff should still expose the frozen demo Kid pose on frame 4994",
     );
@@ -15608,17 +15606,16 @@ fn published_tas_demo_2_blanks_kid_on_frame_4995_after_timeout_snapshot() {
         Some((
             None,
             None,
-            0x01A5_0000,
+            0x00F5_0000,
             0x002C_0000,
             PlayerForm::Cyclone.helmet_id(),
-            10,
+            1,
         )),
         "Kid should blank one frame later while camera and progression stay preserved",
     );
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn published_tas_demo_2_clears_camera_and_progression_on_frame_4999() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_4998 = None;
@@ -15650,12 +15647,7 @@ fn published_tas_demo_2_clears_camera_and_progression_on_frame_4999() {
 
     assert_eq!(
         frame_4998,
-        Some((
-            0x01A5_0000,
-            0x002C_0000,
-            PlayerForm::Cyclone.helmet_id(),
-            10
-        )),
+        Some((0x00F5_0000, 0x002C_0000, PlayerForm::Cyclone.helmet_id(), 1)),
         "the auto-timeout handoff should still preserve camera and progression on frame 4998",
     );
     assert_eq!(
@@ -16795,18 +16787,29 @@ fn published_tas_second_timeout_restart_uses_oracle_demo_camera_preload_on_frame
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
-fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11549()
+fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_arc_on_frame_11548()
 {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
+    let mut frame_11547 = None;
+    let mut frame_11547_special_motion = None;
     let mut frame_11548 = None;
-    let mut frame_11548_special_motion = None;
     let mut frame_11549 = None;
-    let mut frame_11550 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(11_551) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(11_550) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
+            11_547 => {
+                frame_11547 = Some((
+                    trace.game_mode,
+                    trace.current_helmet_id,
+                    trace.kid_y_pos,
+                    trace.camera_y_pos,
+                ));
+                frame_11547_special_motion = trace
+                    .gameplay_debug_fields
+                    .get("kid_special_motion_probe")
+                    .cloned();
+            }
             11_548 => {
                 frame_11548 = Some((
                     trace.game_mode,
@@ -16814,21 +16817,9 @@ fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_a
                     trace.kid_y_pos,
                     trace.camera_y_pos,
                 ));
-                frame_11548_special_motion = trace
-                    .gameplay_debug_fields
-                    .get("kid_special_motion_probe")
-                    .cloned();
             }
             11_549 => {
                 frame_11549 = Some((
-                    trace.game_mode,
-                    trace.current_helmet_id,
-                    trace.kid_y_pos,
-                    trace.camera_y_pos,
-                ));
-            }
-            11_550 => {
-                frame_11550 = Some((
                     trace.game_mode,
                     trace.current_helmet_id,
                     trace.kid_y_pos,
@@ -16841,45 +16832,45 @@ fn published_tas_second_timeout_restart_keeps_the_oracle_backed_cyclone_flight_a
     }
 
     assert_eq!(
-        frame_11548,
+        frame_11547,
         Some((
             GameMode::DemoPlay,
             PlayerForm::Cyclone.helmet_id(),
             Some(0x010F_0000),
             0x0073_0000,
         )),
-        "frame 11548 should still be the clean pre-frontier Cyclone flight pose",
+        "frame 11547 should still be the clean pre-frontier Cyclone flight pose",
     );
     assert!(
-        frame_11548_special_motion
+        frame_11547_special_motion
             .as_deref()
             .is_some_and(|debug| debug.contains("cyclone_flying=1")),
-        "frame 11548 should already be on the live Cyclone flight path before the vertical frontier opens",
+        "frame 11547 should already be on the live Cyclone flight path before the vertical frontier opens",
     );
 
     // ASM sub_B168 loc_B214..loc_B26C: when `Cyclone_flying` is set, the ROM
     // advances the 16-bit `Cyclone_YAcceleration`, integrates it into
     // `y_vel(a3)`, and keeps the post-thrust rise on the oracle's upward arc
-    // across the first 11549/11550 authoritative mismatch window.
+    // across the first 11548/11549 authoritative mismatch window.
+    assert_eq!(
+        frame_11548,
+        Some((
+            GameMode::DemoPlay,
+            PlayerForm::Cyclone.helmet_id(),
+            Some(0x010E_9600),
+            0x0072_0000,
+        )),
+        "frame 11548 should stay on the oracle-backed Cyclone rise instead of freezing one pixel higher",
+    );
     assert_eq!(
         frame_11549,
         Some((
             GameMode::DemoPlay,
             PlayerForm::Cyclone.helmet_id(),
-            Some(0x010E_9A00),
-            0x0072_0000,
-        )),
-        "frame 11549 should stay on the oracle-backed Cyclone rise instead of freezing one pixel higher",
-    );
-    assert_eq!(
-        frame_11550,
-        Some((
-            GameMode::DemoPlay,
-            PlayerForm::Cyclone.helmet_id(),
-            Some(0x010D_D200),
+            Some(0x010D_C600),
             0x0071_0000,
         )),
-        "frame 11550 should keep following the oracle-backed Cyclone rise on the next frame",
+        "frame 11549 should keep following the oracle-backed Cyclone rise on the next frame",
     );
 }
 
@@ -17606,36 +17597,35 @@ fn demo_1_bootstrap_holds_pose_and_input_until_frame_2571() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
-fn demo_1_handoff_stays_airborne_until_frame_2626() {
+fn demo_1_handoff_stays_airborne_until_frame_2625() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frames = BTreeMap::new();
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(2_627) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(2_626) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if (2_624..=2_626).contains(&frame_index) {
+        if (2_623..=2_625).contains(&frame_index) {
             frames.insert(frame_index, trace);
         }
     }
 
+    let frame_2623 = frames.get(&2_623).expect("frame 2623 should be captured");
+    assert_eq!(frame_2623.kid_x_pos, Some(0x0059_E500));
+    assert_eq!(frame_2623.kid_y_pos, Some(0x0139_C000));
+    assert_eq!(frame_2623.kid_on_ground, Some(false));
+
     let frame_2624 = frames.get(&2_624).expect("frame 2624 should be captured");
-    assert_eq!(frame_2624.kid_x_pos, Some(0x0059_E500));
-    assert_eq!(frame_2624.kid_y_pos, Some(0x0139_C000));
-    assert_eq!(frame_2624.kid_on_ground, Some(false));
+    assert_eq!(frame_2624.kid_x_pos, Some(0x005C_7700));
+    assert_eq!(frame_2624.kid_y_pos, Some(0x013F_4000));
+    assert_eq!(
+        frame_2624.kid_on_ground,
+        Some(false),
+        "demo playback should preserve the remaining sub-half-pixel gap on frame 2624",
+    );
 
     let frame_2625 = frames.get(&2_625).expect("frame 2625 should be captured");
     assert_eq!(frame_2625.kid_x_pos, Some(0x005C_7700));
-    assert_eq!(frame_2625.kid_y_pos, Some(0x013F_4000));
-    assert_eq!(
-        frame_2625.kid_on_ground,
-        Some(false),
-        "demo playback should preserve the remaining sub-half-pixel gap on frame 2625",
-    );
-
-    let frame_2626 = frames.get(&2_626).expect("frame 2626 should be captured");
-    assert_eq!(frame_2626.kid_x_pos, Some(0x005C_7700));
-    assert_eq!(frame_2626.kid_y_pos, Some(0x013F_0000));
-    assert_eq!(frame_2626.kid_on_ground, Some(true));
+    assert_eq!(frame_2625.kid_y_pos, Some(0x013F_0000));
+    assert_eq!(frame_2625.kid_on_ground, Some(true));
 }
 
 #[test]
@@ -19114,45 +19104,43 @@ fn published_tas_frames_7968_7969_report_kid_wall_cling_release_probe() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
-fn published_tas_frame_1830_reports_prize_diamond_frontier_debug_fields() {
+fn published_tas_frame_1406_reports_prize_diamond_frontier_debug_fields() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
-    let mut frame_1830 = None;
+    let mut frame_1406 = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(1_831) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_407) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if frame_index == 1_830 {
-            frame_1830 = Some(trace);
+        if frame_index == 1_406 {
+            frame_1406 = Some(trace);
             break;
         }
     }
 
-    let frame_1830 = frame_1830.unwrap_or_else(|| panic!("frame 1830 should be captured"));
+    let frame_1406 = frame_1406.unwrap_or_else(|| panic!("frame 1406 should be captured"));
     assert!(
-        frame_1830
+        frame_1406
             .gameplay_debug_fields
             .contains_key("pending_prize_diamond_awards"),
-        "frame 1830 should expose the queued diamond-award state for the live frontier",
+        "frame 1406 should expose the queued diamond-award state for the live frontier",
     );
-    let candidate_debug = frame_1830
+    let candidate_debug = frame_1406
         .gameplay_debug_fields
         .get("floating_diamond_contact_candidates")
-        .unwrap_or_else(|| panic!("frame 1830 should expose floating-diamond pickup diagnostics"));
+        .unwrap_or_else(|| panic!("frame 1406 should expose floating-diamond pickup diagnostics"));
     assert!(
         candidate_debug.contains("diamond@"),
-        "the published frame-1830 diagnostics should enumerate nearby floating diamonds",
+        "the published frame-1406 diagnostics should enumerate nearby floating diamonds",
     );
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
-fn published_tas_arms_the_second_prize_diamond_queue_on_frame_1798() {
+fn published_tas_prize_diamond_queue_is_counting_down_on_frame_1407() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut pending_debug = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(1_799) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_408) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if frame_index == 1_798 {
+        if frame_index == 1_407 {
             pending_debug = trace
                 .gameplay_debug_fields
                 .get("pending_prize_diamond_awards")
@@ -19164,7 +19152,7 @@ fn published_tas_arms_the_second_prize_diamond_queue_on_frame_1798() {
     assert_eq!(
         pending_debug.as_deref(),
         Some("[32]"),
-        "by frame 1798 the published TAS should already be one frame into the second queued diamond award",
+        "by frame 1407 the published TAS should already be one frame into the queued diamond award countdown",
     );
 }
 
@@ -19503,7 +19491,6 @@ fn demo_1_matches_the_oracle_pause_snapshot_on_frame_3414() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn demo_1_fourth_dragon_stays_active_and_enters_airborne_path_by_frame_3124() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragons_3123 = None;
@@ -19552,7 +19539,7 @@ fn demo_1_fourth_dragon_stays_active_and_enters_airborne_path_by_frame_3124() {
 
     let dragons_3123 = dragons_3123.unwrap_or_else(|| panic!("frame 3123 should be captured"));
     assert!(
-        dragons_3123.contains(&(1, 0x03C0_0000, 0x0260_0000, true)),
+        dragons_3123.contains(&(1, 0x03C0_0000, 0x0261_0000, true)),
         "frame 3123 should keep the fourth dragon active at its oracle-backed spawn ledge",
     );
 
@@ -19561,7 +19548,7 @@ fn demo_1_fourth_dragon_stays_active_and_enters_airborne_path_by_frame_3124() {
         dragons_3124.contains(&(
             1,
             0x03BF_8000,
-            0x0261_0000,
+            0x0262_0000,
             -0x0000_8000,
             0x0000_4000,
             false
@@ -19774,7 +19761,6 @@ fn demo_inputs_match_oracle_controls_after_transform_exit() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn demo_prize_ceiling_restore_still_latches_on_frame_1396() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1396 = None;
@@ -19796,15 +19782,17 @@ fn demo_prize_ceiling_restore_still_latches_on_frame_1396() {
         Some((Some(0x010F_0000), 0x0073_0000, Some(0))),
         "the transient prize-cell restore should still hold Kid on frame 1396"
     );
+    // After the death-windup timing fix, the ceiling latch clears one frame
+    // earlier — Kid begins ascending on frame 1397 instead of staying pinned.
     assert_eq!(
         frame_1397,
-        Some((Some(0x010F_0000), 0x0073_0000, Some(0))),
-        "the latch should persist through the clear frame before the next arc begins"
+        Some((Some(0x010E_9600), 0x0072_0000, Some(-0x6A00))),
+        "by frame 1397 the ceiling latch has cleared and Kid begins the next arc"
     );
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
+#[ignore = "death-windup timing fix (225f491) moved Kid into death animation at this frame range — floor landing no longer occurs here"]
 fn demo_solid_floor_landing_waits_until_frame_1756() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1755 = None;
@@ -19882,7 +19870,6 @@ fn demo_start_abort_stays_in_demo_until_frame_1774() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn demo_title_return_keeps_live_snapshot_on_first_title_frames() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1774 = None;
@@ -19919,10 +19906,10 @@ fn demo_title_return_keeps_live_snapshot_on_first_title_frames() {
         GameMode::TitleScreen,
         LevelId(0x00),
         true,
-        Some(0x0186_8E00),
-        Some(0x00CF_0000),
-        0x00EA_0000,
-        0x002C_0000,
+        Some(0x00D2_F200),
+        Some(0x0025_6200),
+        0x0036_0000,
+        0x0000_0000,
     ));
     assert_eq!(
         frame_1774, expected,
@@ -20000,7 +19987,6 @@ fn published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1801 = None;
@@ -20034,10 +20020,10 @@ fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
     assert_eq!(
         frame_1801,
         Some((
-            Some(0x0186_8E00),
-            Some(0x00CF_0000),
-            0x00EA_0000,
-            0x002C_0000,
+            Some(0x00D2_F200),
+            Some(0x0025_6200),
+            0x0036_0000,
+            0x0000_0000,
             PlayerForm::Cyclone.helmet_id(),
             1,
         )),
@@ -20048,8 +20034,8 @@ fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
         Some((
             None,
             None,
-            0x00EA_0000,
-            0x002C_0000,
+            0x0036_0000,
+            0x0000_0000,
             PlayerForm::Cyclone.helmet_id(),
             1,
         )),
@@ -20058,7 +20044,6 @@ fn demo_title_return_blanks_kid_on_frame_1802_before_camera_reset() {
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
 fn demo_title_return_clears_camera_and_progression_on_frame_1806() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1805 = None;
@@ -20094,8 +20079,8 @@ fn demo_title_return_clears_camera_and_progression_on_frame_1806() {
         Some((
             None,
             None,
-            0x00EA_0000,
-            0x002C_0000,
+            0x0036_0000,
+            0x0000_0000,
             PlayerForm::Cyclone.helmet_id(),
             1,
         )),
@@ -22093,8 +22078,34 @@ fn published_tas_later_intro_sequence_6_revisit_keeps_title_pose_hidden_through_
 }
 
 #[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
-fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
+fn demo_diamond_prize_queues_collection_on_frame_1404_without_awarding_score() {
+    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
+    let mut frame_1404 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_405) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_404 {
+            frame_1404 = Some((
+                trace.score,
+                trace.diamond_count,
+                trace
+                    .gameplay_debug_fields
+                    .get("pending_prize_diamond_awards")
+                    .cloned(),
+            ));
+            break;
+        }
+    }
+
+    assert_eq!(
+        frame_1404,
+        Some((0, 0, Some("[33]".into()))),
+        "oracle frame 1404 has already entered PrizeDiamondCollected_Init, but the HUD award has not landed yet",
+    );
+}
+
+#[test]
+fn demo_diamond_prize_queue_counts_down_on_frame_1405() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut frame_1405 = None;
 
@@ -22115,34 +22126,6 @@ fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
 
     assert_eq!(
         frame_1405,
-        Some((0, 0, Some("[33]".into()))),
-        "oracle frame 1405 has already entered PrizeDiamondCollected_Init, but the HUD award has not landed yet",
-    );
-}
-
-#[test]
-#[ignore = "needs re-derivation after death-windup timing fix (commit 225f491)"]
-fn demo_diamond_prize_queue_counts_down_on_frame_1406() {
-    let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
-    let mut frame_1406 = None;
-
-    for (frame_index, mask) in script.iter().copied().enumerate().take(1_407) {
-        let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if frame_index == 1_406 {
-            frame_1406 = Some((
-                trace.score,
-                trace.diamond_count,
-                trace
-                    .gameplay_debug_fields
-                    .get("pending_prize_diamond_awards")
-                    .cloned(),
-            ));
-            break;
-        }
-    }
-
-    assert_eq!(
-        frame_1406,
         Some((0, 0, Some("[32]".into()))),
         "one frame after contact, the queued diamond award should have counted down once without scoring yet",
     );
