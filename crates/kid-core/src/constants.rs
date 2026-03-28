@@ -263,6 +263,18 @@ pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 26;
 // through death_respawn_level1@1919, so the native settle window must still
 // outlast that smoke checkpoint after the earlier death hand-off.
 pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 425;
+// ASM `lose_life -> Teleport -> loc_6E2` keeps Level 1 on a hidden mode-8
+// bootstrap before `Load_InGame` later restores the grounded respawn pose.
+// Oracle-backed traces slide from `(x=$160,y=$44)` to the usual hold pose
+// `(x=$40,y=$68)` over 65 frames, then idle there until the visible settle
+// resumes.
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES: usize = 65;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP: u32 = 0x0160_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP: u32 = 0x0044_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP: u32 = 0x0040_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP: u32 = 0x0068_0000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP: i32 = -0x0004_8000;
+pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP: i32 = 0x0000_9000;
 // ASM `Make_SpriteFromGfxObject` checks the death sprite against the normal
 // `$160/-$80` Y visibility window using the death frame's vertical extent, not
 // a generic "viewport + 160px" threshold. `kid_death.bin` carries height

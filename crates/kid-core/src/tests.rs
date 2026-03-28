@@ -24,6 +24,13 @@ fn expected_level0_respawn_pose(runtime: &NativeRuntime) -> (u32, u32, u32, u32)
     )
 }
 
+fn expected_level0_respawn_bootstrap_pose() -> (u32, u32) {
+    (
+        PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP,
+        PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP,
+    )
+}
+
 fn imported_early_start_boot_script() -> Vec<u8> {
     let mut script = vec![0; TITLE_SCREEN_READY_GLOBAL_FRAME + 1];
     for frame in [33usize, 77, 135, 137, 178] {
@@ -2801,9 +2808,11 @@ fn pit_death_triggers_death_and_respawn() {
         runtime.player_lifecycle
     );
 
-    // Player should be back at level start position (header-derived)
+    // ASM `lose_life -> Teleport -> loc_6E2` enters the hidden mode-8
+    // bootstrap first; the grounded header-derived respawn pose only returns
+    // later when `Load_InGame` resumes.
     let trace = runtime.trace_frame();
-    let (_, _, expected_kid_x, expected_kid_y) = expected_level0_respawn_pose(&runtime);
+    let (expected_kid_x, expected_kid_y) = expected_level0_respawn_bootstrap_pose();
     assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
     assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
 }
@@ -2894,9 +2903,11 @@ fn spike_death_triggers_death_and_respawn() {
         runtime.player_lifecycle
     );
 
-    // Player should be back at level start position (header-derived)
+    // ASM `lose_life -> Teleport -> loc_6E2` enters the hidden mode-8
+    // bootstrap first; the grounded header-derived respawn pose only returns
+    // later when `Load_InGame` resumes.
     let trace = runtime.trace_frame();
-    let (_, _, expected_kid_x, expected_kid_y) = expected_level0_respawn_pose(&runtime);
+    let (expected_kid_x, expected_kid_y) = expected_level0_respawn_bootstrap_pose();
     assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
     assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
 }
@@ -13374,6 +13385,45 @@ fn death_respawn_level_1_keeps_respawn_bootstrap_hidden_on_frame_1791() {
     assert_eq!(frame_1791.game_mode, GameMode::LevelTransition);
     assert_eq!(frame_1791.camera_x_pos, 0);
     assert_eq!(frame_1791.camera_y_pos, 0);
+    assert_eq!(frame_1791.kid_x_pos, Some(0x0160_0000));
+    assert_eq!(frame_1791.kid_y_pos, Some(0x0044_0000));
+    assert_eq!(frame_1791.character_movement, Some(0));
+    assert_eq!(frame_1791.number_objects, 15);
+    assert_eq!(frame_1791.number_gfx_objects, 13);
+}
+
+#[test]
+fn death_respawn_level_1_uses_hidden_respawn_bootstrap_path_through_frame_1855() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1809 = None;
+    let mut frame_1855 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_856) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            1_809 => frame_1809 = Some(trace),
+            1_855 => {
+                frame_1855 = Some(trace);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let frame_1809 = frame_1809.expect("frame 1809 trace");
+    let frame_1855 = frame_1855.expect("frame 1855 trace");
+    // ASM `lose_life -> Teleport -> loc_6E2`: the hidden Level 1 respawn shell
+    // reuses the mode-8 bootstrap slide before `Load_InGame` later restores
+    // the grounded respawn pose. Oracle shows the 65-frame sweep from
+    // `(x=$160,y=$44)` to the usual hold pose `(x=$40,y=$68)`.
+    assert_eq!(frame_1809.kid_x_pos, Some(0x010F_0000));
+    assert_eq!(frame_1809.kid_y_pos, Some(0x004E_2000));
+    assert_eq!(frame_1855.kid_x_pos, Some(0x0040_0000));
+    assert_eq!(frame_1855.kid_y_pos, Some(0x0068_0000));
+    assert_eq!(frame_1855.character_movement, Some(0));
+    assert_eq!(frame_1855.number_objects, 15);
+    assert_eq!(frame_1855.number_gfx_objects, 14);
 }
 
 #[test]

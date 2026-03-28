@@ -475,6 +475,24 @@ shared mode-`8` respawn shell is still running. Native was reusing the frozen sh
 `1791` on `kid_x_pos` / `kid_y_pos` (`native 0x0020_0000`, oracle `0x0016_0000` in X), so the next
 work is the respawn pose/bootstrap placement rather than the hidden camera reset.
 
+New evidence (2026-03-28, respawn bootstrap placement): ASM `lose_life -> Teleport -> loc_6E2`
+keeps the Level 1 respawn on a hidden mode-`8` bootstrap slide before `Load_InGame` restores the
+grounded respawn pose. Oracle-backed traces show frame `1791` starting at
+`kid=(0x0160_0000,0x0044_0000)`, sweeping left/down for 65 frames, and holding the usual hidden
+pose `kid=(0x0040_0000,0x0068_0000)` through `respawn_tail@1919` while `Game_Mode` still stays
+`0x0008`. Native now mirrors that hidden bootstrap path and its `15/13 -> 15/14` object-count
+handoff: `death_respawn_level_1_keeps_respawn_bootstrap_hidden_on_frame_1791` and
+`death_respawn_level_1_uses_hidden_respawn_bootstrap_path_through_frame_1855` pass,
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1778 --frame-end
+1860 --checkpoint-interval 1` passes, `diagnose-native-gameplay-drift --scenario
+death-respawn-level1 --from-frame 1780` reports no live drift, and the full
+`compare-native-gameplay --scenario death-respawn-level1` run now passes. Surprise worth keeping:
+the remaining `mise run verify-1p-playable` failure is no longer a gameplay-parity bug. The smoke
+gate still expects `respawn_tail@1919` to have returned to `Game_Mode=$000C`, but the
+oracle-backed compare proves the canonical capture is still in the hidden mode-`8` bootstrap at
+that checkpoint. The next work on `#123` is updating the smoke scenario/checkpoint to run through
+the later visible respawn return, not changing the hidden respawn bootstrap again.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

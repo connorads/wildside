@@ -84,6 +84,9 @@ impl NativeRuntime {
         {
             return MOVE_STANDINGSTILL;
         }
+        if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+            return MOVE_STANDINGSTILL;
+        }
 
         if self.helmet.iron_knight_climbing || player.wall_cling_direction.is_some() {
             return MOVE_WALL_CLIMBING;
@@ -1328,6 +1331,8 @@ impl NativeRuntime {
                     && self.dying_hidden_shell_still_visible()
                 {
                     Some(snapshot.frozen_player)
+                } else if let Some(player_state) = self.death_respawn_bootstrap_player_state() {
+                    Some(player_state)
                 } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
                     None
                 } else {
@@ -1632,6 +1637,9 @@ impl NativeRuntime {
         if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
             return (0, 0);
         }
+        if let Some(counts) = self.death_respawn_bootstrap_object_counts() {
+            return counts;
+        }
 
         let roster_count = active_objects.len() as u16;
         if let Some(counts) = opening_level_one_object_counts(
@@ -1657,6 +1665,71 @@ impl NativeRuntime {
             })
             .unwrap_or(0);
         (roster_count + 2 + extra, roster_count + 2 + extra)
+    }
+
+    fn death_respawn_bootstrap_elapsed_frames(&self) -> Option<usize> {
+        match self.player_lifecycle {
+            PlayerLifecycle::Respawning { remaining_frames } => {
+                Some(PLAYER_DEATH_RESPAWN_SETTLE_FRAMES.saturating_sub(remaining_frames))
+            }
+            _ => None,
+        }
+    }
+
+    fn death_respawn_bootstrap_player_state(&self) -> Option<PlayerState> {
+        let elapsed = self.death_respawn_bootstrap_elapsed_frames()?;
+        if self.current_level != LevelId(0) {
+            return None;
+        }
+        if elapsed < PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES {
+            let elapsed_i64 = i64::try_from(elapsed).unwrap_or(i64::MAX);
+            let x_pos = i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP)
+                + i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP) * elapsed_i64;
+            let y_pos = i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP)
+                + i64::from(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP) * elapsed_i64;
+            return Some(PlayerState {
+                x_pos: x_pos as u32,
+                y_pos: y_pos as u32,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            });
+        }
+
+        Some(PlayerState {
+            x_pos: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP,
+            y_pos: PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        })
+    }
+
+    fn death_respawn_bootstrap_object_counts(&self) -> Option<(u16, u16)> {
+        let elapsed = self.death_respawn_bootstrap_elapsed_frames()?;
+        if self.current_level != LevelId(0) {
+            return None;
+        }
+        if elapsed == 0 {
+            return Some((15, 13));
+        }
+        Some((15, 14))
     }
 }
 
