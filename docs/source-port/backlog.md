@@ -886,8 +886,12 @@ Latest progress (2026-03-27): legacy `trace.json` bundles now deserialize throug
 newer fields, and `kidcli` regression coverage locks a real legacy trace example so
 `load_recording()` backfills both manifest metadata and missing trace keys.
 
-Remaining gap: remote-ingest workflow and any optional bundle artefacts still need their own
-follow-up before recordings become the default hand-off format for every playtest report.
+Latest progress (2026-03-28): `kidcli verify-recording` now accepts either a local cache slug
+(`--slug <slug>`) or a copied bundle path (`--bundle <path>`). That removes the old manual
+re-ingest step for remote repro bundles and makes the bundle itself a valid verification handle.
+
+Remaining gap: optional bundle artefacts still need their own follow-up before recordings become
+the default hand-off format for every playtest report.
 
 ### 131 — Burn down the parked DEVIATION items (FIXED)
 Evidence source: fidelity audit of the remaining `DEVIATION:` markers in gameplay code.

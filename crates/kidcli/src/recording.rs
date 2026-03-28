@@ -190,6 +190,25 @@ pub(crate) fn load_recording(record_to: &Path) -> Result<NativeRecording> {
     load_recording_from_dir(&record_dir)
 }
 
+pub(crate) fn resolve_recording_bundle_input(
+    repo_root: &Path,
+    slug: Option<&str>,
+    bundle: Option<&Path>,
+) -> Result<PathBuf> {
+    match (slug, bundle) {
+        (Some(_), Some(_)) => {
+            bail!("pass either --slug <slug> or --bundle <path>, not both")
+        }
+        (None, None) => {
+            bail!("verify-recording needs either --slug <slug> or --bundle <path>")
+        }
+        (Some(slug), None) => Ok(repo_root
+            .join(".cache/recordings")
+            .join(validate_recording_slug(slug)?)),
+        (None, Some(bundle)) => resolve_recording_dir(bundle),
+    }
+}
+
 fn load_recording_from_dir(record_dir: &Path) -> Result<NativeRecording> {
     let manifest = fs::read(record_dir.join("manifest.json")).with_context(|| {
         format!(
@@ -1175,5 +1194,60 @@ mod tests {
         assert_eq!(frame.death_windup_elapsed, 0);
         assert!(frame.gameplay_debug_fields.is_empty());
         assert_eq!(frame.physics_trace, None);
+    }
+
+    #[test]
+    fn resolve_recording_bundle_input_uses_local_slug_cache() {
+        let temp = TempDir::new().expect("temp dir");
+        let resolved = resolve_recording_bundle_input(temp.path(), Some("level1-tree-break"), None)
+            .expect("resolved slug");
+        assert_eq!(
+            resolved,
+            temp.path()
+                .join(".cache/recordings")
+                .join("level1-tree-break")
+        );
+    }
+
+    #[test]
+    fn resolve_recording_bundle_input_accepts_bundle_path() {
+        let temp = TempDir::new().expect("temp dir");
+        let bundle = temp.path().join("copied-bundle");
+        fs::create_dir_all(&bundle).expect("bundle dir");
+        fs::write(bundle.join("manifest.json"), b"{}").expect("manifest");
+        fs::write(bundle.join("trace.json"), b"[]").expect("trace");
+
+        let resolved = resolve_recording_bundle_input(temp.path(), None, Some(bundle.as_path()))
+            .expect("resolved bundle");
+        assert_eq!(resolved, bundle);
+    }
+
+    #[test]
+    fn resolve_recording_bundle_input_rejects_missing_selector() {
+        let temp = TempDir::new().expect("temp dir");
+        let error =
+            resolve_recording_bundle_input(temp.path(), None, None).expect_err("missing selector");
+        assert!(
+            error
+                .to_string()
+                .contains("needs either --slug <slug> or --bundle <path>")
+        );
+    }
+
+    #[test]
+    fn resolve_recording_bundle_input_rejects_both_slug_and_bundle() {
+        let temp = TempDir::new().expect("temp dir");
+        let bundle = temp.path().join("copied-bundle");
+        let error = resolve_recording_bundle_input(
+            temp.path(),
+            Some("level1-tree-break"),
+            Some(bundle.as_path()),
+        )
+        .expect_err("both selector types");
+        assert!(
+            error
+                .to_string()
+                .contains("pass either --slug <slug> or --bundle <path>, not both")
+        );
     }
 }

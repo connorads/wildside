@@ -52,7 +52,7 @@ use oracle::{
     run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
-use recording::{validate_recording_slug, verify_recording};
+use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{GameplayScenario, Scenario};
 use serde::{Deserialize, Serialize};
@@ -339,7 +339,9 @@ enum Commands {
         #[arg(long)]
         dir: Option<PathBuf>,
         #[arg(long)]
-        slug: String,
+        slug: Option<String>,
+        #[arg(long)]
+        bundle: Option<PathBuf>,
     },
     DiagnoseNativeGameplayDrift {
         #[arg(long)]
@@ -1072,14 +1074,18 @@ fn main() -> Result<()> {
                 checkpoint_interval,
             )?;
         }
-        Commands::VerifyRecording { rom, dir, slug } => {
+        Commands::VerifyRecording {
+            rom,
+            dir,
+            slug,
+            bundle,
+        } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            let record_to = repo_root
-                .join(".cache/recordings")
-                .join(validate_recording_slug(&slug)?);
+            let record_to =
+                resolve_recording_bundle_input(&repo_root, slug.as_deref(), bundle.as_deref())?;
             verify_recording(&repo_root, &rom_path, &manifest, &record_to)?;
         }
         Commands::DiagnoseNativeGameplayDrift {

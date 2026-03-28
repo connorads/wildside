@@ -24,7 +24,8 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 - `kidcli compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `kid-md`.
 - `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
 - `kidcli play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace, and now writes ROM/build provenance plus record/verify commands into the bundle so the slug can travel as a bug artefact.
-- `kidcli verify-recording --slug <slug>` replays a recorded repro, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
+- `kidcli verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
+- `kidcli verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
 - `kidcli view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.
 - `kidcli release-gate --target 1p-accurate` is the canonical sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
@@ -73,6 +74,7 @@ mise run verify-slice-full
 mise run release-gate
 cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record level1-tree-break
 cargo run -p kidcli -- verify-recording --slug level1-tree-break
+cargo run -p kidcli -- verify-recording --bundle /tmp/level1-tree-break
 mise run verify-audio-driver
 mise run oracle-setup
 mise run extract-assets
@@ -139,6 +141,7 @@ To turn a manual bug into a reproducible artefact, use:
 ```bash
 cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record level1-tree-break
 cargo run -p kidcli -- verify-recording --slug level1-tree-break
+cargo run -p kidcli -- verify-recording --bundle /tmp/level1-tree-break
 ```
 
 Useful launch overrides:
