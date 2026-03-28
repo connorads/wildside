@@ -146,7 +146,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 127 | [x] | P1 | block | Black bouncy blocks do not produce the expected bounce behaviour | Rubber block contacts now queue the ASM `loc_10DA4` jiggle on floor, ceiling, and wall contact without fake spring physics |
 | 128 | [x] | P1 | form | Form-specific block breaking can now destroy metal blocks that should stay solid | Iron Knight landing now follows ASM `sub_AF7A/off_AFD8`: smash/prize/ice break, solid-ghost/teleporter no-op, metal blocks bounce and restore instead of being deleted |
 | 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native boot -> Level 1 -> Level 2, death/respawn, slopes, bounce surfaces, and common block interactions | `mise run verify-1p-playable` is green only when the core 1P smoke path survives those scenarios |
-| 130 | [~] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry ROM/build provenance plus replay commands; still need remote-ingest workflow and legacy trace-schema compatibility |
+| 130 | [x] | P1 | infra | Turn `play-native --record` / `verify-recording` into the standard playtest evidence pipeline | Recording bundles now carry provenance, replay commands, copied-bundle verification, optional artefacts, and an automatic trace transcript sidecar |
 | 131 | [x] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [x] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
 | 133 | [x] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | ASM title/options flow is documented; stock ROM has no password entry, and native options now mirror the four-option ROM screen |
@@ -911,7 +911,7 @@ Fix: restore that block-type dispatch in the landing path. Regression:
 landing Iron Knight now bounces off a metal block, leaves the cell intact, and
 queues the steel bounce effect instead of deleting the tile.
 
-### 130 — Turn recordings into the standard playtest evidence pipeline (IN PROGRESS)
+### 130 — Turn recordings into the standard playtest evidence pipeline (FIXED)
 Evidence source: existing `play-native --record` / `verify-recording` support plus current workflow gaps.
 Native repro: partial. Oracle repro: partial. Minimum gate: n/a.
 
@@ -936,8 +936,14 @@ bundle-level `final-frame.png` and `audio.wav`, and `--record-notes <path>` copi
 player notes into `notes.txt`. The saved `manifest.json` lists those sidecars explicitly so copied
 bundles stay self-describing before any replay or oracle verification runs.
 
-Remaining gap: transcript sidecars still need their own follow-up before recordings become the
-default hand-off format for every playtest report.
+Closure evidence (2026-03-28, transcript sidecar): recording bundles now always include an
+automatic `transcript.txt` generated from the captured native trace. The transcript logs the start
+state plus major event boundaries such as game-mode swaps, level changes, pause toggles, life/HP
+changes, helmet swaps, damage latches, game-over entry, and continue countdown updates, so a copied
+bundle is reviewable before replaying it. `manifest.json` and `README.txt` now list the transcript
+alongside `notes.txt`, `final-frame.png`, and `audio.wav`, and `kidcli` regression coverage locks
+the new bundle contract. With transcript sidecars landed, the recording slug is now a complete,
+self-describing repro handle rather than just "trace plus optional notes".
 
 ### 131 — Burn down the parked DEVIATION items (FIXED)
 Evidence source: fidelity audit of the remaining `DEVIATION:` markers in gameplay code.

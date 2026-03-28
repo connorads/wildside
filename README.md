@@ -24,7 +24,7 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 - `kidcli compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `kid-md`.
 - `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
 - `kidcli play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace, and now writes ROM/build provenance plus record/verify commands into the bundle so the slug can travel as a bug artefact.
-- `kidcli play-native --record <slug> --record-notes <path>` copies text notes into the bundle and now also saves `final-frame.png` plus `audio.wav` so copied repros carry immediate visual/audio context before verification.
+- `kidcli play-native --record <slug> --record-notes <path>` copies text notes into the bundle and now also saves `transcript.txt`, `final-frame.png`, plus `audio.wav` so copied repros carry immediate textual, visual, and audio context before verification.
 - `kidcli verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
 - `kidcli verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
 - `kidcli view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.

@@ -15,9 +15,10 @@ use serde::{Deserialize, Serialize};
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
 const RECORDING_SETTLED_ORACLE_PREFIX_FRAMES: usize = 60;
-const RECORDING_BUNDLE_VERSION: u32 = 3;
+const RECORDING_BUNDLE_VERSION: u32 = 4;
 
 const RECORDING_NOTES_FILENAME: &str = "notes.txt";
+const RECORDING_TRANSCRIPT_FILENAME: &str = "transcript.txt";
 const RECORDING_FINAL_FRAME_FILENAME: &str = "final-frame.png";
 const RECORDING_AUDIO_FILENAME: &str = "audio.wav";
 
@@ -179,7 +180,7 @@ pub(crate) fn save_recording_with_artifacts(
     fs::create_dir_all(record_to)
         .with_context(|| format!("failed to create {}", record_to.display()))?;
     let mut manifest = recording.manifest.clone();
-    manifest.artifacts = write_recording_artifacts(record_to, artifacts)?;
+    manifest.artifacts = write_recording_artifacts(record_to, recording, artifacts)?;
 
     fs::write(
         record_to.join("manifest.json"),
@@ -761,9 +762,18 @@ fn normalise_loaded_recording(recording: &mut NativeRecording) -> Result<()> {
 
 fn write_recording_artifacts(
     record_to: &Path,
+    recording: &NativeRecording,
     artifacts: &RecordingBundleArtifacts,
 ) -> Result<Vec<RecordingArtifactManifest>> {
     let mut manifest_entries = Vec::new();
+
+    let transcript_path = record_to.join(RECORDING_TRANSCRIPT_FILENAME);
+    fs::write(&transcript_path, recording_transcript(&recording.trace))
+        .with_context(|| format!("failed to write {}", transcript_path.display()))?;
+    manifest_entries.push(RecordingArtifactManifest {
+        path: String::from(RECORDING_TRANSCRIPT_FILENAME),
+        kind: String::from("trace-transcript"),
+    });
 
     if let Some(notes) = &artifacts.user_notes {
         let notes_path = record_to.join(RECORDING_NOTES_FILENAME);
@@ -803,6 +813,135 @@ fn write_recording_artifacts(
     }
 
     Ok(manifest_entries)
+}
+
+fn recording_transcript(trace: &[NativeTraceFrame]) -> String {
+    let mut lines = vec![
+        String::from("Kid Chameleon native recording transcript"),
+        format!("frames: {}", trace.len()),
+    ];
+    if trace.is_empty() {
+        lines.push(String::from("events: none"));
+        return lines.join("\n");
+    }
+
+    let start = &trace[0];
+    lines.push(format!(
+        "start: frame {:06} mode={:?} level={} lives={} hp={} helmet={} paused={} kid={}",
+        start.frame_index,
+        start.game_mode,
+        format_level(start),
+        start.number_lives,
+        start.number_hitpoints,
+        start.current_helmet_id,
+        start.paused,
+        format_kid_position(start),
+    ));
+    lines.push(String::from("events:"));
+
+    let mut event_count = 0usize;
+    for (previous, frame) in trace.iter().zip(trace.iter().skip(1)) {
+        if previous.game_mode != frame.game_mode {
+            lines.push(format!(
+                "frame {:06}: game_mode {:?} -> {:?}",
+                frame.frame_index, previous.game_mode, frame.game_mode
+            ));
+            event_count += 1;
+        }
+        if previous.current_level != frame.current_level {
+            lines.push(format!(
+                "frame {:06}: level {} -> {}",
+                frame.frame_index,
+                format_level(previous),
+                format_level(frame),
+            ));
+            event_count += 1;
+        }
+        if previous.paused != frame.paused {
+            lines.push(format!(
+                "frame {:06}: paused {} -> {}",
+                frame.frame_index, previous.paused, frame.paused
+            ));
+            event_count += 1;
+        }
+        if previous.number_lives != frame.number_lives {
+            lines.push(format!(
+                "frame {:06}: lives {} -> {}",
+                frame.frame_index, previous.number_lives, frame.number_lives
+            ));
+            event_count += 1;
+        }
+        if previous.number_hitpoints != frame.number_hitpoints {
+            lines.push(format!(
+                "frame {:06}: hp {} -> {}",
+                frame.frame_index, previous.number_hitpoints, frame.number_hitpoints
+            ));
+            event_count += 1;
+        }
+        if previous.current_helmet_id != frame.current_helmet_id {
+            lines.push(format!(
+                "frame {:06}: helmet {} -> {}",
+                frame.frame_index, previous.current_helmet_id, frame.current_helmet_id
+            ));
+            event_count += 1;
+        }
+        if !previous.just_received_damage && frame.just_received_damage {
+            lines.push(format!(
+                "frame {:06}: damage latched at kid={}",
+                frame.frame_index,
+                format_kid_position(frame),
+            ));
+            event_count += 1;
+        }
+        if !previous.level_complete && frame.level_complete {
+            lines.push(format!(
+                "frame {:06}: level_complete on {}",
+                frame.frame_index,
+                format_level(frame),
+            ));
+            event_count += 1;
+        }
+        if !previous.game_over && frame.game_over {
+            lines.push(format!(
+                "frame {:06}: game_over lives={} continues={} hp={}",
+                frame.frame_index,
+                frame.number_lives,
+                frame.number_continues,
+                frame.number_hitpoints
+            ));
+            event_count += 1;
+        }
+        if previous.continue_countdown != frame.continue_countdown
+            && frame.continue_countdown.is_some()
+        {
+            lines.push(format!(
+                "frame {:06}: continue_countdown -> {}",
+                frame.frame_index,
+                frame.continue_countdown.unwrap_or_default()
+            ));
+            event_count += 1;
+        }
+    }
+
+    if event_count == 0 {
+        lines.push(String::from("none"));
+    }
+
+    lines.join("\n")
+}
+
+fn format_level(frame: &NativeTraceFrame) -> String {
+    match frame.current_level_name.as_deref() {
+        Some(name) => format!("{:02X} ({name})", frame.current_level.0),
+        None => format!("{:02X}", frame.current_level.0),
+    }
+}
+
+fn format_kid_position(frame: &NativeTraceFrame) -> String {
+    match (frame.kid_x_pos, frame.kid_y_pos) {
+        (Some(x), Some(y)) => format!("({},{})", x >> 16, y >> 16),
+        _ => String::from("(hidden)"),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1135,10 +1274,11 @@ mod tests {
         .expect("save recording");
 
         let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
-        assert!(readme.contains("Kid Chameleon native recording bundle v3"));
+        assert!(readme.contains("Kid Chameleon native recording bundle v4"));
         assert!(readme.contains("rom_sha1: fixture-rom"));
         assert!(readme.contains("--warp-level 01 --settled --record level1-tree-bug"));
         assert!(readme.contains("cargo run -p kidcli -- verify-recording --slug level1-tree-bug"));
+        assert!(readme.contains("- transcript.txt (trace-transcript)"));
     }
 
     #[test]
@@ -1177,6 +1317,7 @@ mod tests {
         )
         .expect("save recording with artifacts");
 
+        assert!(temp.path().join(RECORDING_TRANSCRIPT_FILENAME).is_file());
         assert!(temp.path().join(RECORDING_NOTES_FILENAME).is_file());
         assert!(temp.path().join(RECORDING_FINAL_FRAME_FILENAME).is_file());
         assert!(temp.path().join(RECORDING_AUDIO_FILENAME).is_file());
@@ -1185,10 +1326,14 @@ mod tests {
             &fs::read(temp.path().join("manifest.json")).expect("manifest json"),
         )
         .expect("manifest");
-        assert_eq!(manifest.bundle_version, 3);
+        assert_eq!(manifest.bundle_version, 4);
         assert_eq!(
             manifest.artifacts,
             vec![
+                RecordingArtifactManifest {
+                    path: String::from(RECORDING_TRANSCRIPT_FILENAME),
+                    kind: String::from("trace-transcript"),
+                },
                 RecordingArtifactManifest {
                     path: String::from(RECORDING_NOTES_FILENAME),
                     kind: String::from("user-notes"),
@@ -1205,12 +1350,59 @@ mod tests {
         );
 
         let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
+        assert!(readme.contains("- transcript.txt (trace-transcript)"));
         assert!(readme.contains("- notes.txt (user-notes)"));
         assert!(readme.contains("- final-frame.png (final-frame)"));
         assert!(readme.contains("- audio.wav (audio)"));
 
         let samples = read_wav_f32(&temp.path().join(RECORDING_AUDIO_FILENAME)).expect("wav");
         assert_eq!(samples, vec![0.25, -0.25, 0.5, -0.5]);
+    }
+
+    #[test]
+    fn save_recording_writes_trace_transcript() {
+        let temp = TempDir::new().expect("temp dir");
+        let mut start = sample_trace_frame(0);
+        start.current_level_name = Some(String::from("Blue Lake Woods 1"));
+        let mut damaged = sample_trace_frame(1);
+        damaged.current_level_name = Some(String::from("Blue Lake Woods 1"));
+        damaged.number_hitpoints = 1;
+        damaged.just_received_damage = true;
+        let mut game_over = sample_trace_frame(2);
+        game_over.current_level_name = Some(String::from("Blue Lake Woods 1"));
+        game_over.number_lives = 2;
+        game_over.game_over = true;
+        game_over.continue_countdown = Some(600);
+        let recording = build_recording(
+            &fixture_manifest(),
+            "level1-tree-bug",
+            RecordingStart {
+                warp_level: Some(0x01),
+                settled: true,
+            },
+            vec![1, 2, 3],
+            vec![start, damaged, game_over],
+        )
+        .expect("recording");
+
+        save_recording_with_artifacts(
+            temp.path(),
+            &recording,
+            &RecordingBundleArtifacts::default(),
+        )
+        .expect("save recording");
+
+        let transcript = fs::read_to_string(temp.path().join(RECORDING_TRANSCRIPT_FILENAME))
+            .expect("transcript");
+        assert!(transcript.contains("Kid Chameleon native recording transcript"));
+        assert!(
+            transcript.contains("start: frame 000000 mode=InGame level=00 (Blue Lake Woods 1)")
+        );
+        assert!(transcript.contains("frame 000001: hp 2 -> 1"));
+        assert!(transcript.contains("frame 000001: damage latched at kid=(32,80)"));
+        assert!(transcript.contains("frame 000002: lives 3 -> 2"));
+        assert!(transcript.contains("frame 000002: game_over lives=2 continues=3 hp=2"));
+        assert!(transcript.contains("frame 000002: continue_countdown -> 600"));
     }
 
     #[test]
