@@ -439,6 +439,19 @@ earlier causal trace mismatch from frame `1684` onward where the frozen shell sn
 reused too early on the fatal-hit path. The remaining work is that earlier shell/respawn-shell
 boundary plus the later respawn camera hand-off, not the frame-`1759` lose-life transition.
 
+New evidence (2026-03-28, live tumble trace): the trace layer was reusing the final frozen shell
+snapshot for every `DeathWindup` frame, even though ASM `Death loc_B80C` keeps exposing the live
+tumble arc until `j_sub_8E0` reports the current pose offscreen. Restricting the frozen shell pose
+to the hidden `Dying` phase adds `death_respawn_level_1_keeps_live_tumble_arc_on_frame_1700`,
+keeps the frame-`1758` shell and frame-`1759` lose-life regressions green, and makes
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1680 --frame-end
+1760 --checkpoint-interval 1` pass. The full compare still fails later at `respawn_tail@1919`
+(`camera_y` native `0x00730000`, oracle `0x00000000`), but the first live drift now moves forward
+to frame `1780`, where native still exposes the frozen shell pose (`kid_x_pos=0x08FF0000`) while
+the oracle has already advanced the hidden death/respawn shell boundary. The remaining work is now
+that later frame-`1780` death-shell hand-off plus the respawn camera reset, not the earlier visible
+death arc.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

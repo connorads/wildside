@@ -13203,6 +13203,35 @@ fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
 }
 
 #[test]
+fn death_respawn_level_1_keeps_live_tumble_arc_on_frame_1700() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1700 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_701) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_700 {
+            frame_1700 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1700 = frame_1700.expect("frame 1700 trace");
+    // ASM Death loc_B80C keeps advancing the visible tumble arc until j_sub_8E0
+    // reports the current pose offscreen. The frozen shell pose is only reused
+    // for the hidden lose-life hand-off, so frame 1700 must still expose the
+    // live arc position from the oracle-backed gameplay capture.
+    assert_eq!(frame_1700.game_mode, GameMode::InGame);
+    assert_eq!(frame_1700.number_lives, 3);
+    assert_eq!(frame_1700.number_hitpoints, 0);
+    assert_eq!(frame_1700.kid_x_pos, Some(0x08E2_0000));
+    assert_eq!(frame_1700.kid_y_pos, Some(0x0138_8000));
+    assert_eq!(frame_1700.number_objects, 7);
+    assert_eq!(frame_1700.number_gfx_objects, 8);
+    assert!(frame_1700.just_received_damage);
+}
+
+#[test]
 fn death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();

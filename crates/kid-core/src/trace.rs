@@ -1305,10 +1305,7 @@ impl NativeRuntime {
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
-                    && matches!(
-                        self.player_lifecycle,
-                        PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
-                    )
+                    && matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
                 {
                     Some(snapshot.frozen_player)
                 } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -1480,13 +1477,22 @@ impl NativeRuntime {
         {
             return Vec::new();
         }
-        if let Some(snapshot) = self.death_shell_snapshot.as_ref()
-            && matches!(
-                self.player_lifecycle,
-                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
-            )
-        {
-            return snapshot.frozen_active_objects.clone();
+        if let Some(snapshot) = self.death_shell_snapshot.as_ref() {
+            if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+                return snapshot.frozen_active_objects.clone();
+            }
+            if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
+                let mut objects = snapshot.frozen_active_objects.clone();
+                if let Some(player_state) = self.opening_slice.map(|slice| slice.player)
+                    && let Some(player_object) = objects
+                        .iter_mut()
+                        .find(|object| matches!(object.kind, NativeObjectKind::Player))
+                {
+                    player_object.x_pos = player_state.x_pos;
+                    player_object.y_pos = player_state.y_pos;
+                }
+                return objects;
+            }
         }
         if !matches!(
             self.boot_state,
