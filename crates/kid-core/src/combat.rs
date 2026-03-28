@@ -711,7 +711,10 @@ impl NativeRuntime {
         );
         if first_windup_frame {
             // ASM `Death` (kid.asm:14714-14731) uses the same tumble launch on
-            // grounded and airborne deaths: x += $00008000, y += $FFFC0000.
+            // grounded and airborne deaths. loc_B80C checks visibility on the
+            // current pose, then increments d1 by $3000 before applying the
+            // tumble step, so the first visible windup frame already moves by
+            // x += $00008000 and y += initial_d1 + $3000.
             slice.player.on_ground = false;
             slice.player.x_velocity = 0x0000_8000;
             slice.player.y_velocity =
@@ -720,24 +723,26 @@ impl NativeRuntime {
                 } else {
                     -0x0004_0000
                 };
-        } else {
-            let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
-            let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
-            slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
-            slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-            // ASM `Death` increases d1 by $3000 each frame before the hidden
-            // teleport hand-off.
-            slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
-            slice.player.on_ground = false;
         }
         if let Some(camera_lock) = self.death_camera_lock {
+            // ASM loc_B80C: j_sub_8E0 tests the current pose before the
+            // per-frame gravity increment and tumble step. Once the current
+            // death pose is offscreen, the loop falls straight into lose_life.
+            if !Self::death_sprite_still_visible(slice.player, camera_lock) {
+                self.opening_slice = Some(slice);
+                return true;
+            }
             slice.camera = camera_lock;
         }
-        let fell_below_hidden_handoff = self.death_camera_lock.is_some_and(|camera_lock| {
-            !Self::death_sprite_still_visible(slice.player, camera_lock)
-        });
+        // ASM loc_B80C increases d1 by $3000 before applying the tumble step.
+        slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
+        let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+        let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
+        slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+        slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+        slice.player.on_ground = false;
         self.opening_slice = Some(slice);
-        fell_below_hidden_handoff
+        false
     }
 
     pub(crate) fn enter_death_hidden_state(&mut self) {

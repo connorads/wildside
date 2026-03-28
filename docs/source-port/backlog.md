@@ -425,6 +425,20 @@ and moves the first authoritative miss in
 to frame `1759` on `game_mode`, `number_lives`, and `number_hitpoints`. The remaining work is now
 the next-frame `lose_life -> Game_Mode=$0008` hand-off, not the shell pose itself.
 
+New evidence (2026-03-28, lose-life hand-off): ASM `Death loc_B80C` checks the current pose with
+`j_sub_8E0` before applying another tumble step, so once frame `1758` has already latched the
+frozen shell pose the next outer frame falls straight into `lose_life`. Native had still burned one
+extra outer frame in `DeathWindup` after arming the hidden hand-off. Calling `enter_death_hidden_state()`
+immediately when that hand-off becomes ready adds
+`death_respawn_level_1_enters_hidden_lose_life_path_on_frame_1759`, keeps
+`death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758` green, and makes
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1758 --frame-end
+1760 --checkpoint-interval 1` pass. The full compare still fails later at `respawn_tail@1919`
+(`camera_y` native `0x00730000`, oracle `0x00000000`), and the compare hint now points at an
+earlier causal trace mismatch from frame `1684` onward where the frozen shell snapshot is being
+reused too early on the fatal-hit path. The remaining work is that earlier shell/respawn-shell
+boundary plus the later respawn camera hand-off, not the frame-`1759` lose-life transition.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

@@ -1423,9 +1423,7 @@ impl NativeRuntime {
                 }
                 let hidden_handoff_ready = self.advance_death_windup_motion();
                 if hidden_handoff_ready {
-                    self.player_lifecycle = PlayerLifecycle::DeathWindup {
-                        remaining_frames: 1,
-                    };
+                    self.enter_death_hidden_state();
                 } else {
                     self.player_lifecycle = PlayerLifecycle::DeathWindup {
                         remaining_frames: remaining_frames - 1,

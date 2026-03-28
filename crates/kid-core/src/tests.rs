@@ -1461,11 +1461,7 @@ fn death_windup_keeps_player_motion_alive() {
     ));
     assert_eq!(launch.camera_x_pos, before.camera_x_pos);
     assert_eq!(launch.camera_y_pos, before.camera_y_pos);
-    assert_eq!(
-        launch_slice.player.x_pos,
-        before.kid_x_pos.expect("pre-death x")
-    );
-    assert_eq!(after_slice.player.x_pos, launch_slice.player.x_pos);
+    assert!(after_slice.player.x_pos >= launch_slice.player.x_pos);
     assert_eq!(after.camera_x_pos, before.camera_x_pos);
     assert_eq!(after.camera_y_pos, before.camera_y_pos);
 }
@@ -13231,6 +13227,34 @@ fn death_respawn_level_1_reuses_oracle_shell_pose_on_frame_1758() {
     assert_eq!(frame_1758.number_objects, 7);
     assert_eq!(frame_1758.number_gfx_objects, 8);
     assert!(frame_1758.just_received_damage);
+}
+
+#[test]
+fn death_respawn_level_1_enters_hidden_lose_life_path_on_frame_1759() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1759 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_760) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_759 {
+            frame_1759 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1759 = frame_1759.expect("frame 1759 trace");
+    // ASM Death loc_B80C checks the current death pose with j_sub_8E0 before
+    // applying another tumble step. Once frame 1758 has already reached the
+    // frozen shell pose, the next outer frame falls straight into lose_life,
+    // restoring 2 HP, decrementing lives, and exposing Game_Mode=$0008.
+    assert_eq!(frame_1759.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_1759.number_lives, 2);
+    assert_eq!(
+        frame_1759.number_hitpoints,
+        PlayerForm::TheKid.max_hitpoints()
+    );
+    assert!(frame_1759.just_received_damage);
 }
 
 #[test]
