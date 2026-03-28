@@ -60,6 +60,8 @@ scripts/strict-rust.sh sh -ec '
 cargo run -q -p kidcli -- verify-native-gameplay --scenario pause-resume-level1 \
   && cargo run -q -p kidcli -- verify-native-gameplay --scenario progress-two-transitions \
   && cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1 \
+  && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 \
+  && cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1 \
   && cargo test -q -p kid-core -- slope_ground_ \
   && cargo test -q -p kid-core walking_on_slope_up_y_tracks_diagonal_every_frame \
   && cargo test -q -p kid-core walking_on_slope_down_y_tracks_diagonal_every_frame \
