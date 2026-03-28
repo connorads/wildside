@@ -1416,13 +1416,13 @@ impl NativeRuntime {
                 self.resolve_pending_form_change();
             }
             PlayerLifecycle::DeathWindup { remaining_frames } => {
-                self.advance_death_windup_motion();
-                if remaining_frames > 1 {
+                let hidden_handoff_ready = self.advance_death_windup_motion();
+                if hidden_handoff_ready || remaining_frames <= 1 {
+                    self.enter_death_hidden_state();
+                } else {
                     self.player_lifecycle = PlayerLifecycle::DeathWindup {
                         remaining_frames: remaining_frames - 1,
                     };
-                } else {
-                    self.enter_death_hidden_state();
                 }
                 return false;
             }

@@ -1450,16 +1450,71 @@ fn death_windup_keeps_player_motion_alive() {
     runtime.progression.number_hitpoints = 0;
     runtime.begin_death_windup();
 
+    let launch = runtime.step_frame(FrameInput::default());
     let after = runtime.step_frame(FrameInput::default());
 
     assert!(matches!(
         runtime.player_lifecycle,
         PlayerLifecycle::DeathWindup { .. }
     ));
+    assert_eq!(launch.camera_x_pos, before.camera_x_pos);
+    assert_eq!(launch.camera_y_pos, before.camera_y_pos);
     assert_ne!(after.kid_x_pos, before.kid_x_pos);
     assert_ne!(after.kid_y_pos, before.kid_y_pos);
     assert_eq!(after.camera_x_pos, before.camera_x_pos);
     assert_eq!(after.camera_y_pos, before.camera_y_pos);
+}
+
+#[test]
+fn grounded_death_windup_uses_tumble_arc_and_exits_before_fallback_timeout() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut runtime);
+
+    if let Some(slice) = runtime.opening_slice.as_mut() {
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.camera.y_pos = 0x00BC_0000;
+    }
+    let before = runtime.trace_frame();
+    runtime.progression.number_hitpoints = 0;
+    runtime.begin_death_windup();
+
+    let launch = runtime.step_frame(FrameInput::default());
+    let arc_step = runtime.step_frame(FrameInput::default());
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ));
+    assert!(
+        arc_step.kid_x_pos.expect("grounded death arc x") > before.kid_x_pos.expect("pre-death x")
+    );
+    assert!(
+        arc_step.kid_y_pos.expect("grounded death arc y") < before.kid_y_pos.expect("pre-death y")
+    );
+    assert_eq!(launch.camera_y_pos, before.camera_y_pos);
+
+    let mut frames = 2usize;
+    while matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ) {
+        runtime.step_frame(FrameInput::default());
+        frames += 1;
+        assert!(
+            frames < PLAYER_DEATH_WINDUP_FRAMES,
+            "grounded tumble should leave the viewport before the fallback timeout"
+        );
+    }
+
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::Dying { .. }
+    ));
+    let hidden = runtime.trace_frame();
+    assert_eq!(hidden.number_lives, 2);
+    assert_eq!(hidden.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
 }
 
 #[test]

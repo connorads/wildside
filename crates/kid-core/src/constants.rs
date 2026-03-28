@@ -244,11 +244,16 @@ pub(crate) const ENEMY_CONTACT_MIN_OVERLAP_FP: i64 = 0x0001_0000;
 
 // === Player death/respawn timing ===
 
+// ASM `Death` (kid.asm:14714) drives a fixed tumble arc, but exits as soon as
+// the object falls out of the locked camera window rather than after a long
+// fixed hold. Keep a generous cap here and let the runtime end the arc early.
 pub(crate) const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
-pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 120;
-// Oracle-backed death/respawn traces keep the player frozen on the grounded
-// spawn pose through death_respawn_level1@1919. With the current native
-// respawn entry frame at 1494, that requires a ~425-frame settle window.
+// Oracle death traces switch from the hidden death shell into the respawn
+// bootstrap after roughly half a second, not the older 120-frame placeholder.
+pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
+// Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
+// through death_respawn_level1@1919, so the native settle window must still
+// outlast that smoke checkpoint after the earlier death hand-off.
 pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 425;
 /// ASM: Game Over display holds for 0x1A3 (419) frames.
 pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;

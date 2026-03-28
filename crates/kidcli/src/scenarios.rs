@@ -169,11 +169,11 @@ const DEATH_RESPAWN_LEVEL_1_CHECKPOINTS: [GameplayCheckpoint; 4] = [
     },
     GameplayCheckpoint {
         label: "pre_death",
-        frame_index: 1_279,
+        frame_index: 1_680,
     },
     GameplayCheckpoint {
         label: "death_tail",
-        frame_index: 1_439,
+        frame_index: 1_762,
     },
     GameplayCheckpoint {
         label: "respawn_tail",
@@ -579,7 +579,7 @@ impl GameplayScenario {
                 apply_range(&mut script, 600, 899, 1 << 3);
                 apply_range(&mut script, 900, 1_350, (1 << 3) | (1 << 6));
                 add_periodic_jump(&mut script, 940, 1_350, 24, 4);
-                apply_single_frames(&mut script, &[1_400, 1_460, 1_520], 0x80);
+                apply_range(&mut script, 1_351, 1_559, 1 << 3);
                 apply_range(&mut script, 1_560, 1_919, 1 << 3);
                 add_periodic_jump(&mut script, 1_600, 1_919, 28, 3);
             }
@@ -849,11 +849,13 @@ mod tests {
     }
 
     #[test]
-    fn gameplay_death_scenario_requests_restart_after_life_loss() {
+    fn gameplay_death_scenario_keeps_the_death_window_free_of_start_presses() {
         let script = GameplayScenario::DeathRespawnLevel1
             .script()
             .expect("gameplay scenario script should build");
-        assert_eq!(script[1_400], 0x80);
+        assert_eq!(script[1_400] & 0x80, 0);
+        assert_eq!(script[1_460] & 0x80, 0);
+        assert_eq!(script[1_520] & 0x80, 0);
         assert_eq!(script[1_560] & (1 << 3), 1 << 3);
     }
 

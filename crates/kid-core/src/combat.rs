@@ -618,55 +618,50 @@ impl NativeRuntime {
         };
     }
 
-    pub(crate) fn advance_death_windup_motion(&mut self) {
+    pub(crate) fn advance_death_windup_motion(&mut self) -> bool {
         if matches!(self.boot_state, BootState::LevelSkipHold) || self.paused {
-            return;
-        }
-        if self.current_level == LevelId(0) && self.level_one_opening_idle_death_arc {
-            let bounds = self.level_bounds(self.current_level);
-            let mut slice = self
-                .opening_slice
-                .unwrap_or_else(|| OpeningSliceState::new(bounds));
-            let first_windup_frame = matches!(
-                self.player_lifecycle,
-                PlayerLifecycle::DeathWindup { remaining_frames }
-                    if remaining_frames == PLAYER_DEATH_WINDUP_FRAMES
-            );
-            if first_windup_frame {
-                slice.player.on_ground = false;
-                slice.player.x_velocity = 0x0000_8000;
-                slice.player.y_velocity = -0x0003_D000;
-            } else {
-                let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
-                let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
-                slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
-                slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-                slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
-                slice.player.on_ground = false;
-            }
-            if let Some(camera_lock) = self.death_camera_lock {
-                slice.camera = camera_lock;
-            }
-            self.opening_slice = Some(slice);
-            return;
+            return false;
         }
         let bounds = self.level_bounds(self.current_level);
         let mut slice = self
             .opening_slice
             .unwrap_or_else(|| OpeningSliceState::new(bounds));
-        slice.step(
-            FrameInput::default(),
-            false,
-            self.progression.current_form,
-            self.block_grid.as_mut(),
-            self.block_list.as_ref(),
-            false,
-            0,
+        let first_windup_frame = matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::DeathWindup { remaining_frames }
+                if remaining_frames == PLAYER_DEATH_WINDUP_FRAMES
         );
+        if first_windup_frame {
+            // ASM `Death` (kid.asm:14714-14731) uses the same tumble launch on
+            // grounded and airborne deaths: x += $00008000, y += $FFFC0000.
+            slice.player.on_ground = false;
+            slice.player.x_velocity = 0x0000_8000;
+            slice.player.y_velocity =
+                if self.current_level == LevelId(0) && self.level_one_opening_idle_death_arc {
+                    -0x0003_D000
+                } else {
+                    -0x0004_0000
+                };
+        } else {
+            let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+            let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
+            slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+            slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+            // ASM `Death` increases d1 by $3000 each frame before the hidden
+            // teleport hand-off.
+            slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
+            slice.player.on_ground = false;
+        }
         if let Some(camera_lock) = self.death_camera_lock {
             slice.camera = camera_lock;
         }
+        let fell_below_hidden_handoff = self.death_camera_lock.is_some_and(|camera_lock| {
+            let hidden_handoff_y =
+                camera_lock.y_pos + (((physics::VIEWPORT_HEIGHT + 160) as u32) << 16);
+            slice.player.y_pos >= hidden_handoff_y
+        });
         self.opening_slice = Some(slice);
+        fell_below_hidden_handoff
     }
 
     pub(crate) fn enter_death_hidden_state(&mut self) {
