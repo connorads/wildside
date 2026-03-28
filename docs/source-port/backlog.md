@@ -388,6 +388,12 @@ at the earlier causal miss: frame `1574` in the `level_settle@719 -> pre_death@1
 This keeps the next gameplay patch focused on the first airborne X-path drift instead of the later
 death-shell hand-off.
 
+New evidence (2026-03-28, death-windup probe annotation): `kidcli probe-native-gameplay` now
+prints `death_windup_elapsed` in both checkpoint summaries and per-frame rows. The death/respawn
+frontier had started masking the inner countdown behind the frozen shell pose, so this keeps the
+next `Death loc_B80C -> lose_life` investigation anchored on the native windup phase instead of
+guessing from `Game_Mode` and shell-snapshot artefacts alone.
+
 New evidence (2026-03-28, phase-slip onset): the compare hint now searches a longer lookback
 window for one-frame-native-lag patterns and reports the likely onset frame directly in the error.
 For `death-respawn-level1`, the same failing compare now reports

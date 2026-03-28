@@ -612,7 +612,7 @@ fn print_trace_frames_in_range(
                 .map(kid_core::FrameInput::from_mask)
                 .unwrap_or_default();
             println!(
-                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
+                "frame {}: input {} mode {:?} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} death_windup {} lives/hp {}/{} active_enemies {} active_platforms {} roster {}",
                 frame.frame_index,
                 describe_frame_input(input),
                 frame.game_mode,
@@ -626,6 +626,7 @@ fn print_trace_frames_in_range(
                 frame.kid_on_slope,
                 frame.invulnerable_frames,
                 frame.form_change_flash_frames,
+                frame.death_windup_elapsed,
                 frame.number_lives,
                 frame.number_hitpoints,
                 frame.active_enemy_object_count,
@@ -803,7 +804,7 @@ pub(crate) fn probe_native_gameplay_scenario(
             native_trace_at_checkpoint(&trace, checkpoint.label, checkpoint.frame_index)
         {
             println!(
-                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} kid {:08X},{:08X} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
+                "checkpoint {}@{}: {:?} level 0x{:02X} {} camera {:08X},{:08X} kid {:08X},{:08X} death_windup {} lives/hp {}/{} objects {}/{} active_enemies {} active_platforms {} roster {}",
                 checkpoint.label,
                 checkpoint.frame_index,
                 frame.game_mode,
@@ -813,6 +814,7 @@ pub(crate) fn probe_native_gameplay_scenario(
                 frame.camera_y_pos,
                 frame.kid_x_pos.unwrap_or_default(),
                 frame.kid_y_pos.unwrap_or_default(),
+                frame.death_windup_elapsed,
                 frame.number_lives,
                 frame.number_hitpoints,
                 frame.number_objects,
