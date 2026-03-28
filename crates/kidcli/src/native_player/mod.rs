@@ -2246,6 +2246,22 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.floating_items = vec![(48, 64, u8::MAX, 0x00)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(scene.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Rect { colour, .. } if *colour == [100, 200, 255]
+            )
+        }));
+    }
+
+    #[test]
     fn build_game_scene_emits_background_tiles_instead_of_sky_rectangles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

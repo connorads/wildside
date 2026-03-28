@@ -1263,12 +1263,12 @@ fn build_game_scene_filtered(
         for &(x_px, y_px, remaining, content_id) in &trace.floating_items {
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
-            let alpha = u16::from(remaining) * 8;
+            let alpha = u32::from(remaining).saturating_mul(8).min(255);
             let base_colour = floating_item_colour(content_id);
             let colour = [
-                (u16::from(base_colour[0]) * alpha / 255).min(255) as u8,
-                (u16::from(base_colour[1]) * alpha / 255).min(255) as u8,
-                (u16::from(base_colour[2]) * alpha / 255).min(255) as u8,
+                (u32::from(base_colour[0]) * alpha / 255) as u8,
+                (u32::from(base_colour[1]) * alpha / 255) as u8,
+                (u32::from(base_colour[2]) * alpha / 255) as u8,
             ];
             // Draw content-type-specific pixel-art icon
             // TODO(fidelity): load real floating item sprites from ROM art

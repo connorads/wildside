@@ -355,6 +355,17 @@ and keeps `mise run verify-slice-fast` green. The full
 and first fails later at `death_tail@1439` on object counts (`native 4`, `oracle 6`), so the
 remaining work is the late death-tail object lifecycle rather than the rubber-wall jump path.
 
+New evidence (2026-03-28, window compare repair): `compare-native-gameplay-window` had started
+panicking in `native_player/scene.rs` while rendering long-lived floating prize items, which
+blocked the narrower death-tail investigation. Clamping the floating-item alpha before colour
+scaling restores the tool, adds
+`build_scene_clamps_floating_item_alpha_before_colour_scaling`, and proves the late death path is
+still narrowed correctly: `compare-native-gameplay-window --scenario death-respawn-level1
+--frame-start 1400 --frame-end 1410 --checkpoint-interval 1` passes, while
+`--frame-start 1438 --frame-end 1442 --checkpoint-interval 1` still fails at `death_tail@1439`
+on object counts (`native 4`, `oracle 6`). The remaining work is unchanged: identify which late
+Level 1 objects the oracle keeps alive into the pause frame and mirror that lifecycle in native.
+
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
 Oracle repro: ASM-backed via `loc_9D22`, `unk_9EB0`, `unk_9EE4`, and `loc_9E6C`. Minimum gate: `1p-playable`.
