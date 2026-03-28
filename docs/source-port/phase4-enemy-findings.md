@@ -56,10 +56,10 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 
 ## Tier 2
 
-### Cloud — Post-bounce idle fabricated + attack missing
+### Cloud — Bounce path fixed, attack still missing
 - HP: effectively 1-hit kill — functionally correct
 - Velocity: $3000/$5000/$7000 by tier — correct values
-- **Fabricated: Post-bounce 60f idle**: `move.w #$3C,d3` sets d3 register after wall bounce, but d3 is never read in the loop. Cloud should resume flying immediately. Native adds 60 frames of idle that doesn't exist in ASM.
+- **Fixed: Post-bounce idle removal**: ASM `loc_35BDE -> loc_35C54` writes `move.w #$3C,d3` after wall reversal, but the loop never reads `d3`. Native now mirrors the ROM by reversing and resuming flight on the next frame, with `cloud_keeps_flying_immediately_after_wall_reversal` covering the path.
 - **Missing: Lightning bolt attack**: ASM `loc_35CD8` spawns directional lightning bolts during 31-frame attack windows. Not in native at all.
 - **Dormant: Velocity index off-by-one**: ASM indexes by raw `hit_points_plus_one`, native subtracts 1 first. All ROM Clouds use index 0, so no practical impact.
 
@@ -162,14 +162,13 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### Medium impact (affects specific interactions)
 5. Crab player proximity freeze (distinctive behaviour absent)
-6. Cloud post-bounce idle removal (fabricated 60f pause)
-7. Dragon Flying wall-reversal during Drift
-8. Tornado Cyclone-flying interaction
-9. Sphere/Fireball slope deflection
+6. Dragon Flying wall-reversal during Drift
+7. Tornado Cyclone-flying interaction
+8. Sphere/Fireball slope deflection
 
 ### Low impact (edge cases or rare scenarios)
-10. Driller block drilling (distinctive but rare interaction)
-11. Crab/Driller speed cap at high HP (rare enemy levels)
-12. Probe half-width per-family customisation
-13. Archer aiming when dx==0
-14. Cloud lightning bolt attack
+9. Driller block drilling (distinctive but rare interaction)
+10. Crab/Driller speed cap at high HP (rare enemy levels)
+11. Probe half-width per-family customisation
+12. Archer aiming when dx==0
+13. Cloud lightning bolt attack

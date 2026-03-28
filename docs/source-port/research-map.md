@@ -97,7 +97,7 @@ and `roadmap.md` for the programme-level workstreams.
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
 - **#062** [~] HeadyMetal death wobble visual — long-lived ASM-timed death effect now renders boss wobble from the ROM's staged `sub_37708` quiver magnitudes, and native-player tests lock the body/eye sprite offsets at each timer boundary; full oracle frame verification still remains.
 - **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
-- **Native playability** [ ] recurring player-facing failures still need canonical repros and regression coverage: death/respawn camera carry, Level 2 spawn/fall-through-floor failures, slope issues, bounce-block issues, post-kill enemy damage windows, and block-state visual regressions.
+- **Native playability** [ ] recurring player-facing failures still need canonical repros and regression coverage for the remaining live gaps rather than the already-closed death/respawn, slope, bounce-block, and post-bounce Cloud issues.
 
 ### Game flow verification (not yet investigated)
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
@@ -105,7 +105,7 @@ and `roadmap.md` for the programme-level workstreams.
 
 ### Enemy behaviour gaps (14 items — see `phase4-enemy-findings.md` for full details)
 High impact: Archer arrow lifetime + re-aiming, Fireball gravity off-by-one, Tornado acceleration scaling.
-Medium impact: Crab proximity freeze, Cloud post-bounce idle removal, Dragon Flying wall-reversal, Tornado Cyclone interaction, Sphere/Fireball slope deflection.
+Medium impact: Crab proximity freeze, Dragon Flying wall-reversal, Tornado Cyclone interaction, Sphere/Fireball slope deflection.
 Low impact: Driller block drilling, speed caps at high HP, probe half-width per-family, Archer dx==0 aiming, Cloud lightning bolt attack.
 
 ### Oracle sweep hardening (not yet implemented)

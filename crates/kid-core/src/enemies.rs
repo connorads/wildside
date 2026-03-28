@@ -1273,18 +1273,11 @@ pub(crate) fn step_flyer_with_rng(
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 }
 
-/// Cloud post-bounce idle frames: ASM Cloud.asm sets d3=$3C (60) after wall reversal.
-pub(crate) const CLOUD_POST_BOUNCE_IDLE: u8 = 60;
-
 /// Cloud flies horizontally, reversing direction on wall contact.
-/// After hitting a wall, idles for 60 frames before resuming (Cloud.asm).
+/// ASM `Cloud.asm loc_35BDE -> loc_35C54`: `move.w #$3C,d3` is written after
+/// wall reversal, but the active loop never reads `d3`, so Cloud resumes
+/// flying immediately on the next frame instead of idling.
 pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
-    // Post-bounce idle: count down grounded_frames as idle timer
-    if enemy.grounded_frames > 0 {
-        enemy.grounded_frames -= 1;
-        return;
-    }
-
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
@@ -1304,7 +1297,6 @@ pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
             enemy.facing = opposite_direction(enemy.facing);
-            enemy.grounded_frames = CLOUD_POST_BOUNCE_IDLE;
         }
     }
 }

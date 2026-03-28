@@ -8686,6 +8686,81 @@ fn cloud_reverses_at_wall() {
 }
 
 #[test]
+fn cloud_keeps_flying_immediately_after_wall_reversal() {
+    let mut solid: Vec<(u16, u16)> = Vec::new();
+    for row in 5..=8 {
+        solid.push((2, row));
+    }
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        family: EnemyFamily::Cloud,
+        x_pos: 64 << 16,
+        y_pos: 96 << 16,
+        x_velocity: -0x3000,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+
+    for _ in 0..500 {
+        step_cloud(&mut enemy, Some(&grid));
+        if enemy.x_velocity > 0 {
+            break;
+        }
+    }
+
+    let x_after_reversal = enemy.x_pos;
+    let grounded_frames_after_reversal = enemy.grounded_frames;
+    step_cloud(&mut enemy, Some(&grid));
+
+    // ASM Cloud.asm loc_35BDE negates x_vel immediately, then the loop at
+    // loc_35C54 hibernates only one frame before moving again; the `move.w
+    // #$3C,d3` write does not create a 60-frame idle.
+    assert_eq!(grounded_frames_after_reversal, 0);
+    assert!(enemy.x_pos > x_after_reversal);
+    assert_eq!(enemy.x_velocity, 0x3000);
+    assert_eq!(enemy.facing, Direction::Right);
+}
+
+#[test]
 fn cloud_spawn_hit_points() {
     // Cloud base HP = 1
     assert_eq!(spawn_hit_points(EnemyFamily::Cloud, 0), 1);
