@@ -1,4 +1,5 @@
 use super::*;
+use crate::capture::write_wav_with_channels;
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativePlayOptions, build_scene, load_session_assets,
@@ -18,6 +19,7 @@ const RECORDING_BUNDLE_VERSION: u32 = 3;
 
 const RECORDING_NOTES_FILENAME: &str = "notes.txt";
 const RECORDING_FINAL_FRAME_FILENAME: &str = "final-frame.png";
+const RECORDING_AUDIO_FILENAME: &str = "audio.wav";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RecordingArtifactManifest {
@@ -25,10 +27,12 @@ pub(crate) struct RecordingArtifactManifest {
     pub(crate) kind: String,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct RecordingBundleArtifacts {
     pub(crate) user_notes: Option<String>,
     pub(crate) final_frame_rgb: Option<Vec<u8>>,
+    pub(crate) audio_samples: Option<Vec<f32>>,
+    pub(crate) audio_channels: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -788,6 +792,16 @@ fn write_recording_artifacts(
         });
     }
 
+    if let Some(audio_samples) = &artifacts.audio_samples {
+        let audio_path = record_to.join(RECORDING_AUDIO_FILENAME);
+        write_wav_with_channels(&audio_path, 44_100, artifacts.audio_channels, audio_samples)
+            .with_context(|| format!("failed to write {}", audio_path.display()))?;
+        manifest_entries.push(RecordingArtifactManifest {
+            path: String::from(RECORDING_AUDIO_FILENAME),
+            kind: String::from("audio"),
+        });
+    }
+
     Ok(manifest_entries)
 }
 
@@ -879,6 +893,7 @@ fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capture::read_wav_f32;
     use tempfile::TempDir;
 
     fn fixture_manifest() -> AssetManifest {
@@ -1156,12 +1171,15 @@ mod tests {
                         * (NATIVE_FRAME_HEIGHT as usize)
                         * 3
                 ]),
+                audio_samples: Some(vec![0.25, -0.25, 0.5, -0.5]),
+                audio_channels: 2,
             },
         )
         .expect("save recording with artifacts");
 
         assert!(temp.path().join(RECORDING_NOTES_FILENAME).is_file());
         assert!(temp.path().join(RECORDING_FINAL_FRAME_FILENAME).is_file());
+        assert!(temp.path().join(RECORDING_AUDIO_FILENAME).is_file());
 
         let manifest: NativeRecordingManifest = serde_json::from_slice(
             &fs::read(temp.path().join("manifest.json")).expect("manifest json"),
@@ -1179,12 +1197,20 @@ mod tests {
                     path: String::from(RECORDING_FINAL_FRAME_FILENAME),
                     kind: String::from("final-frame"),
                 },
+                RecordingArtifactManifest {
+                    path: String::from(RECORDING_AUDIO_FILENAME),
+                    kind: String::from("audio"),
+                },
             ]
         );
 
         let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
         assert!(readme.contains("- notes.txt (user-notes)"));
         assert!(readme.contains("- final-frame.png (final-frame)"));
+        assert!(readme.contains("- audio.wav (audio)"));
+
+        let samples = read_wav_f32(&temp.path().join(RECORDING_AUDIO_FILENAME)).expect("wav");
+        assert_eq!(samples, vec![0.25, -0.25, 0.5, -0.5]);
     }
 
     #[test]

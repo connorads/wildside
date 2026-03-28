@@ -288,6 +288,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut level_card_frames_remaining: usize = 0;
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
+    let mut recorded_audio = Vec::new();
     let mut final_frame_rgb = None;
 
     let scene = build_scene(
@@ -435,18 +436,25 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             }
         }
 
-        // Push audio samples to SDL2 queue
-        if let Some(ref aq) = audio_queue
-            && aq.size() < 8192
-        {
-            if let Some(ref mut gems) = gems_engine {
+        let should_capture_audio = options.record_to.is_some();
+        let should_step_audio = should_capture_audio || audio_queue.is_some();
+        if should_step_audio {
+            let maybe_samples = if let Some(ref mut gems) = gems_engine {
                 detect_gems_events(&prev_trace, &trace, gems);
                 gems.step_frame();
-                let samples = gems.generate_samples(735);
-                let _ = aq.queue_audio(&samples);
+                Some(gems.generate_samples(735))
             } else {
-                let samples = sfx_engine.generate(735);
-                let _ = aq.queue_audio(&samples);
+                Some(sfx_engine.generate(735))
+            };
+            if let Some(samples) = maybe_samples {
+                if should_capture_audio {
+                    recorded_audio.extend_from_slice(&samples);
+                }
+                if let Some(ref aq) = audio_queue
+                    && aq.size() < 8192
+                {
+                    let _ = aq.queue_audio(&samples);
+                }
             }
         }
 
@@ -583,6 +591,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         let artifacts = RecordingBundleArtifacts {
             user_notes: options.record_notes.clone(),
             final_frame_rgb,
+            audio_samples: Some(recorded_audio),
+            audio_channels: u16::from(audio_channels),
         };
         save_recording_with_artifacts(record_to, &recording, &artifacts)?;
         println!(

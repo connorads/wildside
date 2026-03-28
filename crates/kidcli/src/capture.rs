@@ -565,7 +565,12 @@ pub(crate) fn dump_audio(rom_bytes: &[u8], scenario: Scenario, out: &Path) -> Re
     Ok(())
 }
 
-pub(crate) fn write_wav(out: &Path, sample_rate: u32, samples: &[f32]) -> Result<()> {
+pub(crate) fn write_wav_with_channels(
+    out: &Path,
+    sample_rate: u32,
+    channels: u16,
+    samples: &[f32],
+) -> Result<()> {
     if let Some(parent) = out.parent()
         && !parent.as_os_str().is_empty()
     {
@@ -574,7 +579,7 @@ pub(crate) fn write_wav(out: &Path, sample_rate: u32, samples: &[f32]) -> Result
     }
 
     let spec = hound::WavSpec {
-        channels: 2,
+        channels,
         sample_rate,
         bits_per_sample: 32,
         sample_format: hound::SampleFormat::Float,
@@ -590,6 +595,10 @@ pub(crate) fn write_wav(out: &Path, sample_rate: u32, samples: &[f32]) -> Result
         .finalize()
         .with_context(|| format!("failed to finalise {}", out.display()))?;
     Ok(())
+}
+
+pub(crate) fn write_wav(out: &Path, sample_rate: u32, samples: &[f32]) -> Result<()> {
+    write_wav_with_channels(out, sample_rate, 2, samples)
 }
 
 pub(crate) fn read_wav_f32(path: &Path) -> Result<Vec<f32>> {
