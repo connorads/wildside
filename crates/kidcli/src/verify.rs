@@ -341,6 +341,17 @@ pub(crate) fn verify_death_respawn_level_1(capture: &GameplayCapture) -> Result<
             respawn_bootstrap_tail.game_mode
         );
     }
+    if respawn_bootstrap_tail.number_lives != death_tail.number_lives
+        || respawn_bootstrap_tail.number_hitpoints != death_tail.number_hitpoints
+    {
+        bail!(
+            "death_respawn_level1 drifted lives/hp during the hidden respawn bootstrap (death_tail {}/{}, respawn_bootstrap_tail {}/{})",
+            death_tail.number_lives,
+            death_tail.number_hitpoints,
+            respawn_bootstrap_tail.number_lives,
+            respawn_bootstrap_tail.number_hitpoints
+        );
+    }
     if final_state.kid_x_pos == 0 && final_state.kid_y_pos == 0 {
         bail!("death_respawn_level1 respawned into an invalid position");
     }

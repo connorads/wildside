@@ -3021,7 +3021,7 @@ mod tests {
                 },
                 GameplayState {
                     label: String::from("respawn_bootstrap_tail"),
-                    frame_index: 5_500,
+                    frame_index: 6_000,
                     game_mode: 0x0008,
                     current_player: 0,
                     number_lives: 2,
@@ -3096,7 +3096,7 @@ mod tests {
                 },
                 GameplayState {
                     label: String::from("respawn_bootstrap_tail"),
-                    frame_index: 5_500,
+                    frame_index: 6_000,
                     game_mode: 0x0008,
                     number_lives: 2,
                     number_hitpoints: 2,
@@ -3115,7 +3115,7 @@ mod tests {
                     kid_jump_gravity_probe: None,
                     number_objects: 15,
                     number_gfx_objects: 14,
-                    ..gameplay_state("respawn_bootstrap_tail", 5_500)
+                    ..gameplay_state("respawn_bootstrap_tail", 6_000)
                 },
             ],
         };

@@ -621,6 +621,26 @@ are green again. Surprise worth keeping: the tempting “frame-5001 visible retu
 wrong for the same reason as the earlier 4500-frame guess; it was another native-only early
 `Load_InGame`, not the ROM finally leaving the hidden respawn bootstrap.
 
+Latest evidence (2026-03-28, frame-6000 lower bound): extending the canonical
+`death-respawn-level1` scenario to frame `6000` proved the old `5500` cutoff was still too short.
+The fresh oracle-backed window under
+`.cache/native-gameplay-oracle-runs/death_respawn_level1_window_05498_06000_step_1/` keeps
+`Game_Mode=$0008`, the cleared camera, the hidden hold pose `(x=$40,y=$68)`, and `2/2` lives/HP
+with `15/14` object counts through `respawn_bootstrap_tail@6000`. Native was still exposing
+`Load_InGame` on frame `5501`, running live gameplay long enough to burn another hit/life, then
+falling back into a second hidden shell, which is why the old native-only smoke check went false
+green. Fix: raise the shared respawn settle lower bound from `3710` to `4210`, move the canonical
+`respawn_bootstrap_tail` checkpoint to frame `6000`, replace the focused regression with
+`death_respawn_level_1_keeps_hidden_respawn_bootstrap_through_frame_6000`, and tighten
+`verify-native-gameplay --scenario death-respawn-level1` so the hidden bootstrap must also preserve
+the death-tail `2/2` lives/HP instead of only matching `game_mode`. Both
+`cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1` and
+`cargo run -q -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 5498 --frame-end 6000 --checkpoint-interval 1`
+are green again. Surprise worth keeping: the tempting “6000-frame mismatch is just another hidden
+bootstrap extension” hypothesis was incomplete; the deeper clue was the life counter drifting to
+`1/2`, which exposed that native had already re-entered live gameplay on frame `5501` even though
+the final checkpoint still happened to be back in `game_mode=$0008`.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
