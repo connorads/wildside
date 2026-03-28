@@ -931,6 +931,24 @@ mod tests {
         assert_eq!(new_x, -0x3_0000);
     }
 
+    /// M68K `asr.l #1` on -1 yields -1 (rounds toward -∞), so the 3/4
+    /// factor (half + quarter = -1 + -1 = -2) overshoots by 1 unit.
+    /// This is faithful to the ROM's `sub_A432` arithmetic.
+    #[test]
+    fn jump_asr_rounding_overshoots_at_minus_one() {
+        let (new_x, _) = initiate_jump(-1, JUMP_HEIGHTS[0]);
+        // half(-1) = -1, quarter(-1) = -1, sum = -2
+        assert_eq!(new_x, -2);
+    }
+
+    /// Positive x_vel = 1 reduces to 0 (no overshoot on positive side).
+    #[test]
+    fn jump_asr_rounding_zeroes_at_plus_one() {
+        let (new_x, _) = initiate_jump(1, JUMP_HEIGHTS[0]);
+        // half(1) = 0, quarter(0) = 0, sum = 0
+        assert_eq!(new_x, 0);
+    }
+
     // -- Gravity tests --
 
     #[test]
@@ -1738,7 +1756,10 @@ mod proptests {
     // -- initiate_jump properties --
 
     proptest! {
-        /// Jump always reduces x velocity magnitude (3/4 factor).
+        /// Jump reduces x velocity magnitude via 3/4 ASR factor.
+        /// M68K `asr.l #1` rounds toward -∞, so for x_vel = -1:
+        /// half = -1, quarter = -1, new = -2 (magnitude +1 overshoot).
+        /// Allow a 1-unit tolerance to account for this faithful quirk.
         #[test]
         fn jump_reduces_x_velocity(
             x_vel in -0x8_0000i32..=0x8_0000,
@@ -1746,8 +1767,8 @@ mod proptests {
         ) {
             let (new_x, _) = initiate_jump(x_vel, JUMP_HEIGHTS[height_idx]);
             prop_assert!(
-                new_x.abs() <= x_vel.abs(),
-                "|new_x| ({}) > |x_vel| ({})",
+                new_x.abs() <= x_vel.abs() + 1,
+                "|new_x| ({}) > |x_vel| ({}) + 1 (ASR rounding tolerance)",
                 new_x.abs(),
                 x_vel.abs()
             );
