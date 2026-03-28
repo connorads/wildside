@@ -125,6 +125,7 @@ pub(crate) fn diagnose_native_gameplay_drift(
     scenario: GameplayScenario,
     from_frame: usize,
     limit: usize,
+    context_window: usize,
 ) -> Result<()> {
     let rom_bytes = fs::read(rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
@@ -163,6 +164,17 @@ pub(crate) fn diagnose_native_gameplay_drift(
         }
         if let Some(summary) = gameplay_state_debug_summary(&report.oracle) {
             println!("  oracle context: {summary}");
+        }
+        if context_window > 0 {
+            println!("  context window:");
+            for line in gameplay_drift_context_lines(
+                &native_capture,
+                &oracle_capture,
+                report.frame_index,
+                context_window,
+            ) {
+                println!("    {line}");
+            }
         }
     }
     Ok(())
@@ -726,6 +738,54 @@ pub(crate) fn gameplay_field_value(state: &GameplayState, field: &str) -> String
     }
 }
 
+fn gameplay_drift_context_lines(
+    native_capture: &GameplayCapture,
+    oracle_capture: &GameplayCapture,
+    frame_index: usize,
+    context_window: usize,
+) -> Vec<String> {
+    let start = frame_index.saturating_sub(context_window);
+    let end = frame_index.saturating_add(context_window);
+    native_capture
+        .states
+        .iter()
+        .zip(&oracle_capture.states)
+        .filter(|(native, oracle)| {
+            native.frame_index == oracle.frame_index
+                && (start..=end).contains(&native.frame_index)
+        })
+        .map(|(native, oracle)| {
+            let differing_fields = gameplay_differing_fields(native, oracle);
+            let marker = if native.frame_index == frame_index {
+                '*'
+            } else if differing_fields.is_empty() {
+                '='
+            } else {
+                '!'
+            };
+            format!(
+                "{marker} frame {} native[x={} y={} xv={} yv={} move={}] oracle[x={} y={} xv={} yv={} move={}] fields: {}",
+                native.frame_index,
+                gameplay_field_value(native, "kid_x_pos"),
+                gameplay_field_value(native, "kid_y_pos"),
+                gameplay_field_value(native, "kid_x_vel"),
+                gameplay_field_value(native, "kid_y_vel"),
+                gameplay_field_value(native, "character_movement"),
+                gameplay_field_value(oracle, "kid_x_pos"),
+                gameplay_field_value(oracle, "kid_y_pos"),
+                gameplay_field_value(oracle, "kid_x_vel"),
+                gameplay_field_value(oracle, "kid_y_vel"),
+                gameplay_field_value(oracle, "character_movement"),
+                if differing_fields.is_empty() {
+                    String::from("-")
+                } else {
+                    differing_fields.join(", ")
+                }
+            )
+        })
+        .collect()
+}
+
 fn gameplay_debug_context(state: &GameplayState) -> String {
     gameplay_state_debug_summary(state)
         .map(|summary| format!("\n  context: {summary}"))
@@ -1227,6 +1287,36 @@ mod tests {
             number_objects: 0,
             number_gfx_objects: 0,
         }
+    }
+
+    #[test]
+    fn gameplay_drift_context_lines_marks_matching_and_drifting_frames() {
+        let native_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 5,
+            missed_vblank_frames: 0,
+            checkpoints: Vec::new(),
+            states: vec![
+                gameplay_state(10, "frame_00010", 0x0010_0000),
+                gameplay_state(11, "frame_00011", 0x0011_0000),
+                gameplay_state(12, "frame_00012", 0x0012_0000),
+                gameplay_state(13, "frame_00013", 0x0013_0000),
+                gameplay_state(14, "frame_00014", 0x0014_0000),
+            ],
+        };
+        let mut oracle_capture = native_capture.clone();
+        oracle_capture.states[1].kid_x_pos = 0x0016_0000;
+        oracle_capture.states[2].kid_x_pos = 0x0019_0000;
+
+        let lines = gameplay_drift_context_lines(&native_capture, &oracle_capture, 12, 1);
+
+        assert_eq!(lines.len(), 3);
+        assert!(lines[0].starts_with("! frame 11"));
+        assert!(lines[0].contains("fields: kid_x_pos"));
+        assert!(lines[1].starts_with("* frame 12"));
+        assert!(lines[1].contains("fields: kid_x_pos"));
+        assert!(lines[2].starts_with("= frame 13"));
+        assert!(lines[2].ends_with("fields: -"));
     }
 
     #[test]

@@ -352,6 +352,8 @@ enum Commands {
         from_frame: usize,
         #[arg(long, default_value_t = 1)]
         limit: usize,
+        #[arg(long, default_value_t = 0)]
+        context_window: usize,
     },
     PortLoop {
         #[arg(long)]
@@ -1086,6 +1088,7 @@ fn main() -> Result<()> {
             scenario,
             from_frame,
             limit,
+            context_window,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1093,7 +1096,13 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             ensure_gameplay_level_layouts(&rom_path, &manifest, scenario)?;
             diagnose_native_gameplay_drift(
-                &repo_root, &rom_path, &manifest, scenario, from_frame, limit,
+                &repo_root,
+                &rom_path,
+                &manifest,
+                scenario,
+                from_frame,
+                limit,
+                context_window,
             )?;
         }
         Commands::PortLoop {
