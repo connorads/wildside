@@ -14344,7 +14344,179 @@ fn maniaxe_non_maniaxe_form_clears_state() {
     assert!(!rt.helmet.maniaxe_axe_active);
 }
 
-// --- Berzerker charge tests ---
+// --- Eyeclops beam tests ---
+
+#[test]
+fn eyeclops_c_press_fires_beam_right() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Right;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert!(rt.helmet.eyeclops_beam_active);
+    assert_eq!(rt.projectiles.len(), 1);
+    let beam = &rt.projectiles[0];
+    assert!(beam.friendly, "beam should be player-friendly");
+    assert_eq!(beam.x_velocity, EYECLOPS_BEAM_SPEED, "beam moves right");
+    assert_eq!(beam.lifetime, EYECLOPS_BEAM_LIFETIME);
+    assert_eq!(beam.y_velocity, 0, "beam has no vertical velocity");
+    assert_eq!(beam.gravity, 0, "beam has no gravity");
+    // Y offset: 8px above player
+    assert_eq!(
+        beam.y_pos,
+        (slice.player.y_pos as i64 - (8 << 16)) as u32,
+        "beam spawns 8px above player"
+    );
+}
+
+#[test]
+fn eyeclops_c_press_fires_beam_left() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Left;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert!(rt.helmet.eyeclops_beam_active);
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(
+        rt.projectiles[0].x_velocity, -EYECLOPS_BEAM_SPEED,
+        "beam moves left when facing left"
+    );
+}
+
+#[test]
+fn eyeclops_no_double_fire() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.helmet.eyeclops_beam_active = true;
+    // Add an existing beam projectile so active flag stays set
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: EYECLOPS_BEAM_SPEED,
+        y_velocity: 0,
+        lifetime: 30,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+    });
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "should not fire while beam is active"
+    );
+}
+
+#[test]
+fn eyeclops_beam_clears_when_projectile_expires() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.helmet.eyeclops_beam_active = true;
+    // Projectile with 0 lifetime = expired
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: EYECLOPS_BEAM_SPEED,
+        y_velocity: 0,
+        lifetime: 0,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+    });
+    let slice = combat_slice();
+
+    rt.step_eyeclops_beam(&slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.eyeclops_beam_active,
+        "beam flag should clear when all projectiles expire"
+    );
+}
+
+#[test]
+fn eyeclops_beam_allows_refire_after_expiry() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.helmet.eyeclops_beam_active = true;
+    // No projectiles with lifetime > 0 → beam should deactivate
+    let slice = combat_slice();
+
+    // First call: clears the active flag
+    rt.step_eyeclops_beam(&slice, FrameInput::default());
+    assert!(!rt.helmet.eyeclops_beam_active);
+
+    // Second call with C press: should fire new beam
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert!(rt.helmet.eyeclops_beam_active);
+    assert_eq!(rt.projectiles.len(), 1);
+}
+
+#[test]
+fn eyeclops_non_eyeclops_form_clears_state() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::TheKid;
+    rt.helmet.eyeclops_beam_active = true;
+    let slice = combat_slice();
+
+    rt.step_eyeclops_beam(&slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.eyeclops_beam_active,
+        "non-Eyeclops form should clear beam state"
+    );
+}
+
+#[test]
+fn eyeclops_c_held_does_not_fire() {
+    // C must be rising edge (newly pressed), not held
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.prior_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "held C (not rising edge) should not fire"
+    );
+}
 
 // --- Juggernaut skull shot tests ---
 
