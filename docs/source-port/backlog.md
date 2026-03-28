@@ -183,7 +183,7 @@ Surprise worth keeping: the real Blue Lake Woods 2 header spawn is intentionally
 the smoke scenario: it ended before sending the second resume input, so we were treating a
 transition-shell check as if it proved live Level 2 play.
 
-### 123 — Death/respawn still leaves camera drift, stuck-from-start, or broken restart state (OPEN)
+### 123 — Death/respawn still leaves camera drift, stuck-from-start, or broken restart state (FIXED)
 Evidence source: repeated native play reports. Native repro: reported, needs canonical recording slug.
 Oracle repro: mixed/unknown. Minimum gate: `1p-playable`.
 
@@ -725,6 +725,9 @@ passes through the old frame-1217 rubber rebound frontier, and `mise run verify-
 green. To keep the closure durable, `verify-1p-playable` now runs the oracle-backed
 `pause-resume-level1` and `death-respawn-level1` compares alongside the native smoke scenarios, so
 future regressions fail the standard 1P gate instead of relying on this backlog note staying fresh.
+
+Project state (2026-03-28): the status table and this closure note now agree. The next incomplete
+item is infra `#130`, not another gameplay fix on this frontier.
 
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
