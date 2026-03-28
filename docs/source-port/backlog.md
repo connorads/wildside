@@ -396,6 +396,17 @@ That rules out treating frame `1574` as an isolated airborne miss: the next game
 start at the earlier slope/ground hand-off around frame `1510`, where native first falls a frame
 behind and stays there through the later drop / landing windows.
 
+New evidence (2026-03-28, post-step support release): native had kept carrying `on_ground` through
+the first fully unsupported stepped frame on the late Level 1 flat run-up. Re-checking walking
+floor support after the horizontal step now lets the death-respawn path leave the ground on frame
+`1570`, adds `death_respawn_level_1_releases_ground_once_post_step_support_is_gone`, makes
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1570 --frame-end 1580 --checkpoint-interval 1`
+pass, and keeps `mise run verify-slice-fast` green. The full compare still fails later, but the
+first authoritative miss moves from frame `1574` to frame `1706` on `kid_y_pos`, where oracle is
+already in the fresh post-damage shell (`just_received_damage=1`, `character_movement=0`) while
+native is still on the airborne jump path. The remaining work is now that later post-damage
+death-tail hand-off, not the old late walking release.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

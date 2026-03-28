@@ -13205,6 +13205,38 @@ fn death_respawn_level_1_landing_dragon_contact_damages_on_frame_1684() {
 }
 
 #[test]
+fn death_respawn_level_1_releases_ground_once_post_step_support_is_gone() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1570 = None;
+    let mut frame_1571 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_572) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            1_570 => frame_1570 = Some(trace),
+            1_571 => {
+                frame_1571 = Some(trace);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let frame_1570 = frame_1570.expect("frame 1570 trace");
+    let frame_1571 = frame_1571.expect("frame 1571 trace");
+    // ASM sub_B43A/loc_B5F6 drops the walking path as soon as the stepped
+    // hitbox no longer overlaps any solid floor. On the Level 1 death route
+    // that hand-off must already have fired by frame 1570, and the following
+    // frame must stay on the airborne jump path rather than reviving another
+    // synthetic grounded hold.
+    assert_eq!(frame_1570.kid_on_ground, Some(false));
+    assert_eq!(frame_1570.character_movement, Some(3));
+    assert_eq!(frame_1571.kid_on_ground, Some(false));
+    assert_eq!(frame_1571.character_movement, Some(3));
+}
+
+#[test]
 fn rubber_block_ceiling_hit_queues_jiggle_without_destroying_cell() {
     let mut runtime = NativeRuntime::new(manifest());
     let w: u16 = 16;
