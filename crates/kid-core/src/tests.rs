@@ -4991,6 +4991,7 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
     let mut active = vec![ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::DragonWalking,
         x_pos: 0x020B_0000,
         y_pos: 0x01C0_0000,
@@ -5027,6 +5028,8 @@ fn dragon_walking_stays_active_after_spawn_point_scrolls_behind_camera() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: spawn_shared_walker_state(EnemyFamily::DragonWalking),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(EnemyFamily::DragonWalking),
@@ -5120,6 +5123,7 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
     let mut active = vec![ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Dragon,
         x_pos: ((-300i32) << 16) as u32, // beyond ASM-correct retention margin
         y_pos: 272u32 << 16,
@@ -5156,6 +5160,8 @@ fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: spawn_shared_walker_state(EnemyFamily::DragonWalking),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(EnemyFamily::DragonWalking),
@@ -6292,6 +6298,7 @@ fn hopper_lands_on_terrain_before_launching() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::MiniHoppingSkull,
         x_pos: 96u32 << 16,
         y_pos: 224u32 << 16,
@@ -6328,6 +6335,8 @@ fn hopper_lands_on_terrain_before_launching() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -6364,6 +6373,7 @@ fn hopper_launches_into_an_air_arc() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::MiniHoppingSkull,
         x_pos: 96u32 << 16,
         y_pos: 224u32 << 16,
@@ -6400,6 +6410,8 @@ fn hopper_launches_into_an_air_arc() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -6488,6 +6500,7 @@ fn hopper_hp2_launches_with_boosted_velocity() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::MiniHoppingSkull,
         x_pos: 96u32 << 16,
         y_pos: floor_y_fp,
@@ -6524,6 +6537,8 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -6570,6 +6585,7 @@ fn hopper_targets_player_direction_before_launch() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::MiniHoppingSkull,
         x_pos: 96u32 << 16,
         y_pos: floor_y_fp,
@@ -6606,6 +6622,8 @@ fn hopper_targets_player_direction_before_launch() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -6652,6 +6670,7 @@ fn hopper_reverses_at_platform_edge_before_launch() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::MiniHoppingSkull,
         x_pos: 48u32 << 16,
         y_pos: floor_y_fp,
@@ -6688,6 +6707,8 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8398,6 +8419,7 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
     ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family,
         x_pos: x_px << 16,
         y_pos: y_px << 16,
@@ -8434,6 +8456,8 @@ fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> ActiveEnemy 
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
@@ -8566,6 +8590,7 @@ fn cloud_flies_horizontally() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Cloud,
         x_pos: 128 << 16,
         y_pos: 100 << 16,
@@ -8602,6 +8627,8 @@ fn cloud_flies_horizontally() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8628,6 +8655,7 @@ fn cloud_reverses_at_wall() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Cloud,
         x_pos: 64 << 16,
         y_pos: 96 << 16,
@@ -8664,6 +8692,8 @@ fn cloud_reverses_at_wall() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8695,6 +8725,7 @@ fn cloud_keeps_flying_immediately_after_wall_reversal() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Cloud,
         x_pos: 64 << 16,
         y_pos: 96 << 16,
@@ -8731,6 +8762,8 @@ fn cloud_keeps_flying_immediately_after_wall_reversal() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8793,6 +8826,7 @@ fn fireball_gravity_scales_with_hp() {
     let make = |hp| ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Fireball,
         x_pos: 0,
         y_pos: 0,
@@ -8829,6 +8863,8 @@ fn fireball_gravity_scales_with_hp() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8849,6 +8885,7 @@ fn fireball_bounce_cap_scales_with_live_hp() {
     let make = |hp| ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Fireball,
         x_pos: 0,
         y_pos: (159u32 << 16) + 0xC000,
@@ -8885,6 +8922,8 @@ fn fireball_bounce_cap_scales_with_live_hp() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8916,6 +8955,7 @@ fn fireball_floor_bounce_applies_signed_rom_perturbation_before_cap() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Fireball,
         x_pos: 0x0123_0000,
         y_pos: (159u32 << 16) + 0xC000,
@@ -8952,6 +8992,8 @@ fn fireball_floor_bounce_applies_signed_rom_perturbation_before_cap() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -8983,6 +9025,7 @@ fn fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule() {
     let enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Fireball,
         x_pos: 0x0038_0000,
         y_pos: 0x0031_0000,
@@ -9019,6 +9062,8 @@ fn fireball_ceiling_rebound_uses_the_same_perturbed_velocity_rule() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9088,6 +9133,7 @@ fn sphere_applies_gravity() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Sphere,
         x_pos: 128 << 16,
         y_pos: 64 << 16,
@@ -9124,6 +9170,8 @@ fn sphere_applies_gravity() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9149,6 +9197,7 @@ fn sphere_bounces_off_floor() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Sphere,
         x_pos: 80 << 16,
         y_pos: 155 << 16,
@@ -9185,6 +9234,8 @@ fn sphere_bounces_off_floor() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9216,6 +9267,7 @@ fn sphere_bounces_off_wall() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Sphere,
         x_pos: 180 << 16,
         y_pos: 112 << 16,
@@ -9252,6 +9304,8 @@ fn sphere_bounces_off_wall() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9287,6 +9341,7 @@ fn emo_rock_hovers_above_player_then_drops() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::EmoRock,
         x_pos: 80 << 16,
         y_pos: 50 << 16,
@@ -9323,6 +9378,8 @@ fn emo_rock_hovers_above_player_then_drops() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9361,6 +9418,7 @@ fn emo_rock_lands_and_walks() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::EmoRock,
         x_pos: 100 << 16,
         y_pos: 60 << 16, // above the floor
@@ -9397,6 +9455,8 @@ fn emo_rock_lands_and_walks() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9505,6 +9565,7 @@ fn archer_faces_player_direction() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Archer,
         x_pos: 100 << 16,
         y_pos: 100 << 16,
@@ -9541,6 +9602,8 @@ fn archer_faces_player_direction() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9561,6 +9624,7 @@ fn archer_fires_arrow_when_timer_expires() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Archer,
         x_pos: 100 << 16,
         y_pos: 100 << 16,
@@ -9597,6 +9661,8 @@ fn archer_fires_arrow_when_timer_expires() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9665,6 +9731,7 @@ fn tank_fires_bullet_after_timer_expires() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Tank,
         x_pos: 100 << 16,
         y_pos: 100 << 16,
@@ -9701,6 +9768,8 @@ fn tank_fires_bullet_after_timer_expires() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9725,6 +9794,7 @@ fn tank_does_not_fire_while_timer_active() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::Tank,
         x_pos: 100 << 16,
         y_pos: 100 << 16,
@@ -9761,6 +9831,8 @@ fn tank_does_not_fire_while_timer_active() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9799,6 +9871,7 @@ fn tracker_chases_player_rightward() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::HeadyMetal,
         x_pos: 100 << 16,
         y_pos: 100 << 16,
@@ -9835,6 +9908,8 @@ fn tracker_chases_player_rightward() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9858,6 +9933,7 @@ fn tracker_chases_player_leftward() {
     let mut enemy = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::HeadyMetal,
         x_pos: 200 << 16,
         y_pos: 100 << 16,
@@ -9894,6 +9970,8 @@ fn tracker_chases_player_leftward() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -9920,6 +9998,7 @@ fn boss_fires_projectiles_when_stomped() {
     let boss = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::HeadyMetal,
         x_pos: 100 << 16,
         y_pos: 120 << 16,
@@ -9956,6 +10035,8 @@ fn boss_fires_projectiles_when_stomped() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -10014,6 +10095,7 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
     let boss = ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family: EnemyFamily::HeadyMetal,
         x_pos: 100 << 16,
         y_pos: 120 << 16,
@@ -10050,6 +10132,8 @@ fn headymetal_kill_uses_long_death_wobble_effect() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -10213,6 +10297,7 @@ fn ufo_beam_fires_when_player_below() {
         palette_variant: 0,
         wait_timer: 0,
         layout_index: 0,
+        enemy_level: 0,
         segment_index: 0,
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
@@ -10234,6 +10319,8 @@ fn ufo_beam_fires_when_player_below() {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: 0,
         shared_walker_patrol_timer: 0,
@@ -10307,6 +10394,35 @@ fn tornado_loads_rom_pattern_on_timer_expiry() {
 }
 
 #[test]
+fn tornado_level_1_doubles_pattern_acceleration() {
+    let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 2);
+    enemy.enemy_level = 1;
+    enemy.flight_double_acceleration = true;
+    enemy.wait_timer = 0;
+    step_tornado(&mut enemy, None);
+    assert_eq!(enemy.target_x_velocity, 0x0001_0000);
+    assert_eq!(enemy.target_y_velocity, -0x0002_0000);
+    assert_eq!(enemy.x_acceleration, 0x0000_1000);
+    assert_eq!(enemy.y_acceleration, -0x0000_2000);
+    assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[1]);
+}
+
+#[test]
+fn tornado_level_2_doubles_pattern_targets_and_reload_timer() {
+    let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 3);
+    enemy.enemy_level = 2;
+    enemy.flight_double_acceleration = true;
+    enemy.flight_double_terminal_speed = true;
+    enemy.wait_timer = 0;
+    step_tornado(&mut enemy, None);
+    assert_eq!(enemy.target_x_velocity, 0x0002_0000);
+    assert_eq!(enemy.target_y_velocity, -0x0004_0000);
+    assert_eq!(enemy.x_acceleration, 0x0000_1000);
+    assert_eq!(enemy.y_acceleration, -0x0000_2000);
+    assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[2]);
+}
+
+#[test]
 fn tornado_accelerates_toward_pattern_targets() {
     let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
     enemy.target_x_velocity = 0x0001_0000;
@@ -10316,6 +10432,23 @@ fn tornado_accelerates_toward_pattern_targets() {
     step_tornado(&mut enemy, None);
     assert_eq!(enemy.x_velocity, 0x0000_0800);
     assert_eq!(enemy.y_velocity, -0x0000_0800);
+}
+
+#[test]
+fn tornado_can_reach_doubled_level_2_target_speed() {
+    let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 3);
+    enemy.target_x_velocity = 0x0004_0000;
+    enemy.target_y_velocity = 0;
+    enemy.x_acceleration = 0x0000_2000;
+    enemy.y_acceleration = 0;
+    enemy.wait_timer = 600;
+    for _ in 0..512 {
+        step_tornado(&mut enemy, None);
+    }
+    assert_eq!(
+        enemy.x_velocity, 0x0004_0000,
+        "ASM Enemy_HandleAcceleration caps at the scaled target speed, not a fixed $18000 ceiling",
+    );
 }
 
 // --- Ninja ---
@@ -13879,6 +14012,7 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
     ActiveEnemy {
         segment_index: 0,
         layout_index: 0,
+        enemy_level: 0,
         family,
         x_pos: x,
         y_pos: y,
@@ -13915,6 +14049,8 @@ fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {
         ufo_beam_interval: 0,
         boss_head_index: enemies::BOSS_HEAD_NONE,
         scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
         walk_speed_override: 0,
         shared_walker_state: spawn_shared_walker_state(family),
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),

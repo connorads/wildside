@@ -112,12 +112,12 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.
 - **Missing: Death-on-stomp sequence**: ASM has specific death animation + explosion spawn.
 
-### Tornado — Acceleration scaling + Cyclone interaction missing
+### Tornado — Acceleration scaling fixed, Cyclone interaction still missing
 - Cycle timers: 60/40/30 by level — correct
 - Base acceleration: $C00 — correct
 - Wall/floor bounce: correct
-- **Missing: Acceleration doubling for levels 1-2**: ASM $46(a5) flag doubles acceleration. Native always uses $C00.
-- **Missing: Target velocity doubling for level 2**: ASM $47(a5) flag doubles speed cap. Native always clamps to $18000.
+- **Fixed: Acceleration doubling for levels 1-2**: native now persists the ROM's `$4E(a5)` init flag and doubles the signed per-axis acceleration after `loc_35444` resolves the drift row.
+- **Fixed: Target velocity doubling for level 2**: native now persists the ROM's `$4F(a5)` init flag, doubles the desired drift speeds, and reloads the 60/40/30 pattern timer from the raw layout level instead of live HP.
 - **Missing: Cyclone-flying interaction**: ASM boosts player Y-acceleration ($28) and reflects Tornado x_velocity when player is in Cyclone form. Meaningful gameplay mechanic.
 - RNG pattern selection: documented DEVIATION.
 
@@ -156,19 +156,19 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### High impact (affects gameplay noticeably)
 1. Archer arrow lifetime + re-aiming (arrows expire too early, no homing)
-2. Dragon Flying descent fire velocity (wrong direction/speed)
-3. Fireball gravity tier off-by-one (wrong fall speed at all HP tiers)
-4. Tornado acceleration scaling for levels 1-2
+2. Tornado Cyclone-flying interaction
+3. Crab player proximity freeze
+4. Dragon Flying wall-reversal during Drift
 
 ### Medium impact (affects specific interactions)
-5. Crab player proximity freeze (distinctive behaviour absent)
-6. Dragon Flying wall-reversal during Drift
-7. Tornado Cyclone-flying interaction
-8. Sphere/Fireball slope deflection
+5. Sphere/Fireball slope deflection
+6. Driller block drilling
+7. Probe half-width per-family customisation
+8. Archer aiming when dx==0
 
 ### Low impact (edge cases or rare scenarios)
-9. Driller block drilling (distinctive but rare interaction)
-10. Crab/Driller speed cap at high HP (rare enemy levels)
-11. Probe half-width per-family customisation
-12. Archer aiming when dx==0
-13. Cloud lightning bolt attack
+9. Crab/Driller speed cap at high HP (rare enemy levels)
+10. Cloud lightning bolt attack
+11. Dragon Flying fire spawn X offset
+12. Dragon Flying collision-recovery during Descent
+13. Dragon Flying death-on-stomp sequence

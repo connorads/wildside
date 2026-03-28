@@ -364,6 +364,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) segment_index: usize,
     /// Index into the level's enemy layout objects list.
     pub(crate) layout_index: usize,
+    /// Raw layout `enemy_level(a3)` copied from `hit_points_plus_one`.
+    pub(crate) enemy_level: u8,
     pub(crate) family: EnemyFamily,
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -414,6 +416,10 @@ pub(crate) struct ActiveEnemy {
     pub(crate) boss_head_index: u8,
     /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
     pub(crate) scorpion_tracking_lock: bool,
+    /// ASM UFO.asm `$4E(a5)`: doubles per-axis acceleration for UFO/Tornado tiers 1-2.
+    pub(crate) flight_double_acceleration: bool,
+    /// ASM UFO.asm `$4F(a5)`: doubles target speed for UFO/Tornado tier 2.
+    pub(crate) flight_double_terminal_speed: bool,
     /// Walk speed override from tracking callback ($50(a5)). When non-zero, step_pacer
     /// uses this instead of pacer_walk_speed(). Set by Scorpion tracking (Scorpion.asm loc_3DD7E).
     pub(crate) walk_speed_override: i32,
@@ -1048,6 +1054,7 @@ pub(crate) fn activate_enemies_with_rng(
             let mut enemy = ActiveEnemy {
                 segment_index: view.segment_index,
                 layout_index: index,
+                enemy_level,
                 family,
                 x_pos: head_x,
                 y_pos: head_y,
@@ -1067,7 +1074,7 @@ pub(crate) fn activate_enemies_with_rng(
                 },
                 damage_flash_frames: 0,
                 palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
-                wait_timer: spawn_wait_timer(family),
+                wait_timer: spawn_wait_timer(family, enemy_level),
                 dragon_phase: spawn_dragon_phase(family),
                 dragon_phase_frames: 0,
                 dragon_script_variant: dragon_variant,
@@ -1092,6 +1099,14 @@ pub(crate) fn activate_enemies_with_rng(
                     BOSS_HEAD_NONE
                 },
                 scorpion_tracking_lock: false,
+                flight_double_acceleration: matches!(
+                    family,
+                    EnemyFamily::UFO | EnemyFamily::Tornado
+                ) && enemy_level >= 1,
+                flight_double_terminal_speed: matches!(
+                    family,
+                    EnemyFamily::UFO | EnemyFamily::Tornado
+                ) && enemy_level >= 2,
                 walk_speed_override: 0,
                 shared_walker_state: spawn_shared_walker_state(family),
                 shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
@@ -1420,7 +1435,6 @@ pub(crate) fn step_ufo_beam(
 /// shares `Enemy_HandleAcceleration` with UFO. Terminal velocity from the table
 /// entries is typically $18000. Cycle timer from `unk_3588C`: 60/40/30 by enemy_level.
 pub(crate) const TORNADO_ACCELERATION: i32 = 0xC00;
-pub(crate) const TORNADO_TERMINAL_VELOCITY: i32 = 0x1_8000;
 /// Per-level cycle timers: level 0 = 60, level 1 = 40, level 2 = 30 (unk_3588C).
 pub(crate) const TORNADO_PATTERN_FRAMES: [u16; 3] = [60, 40, 30];
 
@@ -1579,20 +1593,36 @@ fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, accelera
 pub(crate) fn reload_tornado_pattern_with_rng(enemy: &mut ActiveEnemy, rng: &mut RomRandomState) {
     // ASM UFO.asm loc_35326 -> loc_35444: choose a table row, then derive the
     // signed per-axis acceleration that drives Enemy_HandleAcceleration.
+    // ASM UFO.asm loc_34E10 then doubles both acceleration (`$4E(a5)`) and
+    // desired speed (`$4F(a5)`) for higher Tornado/UFO layout tiers.
     let pattern = TORNADO_PATTERNS[tornado_pattern_index_with_rng(enemy, rng)];
-    enemy.target_x_velocity = pattern.target_x_velocity;
-    enemy.target_y_velocity = pattern.target_y_velocity;
-    enemy.x_acceleration = acceleration_for_target(
-        enemy.x_velocity,
-        pattern.target_x_velocity,
-        pattern.x_acceleration,
-    );
-    enemy.y_acceleration = acceleration_for_target(
-        enemy.y_velocity,
-        pattern.target_y_velocity,
-        pattern.y_acceleration,
-    );
-    enemy.facing = if pattern.target_x_velocity < 0 {
+    let target_x_velocity = if enemy.flight_double_terminal_speed {
+        pattern.target_x_velocity.saturating_mul(2)
+    } else {
+        pattern.target_x_velocity
+    };
+    let target_y_velocity = if enemy.flight_double_terminal_speed {
+        pattern.target_y_velocity.saturating_mul(2)
+    } else {
+        pattern.target_y_velocity
+    };
+    let x_acceleration =
+        acceleration_for_target(enemy.x_velocity, target_x_velocity, pattern.x_acceleration);
+    let y_acceleration =
+        acceleration_for_target(enemy.y_velocity, target_y_velocity, pattern.y_acceleration);
+    enemy.target_x_velocity = target_x_velocity;
+    enemy.target_y_velocity = target_y_velocity;
+    enemy.x_acceleration = if enemy.flight_double_acceleration {
+        x_acceleration.saturating_mul(2)
+    } else {
+        x_acceleration
+    };
+    enemy.y_acceleration = if enemy.flight_double_acceleration {
+        y_acceleration.saturating_mul(2)
+    } else {
+        y_acceleration
+    };
+    enemy.facing = if target_x_velocity < 0 {
         Direction::Left
     } else {
         Direction::Right
@@ -1615,14 +1645,12 @@ pub(crate) fn step_tornado_with_rng(
         enemy.x_velocity,
         enemy.target_x_velocity,
         enemy.x_acceleration,
-    )
-    .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+    );
     enemy.y_velocity = apply_acceleration_axis(
         enemy.y_velocity,
         enemy.target_y_velocity,
         enemy.y_acceleration,
-    )
-    .clamp(-TORNADO_TERMINAL_VELOCITY, TORNADO_TERMINAL_VELOCITY);
+    );
 
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -1630,7 +1658,7 @@ pub(crate) fn step_tornado_with_rng(
 
     // ASM UFO.asm loc_35326 + unk_3588C: reload a new pattern on each sub-cycle.
     if enemy.wait_timer == 0 {
-        let level = (enemy.hit_points.saturating_sub(1) as usize).min(2);
+        let level = usize::from(enemy.enemy_level).min(2);
         enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
         reload_tornado_pattern_with_rng(enemy, rng);
     } else {
@@ -4489,7 +4517,7 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
     (enemy_level + base).max(1)
 }
 
-pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
+pub(crate) fn spawn_wait_timer(family: EnemyFamily, enemy_level: u8) -> u16 {
     match family {
         // EmoRock: base $3C (60) frames hover wait before first drop attempt.
         // Original adds a random offset; we use the fixed base.
@@ -4508,8 +4536,8 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily) -> u16 {
         EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
-        // Tornado: first cycle timer (level 0 = 60 frames).
-        EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[0],
+        // ASM UFO.asm `unk_3588C`: 60/40/30 by raw layout level.
+        EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[usize::from(enemy_level).min(2)],
         // SpinningTwins: orbit-to-walk is collision-triggered, no timer needed.
         EnemyFamily::SpinningTwins => 0,
         // Bosses: fire first projectile after initial delay.
