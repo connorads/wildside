@@ -2531,6 +2531,162 @@ mod tests {
     }
 
     #[test]
+    fn render_effects_scene_draws_headymetal_wobble_pixels_at_each_timer_boundary() {
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.insert(
+            0x20,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 80, 80)],
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(2, 25, 32)],
+                frame_duration: 10,
+            },
+        );
+        visuals.enemies.families.insert(
+            0x21,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 220, 120)],
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(2, 16, 16)],
+                frame_duration: 6,
+            },
+        );
+        let background = [33, 66, 99];
+        let cases = [
+            // ASM sub_37708/sub_3787C/sub_378A2 changes wobble magnitude as the
+            // HeadyMetal death timer crosses $015E/$00FA/$0096/$0064.
+            (0x01C2, (88, 123), vec![(77, 102), (107, 102)]),
+            (0x015E, (88, 124), vec![(76, 102), (108, 102)]),
+            (0x00FA, (88, 126), vec![(74, 102), (110, 102)]),
+            (0x0096, (88, 127), vec![(73, 102), (111, 102)]),
+            (0x0064, (88, 129), vec![(71, 102), (113, 102)]),
+        ];
+
+        for (remaining, expected_body, expected_eyes) in cases {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.frame_index = 0;
+            trace.camera_x_pos = 0;
+            trace.camera_y_pos = 0;
+            trace.flag_x = None;
+            trace.flag_y = None;
+            trace.enemy_death_effects = vec![(100 << 16, 120 << 16, remaining)];
+
+            let scene = build_scene_filtered(
+                &trace,
+                false,
+                Some(&visuals),
+                None,
+                &LayerFilter::solo("effects"),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            let body_sample = (expected_body.0 + 10, expected_body.1 + 20);
+
+            assert_eq!(
+                pixel_at(&rgb, body_sample.0 as u32, body_sample.1 as u32),
+                [255, 80, 80],
+                "body pixel should render at the ASM-backed wobble origin for remaining timer 0x{remaining:04X}",
+            );
+            for &(eye_x, eye_y) in &expected_eyes {
+                assert_eq!(
+                    pixel_at(&rgb, eye_x as u32, eye_y as u32),
+                    [255, 220, 120],
+                    "eye pixel should render at the ASM-backed wobble origin for remaining timer 0x{remaining:04X}",
+                );
+            }
+            assert_eq!(pixel_at(&rgb, 0, 0), background);
+
+            let body_pixels = rgb
+                .chunks_exact(3)
+                .filter(|pixel| *pixel == [255, 80, 80].as_slice())
+                .count();
+            let eye_pixels = rgb
+                .chunks_exact(3)
+                .filter(|pixel| *pixel == [255, 220, 120].as_slice())
+                .count();
+            assert_eq!(
+                body_pixels,
+                32 * 32,
+                "body sprite footprint should stay intact at remaining timer 0x{remaining:04X}",
+            );
+            assert_eq!(
+                eye_pixels,
+                16 * 16 * 2,
+                "eye sprite footprints should stay intact at remaining timer 0x{remaining:04X}",
+            );
+        }
+    }
+
+    #[test]
+    fn render_effects_scene_flips_headymetal_wobble_phase_after_two_frames() {
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.insert(
+            0x20,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 80, 80)],
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(2, 25, 32)],
+                frame_duration: 10,
+            },
+        );
+        visuals.enemies.families.insert(
+            0x21,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 220, 120)],
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(2, 16, 16)],
+                frame_duration: 6,
+            },
+        );
+
+        let render_rgb = |frame_index| {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.frame_index = frame_index;
+            trace.camera_x_pos = 0;
+            trace.camera_y_pos = 0;
+            trace.flag_x = None;
+            trace.flag_y = None;
+            trace.enemy_death_effects = vec![(
+                100 << 16,
+                120 << 16,
+                kid_core::HEADYMETAL_DEATH_EFFECT_FRAMES,
+            )];
+            let scene = build_scene_filtered(
+                &trace,
+                false,
+                Some(&visuals),
+                None,
+                &LayerFilter::solo("effects"),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            rgb
+        };
+
+        let rgb_frame_0 = render_rgb(0);
+        let rgb_frame_2 = render_rgb(2);
+
+        assert_eq!(pixel_at(&rgb_frame_0, 98, 143), [255, 80, 80]);
+        assert_eq!(pixel_at(&rgb_frame_0, 77, 102), [255, 220, 120]);
+        assert_eq!(pixel_at(&rgb_frame_0, 107, 102), [255, 220, 120]);
+        assert_eq!(pixel_at(&rgb_frame_2, 98, 137), [255, 80, 80]);
+        assert_eq!(pixel_at(&rgb_frame_2, 83, 102), [255, 220, 120]);
+        assert_eq!(pixel_at(&rgb_frame_2, 101, 102), [255, 220, 120]);
+        assert_eq!(pixel_at(&rgb_frame_0, 98, 102), [33, 66, 99]);
+        assert_eq!(pixel_at(&rgb_frame_0, 101, 102), [33, 66, 99]);
+        assert_eq!(pixel_at(&rgb_frame_2, 77, 102), [33, 66, 99]);
+        assert_eq!(pixel_at(&rgb_frame_2, 122, 102), [33, 66, 99]);
+    }
+
+    #[test]
     fn native_scene_builder_uses_asset_backed_commands_for_visible_level1_families() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

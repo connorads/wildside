@@ -81,7 +81,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 059 | [x] | P3 | enemy | Fireball ceiling bounce uses Sphere formula, should be random+cap | Fireball bounce matches ASM |
 | 060 | [x] | P2 | enemy | Boss multi-head system (Shishkaboss/BoomerangBosses/BagelBrothers) | 3 heads per boss with ASM offsets + per-head HP |
 | 061 | [x] | P3 | enemy | Orca missing ceiling bounce, slope handling, X accel during lunge | All 3 from ASM: ceiling bounce, slope re-lunge, X accel $200/frame |
-| 062 | [~] | P3 | enemy | HeadyMetal death wobble visual (rendering-only) | ASM timer-boundary sprite regressions now cover the wobble stages; still needs full oracle frame verification |
+| 062 | [x] | P3 | enemy | HeadyMetal death wobble visual (rendering-only) | The effects-only scene tests now verify the full HeadyMetal body/eye wobble footprints and the two-frame phase flip at each ASM timer boundary |
 | 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
 | 064 | [x] | P2 | block | Drill block projectile fired downward, should be horizontal ±4px/frame | Drill projectile horizontal |
 | 065 | [x] | P3 | block | Shooter fire: ASM uses per-block registration on visibility, native uses global timer | Shooter blocks now register per visible cell, fire on entry, and recycle after the ROM's 22-frame slot lifetime |
@@ -387,6 +387,15 @@ at the earlier causal miss: frame `1574` in the `level_settle@719 -> pre_death@1
 `kid_x_pos`, with the native jump-gravity / ground-probe context attached in the same error line.
 This keeps the next gameplay patch focused on the first airborne X-path drift instead of the later
 death-shell hand-off.
+
+### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
+Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
+Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.
+
+Fix: keep the existing timer-boundary scene-command assertions, then add effects-only render
+regressions that swap in visible HeadyMetal body/eye tiles, render the final RGB frame, and assert
+the full sprite footprints plus the two-frame wobble phase flip at each ASM timer boundary. That
+turns the old command-position smoke test into an end-to-end render check for the boss-death wobble.
 
 ### 126 — Walking up slopes is still observably wrong in native play (FIXED)
 Evidence source: repeated native play reports plus ASM audit. Native repro: focused physics divergence reproduced in tests.
