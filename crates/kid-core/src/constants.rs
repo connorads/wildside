@@ -251,6 +251,10 @@ pub(crate) const PLAYER_DEATH_WINDUP_FRAMES: usize = 159;
 // Oracle death traces switch from the hidden death shell into the respawn
 // bootstrap after roughly half a second, not the older 120-frame placeholder.
 pub(crate) const PLAYER_DEATH_HIDE_FRAMES: usize = 32;
+// Oracle-backed `lose_life` / `Teleport` traces keep the frozen post-Death
+// shell pose visible only for the first 21 hidden frames before Kid's WRAM
+// coordinates clear while the respawn shell still holds camera/object state.
+pub(crate) const PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES: usize = 21;
 // Oracle-backed death/respawn traces keep Kid on the hidden respawn settle path
 // through death_respawn_level1@1919, so the native settle window must still
 // outlast that smoke checkpoint after the earlier death hand-off.

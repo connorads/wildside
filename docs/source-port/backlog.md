@@ -452,6 +452,16 @@ the oracle has already advanced the hidden death/respawn shell boundary. The rem
 that later frame-`1780` death-shell hand-off plus the respawn camera reset, not the earlier visible
 death arc.
 
+New evidence (2026-03-28, hidden shell clear): oracle-backed `lose_life` / `Teleport` traces keep
+the frozen post-`Death loc_B80C` shell visible only through frame `1779`; frame `1780` stays in
+`Game_Mode=$0008` with the same lives/HP/object counts, but Kid's WRAM pose has already cleared to
+zero. Native now mirrors that boundary, adds
+`death_respawn_level_1_hides_shell_pose_on_frame_1780`, and makes
+`compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 1778 --frame-end
+1784 --checkpoint-interval 1` pass. The full compare still fails later at `respawn_tail@1919`,
+and the first live drift now moves to frame `1785` on `camera_x_pos` / `camera_y_pos`, so the next
+work is the hidden respawn camera hand-off rather than the stale shell-pose visibility.
+
 ### 062 — HeadyMetal death wobble visual (rendering-only) (FIXED)
 Evidence source: ASM `sub_37708` / `sub_3787C` / `sub_378A2` plus native scene-builder tests.
 Native repro: render-only regression in the effects layer. Oracle repro: n/a. Minimum gate: `cargo test -p kidcli headymetal_wobble`.

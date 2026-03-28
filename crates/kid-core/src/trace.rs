@@ -48,6 +48,16 @@ struct FloatingDiamondContactCandidate {
 }
 
 impl NativeRuntime {
+    fn dying_hidden_shell_still_visible(&self) -> bool {
+        matches!(
+            self.player_lifecycle,
+            PlayerLifecycle::Dying { remaining_frames }
+                if remaining_frames
+                    > PLAYER_DEATH_HIDE_FRAMES
+                        .saturating_sub(PLAYER_DEATH_HIDDEN_SHELL_VISIBLE_FRAMES)
+        )
+    }
+
     fn current_character_movement(&self, player: PlayerState) -> u16 {
         const MOVE_STANDINGSTILL: u16 = 0;
         const MOVE_CRAWLING: u16 = 1;
@@ -1305,7 +1315,7 @@ impl NativeRuntime {
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
-                    && matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
+                    && self.dying_hidden_shell_still_visible()
                 {
                     Some(snapshot.frozen_player)
                 } else if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
@@ -1479,7 +1489,15 @@ impl NativeRuntime {
         }
         if let Some(snapshot) = self.death_shell_snapshot.as_ref() {
             if matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }) {
-                return snapshot.frozen_active_objects.clone();
+                if self.dying_hidden_shell_still_visible() {
+                    return snapshot.frozen_active_objects.clone();
+                }
+                return snapshot
+                    .frozen_active_objects
+                    .iter()
+                    .filter(|object| !matches!(object.kind, NativeObjectKind::Player))
+                    .cloned()
+                    .collect();
             }
             if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {
                 let mut objects = snapshot.frozen_active_objects.clone();
@@ -1581,10 +1599,8 @@ impl NativeRuntime {
             };
         }
         if let Some(snapshot) = self.death_shell_snapshot.as_ref()
-            && matches!(
-                self.player_lifecycle,
-                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
-            )
+            && (matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. })
+                || matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. }))
         {
             return (
                 snapshot.frozen_number_objects,

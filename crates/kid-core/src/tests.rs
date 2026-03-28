@@ -13287,6 +13287,49 @@ fn death_respawn_level_1_enters_hidden_lose_life_path_on_frame_1759() {
 }
 
 #[test]
+fn death_respawn_level_1_hides_shell_pose_on_frame_1780() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1779 = None;
+    let mut frame_1780 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_781) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            1_779 => frame_1779 = Some(trace),
+            1_780 => {
+                frame_1780 = Some(trace);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let frame_1779 = frame_1779.expect("frame 1779 trace");
+    let frame_1780 = frame_1780.expect("frame 1780 trace");
+    // ASM Death loc_B80C has already fallen through lose_life by frame 1759,
+    // but the oracle-backed hidden shell only keeps Kid's frozen pose visible
+    // through frame 1779. The next outer frame still stays in Game_Mode=$0008
+    // with the same lives/HP/camera, but Kid's WRAM pose has already cleared.
+    assert_eq!(frame_1779.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_1779.kid_x_pos, Some(0x08FF_0000));
+    assert_eq!(frame_1779.kid_y_pos, Some(0x023F_5000));
+    assert_eq!(frame_1780.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_1780.number_lives, 2);
+    assert_eq!(
+        frame_1780.number_hitpoints,
+        PlayerForm::TheKid.max_hitpoints()
+    );
+    assert_eq!(frame_1780.camera_x_pos, 0x0835_0000);
+    assert_eq!(frame_1780.camera_y_pos, 0x00BC_0000);
+    assert_eq!(frame_1780.kid_x_pos, None);
+    assert_eq!(frame_1780.kid_y_pos, None);
+    assert_eq!(frame_1780.number_objects, 7);
+    assert_eq!(frame_1780.number_gfx_objects, 8);
+    assert!(frame_1780.just_received_damage);
+}
+
+#[test]
 fn death_respawn_level_1_releases_ground_once_post_step_support_is_gone() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
