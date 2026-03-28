@@ -22775,3 +22775,853 @@ fn determinism_active_gameplay_identical_traces() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Block subsystem: targeted mutation-killing tests
+// ---------------------------------------------------------------------------
+
+/// Helper: build a minimal grid with specific cells set.
+fn grid_with_cells(w: u16, h: u16, cells: &[(u16, u16, u8, u8)]) -> terrain::BlockGrid {
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    for &(col, row, hi, lo) in cells {
+        let off = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[off] = hi;
+        data[off + 1] = lo;
+    }
+    terrain::BlockGrid::from_level_layout(&data, w, h)
+}
+
+fn default_bounds() -> LevelBounds {
+    LevelBounds {
+        width_pixels: 320,
+        height_pixels: 256,
+    }
+}
+
+// --- Ghost blocks: step_ghost_blocks through NativeRuntime ---
+
+#[test]
+fn ghost_block_step_transitions_solid_to_vanished_and_clears_grid() {
+    // Ghost group starts solid with timer=0 → should transition to vanished,
+    // clearing the grid cells.
+    let mut rt = NativeRuntime::new(manifest());
+    // Place a solid ghost block at (3, 5): has_block=1, collision=Solid(6), block_type=SolidGhost(3)
+    // hi = 0x80 | (0x06 << 4) | 0x03 = 0xE3
+    let grid = grid_with_cells(8, 8, &[(3, 5, 0xE3, 0)]);
+    rt.block_grid = Some(grid);
+    rt.block_state.ghost_groups.push(GhostGroup {
+        col: 3,
+        row: 5,
+        count: 1,
+        vertical: false,
+        solid_time: 10,
+        vanished_time: 5,
+        timer: 0,
+        solid: true,
+    });
+
+    rt.step_ghost_blocks();
+
+    // Should have transitioned to vanished
+    assert!(!rt.block_state.ghost_groups[0].solid);
+    assert_eq!(rt.block_state.ghost_groups[0].timer, 5);
+    // Grid cell should be cleared
+    let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 5);
+    assert!(
+        !cell.has_block,
+        "vanished ghost block should clear grid cell"
+    );
+}
+
+#[test]
+fn ghost_block_step_transitions_vanished_to_solid_and_restores_grid() {
+    let mut rt = NativeRuntime::new(manifest());
+    let grid = grid_with_cells(8, 8, &[]);
+    rt.block_grid = Some(grid);
+    rt.block_state.ghost_groups.push(GhostGroup {
+        col: 3,
+        row: 5,
+        count: 1,
+        vertical: false,
+        solid_time: 10,
+        vanished_time: 5,
+        timer: 0,
+        solid: false,
+    });
+
+    rt.step_ghost_blocks();
+
+    assert!(rt.block_state.ghost_groups[0].solid);
+    assert_eq!(rt.block_state.ghost_groups[0].timer, 10);
+    // Grid cell should be restored to solid ghost
+    let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 5);
+    assert!(cell.has_block, "restored ghost block should have has_block");
+    assert_eq!(cell.block_type, terrain::BlockType::SolidGhost);
+    assert!(matches!(cell.collision, terrain::CollisionKind::Solid));
+}
+
+#[test]
+fn ghost_block_step_decrements_timer_without_transition() {
+    // When timer > 0, should just decrement — no transition, no grid change.
+    let mut rt = NativeRuntime::new(manifest());
+    let grid = grid_with_cells(8, 8, &[(3, 5, 0xE3, 0)]);
+    rt.block_grid = Some(grid);
+    rt.block_state.ghost_groups.push(GhostGroup {
+        col: 3,
+        row: 5,
+        count: 1,
+        vertical: false,
+        solid_time: 10,
+        vanished_time: 5,
+        timer: 3,
+        solid: true,
+    });
+
+    rt.step_ghost_blocks();
+
+    assert!(
+        rt.block_state.ghost_groups[0].solid,
+        "should still be solid"
+    );
+    assert_eq!(rt.block_state.ghost_groups[0].timer, 2);
+    // Grid should be unchanged
+    let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 5);
+    assert!(cell.has_block, "grid should be unchanged during countdown");
+}
+
+#[test]
+fn ghost_block_vertical_group_clears_correct_cells() {
+    // Vertical group of 3 blocks starting at (2, 4)
+    let mut rt = NativeRuntime::new(manifest());
+    let grid = grid_with_cells(8, 8, &[(2, 4, 0xE3, 0), (2, 5, 0xE3, 0), (2, 6, 0xE3, 0)]);
+    rt.block_grid = Some(grid);
+    rt.block_state.ghost_groups.push(GhostGroup {
+        col: 2,
+        row: 4,
+        count: 3,
+        vertical: true,
+        solid_time: 10,
+        vanished_time: 5,
+        timer: 0,
+        solid: true,
+    });
+
+    rt.step_ghost_blocks();
+
+    let grid = rt.block_grid.as_ref().unwrap();
+    for row in 4..=6 {
+        let cell = grid.cell_at(2, row);
+        assert!(
+            !cell.has_block,
+            "vertical ghost cell at row {row} should be cleared"
+        );
+    }
+}
+
+// --- Shifting blocks ---
+
+#[test]
+fn shifting_block_no_op_when_airborne() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Shifting block at (3, 5)
+    let grid = grid_with_cells(8, 8, &[(3, 5, 0xE7, 0)]);
+    rt.block_grid = Some(grid);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.on_ground = false;
+    slice.player.x_pos = 56 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    rt.apply_shifting_blocks(&slice);
+
+    // Block should not have moved
+    let grid = rt.block_grid.as_ref().unwrap();
+    assert!(
+        grid.cell_at(3, 5).has_block,
+        "block should remain when player airborne"
+    );
+}
+
+#[test]
+fn shifting_block_no_op_at_row_zero() {
+    // A shifting block at row 0 has nowhere to shift up to.
+    let mut rt = NativeRuntime::new(manifest());
+    // Shifting block at (3, 0), solid floor at row 1
+    let grid = grid_with_cells(8, 4, &[(3, 0, 0xE7, 0), (3, 1, 0x60, 0)]);
+    rt.block_grid = Some(grid);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.on_ground = true;
+    // Standing on row 0: feet at y = pixel_to_cell boundary (row 0 top = 0px, +1 = 1)
+    slice.player.x_pos = 56 << 16;
+    slice.player.y_pos = 0 << 16; // at pixel 0 — foot_row = pixel_to_cell(1) = 0
+
+    rt.apply_shifting_blocks(&slice);
+
+    // Block should still be there
+    assert!(
+        rt.block_grid.as_ref().unwrap().cell_at(3, 0).has_block,
+        "shifting block at row 0 should not move"
+    );
+}
+
+// --- Deferred ceiling clears: full lifecycle ---
+
+#[test]
+fn deferred_ceiling_clear_full_lifecycle() {
+    // ASM sub_1007A: Deleted(32 frames) → Restored(1 frame) → PendingClear → FreshSmash → removed
+    let mut rt = NativeRuntime::new(manifest());
+    // Set up a grid with a prize block that has been hit (written as 0x6F = Solid+Deleted)
+    let grid = grid_with_cells(8, 8, &[(3, 2, 0x6F, 0)]);
+    rt.block_grid = Some(grid);
+
+    let restore_cell = terrain::Cell::from_be_bytes(0xE1, 0x05); // original prize cell
+    rt.block_state
+        .deferred_ceiling_clears
+        .push(DeferredCeilingClear {
+            col: 3,
+            row: 2,
+            content: terrain::PrizeContent::Diamond,
+            restore_cell,
+            deleted_frames_remaining: 2, // shortened for test
+            phase: DeferredPrizeBlockPhase::Deleted,
+        });
+
+    // Tick 1: still Deleted, frames_remaining → 1
+    rt.step_deferred_ceiling_clears();
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].phase,
+        DeferredPrizeBlockPhase::Deleted
+    );
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].deleted_frames_remaining,
+        1
+    );
+
+    // Tick 2: still Deleted, frames_remaining → 0
+    rt.step_deferred_ceiling_clears();
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].phase,
+        DeferredPrizeBlockPhase::Deleted
+    );
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].deleted_frames_remaining,
+        0
+    );
+
+    // Tick 3: frames_remaining == 0, transition to Restored, grid gets restore_cell
+    rt.step_deferred_ceiling_clears();
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].phase,
+        DeferredPrizeBlockPhase::Restored
+    );
+    let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 2);
+    assert_eq!(cell, restore_cell, "grid should have the restore cell");
+
+    // Tick 4: Restored → PendingClear
+    rt.step_deferred_ceiling_clears();
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].phase,
+        DeferredPrizeBlockPhase::PendingClear
+    );
+
+    // Now finish_deferred_ceiling_clears: PendingClear → FreshSmash + spawn item
+    assert!(rt.floating_items.is_empty());
+    rt.finish_deferred_ceiling_clears();
+    assert_eq!(
+        rt.block_state.deferred_ceiling_clears[0].phase,
+        DeferredPrizeBlockPhase::FreshSmash
+    );
+    assert_eq!(rt.floating_items.len(), 1, "should spawn floating item");
+    // Grid should now have Smash block ($E001)
+    let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 2);
+    assert!(cell.has_block);
+    assert_eq!(cell.block_type, terrain::BlockType::Smash);
+
+    // Next finish_deferred_ceiling_clears: FreshSmash → removed
+    rt.finish_deferred_ceiling_clears();
+    assert!(
+        rt.block_state.deferred_ceiling_clears.is_empty(),
+        "FreshSmash should be cleaned up"
+    );
+}
+
+// --- Process block effects ---
+
+#[test]
+fn process_block_effects_drill_projectile_fires_rightward() {
+    // Player to the right of the drill → projectile fires right
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 200 << 16;
+    slice.drill_projectile_hit = Some((100 << 16, 50 << 16));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert!(
+        rt.projectiles[0].x_velocity > 0,
+        "drill projectile should fire rightward when player is right of block"
+    );
+    assert_eq!(rt.projectiles[0].x_velocity, 0x4_0000); // 4 px/frame
+    assert_eq!(rt.projectiles[0].y_velocity, 0);
+}
+
+#[test]
+fn process_block_effects_drill_projectile_fires_leftward() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 50 << 16;
+    slice.drill_projectile_hit = Some((100 << 16, 50 << 16));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert!(
+        rt.projectiles[0].x_velocity < 0,
+        "drill projectile should fire leftward when player is left of block"
+    );
+    assert_eq!(rt.projectiles[0].x_velocity, -0x4_0000);
+}
+
+#[test]
+fn process_block_effects_metal_and_rubber_create_bounce_anims() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.metal_block_hit = Some((5, 3));
+    slice.rubber_block_hit = Some((7, 4));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(rt.block_bounces.len(), 2, "metal + rubber = 2 bounces");
+    assert_eq!(rt.block_bounces[0].cell_x, 5);
+    assert_eq!(rt.block_bounces[0].cell_y, 3);
+    assert_eq!(rt.block_bounces[1].cell_x, 7);
+    assert_eq!(rt.block_bounces[1].cell_y, 4);
+    assert_eq!(rt.blocks_hit_this_frame, 2);
+}
+
+#[test]
+fn process_block_effects_smash_creates_destroy_effect() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.smash_block_hit = Some((80, 48));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(rt.block_destroy_effects.len(), 1);
+    assert_eq!(rt.block_destroy_effects[0].x_px, 80);
+    assert_eq!(rt.block_destroy_effects[0].y_px, 48);
+    assert_eq!(rt.block_destroy_effects[0].remaining, 8);
+}
+
+#[test]
+fn process_block_effects_teleporter_warps_player() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            col: 5,
+            row: 3,
+            dest_map_id: 0,
+            dest_y: 10,
+            dest_x: 20,
+        }],
+        hidden_blocks: vec![],
+    });
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 200 << 16;
+    slice.player.y_velocity = -0x2_0000;
+    slice.player.on_ground = false;
+    slice.teleporter_contact = Some((5, 3));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(
+        slice.player.x_pos,
+        (20 * 16) << 16,
+        "x should warp to dest col×16"
+    );
+    assert_eq!(
+        slice.player.y_pos,
+        (10 * 16) << 16,
+        "y should warp to dest row×16"
+    );
+    assert_eq!(slice.player.y_velocity, 0, "velocity zeroed after warp");
+    assert!(slice.player.on_ground, "player grounded after warp");
+}
+
+#[test]
+fn process_block_effects_teleporter_no_op_without_block_list() {
+    // If block_list is None, teleporter contact should be a no-op.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 200 << 16;
+    slice.teleporter_contact = Some((5, 3));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(
+        slice.player.x_pos,
+        100 << 16,
+        "player should not move without block_list"
+    );
+}
+
+// --- Shooter blocks: multi-direction and cell-change pruning ---
+
+#[test]
+fn shooter_block_fires_all_four_directions() {
+    // Skin byte 0x0F = all directions (up + right + down + left)
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x0F)]));
+
+    let slice = shooter_test_slice(0, 0);
+    rt.step_shooter_blocks(&slice);
+
+    assert_eq!(
+        rt.projectiles.len(),
+        4,
+        "should fire 4 projectiles for all directions"
+    );
+    // Check direction signs: up=-y, right=+x, down=+y, left=-x
+    let velocities: Vec<(i32, i32)> = rt
+        .projectiles
+        .iter()
+        .map(|p| (p.x_velocity, p.y_velocity))
+        .collect();
+    let speed: i32 = 4 << 16; // SHOOTER_PROJECTILE_SPEED
+    assert!(velocities.contains(&(0, -speed)), "missing up projectile");
+    assert!(velocities.contains(&(speed, 0)), "missing right projectile");
+    assert!(velocities.contains(&(0, speed)), "missing down projectile");
+    assert!(velocities.contains(&(-speed, 0)), "missing left projectile");
+}
+
+#[test]
+fn shooter_block_single_direction_up_only() {
+    // Skin byte 0x01 = up only
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x01)]));
+
+    let slice = shooter_test_slice(0, 0);
+    rt.step_shooter_blocks(&slice);
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(rt.projectiles[0].x_velocity, 0);
+    assert!(rt.projectiles[0].y_velocity < 0, "up means negative y");
+}
+
+#[test]
+fn shooter_block_pruned_when_cell_no_longer_shooter() {
+    // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x02)]));
+
+    let slice = shooter_test_slice(0, 0);
+    rt.step_shooter_blocks(&slice);
+    assert_eq!(rt.block_state.shooter_blocks.len(), 1);
+
+    // Now overwrite the grid cell to empty
+    rt.block_grid
+        .as_mut()
+        .unwrap()
+        .set_cell_at(2, 3, terrain::Cell::from_be_bytes(0, 0));
+
+    rt.step_shooter_blocks(&slice);
+    assert!(
+        rt.block_state.shooter_blocks.is_empty(),
+        "shooter entry should be pruned when cell is no longer a shooter"
+    );
+}
+
+// --- Floating items: spawn delay, lifetime, collision boxes ---
+
+#[test]
+fn floating_item_with_spawn_delay_not_collectible() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 5,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 100 << 16;
+
+    rt.collect_floating_items(&mut slice);
+
+    assert!(
+        !rt.floating_items[0].collected,
+        "item with spawn_delay > 0 should not be collectible"
+    );
+}
+
+#[test]
+fn floating_item_spawn_delay_counts_down_in_visual_step() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 3,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+    assert_eq!(rt.floating_items[0].spawn_delay, 2);
+    rt.step_visual_effects();
+    assert_eq!(rt.floating_items[0].spawn_delay, 1);
+    rt.step_visual_effects();
+    assert_eq!(rt.floating_items[0].spawn_delay, 0);
+    // Now the item should start falling
+    rt.step_visual_effects();
+    assert!(
+        rt.floating_items[0].y_velocity > 0,
+        "item should start accumulating velocity after delay expires"
+    );
+}
+
+#[test]
+fn floating_item_removed_when_lifetime_expires() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 1,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+    // remaining was 1, saturating_sub(1) = 0
+    assert!(
+        rt.floating_items.is_empty(),
+        "item with remaining=0 should be removed"
+    );
+}
+
+#[test]
+fn floating_item_collected_flag_causes_removal() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: true,
+    });
+
+    rt.step_visual_effects();
+    assert!(
+        rt.floating_items.is_empty(),
+        "collected item should be removed in visual step"
+    );
+}
+
+// --- Visual effects: countdown and retention ---
+
+#[test]
+fn block_bounce_anim_counts_down_and_is_removed() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.block_bounces.push(BlockBounceAnim {
+        cell_x: 3,
+        cell_y: 5,
+        remaining: 2,
+    });
+
+    rt.step_visual_effects();
+    assert_eq!(rt.block_bounces.len(), 1);
+    assert_eq!(rt.block_bounces[0].remaining, 1);
+
+    rt.step_visual_effects();
+    assert!(
+        rt.block_bounces.is_empty(),
+        "bounce anim should be removed when remaining reaches 0"
+    );
+}
+
+#[test]
+fn block_destroy_effect_counts_down_and_is_removed() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.block_destroy_effects.push(BlockDestroyEffect {
+        x_px: 80,
+        y_px: 48,
+        remaining: 1,
+    });
+
+    rt.step_visual_effects();
+    assert!(
+        rt.block_destroy_effects.is_empty(),
+        "destroy effect should be removed when remaining reaches 0"
+    );
+}
+
+#[test]
+fn enemy_death_effect_counts_down_and_is_removed() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.enemy_death_effects.push(EnemyDeathEffect {
+        x_pos: 100,
+        y_pos: 200,
+        remaining: 1,
+    });
+
+    rt.step_visual_effects();
+    assert!(
+        rt.enemy_death_effects.is_empty(),
+        "enemy death effect should be removed when remaining reaches 0"
+    );
+}
+
+// --- Evanescent blocks: max entries cap ---
+
+#[test]
+fn evanescent_block_respects_max_entries_cap() {
+    // ASM limits evanescent tracking to 19 ($13) entries.
+    let grid = grid_with_evanescent(2, 3, 28);
+    let mut runtime = runtime_with_evanescent_grid(grid);
+
+    // Pre-fill to capacity
+    for i in 0..EVANESCENT_MAX_ENTRIES {
+        runtime.block_state.evanescent_blocks.push(EvanescentEntry {
+            col: 10 + i as u16,
+            row: 10,
+            timer: 0,
+        });
+    }
+    assert_eq!(
+        runtime.block_state.evanescent_blocks.len(),
+        EVANESCENT_MAX_ENTRIES
+    );
+
+    // Player standing on the evanescent block at (2, 3)
+    let slice = {
+        let mut s = shooter_test_slice(0, 0);
+        s.player.on_ground = true;
+        s.player.x_pos = (2 * 16 + 8) << 16;
+        s.player.y_pos = (3 * 16 - 1) << 16;
+        s
+    };
+
+    runtime.step_evanescent_blocks(&slice);
+
+    assert_eq!(
+        runtime.block_state.evanescent_blocks.len(),
+        EVANESCENT_MAX_ENTRIES,
+        "should not exceed max entries cap"
+    );
+}
+
+// --- Lift platform: player carry-along ---
+
+#[test]
+fn lift_platform_carries_grounded_player() {
+    // When player is on_ground and within snap tolerance of the lift, the lift
+    // should carry the player's y_pos along.
+    let mut rt = NativeRuntime::new(manifest());
+    let lift_y: u32 = 100 << 16;
+    rt.block_state.lift_platforms.push(LiftPlatform {
+        x_pos: 32 << 16,
+        y_pos: lift_y,
+        y_velocity: 0,
+        age: 0,
+        width_px: 16,
+        source_col: 2,
+        source_row: 6,
+        block_erased: false,
+    });
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    // Player standing on the lift
+    slice.player.x_pos = 40 << 16; // within platform x range
+    slice.player.y_pos = lift_y;
+    slice.player.on_ground = true;
+    slice.terrain.floor_y_pos = lift_y;
+
+    // Step: lift rises at 2px/frame
+    rt.step_lift_platforms(&mut slice);
+
+    let expected_lift_y = (100 - 2) << 16;
+    assert_eq!(
+        rt.block_state.lift_platforms[0].y_pos, expected_lift_y as u32,
+        "lift should rise 2px"
+    );
+    // Player should have been carried along
+    assert!(
+        slice.player.y_pos < lift_y,
+        "player should be carried upward with the lift"
+    );
+}
+
+// --- Process block effects: lift block spawns platform ---
+
+#[test]
+fn process_block_effects_lift_spawns_platform() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.lift_block_hit = Some((48, 80));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(rt.block_state.lift_platforms.len(), 1);
+    assert_eq!(rt.block_state.lift_platforms[0].x_pos, 48 << 16);
+    assert_eq!(rt.block_state.lift_platforms[0].y_pos, 80 << 16);
+    assert_eq!(rt.block_state.lift_platforms[0].source_col, 48 / 16);
+    assert_eq!(rt.block_state.lift_platforms[0].source_row, 80 / 16);
+    assert_eq!(rt.block_state.lift_platforms[0].age, 0);
+    assert!(!rt.block_state.lift_platforms[0].block_erased);
+}
+
+// --- Process block effects: prize block hit creates destroy effect ---
+
+#[test]
+fn process_block_effects_prize_creates_destroy_effect() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.prize_block_hit = Some((terrain::PrizeContent::Diamond, 48, 32));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(rt.block_destroy_effects.len(), 1);
+    assert_eq!(rt.block_destroy_effects[0].x_px, 48);
+    assert_eq!(rt.block_destroy_effects[0].y_px, 32);
+    assert_eq!(rt.block_destroy_effects[0].remaining, 8);
+    assert_eq!(rt.blocks_hit_this_frame, 1);
+}
+
+// --- Floating item: diamond uses inclusive overlap, helmet uses exclusive ---
+
+#[test]
+fn floating_diamond_inclusive_overlap_collects_at_boundary() {
+    // Diamond uses inclusive overlap (<=/>= for edges).
+    // Place item exactly at edge of player bounding box.
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    // Diamond box: item_left = 100-7 = 93, item_right = 100+7 = 107
+    // Player half_width = 5, so player_left = x-5, player_right = x+5
+    // For inclusive overlap: player_left <= item_right → x-5 <= 107 → x <= 112
+    // AND player_right >= item_left → x+5 >= 93 → x >= 88
+    // Test exactly at boundary: player_right == item_left (x+5 = 93 → x = 88)
+    slice.player.x_pos = 88 << 16;
+    // Diamond item_top = 100 - PLAYER_HEIGHT = 100 - 31 = 69, item_bottom = 100
+    // Inclusive: player_top <= item_bottom → (y-31) <= 100 → y <= 131
+    // AND player_y >= item_top → y >= 69
+    slice.player.y_pos = 100 << 16;
+
+    rt.collect_floating_items(&mut slice);
+
+    assert!(
+        rt.floating_items[0].collected,
+        "diamond should collect with inclusive boundary overlap"
+    );
+}
+
+#[test]
+fn floating_helmet_exclusive_overlap_misses_at_exact_boundary() {
+    // Helmet uses exclusive overlap (< / > for edges).
+    // At exact boundary, it should NOT collect.
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Skycutter,
+        collected: false,
+    });
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    // Helmet box: item_left = 100-8 = 92, item_right = 100+8 = 108
+    // For exclusive: player_right > item_left → x+5 > 92 → x > 87
+    // At x=87: player_right = 92 = item_left → NOT > → miss
+    slice.player.x_pos = 87 << 16;
+    // Set y to definitely overlap vertically
+    slice.player.y_pos = 110 << 16;
+
+    rt.collect_floating_items(&mut slice);
+
+    assert!(
+        !rt.floating_items[0].collected,
+        "helmet should NOT collect at exact exclusive boundary"
+    );
+}
+
+// --- Floating item: velocity accumulation and row tracking ---
+
+#[test]
+fn floating_item_accumulates_velocity_each_frame() {
+    // ASM: +$1388/frame downward velocity
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: (6 * 16) << 16,
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+    assert_eq!(
+        rt.floating_items[0].y_velocity, 0x1388,
+        "first frame: velocity = $1388"
+    );
+    let y_after_1 = rt.floating_items[0].y_pos;
+
+    rt.step_visual_effects();
+    assert_eq!(
+        rt.floating_items[0].y_velocity,
+        0x1388 * 2,
+        "second frame: velocity = $2710"
+    );
+    assert!(
+        rt.floating_items[0].y_pos > y_after_1,
+        "item should fall further on second frame"
+    );
+}
