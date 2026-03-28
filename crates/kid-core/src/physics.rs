@@ -1867,4 +1867,259 @@ mod proptests {
             );
         }
     }
+
+    // -- Boundary tests (killing < vs <= / > vs >= mutants) --
+
+    /// No input at vel=0 returns 0. ASM: both `bgt` (vel>0) and `blt` (vel<0)
+    /// skip when vel=0, falling through to the zero branch.
+    #[test]
+    fn jump_horizontal_no_input_at_zero_stays_zero() {
+        let no_input = HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        };
+        let profile = JumpAirProfile {
+            accel: 0x400,
+            max_speed: 0x2_0000,
+        };
+        let (vel, _) = update_jump_horizontal_velocity(0, Direction::Right, no_input, profile);
+        assert_eq!(vel, 0, "vel=0 with no input must stay 0");
+    }
+
+    /// No input at vel=+1 decelerates. ASM: `bgt` branches on vel>0, so
+    /// vel=1 must enter the positive decel path and NOT be treated as zero.
+    #[test]
+    fn jump_horizontal_no_input_positive_one_decelerates() {
+        let no_input = HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        };
+        let profile = JumpAirProfile {
+            accel: 0x400,
+            max_speed: 0x2_0000,
+        };
+        let (vel, _) = update_jump_horizontal_velocity(1, Direction::Right, no_input, profile);
+        // (1 - 0x400).max(0) = 0
+        assert_eq!(vel, 0, "vel=1 with no input snaps to 0");
+    }
+
+    /// No input at vel=-1 decelerates. ASM: `blt` branches on vel<0, so
+    /// vel=-1 must enter the negative decel path and NOT be treated as zero.
+    #[test]
+    fn jump_horizontal_no_input_negative_one_decelerates() {
+        let no_input = HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        };
+        let profile = JumpAirProfile {
+            accel: 0x400,
+            max_speed: 0x2_0000,
+        };
+        let (vel, _) = update_jump_horizontal_velocity(-1, Direction::Right, no_input, profile);
+        // (-1 + 0x400).min(0) = 0
+        assert_eq!(vel, 0, "vel=-1 with no input snaps to 0");
+    }
+
+    /// Airborne holding right at exactly max_air_speed: already at cap, no accel.
+    /// ASM: `cmp.l d1,d0; blt.s` — vel < max branches to accel; vel == max
+    /// falls through to decel-towards-max (which is a no-op at exact max).
+    #[test]
+    fn air_holding_right_at_exact_max_does_not_accelerate() {
+        let table = AIR_NORMAL;
+        let result = apply_air_holding_right(table.max_air_speed, &table);
+        // At max: (max - decel).max(max) = max (decel towards max is no-op)
+        assert_eq!(result, table.max_air_speed);
+    }
+
+    /// Airborne holding left at exactly max_air_speed (negated): no accel.
+    #[test]
+    fn air_holding_left_at_exact_max_does_not_accelerate() {
+        let table = AIR_NORMAL;
+        let result = apply_air_holding_left(-table.max_air_speed, &table);
+        assert_eq!(result, -table.max_air_speed);
+    }
+
+    /// Air decelerate at vel=0 stays at zero.
+    #[test]
+    fn air_decelerate_at_zero_stays_zero() {
+        assert_eq!(air_decelerate(0, &AIR_NORMAL), 0);
+    }
+
+    /// Air decelerate from exactly +decel snaps to 0 (next = 0, not < 0).
+    #[test]
+    fn air_decelerate_from_exact_decel_positive_snaps_to_zero() {
+        let table = AIR_NORMAL;
+        let result = air_decelerate(table.air_no_input_decel, &table);
+        // decel - decel = 0, which is >= 0, so returns 0
+        assert_eq!(result, 0);
+    }
+
+    /// Air decelerate from exactly -decel snaps to 0.
+    #[test]
+    fn air_decelerate_from_exact_decel_negative_snaps_to_zero() {
+        let table = AIR_NORMAL;
+        let result = air_decelerate(-table.air_no_input_decel, &table);
+        // -decel + decel = 0, which is <= 0, so returns 0
+        assert_eq!(result, 0);
+    }
+
+    /// Air decelerate from +1: next < 0 snaps to 0.
+    #[test]
+    fn air_decelerate_positive_one_snaps_to_zero() {
+        let table = AIR_NORMAL;
+        let result = air_decelerate(1, &table);
+        // 1 - decel < 0, snap to 0
+        assert_eq!(result, 0);
+    }
+
+    /// Air decelerate from -1: next > 0 snaps to 0.
+    #[test]
+    fn air_decelerate_negative_one_snaps_to_zero() {
+        let table = AIR_NORMAL;
+        let result = air_decelerate(-1, &table);
+        // -1 + decel > 0, snap to 0
+        assert_eq!(result, 0);
+    }
+
+    /// Ground decelerate at vel=0 stays at zero.
+    #[test]
+    fn ground_decelerate_at_zero_stays_zero() {
+        assert_eq!(decelerate(0, &NORMAL_KID), 0);
+    }
+
+    /// Ground decelerate from exactly +walk_run_decel snaps to 0.
+    #[test]
+    fn ground_decelerate_from_exact_decel_positive_snaps_to_zero() {
+        let result = decelerate(NORMAL_KID.walk_run_decel, &NORMAL_KID);
+        assert_eq!(result, 0);
+    }
+
+    /// Ground decelerate from exactly -walk_run_decel snaps to 0.
+    #[test]
+    fn ground_decelerate_from_exact_decel_negative_snaps_to_zero() {
+        let result = decelerate(-NORMAL_KID.walk_run_decel, &NORMAL_KID);
+        assert_eq!(result, 0);
+    }
+
+    /// Ground decelerate from +1 snaps to 0.
+    #[test]
+    fn ground_decelerate_positive_one_snaps_to_zero() {
+        assert_eq!(decelerate(1, &NORMAL_KID), 0);
+    }
+
+    /// Ground decelerate from -1 snaps to 0.
+    #[test]
+    fn ground_decelerate_negative_one_snaps_to_zero() {
+        assert_eq!(decelerate(-1, &NORMAL_KID), 0);
+    }
+
+    // -- Left-direction ground movement boundary tests --
+
+    /// Holding left+run at vel=0: vel=0 is "not moving left" (ASM `bpl`),
+    /// so it takes the strong_brake path, returning 0 - strong_brake.
+    #[test]
+    fn holding_left_run_at_zero_uses_strong_brake() {
+        let result = apply_holding_left(0, true, &NORMAL_KID);
+        assert_eq!(result, -NORMAL_KID.strong_brake);
+    }
+
+    /// Holding left+run at vel=-1: vel<0 so it enters the run-accel path.
+    #[test]
+    fn holding_left_run_at_neg_one_uses_run_accel() {
+        let result = apply_holding_left(-1, true, &NORMAL_KID);
+        // abs(-1) + run_accel = 1 + 0x1C00 = 0x1C01, < max_run, so -0x1C01
+        assert_eq!(result, -(1 + NORMAL_KID.run_accel));
+    }
+
+    /// Holding left+walk at vel=0: vel=0 is "not moving left" (ASM `bpl`),
+    /// so it takes the strong_brake path, returning 0 - strong_brake.
+    #[test]
+    fn holding_left_walk_at_zero_uses_strong_brake() {
+        let result = apply_holding_left(0, false, &NORMAL_KID);
+        assert_eq!(result, -NORMAL_KID.strong_brake);
+    }
+
+    /// Holding left+walk at vel=-1: vel<0, abs < max_walk, so walk_accel.
+    #[test]
+    fn holding_left_walk_at_neg_one_uses_walk_accel() {
+        let result = apply_holding_left(-1, false, &NORMAL_KID);
+        // abs(-1) = 1, < max_walk ($20000), accel: -1 - walk_accel = -(1+0x1000)
+        assert_eq!(result, -(1 + NORMAL_KID.walk_accel));
+    }
+
+    /// Holding left+walk at exactly -max_run_speed: caps at max_run.
+    /// ASM: abs_vel > max_run tests as false (equal), so falls to
+    /// the abs_vel > max_walk branch.
+    #[test]
+    fn holding_left_walk_at_max_run_uses_walk_run_decel() {
+        let vel = -(NORMAL_KID.max_run_speed);
+        let result = apply_holding_left(vel, false, &NORMAL_KID);
+        // abs = max_run, NOT > max_run, so doesn't cap to -max_run.
+        // abs > max_walk? max_run ($38000) > max_walk ($20000) = true
+        // So: vel + walk_run_decel = -max_run + 0x2800
+        assert_eq!(result, vel + NORMAL_KID.walk_run_decel);
+    }
+
+    /// Holding left+walk at exactly -max_walk_speed: at walk cap, no accel.
+    /// ASM: abs_vel > max_walk is false (equal), so enters walk_accel path
+    /// but caps at max_walk.
+    #[test]
+    fn holding_left_walk_at_max_walk_stays_at_cap() {
+        let vel = -(NORMAL_KID.max_walk_speed);
+        let result = apply_holding_left(vel, false, &NORMAL_KID);
+        // abs = max_walk, NOT > max_walk, so enters walk_accel:
+        // next = vel - walk_accel, |next| = max_walk + walk_accel > max_walk → cap
+        assert_eq!(result, -(NORMAL_KID.max_walk_speed));
+    }
+
+    // -- Camera boundary tests --
+
+    /// Camera at position 4, target == camera: not < camera, so standard path.
+    #[test]
+    fn camera_at_4_with_equal_target_uses_standard_path() {
+        // camera=4, player such that target=4: player = 4 + CAMERA_PLAYER_OFFSET
+        let player = 4 + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(4, player, 1000);
+        // target=4, delta=(4-4+4)>>3 = 0, so camera stays at 4
+        assert_eq!(result, 4);
+    }
+
+    /// Camera at max_pos-4, target == camera: not > camera, so standard path.
+    #[test]
+    fn camera_at_max_minus_4_with_equal_target_uses_standard_path() {
+        let max_pos = 1000;
+        let camera = max_pos - 4;
+        let player = camera + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(camera, player, max_pos);
+        // target = min(player - offset, max_pos) = min(camera, max_pos) = camera
+        // delta = (camera - camera + 4) >> 3 = 0
+        assert_eq!(result, camera);
+    }
+
+    /// Camera at 4, target < camera by 1: triggers the near-edge nudge of -1.
+    #[test]
+    fn camera_at_4_with_lower_target_nudges_left() {
+        // target = 3 → player = 3 + CAMERA_PLAYER_OFFSET
+        let player = 3 + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(4, player, 1000);
+        // camera<=4 && target(3) < camera(4) → nudge -1 → 3
+        assert_eq!(result, 3);
+    }
+
+    /// Camera at max_pos-4, target > camera by 1: triggers the near-edge nudge of +1.
+    #[test]
+    fn camera_at_max_minus_4_with_higher_target_nudges_right() {
+        let max_pos = 1000;
+        let camera = max_pos - 4;
+        // target = camera + 1 = max_pos - 3, player = target + offset
+        // But target is clamped to max_pos, so we need target = camera + 1 ≤ max_pos
+        // camera + 1 = max_pos - 3, which is < max_pos, so ok
+        let player = (camera + 1) + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(camera, player, max_pos);
+        // camera >= max_pos-4 && target > camera → nudge +1
+        assert_eq!(result, camera + 1);
+    }
 }
