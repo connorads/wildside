@@ -12721,6 +12721,432 @@ fn lava_geyser_erupts_and_collapses() {
     assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
 }
 
+// --- Murder wall kill detection ---
+
+#[test]
+fn murder_wall_kills_player_when_wall_reaches_player() {
+    // Normal (left-to-right) wall: kills when wall_right >= player_x
+    let mut runtime = NativeRuntime::new(manifest());
+    let wall_x = 0x0050_0000_i64;
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: wall_x,
+        speed: 0x1000,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: false,
+    });
+    let mut slice = airborne_slice();
+    // Player far ahead of wall — not killed
+    slice.player.x_pos = 0x0200_0000;
+    assert!(
+        !runtime.murder_wall_kills_player(&slice),
+        "player should be safe when wall is far behind"
+    );
+
+    // Player just at the wall edge — killed
+    // wall_right = wall_x + (MURDER_WALL_CAMERA_OFFSET_PX << 16)
+    let wall_right = wall_x + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
+    slice.player.x_pos = wall_right as u32;
+    assert!(
+        runtime.murder_wall_kills_player(&slice),
+        "player should die when wall_right == player_x"
+    );
+}
+
+#[test]
+fn murder_wall_kills_player_reversed() {
+    // Reversed (right-to-left) wall: kills when player_right >= wall_left
+    let mut runtime = NativeRuntime::new(manifest());
+    let wall_x = 0x0200_0000_i64;
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: wall_x,
+        speed: 0x1000,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: true,
+    });
+    let mut slice = airborne_slice();
+    // Player far left of reversed wall — not killed
+    slice.player.x_pos = 0x0010_0000;
+    assert!(
+        !runtime.murder_wall_kills_player(&slice),
+        "player should be safe when far from reversed wall"
+    );
+
+    // Player at the wall — killed
+    // kill when player_x + (OFFSET << 16) >= wall_x
+    let threshold = wall_x - (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
+    slice.player.x_pos = threshold as u32;
+    assert!(
+        runtime.murder_wall_kills_player(&slice),
+        "player should die when touching reversed wall"
+    );
+}
+
+#[test]
+fn murder_wall_kills_player_returns_false_when_no_wall() {
+    let runtime = NativeRuntime::new(manifest());
+    let slice = airborne_slice();
+    assert!(
+        !runtime.murder_wall_kills_player(&slice),
+        "no wall means no kill"
+    );
+}
+
+#[test]
+fn step_murder_wall_reversed_decrements_position() {
+    // ASM: reversed wall moves right-to-left (subtracts from x_pos)
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0x0100_0000,
+        speed: 0,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: true,
+    });
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert_eq!(wall.speed, MURDER_WALL_ACCELERATION);
+    // Reversed wall should have LOWER x_pos after stepping
+    assert!(
+        wall.x_pos < 0x0100_0000,
+        "reversed wall x_pos should decrease: got {}",
+        wall.x_pos
+    );
+}
+
+#[test]
+fn step_murder_wall_forward_increments_position() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0x0100_0000,
+        speed: 0,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: false,
+    });
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert!(
+        wall.x_pos > 0x0100_0000,
+        "forward wall x_pos should increase"
+    );
+}
+
+#[test]
+fn step_murder_wall_noop_when_no_wall() {
+    let mut runtime = NativeRuntime::new(manifest());
+    assert!(runtime.murder_wall.is_none());
+    runtime.step_murder_wall(); // should not panic
+}
+
+// --- Murder wall init with non-zero camera ---
+
+#[test]
+fn init_murder_wall_with_nonzero_camera_offsets_initial_position() {
+    // When camera_x > 0, initial_x = (camera_x << 16) + (OFFSET << 16)
+    let mut manifest = manifest_with_levels(2);
+    manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .unwrap()
+        .murder_wall_flags = 0b10;
+
+    let mut runtime = NativeRuntime::new(manifest);
+    let camera_x = 0x0100_u32;
+    runtime.init_murder_wall(LevelId(0), camera_x);
+
+    let wall = runtime.murder_wall.expect("wall should be active");
+    let expected = (i64::from(camera_x) << 16) + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
+    assert_eq!(
+        wall.x_pos, expected,
+        "non-zero camera should offset initial wall position"
+    );
+}
+
+#[test]
+fn init_murder_wall_zero_camera_starts_offscreen_left() {
+    let mut manifest = manifest_with_levels(2);
+    manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .unwrap()
+        .murder_wall_flags = 0b10;
+
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.init_murder_wall(LevelId(0), 0);
+
+    let wall = runtime.murder_wall.expect("wall should be active");
+    let expected = -(i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
+    assert_eq!(
+        wall.x_pos, expected,
+        "zero camera should start wall offscreen left"
+    );
+}
+
+// --- Hail period toggle ---
+
+#[test]
+fn hail_period_toggles_active_inactive_on_600_frame_cycle() {
+    // ASM: hail_period_timer counts down from 600; at 0 it toggles hail_active
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 3;
+    runtime.level_timer.seconds = 100; // well past 35s elapsed
+    runtime.weather.hail_active = false;
+    runtime.weather.hail_period_timer = 1; // about to toggle
+    runtime.weather.hail_spawn_timer = 100;
+
+    let slice = airborne_slice();
+
+    // Timer ticks to 0 → toggles active, resets to 600
+    runtime.step_weather(&slice);
+    assert_eq!(runtime.weather.hail_period_timer, 0);
+    // One more step triggers the toggle
+    runtime.step_weather(&slice);
+    assert!(
+        runtime.weather.hail_active,
+        "hail should toggle to active when timer reaches 0"
+    );
+    assert_eq!(
+        runtime.weather.hail_period_timer, 600,
+        "period timer should reset to 600"
+    );
+}
+
+#[test]
+fn hail_does_not_spawn_before_35_seconds_elapsed() {
+    // Timer at 146 means only 34s elapsed (180 - 146 = 34)
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 3;
+    runtime.level_timer.seconds = 146;
+    runtime.weather.hail_active = true;
+    runtime.weather.hail_spawn_timer = 0;
+
+    let slice = airborne_slice();
+    runtime.step_weather(&slice);
+
+    assert!(
+        runtime.projectiles.is_empty(),
+        "no hail should spawn before 35s elapsed"
+    );
+}
+
+#[test]
+fn hail_spawn_timer_counts_down_between_spawns() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 3;
+    runtime.level_timer.seconds = 100;
+    runtime.weather.hail_active = true;
+    runtime.weather.hail_spawn_timer = 2;
+    runtime.weather.hail_period_timer = 100;
+
+    let slice = airborne_slice();
+
+    // Timer at 2: decrement, no spawn
+    runtime.step_weather(&slice);
+    assert!(runtime.projectiles.is_empty());
+    assert_eq!(runtime.weather.hail_spawn_timer, 1);
+
+    // Timer at 1: decrement, no spawn
+    runtime.step_weather(&slice);
+    assert!(runtime.projectiles.is_empty());
+    assert_eq!(runtime.weather.hail_spawn_timer, 0);
+
+    // Timer at 0: spawn and reset to 30
+    runtime.step_weather(&slice);
+    assert_eq!(runtime.projectiles.len(), 1);
+    assert_eq!(runtime.weather.hail_spawn_timer, 30);
+}
+
+// --- Lava geyser collision ---
+
+#[test]
+fn lava_geyser_damages_player_inside_eruption_column() {
+    // Player positioned inside the eruption column should take damage
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 100,
+        y_px: 200,
+        height_px: 40,
+        phase: 1,
+        timer: 0,
+        current_height: 40, // fully erupted
+    });
+    runtime.progression.invulnerable_frames = 0;
+    runtime.opening_slice = None; // apply_damage needs this
+
+    let mut slice = airborne_slice();
+    // Place player inside the column (x_px=100, column from y=160 to y=200)
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 180 << 16;
+
+    runtime.step_lava_geysers(&slice);
+    assert!(
+        runtime.just_received_damage,
+        "player inside geyser column should take damage"
+    );
+}
+
+#[test]
+fn lava_geyser_does_not_damage_player_outside_column() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 100,
+        y_px: 200,
+        height_px: 40,
+        phase: 1,
+        timer: 0,
+        current_height: 40,
+    });
+    runtime.progression.invulnerable_frames = 0;
+
+    let mut slice = airborne_slice();
+    // Player far from column
+    slice.player.x_pos = 500 << 16;
+    slice.player.y_pos = 180 << 16;
+
+    runtime.step_lava_geysers(&slice);
+    assert!(
+        !runtime.just_received_damage,
+        "player outside column should not take damage"
+    );
+}
+
+#[test]
+fn lava_geyser_respects_invulnerability() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 100,
+        y_px: 200,
+        height_px: 40,
+        phase: 1,
+        timer: 0,
+        current_height: 40,
+    });
+    runtime.progression.invulnerable_frames = 10; // invulnerable
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 180 << 16;
+
+    runtime.step_lava_geysers(&slice);
+    assert!(
+        !runtime.just_received_damage,
+        "invulnerable player should not take damage from geyser"
+    );
+}
+
+#[test]
+fn lava_geyser_dormant_timer_resets_after_collapse() {
+    // After collapse phase completes, dormant timer should reset to LAVA_GEYSER_DORMANT_FRAMES
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 100,
+        y_px: 200,
+        height_px: 16,
+        phase: 3,
+        timer: 0,
+        current_height: LAVA_GEYSER_ERUPT_SPEED, // one step from collapse end
+    });
+
+    let slice = airborne_slice();
+    runtime.step_lava_geysers(&slice);
+
+    let g = &runtime.weather.lava_geysers[0];
+    assert_eq!(g.phase, 0, "should return to dormant");
+    assert_eq!(
+        g.timer, LAVA_GEYSER_DORMANT_FRAMES,
+        "dormant timer should reset"
+    );
+    assert_eq!(g.current_height, 0);
+}
+
+#[test]
+fn lava_geyser_no_damage_when_height_zero() {
+    // Even if player overlaps position, zero height = no damage
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 100,
+        y_px: 200,
+        height_px: 40,
+        phase: 0,
+        timer: 5,
+        current_height: 0, // dormant, no eruption
+    });
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 180 << 16;
+
+    runtime.step_lava_geysers(&slice);
+    assert!(
+        !runtime.just_received_damage,
+        "dormant geyser should not damage player"
+    );
+}
+
+// --- Lava geyser init ---
+
+#[test]
+fn init_lava_geysers_level_0x06_creates_3_geysers() {
+    let manifest = manifest_with_levels(7);
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.init_lava_geysers(LevelId(0x06));
+
+    assert_eq!(runtime.weather.lava_geysers.len(), 3);
+    // First geyser: x=0x180, y=0x312, h=0x60
+    let g = &runtime.weather.lava_geysers[0];
+    assert_eq!(g.x_px, 0x180);
+    assert_eq!(g.y_px, 0x312);
+    // height_px = h >> 4 = 0x60 >> 4 = 6
+    assert_eq!(g.height_px, 0x60 >> 4);
+    // initial_delay = (h & 0xF) * 10 = (0x60 & 0xF) * 10 = 0
+    assert_eq!(g.timer, 0);
+}
+
+#[test]
+fn init_lava_geysers_unknown_level_creates_none() {
+    let manifest = manifest_with_levels(2);
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.init_lava_geysers(LevelId(0x01));
+
+    assert!(runtime.weather.lava_geysers.is_empty());
+}
+
+#[test]
+fn init_weather_clears_previous_state() {
+    let mut manifest = manifest_with_levels(2);
+    manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .unwrap()
+        .weather_flags = 0;
+
+    let mut runtime = NativeRuntime::new(manifest);
+    // Set up some leftover state
+    runtime.weather.weather_type = 3;
+    runtime.weather.hail_active = true;
+    runtime.weather.hail_spawn_timer = 42;
+    runtime.weather.hail_period_timer = 99;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 0,
+        y_px: 0,
+        height_px: 0,
+        phase: 0,
+        timer: 0,
+        current_height: 0,
+    });
+
+    runtime.init_weather(LevelId(0));
+
+    assert_eq!(runtime.weather.weather_type, 0);
+    assert!(!runtime.weather.hail_active);
+    assert_eq!(runtime.weather.hail_spawn_timer, 0);
+    assert_eq!(runtime.weather.hail_period_timer, 0);
+    assert!(runtime.weather.lava_geysers.is_empty());
+}
+
 // --- Skycutter flipboard tests ---
 
 fn skycutter_runtime() -> NativeRuntime {
