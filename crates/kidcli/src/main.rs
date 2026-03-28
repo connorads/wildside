@@ -2990,7 +2990,7 @@ mod tests {
     fn gameplay_regression_verify_death_respawn_accepts_hidden_bootstrap_at_script_end() {
         let capture = GameplayCapture {
             scenario: String::from("death_respawn_level1"),
-            frame_count: 5_501,
+            frame_count: 6_501,
             missed_vblank_frames: 0,
             states: vec![
                 GameplayState {
@@ -3021,7 +3021,7 @@ mod tests {
                 },
                 GameplayState {
                     label: String::from("respawn_bootstrap_tail"),
-                    frame_index: 6_000,
+                    frame_index: 6_500,
                     game_mode: 0x0008,
                     current_player: 0,
                     number_lives: 2,
@@ -3096,7 +3096,7 @@ mod tests {
                 },
                 GameplayState {
                     label: String::from("respawn_bootstrap_tail"),
-                    frame_index: 6_000,
+                    frame_index: 6_500,
                     game_mode: 0x0008,
                     number_lives: 2,
                     number_hitpoints: 2,
@@ -3115,7 +3115,7 @@ mod tests {
                     kid_jump_gravity_probe: None,
                     number_objects: 15,
                     number_gfx_objects: 14,
-                    ..gameplay_state("respawn_bootstrap_tail", 6_000)
+                    ..gameplay_state("respawn_bootstrap_tail", 6_500)
                 },
             ],
         };
