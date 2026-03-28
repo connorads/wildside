@@ -3325,6 +3325,243 @@ fn no_hit_bonus_absent_when_damage_taken() {
 }
 
 #[test]
+fn no_prize_bonus_absent_when_prize_collected() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    runtime.set_block_grid(grid_with_floor_at_row(48));
+    start_level(&mut runtime);
+
+    runtime.level_prize_collected = true;
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0750_0000;
+        slice.player.y_pos = 0x0300_0000;
+        slice.player.on_ground = true;
+    }
+
+    let seconds_remaining = runtime.level_timer.seconds;
+    runtime.step_frame(FrameInput::default());
+
+    let elapsed_secs = LEVEL_TIMER_START_SECONDS.saturating_sub(seconds_remaining);
+    let speed_threshold = SPEED_BONUS_TABLE[0];
+    let expected = u32::from(seconds_remaining) * 100
+        + 5000 // no-hit bonus (no damage taken)
+        // no-prize bonus ABSENT because prize was collected
+        + if speed_threshold > 0 && (elapsed_secs.min(255) as u8) <= speed_threshold { 10_000 } else { 0 };
+    assert_eq!(
+        runtime.progression.score, expected,
+        "no-prize bonus should be absent when prize was collected"
+    );
+}
+
+#[test]
+fn speed_bonus_absent_when_elapsed_exceeds_threshold() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    runtime.set_block_grid(grid_with_floor_at_row(48));
+    start_level(&mut runtime);
+
+    // Level 0 speed threshold = 20s. Set timer so elapsed > 20s.
+    // elapsed = 180 - remaining, so remaining < 160 means elapsed > 20.
+    runtime.level_timer.seconds = 150; // elapsed = 30s > 20s threshold
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0750_0000;
+        slice.player.y_pos = 0x0300_0000;
+        slice.player.on_ground = true;
+    }
+
+    runtime.step_frame(FrameInput::default());
+
+    // Time bonus: 150 * 100 = 15000. No-hit: 5000. No-prize: 5000. Speed: 0 (too slow).
+    let expected = 150 * 100 + 5000 + 5000;
+    assert_eq!(
+        runtime.progression.score, expected,
+        "speed bonus should be absent when completion time exceeds threshold"
+    );
+}
+
+#[test]
+fn elsewhere_level_skips_path_and_speed_bonuses() {
+    // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
+    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    runtime.set_block_grid(grid_with_floor_at_row(48));
+    start_level(&mut runtime);
+
+    // Force current_level to an Elsewhere level.
+    runtime.current_level = LevelId(FIRST_ELSEWHERE_LEVEL_ID);
+
+    let seconds_remaining = runtime.level_timer.seconds;
+    runtime.apply_level_completion_bonuses();
+
+    // Only time + no-hit + no-prize; no path or speed.
+    let expected = u32::from(seconds_remaining) * 100 + 5000 + 5000;
+    assert_eq!(
+        runtime.progression.score, expected,
+        "Elsewhere levels should skip path and speed bonuses"
+    );
+}
+
+#[test]
+fn path_bonus_awards_multiplier_times_1000() {
+    // Level 0x2D has PATH_BONUS_TABLE[0x2D] = 25, so path bonus = 25,000.
+    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    runtime.set_block_grid(grid_with_floor_at_row(48));
+    start_level(&mut runtime);
+
+    runtime.current_level = LevelId(0x2D);
+    // Set timer so speed bonus is zero (elapsed > threshold).
+    runtime.level_timer.seconds = 0;
+
+    runtime.apply_level_completion_bonuses();
+
+    // Time: 0. No-hit: 5000. No-prize: 5000. Path: 25*1000 = 25000. Speed: 0.
+    let expected = 5000 + 5000 + 25_000;
+    assert_eq!(
+        runtime.progression.score, expected,
+        "path bonus should award multiplier × 1000"
+    );
+}
+
+#[test]
+fn add_score_caps_at_9_999_999() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.score = 9_999_000;
+    runtime.add_score(5_000);
+
+    assert_eq!(
+        runtime.progression.score, SCORE_CAP,
+        "score should cap at 9,999,999"
+    );
+}
+
+#[test]
+fn add_score_awards_extra_life_at_50k_boundary() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.score = 49_000;
+    let lives_before = runtime.progression.number_lives;
+
+    runtime.add_score(2_000); // crosses 50,000 boundary
+
+    assert_eq!(
+        runtime.progression.number_lives,
+        lives_before + 1,
+        "crossing 50K boundary should award an extra life"
+    );
+}
+
+#[test]
+fn add_score_crossing_two_50k_boundaries_awards_two_lives() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.score = 40_000;
+    let lives_before = runtime.progression.number_lives;
+
+    runtime.add_score(70_000); // crosses both 50K and 100K
+
+    assert_eq!(
+        runtime.progression.number_lives,
+        lives_before + 2,
+        "crossing two 50K boundaries should award two extra lives"
+    );
+}
+
+#[test]
+fn add_life_caps_at_nine() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.number_lives = 9;
+    runtime.add_life();
+
+    assert_eq!(runtime.progression.number_lives, 9, "lives should cap at 9");
+}
+
+#[test]
+fn speed_bonus_with_clock_collected_extends_elapsed_time() {
+    // ASM: completion_time = 180 - remaining + (clocks * 180), capped at 255.
+    // With 1 clock, elapsed = 180 - remaining + 180. If remaining=170, elapsed = 10+180 = 190.
+    // Level 0 threshold = 20. 190 > 20 means no speed bonus.
+    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    runtime.set_block_grid(grid_with_floor_at_row(48));
+    start_level(&mut runtime);
+
+    runtime.level_timer.seconds = 170; // base elapsed = 10s
+    runtime.clocks_collected = 1; // adds 180 to elapsed → 190s > 20s threshold
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0750_0000;
+        slice.player.y_pos = 0x0300_0000;
+        slice.player.on_ground = true;
+    }
+
+    runtime.step_frame(FrameInput::default());
+
+    // Time: 170*100. No-hit: 5000. No-prize: 5000. Speed: 0 (190 > 20).
+    let expected = 170 * 100 + 5000 + 5000;
+    assert_eq!(
+        runtime.progression.score, expected,
+        "clock collected should extend elapsed time for speed bonus calc"
+    );
+}
+
+#[test]
+fn stomp_bounce_anchors_position_and_sets_velocity() {
+    // ASM: stomp bounce replaces integer x/y from anchor, preserves sub-pixel,
+    // rewinds x by pre-bounce velocity, and adds half pre-velocity to x_velocity.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    let slice = runtime.opening_slice.as_mut().unwrap();
+    slice.player.x_pos = 0x0100_4000; // integer 0x0100, sub-pixel 0x4000
+    slice.player.y_pos = 0x0200_8000; // integer 0x0200, sub-pixel 0x8000
+    slice.player.x_velocity = 0x0001_0000; // moving right at 1 pixel/frame
+    slice.player.y_velocity = 0x0002_0000;
+
+    runtime.pending_stomp_bounce = Some(PendingStompBounce {
+        anchor_x_pos: 0x0150_0000, // anchor integer 0x0150
+        anchor_y_pos: 0x0180_0000, // anchor integer 0x0180
+    });
+
+    let mut slice = runtime.opening_slice.take().unwrap();
+    runtime.apply_pending_stomp_bounce(&mut slice);
+
+    // X: anchor integer (0x0150) | player sub-pixel (0x4000) = 0x0150_4000
+    //    then rewind by pre-bounce x_velocity: 0x0150_4000 - 0x0001_0000 = 0x014F_4000
+    assert_eq!(
+        slice.player.x_pos, 0x014F_4000,
+        "x_pos should be anchored + sub-pixel - rewind"
+    );
+
+    // Y: anchor integer (0x0180) | player sub-pixel (0x8000) = 0x0180_8000
+    assert_eq!(
+        slice.player.y_pos, 0x0180_8000,
+        "y_pos should be anchored + sub-pixel"
+    );
+
+    // y_velocity should be STOMP_BOUNCE_VELOCITY
+    assert_eq!(slice.player.y_velocity, STOMP_BOUNCE_VELOCITY);
+
+    // x_velocity: original + half of pre-bounce = original + 0x8000
+    // Wait — let me re-read: x_velocity = x_velocity.saturating_add(current_x_velocity >> 1)
+    // where current_x_velocity was saved BEFORE the bounce. The x_velocity field is the
+    // same as current_x_velocity here (0x0001_0000), so result = 0x0001_0000 + 0x0000_8000
+    assert_eq!(
+        slice.player.x_velocity,
+        0x0001_0000 + 0x0000_8000,
+        "x_velocity should gain half of pre-bounce velocity"
+    );
+
+    assert!(
+        !slice.player.on_ground,
+        "player should be airborne after stomp"
+    );
+}
+
+#[test]
 fn damage_clears_wall_sticky() {
     let mut runtime = NativeRuntime::new(manifest_with_levels(3));
     runtime.set_block_grid(grid_with_floor_at_row(48));
