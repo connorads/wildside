@@ -423,6 +423,9 @@ pub(crate) struct ActiveEnemy {
     /// Walk speed override from tracking callback ($50(a5)). When non-zero, step_pacer
     /// uses this instead of pacer_walk_speed(). Set by Scorpion tracking (Scorpion.asm loc_3DD7E).
     pub(crate) walk_speed_override: i32,
+    /// Crab: frozen state flag ($6E(a5)). ASM loc_3B104 sets this when player
+    /// within 64px and facing the crab; loc_3B170 clears it when distance >224px.
+    pub(crate) crab_frozen: bool,
     /// Shared Dragon/Lion grounded-state word ($42(a3)).
     pub(crate) shared_walker_state: i16,
     /// Shared Dragon/Lion patrol cadence countdown ($54(a5)).
@@ -1102,6 +1105,7 @@ pub(crate) fn activate_enemies_with_rng(
                     BOSS_HEAD_NONE
                 },
                 scorpion_tracking_lock: false,
+                crab_frozen: false,
                 flight_double_acceleration: matches!(
                     family,
                     EnemyFamily::UFO | EnemyFamily::Tornado
@@ -1128,11 +1132,14 @@ pub(crate) fn activate_enemies_with_rng(
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.
 #[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn step_active_enemies(
     active: &mut [ActiveEnemy],
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+    player_facing: Option<Direction>,
+    player_x_velocity: Option<i32>,
     player_form: PlayerForm,
     projectiles: Option<&mut Vec<EnemyProjectile>>,
 ) {
@@ -1143,6 +1150,8 @@ pub(crate) fn step_active_enemies(
         player_x_pos,
         player_y_pos,
         None,
+        player_facing,
+        player_x_velocity,
         player_form,
         projectiles,
         &mut rng,
@@ -1156,6 +1165,8 @@ pub(crate) fn step_active_enemies_with_rng(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     camera_x_px: Option<u32>,
+    player_facing: Option<Direction>,
+    player_x_velocity: Option<i32>,
     player_form: PlayerForm,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
@@ -1206,6 +1217,14 @@ pub(crate) fn step_active_enemies_with_rng(
                             step_dragon_walking(enemy, block_grid, &mut Vec::new(), player_x_pos);
                         }
                     } else {
+                        // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
+                        // Check freeze before stepping; if frozen, skip movement.
+                        if matches!(enemy.family, EnemyFamily::Crab) {
+                            step_crab_freeze(enemy, player_x_pos, player_facing, player_x_velocity);
+                            if enemy.crab_frozen {
+                                continue; // skip pacer walk while frozen
+                            }
+                        }
                         step_pacer(enemy, block_grid);
                         // Goat: player-tracking callback (Goat.asm loc_3CC18).
                         // If player is >32px away, turn to face them.
@@ -4282,6 +4301,86 @@ pub(crate) fn step_scorpion_tracking(
     }
 }
 
+/// Crab freeze distance constants from ASM.
+/// ASM loc_3B0E4: cmpi.w #$40,d7 (freeze threshold = 64px).
+const CRAB_FREEZE_DISTANCE: i64 = 0x40;
+/// ASM loc_3B142: cmpi.w #$E0,d7 (unfreeze threshold = 224px).
+const CRAB_UNFREEZE_DISTANCE: i64 = 0xE0;
+
+/// Crab player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
+///
+/// When player is within 64px horizontally AND facing the crab:
+/// - Freeze the crab (stop animation, set freeze sprite, zero velocity)
+///
+/// Unfreeze when:
+/// - Distance > 224px, OR
+/// - Within 64px but player is moving away from the crab
+///
+/// The freeze uses the player's facing direction and velocity to determine
+/// whether to freeze or unfreeze.
+pub(crate) fn step_crab_freeze(
+    enemy: &mut ActiveEnemy,
+    player_x_pos: Option<u32>,
+    player_facing: Option<Direction>,
+    player_x_velocity: Option<i32>,
+) {
+    let Some(px) = player_x_pos else { return };
+    let Some(pfacing) = player_facing else { return };
+
+    let dx = (enemy.x_pos as i64 - px as i64) >> 16; // crab_x - player_x
+    let abs_dx = dx.abs();
+
+    // ASM loc_3B142-loc_3B170: unfreeze when distance > 224px
+    if abs_dx > CRAB_UNFREEZE_DISTANCE {
+        enemy.crab_frozen = false;
+        return;
+    }
+
+    // ASM loc_3B0E4-loc_3B11E: check freeze condition (within 64px)
+    if abs_dx <= CRAB_FREEZE_DISTANCE {
+        // ASM loc_3B0E4: player within 64px
+        // Check if player is facing the crab:
+        // - If player faces right (Direction::Right in native, $FF in ASM),
+        //   crab must also face right for freeze
+        // - If player faces left (Direction::Left in native, 0 in ASM),
+        //   crab must also face left for freeze
+        let player_faces_crab = match (pfacing, enemy.facing) {
+            (Direction::Right, Direction::Right) => dx < 0, // player to left of crab, facing right toward it
+            (Direction::Left, Direction::Left) => dx > 0, // player to right of crab, facing left toward it
+            _ => false,
+        };
+
+        if player_faces_crab {
+            // ASM loc_3B104: freeze the crab
+            // sf is_animated(a3) - stop animation
+            // bset #7,object_meta(a3) - set freeze bit
+            // move.l #0,$50(a5) - zero x_velocity
+            enemy.crab_frozen = true;
+            enemy.x_velocity = 0;
+            return;
+        }
+
+        // ASM loc_3B142-loc_3B16C: within 64px, check if player moving toward crab
+        // If player moving away, unfreeze
+        if let Some(p_vel) = player_x_velocity {
+            // Player to left of crab (dx > 0), moving right (p_vel > 0): moving toward -> keep frozen
+            // Player to left of crab (dx > 0), not moving right: moving away -> unfreeze
+            // Player to right of crab (dx < 0), moving left (p_vel < 0): moving toward -> keep frozen
+            // Player to right of crab (dx < 0), not moving left: moving away -> unfreeze
+            let player_moving_toward_crab = if dx > 0 {
+                p_vel > 0 // player to left, moving right toward crab
+            } else {
+                p_vel < 0 // player to right, moving left toward crab
+            };
+            if !player_moving_toward_crab {
+                enemy.crab_frozen = false;
+            }
+        }
+    }
+    // ASM loc_3B11E: outside 64px but within 224px, keep current state
+    // (already frozen stays frozen, already unfrozen stays unfrozen)
+}
+
 /// Tank fires a horizontal bullet at intervals while pacing.
 pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
     if enemy.wait_timer > 0 {
@@ -4769,6 +4868,8 @@ impl NativeRuntime {
                     Some(slice.player.x_pos),
                     Some(slice.player.y_pos),
                     Some(camera_x_px),
+                    Some(slice.player.facing),
+                    Some(slice.player.x_velocity),
                     self.progression.current_form,
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
