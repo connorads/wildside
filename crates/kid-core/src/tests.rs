@@ -20920,7 +20920,6 @@ fn demo_1_keeps_the_oracle_backed_walking_dragons_warm_on_frame_3399() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: lower shared walker leaves the upper lane too early"]
 fn demo_1_lower_dragon_stays_grounded_on_the_upper_lane_through_frame_3049() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3048 = None;
@@ -20958,7 +20957,6 @@ fn demo_1_lower_dragon_stays_grounded_on_the_upper_lane_through_frame_3049() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: lower shared walker is already ahead when Kid_Transform freezes gameplay"]
 fn demo_1_lower_dragon_does_not_enter_transform_freeze_twelve_pixels_ahead_on_frame_3170() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3170 = None;
@@ -21021,7 +21019,6 @@ fn demo_1_lower_dragon_does_not_take_the_patrol_turnaround_on_frame_3392() {
 }
 
 #[test]
-#[ignore = "TAS frontier 3400: lower shared walker is already 12px ahead by frame 3206"]
 fn demo_1_lower_dragon_does_not_freeze_twelve_pixels_ahead_on_frame_3206() {
     let (mut runtime, script) = cached_any_percent_demo_runtime_and_script();
     let mut dragon_3206 = None;
