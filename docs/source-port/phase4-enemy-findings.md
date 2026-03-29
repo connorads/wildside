@@ -159,8 +159,8 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 ### High impact (affects gameplay noticeably)
 1. ~~Archer arrow lifetime + re-aiming~~ — **FIXED**: terrain-kill, ±1 re-aim, spawn offset, dx==0 quirk
 2. ~~Tornado Cyclone-flying interaction~~ — **FIXED**: bounce instead of damage when Cyclone-flying contacts Tornado
-3. Crab player proximity freeze
-4. Dragon Flying wall-reversal during Drift
+3. ~~Crab player proximity freeze~~ — **FIXED**: freeze within 64px when player faces crab, unfreeze beyond 224px
+4. ~~Dragon Flying wall-reversal during Drift~~ — **FIXED**: wall collision flips direction and negates x_velocity in Drifting state
 
 ### Medium impact (affects specific interactions)
 5. Sphere/Fireball slope deflection
