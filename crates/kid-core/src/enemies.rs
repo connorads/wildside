@@ -665,6 +665,9 @@ impl ActivationWindow {
 impl ActiveEnemy {
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
+        if self.hit_points == 0 {
+            return false;
+        }
         if matches!(self.family, EnemyFamily::TarMonster) {
             return matches!(
                 self.tar_monster_state,

@@ -26334,3 +26334,307 @@ fn homing_dx_sign_determines_accel_direction() {
         "player right of projectile → positive x accel"
     );
 }
+
+#[test]
+fn boss_projectile_has_correct_position_lifetime_and_gravity() {
+    // Kills: delete field x_pos/y_pos/lifetime/gravity/speed_cap/wall_bounce from EnemyProjectile.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let boss = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::HeadyMetal,
+        x_pos: 100 << 16,
+        y_pos: 120 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: false,
+        hit_points: 10,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    runtime.active_enemies = vec![boss];
+    runtime.projectiles.clear();
+
+    let mut slice = runtime.opening_slice.unwrap();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 113 << 16;
+    slice.player.y_velocity = 0x2_0000;
+    slice.player.on_ground = false;
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+    let pre_y_vel = slice.player.y_velocity;
+    let pre_y_pos = slice.player.y_pos;
+    let frame_start_x_pos = slice.player.x_pos;
+    let frame_start_y_pos = slice.player.y_pos;
+    let stomped = runtime.process_stomps(
+        &mut slice,
+        pre_y_vel,
+        pre_y_pos,
+        frame_start_x_pos,
+        frame_start_y_pos,
+    );
+    assert!(stomped, "should register a stomp");
+    assert_eq!(
+        runtime.projectiles.len(),
+        2,
+        "boss should fire 2 projectiles"
+    );
+    // Check all projectile fields to kill deletion mutations.
+    let proj0 = &runtime.projectiles[0];
+    let proj1 = &runtime.projectiles[1];
+    assert_eq!(
+        proj0.x_pos,
+        100 << 16,
+        "projectile 0 x_pos should match boss"
+    );
+    assert_eq!(
+        proj0.y_pos,
+        120 << 16,
+        "projectile 0 y_pos should match boss"
+    );
+    assert_eq!(proj0.lifetime, 120, "HeadyMetal projectile lifetime is 120");
+    assert_eq!(proj0.gravity, 0x2710, "HeadyMetal projectile gravity");
+    assert_eq!(proj0.homing_accel, 0x7D0, "HeadyMetal homing accel");
+    assert_eq!(proj0.speed_cap, 0, "HeadyMetal speed cap is 0");
+    assert!(
+        !proj0.wall_bounce,
+        "HeadyMetal projectiles do not wall bounce"
+    );
+    assert_eq!(
+        proj1.x_pos,
+        100 << 16,
+        "projectile 1 x_pos should match boss"
+    );
+    assert_eq!(
+        proj1.y_pos,
+        120 << 16,
+        "projectile 1 y_pos should match boss"
+    );
+    assert_eq!(proj1.lifetime, 120, "HeadyMetal projectile lifetime is 120");
+    assert_eq!(proj1.gravity, 0x2710, "HeadyMetal projectile gravity");
+}
+
+#[test]
+fn first_stomp_contact_candidate_rejects_nonvulnerable_enemy_at_same_index() {
+    // Kills: replace < with <= in process_stomps and first_stomp_contact_candidate.
+    // The bounds check `i < self.active_enemies.len()` must use < not <=
+    // because indices are 0-based and len() gives count.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    // Create two enemies at same position; the first is non-vulnerable (dead/hibernating).
+    let dead_enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::DragonWalking,
+        x_pos: 100 << 16,
+        y_pos: 120 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: true,
+        hit_points: 0, // dead/hibernating
+        damage_flash_frames: 0,
+        grounded_frames: DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES,
+        palette_variant: 0,
+        wait_timer: DRAGON_WALKING_BREATH_INITIAL,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    let live_enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 1,
+        enemy_level: 0,
+        family: EnemyFamily::DragonWalking,
+        x_pos: 100 << 16,
+        y_pos: 120 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: true,
+        hit_points: 1,
+        damage_flash_frames: 0,
+        grounded_frames: 0,
+        palette_variant: 0,
+        wait_timer: DRAGON_WALKING_BREATH_INITIAL,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    runtime.active_enemies = vec![dead_enemy, live_enemy];
+    let mut slice = runtime.opening_slice.unwrap();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 113 << 16;
+    slice.player.y_velocity = 0x2_0000;
+    slice.player.on_ground = false;
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+    let pre_y_vel = slice.player.y_velocity;
+    let pre_y_pos = slice.player.y_pos;
+    let candidate = runtime.first_stomp_contact_candidate(&slice, pre_y_vel, pre_y_pos);
+    // The bounds check must correctly skip the non-vulnerable enemy at index 0.
+    assert!(
+        candidate.is_some(),
+        "should find the live enemy at index 1 despite dead enemy at index 0"
+    );
+    assert_eq!(
+        candidate.unwrap().layout_index,
+        Some(1),
+        "should match layout index of the live enemy"
+    );
+}
+
+#[test]
+fn prize_diamond_award_increments_count_exactly_once() {
+    // Kills: replace += with *= in award_prize_diamond (line 359).
+    // We test collect_diamond which has the same +=1 pattern.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    assert_eq!(runtime.progression.diamond_count, 0);
+    runtime.collect_diamond();
+    assert_eq!(runtime.progression.diamond_count, 1, "+= 1, not *= 1");
+    runtime.collect_diamond();
+    assert_eq!(runtime.progression.diamond_count, 2, "each call adds 1");
+}
+
+#[test]
+fn step_pending_prize_diamond_awards_counts_awards_correctly() {
+    // Kills: replace += with -= in step_pending_prize_diamond_awards (line 372),
+    // and replace > with >= in the retain filter (line 375).
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.pending_prize_diamond_awards.clear();
+    runtime.progression.diamond_count = 0;
+    // Queue two awards at delay 1 and 2.
+    runtime.pending_prize_diamond_awards.push(1);
+    runtime.pending_prize_diamond_awards.push(2);
+    assert_eq!(runtime.progression.diamond_count, 0);
+    // Step once: first award (delay=1) triggers, second (delay=2) becomes delay=1.
+    runtime.step_pending_prize_diamond_awards();
+    assert_eq!(runtime.progression.diamond_count, 1, "first award triggers");
+    assert_eq!(
+        runtime.pending_prize_diamond_awards.len(),
+        1,
+        "one pending remains"
+    );
+    assert_eq!(
+        runtime.pending_prize_diamond_awards[0], 1,
+        "remaining delay is 1"
+    );
+    // Step again: second award triggers.
+    runtime.step_pending_prize_diamond_awards();
+    assert_eq!(
+        runtime.progression.diamond_count, 2,
+        "second award triggers"
+    );
+    assert_eq!(
+        runtime.pending_prize_diamond_awards.len(),
+        0,
+        "no pending remains"
+    );
+}
