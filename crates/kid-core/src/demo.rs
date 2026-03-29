@@ -104,12 +104,9 @@ pub(crate) const DEMO_LEVEL_SWITCH_FRAME: u16 = 30;
 pub(crate) const DEMO_CAMERA_PRELOAD_FRAME: u16 = 57;
 /// Oracle-backed Skydragon Castle demo preload row on the hidden frame before
 /// `Load_InGame`'s camera snap becomes visible on the following hold frame.
-pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0220_0000;
-/// Oracle-backed Start-skip intro-return demo-2 preload row. ASM
-/// `Obj_TitleMenu loc_1BB02` still reaches `Load_DemoPlay -> Load_InGame`, but
-/// oracle WRAM keeps `Camera_Y_pos=$0228_0000` for that lineage's one hidden
-/// preload frame before `Load_InGame` snaps to `$02A0_0000`.
-pub(crate) const DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP: u32 = 0x0228_0000;
+/// Oracle WRAM reads `Camera_Y_pos=$0228_0000` on this preload frame for both
+/// the plain initial boot and the Start-skip intro-return lineage.
+pub(crate) const DEMO_2_CAMERA_PRELOAD_Y_FP: u32 = 0x0228_0000;
 /// Oracle-backed timeout-restart `IntroSequence6` demo-1 hidden wrap. ASM
 /// `loc_1BA5C -> Load_IntroSequence6 -> loc_1BB02 -> Load_DemoPlay ->
 /// Load_InGame` leaves a different wrapped preload row than both the

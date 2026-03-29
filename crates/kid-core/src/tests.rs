@@ -22305,7 +22305,7 @@ fn published_tas_intro_return_demo_2_uses_the_oracle_preload_row_on_frame_17404(
             GameMode::DemoPlay,
             Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
             LevelId(0x1B),
-            demo::DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP,
+            demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
         )),
         "frame 17404 should expose the oracle-backed intro-return demo-2 preload row",
     );
@@ -23997,7 +23997,7 @@ fn published_tas_later_intro_sequence_6_revisit_uses_intro_return_demo_2_preload
             GameMode::DemoPlay,
             Some(demo::DEMO_CAMERA_PRELOAD_FRAME as usize),
             LevelId(0x1B),
-            demo::DEMO_2_INTRO_RETURN_CAMERA_PRELOAD_Y_FP,
+            demo::DEMO_2_CAMERA_PRELOAD_Y_FP,
         )),
         "frame 29462 should expose the oracle-backed later IntroSequence6 demo-2 preload row",
     );
