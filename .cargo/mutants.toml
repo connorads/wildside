@@ -1,0 +1,7 @@
+# Exclude large non-source directories from the build dir copy
+exclude_globs = [
+    ".cache/**",
+    "mutants.out*/**",
+    "roms/**",
+    ".ralph*/**",
+]

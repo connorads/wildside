@@ -25363,3 +25363,907 @@ fn floating_item_accumulates_velocity_each_frame() {
         "item should fall further on second frame"
     );
 }
+
+// --- Projectile subsystem mutation tests ---
+
+fn make_projectile(x: u16, y: u16) -> EnemyProjectile {
+    EnemyProjectile {
+        x_pos: u32::from(x) << 16,
+        y_pos: u32::from(y) << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        lifetime: 100,
+        friendly: false,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    }
+}
+
+fn runtime_with_projectile_and_player(
+    proj_x: u16,
+    proj_y: u16,
+    player_x: u16,
+    player_y: u16,
+) -> NativeRuntime {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(make_projectile(proj_x, proj_y));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = u32::from(player_x) << 16;
+    slice.player.y_pos = u32::from(player_y) << 16;
+    rt.opening_slice = Some(slice);
+    rt
+}
+
+#[test]
+fn projectile_hits_player_exact_overlap() {
+    // Projectile at same position as player — must hit.
+    // Kills: return false replacement, all >> with << mutations (lines 136-137, 144-145).
+    let mut rt = runtime_with_projectile_and_player(100, 100, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        rt.projectile_hits_player(&slice),
+        "projectile at player position must hit"
+    );
+    assert!(
+        rt.projectiles.is_empty(),
+        "hitting projectile should be removed"
+    );
+}
+
+#[test]
+fn projectile_misses_player_outside_x_range() {
+    // Projectile 14px right of player — exactly at boundary (< 14 fails).
+    // half=6, half+8=14. |prx - px| = 14, NOT < 14 → miss.
+    // Kills: < with <= on x-axis (line 146 first <).
+    let mut rt = runtime_with_projectile_and_player(114, 100, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        !rt.projectile_hits_player(&slice),
+        "projectile 14px away in x should miss (boundary of < 14)"
+    );
+    assert_eq!(rt.projectiles.len(), 1, "missed projectile should survive");
+}
+
+#[test]
+fn projectile_hits_player_at_x_boundary() {
+    // Projectile 13px right of player — just inside x range.
+    // |prx - px| = 13 < 14 → hit (if y also overlaps).
+    let mut rt = runtime_with_projectile_and_player(113, 100, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        rt.projectile_hits_player(&slice),
+        "projectile 13px away in x should hit (just inside < 14)"
+    );
+}
+
+#[test]
+fn projectile_misses_player_outside_y_range() {
+    // Projectile 22px below player — exactly at boundary (< 22 fails).
+    // half=6, half+16=22. |pry - py| = 22, NOT < 22 → miss.
+    // Kills: < with <= on y-axis (line 146 second <).
+    let mut rt = runtime_with_projectile_and_player(100, 122, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        !rt.projectile_hits_player(&slice),
+        "projectile 22px away in y should miss (boundary of < 22)"
+    );
+}
+
+#[test]
+fn projectile_hits_player_at_y_boundary() {
+    // Projectile 21px below player — just inside y range.
+    let mut rt = runtime_with_projectile_and_player(100, 121, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        rt.projectile_hits_player(&slice),
+        "projectile 21px away in y should hit (just inside < 22)"
+    );
+}
+
+#[test]
+fn projectile_hits_player_negative_offset() {
+    // Projectile 13px LEFT of player — tests abs() and subtraction direction.
+    // Kills: - with + on (prx - px) and (pry - py).
+    let mut rt = runtime_with_projectile_and_player(87, 79, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        rt.projectile_hits_player(&slice),
+        "projectile 13px left and 21px above should hit"
+    );
+}
+
+#[test]
+fn projectile_misses_when_x_overlap_but_y_outside() {
+    // x overlap (same x) but y is 22px away → miss.
+    // Kills: && with || replacement.
+    let mut rt = runtime_with_projectile_and_player(100, 122, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        !rt.projectile_hits_player(&slice),
+        "x overlap but y outside should miss (both conditions required)"
+    );
+}
+
+#[test]
+fn projectile_friendly_does_not_hit_player() {
+    // Friendly projectile at player position — must not hit.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 100);
+    proj.friendly = true;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 100 << 16;
+    rt.opening_slice = Some(slice);
+    assert!(
+        !rt.projectile_hits_player(&slice),
+        "friendly projectile must not damage player"
+    );
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "friendly projectile should survive"
+    );
+}
+
+#[test]
+fn projectile_hitbox_half_plus_8_not_times() {
+    // Projectile 12px away in x — inside `half + 8 = 14` but outside `half * 8 = 48`.
+    // If + mutated to *, 12 < 48 would still pass, so use boundary at 13.
+    // Also check that 15px misses — kills + with * (6*8=48 would wrongly pass).
+    let mut rt = runtime_with_projectile_and_player(115, 100, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        !rt.projectile_hits_player(&slice),
+        "15px x gap should miss with half + 8 = 14"
+    );
+}
+
+#[test]
+fn projectile_hitbox_half_plus_16_not_times() {
+    // Projectile 23px away in y — outside `half + 16 = 22`.
+    // If + mutated to *, 23 < 96 would wrongly pass.
+    let mut rt = runtime_with_projectile_and_player(100, 123, 100, 100);
+    let slice = rt.opening_slice.unwrap();
+    assert!(
+        !rt.projectile_hits_player(&slice),
+        "23px y gap should miss with half + 16 = 22"
+    );
+}
+
+#[test]
+fn step_projectiles_applies_velocity() {
+    // Basic movement test calling actual step_projectiles.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 100);
+    proj.x_velocity = 0x2_0000; // +2px/frame
+    proj.y_velocity = -0x1_0000; // -1px/frame
+    rt.projectiles.push(proj);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_pos,
+        102 << 16,
+        "x should advance by x_velocity"
+    );
+    assert_eq!(
+        rt.projectiles[0].y_pos,
+        99 << 16,
+        "y should advance by y_velocity"
+    );
+}
+
+#[test]
+fn step_projectiles_wall_bounce_reapplies_velocity() {
+    // After a wall bounce, position = pre-bounce + bounced velocity.
+    // Kills: line 126 + with *, line 127 + with - and + with *.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.x_velocity = 0x2_0000; // 2px/frame rightward
+    proj.y_velocity = 0x1_0000; // 1px/frame downward
+    proj.wall_bounce = true;
+
+    // Build a grid with a solid block at the destination cell.
+    // Projectile at (50,50), moving right 2px → lands at (52,51).
+    // Place solid block at cell containing (52,51).
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid block at col=3 (pixels 48-63), row=3 (pixels 48-63)
+    let dest_col = terrain::pixel_to_cell(52).max(0) as u16;
+    let dest_row = terrain::pixel_to_cell(51).max(0) as u16;
+    let off = (usize::from(dest_row) * usize::from(w) + usize::from(dest_col)) * 2;
+    data[off] = 0x60; // has_block=0, collision=Solid(6), block_type=0
+    // Actually need has_block=true: hi=0xE0 (has_block=1, collision=6(Solid), block_type=0)
+    data[off] = 0xE0;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    rt.set_block_grid(grid);
+
+    let x_before = proj.x_pos;
+    let y_before = proj.y_pos;
+    rt.projectiles.push(proj);
+    rt.step_projectiles();
+
+    // After bounce: velocity should be negated on the blocked axis, then re-applied.
+    // The exact outcome depends on which axis is blocked, but position should differ
+    // from a simple velocity addition (which would be inside the wall).
+    let p = &rt.projectiles[0];
+    // The projectile should have moved (not stayed in place)
+    assert!(
+        p.x_pos != x_before || p.y_pos != y_before,
+        "wall-bounce projectile should move after bouncing"
+    );
+}
+
+#[test]
+fn step_projectiles_gravity_accumulates() {
+    // Gravity adds to y_velocity each frame.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 100);
+    proj.y_velocity = 0;
+    proj.gravity = 0x1000;
+    rt.projectiles.push(proj);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].y_velocity, 0x1000,
+        "gravity should be added to y_velocity"
+    );
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].y_velocity, 0x2000,
+        "gravity should accumulate each frame"
+    );
+}
+
+#[test]
+fn step_projectiles_lifetime_decrements() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 100);
+    proj.lifetime = 5;
+    rt.projectiles.push(proj);
+
+    rt.step_projectiles();
+    assert_eq!(rt.projectiles[0].lifetime, 4);
+
+    // Step to expiry: 4→3→2→1→0, then next call sees 0 and removes
+    for _ in 0..4 {
+        rt.step_projectiles();
+    }
+    assert_eq!(rt.projectiles[0].lifetime, 0, "lifetime should reach 0");
+    rt.step_projectiles();
+    assert!(
+        rt.projectiles.is_empty(),
+        "projectile should be removed when lifetime is 0 at frame start"
+    );
+}
+
+#[test]
+fn step_projectiles_homing_adjusts_velocity() {
+    // Homing projectile accelerates toward player.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.homing_accel = 0x800;
+    proj.speed_cap = 0x6_0000;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 200 << 16; // player far right
+    slice.player.y_pos = 200 << 16; // player far below
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert!(
+        rt.projectiles[0].x_velocity > 0,
+        "homing should accelerate rightward toward player"
+    );
+    assert!(
+        rt.projectiles[0].y_velocity > 0,
+        "homing should accelerate downward toward player"
+    );
+}
+
+#[test]
+fn step_projectiles_speed_cap_clamps_homing() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.homing_accel = 0x7_0000; // very high accel
+    proj.speed_cap = 0x2_0000; // low cap
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 200 << 16;
+    slice.player.y_pos = 200 << 16;
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity, 0x2_0000,
+        "x velocity should be clamped to speed_cap"
+    );
+    assert_eq!(
+        rt.projectiles[0].y_velocity, 0x2_0000,
+        "y velocity should be clamped to speed_cap"
+    );
+}
+
+#[test]
+fn step_projectiles_terrain_kill_removes_on_solid() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.terrain_kill = true;
+    proj.x_velocity = 0x1_0000; // move right
+    rt.projectiles.push(proj);
+
+    // Grid with solid block at destination
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let dest_col = terrain::pixel_to_cell(51).max(0) as u16;
+    let dest_row = terrain::pixel_to_cell(50).max(0) as u16;
+    let off = (usize::from(dest_row) * usize::from(w) + usize::from(dest_col)) * 2;
+    data[off] = 0xE0; // has_block=1, collision=Solid
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    rt.set_block_grid(grid);
+
+    rt.step_projectiles();
+    assert!(
+        rt.projectiles.is_empty(),
+        "terrain-kill projectile should be removed on solid block contact"
+    );
+}
+
+/// Build a 10×10 grid (160×160 px) with solid blocks at specified cells.
+/// Uses 0xE0 (has_block=1, collision=Solid) so wall_bounce detects them.
+fn bounce_grid(cells: &[(u16, u16)]) -> terrain::BlockGrid {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    for &(col, row) in cells {
+        let off = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[off] = 0xE0; // has_block=1, collision=Solid(6)
+    }
+    terrain::BlockGrid::from_level_layout(&data, w, h)
+}
+
+#[test]
+fn wall_bounce_horizontal_wall_negates_x_velocity() {
+    // Projectile at (30, 40) moving right into a vertical wall at col 2 (px 32-47).
+    // After move: (32, 41) → col 2 is solid. Probe: h=(col 2, row 2)=solid, v=(col 1, row 2)=empty.
+    // → horizontal wall → negate x only.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(30, 40);
+    proj.x_velocity = 0x2_0000; // +2px
+    proj.y_velocity = 0x1_0000; // +1px
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+    // Solid wall at col=2 (pixels 32-47), leave col=1 empty
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    assert!(
+        p.x_velocity < 0,
+        "horizontal wall should negate x_velocity: got {}",
+        p.x_velocity
+    );
+    assert_eq!(
+        p.x_velocity, -0x2_0000,
+        "x_velocity should be exactly negated"
+    );
+    assert_eq!(
+        p.y_velocity, 0x1_0000,
+        "y_velocity should be unchanged after horizontal bounce"
+    );
+}
+
+#[test]
+fn wall_bounce_vertical_surface_negates_y_velocity() {
+    // Projectile at (40, 30) moving down into a floor at row 2 (px 32-47).
+    // After move: (41, 32) → row 2 is solid. Probe: h=(col 2, row 1)=empty, v=(col 2, row 2)=solid.
+    // → vertical surface → negate y only (else branch).
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(40, 30);
+    proj.x_velocity = 0x1_0000; // +1px
+    proj.y_velocity = 0x2_0000; // +2px
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+    // Solid floor at row=2 (pixels 32-47), leave row=1 empty
+    rt.set_block_grid(bounce_grid(&[(2, 2), (3, 2)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    assert_eq!(
+        p.x_velocity, 0x1_0000,
+        "x_velocity should be unchanged after vertical bounce"
+    );
+    assert!(
+        p.y_velocity < 0,
+        "vertical surface should negate y_velocity: got {}",
+        p.y_velocity
+    );
+    assert_eq!(
+        p.y_velocity, -0x2_0000,
+        "y_velocity should be exactly negated"
+    );
+}
+
+#[test]
+fn wall_bounce_corner_negates_both_velocities() {
+    // Projectile at (30, 30) moving right+down into a corner at (2,2).
+    // After move: (32, 32) → col 2 row 2 is solid.
+    // Probe: h=(col 2, row 1)=solid, v=(col 1, row 2)=solid → corner → negate both.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(30, 30);
+    proj.x_velocity = 0x2_0000;
+    proj.y_velocity = 0x2_0000;
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+    // Solid cells forming a corner: (2,1) for h-probe, (1,2) for v-probe, (2,2) for destination
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 1), (1, 2)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    assert_eq!(
+        p.x_velocity, -0x2_0000,
+        "corner bounce should negate x_velocity"
+    );
+    assert_eq!(
+        p.y_velocity, -0x2_0000,
+        "corner bounce should negate y_velocity"
+    );
+}
+
+#[test]
+fn wall_bounce_undoes_move_then_reapplies_with_bounced_velocity() {
+    // Verify exact position after a horizontal bounce.
+    // Start at (30, 40), vel=(+2, +1). Move to (32, 41) → solid at col 2.
+    // Undo → back to (30, 40). Bounce x → vel=(-2, +1). Reapply → (28, 41).
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(30, 40);
+    proj.x_velocity = 0x2_0000;
+    proj.y_velocity = 0x1_0000;
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // After bounce: position = pre-bounce(30,40) + bounced_vel(-2,+1) = (28, 41)
+    assert_eq!(
+        p.x_pos,
+        28u32 << 16,
+        "x should be pre-bounce + negated x_vel"
+    );
+    assert_eq!(
+        p.y_pos,
+        41u32 << 16,
+        "y should be pre-bounce + original y_vel"
+    );
+}
+
+#[test]
+fn wall_bounce_undoes_move_then_reapplies_vertical() {
+    // Verify exact position after a vertical bounce.
+    // Start at (40, 30), vel=(+1, +2). Move to (41, 32) → solid at row 2.
+    // Undo → back to (40, 30). Bounce y → vel=(+1, -2). Reapply → (41, 28).
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(40, 30);
+    proj.x_velocity = 0x1_0000;
+    proj.y_velocity = 0x2_0000;
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+    rt.set_block_grid(bounce_grid(&[(2, 2), (3, 2)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    assert_eq!(
+        p.x_pos,
+        41u32 << 16,
+        "x should be pre-bounce + original x_vel"
+    );
+    assert_eq!(
+        p.y_pos,
+        28u32 << 16,
+        "y should be pre-bounce + negated y_vel"
+    );
+}
+
+#[test]
+fn wall_bounce_blocked_cell_checks_both_has_block_and_collision() {
+    // Cell with has_block=true but collision=Empty should NOT trigger bounce.
+    // This kills && with || and != with == mutations on lines 109/111.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(30, 40);
+    proj.x_velocity = 0x2_0000;
+    proj.y_velocity = 0x1_0000;
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+
+    // Grid where destination cell is solid but the h-probe cell has
+    // has_block=true, collision=Empty (0x80 = has_block=1, collision=0(Empty))
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Destination (col=2, row=2) is solid
+    let off_dest = (2 * usize::from(w) + 2) * 2;
+    data[off_dest] = 0xE0;
+    // H-probe cell (col=2, row=2) is already covered above, but let's set up
+    // a scenario where the probe cells have has_block but empty collision.
+    // Actually, the probe is h=(next_cx col, prev_py row) and v=(prev_px col, next_cy row).
+    // prev=(30,40)→col=1,row=2. next=(32,41)→col=2,row=2.
+    // h-probe: (col=2, row=2) — same as dest, already solid.
+    // v-probe: (col=1, row=2) — need this empty to get h-only bounce.
+    // This is already what our previous test does. Let me instead test that
+    // a has_block=true + collision=Empty cell is NOT treated as blocked.
+
+    // Place v-probe cell (col=1, row=2) with has_block but Empty collision
+    let off_v = (2 * usize::from(w) + 1) * 2;
+    data[off_v] = 0x80; // has_block=1, collision=0(Empty)
+
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    rt.set_block_grid(grid);
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // h_blocked=true (dest cell), v_blocked=false (has_block but Empty collision)
+    // → horizontal bounce only
+    assert_eq!(
+        p.x_velocity, -0x2_0000,
+        "h_blocked should be true (Solid), v_blocked false (Empty collision) → negate x"
+    );
+    assert_eq!(
+        p.y_velocity, 0x1_0000,
+        "y_velocity unchanged when v_blocked is false"
+    );
+}
+
+#[test]
+fn homing_y_target_offset_is_16px_above_player() {
+    // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
+    // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
+    // projectile would accelerate downward when it's between player and
+    // player-16px instead of upward.
+    let mut rt = NativeRuntime::new(manifest());
+    // Projectile at y=84 (between player at y=100 and target at y=84).
+    // With correct -16 offset, target_y = 84, dy = 0 → no y accel.
+    // With wrong +16 offset, target_y = 116, dy > 0 → accelerates down.
+    let mut proj = make_projectile(50, 84);
+    proj.homing_accel = 0x1000;
+    proj.speed_cap = 0x6_0000;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 100 << 16; // target = 100 - 16 = 84
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    // Projectile is exactly at target y: dy = (100-16) - 84 = 0 in FP.
+    // Actually: target = (100<<16) - (0x10<<16) = 84<<16. proj.y = 84<<16. dy = 0.
+    // dy=0 is not > 0, so -homing_accel should be applied.
+    assert!(
+        rt.projectiles[0].y_velocity < 0,
+        "at exact target y, dy=0 not > 0 → should get -accel, got {}",
+        rt.projectiles[0].y_velocity
+    );
+}
+
+#[test]
+fn homing_accelerates_toward_player_on_both_axes() {
+    // Player far right and below → both axes should get positive accel.
+    // Player far left and above → both axes should get negative accel.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.homing_accel = 0x1000;
+    proj.speed_cap = 0x6_0000;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 10 << 16; // left of projectile
+    slice.player.y_pos = 10 << 16; // above projectile (target = 10-16 = -6, well above)
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert!(
+        rt.projectiles[0].x_velocity < 0,
+        "homing should accelerate leftward toward player: got {}",
+        rt.projectiles[0].x_velocity
+    );
+    assert!(
+        rt.projectiles[0].y_velocity < 0,
+        "homing should accelerate upward toward player-16: got {}",
+        rt.projectiles[0].y_velocity
+    );
+}
+
+#[test]
+fn homing_speed_cap_clamps_negative_velocity() {
+    // Speed cap should clamp BOTH positive and negative velocities.
+    // Kills: delete - in -p.speed_cap (lines 56-57).
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 100);
+    proj.homing_accel = 0x7_0000;
+    proj.speed_cap = 0x2_0000;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 10 << 16; // far left
+    slice.player.y_pos = 10 << 16; // far above
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity, -0x2_0000,
+        "negative x_velocity should be clamped to -speed_cap"
+    );
+    assert_eq!(
+        rt.projectiles[0].y_velocity, -0x2_0000,
+        "negative y_velocity should be clamped to -speed_cap"
+    );
+}
+
+#[test]
+fn homing_speed_cap_zero_means_no_cap() {
+    // speed_cap=0 check: `if p.speed_cap > 0` — with > replaced by >=, cap of 0
+    // would clamp everything to 0. Ensure speed_cap=0 doesn't clamp.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.homing_accel = 0x5000;
+    proj.speed_cap = 0; // no cap
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 200 << 16;
+    slice.player.y_pos = 200 << 16;
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity, 0x5000,
+        "speed_cap=0 should not clamp velocity"
+    );
+}
+
+#[test]
+fn terrain_kill_requires_both_has_block_and_solid_collision() {
+    // A cell with has_block=true but collision=Empty should NOT kill the projectile.
+    // Kills: && with || on line 73.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.terrain_kill = true;
+    proj.x_velocity = 0x1_0000;
+    rt.projectiles.push(proj);
+
+    // Grid with has_block=true but collision=Empty at destination
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let dest_col = terrain::pixel_to_cell(51).max(0) as u16;
+    let dest_row = terrain::pixel_to_cell(50).max(0) as u16;
+    let off = (usize::from(dest_row) * usize::from(w) + usize::from(dest_col)) * 2;
+    data[off] = 0x80; // has_block=1, collision=0(Empty)
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    rt.set_block_grid(grid);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "terrain-kill should NOT trigger when collision is Empty (even if has_block)"
+    );
+}
+
+#[test]
+fn wall_bounce_requires_both_has_block_and_solid_collision_at_dest() {
+    // Destination cell has_block=true but collision=Empty → no bounce.
+    // Kills: && with || on line 89.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(30, 40);
+    proj.x_velocity = 0x2_0000;
+    proj.y_velocity = 0x1_0000;
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Destination cell (col=2, row=2) with has_block but Empty collision
+    let off = (2 * usize::from(w) + 2) * 2;
+    data[off] = 0x80; // has_block=1, collision=0(Empty)
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    rt.set_block_grid(grid);
+
+    let x_before = 30u32 << 16;
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // No bounce should occur — projectile moves normally
+    assert_eq!(
+        p.x_pos,
+        (x_before as i64 + 0x2_0000i64) as u32,
+        "no bounce when dest cell has Empty collision"
+    );
+    assert_eq!(p.x_velocity, 0x2_0000, "velocity unchanged when no bounce");
+}
+
+#[test]
+fn wall_bounce_h_probe_requires_solid_collision() {
+    // h-probe cell has has_block=true but collision=Empty → not h_blocked.
+    // With && mutated to ||, has_block alone would make h_blocked true.
+    // Kills: && with || on line 109.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(30, 40);
+    proj.x_velocity = 0x2_0000;
+    proj.y_velocity = 0x1_0000;
+    proj.wall_bounce = true;
+    rt.projectiles.push(proj);
+
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Destination (col=2, row=2): solid — triggers bounce path
+    let off_dest = (2 * usize::from(w) + 2) * 2;
+    data[off_dest] = 0xE0;
+    // h-probe (col=2, row=2) is same as dest → solid. We need it NOT solid.
+    // Actually h-probe is (next_cx col, prev_py row).
+    // prev = (30, 40). next = (32, 41). next_cx = 30 + 2 = 32.
+    // h-probe: col=pixel_to_cell(32)=2, row=pixel_to_cell(40)=2.
+    // That's the same as dest. The cells overlap.
+    // Let me adjust: use a projectile at (14, 40) moving right into col=1 (px 16-31).
+    // prev = (14, 40). next = (16, 41). prev_col=0, next_col=1.
+    // Dest: (col=1, row=2) solid.
+    // h-probe: (col=1, row=2) same as dest. v-probe: (col=0, row=2).
+    // I need separate h/v cells. Use larger velocity or offset.
+    //
+    // Better: projectile at (14, 14) vel=(+2, +2). After move: (16, 16).
+    // prev=(14,14)→col=0,row=0. next=(16,16)→col=1,row=1.
+    // Dest: (col=1, row=1) solid.
+    // h-probe: (next_cx=14+2=16→col=1, prev_py=14→row=0) → (1, 0)
+    // v-probe: (prev_px=14→col=0, next_cy=14+2=16→row=1) → (0, 1)
+    // Set h-probe (1,0) to has_block+Empty, v-probe (0,1) to has_block+Solid
+    // → h_blocked should be false (Empty), v_blocked true → vertical bounce
+    // If && mutated to ||, h_blocked = true → corner bounce instead
+
+    let mut proj2 = make_projectile(14, 14);
+    proj2.x_velocity = 0x2_0000;
+    proj2.y_velocity = 0x2_0000;
+    proj2.wall_bounce = true;
+    rt.projectiles.clear();
+    rt.projectiles.push(proj2);
+
+    let mut data2 = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Dest (1, 1): solid
+    let off_d = (usize::from(w) + 1) * 2; // row=1, col=1
+    data2[off_d] = 0xE0;
+    // h-probe (1, 0): has_block + Empty collision — should NOT be h_blocked
+    let off_h = 2; // row=0, col=1
+    data2[off_h] = 0x80; // has_block=1, collision=0(Empty)
+    // v-probe (0, 1): solid — should be v_blocked
+    let off_v = usize::from(w) * 2; // row=1, col=0
+    data2[off_v] = 0xE0;
+    let grid2 = terrain::BlockGrid::from_level_layout(&data2, w, h);
+    rt.set_block_grid(grid2);
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // h_blocked=false (Empty collision), v_blocked=true (Solid) → vertical bounce only
+    assert_eq!(
+        p.x_velocity, 0x2_0000,
+        "x_velocity unchanged when h-probe cell has Empty collision"
+    );
+    assert_eq!(
+        p.y_velocity, -0x2_0000,
+        "y_velocity negated from vertical bounce"
+    );
+}
+
+#[test]
+fn reaim_adjusts_arrow_angle_when_countdown_reaches_zero() {
+    // ASM loc_342D6: every reaim_interval frames, adjust angle toward player.
+    // Kills: reaim_interval > 0 (line 23), reaim_countdown == 0 (line 24),
+    // reaim_countdown -= 1 (line 34).
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(50, 50);
+    proj.reaim_interval = 3;
+    proj.reaim_countdown = 2; // will count down 2→1, then 1→0, then re-aim fires
+    // Start at angle 6 (straight up: x=0, y=-32). Player is far right+below,
+    // so re-aim will adjust angle toward ~22-24, moving away from straight-up.
+    proj.current_angle = 6;
+    let (init_xv, init_yv) = arrow_velocity_from_angle(6);
+    proj.x_velocity = init_xv;
+    proj.y_velocity = init_yv;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 200 << 16;
+    slice.player.y_pos = 200 << 16;
+    rt.opening_slice = Some(slice);
+
+    // Frame 1: countdown 2 → 1, no re-aim. Velocity unchanged (modulo gravity=0).
+    rt.step_projectiles();
+    assert_eq!(
+        rt.projectiles[0].reaim_countdown, 1,
+        "countdown should decrement from 2 to 1"
+    );
+    let xv_after_1 = rt.projectiles[0].x_velocity;
+
+    // Frame 2: countdown 1 → 0, no re-aim
+    rt.step_projectiles();
+    assert_eq!(
+        rt.projectiles[0].reaim_countdown, 0,
+        "countdown should decrement from 1 to 0"
+    );
+
+    // Frame 3: countdown == 0 → re-aim fires, countdown resets to interval
+    rt.step_projectiles();
+    assert_eq!(
+        rt.projectiles[0].reaim_countdown, 3,
+        "countdown should reset to reaim_interval after re-aim"
+    );
+    // Angle adjusted from 6 → 5 or 7. Either way, x_velocity changes from 0.
+    assert_ne!(
+        rt.projectiles[0].x_velocity, xv_after_1,
+        "re-aiming from straight-up should change x_velocity toward player"
+    );
+}
+
+#[test]
+fn homing_dx_zero_uses_negative_accel() {
+    // When dx == 0, `dx > 0` is false → -homing_accel.
+    // With > mutated to >=, dx=0 would use +homing_accel.
+    // Kills: > with >= on line 43.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 50);
+    proj.homing_accel = 0x2000;
+    proj.speed_cap = 0x6_0000;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 100 << 16; // same x as projectile → dx = 0
+    slice.player.y_pos = 200 << 16;
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity, -0x2000,
+        "dx=0 should use -homing_accel (> 0 is false)"
+    );
+}
+
+#[test]
+fn homing_dx_sign_determines_accel_direction() {
+    // Player left of projectile → dx < 0 → -accel.
+    // Player right → dx > 0 → +accel.
+    // Kills: - with / on line 40 (dx computation).
+    let mut rt = NativeRuntime::new(manifest());
+    let mut proj = make_projectile(100, 50);
+    proj.homing_accel = 0x1000;
+    proj.speed_cap = 0x6_0000;
+    rt.projectiles.push(proj);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 150 << 16; // right of projectile
+    slice.player.y_pos = 50 << 16;
+    rt.opening_slice = Some(slice);
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity, 0x1000,
+        "player right of projectile → positive x accel"
+    );
+}
