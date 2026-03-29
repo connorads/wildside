@@ -1184,7 +1184,13 @@ pub(crate) fn step_active_enemies_with_rng(
             }
             EnemyArchetype::Flyer => {
                 if matches!(enemy.family, EnemyFamily::Dragon) {
-                    step_dragon(enemy, player_x_pos, player_y_pos, &mut projectiles);
+                    step_dragon(
+                        enemy,
+                        block_grid,
+                        player_x_pos,
+                        player_y_pos,
+                        &mut projectiles,
+                    );
                 } else {
                     step_flyer_with_rng(enemy, block_grid, rng);
                     if matches!(enemy.family, EnemyFamily::UFO)
@@ -1933,6 +1939,7 @@ pub(crate) fn step_bouncer_with_rng(
 /// FacePlayer (retarget), Descent (dive sub-script), ReturnToAnchor (rise to spawn Y).
 pub(crate) fn step_dragon(
     enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
@@ -1973,6 +1980,29 @@ pub(crate) fn step_dragon(
                 dragon_advance_script(enemy, player_x_pos, projectiles);
             }
             dragon_apply_velocity(enemy);
+            // Wall collision during Drift: reverse direction on terrain hit.
+            // ASM Dragon_Flying.asm loc_347D6: collision_type check after position update.
+            // If terrain collision (not hurt/death), flip direction and negate x_velocity.
+            if let Some(grid) = block_grid {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let moving_right = enemy.x_velocity >= 0;
+                let wall = terrain::probe_wall(
+                    grid,
+                    cx,
+                    cy,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                    moving_right,
+                );
+                if wall.hit {
+                    enemy.x_velocity = -enemy.x_velocity;
+                    enemy.facing = match enemy.facing {
+                        Direction::Right => Direction::Left,
+                        Direction::Left => Direction::Right,
+                    };
+                }
+            }
         }
         DragonFlyingState::Descending => {
             step_dragon_descent(enemy, projectiles);

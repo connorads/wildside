@@ -5127,6 +5127,104 @@ fn dragon_flyer_return_to_anchor_rises_then_restarts() {
 }
 
 #[test]
+fn dragon_flyer_drift_reverses_on_wall_collision() {
+    // ASM Dragon_Flying.asm loc_347D6: during Drift, wall collision flips
+    // direction and negates x_velocity. This is the missing wall-reversal
+    // during Drift state from the phase4-enemy-findings.md backlog.
+    let mut enemy = test_dragon(0, 100 << 16, 100 << 16);
+    enemy.dragon_phase = DragonFlyingState::Drifting;
+    enemy.dragon_phase_frames = 100;
+    enemy.x_velocity = 0x10000; // Moving right at speed
+    enemy.facing = Direction::Right;
+
+    // Create a block grid with a wall at column 10 (so x=160+ would hit)
+    // Cell format: [block_flag(1) collision(3) block_type(4)] [skin(8)]
+    // Solid collision = 6 → bits 14-12 → 0x60 in high byte
+    let w = 20u16;
+    let h = 15u16;
+    let mut data = vec![0u8; (w * h * 2) as usize]; // 2 bytes per cell
+    // Place solid collision block at column 10, row 6
+    let offset = (6 * w as usize + 10) * 2;
+    data[offset] = 0x60; // collision type 6 = Solid
+    data[offset + 1] = 0x01; // arbitrary skin
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Position dragon so it will hit the wall on next step
+    enemy.x_pos = (155 << 16) as u32; // Close to wall at x=160
+    // Wall is at cell (10, 6) which means y pixels 96-111
+    // probe_wall uses foot_y_px - 8 for lower probe, so we need foot_y_px >= 104
+    // to ensure the probe reaches y=96 (cell row 6)
+    enemy.y_pos = (104 << 16) as u32; // Y position where probe will hit row 6
+
+    let initial_facing = enemy.facing;
+    let _initial_vel = enemy.x_velocity;
+
+    step_active_enemies(
+        std::slice::from_mut(&mut enemy),
+        Some(&grid),
+        None,
+        None,
+        None,
+        None,
+        PlayerForm::TheKid,
+        None,
+    );
+
+    // After velocity acceleration and wall collision: velocity should be negated
+    // Initial velocity was 0x10000, drift acceleration adds 0x200 per frame
+    // So after acceleration: x_velocity = 0x10200 = 66048
+    // After wall collision: x_velocity negates to -66048
+    assert_eq!(
+        enemy.x_velocity,
+        -(0x10000 + 0x200),
+        "dragon flying drift should negate velocity on wall collision"
+    );
+    assert_ne!(
+        enemy.facing, initial_facing,
+        "dragon flying drift should flip facing on wall collision"
+    );
+}
+
+#[test]
+fn dragon_flyer_drift_continues_without_wall() {
+    // Without a wall, drift should continue accelerating normally.
+    let mut enemy = test_dragon(0, 100 << 16, 100 << 16);
+    enemy.dragon_phase = DragonFlyingState::Drifting;
+    enemy.dragon_phase_frames = 100;
+    enemy.x_velocity = 0x800; // Small initial velocity
+    enemy.facing = Direction::Right;
+
+    // Empty grid - no walls
+    let w = 20u16;
+    let h = 15u16;
+    let data = vec![terrain::BlockType::None as u8; (w * h) as usize];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let initial_facing = enemy.facing;
+
+    step_active_enemies(
+        std::slice::from_mut(&mut enemy),
+        Some(&grid),
+        None,
+        None,
+        None,
+        None,
+        PlayerForm::TheKid,
+        None,
+    );
+
+    // Without wall: velocity should increase, facing unchanged
+    assert_eq!(
+        enemy.facing, initial_facing,
+        "dragon flying drift should keep facing without wall"
+    );
+    assert!(
+        enemy.x_velocity > 0x800,
+        "dragon flying drift should accelerate without wall"
+    );
+}
+
+#[test]
 fn dragon_flyer_stays_active_after_spawn_point_scrolls_behind_camera() {
     let layout = EnemyLayout {
         axis_uses_y_position: false,
@@ -5546,7 +5644,7 @@ fn dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc() {
 
     let mut projectiles = Vec::new();
     let mut projectile_slot = Some(&mut projectiles);
-    step_dragon(&mut enemy, None, None, &mut projectile_slot);
+    step_dragon(&mut enemy, None, None, None, &mut projectile_slot);
 
     assert_eq!(
         projectiles.len(),
