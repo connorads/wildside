@@ -113,13 +113,14 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Missing: Collision-recovery during Descent**: ASM has 6 recovery sub-paths. Not in native.
 - **Missing: Death-on-stomp sequence**: ASM has specific death animation + explosion spawn.
 
-### Tornado — Acceleration scaling fixed, Cyclone interaction still missing
+### Tornado — Acceleration scaling fixed, Cyclone interaction implemented
 - Cycle timers: 60/40/30 by level — correct
 - Base acceleration: $C00 — correct
 - Wall/floor bounce: correct
 - **Fixed: Acceleration doubling for levels 1-2**: native now persists the ROM's `$4E(a5)` init flag and doubles the signed per-axis acceleration after `loc_35444` resolves the drift row.
 - **Fixed: Target velocity doubling for level 2**: native now persists the ROM's `$4F(a5)` init flag, doubles the desired drift speeds, and reloads the 60/40/30 pattern timer from the raw layout level instead of live HP.
-- **Missing: Cyclone-flying interaction**: ASM boosts player Y-acceleration ($28) and reflects Tornado x_velocity when player is in Cyclone form. Meaningful gameplay mechanic.
+- **Fixed: Cyclone-flying bounce interaction**: ASM `loc_35986` implements bounce when Cyclone-flying player contacts Tornado. Native now sets player x_velocity = ±$20000, Tornado x_velocity = opposite halved ∓$10000, and cyclone_y_accel = $28 (40). Other forms take normal contact damage.
+- **Missing: Cyclone-flying interaction**: ASM boosts player Y-acceleration ($28) and reflects Tornado x_velocity when player is in Cyclone form. Meaningful gameplay mechanic — ~~IMPLEMENTED~~.
 - RNG pattern selection: documented DEVIATION.
 
 ### Ninja, Hand, Lion, Robot, Orca, SpinningTwins, TarMonster, Drips
@@ -157,7 +158,7 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 
 ### High impact (affects gameplay noticeably)
 1. ~~Archer arrow lifetime + re-aiming~~ — **FIXED**: terrain-kill, ±1 re-aim, spawn offset, dx==0 quirk
-2. Tornado Cyclone-flying interaction
+2. ~~Tornado Cyclone-flying interaction~~ — **FIXED**: bounce instead of damage when Cyclone-flying contacts Tornado
 3. Crab player proximity freeze
 4. Dragon Flying wall-reversal during Drift
 

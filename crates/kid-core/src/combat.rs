@@ -1106,6 +1106,47 @@ impl NativeRuntime {
         // Diamond collection: touching a Diamond picks it up
         self.collect_diamonds(slice);
 
+        // Cyclone-Tornado bounce: ASM Tornado.asm loc_35986
+        // When Cyclone-flying player contacts Tornado, bounce instead of damage.
+        // Player x_vel = ±$20000, Tornado x_vel = opposite halved ∓$10000,
+        // cyclone_y_accel = $28 (40).
+        if !self.stomped_this_frame
+            && self.progression.current_form == PlayerForm::Cyclone
+            && self.helmet.cyclone_flying
+        {
+            for enemy in &mut self.active_enemies {
+                if enemy.family != EnemyFamily::Tornado {
+                    continue;
+                }
+                if !enemy.is_vulnerable() {
+                    continue;
+                }
+                let snapshot = enemy.snapshot();
+                if !player_touches_enemy_with_half_width(
+                    slice.player,
+                    &snapshot,
+                    self.progression.current_form.half_width() as i64,
+                ) {
+                    continue;
+                }
+                // ASM loc_35986: Cyclone-Tornado bounce
+                // Direction from player position relative to Tornado center
+                let player_x = slice.player.x_pos as i64;
+                let tornado_x = enemy.x_pos as i64;
+                let bounce_direction = if player_x < tornado_x { -1 } else { 1 };
+                // Player x_velocity = ±$20000 (2.0 px/frame)
+                slice.player.x_velocity = bounce_direction * 0x20000;
+                // Tornado x_velocity = opposite, halved (∓$10000)
+                enemy.x_velocity = -bounce_direction * 0x10000;
+                // Cyclone Y acceleration boost = $28 (ASM writes to $38(a4))
+                self.helmet.cyclone_y_accel = 0x28;
+                self.opening_slice = Some(*slice);
+                self.last_kid_frame_post_motion_mutator =
+                    KidFramePostMotionMutator::CycloneTornadoBounce;
+                return true;
+            }
+        }
+
         // Contact damage with knockback
         if !self.stomped_this_frame
             && let Some((enemy_x, enemy_family)) = self.find_contact_damage_source(slice)
