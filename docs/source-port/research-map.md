@@ -103,10 +103,10 @@ and `roadmap.md` for the programme-level workstreams.
 - **2-player alternating mode**: `PlayerSlot` framework exists but not verified against oracle. Need to verify: P1 dies → P2 takes over with independent level/lives/form, game over when both players exhausted, continue screen in 2P context. Write DynamicScenario probes for 2P.
 - **Password system**: the original game has a password system for level progression. Not yet investigated whether this is implemented or needed. Trace ASM for password generation/validation. Check whether `BootState` has a password entry screen.
 
-### Enemy behaviour gaps (14 items — see `phase4-enemy-findings.md` for full details)
-High impact: Archer arrow lifetime + re-aiming, Fireball gravity off-by-one, Tornado acceleration scaling.
-Medium impact: Crab proximity freeze, Dragon Flying wall-reversal, Tornado Cyclone interaction, Sphere/Fireball slope deflection.
-Low impact: Driller block drilling, speed caps at high HP, probe half-width per-family, Archer dx==0 aiming, Cloud lightning bolt attack.
+### Enemy behaviour gaps (10 items — see `phase4-enemy-findings.md` for full details)
+High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), Tornado Cyclone-flying interaction, Crab proximity freeze, Dragon Flying wall-reversal.
+Medium impact: Sphere/Fireball slope deflection, Driller block drilling, probe half-width per-family.
+Low impact: speed caps at high HP, Cloud lightning bolt attack, Dragon Flying fire spawn X offset.
 
 ### Oracle sweep hardening (not yet implemented)
 - **Advisory field promotion**: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.

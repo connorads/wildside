@@ -79,13 +79,14 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - Ceiling bounce: -(y_vel >> 1) — correct
 - **Missing: Slope Up/Down deflection**: ASM swaps X/Y velocities (with negate on slope-up). `step_bouncer` has no slope handling. Exists in `step_big_hopping_skull` but not ported to Sphere.
 
-### Archer — Arrow lifetime + aiming mismatches
+### Archer — Fixed: arrow lifetime, re-aiming, spawn offset, dx==0 aiming
 - HP: passthrough from layout — correct
 - Fire timers: $1E/$14/$0A — correct
 - Velocity table: all 28 entries — correct
-- **Aiming mismatch (dx==0)**: ASM `loc_34530` always returns angle 21 (straight down) regardless of dy sign. Native returns angle 6 (up) when dy<0.
-- **Missing: Arrow spawn offset**: ASM applies -14 to -8px X, -17 or -30px Y offset from archer. Native spawns at archer centre.
-- **Major: Arrow lifetime wrong**: ASM arrows persist until wall collision (no expiry), with slow homing (re-aim ±1 angle per fire-timer frames). Native arrows expire after 30/20/10 frames with no re-aiming.
+- **Fixed: Aiming dx==0**: ASM `loc_34530` ORIGINAL_QUIRK — sets d7=0 then tests d7, not d4/dy. Always returns angle 21 (straight down). Native now matches.
+- **Fixed: Arrow spawn offset**: ASM 3rd animation frame offsets (-8px X, -17/-24px Y). Native now applies per-facing and vertical/horizontal offsets.
+- **Fixed: Arrow lifetime + re-aiming**: ASM arrows persist until terrain/object collision (loc_342D6). Re-aim ±1 angle every `arrow_accuracy` frames toward player (loc_34308/loc_34320 circular adjustment). Native now uses terrain_kill + reaim fields.
+- **Fixed: Ratio overflow**: ASM loc_34546 returns 6/21 when ratio ≥ $3F. Native was clamping ratio instead. Now branches correctly.
 
 ### EmoRock — Verified correct
 - Terminal velocity: $60000 threshold, $40000 cap — correct (previously verified)
@@ -155,7 +156,7 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 ## Priority ranking for fixes
 
 ### High impact (affects gameplay noticeably)
-1. Archer arrow lifetime + re-aiming (arrows expire too early, no homing)
+1. ~~Archer arrow lifetime + re-aiming~~ — **FIXED**: terrain-kill, ±1 re-aim, spawn offset, dx==0 quirk
 2. Tornado Cyclone-flying interaction
 3. Crab player proximity freeze
 4. Dragon Flying wall-reversal during Drift
@@ -164,7 +165,6 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 5. Sphere/Fireball slope deflection
 6. Driller block drilling
 7. Probe half-width per-family customisation
-8. Archer aiming when dx==0
 
 ### Low impact (edge cases or rare scenarios)
 9. Crab/Driller speed cap at high HP (rare enemy levels)

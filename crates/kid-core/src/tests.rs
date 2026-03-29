@@ -229,6 +229,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     });
     runtime.pending_prize_diamond_awards.push(5);
     runtime.enemy_death_effects.push(EnemyDeathEffect {
@@ -9737,6 +9738,7 @@ fn projectile_moves_by_velocity_each_step() {
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     }];
     // Simulate step_projectiles inline (since it's on NativeRuntime)
     projs.retain_mut(|p| {
@@ -9767,6 +9769,7 @@ fn projectile_removed_when_lifetime_expires() {
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     }];
     // Step once: lifetime goes 1→0, projectile moves
     projs.retain_mut(|p| {
@@ -9942,9 +9945,14 @@ fn archer_angle_straight_left() {
 
 #[test]
 fn archer_angle_straight_up() {
-    // Player directly above
+    // ORIGINAL_QUIRK: ASM loc_34530 sets d7=0 then tests d7 (not d4/dy), so the
+    // bmi never fires. dx==0 always returns angle 21 (straight down) regardless of
+    // whether the player is above or below.
     let angle = archer_angle_to_player(100 << 16, 200 << 16, 100 << 16, 100 << 16);
-    assert_eq!(angle, 6, "should be straight up");
+    assert_eq!(
+        angle, 0x15,
+        "ASM dx==0 quirk: always angle 21 (straight down)"
+    );
 }
 
 #[test]
@@ -9962,6 +9970,230 @@ fn archer_fire_timer_varies_by_hp() {
     assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
     assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
     assert_eq!(ARCHER_FIRE_TIMER[2], 0x0A, "HP 3: 10 frames");
+}
+
+// --- Archer arrow re-aiming (ASM loc_342D6 / loc_34308 / loc_34320) ---
+
+#[test]
+fn archer_dx_zero_always_returns_angle_21() {
+    // ORIGINAL_QUIRK: ASM loc_34530 bug — tests d7 after clearing it, not d4 (dy).
+    // Player below: angle 21 (expected).
+    let below = archer_angle_to_player(100 << 16, 100 << 16, 100 << 16, 200 << 16);
+    assert_eq!(below, 0x15);
+    // Player above: still angle 21 (quirk — should be 6 if bug didn't exist).
+    let above = archer_angle_to_player(100 << 16, 200 << 16, 100 << 16, 50 << 16);
+    assert_eq!(above, 0x15);
+}
+
+#[test]
+fn archer_ratio_overflow_returns_vertical() {
+    // Nearly vertical: abs_dy >> abs_dx → ratio >= 0x3F → loc_34546.
+    // Player above (dy < 0): angle 6 (straight up).
+    let angle = archer_angle_to_player(100 << 16, 200 << 16, 101 << 16, 50 << 16);
+    assert_eq!(angle, 6, "nearly vertical, player above → straight up");
+    // Player below (dy > 0): angle 21 (straight down).
+    let angle = archer_angle_to_player(100 << 16, 50 << 16, 101 << 16, 200 << 16);
+    assert_eq!(angle, 0x15, "nearly vertical, player below → straight down");
+}
+
+#[test]
+fn archer_adjust_angle_no_change_when_equal() {
+    assert_eq!(archer_adjust_angle(10, 10), 10);
+    assert_eq!(archer_adjust_angle(0, 0), 0);
+    assert_eq!(archer_adjust_angle(27, 27), 27);
+}
+
+#[test]
+fn archer_adjust_angle_direct_increment() {
+    // target > current, diff < 14 → increment by 1
+    assert_eq!(archer_adjust_angle(5, 8), 6);
+    assert_eq!(archer_adjust_angle(0, 5), 1);
+}
+
+#[test]
+fn archer_adjust_angle_direct_decrement() {
+    // target < current, |diff| < 14 → decrement by 1
+    assert_eq!(archer_adjust_angle(10, 5), 9);
+    assert_eq!(archer_adjust_angle(5, 2), 4);
+}
+
+#[test]
+fn archer_adjust_angle_wrap_forward() {
+    // target < current, |diff| >= 14 → wrap forward (increment through 27→0)
+    assert_eq!(archer_adjust_angle(25, 5), 26);
+}
+
+#[test]
+fn archer_adjust_angle_wrap_backward() {
+    // target > current, diff >= 14 → wrap backward (decrement through 0→27)
+    assert_eq!(archer_adjust_angle(5, 25), 4);
+}
+
+#[test]
+fn archer_adjust_angle_wraps_at_boundaries() {
+    // Increment from 27 → wraps to 0
+    assert_eq!(archer_adjust_angle(27, 1), 0);
+    // Decrement from 0 → wraps to 27
+    assert_eq!(archer_adjust_angle(0, 26), 27);
+}
+
+#[test]
+fn archer_arrow_spawns_with_reaim_and_terrain_kill() {
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::Archer,
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: true,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    let mut projs = Vec::new();
+    step_archer(
+        &mut enemy,
+        &mut projs,
+        Some(200u32 << 16),
+        Some(100u32 << 16),
+    );
+    assert_eq!(projs.len(), 1, "should spawn one arrow");
+    let arrow = &projs[0];
+    assert_eq!(
+        arrow.lifetime,
+        u16::MAX,
+        "arrows live until terrain contact"
+    );
+    assert!(arrow.terrain_kill, "arrows die on terrain collision");
+    assert!(arrow.reaim_interval > 0, "arrows re-aim periodically");
+    assert_eq!(
+        arrow.reaim_interval, ARCHER_FIRE_TIMER[0],
+        "re-aim interval matches fire timer"
+    );
+}
+
+#[test]
+fn archer_arrow_velocity_from_angle_table() {
+    // ASM Enemy07_ArcherArrow_AngleToSpeedAndAnim: byte * 0x1000.
+    let (xv, yv) = arrow_velocity_from_angle(0);
+    assert_eq!(xv, 0x20 * 0x1000, "angle 0 x_vel = 0x20000");
+    assert_eq!(yv, 0, "angle 0 y_vel = 0");
+    let (xv, yv) = arrow_velocity_from_angle(6);
+    assert_eq!(xv, 0, "angle 6 x_vel = 0 (straight up)");
+    assert_eq!(yv, -32 * 0x1000, "angle 6 y_vel = -0x20000");
+    let (xv, yv) = arrow_velocity_from_angle(21);
+    assert_eq!(xv, 0, "angle 21 x_vel = 0 (straight down)");
+    assert_eq!(yv, 32 * 0x1000, "angle 21 y_vel = 0x20000");
+}
+
+#[test]
+fn archer_arrow_spawn_offset_applied() {
+    // Arrow spawns offset from archer centre (ASM 3rd shooting animation frame).
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::Archer,
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Left,
+        on_ground: true,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    let mut projs = Vec::new();
+    // Player to the right → archer re-faces Right, horizontal shooting path.
+    step_archer(
+        &mut enemy,
+        &mut projs,
+        Some(200u32 << 16),
+        Some(100u32 << 16),
+    );
+    let arrow = &projs[0];
+    // Facing Right → X offset +8px (negate of -8). Y offset: horizontal → -17px.
+    assert_eq!(
+        arrow.x_pos >> 16,
+        100 + 8,
+        "right-facing: 8px right of archer"
+    );
+    assert_eq!(arrow.y_pos >> 16, 100 - 17, "horizontal: 17px above archer");
 }
 
 // --- Tank firing ---
@@ -15076,6 +15308,7 @@ fn eyeclops_no_double_fire() {
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     });
     let slice = combat_slice();
     let input = FrameInput {
@@ -15109,6 +15342,7 @@ fn eyeclops_beam_clears_when_projectile_expires() {
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     });
     let slice = combat_slice();
 
@@ -15214,6 +15448,7 @@ fn juggernaut_skull_has_gravity() {
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     });
 
     rt.step_projectiles();

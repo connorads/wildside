@@ -1623,7 +1623,7 @@ pub(crate) struct GhostGroup {
 }
 
 /// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -1644,6 +1644,17 @@ pub(crate) struct EnemyProjectile {
     pub(crate) speed_cap: i32,
     /// Bounces off terrain walls/floors/ceilings (Lion.asm loc_3E260).
     pub(crate) wall_bounce: bool,
+    /// Re-aim interval in frames (Archer arrows). 0 = no re-aiming.
+    /// ASM loc_342D6: arrow re-aims every `arrow_accuracy` frames toward player.
+    pub(crate) reaim_interval: u16,
+    /// Countdown to next re-aim (decremented each frame).
+    pub(crate) reaim_countdown: u16,
+    /// Current angle index (0..27) for ±1 circular re-aim adjustment.
+    /// ASM loc_34308/loc_34320: adjusts by ±1 per re-aim cycle toward target.
+    pub(crate) current_angle: u8,
+    /// Destroy on terrain contact instead of timer expiry (Archer arrows).
+    /// ASM loc_342D6: `tst.b $19(a3)` / `tst.w collision_type(a3)`.
+    pub(crate) terrain_kill: bool,
 }
 
 /// Murder wall: an advancing wall that kills the player on contact.

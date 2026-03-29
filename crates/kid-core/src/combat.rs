@@ -183,6 +183,7 @@ impl NativeRuntime {
                             homing_accel: if is_heady { 0x7D0 } else { 0 },
                             speed_cap: 0,
                             wall_bounce: false,
+                            ..Default::default()
                         });
                         self.projectiles.push(EnemyProjectile {
                             x_pos: boss_x,
@@ -195,6 +196,7 @@ impl NativeRuntime {
                             homing_accel: if is_heady { 0x7D0 } else { 0 },
                             speed_cap: 0,
                             wall_bounce: false,
+                            ..Default::default()
                         });
                     }
                     // TarMonster fires 5 tar blobs in a spread pattern when damaged

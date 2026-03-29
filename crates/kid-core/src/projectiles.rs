@@ -1,8 +1,10 @@
 use super::*;
+use crate::enemies::{archer_adjust_angle, archer_angle_to_player, arrow_velocity_from_angle};
 
 impl NativeRuntime {
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
     /// Homing projectiles accelerate toward `player_pos` each frame.
+    /// Re-aiming projectiles (Archer arrows) adjust angle ±1 every `reaim_interval` frames.
     /// Wall-bounce projectiles (Lion) reverse velocity on terrain collision (Lion.asm loc_3E260).
     pub(crate) fn step_projectiles(&mut self) {
         let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
@@ -14,6 +16,24 @@ impl NativeRuntime {
             }
             p.lifetime -= 1;
             p.y_velocity += p.gravity;
+
+            // Arrow re-aiming: ASM loc_342D6 loop. Every `reaim_interval` frames,
+            // compute target angle toward player, adjust current_angle by ±1,
+            // then update velocity from the new angle.
+            if p.reaim_interval > 0 {
+                if p.reaim_countdown == 0 {
+                    p.reaim_countdown = p.reaim_interval;
+                    if let (Some(px), Some(py)) = (player_x, player_y) {
+                        let target = archer_angle_to_player(p.x_pos, p.y_pos, px, py) as u8;
+                        p.current_angle = archer_adjust_angle(p.current_angle, target);
+                        let (xv, yv) = arrow_velocity_from_angle(p.current_angle as usize);
+                        p.x_velocity = xv;
+                        p.y_velocity = yv;
+                    }
+                } else {
+                    p.reaim_countdown -= 1;
+                }
+            }
             // Homing: accelerate toward player (per-projectile accel from ASM).
             if p.homing_accel != 0 {
                 if let (Some(px), Some(py)) = (player_x, player_y) {
@@ -39,6 +59,21 @@ impl NativeRuntime {
             }
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+
+            // Terrain-kill: Archer arrows die on level/object collision.
+            // ASM loc_342D6: `tst.b $19(a3)` (has_level_collision) / `tst.w collision_type(a3)`.
+            if p.terrain_kill
+                && let Some(g) = grid
+            {
+                let px_i = (p.x_pos >> 16) as i32;
+                let py_i = (p.y_pos >> 16) as i32;
+                let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+                let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+                let cell = g.cell_at(col, row);
+                if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
+                    return false; // destroyed on terrain contact
+                }
+            }
 
             // Wall-bounce: reverse velocity on terrain contact (Lion.asm loc_3E260).
             // ASM checks collision_type and bounces up to 15 times per frame.

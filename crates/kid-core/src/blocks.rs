@@ -254,6 +254,7 @@ impl NativeRuntime {
                             homing_accel: 0,
                             speed_cap: 0,
                             wall_bounce: false,
+                            ..Default::default()
                         });
                     }
                 }
@@ -450,6 +451,7 @@ impl NativeRuntime {
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
         }
 

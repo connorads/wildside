@@ -1392,6 +1392,7 @@ pub(crate) fn step_ufo_beam(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
             enemy.ufo_beam_segments -= 1;
             enemy.ufo_beam_interval = UFO_BEAM_INTERVAL_FRAMES;
@@ -2137,6 +2138,7 @@ fn step_dragon_descent(
                         homing_accel: 0,
                         speed_cap: 0,
                         wall_bounce: false,
+                        ..Default::default()
                     });
                 }
                 enemy.dragon_descent_index += 1;
@@ -2835,6 +2837,7 @@ pub(crate) fn step_lion(
                     homing_accel: 0x2000,             // Lion.asm loc_3E1C2
                     speed_cap: LION_PROJECTILE_SPEED, // ±$60000 cap (Lion.asm)
                     wall_bounce: true,                // Lion.asm loc_3E260
+                    ..Default::default()
                 });
             }
 
@@ -3019,6 +3022,7 @@ pub(crate) fn step_robot_with_rng(
                         homing_accel: 0,
                         speed_cap: 0,
                         wall_bounce: false,
+                        ..Default::default()
                     });
                 }
 
@@ -3287,6 +3291,7 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
                     homing_accel: 0,
                     speed_cap: 0,
                     wall_bounce: false,
+                    ..Default::default()
                 });
             }
         }
@@ -3344,6 +3349,7 @@ pub(crate) fn spawn_tar_monster_retaliation(
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            ..Default::default()
         });
     }
 }
@@ -3369,6 +3375,7 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
             homing_accel: 0,
             speed_cap: 0,
             wall_bounce: false,
+            ..Default::default()
         });
     }
 }
@@ -3775,6 +3782,7 @@ pub(crate) fn step_dragon_walking(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
             enemy.wait_timer = DRAGON_WALKING_BREATH_RESET;
             enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
@@ -3870,6 +3878,7 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     });
     enemy.wait_timer = DRIPS_DROP_INTERVAL;
 }
@@ -4097,14 +4106,21 @@ pub(crate) fn archer_angle_to_player(
     ];
 
     if dx == 0 {
-        // Directly above or below.
-        return if dy < 0 { 6 } else { 0x15 };
+        // ORIGINAL_QUIRK: ASM loc_34530 sets d7=0 then tests d7 (not d4/dy), so
+        // bmi never fires and this always returns angle 21 (straight down).
+        return 0x15;
     }
 
     let abs_dx = dx.unsigned_abs();
     let abs_dy = dy.unsigned_abs();
-    let ratio = ((abs_dy * 8) / abs_dx).min(0x3E) as usize;
-    let sub = RATIO_TABLE[ratio.min(RATIO_TABLE.len() - 1)] as i32;
+    let ratio = (abs_dy * 8) / abs_dx;
+
+    // ASM loc_34546: ratio >= $3F → nearly vertical, return 6 (up) or 21 (down).
+    if ratio >= 0x3F {
+        return if dy < 0 { 6 } else { 0x15 };
+    }
+
+    let sub = RATIO_TABLE[(ratio as usize).min(RATIO_TABLE.len() - 1)] as i32;
 
     match (dx > 0, dy >= 0) {
         // Quadrant 0: right+up (d5=0)
@@ -4118,7 +4134,40 @@ pub(crate) fn archer_angle_to_player(
     }
 }
 
+/// Archer arrow spawn X offset (Archer.asm Shooting_Horizontal/Vertical 3rd frame: $FFF8 = -8).
+const ARCHER_ARROW_X_OFFSET: i32 = -8;
+/// Archer arrow spawn Y offset for horizontal shooting (Archer.asm: $FFEF = -17).
+const ARCHER_ARROW_Y_OFFSET_HORIZONTAL: i32 = -17;
+/// Archer arrow spawn Y offset for vertical shooting (Archer.asm: $FFE8 = -24).
+const ARCHER_ARROW_Y_OFFSET_VERTICAL: i32 = -24;
+
+/// Adjust arrow angle by ±1 toward target on a 28-value circular ring.
+/// ASM loc_34308/loc_34320: if shortest arc ≤ 14 steps, move direct; otherwise wrap.
+pub(crate) fn archer_adjust_angle(current: u8, target: u8) -> u8 {
+    if current == target {
+        return current;
+    }
+    let delta = target as i16 - current as i16; // -27..27
+    let threshold: i16 = if target > current { 14 } else { -14 };
+    if delta >= threshold {
+        // Decrement path (ASM loc_34320)
+        if current == 0 { 27 } else { current - 1 }
+    } else {
+        // Increment path (ASM loc_34308 fall-through)
+        if current >= 27 { 0 } else { current + 1 }
+    }
+}
+
+/// Convert an angle index (0..27) to (x_velocity, y_velocity) via ARROW_ANGLE_TABLE.
+/// ASM Enemy07_ArcherArrow_AngleToSpeedAndAnim: byte * 0x1000.
+pub(crate) fn arrow_velocity_from_angle(angle: usize) -> (i32, i32) {
+    let (x_byte, y_byte) = ARROW_ANGLE_TABLE[angle.min(ARROW_ANGLE_TABLE.len() - 1)];
+    ((x_byte as i32) * 0x1000, (y_byte as i32) * 0x1000)
+}
+
 /// Step Archer: stationary enemy that faces player and fires arrows at intervals.
+/// ASM: arrows persist until terrain/object collision, re-aiming every `arrow_accuracy`
+/// frames by ±1 angle step toward the player (loc_342D6 loop).
 pub(crate) fn step_archer(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
@@ -4145,28 +4194,49 @@ pub(crate) fn step_archer(
         return;
     };
 
-    // Don't exceed projectile limit.
+    // ASM loc_34248: `cmpi.w #2,(Number_of_Arrows).w; bge.w loc_3408C`
     if projectiles.len() >= MAX_PROJECTILES {
         return;
     }
 
-    // Compute angle and spawn arrow.
+    // Compute initial angle and velocity.
     let angle = archer_angle_to_player(enemy.x_pos, enemy.y_pos, px, py);
-    let (x_byte, y_byte) = ARROW_ANGLE_TABLE[angle.min(ARROW_ANGLE_TABLE.len() - 1)];
-    let x_velocity = (x_byte as i32) * 0x1000;
-    let y_velocity = (y_byte as i32) * 0x1000;
+    let (x_velocity, y_velocity) = arrow_velocity_from_angle(angle);
+    let reaim = ARCHER_FIRE_TIMER[level];
+
+    // Spawn offset from Archer.asm 3rd animation frame.
+    // Vertical shooting (angle 6..=13): Y=-24. Horizontal: Y=-17.
+    // X offset negated when facing right (ASM loc_34216).
+    let y_offset = if (6..=13).contains(&angle) {
+        ARCHER_ARROW_Y_OFFSET_VERTICAL
+    } else {
+        ARCHER_ARROW_Y_OFFSET_HORIZONTAL
+    };
+    let x_offset = if enemy.facing == Direction::Right {
+        -ARCHER_ARROW_X_OFFSET
+    } else {
+        ARCHER_ARROW_X_OFFSET
+    };
+    let spawn_x = (enemy.x_pos as i64 + ((x_offset as i64) << 16)) as u32;
+    let spawn_y = (enemy.y_pos as i64 + ((y_offset as i64) << 16)) as u32;
 
     projectiles.push(EnemyProjectile {
-        x_pos: enemy.x_pos,
-        y_pos: enemy.y_pos,
+        x_pos: spawn_x,
+        y_pos: spawn_y,
         x_velocity,
         y_velocity,
-        lifetime: ARCHER_FIRE_TIMER[level],
+        // ASM arrows live until terrain collision, not a fixed timer.
+        // Use large lifetime as fallback; terrain_kill handles normal removal.
+        lifetime: u16::MAX,
         friendly: false,
         gravity: 0,
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        reaim_interval: reaim,
+        reaim_countdown: reaim,
+        current_angle: angle as u8,
+        terrain_kill: true,
     });
 }
 
@@ -4233,6 +4303,7 @@ pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<Enem
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        ..Default::default()
     });
 }
 
@@ -4325,6 +4396,7 @@ pub(crate) fn step_boss_fire(
                 homing_accel: 0x7D0, // HeadyMetal ASM
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
         }
         EnemyFamily::Shishkaboss => {
@@ -4340,6 +4412,7 @@ pub(crate) fn step_boss_fire(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
         }
         EnemyFamily::BoomerangBosses => {
@@ -4363,6 +4436,7 @@ pub(crate) fn step_boss_fire(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
         }
         EnemyFamily::BagelBrothers => {
@@ -4382,6 +4456,7 @@ pub(crate) fn step_boss_fire(
                 homing_accel: 0,
                 speed_cap: 0,
                 wall_bounce: false,
+                ..Default::default()
             });
         }
         _ => {}
