@@ -63,39 +63,17 @@ For each family: read full `code/enemy/<Family>.asm`, compare every constant, st
 - **Missing: Lightning bolt attack**: ASM `loc_35CD8` spawns directional lightning bolts during 31-frame attack windows. Not in native at all.
 - **Dormant: Velocity index off-by-one**: ASM indexes by raw `hit_points_plus_one`, native subtracts 1 first. All ROM Clouds use index 0, so no practical impact.
 
-### MiniHoppingSkull — Fixed this session
-- HP: `enemy_level + 1` — correct
-- Hop velocity: base -$38000 Y, $18000 X — correct
-- **HP boost**: +$4000 X, -$10000 Y at HP>1 — implemented this session
-- Ground delay: 21 frames (dbf #$14) — correct (previously verified)
-
-### BigHoppingSkull — Verified correct (previously fixed #056)
-- Continuous bouncer with $FA0 gravity, wall/floor/ceiling/slope deflection
-
-### Sphere — Missing slope deflection
+### Sphere — Slope deflection added
 - Gravity: $800/frame — correct
 - Wall bounce: negate x_vel — correct
 - Floor bounce: negate y_vel — correct
 - Ceiling bounce: -(y_vel >> 1) — correct
-- **Missing: Slope Up/Down deflection**: ASM swaps X/Y velocities (with negate on slope-up). `step_bouncer` has no slope handling. Exists in `step_big_hopping_skull` but not ported to Sphere.
+- **Fixed: Slope Up/Down deflection**: ASM `loc_36012`/`loc_36032` swaps velocities with appropriate negation. Native now mirrors `step_big_hopping_skull` behavior for both SlopeUp and SlopeDown.
 
-### Archer — Fixed: arrow lifetime, re-aiming, spawn offset, dx==0 aiming
-- HP: passthrough from layout — correct
-- Fire timers: $1E/$14/$0A — correct
-- Velocity table: all 28 entries — correct
-- **Fixed: Aiming dx==0**: ASM `loc_34530` ORIGINAL_QUIRK — sets d7=0 then tests d7, not d4/dy. Always returns angle 21 (straight down). Native now matches.
-- **Fixed: Arrow spawn offset**: ASM 3rd animation frame offsets (-8px X, -17/-24px Y). Native now applies per-facing and vertical/horizontal offsets.
-- **Fixed: Arrow lifetime + re-aiming**: ASM arrows persist until terrain/object collision (loc_342D6). Re-aim ±1 angle every `arrow_accuracy` frames toward player (loc_34308/loc_34320 circular adjustment). Native now uses terrain_kill + reaim fields.
-- **Fixed: Ratio overflow**: ASM loc_34546 returns 6/21 when ratio ≥ $3F. Native was clamping ratio instead. Now branches correctly.
-
-### EmoRock — Verified correct
-- Terminal velocity: $60000 threshold, $40000 cap — correct (previously verified)
-- Hover step: $2000 — correct
-
-### Fireball — Missing slopes
+### Fireball — Gravity/bounce cap fixed, slope deflection added
 - Gravity and bounce cap now follow Fireball.asm `unk_32BA6`, so live HP 1/2/3 uses `$2000/$3000/$3000` gravity and `-$40000/-$50000/-$50000` as the capped rebound speed.
-- **Missing: Slope deflection**: ASM has explicit SlopeUp/SlopeDown handlers (swap X/Y velocities). Not in `step_bouncer`.
-- RNG perturbation on bounce: documented DEVIATION (±$4000 XOR'd with Camera_X_pos).
+- **Fixed: Slope Up/Down deflection**: ASM `loc_32D06`/`loc_32D46` swaps velocities identically to Sphere. Native now handles both slope types in `step_bouncer_with_rng`.
+- RNG perturbation on bounce: implemented with local RNG state.
 
 ---
 
@@ -163,7 +141,7 @@ Both Sphere and Fireball ASM have explicit slope collision handlers. Only BigHop
 4. ~~Dragon Flying wall-reversal during Drift~~ — **FIXED**: wall collision flips direction and negates x_velocity in Drifting state
 
 ### Medium impact (affects specific interactions)
-5. Sphere/Fireball slope deflection
+5. **FIXED**: Sphere/Fireball slope deflection
 6. Driller block drilling
 7. Probe half-width per-family customisation
 

@@ -1904,16 +1904,36 @@ pub(crate) fn step_bouncer_with_rng(
         // Floor bounce
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity > 0 {
-            if matches!(enemy.family, EnemyFamily::Fireball) {
-                enemy.y_velocity =
-                    fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px.unwrap_or(0));
+            // Check for slope deflection first (ASM Sphere.asm loc_36012/loc_36032,
+            // Fireball.asm loc_32D06/loc_32D46, Big_Hopping_Skull.asm loc_36706/loc_36720).
+            // Slopes take precedence over floor bounce.
+            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                // ASM: swap velocities, negate both
+                let old_x = enemy.x_velocity;
+                let old_y = enemy.y_velocity;
+                enemy.y_velocity = -old_x;
+                enemy.x_velocity = -old_y;
+                enemy.facing = opposite_direction(enemy.facing);
+            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                // ASM: swap velocities without negation
+                let old_x = enemy.x_velocity;
+                let old_y = enemy.y_velocity;
+                enemy.y_velocity = old_x;
+                enemy.x_velocity = old_y;
+                enemy.facing = opposite_direction(enemy.facing);
             } else {
-                enemy.y_velocity = -enemy.y_velocity;
-            }
-            // Snap out of floor
-            let floor_y_fp = (floor.floor_y_px as u32) << 16;
-            if enemy.y_pos > floor_y_fp {
-                enemy.y_pos = floor_y_fp;
+                // Regular floor bounce
+                if matches!(enemy.family, EnemyFamily::Fireball) {
+                    enemy.y_velocity =
+                        fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px.unwrap_or(0));
+                } else {
+                    enemy.y_velocity = -enemy.y_velocity;
+                }
+                // Snap out of floor
+                let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                if enemy.y_pos > floor_y_fp {
+                    enemy.y_pos = floor_y_fp;
+                }
             }
         }
 

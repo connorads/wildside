@@ -9729,6 +9729,327 @@ fn sphere_bounces_off_wall() {
     assert!(bounced, "sphere should bounce off wall");
 }
 
+// ASM Sphere.asm loc_36012: slope-up swaps velocities and negates both.
+// y_vel_new = -x_vel_old, x_vel_new = -y_vel_old.
+#[test]
+fn sphere_deflects_up_slope_by_swapping_and_negating_velocities() {
+    // SlopeUp at col 5, row 5 (collision=4, slope rising left-to-right).
+    // Floor_y = cell_top + (15 - x_within_cell) for SlopeUp.
+    // At x=88 (center of cell 5), floor_y = 80 + 15 - 8 = 87.
+    let grid = grid_with_cells(
+        10,
+        10,
+        &[
+            (5, 5, 0x40, 0), // SlopeUp at (5, 5)
+        ],
+    );
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::Sphere,
+        x_pos: (5 * 16 + 8) << 16, // center of slope cell: 88 px
+        y_pos: 85 << 16,           // start above slope so gravity+vel lands on floor_y=87
+        x_velocity: 0x20000,       // moving right at 2px/frame
+        y_velocity: 0x20000,       // falling at 2px/frame
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Right,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        crab_frozen: false,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    // After gravity: y_velocity = 0x20000 + 0x800 = 0x20800
+    // After position: y = 85 + ~2 = ~87px (on slope floor_y=87)
+    // After collision: slope deflects
+    let expected_y_vel_after_gravity = 0x20000 + 0x800; // gravity applied first
+    let old_x_vel = enemy.x_velocity; // 0x20000
+    // y_velocity after gravity but before slope deflection:
+    let old_y_vel = expected_y_vel_after_gravity;
+    step_bouncer(&mut enemy, Some(&grid));
+    // ASM: swap and negate both velocities
+    assert_eq!(enemy.y_velocity, -old_x_vel, "SlopeUp: y_vel = -old_x_vel");
+    assert_eq!(enemy.x_velocity, -old_y_vel, "SlopeUp: x_vel = -old_y_vel");
+    assert_eq!(enemy.facing, Direction::Left, "SlopeUp flips facing");
+}
+
+// ASM Sphere.asm loc_36032: slope-down swaps velocities without negation.
+// y_vel_new = x_vel_old, x_vel_new = y_vel_old.
+#[test]
+fn sphere_deflects_down_slope_by_swapping_velocities() {
+    // SlopeDown at col 5, row 5 (collision=5, slope falling left-to-right).
+    // Floor_y = cell_top + x_within_cell for SlopeDown.
+    // At x=88 (center of cell 5), floor_y = 80 + 8 = 88.
+    // Start enemy AT the slope surface (y=89 just on/below floor_y=88).
+    let grid = grid_with_cells(
+        10,
+        10,
+        &[
+            (5, 5, 0x50, 0), // SlopeDown at (5, 5)
+        ],
+    );
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::Sphere,
+        x_pos: (5 * 16 + 8) << 16, // center of slope cell: 88 px
+        y_pos: 89 << 16,           // on slope surface (floor_y=88 at x=88, so y=89 >= floor_y)
+        x_velocity: 0x20000,       // moving right at 2px/frame
+        y_velocity: 0x10000,       // falling at 1px/frame
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Right,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        crab_frozen: false,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    // After gravity: y_velocity = 0x10000 + 0x800 = 0x10800
+    // Position advance: y = 89 + ~1 = ~90
+    // At y~90, slope floor_y at x=90 is 80 + 10 = 90, so on_ground is true
+    let expected_y_vel_after_gravity = 0x10000 + 0x800;
+    let old_x_vel = enemy.x_velocity;
+    let old_y_vel = expected_y_vel_after_gravity;
+    step_bouncer(&mut enemy, Some(&grid));
+    // ASM: swap without negation
+    assert_eq!(enemy.y_velocity, old_x_vel, "SlopeDown: y_vel = old_x_vel");
+    assert_eq!(enemy.x_velocity, old_y_vel, "SlopeDown: x_vel = old_y_vel");
+    assert_eq!(enemy.facing, Direction::Left, "SlopeDown flips facing");
+}
+
+// ASM Fireball.asm loc_32D06/loc_32D46: same swap logic as Sphere.
+#[test]
+fn fireball_deflects_up_slope_by_swapping_and_negating_velocities() {
+    let grid = grid_with_cells(
+        10,
+        10,
+        &[
+            (5, 5, 0x40, 0), // SlopeUp at (5, 5)
+        ],
+    );
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::Fireball,
+        x_pos: (5 * 16 + 8) << 16,
+        y_pos: 85 << 16,
+        x_velocity: 0x20000,
+        y_velocity: 0x20000,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Right,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        crab_frozen: false,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    // Fireball HP=1 gravity is $2000
+    let expected_y_vel_after_gravity = 0x20000 + 0x2000;
+    let old_x_vel = enemy.x_velocity;
+    let old_y_vel = expected_y_vel_after_gravity;
+    step_bouncer(&mut enemy, Some(&grid));
+    assert_eq!(
+        enemy.y_velocity, -old_x_vel,
+        "Fireball SlopeUp: y_vel = -old_x_vel"
+    );
+    assert_eq!(
+        enemy.x_velocity, -old_y_vel,
+        "Fireball SlopeUp: x_vel = -old_y_vel"
+    );
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "Fireball SlopeUp flips facing"
+    );
+}
+
+#[test]
+fn fireball_deflects_down_slope_by_swapping_velocities() {
+    // SlopeDown at col 5, row 5 (collision=5).
+    // At x=88, floor_y = 88. Start enemy on slope (y=89 >= floor_y).
+    let grid = grid_with_cells(
+        10,
+        10,
+        &[
+            (5, 5, 0x50, 0), // SlopeDown at (5, 5)
+        ],
+    );
+    let mut enemy = ActiveEnemy {
+        segment_index: 0,
+        layout_index: 0,
+        enemy_level: 0,
+        family: EnemyFamily::Fireball,
+        x_pos: (5 * 16 + 8) << 16, // 88 px
+        y_pos: 89 << 16,           // on slope surface
+        x_velocity: 0x20000,
+        y_velocity: 0x10000,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        facing: Direction::Right,
+        on_ground: false,
+        hit_points: 1,
+        grounded_frames: 0,
+        damage_flash_frames: 0,
+        palette_variant: 0,
+        wait_timer: 0,
+        dragon_phase: DragonFlyingState::None,
+        dragon_phase_frames: 0,
+        dragon_script_variant: 0,
+        dragon_script_cmd: 0,
+        dragon_anchor_y: 0,
+        dragon_descent_index: 0,
+        dragon_descent_frames: 0,
+        ninja_state: NinjaState::Stealth,
+        hand_state: HandState::Walking,
+        lion_state: LionState::Walking,
+        robot_state: RobotState::Walking,
+        orca_state: OrcaState::Walking,
+        wall_pinned: false,
+        tar_monster_state: TarMonsterState::default(),
+        spinning_twins_phase: SpinningTwinsPhase::default(),
+        spinning_twins_orbit_index: 0,
+        ufo_beam_segments: 0,
+        ufo_beam_interval: 0,
+        boss_head_index: enemies::BOSS_HEAD_NONE,
+        scorpion_tracking_lock: false,
+        flight_double_acceleration: false,
+        flight_double_terminal_speed: false,
+        walk_speed_override: 0,
+        crab_frozen: false,
+        shared_walker_state: 0,
+        shared_walker_patrol_timer: 0,
+        shared_walker_patrol_short_next: false,
+        shared_walker_debug_branch: None,
+        shared_walker_dx_to_kid_px: None,
+        shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+    };
+    // Fireball HP=1 gravity is $2000
+    let expected_y_vel_after_gravity = 0x10000 + 0x2000;
+    let old_x_vel = enemy.x_velocity;
+    let old_y_vel = expected_y_vel_after_gravity;
+    step_bouncer(&mut enemy, Some(&grid));
+    assert_eq!(
+        enemy.y_velocity, old_x_vel,
+        "Fireball SlopeDown: y_vel = old_x_vel"
+    );
+    assert_eq!(
+        enemy.x_velocity, old_y_vel,
+        "Fireball SlopeDown: x_vel = old_y_vel"
+    );
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "Fireball SlopeDown flips facing"
+    );
+}
+
 // --- EmoRock enemy ---
 
 #[test]
