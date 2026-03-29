@@ -15,3 +15,4 @@ __pycache__/
 /.agents/planning/
 /.agents/scratchpad/implementation/kc-level1-graphics/
 /mutants.out/
+mutants.out.old/
