@@ -12019,6 +12019,674 @@ fn platform_script_moves_platform() {
     assert_eq!(platform.script.unwrap().command_index, 0);
 }
 
+// --- Platform collision targeted mutation tests ---
+// Tests below target surviving mutants from cargo-mutants on platforms.rs.
+// Each test name references the line/mutation it catches.
+
+#[test]
+fn advance_to_window_stops_at_exact_preload_limit() {
+    // Mutant: line 11, replace > with >= or ==
+    // A placement whose x equals the preload limit exactly should be consumed
+    // (> means "strictly past limit → stop"). If > became >=, this placement
+    // would NOT be consumed.
+    let window = ActivationWindow {
+        x_min: 0,
+        x_max: 100,
+        y_min: 0,
+        y_max: 224,
+    };
+    let preload_limit = 100u32
+        .saturating_add(PLATFORM_PRELOAD_X_PADDING)
+        .saturating_add(0); // buffer_right = 0
+    let placement = PlatformPlacement {
+        x: preload_limit as u16, // exactly at limit
+        y: 50,
+        buffer_left: 0,
+        buffer_right: 0,
+        buffer_top: 0,
+        buffer_bottom: 0,
+        kind: 0,
+        subtype: 0,
+        h_variant: 1,
+        v_variant: 0,
+        script: PlatformScriptRef {
+            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+            relative_offset: None,
+        },
+    };
+    let layout = PlatformLayout {
+        placements: vec![placement],
+    };
+    let mut state = PlatformLoaderState::default();
+    state.advance_to_window(&layout, window);
+    // x == limit is NOT > limit, so placement should be consumed
+    assert_eq!(
+        state.next_index, 1,
+        "placement at exact preload limit should be consumed"
+    );
+}
+
+#[test]
+fn advance_to_window_stops_past_preload_limit() {
+    // Verify a placement PAST the limit is not consumed
+    let window = ActivationWindow {
+        x_min: 0,
+        x_max: 100,
+        y_min: 0,
+        y_max: 224,
+    };
+    let preload_limit = 100u32
+        .saturating_add(PLATFORM_PRELOAD_X_PADDING)
+        .saturating_add(0);
+    let placement = PlatformPlacement {
+        x: (preload_limit + 1) as u16, // past limit
+        y: 50,
+        buffer_left: 0,
+        buffer_right: 0,
+        buffer_top: 0,
+        buffer_bottom: 0,
+        kind: 0,
+        subtype: 0,
+        h_variant: 1,
+        v_variant: 0,
+        script: PlatformScriptRef {
+            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+            relative_offset: None,
+        },
+    };
+    let layout = PlatformLayout {
+        placements: vec![placement],
+    };
+    let mut state = PlatformLoaderState::default();
+    state.advance_to_window(&layout, window);
+    assert_eq!(
+        state.next_index, 0,
+        "placement past preload limit should NOT be consumed"
+    );
+}
+
+#[test]
+fn platform_is_active_requires_both_x_and_y_in_window() {
+    // Mutant: line 67, replace && with ||
+    // A platform outside x range but inside y range must NOT be active.
+    let window = ActivationWindow {
+        x_min: 100,
+        x_max: 200,
+        y_min: 50,
+        y_max: 150,
+    };
+    let outside_x = PlatformPlacement {
+        x: 50,  // outside x range
+        y: 100, // inside y range
+        buffer_left: 0,
+        buffer_right: 0,
+        buffer_top: 0,
+        buffer_bottom: 0,
+        kind: 0,
+        subtype: 0,
+        h_variant: 1,
+        v_variant: 0,
+        script: PlatformScriptRef {
+            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+            relative_offset: None,
+        },
+    };
+    assert!(
+        !platform_is_active(&outside_x, window),
+        "platform outside x range should be inactive even if y is in range"
+    );
+    let outside_y = PlatformPlacement {
+        x: 150, // inside x
+        y: 200, // outside y
+        ..outside_x.clone()
+    };
+    assert!(
+        !platform_is_active(&outside_y, window),
+        "platform outside y range should be inactive even if x is in range"
+    );
+}
+
+#[test]
+fn platform_collision_shift_directions_matter() {
+    // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
+    // If >> became <<, pixel values would be wildly wrong and collision would fail.
+    // Place player at exactly (50, 100) in FP16.16 and platform at (40, 100).
+    let platform = make_test_platform(40, 100, 4, 0); // 79px wide
+    let mut slice = make_airborne_slice(50, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player should land on wide platform"
+    );
+    // Verify the floor is set at platform top minus 1
+    assert_eq!(slice.player.y_pos, 99u32 << 16);
+}
+
+#[test]
+fn platform_collision_player_half_width_affects_overlap() {
+    // Mutants: lines 81-82, replace - with + and + with -
+    // If PLAYER_HALF_WIDTH subtraction/addition were wrong, horizontal overlap
+    // would be inverted and near-edge landings would fail.
+    let platform = make_test_platform(40, 100, 2, 0); // 47px wide, so right edge at x=87
+    // Player at x=87 (right edge of platform) with half_width=5 → player_left=82, player_right=92
+    // Platform: plat_x_px=40, plat_right=87. player_right(92) >= plat_x_px(40) ✓, player_left(82) <= plat_right(87) ✓
+    let mut slice = make_airborne_slice(87, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player at platform right edge should land (half-width extends overlap)"
+    );
+
+    // Player at x=34 → player_left=29, player_right=39. plat_x_px=40 → player_right(39) < plat_x_px(40) → miss
+    let mut slice = make_airborne_slice(34, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        !slice.player.on_ground,
+        "player just left of platform should NOT land"
+    );
+}
+
+#[test]
+fn platform_collision_horizontal_overlap_boundary() {
+    // Mutants: lines 95, 128 — replace < with <=, > with >=
+    // Test exact boundary: player_right == plat_x_px (should miss with <, hit with <=)
+    let platform = make_test_platform(40, 100, 2, 0); // plat_x_px=40, plat_right=87
+    // player at x=35 → player_left=30, player_right=40. player_right(40) < plat_x_px(40) is false → overlap
+    let mut slice = make_airborne_slice(35, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player_right == plat_x_px should count as overlap"
+    );
+
+    // player at x=93 → player_left=88, player_right=98. player_left(88) > plat_right(87) → miss
+    let mut slice = make_airborne_slice(93, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        !slice.player.on_ground,
+        "player_left > plat_right should NOT overlap"
+    );
+
+    // player at x=92 → player_left=87, player_right=97. player_left(87) > plat_right(87) is false → overlap
+    let mut slice = make_airborne_slice(92, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player_left == plat_right should count as overlap"
+    );
+}
+
+#[test]
+fn platform_collision_within_snap_tolerance() {
+    // Mutant: line 100, replace <= with >
+    let platform = make_test_platform(40, 100, 2, 0);
+    // Player just above snap tolerance: y_pos within GROUND_SNAP_TOLERANCE_FP of platform
+    let snap_offset = GROUND_SNAP_TOLERANCE_FP; // 0x6_0000 = 6 pixels in FP
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.y_pos = (100u32 << 16) - snap_offset; // at edge of tolerance
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player at snap tolerance edge should land"
+    );
+
+    // Just beyond tolerance
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.y_pos = (100u32 << 16) - snap_offset - 1;
+    slice.player.y_velocity = 0x1_0000; // still falling
+    apply_platform_collision(&mut slice, &[platform]);
+    // Beyond snap, but feet_at_or_below check might still apply (y=94 < 100)
+    assert!(
+        !slice.player.on_ground,
+        "player beyond snap tolerance and above platform should not land"
+    );
+}
+
+#[test]
+fn platform_collision_riding_snap_distance_check() {
+    // Mutants: lines 100-101 — within_snap and abs_diff > 2 checks for riding
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.x_velocity = 0x1_0000;
+    // Grounded player 7px away — beyond FP snap tolerance (0x6_0000 = 6px) AND pixel > 2 → NOT carried
+    let mut slice = make_airborne_slice(50, 93);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert_eq!(
+        slice.player.x_pos, x_before,
+        "grounded player 7px from platform should NOT be carried (outside snap and > 2px)"
+    );
+
+    // Grounded player 2px away — within FP snap, abs_diff ≤ 2 → carried
+    let mut slice = make_airborne_slice(50, 98);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "grounded player 2px from platform should be carried"
+    );
+}
+
+#[test]
+fn platform_collision_riding_updates_floor_y() {
+    // Mutant: line 111 — replace >> with << in floor_y_pos calc
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.y_velocity = -0x1_0000; // moving up
+
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    apply_platform_collision(&mut slice, &[platform]);
+
+    // floor_y_pos should track carried player position
+    let carried_y_px = (slice.player.y_pos >> 16) as i32;
+    assert_eq!(
+        slice.terrain.floor_y_pos,
+        (carried_y_px.max(0) as u32) << 16,
+        "floor_y_pos must be updated to carried position (pixel << 16)"
+    );
+}
+
+#[test]
+fn platform_collision_riding_horizontal_overlap_boundary() {
+    // Mutants: line 95 riding path — || vs &&, < vs <=, > vs >=
+    let mut platform = make_test_platform(40, 100, 2, 0); // plat_right = 87
+    platform.x_velocity = 0x1_0000;
+
+    // Player right edge == plat_x_px (40): player at x=45 → right=50 ≥ 40 ✓
+    let mut slice = make_airborne_slice(45, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "player overlapping platform should be carried"
+    );
+
+    // Player entirely left: x=34 → right=39 < 40 → no overlap
+    let mut slice = make_airborne_slice(34, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert_eq!(
+        slice.player.x_pos, x_before,
+        "player left of platform should NOT be carried"
+    );
+}
+
+#[test]
+fn platform_collision_carry_y_velocity() {
+    // Mutants: lines 108 — replace + with - or *
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.y_velocity = -0x2_0000; // moving up 2px/frame
+
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let y_before = slice.player.y_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+
+    // y_pos should decrease (platform moving up)
+    assert!(
+        slice.player.y_pos < y_before,
+        "player should be carried upward by platform with negative y_velocity"
+    );
+    let expected =
+        (i64::from(y_before) + i64::from(-0x2_0000i32)).clamp(0, i64::from(u32::MAX)) as u32;
+    assert_eq!(slice.player.y_pos, expected);
+}
+
+#[test]
+fn platform_collision_carry_x_velocity_sign() {
+    // Mutant: lines 106-107 — ensure + with - is caught for x carry
+    let mut platform = make_test_platform(40, 100, 4, 0); // wide platform
+    platform.x_velocity = -0x1_0000; // moving left
+
+    let mut slice = make_airborne_slice(60, 100);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert!(
+        slice.player.x_pos < x_before,
+        "player should be carried leftward by platform with negative x_velocity"
+    );
+}
+
+#[test]
+fn platform_collision_player_inside_platform_does_not_land() {
+    // Mutants: lines 140-141 — player_foot_y_px > plat_bottom check
+    let platform = make_test_platform(40, 100, 2, 1); // height=31, so bottom at y=131
+    // Player at y=132 — feet below platform bottom → should NOT land
+    let mut slice = make_airborne_slice(50, 132);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        !slice.player.on_ground,
+        "player below platform bottom should NOT land"
+    );
+
+    // Player at y=131 — feet at platform bottom → should land (> not >=)
+    let mut slice = make_airborne_slice(50, 131);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player at platform bottom edge should land"
+    );
+}
+
+#[test]
+fn platform_collision_floor_y_set_correctly() {
+    // Mutants: lines 110-111, 146-147 — shift direction and sub-pixel in landing
+    let platform = make_test_platform(40, 100, 2, 0);
+    let mut slice = make_airborne_slice(50, 101); // 1px below platform top
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert!(slice.player.on_ground);
+    // Floor should be 1px above platform (99), shifted to FP
+    assert_eq!(slice.terrain.floor_y_pos, 99u32 << 16);
+    // Player y should match floor (preserving sub-pixel since y_vel >= 0)
+    assert_eq!(slice.player.y_pos >> 16, 99);
+}
+
+#[test]
+fn platform_collision_sub_pixel_preservation_falling() {
+    // Mutant: line 151 — pre_gravity_y_vel >= 0 sub-pixel preservation
+    // ASM loc_AAF8: falling landing preserves sub-pixel
+    let platform = make_test_platform(40, 100, 2, 0);
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.y_pos |= 0x8000; // add sub-pixel
+    slice.pre_gravity_y_vel = 0x1_0000; // was falling before gravity
+
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert!(slice.player.on_ground);
+    // Sub-pixel from original y_pos should be preserved
+    assert_eq!(
+        slice.player.y_pos & 0xFFFF,
+        0x8000,
+        "falling landing should preserve sub-pixel (ASM loc_AAF8)"
+    );
+}
+
+#[test]
+fn platform_collision_sub_pixel_cleared_rising() {
+    // Mutant: line 151 — pre_gravity_y_vel < 0 clears sub-pixel
+    // ASM loc_AB22: rising landing clears sub-pixel
+    let platform = make_test_platform(40, 100, 2, 0);
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.y_pos |= 0x8000; // add sub-pixel
+    slice.pre_gravity_y_vel = -0x1_0000; // was rising before gravity
+    slice.player.y_velocity = 0x1_0000; // but now falling (gravity flipped)
+
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert!(slice.player.on_ground);
+    assert_eq!(
+        slice.player.y_pos & 0xFFFF,
+        0,
+        "rising landing should clear sub-pixel (ASM loc_AB22)"
+    );
+}
+
+#[test]
+fn platform_collision_feet_at_or_below_without_snap() {
+    // Mutants: lines 136-138 — feet_at_or_below vs within_snap logic
+    let platform = make_test_platform(40, 100, 2, 1); // height=31
+    // Player at y=105 — below platform top, above bottom (100+31=131) → should land
+    let mut slice = make_airborne_slice(50, 105);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player feet below platform top but above bottom should land"
+    );
+}
+
+#[test]
+fn platform_collision_or_vs_and_in_feet_check() {
+    // Mutant: line 138 — replace || with &&
+    // If || became &&, landing would require BOTH feet_at_or_below AND within_snap
+    // but a player at y=102 (2px below platform at 100) is feet_at_or_below but
+    // may not be within snap if snap tolerance is distance-based from exact top.
+    let platform = make_test_platform(40, 100, 2, 0);
+    // Player at y=107 → abs_diff = 0x7_0000 > 0x6_0000 (outside snap), but feet_at_or_below = true
+    let mut slice = make_airborne_slice(50, 107);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "feet_at_or_below alone should suffice for landing (|| not &&)"
+    );
+}
+
+#[test]
+fn platform_collision_y_velocity_check_blocks_zero() {
+    // Mutant: line 117 — replace < with <=
+    // y_velocity == 0 should still allow landing (player not rising)
+    let platform = make_test_platform(40, 100, 2, 0);
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.y_velocity = 0; // zero velocity, not rising
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player with y_velocity==0 should be able to land (< 0 check, not <= 0)"
+    );
+}
+
+#[test]
+fn platform_collision_floor_shift_in_landing() {
+    // Mutant: line 147 — replace << with >> in floor_y_fp
+    let platform = make_test_platform(40, 200, 2, 0);
+    let mut slice = make_airborne_slice(50, 200);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(slice.player.on_ground);
+    // floor_y_fp should be (199) << 16 = 0x00C7_0000
+    assert_eq!(
+        slice.terrain.floor_y_pos,
+        199u32 << 16,
+        "floor y must be in FP16.16 (pixel << 16)"
+    );
+    assert!(
+        slice.terrain.floor_y_pos > 199,
+        "if << became >>, floor would be tiny"
+    );
+}
+
+#[test]
+fn platform_collision_plat_right_includes_width() {
+    // Mutant: line 93 (riding) and 125 (landing) — + in plat_right calculation
+    // If + became -, plat_right would be negative/small and overlap would break.
+    let platform = make_test_platform(40, 100, 4, 0); // width=79, so plat_right=119
+    // Player at x=110 — should overlap (within 40..119)
+    let mut slice = make_airborne_slice(110, 100);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player near right edge of wide platform should land"
+    );
+}
+
+#[test]
+fn platform_collision_riding_or_vs_and_overlap() {
+    // Mutant: line 95 — || vs && in riding overlap skip
+    // The check is `player_right < plat_x || player_left > plat_right` (skip if either).
+    // If || became &&, it would only skip when BOTH are true (impossible), meaning
+    // every platform would match. Test: player entirely to the right should not ride.
+    let mut platform = make_test_platform(40, 100, 2, 0); // plat_right=87
+    platform.x_velocity = 0x1_0000;
+
+    let mut slice = make_airborne_slice(100, 99); // player_left=95, far right of platform
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert_eq!(
+        slice.player.x_pos, x_before,
+        "player far right of platform should NOT be carried"
+    );
+}
+
+#[test]
+fn platform_riding_not_negation_matters() {
+    // Mutant: line 101 — delete ! in !within_snap
+    // If ! is removed, within_snap && abs_diff > 2 would skip platforms the player
+    // IS snapped to (the opposite of intended).
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.x_velocity = 0x1_0000;
+
+    // Player at y=99, platform at y=100 → within snap, abs_diff=1 ≤ 2 → should ride
+    let mut slice = make_airborne_slice(50, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "player snapped to platform should be carried"
+    );
+}
+
+#[test]
+fn platform_collision_bitwise_or_in_landing() {
+    // Mutant: line 153 — replace | with ^ in sub-pixel preservation
+    // (floor_y_fp & 0xFFFF_0000) | (y_pos & 0x0000_FFFF)
+    // If | became ^, the high bits would be XORed with low bits → corrupt y_pos.
+    let platform = make_test_platform(40, 100, 2, 0);
+    let mut slice = make_airborne_slice(50, 101);
+    slice.player.y_pos = (101u32 << 16) | 0xABCD; // sub-pixel = 0xABCD
+    slice.pre_gravity_y_vel = 0x1_0000; // falling → preserve sub-pixel
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert!(slice.player.on_ground);
+    // With correct |: floor pixel (99 << 16) | 0xABCD = 0x0063_ABCD
+    assert_eq!(slice.player.y_pos, (99u32 << 16) | 0xABCD);
+}
+
+#[test]
+fn platform_collision_plat_bottom_includes_height() {
+    // Mutant: line 140 — + with * in plat_bottom
+    // If + became *, plat_bottom would be plat_y * height instead of plat_y + height
+    let platform = make_test_platform(40, 100, 2, 1); // height=31, bottom=131
+    // Player at y=130 — just inside platform → should land
+    let mut slice = make_airborne_slice(50, 130);
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player inside platform depth should land"
+    );
+}
+
+#[test]
+fn platform_collision_snap_tolerance_boundary_exact() {
+    // Mutant: line 135/151 — >= vs < boundary at snap tolerance
+    let platform = make_test_platform(40, 100, 2, 0);
+    // Player ABOVE platform by exactly snap tolerance in FP
+    let plat_fp = 100u32 << 16;
+    let player_fp = plat_fp - GROUND_SNAP_TOLERANCE_FP; // exactly at boundary
+    let mut slice = make_airborne_slice(50, 100);
+    slice.player.y_pos = player_fp;
+    slice.player.y_velocity = 0x1_0000;
+
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.on_ground,
+        "player at exact snap tolerance boundary should land (<= includes equal)"
+    );
+}
+
+#[test]
+fn platform_riding_exact_left_boundary() {
+    // Mutant: line 95 riding — replace < with <=
+    // player_right == plat_x_px should NOT be skipped (< is false at equality → overlap)
+    let mut platform = make_test_platform(40, 100, 2, 0); // plat_x_px=40
+    platform.x_velocity = 0x1_0000;
+
+    // player at x=45 → player_right = 45+5 = 50, player_left = 40
+    // player_right(50) < plat_x_px(40) → false ✓ overlap
+    // Need: player_right == plat_x_px: x=35 → right=40 == plat_x_px(40)
+    let mut slice = make_airborne_slice(35, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "player_right == plat_x_px should overlap (< not <=) and carry"
+    );
+}
+
+#[test]
+fn platform_riding_exact_right_boundary() {
+    // Mutant: line 95 riding — replace > with >=
+    // player_left == plat_right should NOT be skipped (> is false at equality → overlap)
+    let mut platform = make_test_platform(40, 100, 2, 0); // plat_right = 40+47 = 87
+    platform.x_velocity = 0x1_0000;
+
+    // player at x=92 → player_left = 92-5 = 87 == plat_right(87)
+    let mut slice = make_airborne_slice(92, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "player_left == plat_right should overlap (> not >=) and carry"
+    );
+}
+
+#[test]
+fn platform_riding_skip_when_both_outside() {
+    // Mutant: line 101 && vs ||, and > vs >= in pixel gap check
+    // The skip condition is: !within_snap && abs_diff > 2
+    // If && became ||, it would skip when EITHER is true.
+    // A player within snap but pixel gap = 3 should NOT be skipped.
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.x_velocity = 0x1_0000;
+
+    // player at y=97, platform at y=100: FP diff = 3*65536 = 0x3_0000, snap = 0x6_0000
+    // within_snap = true, pixel_gap = 3 > 2
+    // With &&: !true && true → false → NOT skipped → carried ✓
+    // With ||: !true || true → true → skipped → NOT carried ✗
+    let mut slice = make_airborne_slice(50, 97);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "within snap but > 2px gap: && should not skip (|| would skip wrongly)"
+    );
+}
+
+#[test]
+fn platform_riding_pixel_gap_boundary_at_two() {
+    // Mutant: line 101 — replace > with >= in abs_diff > 2
+    // When pixel gap == 2 and NOT within snap, should NOT skip (> 2 is false)
+    // But this is tricky: pixel gap of 2 with not within snap means FP diff > 6px,
+    // but pixel diff = 2 contradicts that. Sub-pixel can help:
+    // player.y_pos = (98 << 16) | 0x0001, platform.y_pos = 100 << 16
+    // FP diff = 0x1_FFFF ≈ 2px → within snap. Can't get pixel=2 outside snap.
+    // This mutant is likely semantically equivalent — skip.
+    //
+    // Instead test that pixel gap of 3 WITH snap is not skipped:
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.x_velocity = 0x1_0000;
+
+    let mut slice = make_airborne_slice(50, 97); // 3px gap, within snap
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+    let x_before = slice.player.x_pos;
+    apply_platform_collision(&mut slice, &[platform]);
+    assert!(
+        slice.player.x_pos > x_before,
+        "3px pixel gap but within FP snap should still carry"
+    );
+}
+
 // --- Evanescent blocks ---
 
 /// Build a grid with an evanescent block at (col, row) and solid floor
