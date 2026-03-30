@@ -19,6 +19,20 @@ from "close the next TAS window" to "make 1P actually work in native play while
 continuing to burn down fidelity debt". See `backlog.md` for the canonical active queue
 and `roadmap.md` for the programme-level workstreams.
 
+## Canonical status language
+
+Use the evidence ladder below when describing progress:
+
+- `stubbed`
+- `boots`
+- `replay-matched`
+- `branch-matched`
+- `mechanic-swept`
+- `human-play-stable`
+
+Current TAS milestones prove `replay-matched` on their covered routes. They do not, by
+themselves, prove `human-play-stable`.
+
 ## Done
 
 ### Boot and title
@@ -115,6 +129,7 @@ Low impact: speed caps at high HP, Cloud lightning bolt attack, Dragon Flying fi
 - **Full-frame pixel comparison sweep**: run frame capture on all 105 levels at key frames (0, 30, 60, 120, 300), compare pixel-for-pixel against oracle. Extend `kidcli` with `sweep --tier frames`. Each pixel difference classified as rendering, palette, timing, sprite priority, or position error.
 
 ### Testing infrastructure
+- **Semantic case bundles**: `kidcli case derive|branch|verify|reduce|summarise` now provide the phase-1 discovery lane. Use them to turn replay slices or native recordings into reduced semantic failure bundles before another broad gameplay patch.
 - **Native replay recording**: `play-native --record <slug>` and `verify-recording --slug <slug>` already exist for input + trace capture. Bundles now include ROM/build provenance, explicit replay commands, legacy `trace.json` schema backfill, copied-bundle verification via `--bundle <path>`, bundled `final-frame.png` + `audio.wav`, optional `notes.txt` via `--record-notes <path>`, and an automatic `transcript.txt` sidecar distilled from the native trace so copied bundles stay reviewable before replay.
 - **Mutation testing baseline**: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p kid-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
 - **Fuzz testing for parsers**: set up `cargo fuzz` targets for level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), audio bank loading (complex binary format). Run each for a few hours, fix crashes.

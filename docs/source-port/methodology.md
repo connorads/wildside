@@ -5,6 +5,19 @@ Detailed reference for reverse-engineering discipline, testing strategy, and fid
 
 ## Philosophy
 
+### Evidence ladder, not binary completion
+
+Use these status labels consistently when describing verification depth:
+
+- `stubbed`: implementation exists only as scaffolding or placeholder behaviour
+- `boots`: flow reaches the intended screen or runtime state without proving fidelity
+- `replay-matched`: deterministic replay/TAS path matches the oracle on its recorded route
+- `branch-matched`: replay-derived checkpoints also survive short perturbed continuations
+- `mechanic-swept`: isolated mechanic surfaces or focused scenario matrices match across the tested parameter space
+- `human-play-stable`: repeated native play no longer finds fresh player-facing breakage in that area
+
+`replay-matched` is necessary and valuable, but it is not equivalent to `human-play-stable`.
+
 ### Accuracy is the goal; compatibility is the outcome
 
 bsnes (byuu): "Accuracy is not 'does it play Zelda?' — playing games is a side effect of accuracy." Fix the engine, never the game. Accurate reimplementation naturally enables compatibility; the reverse is not true.
@@ -130,6 +143,26 @@ TAS recordings are deterministic per-frame button sequences from real full-game 
 |-----------|--------|--------|----------|
 | Any% by CaseyTAS (10:30) — TASVideos #6944 | BK2 | ~37k | Warps, transitions, bosses |
 | KC Any% TAS 2024 — TASVideos user files | BK2 | ~4,900 | Quick smoke test (warp code) |
+
+### Semantic case bundles
+
+Long deterministic replays stay as the regression lane. Discovery work should prefer
+small reduced case bundles derived from replay windows or native recordings.
+
+Phase-1 bundle workflow:
+
+1. `kidcli case derive` creates a per-frame semantic bundle for a chosen window
+2. `kidcli case branch` generates short seeded continuations with a human-like action grammar
+3. `kidcli case verify` compares native vs oracle semantic state for one bundle
+4. `kidcli case reduce` shrinks a failing continuation while preserving the first semantic failure
+5. `kidcli case summarise` refreshes the agent-facing markdown summary
+
+Each case bundle should answer:
+
+- what checkpoint it starts from
+- what the first bad semantic frame/field is
+- which fields still match
+- which subsystem is the likeliest owner
 
 ### Decision tree
 

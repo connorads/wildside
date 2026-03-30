@@ -529,7 +529,9 @@ fn recording_checkpoints(frame_count: usize) -> Vec<DynamicCheckpoint> {
     checkpoints
 }
 
-fn oracle_scenario_for_recording(recording: &NativeRecording) -> (DynamicScenario, usize) {
+pub(crate) fn oracle_scenario_for_recording(
+    recording: &NativeRecording,
+) -> (DynamicScenario, usize) {
     if !recording.manifest.start.settled {
         return (recording.manifest.scenario.clone(), 0);
     }

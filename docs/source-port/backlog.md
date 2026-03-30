@@ -8,6 +8,10 @@ Important: a green TAS frontier or a green `1p-accurate` release artefact does *
 mean the game is nearly finished. Native-play breakage, wider verification gaps, and
 documented deviations belong here too.
 
+Progress language uses the evidence ladder from `methodology.md`:
+`stubbed`, `boots`, `replay-matched`, `branch-matched`, `mechanic-swept`, `human-play-stable`.
+A closed TAS frontier proves `replay-matched` on that route, not `human-play-stable`.
+
 Status: `[ ]` open, `[~]` in progress, `[x]` done, `[-]` won't fix / not a bug
 Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
 

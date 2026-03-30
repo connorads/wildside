@@ -7,6 +7,7 @@ mod autonomy;
 mod bootstrap;
 mod cache;
 mod capture;
+mod case;
 mod cheats;
 mod compare;
 mod diff;
@@ -30,6 +31,7 @@ use verify::*;
 
 use bootstrap::*;
 use capture::*;
+use case::{CaseCommand, run_case_command};
 use compare::*;
 use inspect::*;
 
@@ -74,6 +76,11 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Semantic case-bundle workflow for branching and reduction.
+    Case {
+        #[command(subcommand)]
+        command: CaseCommand,
+    },
     VerifyRom {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -670,6 +677,15 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Commands::Case { command } => {
+            let repo_root = current_dir()?;
+            run_case_command(
+                &repo_root,
+                command,
+                |rom| resolve_rom_path(&repo_root, rom),
+                |dir| resolve_upstream_dir(&repo_root, dir),
+            )?;
+        }
         Commands::VerifyRom { rom } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
