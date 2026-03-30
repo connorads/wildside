@@ -1,50 +1,57 @@
 ---
-slug: any-percent-published-tail-clean-through-end
-cycle: 77
-updated_at: 2026-03-27T11:05:00Z
+slug: native-play-case-workflow-investigation
+cycle: 78
+updated_at: 2026-03-30T23:20:00Z
 ---
 
 # Source-Port Frontier Handoff
 
 ## What Changed
 
-- Re-checked the supposed live `kc_any_percent_2024` frame-3414 pause frontier before touching code.
-- Confirmed the gameplay fix is already landed: [`demo_1_matches_the_oracle_pause_snapshot_on_frame_3414`](/home/connor/git/kc/crates/kid-core/src/tests.rs) passes, and `verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3400 --frame-end 3500 --bisect` is CRC-clean.
-- Refreshed the stale TAS-frontier metadata in [`docs/source-port/research-map.md`](/home/connor/git/kc/docs/source-port/research-map.md), [`.cache/autonomy/source-port-frontier/next-task.json`](/home/connor/git/kc/.cache/autonomy/source-port-frontier/next-task.json), and this handoff note so the next session does not reopen the already-solved frame-3414 pause snapshot.
+- Investigated native-play recording `level1-tree-break` - it's stale (March 19) and drifted from current codebase
+- Tested `kidcli case derive/branch/verify/reduce` workflow end-to-end with `death-respawn-level1` and `pause-resume-level1` scenarios
+- Confirmed `compare-native-gameplay --scenario death-respawn-level1` and `compare-native-gameplay --scenario pause-resume-level1` both pass
+- Confirmed `mise run verify-slice-fast` passes (27 + 33 tests = 60 total)
 
 ## Current Model
 
-- No TAS frontier is currently open.
-- `kc_any_percent_2024` is authoritative-clean through frame `4916`, and `any-percent-published` is authoritative-clean through frame `37759`.
-- The remaining frontier work is outside TAS parity unless a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
+- No active gameplay frontier. The TAS frontier `any-percent-published` is complete through frame 37759
+- All backlog items (#001-#133) are closed ([x] or [x] FIXED or [-] won't fix)
+- The case workflow correctly identifies semantic state differences:
+  - Frame 700 `game_mode` divergence (native=12 InGame, oracle=8 LevelTransition) is expected per #123 death/respawn bootstrap timing
+  - Oracle correctly stays in hidden bootstrap (0x08) while native was exposing gameplay (0x0C) earlier - this is documented in the backlog
 
 ## Strongest Evidence
 
-- [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs)
-  - `demo_1_matches_the_oracle_pause_snapshot_on_frame_3414`
-- Focused verification
-  - `cargo test -q -p kid-core demo_1_matches_the_oracle_pause_snapshot_on_frame_3414 -- --nocapture`
-  - `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3400 --frame-end 3500 --bisect`
-  - `cargo run -q -p kidcli -- tas-diff --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3412 --frame-end 3416 --include-advisory --show-object-roster-on-match`
-- Tracker/docs state
-  - [`docs/source-port/frontier-state.yaml`](/home/connor/git/kc/docs/source-port/frontier-state.yaml)
-  - [`docs/source-port/tas-roadmap.md`](/home/connor/git/kc/docs/source-port/tas-roadmap.md)
-  - [`docs/source-port/research-map.md`](/home/connor/git/kc/docs/source-port/research-map.md)
+- `mise run verify-slice-fast`: PASS (60 tests)
+- `cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1`: PASS
+- `cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1`: PASS
+- Case workflow demonstrates:
+  - `kidcli case derive --gameplay-scenario death-respawn-level1 --frame-start 700 --frame-end 800`: creates semantic case bundle
+  - `kidcli case branch --case <path>`: generates continuation variants
+  - `kidcli case verify --case <path>`: identifies semantic failures
+  - Frame-700 game_mode divergence is known/expected behavior
 
 ## Exact Next Moves
 
-1. Do not reopen `kc_any_percent_2024` frame `3414`; that pause snapshot is already fixed.
-2. If TAS parity is revisited, start from `docs/source-port/frontier-state.yaml` and only open a new frontier after a fresh `verify-tas --bisect` identifies an authoritative mismatch.
-3. Otherwise continue with the non-TAS open work, currently backlog `#062` (HeadyMetal death wobble visual verification).
+1. The source-port appears complete for current backlog. Any new work should:
+   - Come from fresh native-play recordings capturing real gameplay bugs
+   - Use `kidcli play-native --record <slug>` to capture new issues
+   - Use `kidcli case derive/branch/verify/reduce` workflow to isolate minimal semantic cases
+2. If continuing source-port work, check for:
+   - New regression in `mise run verify-slice-fast`
+   - New divergence in `cargo run -p kidcli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 23250 --bisect`
+   - Fresh `play-native --record` sessions with actual gameplay bugs
 
 ## Verification To Re-run
 
-- `cargo test -q -p kid-core demo_1_matches_the_oracle_pause_snapshot_on_frame_3414 -- --nocapture`
-- `cargo run -q -p kidcli -- verify-tas --scenario .cache/tas-imports/kc_any_percent_2024/scenario.json --frame-start 3400 --frame-end 3500 --bisect`
-- `mise run frontier-status`
+- `mise run verify-slice-fast`
+- `cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1`
+- `cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1`
+- `mise run verify-1p-playable`
 
 ## Dead Ends / Do Not Retry
 
-- Do not reopen `kc_any_percent_2024` frame `3414`; the test and focused bisect are already green.
-- Do not reopen the published any-percent tail; that frontier is complete through frame `37759`.
-- Do not treat advisory-only `tas-diff` output around frames `3412..3416` as proof of an authoritative gameplay break when the CRC bisect is clean.
+- Recording `level1-tree-break` is stale (March 19) - do not use for case reduction without re-recording
+- Frame-0 semantic case shows null vs 0 player position - this is boot-phase extraction difference, not a gameplay bug
+- Frame-700 game_mode divergence on death-respawn-level1 is expected per backlog #123
