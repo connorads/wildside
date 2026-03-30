@@ -5029,6 +5029,7 @@ fn dragon_flyer_hovers_in_place_during_hover_phase() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
     }
     assert_eq!(enemy.x_pos, start_x, "hover should not change X");
@@ -5054,6 +5055,7 @@ fn dragon_flyer_transitions_to_descent_after_hover_on_script_0() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     assert_eq!(
@@ -5086,6 +5088,7 @@ fn dragon_flyer_drift_accelerates_from_initial_speed() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
     assert_eq!(
         enemy.x_velocity.unsigned_abs(),
@@ -5114,6 +5117,7 @@ fn dragon_flyer_return_to_anchor_rises_then_restarts() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
     }
     assert!(
@@ -5168,6 +5172,7 @@ fn dragon_flyer_drift_reverses_on_wall_collision() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     // After velocity acceleration and wall collision: velocity should be negated
@@ -5211,6 +5216,7 @@ fn dragon_flyer_drift_continues_without_wall() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     // Without wall: velocity should increase, facing unchanged
@@ -5581,6 +5587,7 @@ fn dragon_flyer_script_2_retargets_player_between_drifts() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     assert_eq!(
@@ -5618,6 +5625,7 @@ fn dragon_flyer_fire_breath_cone_triggers_descent() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     // The cone check geometry is tight — may or may not trigger depending on
@@ -6726,6 +6734,7 @@ fn hopper_lands_on_terrain_before_launching() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
         if enemy.on_ground {
             grounded_skull = Some(enemy);
@@ -6804,6 +6813,7 @@ fn hopper_launches_into_an_air_arc() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
         if enemy.on_ground {
             grounded_skull = Some(enemy);
@@ -6827,6 +6837,7 @@ fn hopper_launches_into_an_air_arc() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
     }
     assert!(
@@ -6843,6 +6854,7 @@ fn hopper_launches_into_an_air_arc() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
     for _ in 0..12 {
         step_active_enemies(
@@ -6854,6 +6866,7 @@ fn hopper_launches_into_an_air_arc() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
     }
 
@@ -6937,6 +6950,7 @@ fn hopper_hp2_launches_with_boosted_velocity() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
     // Mini_Hopping_Skull.asm: HP>1 boosts X by $4000 and Y by -$10000
     let base_x = MINI_SKULL_JUMP_X_SPEED_FP;
@@ -7027,6 +7041,7 @@ fn hopper_targets_player_direction_before_launch() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
     }
     step_active_enemies(
@@ -7038,6 +7053,7 @@ fn hopper_targets_player_direction_before_launch() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     assert_eq!(
@@ -7117,6 +7133,7 @@ fn hopper_reverses_at_platform_edge_before_launch() {
             None,
             PlayerForm::TheKid,
             None,
+            &mut Vec::new(),
         );
     }
     step_active_enemies(
@@ -7128,6 +7145,7 @@ fn hopper_reverses_at_platform_edge_before_launch() {
         None,
         PlayerForm::TheKid,
         None,
+        &mut Vec::new(),
     );
 
     assert_eq!(

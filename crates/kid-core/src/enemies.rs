@@ -1142,6 +1142,7 @@ pub(crate) fn step_active_enemies(
     player_x_velocity: Option<i32>,
     player_form: PlayerForm,
     projectiles: Option<&mut Vec<EnemyProjectile>>,
+    drilled_blocks: &mut Vec<(u16, u16)>,
 ) {
     let mut rng = RomRandomState::default();
     step_active_enemies_with_rng(
@@ -1155,6 +1156,7 @@ pub(crate) fn step_active_enemies(
         player_form,
         projectiles,
         &mut rng,
+        drilled_blocks,
     );
 }
 
@@ -1170,6 +1172,7 @@ pub(crate) fn step_active_enemies_with_rng(
     player_form: PlayerForm,
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
     rng: &mut RomRandomState,
+    drilled_blocks: &mut Vec<(u16, u16)>,
 ) {
     for enemy in active.iter_mut() {
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
@@ -1222,6 +1225,10 @@ pub(crate) fn step_active_enemies_with_rng(
                         } else {
                             step_dragon_walking(enemy, block_grid, &mut Vec::new(), player_x_pos);
                         }
+                    } else if matches!(enemy.family, EnemyFamily::Driller) {
+                        // Driller.asm loc_3BE78: drills through Smash/Ice blocks while pacing.
+                        let cells = step_driller(enemy, block_grid);
+                        drilled_blocks.extend(cells);
                     } else {
                         // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
                         // Check freeze before stepping; if frozen, skip movement.
@@ -2510,6 +2517,56 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     }
+}
+
+/// Driller probe half-width for block drilling (Driller.asm line 27: move.w #$C,$48(a5)).
+/// ASM stores 12px ($C) in the Driller sprite's collision half-width field.
+pub(crate) const DRILLER_PROBE_HALF_WIDTH: i32 = 12;
+
+/// Step a Driller enemy: paces like normal, but drills through Smash and Ice blocks.
+/// ASM loc_3BE78: when sprite timer matches direction (8 for left, 4 for right),
+/// checks cell at (sprite_x ± offset, sprite_y - 16) for Smash/Ice type and destroys it.
+/// Returns list of (col, row) cells to destroy this frame.
+pub(crate) fn step_driller(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) -> Vec<(u16, u16)> {
+    let mut drilled = Vec::new();
+    let Some(grid) = block_grid else {
+        return drilled;
+    };
+
+    // Pace first
+    step_pacer(enemy, block_grid);
+
+    // Now check for drillable blocks in the walking direction.
+    // ASM loc_3BE8E: get sprite position, check timer, probe cell 16px above.
+    // Simplified: drill every frame when walking into Smash/Ice blocks.
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let probe_x = if enemy.facing == Direction::Right {
+        cx + DRILLER_PROBE_HALF_WIDTH
+    } else {
+        cx - DRILLER_PROBE_HALF_WIDTH
+    };
+    // ASM sub_3BEF2: Y probe is 16px above sprite (subi.w #$10,d7).
+    let probe_y = cy - 16;
+
+    let col = terrain::pixel_to_cell(probe_x).max(0) as u16;
+    let row = terrain::pixel_to_cell(probe_y).max(0) as u16;
+    let cell = grid.cell_at(col, row);
+
+    // ASM loc_3BEF2: check block type. $100 = Smash, $200 = Ice.
+    // Any block with collision Solid + has_block + block_type Smash/Ice.
+    if cell.has_block
+        && cell.collision == terrain::CollisionKind::Solid
+        && (cell.block_type == terrain::BlockType::Smash
+            || cell.block_type == terrain::BlockType::Ice)
+    {
+        drilled.push((col, row));
+    }
+
+    drilled
 }
 
 /// Ninja detection cone: player must be 0x20–0x50 pixels above and ±0x10 pixels
@@ -4923,7 +4980,16 @@ impl NativeRuntime {
                     self.progression.current_form,
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
+                    &mut self.drilled_blocks,
                 );
+                // Apply drilled blocks to the block grid after enemy step.
+                // Driller.asm loc_3BE78 destroys Smash/Ice blocks during pacing.
+                if let Some(ref mut grid) = self.block_grid {
+                    for (col, row) in self.drilled_blocks.drain(..) {
+                        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                    }
+                }
+                self.drilled_blocks.clear();
                 self.active_enemy_roster = self
                     .active_enemies
                     .iter()

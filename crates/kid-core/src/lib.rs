@@ -65,6 +65,9 @@ pub struct NativeRuntime {
     /// Prevents respawn when their spawn point re-enters the activation window.
     /// ASM: per-segment killed bitfield at $FFFFF66A.
     killed_enemies: HashSet<(usize, usize)>,
+    /// Blocks drilled by Driller enemies this frame — (col, row).
+    /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
+    drilled_blocks: Vec<(u16, u16)>,
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,
@@ -355,6 +358,7 @@ impl NativeRuntime {
             active_enemy_roster: Vec::new(),
             active_enemies: Vec::new(),
             killed_enemies: HashSet::new(),
+            drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
             platform_script_table: None,
