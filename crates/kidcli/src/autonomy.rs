@@ -25,6 +25,10 @@ const RESEARCH_MAP_TRAVERSAL_MARKER: &str = "## Current frontier\n\n1. Level 1 f
 const SOURCE_PORT_FRONTIER_STATE_PATH: &str = "docs/source-port/frontier-state.yaml";
 const SOURCE_PORT_FRONTIER_NOTE_PATH: &str = ".cache/autonomy/source-port-frontier/next-agent.md";
 const SOURCE_PORT_FRONTIER_TITLE: &str = "Source-port frontier";
+const SOURCE_PORT_RESEARCH_MAP_PATH: &str = "docs/source-port/research-map.md";
+const SOURCE_PORT_ROADMAP_PATH: &str = "docs/source-port/roadmap.md";
+const SOURCE_PORT_WHOLE_GAME_INDEX_PATH: &str = "docs/source-port/whole-game-index.md";
+const SOURCE_PORT_RELEASE_GATE_PATH: &str = ".cache/release-gate/1p-accurate/latest.json";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the next-agent note with frontmatter for the active slug plus the required handoff sections.";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS: [&str; 6] = [
     "What Changed",
@@ -336,7 +340,7 @@ impl ActiveFrontierState {
             title: if is_active {
                 format!("Advance source-port frontier: {}", self.area)
             } else {
-                "No open TAS frontier".to_owned()
+                "Advance source-port beyond the closed TAS frontier".to_owned()
             },
             summary: if is_active {
                 format!(
@@ -345,7 +349,7 @@ impl ActiveFrontierState {
                 )
             } else {
                 format!(
-                    "`{}` is authoritative-clean through frame {}. Only reopen TAS frontier work after a fresh verified regression.",
+                    "`{}` is authoritative-clean through frame {}, but the source-port is not complete. Prioritise the broader remaining-work queue: oracle sweep hardening, wider 1P verification, and other open risk areas before declaring completion.",
                     self.recording, self.authoritative_clean_through
                 )
             },
@@ -353,17 +357,30 @@ impl ActiveFrontierState {
                 SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
                 SOURCE_PORT_FRONTIER_NOTE_PATH.to_owned(),
                 "docs/source-port/tas-roadmap.md".to_owned(),
-                "docs/source-port/research-map.md".to_owned(),
+                SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+                SOURCE_PORT_ROADMAP_PATH.to_owned(),
+                SOURCE_PORT_WHOLE_GAME_INDEX_PATH.to_owned(),
+                SOURCE_PORT_RELEASE_GATE_PATH.to_owned(),
             ],
             implementation_targets: if is_active {
                 vec![SOURCE_PORT_FRONTIER_STATE_PATH.to_owned()]
             } else {
                 vec![
-                    SOURCE_PORT_FRONTIER_NOTE_PATH.to_owned(),
-                    "docs/source-port/research-map.md".to_owned(),
+                    "crates/kidcli/src/sweep.rs".to_owned(),
+                    "docs/source-port/methodology.md".to_owned(),
+                    SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+                    "docs/source-port/backlog.md".to_owned(),
                 ]
             },
-            commands: self.verification_commands.clone(),
+            commands: if is_active {
+                self.verification_commands.clone()
+            } else {
+                vec![
+                    "cargo run -p kidcli -- autonomous-loop --goal sweep-parity".to_owned(),
+                    "cargo run --release -p kidcli -- sweep --levels 0-104 --tier state".to_owned(),
+                    "mise run release-gate".to_owned(),
+                ]
+            },
             done_criteria: if is_active {
                 vec![
                     "The live authoritative mismatch is reproduced and explained.".to_owned(),
@@ -372,8 +389,9 @@ impl ActiveFrontierState {
                 ]
             } else {
                 vec![
-                    "The frontier metadata agrees there is no open TAS frontier.".to_owned(),
-                    "Future TAS work starts from a fresh `verify-tas --bisect` regression."
+                    "The next source-port task is chosen from the broader remaining-work queue instead of declaring the project complete."
+                        .to_owned(),
+                    "Oracle hardening, wider 1P verification, or another explicit open risk area is advanced with new evidence."
                         .to_owned(),
                 ]
             },
@@ -595,16 +613,23 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
     let task_package_spec = frontier.task_package_spec();
     let task_package = source_port_frontier_task(frontier, &note);
-    let task_ready = frontier.status == "active";
+    let task_ready = matches!(frontier.status.as_str(), "active" | "complete");
     let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
         .and_then(|task| detect_blocker(repo_root, task));
     let summary = if task_ready {
-        format!(
-            "Active frontier {} at frame {} (clean through {})",
-            frontier.slug, frontier.frontier_frame, frontier.authoritative_clean_through
-        )
+        if frontier.status == "active" {
+            format!(
+                "Active frontier {} at frame {} (clean through {})",
+                frontier.slug, frontier.frontier_frame, frontier.authoritative_clean_through
+            )
+        } else {
+            format!(
+                "TAS frontier {} is closed (clean through {}), so the next task comes from broader source-port remaining work.",
+                frontier.slug, frontier.authoritative_clean_through
+            )
+        }
     } else {
         format!(
             "Active frontier {} is no longer marked active (status={})",
@@ -1644,9 +1669,10 @@ mod tests {
     use super::{
         CapabilityId, CapabilityStatus, CheckOutcome, GoalSpec, NextAgentNoteStatus,
         RepositorySignals, SOURCE_PORT_FRONTIER_NOTE_PATH, SOURCE_PORT_FRONTIER_STATE_PATH,
-        TaskPackage, detect_blocker, evaluate_capabilities, evaluate_source_port_frontier_cycle,
-        fingerprint_for_capabilities, load_source_port_frontier_state, select_next_task,
-        source_port_next_agent_note,
+        SOURCE_PORT_RELEASE_GATE_PATH, SOURCE_PORT_RESEARCH_MAP_PATH, SOURCE_PORT_ROADMAP_PATH,
+        SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, detect_blocker, evaluate_capabilities,
+        evaluate_source_port_frontier_cycle, fingerprint_for_capabilities,
+        load_source_port_frontier_state, select_next_task, source_port_next_agent_note,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -2055,26 +2081,56 @@ mod tests {
     }
 
     #[test]
-    fn source_port_frontier_cycle_uses_synthetic_complete_task_package() {
+    fn source_port_frontier_cycle_keeps_broader_source_port_work_open_when_tas_frontier_closes() {
         let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join("docs/source-port"))
+            .expect("docs dir should exist");
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
         write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
 
-        assert!(cycle.goal_complete);
-        assert!(cycle.selected_task.is_none());
+        assert!(!cycle.goal_complete);
+        let selected_task = cycle.selected_task.expect("task should still be selected");
         let task_package = cycle
             .task_package
             .expect("task package should still be emitted");
         assert_eq!(cycle.capabilities.len(), 1);
-        assert_eq!(cycle.capabilities[0].title, "No open TAS frontier");
-        assert_eq!(cycle.capabilities[0].status, CapabilityStatus::Complete);
-        assert_eq!(task_package.title, "No open TAS frontier");
-        assert!(
-            task_package
-                .summary
-                .contains("authoritative-clean through frame 6905")
+        assert_eq!(
+            cycle.capabilities[0].title,
+            "Advance source-port beyond the closed TAS frontier"
         );
+        assert_eq!(cycle.capabilities[0].status, CapabilityStatus::Ready);
+        assert_eq!(
+            selected_task.title,
+            "Advance source-port beyond the closed TAS frontier"
+        );
+        assert_eq!(
+            task_package.title,
+            "Advance source-port beyond the closed TAS frontier"
+        );
+        assert!(task_package.summary.contains("source-port is not complete"));
     }
 }

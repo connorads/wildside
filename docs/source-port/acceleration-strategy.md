@@ -8,7 +8,7 @@
 
 ## Tracks 1-5 (Done)
 
-All five original tracks are complete:
+All five original infrastructure tracks are complete:
 
 1. **Block Collision** — `BlockGrid` + `probe_terrain`, full cell encoding
 2. **Oracle-Driven Differential Testing** — `DynamicScenario`, sweep harness, 63/69 levels passing
@@ -16,15 +16,26 @@ All five original tracks are complete:
 4. **Level Traversal Skeleton** — flag collision + level transitions, 105 levels loadable
 5. **LLM-Assisted ASM Translation** — workflow used throughout, oracle verification catches errors
 
-## Track 6: Playtest-Driven Iteration (Active)
+## Current programme (Active)
 
-With infrastructure across all systems, development shifted from milestone-driven to bug-driven. 68/69 backlog items resolved. Remaining: visual fidelity (transform animation, fire trail sprites, floating item sprites), floor-snap settling diffs on 3 levels, and RNG-dependent behaviours (documented as DEVIATION).
+Infrastructure completion is not the same thing as source-port completion.
 
-- Canonical tracker: `docs/source-port/backlog.md`
-- Iteration protocol: `CLAUDE.md` (session protocol section)
+The TAS frontier is currently closed, but the active programme is still broader:
+
+- oracle sweep hardening and wider verification
+- native 1P playability beyond the narrow release gate
+- visual fidelity and rendering accuracy
+- explicit open risk areas listed in `whole-game-index.md`
+
+Use these as the current sources of truth:
+
+- Programme status: `docs/source-port/roadmap.md`
+- Remaining work: `docs/source-port/research-map.md`
+- Risk/open areas: `docs/source-port/whole-game-index.md`
+- Canonical queue when populated: `docs/source-port/backlog.md`
 - Validation methodology: `docs/source-port/methodology.md`
-- Principle: fix at engine level, never level-specific overrides
-- Gate: every fix must pass full sweep
+
+Do not read this document as proof that the game is effectively done.
 
 ## Key Insight: The Coroutine Problem
 
@@ -52,4 +63,5 @@ Enemy ASM uses cooperative multitasking (`j_Hibernate_Object_1Frame` yields, ker
 7. Platform collision
 8. Full enemy AI — oracle-verified per family
 
-Current work is tracked in `docs/source-port/backlog.md`.
+Current work is no longer defined by this historical track list. Use `roadmap.md`,
+`research-map.md`, and `whole-game-index.md` for live status.
