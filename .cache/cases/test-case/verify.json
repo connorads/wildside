@@ -1,0 +1,17 @@
+{
+  "case_id": "death_respawn_level1_case_00700_00750",
+  "passed": true,
+  "frame_count": 50,
+  "first_failure": null,
+  "matching_fields": [
+    "world.game_mode",
+    "camera",
+    "player.position",
+    "player.motion",
+    "entities",
+    "events"
+  ],
+  "likely_subsystems": [
+    "none"
+  ]
+}
