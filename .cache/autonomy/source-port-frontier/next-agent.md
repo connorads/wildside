@@ -1,47 +1,43 @@
 ---
-slug: release-gate-md-runtime-level-entry-title-card-ownership
-cycle: 41
-updated_at: 2026-03-31T05:17:00Z
+slug: release-gate-md-runtime-level-entry-slot2-rng-blocker
+cycle: 42
+updated_at: 2026-03-31T05:27:00Z
 ---
 # What Changed
-- Inspected the `boot_title_start_level1` compare artefacts instead of widening to unrelated frontiers.
-- Read the ROM around `Load_TitleCard`, `loc_1AB26`, `loc_1AD48`, and `loc_1AE2E`.
-- Confirmed the `level_entry@520` oracle frame is still the mode-`$0008` title-card shell:
-  - `Load_TitleCard` allocates `loc_1AB26` (letter workers) and `loc_1AE2E` (Start gate).
-  - `loc_1AB26` expands the level-name glyph workers, then optionally allocates `loc_1AD48` for deferred level-number glyphs.
-- Native is inconsistent on that shell: it traces slot-2 title-worker pose as “Kid”, but still reports zero camera, zero object counts, and `title_screen_ready=true`, unlike oracle.
+- Read the ROM around the title-menu `Game_Mode=$0008` hand-off instead of guessing from native timing.
+- Confirmed the title-menu start path is immediate:
+  - gameplay `Teleport` / `loc_74E0` and the title menu both write `Game_Mode=$0008` and jump straight to `loc_6E2`
+  - there is no extra hidden delay between the title-menu Start and `Load_TitleCard`
+- That rules out the easy “native begins StartingLevel too early” theory.
 
 # Current Model
-- Oracle `level_entry@520` is not gameplay ownership yet. The captured PNG is the level title card, and oracle state still shows the title-card shell:
-  - `game_mode=0x0008`
-  - `number_objects=15`, `number_gfx_objects=14`
-  - `camera_y_pos=0x00930000`
-  - `title_screen_ready=false`
-- Native `BootState::StartingLevel` currently mixes two models:
-  - `current_player_state()` uses `starting_level_slot_2_pose(elapsed_frames)`, i.e. the `loc_1AB26` slot-2 glyph worker as “Kid”
-  - `current_camera_state()` hard-returns zero for all `StartingLevel` frames
-  - `title_screen_ready()` still uses the generic title-ready gate
-- So the next fix is probably trace-facing, but the precise trace contract still needs one more ROM-oracle step: decide which starting-level fields should come from the title-card shell versus stale Kid WRAM.
+- The authoritative `level_entry@520` mismatch is still the mode-`$0008` title-card shell’s slot-2 pose, not gameplay ownership.
+- Two concrete causes remain alive:
+  - native’s `StartingLevel` trace contract is wrong for some fields (`title_screen_ready`, camera, object counts)
+  - the synthetic `loc_1AB26` slot-2 worker pose itself is wrong because the RNG-backed title-worker setup or motion model diverges before frame 520
+- The ROM now makes one thing clear: the shell starts immediately on the title-menu Start, so the remaining ambiguity is not “when mode 8 starts?” but “why does native’s slot-2 worker land at `0089A000,00262000` while oracle’s WRAM-backed slot 2 is `007F0000,00020000`?”
 
 # Strongest Evidence
 - ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28718-28725` `Load_TitleCard` allocates `loc_1AB26` and `loc_1AE2E`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28750-28895` `loc_1AB26`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28989-29006` `loc_1AD48`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29057-29064` `loc_1AE2E`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:14778-14827` `Teleport`, `loc_B8DE`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:7643-7649` `loc_74E0`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28718-28725` `Load_TitleCard`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28750-29064` `loc_1AB26`, `loc_1AD48`, `loc_1AE2E`
 - Compare artefacts:
   - `.cache/native-oracle-runs/boot_title_start_level1/native/state.json`
   - `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`
   - `.cache/native-oracle-runs/boot_title_start_level1/oracle/0520_level_entry.png`
-- Native mismatch source:
-  - `crates/kid-core/src/trace.rs:1359-1361` `BootState::StartingLevel` uses `starting_level_slot_2_pose`
-  - `crates/kid-core/src/trace.rs:1385-1387` `BootState::StartingLevel` hard-returns zero camera
-  - `crates/kid-core/src/movement.rs:240-249` `starting_level_slot_2_pose`
+- Native sources implicated:
+  - `crates/kid-core/src/trace.rs:1359-1361` `starting_level_slot_2_pose`
+  - `crates/kid-core/src/trace.rs:1385-1387` zero `StartingLevel` camera
+  - `crates/kid-core/src/movement.rs:124-249` title-worker rebuild + slot-2 pose model
 
 # Exact Next Moves
-- Stay narrow: read the oracle helper field mapping for mode-`$0008` and decide which `StartingLevel` trace fields should mirror raw WRAM rather than the synthetic title-worker model.
-- Then patch only the smallest coherent trace mismatch for the title-card shell, starting with the field that causes the first authoritative compare failure at `level_entry@520`.
-- Re-run `compare-native-oracle --scenario boot-title-start-level1` immediately after the patch. If the first failure moves, capture that in the next handoff instead of guessing through multiple fields at once.
+- Real blocker: add one targeted oracle/native correlation for the title-card shell before changing code again.
+- Specifically, capture or expose the mode-`$0008` slot-2 / RNG state around the title-menu Start and early `Load_TitleCard` lifetime so the next cycle can decide whether the first fix belongs in:
+  - the RNG-backed `loc_1AB26` worker setup/motion model, or
+  - the `StartingLevel` trace field mapping around that shell.
+- Do not patch both areas blind. The ROM no longer leaves room for a timing guess; the next step needs one decisive measurement.
 
 # Verification To Re-run
 - cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 330 --frame-end 360 --wram-dump-frames 330,340,350,360
@@ -52,6 +48,6 @@ updated_at: 2026-03-31T05:17:00Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 
 # Dead Ends / Do Not Retry
-- Do not go back to searching for a hidden early mode-`$0004` jump; `sub_1C246` already answered that.
-- Do not treat `level_entry@520` as gameplay ownership; the ROM and captured PNG both say it is still the title-card shell.
-- Do not batch multiple starting-level trace fixes at once. Move the first authoritative compare failure, then stop and rewrite the handoff.
+- Do not resurrect the “mode 8 starts late” theory; the ROM writes `Game_Mode=$0008` and jumps to `loc_6E2` immediately.
+- Do not patch `title_screen_ready`, camera, and slot-2 pose together. That hides the causal field.
+- Do not leave the blocker implicit. The next safe step is a single decisive probe, not another speculative trace tweak.
