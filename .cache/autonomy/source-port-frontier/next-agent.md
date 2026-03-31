@@ -1,15 +1,15 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 26
-updated_at: 2026-03-31T03:54:14Z
+cycle: 27
+updated_at: 2026-03-31T03:56:19Z
 ---
 # What Changed
-- Re-read the same title-shell ASM as the prior cycle, then inspected the oracle frame-520 `active_enemies` table directly instead of reasoning from shell order alone.
-- Confirmed the traced oracle `kid_gfx` really is `gfx_slot_index=2`, `parent_object_ptr=0xFFFF1310`, `layout_ptr=0x6F000040`, `x=0x007F0000`, `y=0x00020000`.
-- Built the full slot/parent/layout table for frame 520. The live shell is:
-  - slots `0..12`: parent objects `0xFFFF13F8` down to `0xFFFF0E88`
-  - slot `13`: parent object `0xFFFF0DA0`, `layout_ptr=0x7B0000DC`
-- Rejected a direct native patch that simply reversed the visible letter slot mapping. It worsened frame 520 to native `0x00949000,0x005D6000`, so slot identity is not explained by a plain reverse-letter remap either.
+- Decoded the oracle frame-520 `layout_ptr` values for the title shell instead of treating them as opaque pointers.
+- Confirmed the synthetic encoding:
+  - high byte = glyph byte (`0x73='s'`, `0x64='d'`, `0x6F='o'`, ...)
+  - low word = title-card target `x` (`0x0020`, `0x0030`, `0x0040`, `0x0050`, `0x0060`, `0x00DC`)
+- That means the oracle frame-520 slot order is concretely `s d o o w e k a l e u l b {`, with slot 2 specifically the reverse-order third-line `o` at target `x=0x40`.
+- This keeps the earlier rejection standing: reversing native slot indices alone is insufficient, because slot-2 glyph identity is now known and the remaining miss is the worker's RNG-seeded start pose.
 
 # Current Model
 - The creation-order model is wrong, but the naive reverse-letter model is also wrong.
@@ -18,8 +18,11 @@ updated_at: 2026-03-31T03:54:14Z
   - `Allocate_ObjectSlot` inserts equal-priority objects ahead of older peers.
   - `Delete_CurrentObject` means `loc_1AD48`'s spawned number worker does not execute until a later pass.
   - `Allocate_GfxObjectSlot` preserves execution order within a pass.
-- Oracle frame 520 therefore proves something more specific: the traced slot-2 worker is the object at `0xFFFF1310`, but native still does not know how that object's RNG-seeded start pose / glyph lineage maps to the traced oracle pose.
-- The remaining gap is now about per-worker identity and seed lineage, not about broad title timing.
+- Oracle frame 520 now proves something more specific than “reverse order”:
+  - slot 2 is parent object `0xFFFF1310`
+  - that worker's glyph is definitely `o`
+  - that worker's target `x` is definitely `0x40`
+- The remaining gap is therefore not glyph identity or shell order. It is the `loc_1AC70` seed lineage for that concrete `o@x=0x40` worker.
 
 # Strongest Evidence
 - ASM:
@@ -28,17 +31,20 @@ updated_at: 2026-03-31T03:54:14Z
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:1824-1911` `Load_GfxObjectSlot` / `Allocate_GfxObjectSlot`
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:28695-29064` `loc_1AB26`, `loc_1AC70`, `loc_1AD48`, `loc_1AE2E`
 - Oracle frame-520 slot table from `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`:
-  - slot `0`: `pp=0xFFFF13F8`, `lp=0x73000060`, `x=0x00D80000`, `y=0x00020000`
-  - slot `1`: `pp=0xFFFF1384`, `lp=0x64000050`, `x=0x00620000`, `y=0x00DA0000`
-  - slot `2`: `pp=0xFFFF1310`, `lp=0x6F000040`, `x=0x007F0000`, `y=0x00020000`
-  - slot `3`: `pp=0xFFFF129C`, `lp=0x6F000030`, `x=0x00450000`, `y=0x00020000`
-  - slot `13`: `pp=0xFFFF0DA0`, `lp=0x7B0000DC`, `x=0x00A1D000`, `y=0x00D6C000`
+  - slot `0`: `s@x=0x60`, `pp=0xFFFF13F8`, pose `0x00D80000,0x00020000`
+  - slot `1`: `d@x=0x50`, `pp=0xFFFF1384`, pose `0x00620000,0x00DA0000`
+  - slot `2`: `o@x=0x40`, `pp=0xFFFF1310`, pose `0x007F0000,0x00020000`
+  - slot `3`: `o@x=0x30`, `pp=0xFFFF129C`, pose `0x00450000,0x00020000`
+  - slot `4`: `w@x=0x20`, `pp=0xFFFF1228`, pose `0x01100000,0x008C0000`
+  - slot `10`: `u@x=0x40`, `pp=0xFFFF0F70`, pose `0x01180000,0x00670000`
+  - slot `12`: `b@x=0x20`, `pp=0xFFFF0E88`, pose `0x01100000,0x00220000`
+  - slot `13`: `{@x=0xDC`, `pp=0xFFFF0DA0`, pose `0x00A1D000,0x00D6C000`
 - Rejected experiment:
   - plain reverse-letter slot remap changed native frame 520 from `0x0089A000,0x00262000` to `0x00949000,0x005D6000`
   - same wrong pose on `boot-title-start-level1-move-right5s`
 
 # Exact Next Moves
-- Stay on the frame-520 worker-identity problem and map the oracle slot table's `layout_ptr` suffixes (`0x20/0x30/0x40/0x50/0x60`) plus `parent_object_ptr` order back to the concrete `loc_1AB26` glyph sequence and `loc_1AC70` RNG start selectors. Do not change timing. Do not retry the plain reverse-letter slot remap.
+- Stay on the concrete `o@x=0x40` frame-520 worker and solve which `loc_1AC70` start branch (`left`, `top`, `right`, `bottom`) plus RNG byte/word outputs can land it at `0x007F0000,0x00020000`. Compare that selector stream against native's current `RomRandomState` consumption order before changing any slot mapping.
 
 # Verification To Re-run
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
