@@ -1233,11 +1233,20 @@ impl NativeRuntime {
                 elapsed_frames,
             } => {
                 let mut enter_gameplay = false;
-                if *elapsed_frames > 0 {
+                let title_card_bootstrap_active = !self.starting_level_title_workers.is_empty();
+                let handoff_ready = if title_card_bootstrap_active {
+                    *elapsed_frames >= crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES
+                } else {
+                    *elapsed_frames > 0
+                };
+                if handoff_ready {
                     // ASM loc_1AE2E: the title-card worker hibernates for one
-                    // frame, then polls the shared Start edge it inherited
-                    // from the title selection frame before it writes
-                    // `Game_Mode=$000C` and jumps to `loc_6E2`.
+                    // frame, then polls Ctrl_Pressed before it writes
+                    // `Game_Mode=$000C` and jumps to `loc_6E2`. Oracle-backed
+                    // boot traces keep the real title-card lineage on the
+                    // hidden bootstrap far longer than the synthetic no-card
+                    // path, so only release the queued Start edge once that
+                    // title shell has finished its hidden pre-roll.
                     enter_gameplay = *start_latched || start_pressed;
                     *start_latched = false;
                 }

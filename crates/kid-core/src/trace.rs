@@ -1247,7 +1247,13 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } => GameMode::TitleScreen,
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
-            BootState::StartingLevel { .. } => GameMode::LevelTransition,
+            BootState::StartingLevel { .. } => {
+                if self.starting_level_title_workers.is_empty() {
+                    GameMode::LevelTransition
+                } else {
+                    GameMode::InGame
+                }
+            }
             BootState::InGame => GameMode::InGame,
             BootState::DemoPlay { .. } => GameMode::DemoPlay,
             BootState::EndingSequence { .. } => GameMode::EndingSequence,

@@ -1,52 +1,55 @@
 ---
-slug: pause_resume_level1_case_00000_00100
-cycle: 16
-updated_at: 2026-03-31T23:15:31Z
+slug: death_respawn_level1_case_00200_00300
+cycle: 17
+updated_at: 2026-03-31T23:27:03Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 16 selected `pause_resume_level1_case_00000_00100`.
-- Re-ran `cargo run -p kidcli -- case verify --case pause-resume-demo`; the selected case now passes.
-- Refreshed the case bundle with `cargo run -p kidcli -- case summarise --case pause-resume-demo`.
-- Replaced this handoff note so it matches the newly selected case and its current pass state.
-- No gameplay code changed in this session.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 17 selected `death_respawn_level1_case_00200_00300`.
+- Re-ran `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300`; the stale frame-200 camera/player drift refreshed to a `world.game_mode` mismatch.
+- Read the relevant ROM routines before patching: `Load_TitleCard` plus `loc_1AB26`, `loc_1AC70`, `loc_1AD48`, and `loc_1AE2E` in `.cache/upstream/kid-chameleon-disasm/kid.asm`.
+- Patched the native title-card bootstrap so real title-card entries keep the hidden shell alive through frame 200, keep the hidden start-level shell through frame 520, and only expose visible gameplay on frame 521.
+- Added focused regressions for the frame-200 hidden bootstrap and the frame-520/frame-521 hand-off.
+- Re-verified the selected case and refreshed the summary; the first semantic failure moved later to frame 222 on `player.x_pos`.
 
 ## Selected Case
 
-- Case ID: `pause_resume_level1_case_00000_00100`
-- Selector: `pause-resume-demo`
+- Case ID: `death_respawn_level1_case_00200_00300`
+- Selector: `death-respawn-level1-200-300`
 - Autonomy gate: `patch-allowed`
-- Current verify result: `PASS`
-- Current first failure: none
+- Current verify result: `FAIL`
+- Current first failure: frame 222, `player.x_pos` (`native=4292870144`, `oracle=0`)
 
 ## Why This Case
 
-- The Ralph case-queue loop selected this case in cycle 16, so it was the only permitted focus for the session.
-- Re-verification removed the previously reported frame-0 `player.x_pos` mismatch, leaving no justified engine change to make on this case.
-- The correct narrow outcome was to refresh the evidence and handoff note rather than widen scope into a different case.
+- The Ralph case-queue loop selected this case in cycle 17, so it remained the only permitted focus.
+- Fresh verification showed the cached case bundle was stale; the first mismatch was no longer the older frame-200 camera/player drift.
+- The ROM title-card path explained why native was exposing gameplay too early: the hidden bootstrap and later visible hand-off are distinct phases, and the case could be narrowed by fixing only that bootstrap timing first.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- autonomous-loop --goal case-queue` reported cycle 16 and selected `pause_resume_level1_case_00000_00100`.
-- `cargo run -p kidcli -- case verify --case pause-resume-demo` reported `case pause_resume_level1_case_00000_00100: PASS`.
-- `.cache/cases/pause-resume-demo/verify.json` now records `"passed": true` with `matching_fields` covering `world.game_mode`, `camera`, `player.position`, `player.motion`, `entities`, and `events`.
-- `.cache/cases/pause-resume-demo/summary.md` now reports `passed: true` for frames `0..100`.
+- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 200 --frame-end 300` originally diverged at frame 200 on hidden bootstrap fields; after the patch it now reports object-count drift at frame 200 and the first live drift later at frame 222.
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300` now reports `FAIL`, but the bundle’s `first_failure` moved to frame 222 on `player.x_pos`.
+- `.cache/cases/death-respawn-level1-200-300/verify.json` now records:
+  `frame_index: 222`, `field: "player.x_pos"`, `native_value: "4292870144"`, `oracle_value: "0"`.
+- The new regressions `death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200` and `boot_title_start_stays_hidden_through_frame_520_then_enters_ingame` pass.
 
 ## Exact Next Moves
 
-1. Run `cargo run -p kidcli -- autonomous-loop --goal case-queue` again and take the next selected case only.
-2. Re-verify that newly selected case before reading wider backlog material or changing code.
-3. If the next selected case still fails and needs gameplay work, read the relevant ROM routine in `.cache/upstream/kid-chameleon-disasm/kid.asm` before patching.
+1. Re-run `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 200 --frame-end 300` and inspect the frame-222 artefacts in `.cache/native-gameplay-oracle-runs/death_respawn_level1_window_00200_00300_step_1`.
+2. Read the next relevant ROM path for the hidden start-level shell after `Load_TitleCard`: keep tracing how the title-card shell hands off object counts and Kid visibility between frame 200 and frame 222.
+3. Patch only the frame-222 `player.x_pos` frontier, then re-run `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300` and `cargo run -p kidcli -- case summarise --case death-respawn-level1-200-300`.
 
 ## Verification To Re-run
 
-- `cargo run -p kidcli -- autonomous-loop --goal case-queue`
-- `cargo run -p kidcli -- case verify --case pause-resume-demo`
-- `cargo run -p kidcli -- case summarise --case pause-resume-demo`
+- `cargo test -p kid-core death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200 -- --nocapture`
+- `cargo test -p kid-core boot_title_start_stays_hidden_through_frame_520_then_enters_ingame -- --nocapture`
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300`
+- `cargo run -p kidcli -- case summarise --case death-respawn-level1-200-300`
 
 ## Dead Ends / Do Not Retry
 
-- Do not patch gameplay for `pause-resume-demo` from the stale frame-0 mismatch description in older task output; the fresh verify pass supersedes it.
-- Do not widen this session into a different case once cycle 16 has selected `pause_resume_level1_case_00000_00100`.
-- Do not skip the explicit re-verify step; the case queue can select a case whose stale summary no longer matches current truth.
+- Do not reuse the stale case summary that claimed frame 200 `player.x_pos` or `camera.y_pos`; after re-verification that evidence was outdated.
+- Do not patch the hidden bootstrap by exposing visible gameplay earlier; the ROM title-card shell still keeps Kid/camera hidden while gameplay mode is already live.
+- Do not treat the synthetic no-title-card boot tests as authoritative for this case; the real generated-assets title-card lineage has different timing and object-shell behaviour.

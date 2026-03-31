@@ -309,9 +309,10 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
 }
 
 #[test]
-fn boot_title_start_reaches_ingame_without_a_second_start_press() {
+fn boot_title_start_stays_hidden_through_frame_520_then_enters_ingame() {
     let mut runtime = cached_generated_runtime();
     let mut frame_520 = None;
+    let mut frame_521 = None;
     let mut frame_719 = None;
 
     for frame_index in 0..=719 {
@@ -326,16 +327,22 @@ fn boot_title_start_reaches_ingame_without_a_second_start_press() {
         let trace = runtime.step_frame(input);
         if frame_index == 520 {
             frame_520 = Some((trace.game_mode, trace.boot_phase.clone()));
+        } else if frame_index == 521 {
+            frame_521 = Some((trace.game_mode, trace.boot_phase.clone()));
         } else if frame_index == 719 {
             frame_719 = Some((trace.game_mode, trace.boot_phase.clone()));
         }
     }
 
-    // ASM loc_1AE2E hibernates for one frame, then consumes the title-menu
-    // Start edge it inherited from the selection frame and writes
-    // `Game_Mode=$000C`. The boot script must therefore reach gameplay
-    // without synthesising a second Start press later in the level card.
-    assert_eq!(frame_520, Some((GameMode::InGame, None)));
+    // ASM Load_TitleCard has already flipped the traced mode to gameplay by
+    // this point, but the real title-card lineage still keeps the hidden
+    // bootstrap shell alive through frame 520 before the visible hand-off on
+    // the following frame.
+    assert_eq!(
+        frame_520,
+        Some((GameMode::InGame, Some(String::from("starting_level"))))
+    );
+    assert_eq!(frame_521, Some((GameMode::InGame, None)));
     assert_eq!(frame_719, Some((GameMode::InGame, None)));
 }
 
@@ -514,6 +521,32 @@ fn boot_title_start_level_1_hidden_gameplay_bootstrap_matches_settled_spawn() {
     assert_eq!(slice.camera.x_pos, expected.camera.x_pos);
     assert_eq!(slice.camera.y_pos, expected.camera.y_pos);
     assert_eq!(slice.terrain.floor_y_pos, expected.terrain.floor_y_pos);
+}
+
+#[test]
+fn death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_200 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(201) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 200 {
+            frame_200 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_200 = frame_200.expect("frame 200 trace");
+    // ASM Load_TitleCard allocates loc_1AB26/loc_1AE2E immediately, but the
+    // oracle-backed Level 1 death/respawn route keeps Camera_X/Y and Kid's
+    // WRAM pose blank on frame 200 while the hidden title-card bootstrap is
+    // still running.
+    assert_eq!(frame_200.game_mode, GameMode::InGame);
+    assert_eq!(frame_200.camera_x_pos, 0);
+    assert_eq!(frame_200.camera_y_pos, 0);
+    assert_eq!(frame_200.kid_x_pos, None);
+    assert_eq!(frame_200.kid_y_pos, None);
 }
 
 #[test]
