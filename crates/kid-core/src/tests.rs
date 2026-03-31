@@ -550,6 +550,43 @@ fn death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200() {
 }
 
 #[test]
+fn death_respawn_level_1_matches_load_ingame_handoff_through_frame_300() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_222 = None;
+    let mut frame_300 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(301) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            222 => frame_222 = Some(trace),
+            300 => {
+                frame_300 = Some(trace);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let frame_222 = frame_222.expect("frame 222 trace");
+    let frame_300 = frame_300.expect("frame 300 trace");
+    // ASM loc_1AE2E writes `Game_Mode=$000C`, then jumps to loc_6E2 so
+    // Load_InGame rebuilds the live level state rather than carrying the
+    // hidden title bootstrap slice forward. Oracle keeps Kid blank on frame
+    // 222, then reaches Load_InGame's settled Level 1 spawn by frame 300.
+    assert_eq!(frame_222.kid_x_pos, None);
+    assert_eq!(frame_222.kid_y_pos, None);
+    assert_eq!(frame_222.number_objects, 0);
+    assert_eq!(frame_222.number_gfx_objects, 0);
+    assert_eq!(frame_300.camera_x_pos, 0);
+    assert_eq!(frame_300.camera_y_pos, 0x0073_0000);
+    assert_eq!(frame_300.kid_x_pos, Some(0x0020_0000));
+    assert_eq!(frame_300.kid_y_pos, Some(0x010F_0000));
+    assert_eq!(frame_300.number_objects, 4);
+    assert_eq!(frame_300.number_gfx_objects, 5);
+}
+
+#[test]
 fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
     let mut runtime = cached_generated_runtime();
     runtime.begin_level_entry(LevelId(1));

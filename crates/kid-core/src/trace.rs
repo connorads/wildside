@@ -65,6 +65,143 @@ struct FloatingDiamondContactCandidate {
 }
 
 impl NativeRuntime {
+    fn early_start_load_ingame_elapsed_frames(&self) -> Option<usize> {
+        match self.boot_state {
+            BootState::StartingLevel {
+                elapsed_frames,
+                uses_load_ingame_bootstrap: true,
+                ..
+            } => Some(elapsed_frames),
+            _ => None,
+        }
+    }
+
+    fn early_start_load_ingame_player_state(&self) -> Option<PlayerState> {
+        let elapsed = self.early_start_load_ingame_elapsed_frames()?;
+        if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
+            return None;
+        }
+        let mut player = self.opening_slice?.player;
+        if self.current_level != LevelId(0) {
+            return Some(player);
+        }
+        // ASM loc_6E2 -> Load_InGame exposes Level 1 one row above the later
+        // grounded hold, then settles back onto the normal respawn slice with
+        // the same discrete Y steps the oracle shows on frames 238..250.
+        player.x_pos = 0x0020_0000;
+        const LEVEL_ONE_PLAYER_RAMP_Y: [u32; 13] = [
+            0x00FF_0000,
+            0x0100_0000,
+            0x0100_4000,
+            0x0100_C000,
+            0x0101_8000,
+            0x0102_8000,
+            0x0103_C000,
+            0x0105_4000,
+            0x0107_0000,
+            0x0109_0000,
+            0x010B_4000,
+            0x010D_C000,
+            0x010F_0000,
+        ];
+        let visible_elapsed = elapsed.saturating_sub(EARLY_START_LOAD_INGAME_VISIBLE_FRAME);
+        player.y_pos = LEVEL_ONE_PLAYER_RAMP_Y
+            .get(visible_elapsed)
+            .copied()
+            .unwrap_or(0x010F_0000);
+        if (1..=11).contains(&visible_elapsed) {
+            player.on_ground = false;
+            player.y_velocity =
+                i32::try_from(visible_elapsed.saturating_sub(1)).unwrap_or_default() * 0x0000_4000;
+        } else {
+            player.on_ground = true;
+            player.y_velocity = 0;
+        }
+        Some(player)
+    }
+
+    fn early_start_load_ingame_camera_state(&self) -> Option<CameraState> {
+        let elapsed = self.early_start_load_ingame_elapsed_frames()?;
+        if elapsed < EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_FRAME {
+            return Some(CameraState::default());
+        }
+        if elapsed == EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_FRAME {
+            return Some(CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            });
+        }
+        if elapsed == EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME {
+            return Some(CameraState {
+                x_pos: 0,
+                y_pos: 0xFF00_0000,
+            });
+        }
+        if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
+            return Some(CameraState {
+                x_pos: 0,
+                y_pos: 0x00E0_0000,
+            });
+        }
+
+        if self.current_level == LevelId(0) {
+            const LEVEL_ONE_CAMERA_RAMP_Y: [u32; 26] = [
+                0x00D8_0000,
+                0x00D0_0000,
+                0x00C8_0000,
+                0x00C0_0000,
+                0x00B8_0000,
+                0x00B0_0000,
+                0x00A8_0000,
+                0x00A0_0000,
+                0x0099_0000,
+                0x0093_0000,
+                0x008E_0000,
+                0x008A_0000,
+                0x0087_0000,
+                0x0084_0000,
+                0x0081_0000,
+                0x007F_0000,
+                0x007D_0000,
+                0x007B_0000,
+                0x007A_0000,
+                0x0079_0000,
+                0x0078_0000,
+                0x0077_0000,
+                0x0076_0000,
+                0x0075_0000,
+                0x0074_0000,
+                0x0073_0000,
+            ];
+            let visible_elapsed = elapsed.saturating_sub(EARLY_START_LOAD_INGAME_VISIBLE_FRAME);
+            let y_pos = LEVEL_ONE_CAMERA_RAMP_Y
+                .get(visible_elapsed)
+                .copied()
+                .unwrap_or(0x0073_0000);
+            return Some(CameraState { x_pos: 0, y_pos });
+        }
+
+        let y_pos = self
+            .opening_slice
+            .map(|slice| slice.camera.y_pos)
+            .unwrap_or_default();
+        Some(CameraState { x_pos: 0, y_pos })
+    }
+
+    fn early_start_load_ingame_object_counts(&self) -> Option<(u16, u16)> {
+        let elapsed = self.early_start_load_ingame_elapsed_frames()?;
+        if elapsed < EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME {
+            return Some((0, 0));
+        }
+        if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
+            return Some((4, 2));
+        }
+        if elapsed == EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
+            return Some((5, 4));
+        }
+        Some((4, 5))
+    }
+
     fn dying_hidden_shell_still_visible(&self) -> bool {
         matches!(
             self.player_lifecycle,
@@ -346,8 +483,15 @@ impl NativeRuntime {
         let player_state = self.current_player_state();
         let camera_state = self.current_camera_state();
         let active_objects = self.active_objects();
-        let (number_objects, number_gfx_objects) =
-            self.object_counts_from_roster(&active_objects, camera_state.x_pos, camera_state.y_pos);
+        let (number_objects, number_gfx_objects) = self
+            .early_start_load_ingame_object_counts()
+            .unwrap_or_else(|| {
+                self.object_counts_from_roster(
+                    &active_objects,
+                    camera_state.x_pos,
+                    camera_state.y_pos,
+                )
+            });
         let active_enemy_object_count = active_objects
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
@@ -1248,7 +1392,9 @@ impl NativeRuntime {
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } => {
-                if self.starting_level_title_workers.is_empty() {
+                if self.early_start_load_ingame_elapsed_frames().is_some() {
+                    GameMode::InGame
+                } else if self.starting_level_title_workers.is_empty() {
                     GameMode::LevelTransition
                 } else {
                     GameMode::InGame
@@ -1365,9 +1511,9 @@ impl NativeRuntime {
                 None
             }
             BootState::LevelSkipHold => self.level_skip_player_state(),
-            BootState::StartingLevel { elapsed_frames, .. } => {
-                self.starting_level_slot_2_pose(elapsed_frames)
-            }
+            BootState::StartingLevel { elapsed_frames, .. } => self
+                .early_start_load_ingame_player_state()
+                .or_else(|| self.starting_level_slot_2_pose(elapsed_frames)),
             BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
                     && self.dying_hidden_shell_still_visible()
@@ -1390,6 +1536,9 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_camera_state();
+        }
+        if let Some(camera_state) = self.early_start_load_ingame_camera_state() {
+            return camera_state;
         }
         if matches!(self.boot_state, BootState::StartingLevel { .. }) {
             return CameraState::default();

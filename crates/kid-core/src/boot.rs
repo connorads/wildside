@@ -638,6 +638,12 @@ impl NativeRuntime {
             BootState::OptionsMenu { .. } => Some("options_menu"),
             BootState::SoundTest { .. } => Some("sound_test"),
             BootState::StartingLevel { .. } => Some("starting_level"),
+            BootState::InGame
+                if self.level_start_frame == Some(self.frame_index)
+                    && !self.starting_level_title_workers.is_empty() =>
+            {
+                Some("starting_level")
+            }
             BootState::LevelSkipHold => Some("level_skip_hold"),
             BootState::DemoPlay { .. } => Some("demo_play"),
             BootState::EndingSequence { .. } => Some("ending_sequence"),
@@ -1231,11 +1237,15 @@ impl NativeRuntime {
             BootState::StartingLevel {
                 start_latched,
                 elapsed_frames,
+                uses_load_ingame_bootstrap,
             } => {
                 let mut enter_gameplay = false;
-                let title_card_bootstrap_active = !self.starting_level_title_workers.is_empty();
-                let handoff_ready = if title_card_bootstrap_active {
-                    *elapsed_frames >= crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES
+                let title_card_bootstrap_active =
+                    !*uses_load_ingame_bootstrap && !self.starting_level_title_workers.is_empty();
+                let handoff_ready = if *uses_load_ingame_bootstrap {
+                    *elapsed_frames >= EARLY_START_LOAD_INGAME_HANDOFF_FRAMES
+                } else if title_card_bootstrap_active {
+                    *elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 1
                 } else {
                     *elapsed_frames > 0
                 };
@@ -1252,6 +1262,15 @@ impl NativeRuntime {
                 }
                 *elapsed_frames = elapsed_frames.saturating_add(1);
                 if enter_gameplay {
+                    let clear_title_workers = *uses_load_ingame_bootstrap;
+                    // ASM loc_1AE2E jumps to loc_6E2 after writing
+                    // `Game_Mode=$000C`, and loc_6E2 immediately rebuilds the
+                    // level via Load_InGame instead of carrying the hidden
+                    // title-card bootstrap slice into live gameplay.
+                    self.reset_current_level_runtime_state_for_respawn();
+                    if clear_title_workers {
+                        self.starting_level_title_workers.clear();
+                    }
                     self.boot_state = BootState::InGame;
                     self.level_start_frame = Some(self.frame_index);
                 }

@@ -1251,6 +1251,11 @@ pub(crate) enum BootState {
     StartingLevel {
         start_latched: bool,
         elapsed_frames: usize,
+        /// ASM loc_1AE2E can bypass the visible title-worker shell and jump
+        /// straight into `loc_6E2 -> Load_InGame` from the early title-start
+        /// lineage. Keep that hidden preload path distinct from the ordinary
+        /// title-card worker lineage.
+        uses_load_ingame_bootstrap: bool,
     },
     LevelSkipHold,
     InGame,

@@ -277,6 +277,15 @@ pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP: u32 = 0x004
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP: u32 = 0x0068_0000;
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP: i32 = -0x0004_8000;
 pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP: i32 = 0x0000_9000;
+// ASM loc_1AE2E -> loc_6E2 -> Load_InGame on the early title-start lineage
+// keeps Level 1 hidden for 51 local frames, briefly preloads Camera_Y on the
+// `$00E0_0000` and wrapped `$FF00_0000` rows, then exposes the respawn slice
+// on local frame 60 before the settled `$0073_0000` camera arrives.
+pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_FRAME: usize = 51;
+pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME: usize = 52;
+pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME: usize = 59;
+pub(crate) const EARLY_START_LOAD_INGAME_VISIBLE_FRAME: usize = 60;
+pub(crate) const EARLY_START_LOAD_INGAME_HANDOFF_FRAMES: usize = 122;
 // ASM `Make_SpriteFromGfxObject` checks the death sprite against the normal
 // `$160/-$80` Y visibility window using the death frame's vertical extent, not
 // a generic "viewport + 160px" threshold. `kid_death.bin` carries height

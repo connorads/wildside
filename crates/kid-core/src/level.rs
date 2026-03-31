@@ -166,9 +166,16 @@ impl NativeRuntime {
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = None;
+        let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
+            && !self.title_screen_ready()
+            && self
+                .level_record(level_id)
+                .and_then(|level| level.title_card.as_ref())
+                .is_some();
         self.boot_state = BootState::StartingLevel {
             start_latched: true,
             elapsed_frames: 0,
+            uses_load_ingame_bootstrap,
         };
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.death_camera_lock = None;
@@ -205,7 +212,14 @@ impl NativeRuntime {
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
-        self.rebuild_starting_level_title_workers();
+        if uses_load_ingame_bootstrap {
+            // ASM loc_1AE2E -> loc_6E2 -> Load_InGame: the early title-start
+            // lineage keeps the Level 1 hand-off hidden instead of exposing
+            // the visible Load_TitleCard worker shell.
+            self.starting_level_title_workers.clear();
+        } else {
+            self.rebuild_starting_level_title_workers();
+        }
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).
