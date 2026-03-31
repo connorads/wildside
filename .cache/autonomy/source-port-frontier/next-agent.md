@@ -1,47 +1,56 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 34
-updated_at: 2026-03-31T04:29:04Z
+cycle: 35
+updated_at: 2026-03-31T04:32:55Z
 ---
 # What Changed
-- Used `kidcli oracle-probe` with WRAM dumps for frames 330, 340, 350, and 360 on the `boot_title_start_level1` scenario.
-- Decoded the live linked object list from `Addr_FirstObjectSlot` (`$FFFFF842`) in the oracle WRAM dumps.
-- Confirmed the late cold-boot title object roster is stable across those frames:
+- Moved the same cold-boot title WRAM/object-list probe earlier, first to frames 280..330, then 220..280, then 140..220.
+- Confirmed the late four-object shell is already stable by frame 200, not just frame 330:
   - `0xFFFF0EFC -> code 0x0001BB50`
   - `0xFFFF0E88 -> code 0x0001B6A6`
   - `0xFFFF0E14 -> code 0x0001B650`
   - `0xFFFF0DA0 -> code 0x0001BAF6`
-- Those code pointers map back to the already-cleared RNG-silent title handlers:
-  - `0x1BB50` inside `loc_1BB52`
-  - `0x1B6A6` inside `loc_1B6A2/loc_1B6AC`
-  - `0x1B650` inside `loc_1B64C`
-  - `0x1BAF6` inside `loc_1BAEE`
+- Found the earlier pre-shell lineage:
+  - frames 140..160: head pointer `0xFFFF0E14`, two live objects only
+  - `0xFFFF0E14 -> code 0x0001C7B2`
+  - `0xFFFF0DA0 -> code 0x0001B928`
+- Found a gap before the stable shell appears:
+  - frames 170..190: `Addr_FirstObjectSlot = 0`, no live object list
+  - frame 200: the stable four-object shell has appeared
+- Read the cited ASM for the disappearing lineage:
+  - `0x1B928` is inside `loc_1B924` in `sub_1B8F4`
+  - `0x1C7B2` is inside `loc_1C7AE/loc_1C7B6` in `loc_1C7A0`
+  - neither path makes a direct `Get_RandomNumber_*` call
 
 # Current Model
-- The pre-frame-360 object lineup is not changing late in the title shell; the same four handlers stay live from at least frame 330 through frame 360.
-- Every one of those live handlers is RNG-silent in the ASM.
-- That means the missing cold-boot carry is not caused by some hidden late-title object swapping in near frame 360.
-- The remaining explanations are now tighter:
-  - cumulative `Execute_Objects -> Get_RandomNumber_long` burns over the earlier cold-boot/title lifetime
-  - or an earlier, now-dead object lineage before frame 330 that made direct RNG calls and left the stream offset carried into the stable late-title shell
+- The carried cold-boot RNG offset still does not come from a late-title hidden object near frame 330 or 360.
+- The last pre-shell lineage visible in WRAM is also RNG-silent: `loc_1B924` only hibernates and calls `sub_1C246`, while `loc_1C7A0` is the text worker.
+- The meaningful transition is now bounded much tighter:
+  - pre-shell two-object lineage at 140..160
+  - empty list at 170..190
+  - stable four-object shell by 200
+- The likely remaining source is therefore earlier cumulative object-loop RNG burn before frame 140, or some non-object caller on the cold-boot intro path before the shell reset.
 
 # Strongest Evidence
-- Oracle probe command:
-  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 330 --frame-end 360 --wram-dump-frames 330,340,350,360`
+- Earlier probes:
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 280 --frame-end 330 --wram-dump-frames 280,290,300,310,320,329,330`
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 220 --frame-end 280 --wram-dump-frames 220,230,240,250,260,270,279,280`
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 140 --frame-end 220 --wram-dump-frames 140,150,160,170,180,190,200,210,219,220`
 - WRAM artefacts:
-  - `.cache/oracle-probe/oracle/wram_frame_330.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_340.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_350.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_360.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_140.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_160.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_170.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_190.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_200.bin`
 - Supporting ASM:
   - `.cache/upstream/kid-chameleon-disasm/variables.asm:52-53` `Addr_FirstObjectSlot`, `Addr_CurrentObject`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1583-1615` `Allocate_ObjectSlot`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1636-1661` `Execute_Objects`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29917-29948`, `.cache/upstream/kid-chameleon-disasm/kid.asm:30390-30458`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30220-30238` `sub_1B8F4`, `loc_1B920`, `loc_1B924`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:31089-31137` `sub_1C204`, `sub_1C246`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:31404-31436` `loc_1C7A0`, `loc_1C7AE`, `loc_1C7B6`
 
 # Exact Next Moves
-- Stay narrow: move the same WRAM/object-list probe earlier on the cold-boot title path to the first frame where this four-object stable shell is not yet present, then identify which earlier object lineage disappears before frame 330.
-- Once you find the earlier disappearing lineage, read that label’s ASM and check whether it is the direct RNG caller that explains the carried offset.
+- Stay narrow: probe just before frame 140 on the same cold-boot path until you find the first frame where the `loc_1B924` + `loc_1C7A0` two-object lineage first appears, then trace what object or game-mode transition deleted the list between frames 160 and 170 and rebuilt the four-object shell by frame 200.
+- Read the ASM at that transition before changing native code. If the transition itself is still RNG-silent, keep walking earlier rather than guessing.
 
 # Verification To Re-run
 - cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 330 --frame-end 360 --wram-dump-frames 330,340,350,360
@@ -52,6 +61,6 @@ updated_at: 2026-03-31T04:29:04Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 
 # Dead Ends / Do Not Retry
-- Do not keep re-probing frames 330..360; the roster is stable there.
-- Do not look for a late-title hidden RNG caller in `0x1BB50`, `0x1B6A6`, `0x1B650`, or `0x1BAF6`; those handlers are already mapped to RNG-silent ASM.
-- Do not widen the dump range arbitrarily. The next useful probe is the earliest frame before this stable four-object shell appears.
+- Do not keep re-probing 200..360; the same four-object shell is already stable there.
+- Do not blame `0x1B928` / `loc_1B924` or `0x1C7B2` / `loc_1C7A0` as direct RNG callers; the ASM for both is RNG-silent.
+- Do not guess from the empty-list gap at 170..190 alone; the next useful evidence is the transition into the two-object lineage before frame 140, plus the concrete 160..200 rebuild path.
