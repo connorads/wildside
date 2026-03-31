@@ -1,38 +1,47 @@
 ---
-slug: release-gate-boot-title-360-md-runtime
-cycle: 2
-updated_at: 2026-03-31T01:52:00Z
+slug: release-gate-boot-title-level-entry-md-runtime
+cycle: 3
+updated_at: 2026-03-31T01:39:11Z
 ---
 # What Changed
-- Aligned `crates/kidcli/src/capture.rs` with the oracle helper’s input timing: `capture_scenario` now consumes `script[frame_index]` instead of `script[frame_index - 1]`.
-- Added `capture_uses_current_frame_script_input` so the boot-title Start tap on frame 360 stays pinned to the current frame.
-- Re-ran `mise run release-gate`; the `title@360` failure remained.
+- Re-read the title-menu ASM before touching native logic: `Obj_TitleMenu loc_1BAEA`, `loc_1BB02`, and `sub_1C246` in `.cache/upstream/kid-chameleon-disasm/kid.asm`.
+- Re-ran native/oracle diagnostics with the supported commands instead of relying on the stale handoff model.
+- Confirmed `MdRuntime` is already correct at `title@360`; the first blocking mismatch is later at `level_entry@520`.
 
 # Current Model
-- The remaining blocker is not the closed TAS tail and not the one-frame script offset in `capture_scenario`.
-- `boot_title_start_level1` still fails because the `MdRuntime` artefact never reaches title state at the title checkpoint: `/home/connor/git/kc/.cache/oracle-runs/boot_title_start_level1/native/state.json` reports `game_mode=0x000C`, `number_lives=0`, and `title_screen_ready=false` already at frame 360, while the oracle helper reports `game_mode=0x002C`, `number_lives=3`, and `main_menu_option=0`.
-- Relevant ROM routines remain `loc_1BAEA`, `loc_1BB02`, and `sub_1C246`, but the present evidence points at the verifier/runtime path (`MdRuntime`) failing to reproduce that boot/title flow at all.
+- The frame-360 title checkpoint is no longer the frontier. `probe-native --scenario boot-title-start-level1 --frame-start 350 --frame-end 365` shows `frame 360: input Start mode TitleScreen ... lives/hp 3/2`, and the cached native state now records `title@360 -> game_mode=0x002C`.
+- The real release-gate blocker is the transition after Start: `compare-native-oracle --scenario boot-title-start-level1` fails at `level_entry@520` with `native 0x000C` versus `oracle 0x0008`.
+- ASM `sub_1C246` only handles the Start-edge return to `Game_Mode=$2C`; it does not explain the later `0x0008`/`0x000C` split. The next investigation has to move past the title loop and into the boot-to-level hand-off inside `MdRuntime`.
 
 # Strongest Evidence
-- Oracle helper timing: `crates/kidcli/src/oracle_helper_main.rs.txt:529` and `:638` already consume `resolved.script.get(frame_index)`, so the old `capture_scenario` indexing was genuinely stale.
-- Native capture after the fix still shows the same bad state at frame 360:
-  - `/home/connor/git/kc/.cache/oracle-runs/boot_title_start_level1/native/state.json`
-  - `title`: `game_mode=12`, `number_lives=0`, `camera_y_pos=0x00730000`
-- Oracle capture for the same checkpoint still shows the correct title menu state:
-  - `/home/connor/git/kc/.cache/oracle-runs/boot_title_start_level1/oracle/manifest.json`
-  - `title`: `game_mode=44`, `main_menu_option=0`, `number_lives=3`
-- Fresh failing gate: `/home/connor/git/kc/.cache/release-gate/1p-accurate/1774920889/report.json`
+- Title loop ASM:
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30389` `loc_1BAEA` clears `Ctrl_Pressed`, hibernates one frame, and branches on the `Ctrl_1_Pressed` edge bit.
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30399` `loc_1BB02` sets `Game_Mode=$0010`.
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:31119` `sub_1C246` sets `Game_Mode=$002C` on Start-edge paths.
+- Native state cache:
+  - `/home/connor/git/kc/.cache/native-oracle-runs/boot_title_start_level1/native/state.json`
+  - `title@360`: `game_mode=44`, `number_lives=3`, `camera_y_pos=0`
+  - `level_entry@520`: `game_mode=12`, `number_lives=3`, `camera_y_pos=0x00730000`
+- Oracle state cache:
+  - `/home/connor/git/kc/.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`
+  - `title@360`: `game_mode=44`, `number_lives=3`, `camera_y_pos=0`
+  - `level_entry@520`: `game_mode=8`, `number_lives=3`, `camera_y_pos=0`
+- Repro command:
+  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
 
 # Exact Next Moves
-- Diagnose the `MdRuntime` boot/title divergence directly: compare `crates/kid-md/src/lib.rs` frame stepping and controller application against the oracle helper’s per-frame loop to explain why `MdRuntime` is already in `0x000C` with zero lives by frame 360.
-- Add one focused `kid-md` or verifier regression that locks the expected title-state checkpoint before attempting another fix.
-- Re-run `mise run release-gate` only after that deeper `MdRuntime` / boot-title path is corrected.
+- Read the ROM routines that own the post-title level-load hand-off for this path, then compare them with the `MdRuntime` frame stepping around the first bad checkpoint at `level_entry@520`.
+- Add one focused verifier or `kid-md` regression that asserts `boot_title_start_level1` stays in the oracle-backed load state at `level_entry@520` before gameplay begins.
+- Re-run `mise run release-gate` only after the `0x0008` versus `0x000C` hand-off is explained and fixed.
 
 # Verification To Re-run
 - cargo test -q -p kidcli capture_uses_current_frame_script_input -- --nocapture
 - cargo test -q -p kidcli oracle_limitation -- --nocapture
+- cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 350 --frame-end 365
+- cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 - mise run release-gate
 
 # Dead Ends / Do Not Retry
-- Do not retry the `script[frame_index - 1]` explanation; that mismatch is fixed and the gate still fails.
-- Do not patch `kid-core` title-shell logic yet; the failing artefact comes from `MdRuntime` capture, not the native source-port runtime.
+- Do not retry the old `title@360` hypothesis. The cached native state and `probe-native` both show `MdRuntime` already reaches `Game_Mode=$002C` with 3 lives at that checkpoint.
+- Do not patch `Obj_TitleMenu`/`sub_1C246` behaviour again until the later level-entry split is understood; the title loop is not the current blocker.
+- Do not rely on `oracle-probe --frame ...` or `inspect-scenario`; those CLI shapes do not exist here.
