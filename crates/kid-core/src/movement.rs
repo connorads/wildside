@@ -238,20 +238,32 @@ impl NativeRuntime {
     }
 
     pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {
+        // ASM loc_1AC70 -> loc_1AD2A seeds the start pose, then hibernates for
+        // one frame before the first `add.l d2,x_pos(a3)` / `add.l d3,y_pos(a3)`
+        // glide step. Trace-visible level-entry glyph poses must therefore
+        // treat the first StartingLevel frame as the untouched start position.
+        let visible_elapsed_frames = elapsed_frames.saturating_sub(1);
         self.starting_level_title_workers
             .iter()
             .find(|worker| worker.gfx_slot_index == LEVEL_ENTRY_TITLE_SLOT_2_INDEX)
-            .map(|worker| PlayerState::from_level_entry_title_worker(worker, elapsed_frames))
+            .map(|worker| {
+                PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames)
+            })
     }
 
     pub(crate) fn starting_level_title_active_objects(
         &self,
         elapsed_frames: usize,
     ) -> Vec<NativeObjectSnapshot> {
+        // ASM loc_1AC70 -> loc_1AD2A hibernates once before the first movement
+        // step, so the visible shell should stay at the seeded start pose on
+        // the first StartingLevel frame.
+        let visible_elapsed_frames = elapsed_frames.saturating_sub(1);
         self.starting_level_title_workers
             .iter()
             .map(|worker| {
-                let pose = PlayerState::from_level_entry_title_worker(worker, elapsed_frames);
+                let pose =
+                    PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy { object_type: 0 },
                     x_pos: pose.x_pos,
