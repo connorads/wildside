@@ -319,7 +319,7 @@ fn level_entry_title_random_y(rng: &mut RomRandomState) -> i32 {
 }
 
 fn level_entry_title_random_x(rng: &mut RomRandomState) -> i32 {
-    (i32::from(rng.next_byte()) + 0x3E) & !3
+    (i32::from(rng.next_word() & 0x00FF) + 0x3E) & !3
 }
 
 impl OpeningSliceState {

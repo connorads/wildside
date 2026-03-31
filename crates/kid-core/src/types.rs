@@ -1403,6 +1403,12 @@ impl RomRandomState {
         self.index = (self.index + 1) % Self::RAM_LENGTH;
         next
     }
+
+    pub(crate) fn next_word(&mut self) -> u16 {
+        let high = self.next_byte();
+        let low = self.next_byte();
+        u16::from_be_bytes([high, low])
+    }
 }
 
 impl Default for RomRandomState {

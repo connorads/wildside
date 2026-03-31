@@ -49,6 +49,16 @@ fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
     assert_eq!(actual, expected);
 }
 
+#[test]
+fn rom_random_state_matches_get_randomnumber_word_seeded_sequence() {
+    // ASM Get_RandomNumber_word (kid.asm:1210-1216) is two successive
+    // Get_RandomNumber_byte calls packed into a big-endian word.
+    let mut rng = RomRandomState::default();
+    let expected = [0x81C0, 0x9203, 0x97A3, 0x1C09];
+    let actual = expected.map(|_| rng.next_word());
+    assert_eq!(actual, expected);
+}
+
 fn manifest() -> AssetManifest {
     AssetManifest {
         generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
