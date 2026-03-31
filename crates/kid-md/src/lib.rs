@@ -797,9 +797,12 @@ impl MdRuntime {
         while self.cycles_until_vblank <= 0 {
             self.cycles_until_vblank += SYNTHETIC_VBLANK_CYCLES;
             self.z80_vblank_irq_cycles_remaining = Z80_VBLANK_IRQ_CYCLES;
+            // Count every synthetic display frame even if the ROM masks VInt;
+            // capture/verification frame indices track rendered frames, not
+            // only interrupt-delivering frames.
+            self.synthetic_vblanks += 1;
             if self.core.mem.vint_enabled() {
                 self.core.int_ctrl.request_interrupt(6);
-                self.synthetic_vblanks += 1;
             }
         }
         cycles
@@ -2716,7 +2719,7 @@ impl GemsAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, WORK_RAM_BASE,
+        AudioEvent, AudioLevels, AudioMixer, BusAccessKind, MdBus, MdRuntime, WORK_RAM_BASE,
         YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
         probe_rom, scale_channel,
     };
@@ -2725,6 +2728,17 @@ mod tests {
     use std::collections::VecDeque;
     use std::rc::Rc;
     use z80::Z80_io;
+
+    fn nop_rom() -> Vec<u8> {
+        let mut rom = vec![0x4E; 0x20_0000];
+        rom[1] = 0x71;
+        rom[0..4].copy_from_slice(&0x0000_1000u32.to_be_bytes());
+        rom[4..8].copy_from_slice(&0x0000_0008u32.to_be_bytes());
+        for chunk in rom[8..].chunks_exact_mut(2) {
+            chunk.copy_from_slice(&[0x4E, 0x71]);
+        }
+        rom
+    }
 
     #[test]
     fn probes_reset_vector_and_steps_nops() {
@@ -2741,6 +2755,21 @@ mod tests {
         assert_eq!(probe.final_pc, 0x0000_000C);
         assert_eq!(probe.steps.len(), 2);
         assert!(!probe.accesses.is_empty());
+    }
+
+    #[test]
+    fn frame_render_boundary_is_not_gated_on_vint_enable() {
+        // ASM `Title_InputLoop` writes `Game_Mode=$0008`, and `loc_1AE2E`
+        // does not advance to `$000C` until later visible level-entry frames.
+        // Capture must therefore keep counting rendered frames even when the
+        // ROM temporarily masks VInt during that mode-8 window.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime.core.mem.vdp.registers[1] &= !0x20;
+
+        assert!(
+            runtime.run_until_frame_rendered(200_000),
+            "frame counter should advance even while VInt is masked"
+        );
     }
 
     #[test]
