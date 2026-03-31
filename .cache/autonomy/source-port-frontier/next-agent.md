@@ -1,37 +1,43 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 38
-updated_at: 2026-03-31T04:39:14Z
+cycle: 39
+updated_at: 2026-03-31T04:40:56Z
 ---
 # What Changed
-- Read the loader/control-flow ASM around `loc_6E2`, `LoadGameModeData`, and `MainGameLoop`.
-- Confirmed the exact reload mechanism:
-  - when `$FFFFFBCE` is set, `loc_6E2` fades out, clears VRAM, reinitialises object and gfx-object slots, then calls `LoadGameModeData`
-  - `LoadGameModeData` reloads the current mode from `GameLoadArray` without changing `Game_Mode`
-  - `MainGameLoop` then continues executing the mode handler for that same `Game_Mode`
-- Combined with the earlier WRAM dumps, this explains how the frame-70 empty object list can occur while `Game_Mode` stays `$0004`: some earlier path set `$FFFFFBCE`, `loc_6E2` cleared the lists, and `Load_IntroSequence1` was reloaded before `sub_1B8F4` reappeared by frame 78.
+- Used the single targeted WRAM check the previous handoff allowed, reading `$FFFFFBCE` directly across the early mode-`$0004` window.
+- Found that the reload flag is already latched throughout the whole observed early shell lifetime:
+  - frames 40, 50, 60, 70, 78, 79, 80: `$FFFFFBCE = $FF`
+- This changes the unresolved question:
+  - it is no longer "who sets `$FFFFFBCE` before frame 70?"
+  - it is now "which early mode-`$0004` path actually jumps into `loc_6E2` while `$FFFFFBCE` is already latched?"
 
 # Current Model
-- The early cold-boot shell re-entry mechanism is no longer ambiguous:
-  - mode `$0004` stays live
-  - `$FFFFFBCE` triggers `loc_6E2`
-  - `loc_6E2` wipes object state and reloads `Load_IntroSequence1`
-- The remaining unknown is now narrower: which early mode-`$0004` path sets `$FFFFFBCE` before frame 70.
-- Since the traced loader path itself is RNG-silent, the next useful investigation is to identify the specific object/routine in the early intro-sequence-1 lifetime that raises `$FFFFFBCE`.
+- `$FFFFFBCE` being `FF` is not enough by itself to force an immediate reload; the actual reload only happens when execution jumps to `loc_6E2`.
+- The frame-70 empty-list gap is therefore best explained as:
+  - `$FFFFFBCE` was already set
+  - some mode-`$0004` code path hit `j_loc_6E2`
+  - `loc_6E2` wiped object state and reloaded `Load_IntroSequence1`
+- Since `sub_1B8F4` and the already-traced title workers do not jump to `loc_6E2` that early, the remaining search target is the early mode-`$0004` control path that can transfer there while the flag is latched.
 
 # Strongest Evidence
+- WRAM flag check:
+  - `.cache/oracle-probe/oracle/wram_frame_40.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_50.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_60.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_70.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_78.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_79.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_80.bin`
 - Supporting ASM:
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:789-850` `loc_65C`, `loc_6E2`, `MainGameLoop`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:23560-23581` `LoadGameModeData`, `GameLoadArray`
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:29067-29074` `Load_IntroSequence1`
-- Previously pinned WRAM facts that this explains:
-  - frames 40/70/78/79/99: `Game_Mode = $0004`
-  - frame 70: object list empty
-  - frame 78: `sub_1B8F4` has been allocated again
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30220-30238` `sub_1B8F4`, `loc_1B920`, `loc_1B924`
+- Example flag bytes:
+  - frames 40/50/60/70/78/79/80: `0xFBCE = FF`
 
 # Exact Next Moves
-- Stay narrow: identify which early mode-`$0004` object/routine can set `$FFFFFBCE` before frame 70. Start with the live frame-40 `sub_1B8F4` path and any adjacent cold-boot intro objects, and read their ASM for `st ($FFFFFBCE).w` or a jump into `loc_6E2`.
-- Use one targeted WRAM probe only if that ASM read still leaves more than one plausible setter.
+- Stay narrow: search the early mode-`$0004` cold-boot control flow for the first path that can jump to `j_loc_6E2` before `sub_1B8F4` reaches its own end-of-sequence transition. Start from call sites and helpers reachable during the `Load_IntroSequence1` lifetime, not from later title-screen logic.
+- Only probe again if the ASM leaves two concrete candidate jump paths alive after that read.
 
 # Verification To Re-run
 - cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 330 --frame-end 360 --wram-dump-frames 330,340,350,360
@@ -42,6 +48,6 @@ updated_at: 2026-03-31T04:39:14Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 
 # Dead Ends / Do Not Retry
-- Do not keep treating the frame-70 gap as a hidden mode change; `loc_6E2` already explains how reload can happen with `Game_Mode` unchanged.
-- Do not keep re-probing `Load_IntroSequence1` ownership; that is already settled.
-- Do not widen to later title-screen (`$002C`) control flow yet; the unresolved setter is still in the early mode-`$0004` lifetime.
+- Do not spend another cycle asking who first set `$FFFFFBCE`; WRAM now shows the flag was already latched throughout the observed early window.
+- Do not re-check `Load_IntroSequence1` ownership or `loc_6E2` semantics; both are already established.
+- Do not widen to later title-screen or mode-`$002C` code yet; the unresolved jump into `loc_6E2` is still inside the early mode-`$0004` lifetime.
