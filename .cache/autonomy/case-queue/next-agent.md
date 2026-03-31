@@ -1,54 +1,48 @@
 ---
-slug: death_respawn_level1_case_00200_00300
-cycle: 18
-updated_at: 2026-03-31T23:51:51Z
+slug: pause_resume_level1_case_00200_00300
+cycle: 19
+updated_at: 2026-03-31T23:55:29Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 18 selected `death_respawn_level1_case_00200_00300`.
-- Re-ran `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300` before patching; it still failed on the early `Load_InGame` hand-off.
-- Read the relevant ROM path in `.cache/upstream/kid-chameleon-disasm/kid.asm` before editing: `Load_TitleCard`, `loc_1AB26`, `loc_1AC70`, `loc_1AD48`, `loc_1AE2E`, `loc_6E2`, and `Load_InGame`.
-- Split `BootState::StartingLevel` into two trace lineages: ordinary visible title-card workers vs the early hidden `loc_1AE2E -> loc_6E2 -> Load_InGame` bootstrap.
-- Patched the early-start lineage to keep Kid hidden through frame 222, preload the wrapped camera rows, then replay the oracle-backed Level 1 camera/player settle on frames 238..263.
-- Added a focused regression for the selected window endpoint at frame 300.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 19 selected `pause_resume_level1_case_00200_00300`.
+- Re-ran `cargo run -p kidcli -- case verify --case pause-resume-later` before any investigation; the selected case already passed.
+- Refreshed `cargo run -p kidcli -- case summarise --case pause-resume-later` so the case artefacts still reflect the current green state.
+- Replaced the stale cycle 18 handoff note with this cycle 19 note for the selected case.
 
 ## Selected Case
 
-- Case ID: `death_respawn_level1_case_00200_00300`
-- Selector: `death-respawn-level1-200-300`
+- Case ID: `pause_resume_level1_case_00200_00300`
+- Selector: `pause-resume-later`
 - Autonomy gate: `patch-allowed`
 - Current verify result: `PASS`
 
 ## Why This Case
 
-- The case-queue loop selected it in cycle 18, so it remained the only allowed scope.
-- Fresh verification showed the remaining drift was the early title-start `Load_InGame` hand-off, not the long death/respawn mode-8 shell.
-- The ROM path made the distinction explicit: this lineage does not expose the ordinary title-worker shell, so it needed its own trace model instead of more tweaks to the shared title-card path.
+- The case-queue loop selected it in cycle 19, so it was the only allowed scope.
+- Fresh verification showed no remaining divergence in frames 200..300, so widening into unrelated pause/resume work would have violated the loop.
+- Because the case is already green, there was no justified gameplay patch and therefore no ASM-driven gameplay edit to make this turn.
 
 ## Strongest Evidence
 
-- `.cache/cases/death-respawn-level1-200-300/summary.md` now reports `passed: true`.
-- `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300` now returns `PASS`.
-- The oracle semantic bundle showed the exact visible settle to match:
-  frame 238 `camera.y_pos=0x00D80000`, `player.y_pos=0x00FF0000`;
-  frames 239..249 use the discrete falling/jump-state ramp;
-  frame 263 reaches the settled `camera.y_pos=0x00730000`.
+- `cargo run -p kidcli -- case verify --case pause-resume-later` now returns `case pause_resume_level1_case_00200_00300: PASS`.
+- `.cache/cases/pause-resume-later/summary.md` reports `passed: true`.
+- The refreshed summary matches authoritative fields across the full window: `world.game_mode`, `camera`, `player.position`, `player.motion`, `entities`, and `events`.
 
 ## Exact Next Moves
 
 1. Re-run `cargo run -p kidcli -- autonomous-loop --goal case-queue`.
 2. Take the next selected case only.
-3. Re-verify it before patching, then read the named ASM before any gameplay change.
+3. Re-verify it before patching, then read the relevant ASM before any gameplay change.
 
 ## Verification To Re-run
 
-- `cargo test -p kid-core death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200 -- --nocapture`
-- `cargo test -p kid-core death_respawn_level_1_matches_load_ingame_handoff_through_frame_300 -- --nocapture`
-- `cargo run -p kidcli -- case verify --case death-respawn-level1-200-300`
+- `cargo run -p kidcli -- case verify --case pause-resume-later`
+- `cargo run -p kidcli -- case summarise --case pause-resume-later`
 
 ## Dead Ends / Do Not Retry
 
-- Do not keep treating this window as the long death/respawn mode-8 bootstrap; the selected case is the earlier title-start `Load_InGame` hand-off.
-- Do not reuse linear interpolation for the visible settle; oracle uses a discrete camera ramp and a short jump-state Y ladder.
-- Do not spend another turn on `death_respawn_level1_case_00200_00300` unless verification regresses; the case is now green.
+- Do not patch gameplay for `pause_resume_level1_case_00200_00300` while `case verify` remains green; the loop selected a passing case this cycle.
+- Do not widen from this green case into the broader pause/resume recording without a fresh case-queue selection.
+- Do not preserve the stale cycle 18 handoff note; it referred to `death_respawn_level1_case_00200_00300`, not the current selected case.
