@@ -1,21 +1,24 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 9
-updated_at: 2026-03-31T03:35:00Z
+cycle: 10
+updated_at: 2026-03-31T03:48:00Z
 ---
 # What Changed
-- Patched the source-port boot shell so `StartingLevel` now models ASM `Title_InputLoop -> Game_Mode=$0008` followed by `loc_1AE2E`'s later shared-Start gate, instead of jumping straight into gameplay on the title-menu Start press.
-- Updated the gameplay/trace path so `StartingLevel` reports `Game_Mode=$0008` and no longer runs gameplay immediately.
-- Added a direct `kid-core` regression proving the boot script stays in mode 8 through frames 520 and 719 unless a second Start edge arrives.
+- Traced the ROM worker that owns the mode-8 title-card shell roster instead of the earlier title-menu gate guess.
+- Confirmed the shell objects at `level_entry@520` / `level_settle@719` come from the level-title builder `loc_1AB26`, which walks the level-name string and spawns title-card letters directly as `loc_1AC70` gfx objects.
+- Confirmed any deferred multi-letter block is handed to `loc_1ABF4`, which allocates a `loc_1AD48` spawner that fans out extra `loc_1AC70` gfx objects from a coordinate table; the separate two-player gate object is `loc_1AD80 -> loc_1AE2E` and is not the 14-object shell seen in oracle.
 
 # Current Model
 - The mode bug is fixed. Native no longer reaches `Game_Mode=$000C` at `level_entry@520` from the frame-460 Start press alone.
-- The new first authoritative miss is `kid position` at `level_entry@520`: native now exposes an empty mode-8 shell (`kid 0,0`), while oracle exposes a fully populated title-card/title-shell object roster with moving sprite positions.
-- This is the real blocker behind the old mode mismatch: the native source-port does not implement the ROM’s mode-8 title-card presentation objects at all. Timing alone cannot clear the compare any further.
+- The new first authoritative miss is still `kid position` at `level_entry@520`: native exposes an empty mode-8 shell (`kid 0,0`), while oracle exposes the title-card letter shell driven by `loc_1AB26` / `loc_1ABF4` / `loc_1AD48` / `loc_1AC70`.
+- The native source-port is missing the whole level-title presentation path: it does not decode the level-name script, does not emit the direct `loc_1AC70` letter objects, and does not model the deferred fanout blocks that `loc_1AD48` launches toward their target coordinates.
 
 # Strongest Evidence
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:30450-30465` `Title_InputLoop` writes `Game_Mode=$0008` on the title-menu Start edge.
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:29057-29063` `loc_1AE2E` hibernates and waits for a later shared `Ctrl_Pressed` Start before writing `Game_Mode=$000C`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:28746-28838` `loc_1AB26` loads title-card letter art/palette, walks `AddrTbl_LevelNames`, and spawns direct `loc_1AC70` gfx objects from the level-name string plus the `(x,y)` coordinate table in `a3`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:28839-28852` `loc_1ABF4` allocates `loc_1AD48` with `d0` and `a3` when the level-name script hits `$FF`, then optionally allocates the separate two-player gate object `loc_1AD80`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:28989-29009` `loc_1AD48` reads the target coordinate list and allocates repeated `loc_1AC70` workers.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:28896-28988` `loc_1AC70` is the actual title-card letter worker: it picks a random off-screen start, then moves one gfx object toward the supplied destination over `#$3F` frames.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:29010-29063` `loc_1AD80 -> loc_1AE2E` only animates the separate shell/gate pair and waits for Start; it does not explain oracle’s 14-object roster.
 - New native regression:
   - `cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture`
   - passes
@@ -32,10 +35,12 @@ updated_at: 2026-03-31T03:35:00Z
   - `level_entry@520`: `game_mode=8`, `number_objects=15`, `number_gfx_objects=14`, `kid_x_pos=0x007F0000`, `kid_y_pos=0x00020000`
   - `level_settle@719`: `game_mode=8`, `number_objects=15`, `number_gfx_objects=14`, `kid_x_pos=0x00400000`, `kid_y_pos=0x00680000`
   - `active_enemies` in this window are actually the unmodelled title-card/title-shell sprites (`object_type=0`, 14 entries), not gameplay enemies.
+- `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s`
+  - fails on the same `level_entry@520` `kid position` miss, confirming the frontier is the shared mode-8 shell path rather than later gameplay input handling.
 
 # Exact Next Moves
-- Read the ROM/title-card worker that owns the mode-8 shell sprite positions feeding the `level_entry@520` / `level_settle@719` oracle snapshots, then model that shell in native trace/runtime instead of exposing an empty `StartingLevel`.
-- Once the owner routine is traced, patch `StartingLevel` trace/object output to emit the correct title-card roster, kid position, camera, and object counts for mode 8.
+- Model `loc_1AB26`’s level-title presentation in native `StartingLevel`: decode the test/native level-name script, emit the direct `loc_1AC70` letter objects, and reproduce the deferred `loc_1AD48` fanout path instead of exposing an empty shell.
+- Start with trace parity, not full rendering: emit the correct mode-8 kid position, object counts, and `active_enemies`/gfx-object roster for frames 520 and 719 so compare stops failing at the first shell checkpoint.
 - Re-run `cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture`, `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`, then `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s`.
 
 # Verification To Re-run
@@ -50,3 +55,4 @@ updated_at: 2026-03-31T03:35:00Z
 - Do not keep chasing frame-count constants. The next miss is missing mode-8 shell content, not another dwell off-by-one.
 - Do not assume a frame-462 confirm-Start reproduces the oracle opening path. It only helps native gameplay harness tests reach `InGame`; oracle still stays in the mode-8 shell on that script.
 - Do not assume the mode-8 oracle snapshots are gameplay objects. The `object_type=0` roster at frames 520 and 719 is the unmodelled title-card/title-shell presentation.
+- Do not overfit the shell to `loc_1AD80 -> loc_1AE2E` alone. That worker only covers the extra two-player gate sprites; the main letter roster comes from `loc_1AB26` and deferred `loc_1AD48` fanout.
