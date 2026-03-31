@@ -396,6 +396,7 @@ pub(crate) fn capture_native_dynamic_gameplay_scenario(
 }
 
 pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> GameplayState {
+    let hidden_player = snapshot.kid_x_pos.is_none() || snapshot.kid_y_pos.is_none();
     GameplayState {
         label: format!("frame_{:05}", snapshot.frame_index),
         frame_index: snapshot.frame_index,
@@ -410,9 +411,16 @@ pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> G
         camera_y_pos: snapshot.camera_y_pos,
         kid_x_pos: snapshot.kid_x_pos.unwrap_or(0),
         kid_y_pos: snapshot.kid_y_pos.unwrap_or(0),
-        kid_x_vel: snapshot.kid_x_velocity,
-        kid_y_vel: snapshot.kid_y_velocity,
-        character_movement: snapshot.character_movement,
+        // ASM loc_74E0 -> loc_7508 restores the in-level respawn path with
+        // `Game_Mode = 8`, then seeds Kid's object pose from PlayerStart and
+        // resets Character_Movement to standingstill (`move.w #MoveID_Standingstill,(Character_Movement).w`).
+        // Gameplay/oracle probes read the raw WRAM mirrors during the earlier
+        // hidden frames as zeroes, so normalise hidden-player native trace
+        // snapshots the same way instead of mixing zero position with missing
+        // motion state.
+        kid_x_vel: snapshot.kid_x_velocity.or(hidden_player.then_some(0)),
+        kid_y_vel: snapshot.kid_y_velocity.or(hidden_player.then_some(0)),
+        character_movement: snapshot.character_movement.or(hidden_player.then_some(0)),
         kid_collision_type: None,
         invulnerable_frames: Some(snapshot.invulnerable_frames.try_into().unwrap_or(u8::MAX)),
         just_received_damage: Some(snapshot.just_received_damage),
@@ -687,8 +695,9 @@ pub(crate) fn run_native_script_dynamic_with_trace(
 
 #[cfg(test)]
 mod tests {
-    use super::capture_buttons_for_frame;
+    use super::{capture_buttons_for_frame, gameplay_state_from_native_trace};
     use crate::scenarios::Scenario;
+    use kid_core::NativeTraceFrame;
 
     #[test]
     fn capture_uses_current_frame_script_input() {
@@ -699,5 +708,22 @@ mod tests {
         assert_eq!(capture_buttons_for_frame(&script, 359), 0);
         assert_eq!(capture_buttons_for_frame(&script, 360), 0x80);
         assert_eq!(capture_buttons_for_frame(&script, 460), 0x80);
+    }
+
+    #[test]
+    fn gameplay_state_from_native_trace_zeroes_hidden_player_motion() {
+        let trace = NativeTraceFrame {
+            frame_index: 0,
+            game_mode_value: 0x0008,
+            ..NativeTraceFrame::default()
+        };
+
+        let state = gameplay_state_from_native_trace(&trace);
+
+        assert_eq!(state.kid_x_pos, 0);
+        assert_eq!(state.kid_y_pos, 0);
+        assert_eq!(state.kid_x_vel, Some(0));
+        assert_eq!(state.kid_y_vel, Some(0));
+        assert_eq!(state.character_movement, Some(0));
     }
 }
