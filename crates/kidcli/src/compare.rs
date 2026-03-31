@@ -1367,6 +1367,48 @@ pub(crate) fn compare_enemy_snapshots_against_oracle(
 mod tests {
     use super::*;
 
+    fn oracle_state(label: &str, frame_index: usize, game_mode: u16) -> OracleState {
+        OracleState {
+            label: label.into(),
+            frame_index,
+            game_mode,
+            boot_phase: Some(String::from("starting_level")),
+            boot_phase_elapsed: Some(0),
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 2,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            active_enemies: Vec::new(),
+            game_paused: false,
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: Some(0),
+            kid_y_vel: Some(0),
+            character_movement: Some(0),
+            just_received_damage: Some(false),
+            kid_collision_type: None,
+            kid_collision_source: None,
+            invulnerable_frames: Some(0),
+            currently_transforming: Some(false),
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: BTreeMap::new(),
+            cpu_registers: None,
+        }
+    }
+
     fn gameplay_state(frame_index: usize, label: &str, kid_x_pos: u32) -> GameplayState {
         GameplayState {
             label: label.into(),
@@ -1463,6 +1505,20 @@ mod tests {
         assert!(message.contains("first live drift frame 2"));
         assert!(message.contains("fields: kid_x_pos"));
         assert!(message.contains("native context:"));
+    }
+
+    #[test]
+    fn compare_native_states_reports_boot_level_entry_mode_8_release_gate() {
+        let run_dir = Path::new("/tmp/release-gate-md-runtime-ctrl-pressed-mode8");
+        let native = vec![oracle_state("level_entry", 520, 0x000C)];
+        let oracle = vec![oracle_state("level_entry", 520, 0x0008)];
+
+        let error = compare_native_states_against_oracle(run_dir, &native, &oracle)
+            .expect_err("level_entry mode split should surface as a game-mode drift");
+
+        let message = error.to_string();
+        assert!(message.contains("state level_entry@520 diverged in game mode"));
+        assert!(message.contains("native 000C, oracle 0008"));
     }
 
     #[test]
