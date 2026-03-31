@@ -1,53 +1,52 @@
 ---
 slug: release-gate-md-runtime-level-entry-slot2-rng-blocker
-cycle: 44
-updated_at: 2026-03-31T05:05:12Z
+cycle: 45
+updated_at: 2026-03-31T06:10:00Z
 ---
 # What Changed
-- Re-read `loc_1ABF4`, `loc_1AC70`, `loc_1AD48`, and the surrounding mode-8 shell path before trying a gameplay fix.
-- Ran a delayed-materialisation experiment locally, then backed it out after verification showed it was incomplete.
-- Confirmed a new blocker: shifting worker visibility later is not sufficient because native still advances RNG during the hidden mode-8 window before any shell worker is visible.
+- Re-read `Load_TitleCard`, `loc_1AB26`, `loc_1ABF4`, `loc_1AC70`, `loc_1AD48`, `Execute_Objects`, and `Mode_Standard` before touching native code again.
+- Confirmed from oracle state dumps that frames 500..503 stay in `game_mode=8` with `kid_x_pos=0`, `kid_y_pos=0`, no active enemies, `number_gfx_objects=0`, and flat `rng_offset=65481`, then first expose slot 2 on frame 504 at `0x00940000,0xFFF00000` with 13 active enemies.
+- Tried the obvious lazy-materialisation idea locally, then backed it out after verification: hiding the shell until frame 504 and deferring the worker RNG no longer leaked the early 7-byte offset, but frame 504 still revealed the wrong first worker set and `compare-native-oracle` moved the divergence to the later level-entry state.
 
 # Current Model
-- The level-entry shell bug is deeper than “workers start too early”.
-- Oracle stays hidden at frames 500..503 with `rng_offset=65481`, then exposes slot 2 on frame 504.
-- Native can be forced to stay hidden through frame 503, but even in that hidden window its RNG is already at `65488` by frame 503, seven bytes ahead of oracle before any visible `loc_1AC70` worker should exist.
-- That means the next safe fix is to identify the hidden mode-8 RNG consumer / scheduler path first. Patching `starting_level_title_workers` timing alone will keep producing the wrong slot-2 seed and pose.
+- The old “delay worker birth” theory is still incomplete, but there is now a narrower result:
+  delaying `loc_1AC70` RNG consumption is necessary, not sufficient.
+- `Load_TitleCard -> loc_1AB26 -> loc_1ABF4 / loc_1AD48` only proves that object allocation and the Start-poll object exist before frame 504; it does not explain which hidden object(s) have executed by the time the first visible shell appears.
+- When native hides everything through frame 503 and then materialises the whole shell on frame 504, it reveals slot 2 at `0xFFE00000,0x00A80000` with 14 active enemies and later diverges at level-entry@520. That means the first visible worker order / visibility set is still wrong even after the early RNG leak is removed.
 
 # Strongest Evidence
 - ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28816-28982` `loc_1ABF4`, `loc_1AC70`, `loc_1AD48`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:823-930` `loc_6E2`, `MainGameLoop`, `Mode_Standard`, `Execute_Objects`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1096-1230` `Init_RNG`, `Get_RandomNumber_byte/word/long`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28588-29064` `Load_TitleCard`, `loc_1AB26`, `loc_1ABF4`, `loc_1AC70`, `loc_1AD48`, `loc_1AE2E`
 - Oracle:
   - `.cache/oracle-probe/oracle/manifest.json`
-  - Frame 500: `game_mode=8`, `rng_offset=65481`, `slot_2=null`
-  - Frame 503: `game_mode=8`, `rng_offset=65481`, `slot_2=null`
-  - Frame 504: `game_mode=8`, `rng_offset=65519`, slot 2 at `0x00940000,0xFFF00000`
-- Native probes:
-  - `cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 468 --frame-end 475`
-    shows the shell can be kept fully hidden on those early mode-8 frames.
-  - `cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 500 --frame-end 506`
-    showed the delayed-materialisation experiment still produced the wrong shell on frame 504.
-- Failed red step:
-  - `cargo test -q -p kid-core boot_title_start_delays_loc_1abf4_worker_birth_until_mode_8_frame_504 -- --nocapture`
-  - Even with the shell hidden through frame 503, native reported `rng_offset=65488` at frame 503 instead of oracle’s `65481`.
+  - Frame 500..503: `kid_x_pos=0`, `kid_y_pos=0`, `active_enemies=[]`, `number_gfx_objects=0`, `rng_offset=65481`
+  - Frame 504: `kid_x_pos=0x00940000`, `kid_y_pos=0xFFF00000`, `active_enemies.len()=13`, `number_gfx_objects=13`
+- Native baseline:
+  - `cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 458 --frame-end 466`
+    shows the current runtime still exposes all 14 title workers immediately on frame 460.
+- Failed local experiment (backed out):
+  - Hidden shell through frame 503, first reveal on frame 504
+  - Frame 504 still wrong: slot 2 at `0xFFE00000,0x00A80000`, 14 active enemies
+  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
+    then diverged at level_entry@520 (`native 000E0000,00880000; oracle 007F0000,00020000`)
 
 # Exact Next Moves
-- Do one investigation only: find what advances native RNG by 7 bytes during hidden mode-8 frames 500..503.
-- Compare oracle and native around frames 499..504 with the hidden shell intact; inspect whether the live gameplay/object loop is still running when only `loc_1AE2E` should be polling Start.
-- Read the mode-8 hand-off around `Load_TitleCard` / object execution again and correlate it with native stepping order before reintroducing any worker-lifecycle patch.
-- Do not reapply the delayed-materialisation patch until the hidden RNG drift is explained.
+- Do one investigation only: identify which `loc_1AC70` / `loc_1AD48` objects are actually visible on oracle frame 504 and why native’s “all 14 workers at once” model is one object too many.
+- Read the object-slot / gfx-slot execution order around `Allocate_ObjectSlot`, `Load_GfxObjectSlot`, and the `Hibernate_Object_1Frame` resume path; work out whether one worker is still hibernating or off-screen on the first visible frame.
+- Correlate oracle frame-504 active-enemy order with `loc_1AB26` script order and `loc_1AD48`’s deferred suffix worker so the next patch changes worker ordering/visibility, not just RNG timing.
+- Do not retry the backed-out lazy-materialisation patch unchanged; it fixes one symptom and still lands on the wrong frame-504 shell.
 
 # Verification To Re-run
-- cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 500 --frame-end 530 --wram-dump-frames 500,510,520,530
-- cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 470 --frame-end 500
-- cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 468 --frame-end 506
-- cargo test -q -p kid-core boot_title_start_mode_8_keeps_advancing_rng_before_gameplay_entry -- --nocapture
+- cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 499 --frame-end 504
+- cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 458 --frame-end 466
+- cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 500 --frame-end 504
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
-- cargo test -q -p kid-core level_entry_has_no_damage_grace_window -- --nocapture
-- cargo test -q -p kidcli compare_native_states_reports_boot_level_entry_mode_8_release_gate -- --nocapture
+- cargo test -q -p kid-core boot_title_start_mode_8_keeps_advancing_rng_before_gameplay_entry -- --nocapture
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 
 # Dead Ends / Do Not Retry
-- Do not retry the pure “delay worker birth to frame 504” patch by itself. It hides the shell but leaves native RNG seven bytes ahead before slot 2 exists.
-- Do not patch `title_screen_ready`, camera, or compare masking while the hidden mode-8 RNG drift is unresolved.
-- Do not assume `loc_1AB26` RNG is the first hidden consumer. The next task is to prove what runs between mode-8 entry and the first visible worker.
+- Do not retry the pure “delay worker birth to frame 504” patch by itself.
+- Do not retry the backed-out “delay worker birth + defer `loc_1AC70` RNG” patch unchanged; it still exposes the wrong frame-504 shell and later diverges at level-entry@520.
+- Do not patch compare masking, title-ready, or camera state while the frame-504 worker order / visibility mismatch is unresolved.
