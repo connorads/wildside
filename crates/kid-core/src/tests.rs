@@ -499,6 +499,40 @@ fn boot_title_start_level_1_keeps_slot_13_hidden_on_frame_504() {
 }
 
 #[test]
+fn boot_title_start_level_1_keeps_slot_2_hidden_until_frame_504() {
+    let mut runtime = cached_generated_runtime();
+    let mut frame_503 = None;
+    let mut frame_504 = None;
+
+    for frame_index in 0..=504 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        if frame_index == 503 {
+            frame_503 = Some(trace);
+        } else if frame_index == 504 {
+            frame_504 = Some(trace);
+        }
+    }
+
+    let frame_503 = frame_503.expect("frame 503 trace");
+    let frame_504 = frame_504.expect("frame 504 trace");
+
+    // Oracle frame 503 still has no gfx title shell, while frame 504 is the
+    // first slot-2 exposure from loc_1AC70.
+    assert_eq!(frame_503.kid_x_pos, None);
+    assert_eq!(frame_503.kid_y_pos, None);
+    assert!(frame_504.kid_x_pos.is_some());
+    assert!(frame_504.kid_y_pos.is_some());
+}
+
+#[test]
 fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
     let mut runtime = cached_generated_runtime();
     runtime.begin_level_entry(LevelId(1));

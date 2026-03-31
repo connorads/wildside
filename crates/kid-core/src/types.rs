@@ -1367,10 +1367,16 @@ pub(crate) struct PlayerState {
 pub(crate) struct LevelEntryTitleWorker {
     pub(crate) gfx_slot_index: usize,
     pub(crate) glyph: u8,
-    pub(crate) start_x_pos: u32,
-    pub(crate) start_y_pos: u32,
+    pub(crate) activation_frame: usize,
     pub(crate) target_x_pos: u32,
     pub(crate) target_y_pos: u32,
+    pub(crate) motion: Option<LevelEntryTitleWorkerMotion>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LevelEntryTitleWorkerMotion {
+    pub(crate) start_x_pos: u32,
+    pub(crate) start_y_pos: u32,
     pub(crate) x_step_fp: i32,
     pub(crate) y_step_fp: i32,
 }

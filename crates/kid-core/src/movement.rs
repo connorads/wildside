@@ -27,6 +27,8 @@ const INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT: usize = 2;
 const LEVEL_ENTRY_TITLE_SLOT_2_INDEX: usize = 2;
 const LEVEL_ENTRY_TITLE_ANIMATION_FRAMES: usize = 64;
 const LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME: usize = 44;
+const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
+    LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1;
 const TITLE_CARD_WIDTH_TILES: [u8; 11] = [
     0, 0x0E, 0x11, 0x12, 0x10, 0x13, 0x10, 0x11, 0x12, 0x0F, 0x13,
 ];
@@ -101,17 +103,21 @@ impl PlayerState {
         worker: &LevelEntryTitleWorker,
         elapsed_frames: usize,
     ) -> Self {
+        let motion = worker
+            .motion
+            .as_ref()
+            .expect("seeded level-entry title worker");
         Self {
             x_pos: level_entry_title_worker_axis_pos(
-                worker.start_x_pos,
+                motion.start_x_pos,
                 worker.target_x_pos,
-                worker.x_step_fp,
+                motion.x_step_fp,
                 elapsed_frames,
             ),
             y_pos: level_entry_title_worker_axis_pos(
-                worker.start_y_pos,
+                motion.start_y_pos,
                 worker.target_y_pos,
-                worker.y_step_fp,
+                motion.y_step_fp,
                 elapsed_frames,
             ),
             x_velocity: 0,
@@ -166,9 +172,6 @@ impl NativeRuntime {
                     let Some(destination) = current_destination.clone() else {
                         break;
                     };
-                    let start_selector = self.rom_random.next_byte() & 3;
-                    let (start_x_pos, start_y_pos) =
-                        level_entry_title_start_pose(&mut self.rom_random, start_selector);
                     let target_x_pos =
                         u32::from(destination.x.saturating_add(title_card_x_offset)) << 16;
                     let target_y_pos =
@@ -181,13 +184,11 @@ impl NativeRuntime {
                             // ones. Trace slot 2 therefore follows creation
                             // order, not a reverse-count shell index.
                             gfx_slot_index: visible_glyph_index,
+                            activation_frame: LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
                             glyph,
-                            start_x_pos,
-                            start_y_pos,
                             target_x_pos,
                             target_y_pos,
-                            x_step_fp: level_entry_title_axis_step(start_x_pos, target_x_pos),
-                            y_step_fp: level_entry_title_axis_step(start_y_pos, target_y_pos),
+                            motion: None,
                         });
                     if let Some(destination) = current_destination.as_mut() {
                         destination.x = destination
@@ -201,18 +202,14 @@ impl NativeRuntime {
 
         if let Some(destination) = title_card.level_number_destination {
             for number_index in 0..usize::from(title_card.level_number_glyph_count) {
-                let start_selector = self.rom_random.next_byte() & 3;
-                let (start_x_pos, start_y_pos) =
-                    level_entry_title_start_pose(&mut self.rom_random, start_selector);
                 self.starting_level_title_workers
                     .push(LevelEntryTitleWorker {
                         // ASM loc_1AD48 allocates the deferred number worker
                         // after the visible title glyph shell, so the suffix
                         // occupies the next free gfx slots above the letters.
                         gfx_slot_index: visible_glyph_count + number_index,
+                        activation_frame: LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
                         glyph: 0x7B,
-                        start_x_pos,
-                        start_y_pos,
                         target_x_pos: u32::from(
                             destination
                                 .x
@@ -220,35 +217,44 @@ impl NativeRuntime {
                                 .saturating_add(number_index as u16 * 0x10),
                         ) << 16,
                         target_y_pos: u32::from(destination.y) << 16,
-                        x_step_fp: level_entry_title_axis_step(
-                            start_x_pos,
-                            u32::from(
-                                destination
-                                    .x
-                                    .saturating_add(title_card_x_offset)
-                                    .saturating_add(number_index as u16 * 0x10),
-                            ) << 16,
-                        ),
-                        y_step_fp: level_entry_title_axis_step(
-                            start_y_pos,
-                            u32::from(destination.y) << 16,
-                        ),
+                        motion: None,
                     });
             }
         }
     }
 
+    pub(crate) fn maybe_seed_starting_level_title_workers(&mut self, elapsed_frames: usize) {
+        for worker in &mut self.starting_level_title_workers {
+            if worker.motion.is_some() || worker.activation_frame > elapsed_frames {
+                continue;
+            }
+            let start_selector = self.rom_random.next_byte() & 3;
+            let (start_x_pos, start_y_pos) =
+                level_entry_title_start_pose(&mut self.rom_random, start_selector);
+            worker.motion = Some(LevelEntryTitleWorkerMotion {
+                start_x_pos,
+                start_y_pos,
+                x_step_fp: level_entry_title_axis_step(start_x_pos, worker.target_x_pos),
+                y_step_fp: level_entry_title_axis_step(start_y_pos, worker.target_y_pos),
+            });
+        }
+    }
+
     pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {
-        // ASM loc_1AC70 -> loc_1AD2A seeds the start pose, then hibernates for
-        // one frame before the first `add.l d2,x_pos(a3)` / `add.l d3,y_pos(a3)`
-        // glide step. Trace-visible level-entry glyph poses must therefore
-        // treat the first StartingLevel frame as the untouched start position.
-        let visible_elapsed_frames = elapsed_frames.saturating_sub(1);
         self.starting_level_title_workers
             .iter()
             .find(|worker| worker.gfx_slot_index == LEVEL_ENTRY_TITLE_SLOT_2_INDEX)
-            .map(|worker| {
-                PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames)
+            .and_then(|worker| {
+                worker.motion.as_ref().map(|_| {
+                    // ASM loc_1AC70 -> loc_1AD2A seeds the start pose on first
+                    // execution, then hibernates for one frame before the
+                    // first glide step. Oracle frame 504 is that first visible
+                    // shell for slot 2, so the trace must expose the untouched
+                    // seeded pose there.
+                    let visible_elapsed_frames =
+                        elapsed_frames.saturating_sub(worker.activation_frame);
+                    PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames)
+                })
             })
     }
 
@@ -256,23 +262,11 @@ impl NativeRuntime {
         &self,
         elapsed_frames: usize,
     ) -> Vec<NativeObjectSnapshot> {
-        let hide_deferred_number_worker =
-            elapsed_frames == LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
-        // ASM loc_1AC70 -> loc_1AD2A hibernates once before the first movement
-        // step, so the visible shell should stay at the seeded start pose on
-        // the first StartingLevel frame.
-        let visible_elapsed_frames = elapsed_frames.saturating_sub(1);
         self.starting_level_title_workers
             .iter()
-            .filter(|worker| {
-                // ASM loc_1AB26 spawns the visible letter workers directly,
-                // but the deferred loc_1AD48 suffix worker is allocated after
-                // loc_1AB26 has already entered the current object pass via
-                // Execute_Objects. Oracle frame 504 therefore exposes only
-                // slots 0..12, with slot 13 joining on the next pass.
-                !(hide_deferred_number_worker && worker.glyph == 0x7B)
-            })
+            .filter(|worker| worker.motion.is_some())
             .map(|worker| {
+                let visible_elapsed_frames = elapsed_frames.saturating_sub(worker.activation_frame);
                 let pose =
                     PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
                 NativeObjectSnapshot {

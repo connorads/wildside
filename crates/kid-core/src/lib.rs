@@ -535,10 +535,11 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.handle_start_press(input, start_pressed);
         self.step_boot_state(input, start_pressed);
-        if matches!(self.boot_state, BootState::StartingLevel { .. }) {
+        if let BootState::StartingLevel { elapsed_frames, .. } = self.boot_state {
             // ASM Execute_Objects (kid.asm:1636-1661) begins each mode-$0008
             // frame with `Get_RandomNumber_long` before object iteration.
             let _ = self.rom_random.next_long();
+            self.maybe_seed_starting_level_title_workers(elapsed_frames);
         }
         if let BootState::DemoPlay { use_demo_2, .. } = self.boot_state
             && self.demo_gameplay_active()
