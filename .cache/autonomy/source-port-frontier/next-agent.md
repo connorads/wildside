@@ -1,56 +1,37 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 6
-updated_at: 2026-03-31T01:46:44Z
+cycle: 7
+updated_at: 2026-03-31T02:25:00Z
 ---
 # What Changed
-- Read the ROM’s input path around `ReadJoypad` and `Joypad_ReadFromHardware`, not just the mode handlers.
-- Confirmed from ASM that the later mode-8 hand-off consumes the shared `Ctrl_Pressed` edge produced by `ReadJoypad`, not a title-specific latch.
-- Tried lightweight `probe-cpu` snapshots, but they are too coarse to isolate the frame-520 mode-8/title-card loop.
+- Read the ROM again around `ReadJoypad`, `Joypad_ReadFromHardware`, `loc_1AE2E`, and `Title_InputLoop` before touching native code.
+- Captured oracle CPU registers for `boot_title_start_level1` on frames 500..540 with `oracle-probe --capture-cpu-state`.
+- Re-ran `compare-native-oracle --scenario boot-title-start-level1` to confirm the release gate is still `level_entry@520` (`native 000C`, `oracle 0008`).
 
 # Current Model
-- The frame-360 title checkpoint is no longer the frontier. `probe-native --scenario boot-title-start-level1 --frame-start 350 --frame-end 365` shows `frame 360: input Start mode TitleScreen ... lives/hp 3/2`, and the cached native state now records `title@360 -> game_mode=0x002C`.
-- The real release-gate blocker is still the transition after Start: `compare-native-oracle --scenario boot-title-start-level1` fails at `level_entry@520` with `native 0x000C` versus `oracle 0x0008`.
-- The ROM path distinguishes two separate Start-driven mode changes:
-  - `Title_InputLoop` writes `Game_Mode=$0008` on the title Start edge.
-  - `loc_1AE2E` later waits inside the level-entry/title-card loop and writes `Game_Mode=$000C` only after another `Ctrl_Pressed` Start edge.
-- The VInt-gated frame counter was a real semantic gap in `kid-md`, but it is not sufficient to explain the release-gate failure by itself. After ungating frame counting, `compare-native-oracle --scenario boot-title-start-level1` still fails at `level_entry@520` with the same `native 0x000C` versus `oracle 0x0008`.
-- The frontier is now narrower: the remaining mismatch likely sits on how `MdRuntime`/controller emulation generates the shared `Ctrl_Pressed` Start edge inside the mode-8 title-card loop rooted at ASM `loc_1AE2E`, or on another post-title timing edge after `ReadJoypad` updates `Ctrl_Pressed`.
+- The frame-520 oracle checkpoint is not sitting in `loc_1AE2E` yet. By frames 503..540 the ROM PC is parked at `0x0000095C`, inside the `WaitForVint` loop immediately after `sub_8E0` (`WaitForVint` in `kid.asm`).
+- That means the oracle is still in the mode-8/title-card presentation shell at `level_entry@520`; the native side is advancing to `Game_Mode=$000C` too early, before the ROM leaves the frame-boundary wait loop.
+- ASM still says the later exit out of mode 8 must come from `loc_1AE2E` consuming shared `Ctrl_Pressed` (`bclr #Button_Start,(Ctrl_Pressed).w`), not directly from `Ctrl_1_Pressed`.
+- The next gap is therefore native timing/order: either `MdRuntime` presents or consumes the frame-460 Start edge too early relative to `WaitForVint`/`ReadJoypad`, or mode-8 native code bypasses the ROM’s extra frame-boundary dwell before `loc_1AE2E` sees the shared edge.
 
 # Strongest Evidence
-- Post-title ROM path:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30447` `Title_InputLoop` writes `Game_Mode=$0008` on the title Start edge.
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29049` `loc_1AE2E` hibernates until `Ctrl_Pressed` Start, then writes `Game_Mode=$000C`.
-- Input-edge ROM path:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1404-1428` `ReadJoypad loc_C4E -> loc_C9C` derives newly pressed keys and copies them into shared `Ctrl_Pressed`.
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1436-1451` `Joypad_ReadFromHardware` performs the TH-low/TH-high reads from `$A10003`.
-- Native state cache:
-  - `/home/connor/git/kc/.cache/native-oracle-runs/boot_title_start_level1/native/state.json`
-  - `title@360`: `game_mode=44`, `number_lives=3`, `camera_y_pos=0`
-  - `level_entry@520`: `game_mode=12`, `number_lives=3`, `camera_y_pos=0x00730000`
-- Oracle state cache:
-  - `/home/connor/git/kc/.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`
-  - `title@360`: `game_mode=44`, `number_lives=3`, `camera_y_pos=0`
-  - `level_entry@520`: `game_mode=8`, `number_lives=3`, `camera_y_pos=0`
-- Repro command:
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:1332-1430` `ReadJoypad` rebuilds `Ctrl_1_Pressed`, `Ctrl_2_Pressed`, then copies the active player's edge into shared `Ctrl_Pressed`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:1436-1451` `Joypad_ReadFromHardware` performs the TH-low/TH-high hardware reads from `$A10003`/`$A10005`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:29057-29063` `loc_1AE2E` hibernates one frame at a time, then consumes shared `Ctrl_Pressed` Start before writing `Game_Mode=$000C`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:1044-1054` `WaitForVint` spins on `V_Int_Done`; oracle PC `0x0000095C` falls inside this loop.
+- Oracle CPU capture (`cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 500 --frame-end 540 --capture-cpu-state`):
+  - frame 500: `PC=0x000138F2`
+  - frame 501: `PC=0x00014316`
+  - frame 502: `PC=0x00000DC4`
+  - frames 503..540: `PC=0x0000095C`, `SR=0x2500`
+- Authoritative compare still fails:
   - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
-- Frame-loop mismatch:
-  - `crates/kid-md/src/lib.rs:800-806` now counts every synthetic display frame while still gating only the IRQ request on `vint_enabled()`.
-  - `crates/kid-md/src/lib.rs:2761-2772` adds `frame_render_boundary_is_not_gated_on_vint_enable`.
-  - `crates/kidcli/src/oracle_helper_main.rs.txt:528-533` advances the oracle capture on every `TickEffect::FrameRendered`.
-- Verification after the change:
-  - `cargo test -q -p kid-md frame_render_boundary_is_not_gated_on_vint_enable -- --nocapture` passes.
-  - `cargo test -q -p kid-md -- --nocapture` passes.
-  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1` still fails at `level_entry@520`.
-- Lightweight CPU probes:
-  - `cargo run -q -p kidcli -- probe-cpu --steps 250000 ... --summary-only` only reaches `game_mode=0x0000`.
-  - `cargo run -q -p kidcli -- probe-cpu --steps 400000 ... --summary-only` reaches only `game_mode=0x0004`.
-  - Those summaries are too coarse to diagnose the frame-520 mode-8 loop directly.
+  - `state level_entry@520 diverged in game mode (native 000C, oracle 0008)`
 
 # Exact Next Moves
-- Capture oracle CPU state at or around `level_entry@520` for `boot_title_start_level1`, so the exact ROM PC/routine during the mode-8 window is known before patching `kid-md`.
-- Add one focused `kid-md` regression around the shared `Ctrl_Pressed`/Start-edge behaviour once that oracle frame confirms where the ROM is sitting.
-- Re-run `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`, then `mise run release-gate` once the mode-8 hand-off is corrected.
+- Read the native mode-8/frame-boundary path around `MdRuntime` and the source-port boot/title shell, then add one focused regression proving native must still be in mode 8 at frame 520 while the oracle is waiting in `WaitForVint`.
+- Once that regression is red, patch the native Start-edge/frame-order logic so the post-title mode-8 shell cannot advance to `Game_Mode=$000C` before the ROM-backed `loc_1AE2E` timing would allow it.
+- Re-run `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`, then `mise run release-gate`.
 
 # Verification To Re-run
 - cargo test -q -p kidcli capture_uses_current_frame_script_input -- --nocapture
@@ -61,8 +42,7 @@ updated_at: 2026-03-31T01:46:44Z
 - mise run release-gate
 
 # Dead Ends / Do Not Retry
-- Do not retry the old `title@360` hypothesis. The cached native state and `probe-native` both show `MdRuntime` already reaches `Game_Mode=$002C` with 3 lives at that checkpoint.
-- Do not patch `Obj_TitleMenu`/`sub_1C246` behaviour again until the later level-entry split is understood; the title loop is not the current blocker.
-- Do not rely on `oracle-probe --frame ...` or `inspect-scenario`; those CLI shapes do not exist here.
-- Do not treat VInt-gated frame counting as the primary frontier any more; the local semantic fix landed, but the authoritative boot-title compare did not move.
-- Do not treat `Ctrl_1_Pressed` as the only relevant Start latch. ASM `loc_1AE2E` consumes shared `Ctrl_Pressed`, which is rebuilt by `ReadJoypad loc_C4E -> loc_C9C`.
+- Do not retry the old `title@360` hypothesis. Native already reaches `Game_Mode=$002C` there.
+- Do not assume frame 520 is already inside `loc_1AE2E`; oracle CPU capture disproves that.
+- Do not patch title-menu `Ctrl_1_Pressed` handling again. ASM says the later release gate uses shared `Ctrl_Pressed`.
+- Do not treat the earlier VInt frame-counter fix as sufficient. It landed, and the authoritative compare did not move.
