@@ -2,7 +2,6 @@
 
 pub(crate) const SEGA_SCREEN_FRAMES: usize = 120;
 pub(crate) const INTRO_FIRST_SEGMENT_FRAMES: usize = 160;
-pub(crate) const INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES: usize = 80;
 pub(crate) const INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES: usize = 100;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;

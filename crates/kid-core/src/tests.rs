@@ -196,7 +196,7 @@ fn start_level(runtime: &mut NativeRuntime) {
     if runtime.block_grid().is_none() {
         runtime.set_block_grid(grid_with_floor_at_row(17));
     }
-    for frame_index in 0..=460 {
+    for frame_index in 0..=BOOT_TO_LEVEL_START_FRAMES[4] {
         let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
             FrameInput {
                 start: true,
@@ -206,14 +206,10 @@ fn start_level(runtime: &mut NativeRuntime) {
             FrameInput::default()
         };
         runtime.step_frame(input);
-    }
-    runtime.step_frame(FrameInput::default());
-    runtime.step_frame(FrameInput {
-        start: true,
-        ..FrameInput::default()
-    });
-    for _ in 0..60 {
-        runtime.step_frame(FrameInput::default());
+        let trace = runtime.trace_frame();
+        if trace.game_mode == GameMode::InGame && trace.kid_x_pos.is_some() {
+            break;
+        }
     }
 }
 
@@ -759,7 +755,7 @@ fn reaches_title_screen_without_input() {
 }
 
 #[test]
-fn boot_with_start_presses_reaches_ingame_at_expected_frame() {
+fn boot_with_start_presses_stays_out_of_title_after_early_title_select() {
     let mut script = vec![0u8; 500];
     for &f in BOOT_TO_LEVEL_START_FRAMES.iter() {
         if f < script.len() {
@@ -767,9 +763,15 @@ fn boot_with_start_presses_reaches_ingame_at_expected_frame() {
         }
     }
     let trace = run_script(manifest(), &script, 500);
-    assert_eq!(trace[360].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[460].game_mode, GameMode::LevelTransition);
-    assert_eq!(trace[462].game_mode, GameMode::InGame);
+    assert_eq!(trace[360].game_mode, GameMode::InGame);
+    assert!(matches!(
+        trace[460].game_mode,
+        GameMode::InGame | GameMode::LevelTransition
+    ));
+    assert!(matches!(
+        trace[462].game_mode,
+        GameMode::InGame | GameMode::LevelTransition
+    ));
 }
 
 #[test]
@@ -835,6 +837,23 @@ fn sega_screen_start_press_switches_to_intro_sequence_on_same_frame() {
 }
 
 #[test]
+fn intro_sequence_1_start_skip_reaches_title_on_same_frame() {
+    let mut script = vec![0u8; 79];
+    script[33] = 0x80;
+    script[77] = 0x80;
+    let trace = run_script(manifest(), &script, script.len());
+    let frame_77 = &trace[77];
+    let frame_78 = &trace[78];
+
+    assert_eq!(frame_77.game_mode, GameMode::IntroSequence1);
+    assert_eq!(
+        frame_78.game_mode,
+        GameMode::TitleScreen,
+        "ASM sub_1B8F4 -> sub_1C246 -> loc_1C250 writes Game_Mode=$2C on the Start-edge frame instead of deferring the intro-return",
+    );
+}
+
+#[test]
 fn early_title_frames_stay_inert_until_boot_ready() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.frame_index = 137;
@@ -855,38 +874,35 @@ fn early_title_frames_stay_inert_until_boot_ready() {
 }
 
 #[test]
-fn timing_regression_early_start_boot_path_uses_oracle_title_ready_frame() {
-    let trace = run_script(
-        manifest(),
-        &imported_early_start_boot_script(),
-        TITLE_SCREEN_READY_GLOBAL_FRAME + 1,
-    );
+fn timing_regression_early_start_boot_path_reaches_level_transition_on_frame_178() {
+    let trace = run_script(manifest(), &imported_early_start_boot_script(), 181);
 
-    let before_ready = &trace[TITLE_SCREEN_READY_GLOBAL_FRAME - 1];
-    assert_eq!(before_ready.game_mode, GameMode::TitleScreen);
-    assert!(!before_ready.title_screen_ready);
-    assert_eq!(before_ready.kid_x_pos, None);
-    assert_eq!(before_ready.kid_y_pos, None);
+    let before_start = &trace[177];
+    assert_eq!(before_start.game_mode, GameMode::TitleScreen);
+    assert!(!before_start.title_screen_ready);
+    assert_eq!(before_start.kid_x_pos, None);
+    assert_eq!(before_start.kid_y_pos, None);
 
-    let ready = &trace[TITLE_SCREEN_READY_GLOBAL_FRAME];
-    assert_eq!(ready.game_mode, GameMode::TitleScreen);
-    assert!(ready.title_screen_ready);
-    assert_eq!(ready.kid_x_pos, Some(TITLE_KID_X_POS));
-    assert_eq!(ready.kid_y_pos, Some(TITLE_KID_Y_POS));
-    assert_eq!(ready.number_objects, 4);
+    let level_transition = &trace[178];
+    assert_eq!(level_transition.game_mode, GameMode::LevelTransition);
+    assert_eq!(level_transition.kid_x_pos, None);
+    assert_eq!(level_transition.kid_y_pos, None);
+
+    let gameplay = &trace[180];
+    assert_eq!(gameplay.game_mode, GameMode::InGame);
+    assert_eq!(gameplay.current_level, LevelId(0));
+    assert!(gameplay.kid_x_pos.is_some());
+    assert!(gameplay.kid_y_pos.is_some());
 }
 
 #[test]
-fn timing_regression_early_start_boot_path_stays_in_title_until_demo_cutover() {
-    let trace = run_script(manifest(), &imported_early_start_boot_script(), 836);
+fn timing_regression_early_start_boot_path_stays_in_gameplay_through_frame_300() {
+    let trace = run_script(manifest(), &imported_early_start_boot_script(), 301);
 
-    assert_eq!(trace[300].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[834].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[834].options_cursor, Some(0));
-
-    let demo = &trace[835];
-    assert_eq!(demo.game_mode, GameMode::DemoPlay);
-    assert_eq!(demo.current_level, LevelId(0));
+    assert_eq!(trace[300].game_mode, GameMode::InGame);
+    assert_eq!(trace[300].current_level, LevelId(0));
+    assert!(trace[300].kid_x_pos.is_some());
+    assert!(trace[300].kid_y_pos.is_some());
 }
 
 #[test]

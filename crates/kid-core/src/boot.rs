@@ -847,9 +847,10 @@ impl NativeRuntime {
                 elapsed,
                 pending_title_skip,
             } => {
-                // Deferred title skip: the original game's intro objects
-                // read Ctrl_1_Pressed (set by VBlank interrupt), causing a
-                // 2-frame delay between Start press and visible mode change.
+                // ASM sub_1B8F4 / sub_1B93E / sub_1B988 / loc_1BA28 all call
+                // sub_1C246 from their per-frame hibernate loops. The Start
+                // edge is consumed there on the following outer frame, so the
+                // visible mode flip is deferred by one traced frame, not two.
                 if *pending_title_skip > 0 {
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
@@ -918,10 +919,10 @@ impl NativeRuntime {
                     *segment == 3 && self.timeout_restart_intro_sequence_4_pose_carry;
                 let timeout_restart_intro_sequence_5_title_return =
                     *segment == 4 && intro_sequence_5_frames_override.is_some();
-                let start_advances_segment = start_pressed
-                    && (*segment != 0 || *elapsed >= INTRO_FIRST_SEGMENT_SKIP_ADVANCE_FRAMES);
+                let start_advances_segment = start_pressed && *segment != 0;
                 let start_jumps_to_title = start_pressed
-                    && ((*segment == 0 && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
+                    && (*segment == 0
+                        || (*segment == 1 && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
                         || *segment >= 3);
                 if start_jumps_to_title {
                     self.timeout_restart_title_intro_sequence_3_return_pending = false;
@@ -934,7 +935,7 @@ impl NativeRuntime {
                     {
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
                     }
-                    *pending_title_skip = 2;
+                    *pending_title_skip = 1;
                 } else if start_advances_segment {
                     if *segment == 0 {
                         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
@@ -956,7 +957,7 @@ impl NativeRuntime {
                         if !timeout_restart_intro_sequence_5_title_return {
                             self.timeout_restart_intro_sequence_4_pose_carry = false;
                         }
-                        *pending_title_skip = 2;
+                        *pending_title_skip = 1;
                     } else {
                         self.timeout_restart_title_intro_sequence_3_return_pending = false;
                         self.timeout_restart_title_intro_sequence_4_return_pending = false;
