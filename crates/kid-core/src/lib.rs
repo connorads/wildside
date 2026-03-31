@@ -540,11 +540,8 @@ impl NativeRuntime {
             self.begin_demo_gameplay(NativeRuntime::demo_level_id(use_demo_2));
         }
 
-        let gameplay_slice_active = matches!(
-            self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame
-        ) || (self.demo_gameplay_active()
-            && self.opening_slice.is_some());
+        let gameplay_slice_active = matches!(self.boot_state, BootState::InGame)
+            || (self.demo_gameplay_active() && self.opening_slice.is_some());
         let preserve_demo_title_snapshot_frame =
             matches!(self.boot_state, BootState::TitleScreen { .. })
                 && self.preserve_demo_title_snapshot;

@@ -653,9 +653,7 @@ impl NativeRuntime {
             | BootState::TitleScreen { .. }
             | BootState::OptionsMenu { .. }
             | BootState::SoundTest { .. } => Some(self.title_screen_elapsed_frames),
-            BootState::StartingLevel { remaining_frames } => {
-                Some(TITLE_TO_LEVEL_FRAMES.saturating_sub(remaining_frames))
-            }
+            BootState::StartingLevel { .. } => None,
             BootState::DemoPlay { frame_counter, .. } => Some(frame_counter as usize),
             BootState::EndingSequence { elapsed } => Some(elapsed),
             BootState::LevelSkipHold | BootState::InGame => None,
@@ -1232,12 +1230,15 @@ impl NativeRuntime {
                 }
                 self.title_screen_elapsed_frames += 1;
             }
-            BootState::StartingLevel { remaining_frames } => {
-                if *remaining_frames > 0 {
-                    *remaining_frames -= 1;
-                }
-                if *remaining_frames == 0 {
+            BootState::StartingLevel { input_armed } => {
+                if !*input_armed {
+                    // ASM loc_1AE2E hibernates for one frame before it tests
+                    // shared Ctrl_Pressed, so the title-menu Start edge that
+                    // wrote `Game_Mode=$0008` cannot also enter gameplay.
+                    *input_armed = true;
+                } else if start_pressed {
                     self.boot_state = BootState::InGame;
+                    self.level_start_frame = Some(self.frame_index);
                 }
             }
             BootState::LevelSkipHold => {}

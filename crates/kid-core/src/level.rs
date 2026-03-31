@@ -165,10 +165,8 @@ impl NativeRuntime {
 
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
-        self.level_start_frame = Some(self.frame_index);
-        self.boot_state = BootState::StartingLevel {
-            remaining_frames: TITLE_TO_LEVEL_FRAMES,
-        };
+        self.level_start_frame = None;
+        self.boot_state = BootState::StartingLevel { input_armed: false };
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;

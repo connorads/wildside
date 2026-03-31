@@ -176,6 +176,11 @@ fn start_level(runtime: &mut NativeRuntime) {
         };
         runtime.step_frame(input);
     }
+    runtime.step_frame(FrameInput::default());
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
     for _ in 0..60 {
         runtime.step_frame(FrameInput::default());
     }
@@ -198,7 +203,7 @@ fn start_level_settled(runtime: &mut NativeRuntime) {
     }
     while runtime.trace_frame().frame_index < 719 {
         let next_frame = runtime.trace_frame().frame_index + 1;
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&next_frame) {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&next_frame) || next_frame == 462 {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
@@ -298,6 +303,48 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
     runtime.progression.diamond_power_frames = 40;
     runtime.progression.diamond_power_type = crate::helmets::DiamondPowerType::ExtraLife;
     runtime.progression.invulnerable_frames = 15;
+}
+
+#[test]
+fn boot_title_start_stays_in_mode_8_without_second_start_press() {
+    let mut runtime = cached_generated_runtime();
+    let mut frame_520 = None;
+    let mut frame_719 = None;
+
+    for frame_index in 0..=719 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        if frame_index == 520 {
+            frame_520 = Some((trace.game_mode, trace.boot_phase.clone()));
+        } else if frame_index == 719 {
+            frame_719 = Some((trace.game_mode, trace.boot_phase.clone()));
+        }
+    }
+
+    // ASM Title_InputLoop writes `Game_Mode=$0008` on the title-menu Start,
+    // but loc_1AE2E only writes `Game_Mode=$000C` after a later shared
+    // Ctrl_Pressed Start edge. The boot script never sends that second Start.
+    assert_eq!(
+        frame_520,
+        Some((
+            GameMode::LevelTransition,
+            Some(String::from("starting_level"))
+        ))
+    );
+    assert_eq!(
+        frame_719,
+        Some((
+            GameMode::LevelTransition,
+            Some(String::from("starting_level"))
+        ))
+    );
 }
 
 fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
@@ -1803,7 +1850,7 @@ fn timing_regression_level_one_opening_fatal_hit_enters_death_windup() {
     runtime.set_block_grid(grid_with_floor_at_row(17));
 
     for frame in 0..700 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) || frame == 462 {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
@@ -1812,7 +1859,7 @@ fn timing_regression_level_one_opening_fatal_hit_enters_death_windup() {
             FrameInput::default()
         };
         runtime.step_frame(input);
-        if frame == 699 {
+        if frame == 701 {
             assert!(matches!(
                 runtime.player_lifecycle,
                 PlayerLifecycle::DeathWindup { .. }
@@ -19484,6 +19531,7 @@ fn death_respawn_level_1_script() -> Vec<u8> {
     for &frame in &BOOT_TO_LEVEL_START_FRAMES {
         script[frame] |= 0x80;
     }
+    script[462] |= 0x80;
     for slot in &mut script[600..=899] {
         *slot |= 1 << 3;
     }

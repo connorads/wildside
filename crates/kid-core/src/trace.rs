@@ -1243,7 +1243,8 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } => GameMode::TitleScreen,
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
-            BootState::StartingLevel { .. } | BootState::InGame => GameMode::InGame,
+            BootState::StartingLevel { .. } => GameMode::LevelTransition,
+            BootState::InGame => GameMode::InGame,
             BootState::DemoPlay { .. } => GameMode::DemoPlay,
             BootState::EndingSequence { .. } => GameMode::EndingSequence,
         }
@@ -1354,7 +1355,8 @@ impl NativeRuntime {
                 None
             }
             BootState::LevelSkipHold => self.level_skip_player_state(),
-            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. } => {
+            BootState::StartingLevel { .. } => None,
+            BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
                     && self.dying_hidden_shell_still_visible()
                 {
@@ -1376,6 +1378,9 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_camera_state();
+        }
+        if matches!(self.boot_state, BootState::StartingLevel { .. }) {
+            return CameraState::default();
         }
         if self.intro_sequence_4_uses_timeout_restart_camera_handoff() {
             return CameraState {
@@ -1562,7 +1567,7 @@ impl NativeRuntime {
         }
         if !matches!(
             self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+            BootState::InGame | BootState::DemoPlay { .. }
         ) || matches!(self.player_lifecycle, PlayerLifecycle::Dying { .. })
         {
             return Vec::new();
@@ -1632,7 +1637,7 @@ impl NativeRuntime {
         }
         if !matches!(
             self.boot_state,
-            BootState::StartingLevel { .. } | BootState::InGame | BootState::DemoPlay { .. }
+            BootState::InGame | BootState::DemoPlay { .. }
         ) {
             return if matches!(
                 self.boot_state,

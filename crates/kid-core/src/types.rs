@@ -1247,7 +1247,7 @@ pub(crate) enum BootState {
         track: u8,
     },
     StartingLevel {
-        remaining_frames: usize,
+        input_armed: bool,
     },
     LevelSkipHold,
     InGame,

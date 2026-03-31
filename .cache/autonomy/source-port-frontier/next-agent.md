@@ -1,46 +1,52 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 8
-updated_at: 2026-03-31T02:32:00Z
+cycle: 9
+updated_at: 2026-03-31T03:35:00Z
 ---
 # What Changed
-- Read the native mode-8 shell again: `BootState::TitleScreen`, `BootState::IntroSequence6`, `begin_level_entry`, and `BootState::StartingLevel`.
-- Added a focused `kidcli` regression that locks the current frontier shape: `level_entry@520` must report the `native 000C` versus `oracle 0008` game-mode split.
-- Re-ran the real scenario to confirm the authoritative failure is unchanged after landing only the regression.
+- Patched the source-port boot shell so `StartingLevel` now models ASM `Title_InputLoop -> Game_Mode=$0008` followed by `loc_1AE2E`'s later shared-Start gate, instead of jumping straight into gameplay on the title-menu Start press.
+- Updated the gameplay/trace path so `StartingLevel` reports `Game_Mode=$0008` and no longer runs gameplay immediately.
+- Added a direct `kid-core` regression proving the boot script stays in mode 8 through frames 520 and 719 unless a second Start edge arrives.
 
 # Current Model
-- Native still flips from the title shell into `BootState::StartingLevel { remaining_frames: TITLE_TO_LEVEL_FRAMES }` immediately when the title Start edge lands.
-- That hard-coded 60-frame native countdown exposes `Game_Mode=$000C` by the `level_entry@520` checkpoint, but the oracle is still in `Game_Mode=$0008` and parked in `WaitForVint` there.
-- The remaining fix is not in the comparator any more; it is in the source-port boot shell timing between the title/menu Start edge, `begin_level_entry`, and the eventual in-game hand-off that should happen only after the ROM-backed mode-8 dwell rooted at `loc_1AE2E`.
+- The mode bug is fixed. Native no longer reaches `Game_Mode=$000C` at `level_entry@520` from the frame-460 Start press alone.
+- The new first authoritative miss is `kid position` at `level_entry@520`: native now exposes an empty mode-8 shell (`kid 0,0`), while oracle exposes a fully populated title-card/title-shell object roster with moving sprite positions.
+- This is the real blocker behind the old mode mismatch: the native source-port does not implement the ROM’s mode-8 title-card presentation objects at all. Timing alone cannot clear the compare any further.
 
 # Strongest Evidence
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:29057-29063` `loc_1AE2E` is still the ROM’s later exit from mode 8 via shared `Ctrl_Pressed`.
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:1044-1054` `WaitForVint` matches the oracle PC parked at `0x0000095C` on frames 503..540.
-- `crates/kid-core/src/level.rs:166-193` `begin_level_entry` immediately sets `BootState::StartingLevel { remaining_frames: TITLE_TO_LEVEL_FRAMES }`.
-- `crates/kid-core/src/boot.rs:1235-1241` `BootState::StartingLevel` decrements the countdown straight to `BootState::InGame`.
-- New regression:
-  - `cargo test -q -p kidcli compare_native_states_reports_boot_level_entry_mode_8_release_gate -- --nocapture`
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:30450-30465` `Title_InputLoop` writes `Game_Mode=$0008` on the title-menu Start edge.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:29057-29063` `loc_1AE2E` hibernates and waits for a later shared `Ctrl_Pressed` Start before writing `Game_Mode=$000C`.
+- New native regression:
+  - `cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture`
   - passes
-- Real repro still fails:
-  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
-  - `state level_entry@520 diverged in game mode (native 000C, oracle 0008)`
+- Existing gameplay helper still works with an explicit second Start:
+  - `cargo test -q -p kid-core level_entry_has_no_damage_grace_window -- --nocapture`
+  - passes
+- Oracle probe dead-end:
+  - `cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_confirm_start.json --frame-start 628 --frame-end 705 --watches 0xFC40:u16,0xF81C:u32,0xF820:u32,0x24FA:u32,0x24FE:u32`
+  - keeps `number_hitpoints=2`, `camera_x_pos=0`, `camera_y_pos=0` through frame 705, so a frame-462 confirm-Start is not the missing oracle transition into gameplay
+- Authoritative compare moved forward:
+  - before: `state level_entry@520 diverged in game mode (native 000C, oracle 0008)`
+  - now: `state level_entry@520 diverged in kid position (native 00000000,00000000; oracle 007F0000,00020000)`
+- Oracle mode-8 shell data from `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`:
+  - `level_entry@520`: `game_mode=8`, `number_objects=15`, `number_gfx_objects=14`, `kid_x_pos=0x007F0000`, `kid_y_pos=0x00020000`
+  - `level_settle@719`: `game_mode=8`, `number_objects=15`, `number_gfx_objects=14`, `kid_x_pos=0x00400000`, `kid_y_pos=0x00680000`
+  - `active_enemies` in this window are actually the unmodelled title-card/title-shell sprites (`object_type=0`, 14 entries), not gameplay enemies.
 
 # Exact Next Moves
-- Patch the source-port Start-edge/frame-order timing so the post-title mode-8 shell cannot enter `BootState::InGame` before the ROM-backed `loc_1AE2E` dwell would allow it, then add a direct native regression around frame 520 if the fix needs extra protection.
-- Re-run `cargo test -q -p kidcli compare_native_states_reports_boot_level_entry_mode_8_release_gate -- --nocapture`, `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`, then `mise run release-gate`.
-- If frame 520 still misses after that patch, capture another oracle CPU window around the new first bad frame before changing any more native timing.
+- Read the ROM/title-card worker that owns the mode-8 shell sprite positions feeding the `level_entry@520` / `level_settle@719` oracle snapshots, then model that shell in native trace/runtime instead of exposing an empty `StartingLevel`.
+- Once the owner routine is traced, patch `StartingLevel` trace/object output to emit the correct title-card roster, kid position, camera, and object counts for mode 8.
+- Re-run `cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture`, `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`, then `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s`.
 
 # Verification To Re-run
+- cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
+- cargo test -q -p kid-core level_entry_has_no_damage_grace_window -- --nocapture
 - cargo test -q -p kidcli compare_native_states_reports_boot_level_entry_mode_8_release_gate -- --nocapture
-- cargo test -q -p kidcli capture_uses_current_frame_script_input -- --nocapture
-- cargo test -q -p kidcli oracle_limitation -- --nocapture
-- cargo test -q -p kid-md frame_render_boundary_is_not_gated_on_vint_enable -- --nocapture
-- cargo test -q -p kid-md -- --nocapture
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
-- mise run release-gate
+- cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 
 # Dead Ends / Do Not Retry
-- Do not retry the old `title@360` hypothesis.
-- Do not assume frame 520 is already executing `loc_1AE2E`; oracle CPU capture disproves that.
-- Do not patch title-menu `Ctrl_1_Pressed` handling again; the later gate is shared `Ctrl_Pressed`.
-- Do not treat the comparator regression as the fix. It only locks the failure shape.
+- Do not revert to the old `StartingLevel -> InGame` countdown. The ROM requires a later shared Start edge after `Game_Mode=$0008`.
+- Do not keep chasing frame-count constants. The next miss is missing mode-8 shell content, not another dwell off-by-one.
+- Do not assume a frame-462 confirm-Start reproduces the oracle opening path. It only helps native gameplay harness tests reach `InGame`; oracle still stays in the mode-8 shell on that script.
+- Do not assume the mode-8 oracle snapshots are gameplay objects. The `object_type=0` roster at frames 520 and 719 is the unmodelled title-card/title-shell presentation.
