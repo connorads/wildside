@@ -380,12 +380,14 @@ fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         .find(|worker| worker.gfx_slot_index == 2)
         .expect("loc_1AB26 should populate gfx slot 2");
 
-    // ASM loc_1AB26 allocates one worker per visible letter in descending gfx
-    // slots, so Blue Lake Woods 1's third-row centre `o` lands in slot 2.
+    // ASM loc_1AB26 allocates one worker per visible letter in script order,
+    // and ASM Load_GfxObjectSlot/sub_F6E preserves that order for equal-
+    // priority title glyph gfx objects, so Blue Lake Woods 1's `u` lands in
+    // traced slot 2.
     assert_eq!(runtime.starting_level_title_workers.len(), 14);
-    assert_eq!(slot_2.glyph, b'o');
+    assert_eq!(slot_2.glyph, b'u');
     assert_eq!(slot_2.target_x_pos, 0x0098_0000);
-    assert_eq!(slot_2.target_y_pos, 0x0068_0000);
+    assert_eq!(slot_2.target_y_pos, 0x0028_0000);
 }
 
 #[test]

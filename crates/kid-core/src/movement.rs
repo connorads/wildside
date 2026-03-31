@@ -174,8 +174,12 @@ impl NativeRuntime {
                         u32::from(level_entry_title_target_y(glyph, destination.y)) << 16;
                     self.starting_level_title_workers
                         .push(LevelEntryTitleWorker {
-                            gfx_slot_index: visible_glyph_count
-                                .saturating_sub(visible_glyph_index + 1),
+                            // ASM loc_1AB26 only allocates the title objects in
+                            // script order, and ASM sub_F6E/Load_GfxObjectSlot
+                            // appends equal-priority gfx objects behind earlier
+                            // ones. Trace slot 2 therefore follows creation
+                            // order, not a reverse-count shell index.
+                            gfx_slot_index: visible_glyph_index,
                             glyph,
                             start_x_pos,
                             start_y_pos,
