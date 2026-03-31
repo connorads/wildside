@@ -552,6 +552,7 @@ mod tests {
                     level_id: LEVEL_ID,
                     title_text_id: Some(0x4A),
                     display_name: Some(String::from("Blue Lake Woods 1")),
+                    title_card: None,
                     resource_paths: Vec::new(),
                     resources: LevelResources::default(),
                     header_metadata: Some(LevelHeader {

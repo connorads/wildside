@@ -1948,6 +1948,7 @@ mod tests {
                         level_id: 0x00,
                         title_text_id: Some(0x4A),
                         display_name: Some(String::from("Blue Lake Woods 1")),
+                        title_card: None,
                         resource_paths: Vec::new(),
                         resources: LevelResources::default(),
                         header_metadata: Some(LevelHeader {
@@ -2948,6 +2949,7 @@ mod tests {
             level_id: 0x1B,
             title_text_id: Some(0x39),
             display_name: Some(String::from("Skydragon Castle 1")),
+            title_card: None,
             resource_paths: Vec::new(),
             resources: LevelResources::default(),
             header_metadata: None,
@@ -2959,6 +2961,7 @@ mod tests {
             level_id: 0x27,
             title_text_id: Some(0x27),
             display_name: Some(String::from("Caves of Ice")),
+            title_card: None,
             resource_paths: Vec::new(),
             resources: LevelResources::default(),
             header_metadata: Some(LevelHeader {
@@ -3024,6 +3027,7 @@ mod tests {
             level_id: 0x1B,
             title_text_id: Some(0x39),
             display_name: Some(String::from("Skydragon Castle 1")),
+            title_card: None,
             resource_paths: Vec::new(),
             resources: LevelResources::default(),
             header_metadata: None,
@@ -3035,6 +3039,7 @@ mod tests {
             level_id: 0x27,
             title_text_id: Some(0x27),
             display_name: Some(String::from("Caves of Ice")),
+            title_card: None,
             resource_paths: Vec::new(),
             resources: LevelResources::default(),
             header_metadata: Some(LevelHeader {
@@ -3081,6 +3086,7 @@ mod tests {
             level_id: 0x1B,
             title_text_id: Some(0x39),
             display_name: Some(String::from("Skydragon Castle 1")),
+            title_card: None,
             resource_paths: Vec::new(),
             resources: LevelResources::default(),
             header_metadata: None,
@@ -3092,6 +3098,7 @@ mod tests {
             level_id: 0x27,
             title_text_id: Some(0x27),
             display_name: Some(String::from("Caves of Ice")),
+            title_card: None,
             resource_paths: Vec::new(),
             resources: LevelResources::default(),
             header_metadata: Some(LevelHeader {

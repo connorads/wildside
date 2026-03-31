@@ -2267,6 +2267,23 @@ mod tests {
         )
         .expect("level names");
         fs::write(
+            source_root.join("level/levelnames.asm"),
+            r#"TitleText_00:
+	dc.b	"blue\0lake\0woods"
+	dc.b	$FF
+
+TitleTextLayout_3Lines:
+	dc.w	$20, $28
+	dc.w	$20, $48
+	dc.w	$20, $68
+	dc.w	$DC, $50
+
+AddrTbl_LevelNames:
+	levnamhdr	TitleText_00, TitleTextLayout_3Lines, 1	;  0
+"#,
+        )
+        .expect("levelnames");
+        fs::write(
             source_root.join("level/level_files.txt"),
             "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n",
         )

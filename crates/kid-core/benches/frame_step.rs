@@ -18,6 +18,7 @@ fn test_manifest() -> AssetManifest {
             level_id: 0,
             title_text_id: Some(0x4A),
             display_name: Some(String::from("Blue Lake Woods 1")),
+            title_card: None,
             resource_paths: vec![String::from("level/header/00.bin")],
             resources: LevelResources::default(),
             header_metadata: Some(LevelHeader {

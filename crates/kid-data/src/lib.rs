@@ -23,7 +23,7 @@ const COPIED_DIRECTORIES: &[&str] = &[
 ];
 const COPIED_FILES: &[&str] = &["constants.asm", "variables.asm"];
 const PRESERVED_BUNDLE_DIRECTORIES: &[&str] = &["level-layout"];
-pub const GENERATED_BUNDLE_VERSION: u32 = 8;
+pub const GENERATED_BUNDLE_VERSION: u32 = 9;
 pub const DECODED_LEVEL_ASSET_VERSION: u32 = 3;
 const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
 
@@ -77,6 +77,8 @@ pub struct LevelRecord {
     pub level_id: u8,
     pub title_text_id: Option<u8>,
     pub display_name: Option<String>,
+    #[serde(default)]
+    pub title_card: Option<LevelTitleCard>,
     pub resource_paths: Vec<String>,
     #[serde(default)]
     pub resources: LevelResources,
@@ -88,6 +90,20 @@ pub struct LevelRecord {
     pub bgscroll_metadata: Option<BgscrollProfile>,
     #[serde(default)]
     pub platform_metadata: Option<PlatformLayout>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LevelTitleCard {
+    pub script_bytes: Vec<u8>,
+    pub line_destinations: Vec<TitleCardDestination>,
+    pub level_number_destination: Option<TitleCardDestination>,
+    pub level_number_glyph_count: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TitleCardDestination {
+    pub x: u16,
+    pub y: u16,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,6 +121,7 @@ pub struct LevelResources {
 pub struct LevelAssetBundle {
     pub level_id: u8,
     pub display_name: Option<String>,
+    pub title_card: Option<LevelTitleCard>,
     pub platform_script: Option<LoadedAsset>,
     pub parsed_platform_layout: Option<PlatformLayout>,
     pub bgscroll: Option<LoadedAsset>,
@@ -325,6 +342,14 @@ fn export_split_bundle_into(
             )
         })?,
     )?;
+    let level_title_cards = parse_level_title_cards(
+        &fs::read_to_string(output_root.join("level/levelnames.asm")).with_context(|| {
+            format!(
+                "failed to read {}",
+                output_root.join("level/levelnames.asm").display()
+            )
+        })?,
+    )?;
     let level_files = parse_level_files(
         &fs::read_to_string(output_root.join("level/level_files.txt")).with_context(|| {
             format!(
@@ -365,7 +390,7 @@ fn export_split_bundle_into(
         source_root: source_root.to_path_buf(),
         output_root: output_root.to_path_buf(),
         map_order,
-        levels: merge_level_catalogues(level_names, level_files),
+        levels: merge_level_catalogues(level_names, level_title_cards, level_files),
         constants,
         ram_variables,
         enemy_sources: collect_asset_files(&output_root.join("code/enemy"))?,
@@ -570,6 +595,7 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
     Ok(LevelAssetBundle {
         level_id,
         display_name: level.display_name.clone(),
+        title_card: level.title_card.clone(),
         platform_script,
         parsed_platform_layout,
         bgscroll,
@@ -905,6 +931,7 @@ fn parse_platform_script_ref(value: &str) -> PlatformScriptRef {
 
 fn merge_level_catalogues(
     names: BTreeMap<u8, (u8, String)>,
+    title_cards: BTreeMap<u8, LevelTitleCard>,
     files: BTreeMap<u8, Vec<String>>,
 ) -> Vec<LevelRecord> {
     let mut by_level = BTreeMap::new();
@@ -915,6 +942,7 @@ fn merge_level_catalogues(
                 level_id,
                 title_text_id: Some(title_text_id),
                 display_name: Some(display_name),
+                title_card: title_cards.get(&level_id).cloned(),
                 resource_paths: files.get(&level_id).cloned().unwrap_or_default(),
                 resources: level_resources_from_paths(
                     files.get(&level_id).cloned().unwrap_or_default().as_slice(),
@@ -931,6 +959,7 @@ fn merge_level_catalogues(
             level_id,
             title_text_id: None,
             display_name: None,
+            title_card: title_cards.get(&level_id).cloned(),
             resources: level_resources_from_paths(&resource_paths),
             resource_paths,
             header_metadata: None,
@@ -1581,6 +1610,62 @@ fn parse_level_names(contents: &str) -> Result<BTreeMap<u8, (u8, String)>> {
     Ok(levels)
 }
 
+fn parse_level_title_cards(contents: &str) -> Result<BTreeMap<u8, LevelTitleCard>> {
+    let title_scripts = parse_title_text_scripts(contents)?;
+    let layouts = parse_title_text_layouts(contents)?;
+    let mut level_title_cards = BTreeMap::new();
+    let mut in_table = false;
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("AddrTbl_LevelNames:") {
+            in_table = true;
+            continue;
+        }
+        if !in_table || trimmed.is_empty() || trimmed.starts_with(';') {
+            continue;
+        }
+        let (statement, comment) = split_comment(trimmed);
+        let Some(data) = statement.strip_prefix("levnamhdr") else {
+            continue;
+        };
+        let parts = data.split(',').map(str::trim).collect::<Vec<_>>();
+        if parts.len() != 3 {
+            bail!("invalid levnamhdr on line {}", index + 1);
+        }
+        let level_id = comment
+            .and_then(parse_level_name_comment_id)
+            .ok_or_else(|| anyhow!("missing level id comment on line {}", index + 1))?;
+        let script_bytes = title_scripts
+            .get(parts[0])
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown title text {} on line {}", parts[0], index + 1))?;
+        let layout_rows = layouts
+            .get(parts[1])
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown title layout {} on line {}", parts[1], index + 1))?;
+        let level_number_glyph_count =
+            u16::try_from(parse_numeric_value(parts[2])?).map_err(|_| {
+                anyhow!(
+                    "level number glyph count out of range on line {}: {}",
+                    index + 1,
+                    parts[2]
+                )
+            })?;
+        let (line_destinations, level_number_destination) =
+            split_title_card_layout(layout_rows, level_number_glyph_count, index + 1)?;
+        level_title_cards.insert(
+            level_id,
+            LevelTitleCard {
+                script_bytes,
+                line_destinations,
+                level_number_destination,
+                level_number_glyph_count,
+            },
+        );
+    }
+    Ok(level_title_cards)
+}
+
 fn parse_level_files(contents: &str) -> Result<BTreeMap<u8, Vec<String>>> {
     let mut levels = BTreeMap::new();
     for (index, line) in contents.lines().enumerate() {
@@ -1598,6 +1683,174 @@ fn parse_level_files(contents: &str) -> Result<BTreeMap<u8, Vec<String>>> {
         levels.insert(level_id, resource_paths);
     }
     Ok(levels)
+}
+
+fn parse_title_text_scripts(contents: &str) -> Result<BTreeMap<String, Vec<u8>>> {
+    let mut scripts = BTreeMap::new();
+    let mut current_label = None::<String>;
+    let mut current_bytes = Vec::new();
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim();
+        if let Some(label) = parse_asm_label(trimmed) {
+            if let Some(previous_label) = current_label.replace(label.to_owned())
+                && !current_bytes.is_empty()
+            {
+                scripts.insert(previous_label, std::mem::take(&mut current_bytes));
+            }
+            continue;
+        }
+        let Some(label) = current_label.as_deref() else {
+            continue;
+        };
+        if !label.starts_with("TitleText_") {
+            continue;
+        }
+        let (statement, _) = split_comment(trimmed);
+        let Some(data) = statement.strip_prefix("dc.b") else {
+            continue;
+        };
+        current_bytes.extend(parse_dc_b_bytes(data.trim(), index + 1)?);
+    }
+    if let Some(label) = current_label
+        && !current_bytes.is_empty()
+    {
+        scripts.insert(label, current_bytes);
+    }
+    Ok(scripts)
+}
+
+fn parse_title_text_layouts(contents: &str) -> Result<BTreeMap<String, Vec<TitleCardDestination>>> {
+    let mut layouts = BTreeMap::new();
+    let mut current_label = None::<String>;
+    let mut current_rows = Vec::new();
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim();
+        if let Some(label) = parse_asm_label(trimmed) {
+            if let Some(previous_label) = current_label.replace(label.to_owned())
+                && !current_rows.is_empty()
+            {
+                layouts.insert(previous_label, std::mem::take(&mut current_rows));
+            }
+            continue;
+        }
+        let Some(label) = current_label.as_deref() else {
+            continue;
+        };
+        if !label.starts_with("TitleTextLayout_") {
+            continue;
+        }
+        let (statement, _) = split_comment(trimmed);
+        let Some(data) = statement.strip_prefix("dc.w") else {
+            continue;
+        };
+        let coords = data
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>();
+        if coords.len() != 2 {
+            bail!("invalid title layout row on line {}", index + 1);
+        }
+        let x = u16::try_from(parse_numeric_value(coords[0])?)
+            .map_err(|_| anyhow!("title layout X out of range on line {}", index + 1))?;
+        let y = u16::try_from(parse_numeric_value(coords[1])?)
+            .map_err(|_| anyhow!("title layout Y out of range on line {}", index + 1))?;
+        current_rows.push(TitleCardDestination { x, y });
+    }
+    if let Some(label) = current_label
+        && !current_rows.is_empty()
+    {
+        layouts.insert(label, current_rows);
+    }
+    Ok(layouts)
+}
+
+fn split_title_card_layout(
+    mut layout_rows: Vec<TitleCardDestination>,
+    level_number_glyph_count: u16,
+    line_number: usize,
+) -> Result<(Vec<TitleCardDestination>, Option<TitleCardDestination>)> {
+    if level_number_glyph_count == 0 {
+        return Ok((layout_rows, None));
+    }
+    let level_number_destination = layout_rows.pop().ok_or_else(|| {
+        anyhow!(
+            "missing level number destination for levnamhdr on line {}",
+            line_number
+        )
+    })?;
+    Ok((layout_rows, Some(level_number_destination)))
+}
+
+fn parse_dc_b_bytes(data: &str, line_number: usize) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    for token in data
+        .split(',')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        if token.starts_with('"') {
+            bytes.extend(parse_asm_byte_string(token, line_number)?);
+            continue;
+        }
+        let value = parse_numeric_value(token)
+            .with_context(|| format!("failed to parse dc.b token on line {}", line_number))?;
+        let byte = u8::try_from(value)
+            .map_err(|_| anyhow!("dc.b byte out of range on line {}: {}", line_number, token))?;
+        bytes.push(byte);
+    }
+    Ok(bytes)
+}
+
+fn parse_level_name_comment_id(comment: &str) -> Option<u8> {
+    let trimmed = comment.trim();
+    parse_asm_integer(trimmed)
+        .and_then(|value| u8::try_from(value).ok())
+        .or_else(|| u8::from_str_radix(trimmed, 16).ok())
+}
+
+fn parse_asm_label(line: &str) -> Option<&str> {
+    let (statement, _) = split_comment(line);
+    statement.trim().strip_suffix(':')
+}
+
+fn parse_asm_byte_string(token: &str, line_number: usize) -> Result<Vec<u8>> {
+    if !token.ends_with('"') {
+        bail!("unterminated string on line {}", line_number);
+    }
+    let mut bytes = Vec::new();
+    let mut chars = token[1..token.len() - 1].chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            let byte = u8::try_from(u32::from(ch))
+                .map_err(|_| anyhow!("non-byte character in string on line {}", line_number))?;
+            bytes.push(byte);
+            continue;
+        }
+        let escaped = chars
+            .next()
+            .ok_or_else(|| anyhow!("truncated escape on line {}", line_number))?;
+        match escaped {
+            '0' => bytes.push(0),
+            'x' => {
+                let high = chars
+                    .next()
+                    .ok_or_else(|| anyhow!("truncated hex escape on line {}", line_number))?;
+                let low = chars
+                    .next()
+                    .ok_or_else(|| anyhow!("truncated hex escape on line {}", line_number))?;
+                let hex = format!("{high}{low}");
+                let value = u8::from_str_radix(&hex, 16).with_context(|| {
+                    format!("invalid hex escape \\x{hex} on line {}", line_number)
+                })?;
+                bytes.push(value);
+            }
+            '\\' => bytes.push(b'\\'),
+            '"' => bytes.push(b'"'),
+            other => bail!("unsupported escape \\{} on line {}", other, line_number),
+        }
+    }
+    Ok(bytes)
 }
 
 fn parse_map_order(contents: &str) -> Result<Vec<u8>> {
@@ -1855,6 +2108,24 @@ mod tests {
         )
         .expect("level names");
         fs::write(
+            source_root.join("level/levelnames.asm"),
+            r#"; \0   = end of line
+TitleText_00:
+	dc.b	"blue\0lake\0woods"
+	dc.b	$FF
+
+TitleTextLayout_3Lines:
+	dc.w	$20, $28
+	dc.w	$20, $48
+	dc.w	$20, $68
+	dc.w	$DC, $50
+
+AddrTbl_LevelNames:   ;1A842
+	levnamhdr	TitleText_00, TitleTextLayout_3Lines, 1	;  0
+"#,
+        )
+        .expect("levelnames");
+        fs::write(
             source_root.join("level/level_files.txt"),
             "00 platform/00.asm bgscroll/00.bin header/00.bin enemy/00.bin foreground/00.bin block/00.bin background/00.bin\n",
         )
@@ -1889,6 +2160,64 @@ mod tests {
         assert_eq!(
             parsed.get(&0x01),
             Some(&(0x4B, String::from("Blue Lake Woods 2")))
+        );
+    }
+
+    #[test]
+    fn parses_level_title_cards_from_levelnames_asm() {
+        let parsed = parse_level_title_cards(
+            r#"TitleText_00:
+	dc.b	"blue\0lake\0woods"
+	dc.b	$FF
+TitleText_2C:
+	dc.b	"\x7C\x84hills\0have\x84eyes"
+	dc.b	$FF
+
+TitleTextLayout_3Lines:
+	dc.w	$20, $28
+	dc.w	$20, $48
+	dc.w	$20, $68
+	dc.w	$DC, $50
+TitleTextLayout_2Lines:
+	dc.w	$20, $28
+	dc.w	$20, $40
+	dc.w	$DC, $3C
+
+AddrTbl_LevelNames:   ;1A842
+	levnamhdr	TitleText_00, TitleTextLayout_3Lines, 1	;  0
+	levnamhdr	TitleText_2C, TitleTextLayout_2Lines, 0	;  2C
+"#,
+        )
+        .expect("title cards should parse");
+
+        assert_eq!(
+            parsed.get(&0x00),
+            Some(&LevelTitleCard {
+                script_bytes: b"blue\0lake\0woods\xFF".to_vec(),
+                line_destinations: vec![
+                    TitleCardDestination { x: 0x20, y: 0x28 },
+                    TitleCardDestination { x: 0x20, y: 0x48 },
+                    TitleCardDestination { x: 0x20, y: 0x68 },
+                ],
+                level_number_destination: Some(TitleCardDestination { x: 0xDC, y: 0x50 }),
+                level_number_glyph_count: 1,
+            })
+        );
+        assert_eq!(
+            parsed.get(&0x2C),
+            Some(&LevelTitleCard {
+                script_bytes: vec![
+                    0x7C, 0x84, b'h', b'i', b'l', b'l', b's', 0x00, b'h', b'a', b'v', b'e', 0x84,
+                    b'e', b'y', b'e', b's', 0xFF,
+                ],
+                line_destinations: vec![
+                    TitleCardDestination { x: 0x20, y: 0x28 },
+                    TitleCardDestination { x: 0x20, y: 0x40 },
+                    TitleCardDestination { x: 0xDC, y: 0x3C },
+                ],
+                level_number_destination: None,
+                level_number_glyph_count: 0,
+            })
         );
     }
 
@@ -2274,6 +2603,19 @@ mod tests {
             Some("Blue Lake Woods 1")
         );
         assert_eq!(
+            level_bundle.title_card.as_ref(),
+            Some(&LevelTitleCard {
+                script_bytes: b"blue\0lake\0woods\xFF".to_vec(),
+                line_destinations: vec![
+                    TitleCardDestination { x: 0x20, y: 0x28 },
+                    TitleCardDestination { x: 0x20, y: 0x48 },
+                    TitleCardDestination { x: 0x20, y: 0x68 },
+                ],
+                level_number_destination: Some(TitleCardDestination { x: 0xDC, y: 0x50 }),
+                level_number_glyph_count: 1,
+            })
+        );
+        assert_eq!(
             level_bundle
                 .platform_script
                 .as_ref()
@@ -2415,6 +2757,19 @@ mod tests {
         assert_eq!(
             level_bundle.display_name.as_deref(),
             Some("Blue Lake Woods 1")
+        );
+        assert_eq!(
+            level_bundle.title_card.as_ref(),
+            Some(&LevelTitleCard {
+                script_bytes: b"blue\0lake\0woods\xFF".to_vec(),
+                line_destinations: vec![
+                    TitleCardDestination { x: 0x20, y: 0x28 },
+                    TitleCardDestination { x: 0x20, y: 0x48 },
+                    TitleCardDestination { x: 0x20, y: 0x68 },
+                ],
+                level_number_destination: Some(TitleCardDestination { x: 0xDC, y: 0x50 }),
+                level_number_glyph_count: 1,
+            })
         );
         assert_eq!(
             level_bundle
