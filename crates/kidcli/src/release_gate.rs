@@ -1,9 +1,13 @@
 use super::*;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 pub(crate) enum ReleaseGateTarget {
+    #[value(name = "1p-playable")]
+    #[serde(rename = "1p-playable")]
+    OnePlayerPlayable,
     #[value(name = "1p-accurate")]
     #[serde(rename = "1p-accurate")]
     OnePlayerAccurate,
@@ -12,6 +16,7 @@ pub(crate) enum ReleaseGateTarget {
 impl ReleaseGateTarget {
     pub(crate) fn slug(self) -> &'static str {
         match self {
+            Self::OnePlayerPlayable => "1p-playable",
             Self::OnePlayerAccurate => "1p-accurate",
         }
     }
@@ -64,6 +69,9 @@ pub(crate) fn run_release_gate(
     };
 
     let result = match target {
+        ReleaseGateTarget::OnePlayerPlayable => {
+            run_one_player_playable_gate(repo_root, rom_path, manifest, &mut report)
+        }
         ReleaseGateTarget::OnePlayerAccurate => {
             run_one_player_accurate_gate(repo_root, rom_path, manifest, max_failures, &mut report)
         }
@@ -96,6 +104,109 @@ pub(crate) fn run_release_gate(
             report_path.display()
         ),
     }
+}
+
+fn run_one_player_playable_gate(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    report: &mut ReleaseGateReport,
+) -> Result<()> {
+    for scenario in [
+        GameplayScenario::PauseResumeLevel1,
+        GameplayScenario::ProgressTwoTransitions,
+        GameplayScenario::DeathRespawnLevel1,
+    ] {
+        ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
+        let step_name = format!("native_gameplay:{}", scenario.slug());
+        run_release_step(report, &step_name, || {
+            verify_native_gameplay_scenario(repo_root, manifest, scenario)?;
+            Ok(format!(
+                "native gameplay smoke passed for {}",
+                scenario.slug()
+            ))
+        })?;
+    }
+
+    for scenario in [
+        GameplayScenario::PauseResumeLevel1,
+        GameplayScenario::DeathRespawnLevel1,
+    ] {
+        ensure_gameplay_level_layouts(rom_path, manifest, scenario)?;
+        let step_name = format!("gameplay_compare:{}", scenario.slug());
+        run_release_step(report, &step_name, || {
+            compare_native_gameplay(repo_root, rom_path, manifest, scenario)?;
+            Ok(format!(
+                "native gameplay compare passed for {}",
+                scenario.slug()
+            ))
+        })?;
+    }
+
+    for (name, args) in [
+        (
+            "kid-core:slope-ground",
+            &["test", "-q", "-p", "kid-core", "--", "slope_ground_"][..],
+        ),
+        (
+            "kid-core:slope-seams",
+            &[
+                "test",
+                "-q",
+                "-p",
+                "kid-core",
+                "walking_on_slope_up_y_tracks_diagonal_every_frame",
+            ][..],
+        ),
+        (
+            "kid-core:slope-seams-down",
+            &[
+                "test",
+                "-q",
+                "-p",
+                "kid-core",
+                "walking_on_slope_down_y_tracks_diagonal_every_frame",
+            ][..],
+        ),
+        (
+            "kid-core:slope-solid-transition",
+            &[
+                "test",
+                "-q",
+                "-p",
+                "kid-core",
+                "solid_to_slope_up_transition_stays_grounded",
+            ][..],
+        ),
+        (
+            "kid-core:slope-grounded-seam",
+            &[
+                "test",
+                "-q",
+                "-p",
+                "kid-core",
+                "grounded_slope_to_solid_seam_keeps_level_one_runner_grounded",
+            ][..],
+        ),
+        (
+            "kid-core:rubber-block",
+            &["test", "-q", "-p", "kid-core", "--", "rubber_block_"][..],
+        ),
+        (
+            "kid-core:metal-bounce",
+            &[
+                "test",
+                "-q",
+                "-p",
+                "kid-core",
+                "iron_knight_landing_on_metal_block_bounces_without_destroying_it",
+            ][..],
+        ),
+    ] {
+        run_release_step(report, name, || run_cargo_step(repo_root, args))?;
+    }
+
+    Ok(())
 }
 
 fn run_one_player_accurate_gate(
@@ -197,6 +308,26 @@ fn run_one_player_accurate_gate(
     }
 
     Ok(())
+}
+
+fn run_cargo_step(repo_root: &Path, args: &[&str]) -> Result<String> {
+    let output = Command::new("cargo")
+        .args(args)
+        .current_dir(repo_root)
+        .output()
+        .with_context(|| format!("failed to run `cargo {}`", args.join(" ")))?;
+    if output.status.success() {
+        return Ok(format!("`cargo {}` passed", args.join(" ")));
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let detail = stderr
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .or_else(|| stdout.lines().rev().find(|line| !line.trim().is_empty()))
+        .unwrap_or("command failed without output");
+    bail!("`cargo {}` failed: {detail}", args.join(" "));
 }
 
 fn run_release_step<F>(report: &mut ReleaseGateReport, name: &str, step_fn: F) -> Result<()>

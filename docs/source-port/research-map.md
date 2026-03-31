@@ -4,7 +4,7 @@ This map records what the source port still needs to learn, where to source that
 
 ## Development philosophy
 
-**Progressive fidelity**: get it playable, then get it accurate. Every system starts approximate and is refined with oracle comparison. The oracle (`jgenesis`) is the safety net and primary testing tool.
+**Progressive fidelity**: get it playable, then get it accurate. Every system starts approximate and is refined with oracle comparison. Native-playability evidence is the primary programme-health signal; the oracle (`jgenesis`) is the primary parity oracle and safety net.
 
 ## Current frontier
 
@@ -17,7 +17,8 @@ The live TAS frontier is currently closed:
 That is not the same thing as whole-game completion. The active programme now shifts
 from "close the next TAS window" to "make 1P actually work in native play while
 continuing to burn down fidelity debt". See `backlog.md` for the canonical active queue
-and `roadmap.md` for the programme-level workstreams.
+and `roadmap.md` for the programme-level workstreams. `kidcli project-status` is the
+top-level status surface for reading those signals together.
 
 ## Canonical status language
 

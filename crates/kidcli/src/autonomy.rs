@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const LEVEL_ONE_ID: u8 = 0x00;
 const PLAYER_CAMERA_TASK_MARKER: &str =
@@ -517,6 +518,12 @@ pub(crate) fn run_autonomous_loop(
         let next_task_path = run_dir.join("next-task.json");
         if let Some(task) = &cycle.task_package {
             write_json(&next_task_path, task)?;
+            if let (Some(note), Some(frontier)) = (
+                task.next_agent_note.as_ref(),
+                task.frontier_context.as_ref(),
+            ) {
+                write_source_port_next_agent_note(repo_root, note, frontier)?;
+            }
         } else if next_task_path.exists() {
             fs::remove_file(&next_task_path)
                 .with_context(|| format!("failed to remove {}", next_task_path.display()))?;
@@ -1636,6 +1643,103 @@ where
 {
     fs::write(path, serde_json::to_vec_pretty(value)?)
         .with_context(|| format!("failed to write {}", path.display()))
+}
+
+fn write_source_port_next_agent_note(
+    repo_root: &Path,
+    note: &NextAgentNoteDirective,
+    frontier: &FrontierContext,
+) -> Result<()> {
+    let note_path = repo_root.join(&note.path);
+    if let Some(parent) = note_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    fs::write(&note_path, render_source_port_next_agent_note(frontier))
+        .with_context(|| format!("failed to write {}", note_path.display()))
+}
+
+fn render_source_port_next_agent_note(frontier: &FrontierContext) -> String {
+    let closed_frontier = frontier.status == "complete";
+    let exact_next_moves = if closed_frontier {
+        vec![
+            "Do not continue TAS-window work unless a new authoritative frontier is opened."
+                .to_owned(),
+            "Choose the next task from broader source-port remaining work: 1P playability, verification hardening, or another explicit backlog risk area.".to_owned(),
+            "Update the next-agent note again only after that broader task has fresh evidence."
+                .to_owned(),
+        ]
+    } else {
+        frontier.required_next_evidence.clone()
+    };
+    format!(
+        "\
+---
+slug: {slug}
+updated_at: {updated_at}
+status: {status}
+---
+# What Changed
+- {what_changed}
+
+# Current Model
+- Recording: {recording}
+- Area: {area}
+- Authoritative clean through: frame {clean_through}
+- Current blocker: {blocker}
+
+# Strongest Evidence
+- Hypothesis: {hypothesis}: {reason}
+
+# Exact Next Moves
+{exact_next_moves}
+
+# Verification To Re-run
+{verification_commands}
+
+# Dead Ends / Do Not Retry
+- Re-open TAS continuation only if a new authoritative mismatch exists.
+",
+        slug = frontier.slug,
+        updated_at = autonomy_timestamp(),
+        status = frontier.status,
+        what_changed = if closed_frontier {
+            format!(
+                "The TAS frontier is closed through frame {}; broader source-port work remains open.",
+                frontier.authoritative_clean_through
+            )
+        } else {
+            format!(
+                "The active TAS frontier remains `{}` at frame {}.",
+                frontier.slug, frontier.frontier_frame
+            )
+        },
+        recording = frontier.recording,
+        area = frontier.area,
+        clean_through = frontier.authoritative_clean_through,
+        blocker = frontier.current_blocker,
+        hypothesis = frontier.current_hypothesis.name,
+        reason = frontier.current_hypothesis.reason,
+        exact_next_moves = exact_next_moves
+            .iter()
+            .map(|step| format!("- {step}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        verification_commands = frontier
+            .verification_commands
+            .iter()
+            .map(|command| format!("- {command}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
+fn autonomy_timestamp() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    seconds.to_string()
 }
 
 fn print_cycle_summary(cycle: &CycleReport) {

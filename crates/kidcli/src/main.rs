@@ -16,6 +16,7 @@ mod inspect;
 mod native_player;
 mod oracle;
 mod player;
+mod project_status;
 mod ram_diff;
 mod recording;
 mod release_gate;
@@ -54,6 +55,7 @@ use oracle::{
     run_jgenesis_enemy_layout_trace,
 };
 use player::{PlayOptions, run_player};
+use project_status::{ProjectStatusFormat, run_project_status};
 use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{GameplayScenario, Scenario};
@@ -445,6 +447,11 @@ enum Commands {
         /// Stop the sweep phase after this many failures (0 = run all levels).
         #[arg(long, default_value_t = 0)]
         max_failures: usize,
+    },
+    /// Summarise the current repo health with 1P playability first.
+    ProjectStatus {
+        #[arg(long, value_enum, default_value_t = ProjectStatusFormat::Text)]
+        format: ProjectStatusFormat,
     },
     /// Deep diagnosis of a single failing level.
     DiagnoseLevel {
@@ -1252,6 +1259,10 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             run_release_gate(&repo_root, &rom_path, &manifest, target, max_failures)?;
+        }
+        Commands::ProjectStatus { format } => {
+            let repo_root = current_dir()?;
+            run_project_status(&repo_root, format)?;
         }
         Commands::DiagnoseLevel { rom, dir, level } => {
             let repo_root = current_dir()?;

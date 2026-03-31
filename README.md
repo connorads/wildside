@@ -2,9 +2,16 @@
 
 This repo is a contained Rust workspace for getting the Mega Drive version of Kid Chameleon running natively on Linux, starting from a user-supplied ROM and a reproducible reference flow built around the public Kid Chameleon disassembly.
 
-The current delivery frontier is 1P whole-game fidelity hardening on the native runtime path, with `play-native` as the primary manual playtest surface and `release-gate` as the canonical completion signal.
+The current delivery frontier is 1P whole-game fidelity hardening on the native runtime path. `play-native` is the primary manual playtest surface, `1p-playable` is the primary project-health signal, and `1p-accurate` remains the parity-heavy supporting gate.
 
 ## Current status
+
+Start with `kidcli project-status` or `mise run project-status`.
+
+- Headline signal: `kidcli release-gate --target 1p-playable`
+- Supporting signal: `kidcli release-gate --target 1p-accurate`
+- Closed TAS frontier means `replay-matched` on those routes, not whole-game completion
+- `kidcli project-status` keeps these signals separate so a green TAS/release artefact does not get read as "the game is nearly done"
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
 - `kidcli play-native` starts the native runtime in a release build. By default it runs the native boot/title/game flow; use `--warp-level <hex> --settled` for a direct settled level playtest.
@@ -28,7 +35,9 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 - `kidcli verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
 - `kidcli verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
 - `kidcli view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.
-- `kidcli release-gate --target 1p-accurate` is the canonical sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
+- `kidcli project-status` summarises repo health with `1p-playable` first, `1p-accurate` second, and TAS frontier state separate.
+- `kidcli release-gate --target 1p-playable` is the primary native-playability gate. It composes native gameplay smoke coverage, the current required gameplay compares, and the core slope/bounce/block regressions.
+- `kidcli release-gate --target 1p-accurate` remains the parity-heavy sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
 - `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
@@ -62,6 +71,7 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 
 ```bash
 mise trust .mise.toml
+mise run project-status
 mise run play
 mise run play-native
 mise run verify-rom
@@ -70,6 +80,7 @@ mise run verify-boot
 mise run verify-startup
 mise run verify-level
 mise run verify-gameplay
+mise run verify-1p-playable
 mise run verify-slice-fast
 mise run verify-slice-full
 mise run release-gate
@@ -104,7 +115,7 @@ mise run reference-build
 
 Verification tasks intentionally fail on Rust warnings. Use `mise run verify-*`,
 `mise run test`, `mise run verify-slice-fast`, `mise run verify-slice-full`,
-`mise run release-gate`, and the sweep tasks when you want a clean warning-free gate;
+`mise run verify-1p-playable`, `mise run release-gate`, and the sweep tasks when you want a clean warning-free gate;
 use `mise run play` or `mise run play-native` for manual work without that strictness.
 
 For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-full-traversal.md`.

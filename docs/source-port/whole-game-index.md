@@ -18,14 +18,15 @@ Presence is not the same as full verification.
 
 ## Systems with strong current evidence
 
+- Native 1P playable gate: current project-health headline for real-player coverage
 - TAS parity: both imported recordings are clean to their recorded endpoints
-- Oracle-backed 1P release gate: currently green
+- Oracle-backed 1P accurate gate: supporting parity evidence, not the primary health headline
 - State sweep: current `1p-accurate` artefact reports the 69 requested levels passing
 - Determinism: repeated traces are stable on the covered scenarios
 
 ## Systems still carrying meaningful risk
 
-- Native 1P playability beyond the narrow release gate
+- Native 1P playability beyond the current smoke gate
 - Death/respawn and transition stability
 - Level 2 entry and post-transition landing stability
 - Block lifecycle visuals and interaction correctness
@@ -42,7 +43,7 @@ Presence is not the same as full verification.
 - 2-player alternating-mode verification
 - Password-system investigation
 - Full native playtest evidence pipeline
-- Wider `1p-playable` gate and structured sweep/report outputs
+- Wider `1p-playable` gate beyond the current smoke contract
 
 ## Reading this file correctly
 

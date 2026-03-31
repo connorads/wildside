@@ -55,22 +55,7 @@ cargo test -q -p kid-core timing_regression_ \
 """
 
 [tasks.verify-1p-playable]
-run = """
-scripts/strict-rust.sh sh -ec '
-cargo run -q -p kidcli -- verify-native-gameplay --scenario pause-resume-level1 \
-  && cargo run -q -p kidcli -- verify-native-gameplay --scenario progress-two-transitions \
-  && cargo run -q -p kidcli -- verify-native-gameplay --scenario death-respawn-level1 \
-  && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 \
-  && cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1 \
-  && cargo test -q -p kid-core -- slope_ground_ \
-  && cargo test -q -p kid-core walking_on_slope_up_y_tracks_diagonal_every_frame \
-  && cargo test -q -p kid-core walking_on_slope_down_y_tracks_diagonal_every_frame \
-  && cargo test -q -p kid-core solid_to_slope_up_transition_stays_grounded \
-  && cargo test -q -p kid-core grounded_slope_to_solid_seam_keeps_level_one_runner_grounded \
-  && cargo test -q -p kid-core -- rubber_block_ \
-  && cargo test -q -p kid-core iron_knight_landing_on_metal_block_bounces_without_destroying_it
-'
-"""
+run = "scripts/strict-rust.sh cargo run --release -p kidcli -- release-gate --target 1p-playable"
 description = "Native 1P-playable smoke gate: boot flow, level progress, death/respawn, slopes, and common bounce/block interactions"
 
 [tasks.verify-slice-full]
@@ -87,6 +72,10 @@ cargo test -q -p kid-core \
 [tasks.release-gate]
 run = "scripts/strict-rust.sh cargo run --release -p kidcli -- release-gate --target 1p-accurate"
 description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares, frame/audio oracle, full state sweep"
+
+[tasks.project-status]
+run = "cargo run -q -p kidcli -- project-status"
+description = "Summarise repo health with 1P-playable first, 1P-accurate second, and TAS frontier status separate"
 
 [tasks.verify-audio-driver]
 run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-driver"
