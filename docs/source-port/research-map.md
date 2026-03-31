@@ -17,8 +17,11 @@ The live TAS frontier is currently closed:
 That is not the same thing as whole-game completion. The active programme now shifts
 from "close the next TAS window" to "make 1P actually work in native play while
 continuing to burn down fidelity debt". See `backlog.md` for the canonical active queue
-and `roadmap.md` for the programme-level workstreams. `kidcli project-status` is the
-top-level status surface for reading those signals together.
+and `roadmap.md` for the programme-level workstreams. The default autonomous packaging
+lane is now `cargo run -p kidcli -- autonomous-loop --goal case-queue`, which ranks
+reduced semantic case bundles and only permits code edits for hybrid-gated
+`autonomy-executable` cases. `kidcli project-status` remains the top-level status
+surface for reading those signals together.
 
 ## Canonical status language
 
@@ -131,6 +134,7 @@ Low impact: speed caps at high HP, Cloud lightning bolt attack, Dragon Flying fi
 
 ### Testing infrastructure
 - **Semantic case bundles**: `kidcli case derive|branch|verify|reduce|summarise` now provide the phase-1 discovery lane. Use them to turn replay slices or native recordings into reduced semantic failure bundles before another broad gameplay patch.
+- **Autonomous case queue**: `kidcli -- autonomous-loop --goal case-queue` now reads reduced case bundles from `.cache/cases`, ranks them deterministically, surfaces untriaged recordings from `.cache/recordings`, and emits one case-centred handoff note for the next agent.
 - **Native replay recording**: `play-native --record <slug>` and `verify-recording --slug <slug>` already exist for input + trace capture. Bundles now include ROM/build provenance, explicit replay commands, legacy `trace.json` schema backfill, copied-bundle verification via `--bundle <path>`, bundled `final-frame.png` + `audio.wav`, optional `notes.txt` via `--record-notes <path>`, and an automatic `transcript.txt` sidecar distilled from the native trace so copied bundles stay reviewable before replay.
 - **Mutation testing baseline**: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p kid-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
 - **Fuzz testing for parsers**: set up `cargo fuzz` targets for level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), audio bank loading (complex binary format). Run each for a few hours, fix crashes.

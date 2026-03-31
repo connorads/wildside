@@ -154,6 +154,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 131 | [x] | P2 | fidelity | Burn down the five parked DEVIATION items instead of treating them as accepted resting state | Each deviation is either removed, reclassified as oracle limitation, or explicitly deferred with evidence |
 | 132 | [x] | P3 | gameflow | Verify 2-player alternating mode against oracle-backed or strong native scenarios | Toggle 2P, die as P1, confirm P2 takeover / game-over / continue behaviour |
 | 133 | [x] | P3 | gameflow | Investigate password flow and decide whether it is missing, partial, or intentionally out of 1P scope | ASM title/options flow is documented; stock ROM has no password entry, and native options now mirror the four-option ROM screen |
+| 134 | [x] | P1 | infra | Package reduced semantic cases as the default autonomous work queue | `cargo run -p kidcli -- autonomous-loop --goal case-queue` now ranks reduced case bundles, prefers recording-backed authoritative failures, surfaces untriaged recordings, and only marks hybrid-gated cases as patchable |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |

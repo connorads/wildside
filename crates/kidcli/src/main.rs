@@ -1167,7 +1167,10 @@ fn main() -> Result<()> {
             emit_json,
         } => {
             let repo_root = current_dir()?;
-            let (rom_path, upstream_dir) = if matches!(goal, AutonomyGoal::SourcePortFrontier) {
+            let (rom_path, upstream_dir) = if matches!(
+                goal,
+                AutonomyGoal::SourcePortFrontier | AutonomyGoal::CaseQueue
+            ) {
                 (None, None)
             } else {
                 let rom_path = resolve_rom_path(&repo_root, rom)?;

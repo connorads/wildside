@@ -164,6 +164,14 @@ Each case bundle should answer:
 - which fields still match
 - which subsystem is the likeliest owner
 
+Autonomous execution should consume these bundles through the case queue, not by
+re-opening the closed TAS frontier by default:
+
+- `cargo run -p kidcli -- autonomous-loop --goal case-queue` ranks reduced cases
+- recording-backed cases outrank generic replay slices
+- only `autonomy-executable` cases may patch code without a human re-triage
+- `source-port-frontier` remains reserved for explicit TAS/frontier debugging
+
 ### Decision tree
 
 | Situation | Test type | Rationale |

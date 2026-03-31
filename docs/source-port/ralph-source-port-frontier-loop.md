@@ -1,6 +1,8 @@
 # Ralph Source-Port Frontier Loop
 
 Use this as the fixed prompt/context for repeated Ralph cycles on the live source-port frontier.
+If the frontier is already closed and the work should come from reduced semantic cases
+instead, use `docs/source-port/ralph-source-port-case-queue-loop.md`.
 
 ## Bootstrap (follow exactly — do not improvise)
 

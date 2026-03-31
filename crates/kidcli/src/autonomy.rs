@@ -26,6 +26,10 @@ const RESEARCH_MAP_TRAVERSAL_MARKER: &str = "## Current frontier\n\n1. Level 1 f
 const SOURCE_PORT_FRONTIER_STATE_PATH: &str = "docs/source-port/frontier-state.yaml";
 const SOURCE_PORT_FRONTIER_NOTE_PATH: &str = ".cache/autonomy/source-port-frontier/next-agent.md";
 const SOURCE_PORT_FRONTIER_TITLE: &str = "Source-port frontier";
+const SOURCE_PORT_CASE_QUEUE_NOTE_PATH: &str = ".cache/autonomy/case-queue/next-agent.md";
+const SOURCE_PORT_CASE_QUEUE_TITLE: &str = "Source-port case queue";
+const SOURCE_PORT_CASE_CACHE_PATH: &str = ".cache/cases";
+const SOURCE_PORT_RECORDINGS_CACHE_PATH: &str = ".cache/recordings";
 const SOURCE_PORT_RESEARCH_MAP_PATH: &str = "docs/source-port/research-map.md";
 const SOURCE_PORT_ROADMAP_PATH: &str = "docs/source-port/roadmap.md";
 const SOURCE_PORT_WHOLE_GAME_INDEX_PATH: &str = "docs/source-port/whole-game-index.md";
@@ -34,6 +38,16 @@ const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, rep
 const SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS: [&str; 6] = [
     "What Changed",
     "Current Model",
+    "Strongest Evidence",
+    "Exact Next Moves",
+    "Verification To Re-run",
+    "Dead Ends / Do Not Retry",
+];
+const SOURCE_PORT_CASE_QUEUE_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the case-queue note with frontmatter for the selected case slug plus the required handoff sections.";
+const SOURCE_PORT_CASE_QUEUE_NOTE_REQUIRED_SECTIONS: [&str; 7] = [
+    "What Changed",
+    "Selected Case",
+    "Why This Case",
     "Strongest Evidence",
     "Exact Next Moves",
     "Verification To Re-run",
@@ -63,6 +77,10 @@ pub(crate) enum AutonomyGoal {
     #[value(name = "source-port-frontier")]
     #[serde(rename = "source-port-frontier")]
     SourcePortFrontier,
+    /// Rank and package reduced semantic gameplay cases for autonomous work.
+    #[value(name = "case-queue")]
+    #[serde(rename = "case-queue")]
+    CaseQueue,
 }
 
 impl AutonomyGoal {
@@ -74,6 +92,7 @@ impl AutonomyGoal {
             Self::LevelIdleParity => "level-idle-parity",
             Self::SweepParity => "sweep-parity",
             Self::SourcePortFrontier => "source-port-frontier",
+            Self::CaseQueue => "case-queue",
         }
     }
 
@@ -92,6 +111,7 @@ impl AutonomyGoal {
                 repo_root.join("docs/source-port/sweep-parity-goal.json")
             }
             Self::SourcePortFrontier => repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH),
+            Self::CaseQueue => repo_root.join(SOURCE_PORT_CASE_CACHE_PATH),
         }
     }
 }
@@ -118,6 +138,7 @@ pub(crate) enum CapabilityId {
     ReleaseGateGreen,
     StateSweepGreen,
     SourcePortFrontierTask,
+    SourcePortCaseQueueTask,
 }
 
 impl CapabilityId {
@@ -142,6 +163,7 @@ impl CapabilityId {
             Self::ReleaseGateGreen => "release_gate_green",
             Self::StateSweepGreen => "state_sweep_green",
             Self::SourcePortFrontierTask => "source_port_frontier_task",
+            Self::SourcePortCaseQueueTask => "source_port_case_queue_task",
         }
     }
 }
@@ -232,6 +254,8 @@ pub(crate) struct TaskPackage {
     #[serde(skip_serializing_if = "Option::is_none")]
     frontier_context: Option<FrontierContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    case_queue_context: Option<CaseQueueContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     next_agent_note: Option<NextAgentNoteDirective>,
 }
 
@@ -257,6 +281,107 @@ struct FrontierContext {
     rejected_hypotheses: Vec<HypothesisSummary>,
     required_next_evidence: Vec<String>,
     verification_commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CaseQueueContext {
+    selected_case: Option<CaseQueueCandidate>,
+    open_cases: Vec<CaseQueueCandidate>,
+    blocked_cases: Vec<CaseQueueCandidate>,
+    untriaged_recordings: Vec<RecordingQueueCandidate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CaseQueueCandidate {
+    case_id: String,
+    selector: String,
+    status: CaseQueueStatus,
+    source_kind: String,
+    source_slug: String,
+    evidence_tier: String,
+    frame_start: usize,
+    frame_end: usize,
+    checkpoint_frame: usize,
+    checkpoint_label: String,
+    first_bad_frame: Option<usize>,
+    first_bad_field: Option<String>,
+    failure_class: Option<CaseFailureClass>,
+    likely_subsystems: Vec<String>,
+    summary_path: PathBuf,
+    manifest_path: PathBuf,
+    verify_path: PathBuf,
+    score: i64,
+    autonomy_ready: bool,
+    duplicate_of: Option<String>,
+    rank_reason: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CaseQueueStatus {
+    Open,
+    Reduced,
+    Qualified,
+    AutonomyExecutable,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CaseFailureClass {
+    Authoritative,
+    Advisory,
+    Visual,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RecordingQueueCandidate {
+    slug: String,
+    manifest_path: PathBuf,
+    has_transcript: bool,
+    has_notes: bool,
+}
+
+#[derive(Debug, Clone)]
+struct CaseQueueSnapshot {
+    selected_case: Option<CaseQueueCandidate>,
+    open_cases: Vec<CaseQueueCandidate>,
+    blocked_cases: Vec<CaseQueueCandidate>,
+    untriaged_recordings: Vec<RecordingQueueCandidate>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CaseManifestView {
+    case_id: String,
+    source: CaseSourceView,
+    evidence_tier: String,
+    frame_start: usize,
+    frame_end: usize,
+    checkpoint_frame: usize,
+    checkpoint_label: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum CaseSourceView {
+    ScenarioPath { path: String },
+    GameplayScenario { slug: String },
+    Recording { path: String, slug: String },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CaseVerifyReportView {
+    passed: bool,
+    #[serde(default)]
+    first_failure: Option<CaseFailureView>,
+    #[serde(default)]
+    likely_subsystems: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CaseFailureView {
+    frame_index: usize,
+    field: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,6 +415,28 @@ impl NextAgentNoteStatus {
             Self::Missing => "missing",
             Self::Stale => "stale",
             Self::Current => "current",
+        }
+    }
+}
+
+impl CaseQueueStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::Reduced => "reduced",
+            Self::Qualified => "qualified",
+            Self::AutonomyExecutable => "autonomy_executable",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+impl CaseFailureClass {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Authoritative => "authoritative",
+            Self::Advisory => "advisory",
+            Self::Visual => "visual",
         }
     }
 }
@@ -463,6 +610,7 @@ pub(crate) fn run_autonomous_loop(
 ) -> Result<()> {
     let goal_state = match goal {
         AutonomyGoal::SourcePortFrontier => GoalState::SourcePortFrontier,
+        AutonomyGoal::CaseQueue => GoalState::CaseQueue,
         _ => {
             let rom_path = rom_path.context("autonomy goal requires a ROM path")?;
             let upstream_dir = upstream_dir.context("autonomy goal requires an upstream dir")?;
@@ -569,6 +717,7 @@ enum GoalState {
         manifest: Box<AssetManifest>,
     },
     SourcePortFrontier,
+    CaseQueue,
 }
 
 impl GoalState {
@@ -576,6 +725,7 @@ impl GoalState {
         match self {
             Self::SpecDriven { spec, .. } => spec.title.as_str(),
             Self::SourcePortFrontier => SOURCE_PORT_FRONTIER_TITLE,
+            Self::CaseQueue => SOURCE_PORT_CASE_QUEUE_TITLE,
         }
     }
 
@@ -589,6 +739,7 @@ impl GoalState {
             Self::SourcePortFrontier => {
                 evaluate_source_port_frontier_cycle(repo_root, cycle_number)
             }
+            Self::CaseQueue => evaluate_case_queue_cycle(repo_root, cycle_number),
         }
     }
 }
@@ -728,6 +879,7 @@ fn source_port_frontier_task(
             required_next_evidence: frontier.required_next_evidence.clone(),
             verification_commands: frontier.verification_commands.clone(),
         }),
+        case_queue_context: None,
         next_agent_note: Some(note.clone()),
     }
 }
@@ -799,6 +951,556 @@ fn extract_frontmatter_slug(contents: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport> {
+    let queue = build_case_queue_snapshot(repo_root)?;
+    let active_slug = queue
+        .selected_case
+        .as_ref()
+        .map(|candidate| candidate.case_id.as_str())
+        .unwrap_or("no-selected-case");
+    let note = case_queue_next_agent_note(repo_root, active_slug);
+    let selected_task = queue
+        .selected_case
+        .as_ref()
+        .map(|candidate| case_queue_task(candidate, &queue, &note));
+    let blocker = if let Some(task) = selected_task.as_ref() {
+        detect_blocker(repo_root, task)
+    } else {
+        Some(BlockerReport {
+            capability: CapabilityId::SourcePortCaseQueueTask,
+            reason: "no reduced authoritative case is available in .cache/cases".to_owned(),
+            missing_paths: vec![repo_root.join(SOURCE_PORT_CASE_CACHE_PATH)],
+        })
+    };
+    let status = if selected_task.is_some() {
+        CapabilityStatus::Ready
+    } else {
+        CapabilityStatus::Blocked
+    };
+    let summary = if let Some(candidate) = queue.selected_case.as_ref() {
+        format!(
+            "Selected {} ({}, {} -> {:?}) from the semantic case queue.",
+            candidate.case_id,
+            candidate.status.as_str(),
+            candidate.source_kind,
+            candidate.first_bad_field.as_deref().unwrap_or("no-failure")
+        )
+    } else {
+        "No qualifying semantic case bundle is available yet; derive or reduce a case before patch work."
+            .to_owned()
+    };
+    let capabilities = vec![CapabilityReport {
+        id: CapabilityId::SourcePortCaseQueueTask,
+        title: "Source-port case queue".to_owned(),
+        status,
+        summary,
+    }];
+
+    Ok(CycleReport {
+        goal: AutonomyGoal::CaseQueue.slug().to_owned(),
+        cycle,
+        goal_complete: false,
+        stalled: false,
+        task_package: selected_task.clone(),
+        selected_task,
+        blocker,
+        progress_fingerprint: format!(
+            "{}:{}:{}",
+            queue
+                .selected_case
+                .as_ref()
+                .map(|candidate| candidate.case_id.as_str())
+                .unwrap_or("none"),
+            queue
+                .selected_case
+                .as_ref()
+                .map(|candidate| candidate.status.as_str())
+                .unwrap_or("none"),
+            note.frontmatter_slug.as_deref().unwrap_or("none")
+        ),
+        capabilities,
+    })
+}
+
+fn build_case_queue_snapshot(repo_root: &Path) -> Result<CaseQueueSnapshot> {
+    let mut cases = load_case_queue_candidates(repo_root)?;
+    apply_case_queue_duplicate_penalties(&mut cases);
+    cases.sort_by(case_queue_sort_key);
+
+    let selected_case = cases
+        .iter()
+        .find(|candidate| candidate.autonomy_ready)
+        .cloned()
+        .or_else(|| {
+            cases
+                .iter()
+                .find(|candidate| {
+                    candidate.failure_class == Some(CaseFailureClass::Authoritative)
+                        && candidate.duplicate_of.is_none()
+                })
+                .cloned()
+        });
+
+    let open_cases = cases
+        .iter()
+        .filter(|candidate| candidate.status != CaseQueueStatus::Blocked)
+        .take(8)
+        .cloned()
+        .collect();
+    let blocked_cases = cases
+        .iter()
+        .filter(|candidate| candidate.status == CaseQueueStatus::Blocked)
+        .take(8)
+        .cloned()
+        .collect();
+    let untriaged_recordings = load_untriaged_recordings(repo_root, &cases)?;
+
+    Ok(CaseQueueSnapshot {
+        selected_case,
+        open_cases,
+        blocked_cases,
+        untriaged_recordings,
+    })
+}
+
+fn load_case_queue_candidates(repo_root: &Path) -> Result<Vec<CaseQueueCandidate>> {
+    let cases_dir = repo_root.join(SOURCE_PORT_CASE_CACHE_PATH);
+    let mut candidates = Vec::new();
+    let entries = match fs::read_dir(&cases_dir) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(candidates),
+        Err(err) => {
+            return Err(err).with_context(|| format!("failed to read {}", cases_dir.display()));
+        }
+    };
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_dir() || path.file_name().and_then(|name| name.to_str()) == Some(".tmp") {
+            continue;
+        }
+        let manifest_path = path.join("manifest.json");
+        let verify_path = path.join("verify.json");
+        let summary_path = path.join("summary.md");
+        if !manifest_path.is_file() || !verify_path.is_file() {
+            continue;
+        }
+        let manifest: CaseManifestView = serde_json::from_slice(&fs::read(&manifest_path)?)
+            .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
+        let verify: CaseVerifyReportView = serde_json::from_slice(&fs::read(&verify_path)?)
+            .with_context(|| format!("failed to parse {}", verify_path.display()))?;
+        if verify.passed {
+            continue;
+        }
+        let (source_kind, source_slug) = case_source_details(&manifest.source);
+        let first_failure = verify.first_failure.as_ref();
+        let failure_class = first_failure.map(|failure| classify_case_failure(&failure.field));
+        let window_len = manifest.frame_end.saturating_sub(manifest.frame_start);
+        let autonomy_ready = failure_class == Some(CaseFailureClass::Authoritative)
+            && window_len <= 120
+            && !verify.likely_subsystems.is_empty()
+            && verify.likely_subsystems.len() <= 2;
+        let status = case_queue_status(
+            failure_class,
+            autonomy_ready,
+            window_len,
+            verify.likely_subsystems.len(),
+        );
+        let score = case_queue_score(
+            &manifest.source,
+            failure_class,
+            manifest.checkpoint_frame,
+            manifest.frame_end,
+            first_failure,
+            verify.likely_subsystems.len(),
+        );
+        candidates.push(CaseQueueCandidate {
+            case_id: manifest.case_id.clone(),
+            selector: path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(manifest.case_id.as_str())
+                .to_owned(),
+            status,
+            source_kind: source_kind.to_owned(),
+            source_slug,
+            evidence_tier: manifest.evidence_tier,
+            frame_start: manifest.frame_start,
+            frame_end: manifest.frame_end,
+            checkpoint_frame: manifest.checkpoint_frame,
+            checkpoint_label: manifest.checkpoint_label,
+            first_bad_frame: first_failure.map(|failure| failure.frame_index),
+            first_bad_field: first_failure.map(|failure| failure.field.clone()),
+            failure_class,
+            likely_subsystems: verify.likely_subsystems,
+            summary_path: repo_relative_path(repo_root, &summary_path),
+            manifest_path: repo_relative_path(repo_root, &manifest_path),
+            verify_path: repo_relative_path(repo_root, &verify_path),
+            score,
+            autonomy_ready,
+            duplicate_of: None,
+            rank_reason: String::new(),
+        });
+    }
+    for candidate in &mut candidates {
+        candidate.rank_reason = rank_reason(candidate);
+    }
+    Ok(candidates)
+}
+
+fn load_untriaged_recordings(
+    repo_root: &Path,
+    cases: &[CaseQueueCandidate],
+) -> Result<Vec<RecordingQueueCandidate>> {
+    let recordings_dir = repo_root.join(SOURCE_PORT_RECORDINGS_CACHE_PATH);
+    let mut out = Vec::new();
+    let entries = match fs::read_dir(&recordings_dir) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(out),
+        Err(err) => {
+            return Err(err)
+                .with_context(|| format!("failed to read {}", recordings_dir.display()));
+        }
+    };
+    for entry in entries {
+        let entry = entry?;
+        let root = entry.path();
+        if !root.is_dir() {
+            continue;
+        }
+        let bundle_root = nested_single_directory_or_self(&root)?;
+        let manifest_path = bundle_root.join("manifest.json");
+        if !manifest_path.is_file() {
+            continue;
+        }
+        let bytes = fs::read(&manifest_path)?;
+        let manifest: serde_json::Value = serde_json::from_slice(&bytes)
+            .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
+        let slug = manifest
+            .get("slug")
+            .and_then(|slug| slug.as_str())
+            .unwrap_or_else(|| {
+                bundle_root
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("unknown-recording")
+            })
+            .to_owned();
+        let already_covered = cases
+            .iter()
+            .any(|candidate| candidate.source_kind == "recording" && candidate.source_slug == slug);
+        if already_covered {
+            continue;
+        }
+        out.push(RecordingQueueCandidate {
+            slug,
+            manifest_path: repo_relative_path(repo_root, &manifest_path),
+            has_transcript: bundle_root.join("transcript.txt").is_file(),
+            has_notes: bundle_root.join("notes.txt").is_file(),
+        });
+    }
+    out.sort_by(|left, right| left.slug.cmp(&right.slug));
+    Ok(out)
+}
+
+fn nested_single_directory_or_self(path: &Path) -> Result<PathBuf> {
+    let entries: Vec<_> = fs::read_dir(path)?
+        .collect::<Result<Vec<_>, _>>()
+        .with_context(|| format!("failed to inspect {}", path.display()))?;
+    let nested_dirs: Vec<_> = entries
+        .into_iter()
+        .map(|entry| entry.path())
+        .filter(|candidate| candidate.is_dir())
+        .collect();
+    Ok(if nested_dirs.len() == 1 {
+        nested_dirs[0].clone()
+    } else {
+        path.to_path_buf()
+    })
+}
+
+fn case_source_details(source: &CaseSourceView) -> (&'static str, String) {
+    match source {
+        CaseSourceView::ScenarioPath { path } => ("scenario_path", path.clone()),
+        CaseSourceView::GameplayScenario { slug } => ("gameplay_scenario", slug.clone()),
+        CaseSourceView::Recording { path, slug } => (
+            "recording",
+            if slug.is_empty() {
+                path.clone()
+            } else {
+                slug.clone()
+            },
+        ),
+    }
+}
+
+fn classify_case_failure(field: &str) -> CaseFailureClass {
+    if [
+        "world.score",
+        "world.number_lives",
+        "world.diamond_count",
+        "world.number_objects",
+        "world.murder_wall_x",
+    ]
+    .iter()
+    .any(|needle| field.contains(needle))
+    {
+        CaseFailureClass::Advisory
+    } else if ["sprite", "animation", "render", "palette"]
+        .iter()
+        .any(|needle| field.contains(needle))
+    {
+        CaseFailureClass::Visual
+    } else {
+        CaseFailureClass::Authoritative
+    }
+}
+
+fn case_queue_status(
+    failure_class: Option<CaseFailureClass>,
+    autonomy_ready: bool,
+    window_len: usize,
+    subsystem_count: usize,
+) -> CaseQueueStatus {
+    match failure_class {
+        Some(CaseFailureClass::Advisory | CaseFailureClass::Visual) | None => {
+            CaseQueueStatus::Blocked
+        }
+        Some(CaseFailureClass::Authoritative) if autonomy_ready => {
+            CaseQueueStatus::AutonomyExecutable
+        }
+        Some(CaseFailureClass::Authoritative) if window_len <= 120 && subsystem_count <= 2 => {
+            CaseQueueStatus::Qualified
+        }
+        Some(CaseFailureClass::Authoritative) if window_len <= 240 => CaseQueueStatus::Reduced,
+        Some(CaseFailureClass::Authoritative) => CaseQueueStatus::Open,
+    }
+}
+
+fn case_queue_score(
+    source: &CaseSourceView,
+    failure_class: Option<CaseFailureClass>,
+    checkpoint_frame: usize,
+    frame_end: usize,
+    first_failure: Option<&CaseFailureView>,
+    subsystem_count: usize,
+) -> i64 {
+    let source_weight = match source {
+        CaseSourceView::Recording { .. } => 500,
+        CaseSourceView::GameplayScenario { .. } => 400,
+        CaseSourceView::ScenarioPath { .. } => 300,
+    };
+    let severity = match failure_class {
+        Some(CaseFailureClass::Authoritative) => 300,
+        Some(CaseFailureClass::Visual) => 100,
+        Some(CaseFailureClass::Advisory) | None => 0,
+    };
+    let frames_to_failure = first_failure
+        .map(|failure| failure.frame_index.saturating_sub(checkpoint_frame))
+        .unwrap_or(frame_end.saturating_sub(checkpoint_frame));
+    let locality = match frames_to_failure {
+        0..=60 => 120,
+        61..=120 => 80,
+        121..=240 => 40,
+        _ => 10,
+    };
+    let clarity = match subsystem_count {
+        1 => 120,
+        2 => 80,
+        3 => 30,
+        0 => 0,
+        _ => 10,
+    };
+    source_weight + severity + locality + clarity
+}
+
+fn apply_case_queue_duplicate_penalties(cases: &mut [CaseQueueCandidate]) {
+    cases.sort_by(case_queue_sort_key);
+    let mut seen: Vec<(String, String, usize, String)> = Vec::new();
+    for candidate in cases.iter_mut() {
+        let Some(field) = candidate.first_bad_field.as_ref() else {
+            continue;
+        };
+        if let Some((winner, _source_slug, checkpoint, _prior_field)) =
+            seen.iter()
+                .find(|(_, source_slug, checkpoint, prior_field)| {
+                    prior_field == field
+                        && *source_slug == candidate.source_slug
+                        && candidate.checkpoint_frame.abs_diff(*checkpoint) <= 30
+                })
+        {
+            candidate.score -= 75;
+            candidate.duplicate_of = Some(winner.clone());
+            candidate.rank_reason = format!(
+                "{}; duplicate-of={} @{}",
+                candidate.rank_reason, winner, checkpoint
+            );
+        } else {
+            seen.push((
+                candidate.case_id.clone(),
+                candidate.source_slug.clone(),
+                candidate.checkpoint_frame,
+                field.clone(),
+            ));
+        }
+        candidate.rank_reason = rank_reason(candidate);
+    }
+}
+
+fn case_queue_sort_key(
+    left: &CaseQueueCandidate,
+    right: &CaseQueueCandidate,
+) -> std::cmp::Ordering {
+    right
+        .score
+        .cmp(&left.score)
+        .then_with(|| left.frame_end.cmp(&right.frame_end))
+        .then_with(|| left.case_id.cmp(&right.case_id))
+}
+
+fn rank_reason(candidate: &CaseQueueCandidate) -> String {
+    let mut parts = vec![format!("source={}", candidate.source_kind)];
+    if let Some(classification) = candidate.failure_class {
+        parts.push(format!("failure={}", classification.as_str()));
+    }
+    if let Some(field) = candidate.first_bad_field.as_deref() {
+        parts.push(format!("field={field}"));
+    }
+    parts.push(format!(
+        "window={}f",
+        candidate.frame_end - candidate.frame_start
+    ));
+    if candidate.autonomy_ready {
+        parts.push("autonomy-ready".to_owned());
+    }
+    if let Some(duplicate_of) = candidate.duplicate_of.as_deref() {
+        parts.push(format!("duplicate-of={duplicate_of}"));
+    }
+    parts.join(", ")
+}
+
+fn repo_relative_path(repo_root: &Path, path: &Path) -> PathBuf {
+    path.strip_prefix(repo_root)
+        .map(|relative| relative.to_path_buf())
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn case_queue_task(
+    candidate: &CaseQueueCandidate,
+    queue: &CaseQueueSnapshot,
+    note: &NextAgentNoteDirective,
+) -> TaskPackage {
+    let verification_commands = vec![
+        format!(
+            "cargo run -p kidcli -- case verify --case {}",
+            candidate.selector
+        ),
+        format!(
+            "cargo run -p kidcli -- case summarise --case {}",
+            candidate.selector
+        ),
+    ];
+    let mut done_criteria = vec![
+        "The selected case is re-verified before investigation.".to_owned(),
+        "The first bad semantic frame/field is either removed or moved later with a better explanation.".to_owned(),
+    ];
+    if candidate.autonomy_ready {
+        done_criteria.push(
+            "If a fix lands, keep the case autonomy-executable and locally re-checkable."
+                .to_owned(),
+        );
+    }
+    TaskPackage {
+        capability: CapabilityId::SourcePortCaseQueueTask,
+        title: format!("Advance source-port case: {}", candidate.case_id),
+        summary: format!(
+            "{} from {} first fails on frame {} at {}; {}.",
+            candidate.case_id,
+            candidate.source_slug,
+            candidate
+                .first_bad_frame
+                .map(|frame| frame.to_string())
+                .unwrap_or_else(|| "unknown".to_owned()),
+            candidate.first_bad_field.as_deref().unwrap_or("unknown"),
+            if candidate.autonomy_ready {
+                "the hybrid gate allows a focused patch"
+            } else {
+                "this remains evidence-first until the case is tighter"
+            }
+        ),
+        sources: vec![
+            candidate.manifest_path.display().to_string(),
+            candidate.verify_path.display().to_string(),
+            candidate.summary_path.display().to_string(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+        ],
+        implementation_targets: Vec::new(),
+        commands: verification_commands,
+        done_criteria,
+        evidence: vec![
+            EvidenceItem {
+                label: "selected-case".to_owned(),
+                status: candidate.status.as_str().to_owned(),
+                detail: candidate.rank_reason.clone(),
+                artefact_path: Some(candidate.summary_path.clone()),
+            },
+            EvidenceItem {
+                label: "autonomy-gate".to_owned(),
+                status: if candidate.autonomy_ready {
+                    "patch-allowed".to_owned()
+                } else {
+                    "evidence-only".to_owned()
+                },
+                detail: format!(
+                    "failure_class={}, subsystems={}, window={}f",
+                    candidate
+                        .failure_class
+                        .map(|class| class.as_str())
+                        .unwrap_or("unknown"),
+                    candidate.likely_subsystems.len(),
+                    candidate.frame_end - candidate.frame_start
+                ),
+                artefact_path: Some(candidate.verify_path.clone()),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: None,
+        case_queue_context: Some(CaseQueueContext {
+            selected_case: Some(candidate.clone()),
+            open_cases: queue.open_cases.clone(),
+            blocked_cases: queue.blocked_cases.clone(),
+            untriaged_recordings: queue.untriaged_recordings.clone(),
+        }),
+        next_agent_note: Some(note.clone()),
+    }
+}
+
+fn case_queue_next_agent_note(repo_root: &Path, active_slug: &str) -> NextAgentNoteDirective {
+    let path = PathBuf::from(SOURCE_PORT_CASE_QUEUE_NOTE_PATH);
+    let note_path = repo_root.join(&path);
+    let (status, frontmatter_slug, detail) = note_status_for_frontier(&note_path, active_slug);
+    let detail = detail
+        .replace("active frontier", "selected case")
+        .replace("for the active frontier", "for the selected case");
+    NextAgentNoteDirective {
+        path,
+        status,
+        detail,
+        frontmatter_slug,
+        requirement_summary: SOURCE_PORT_CASE_QUEUE_NOTE_REQUIREMENT_SUMMARY.to_owned(),
+        required_sections: SOURCE_PORT_CASE_QUEUE_NOTE_REQUIRED_SECTIONS
+            .iter()
+            .map(|section| (*section).to_owned())
+            .collect(),
+    }
 }
 
 fn evaluate_cycle(
@@ -1380,6 +2082,11 @@ fn capability_completion_summary(
             "The live source-port frontier task package is generated from frontier-state.yaml."
                 .to_owned(),
         ),
+        CapabilityId::SourcePortCaseQueueTask => (
+            false,
+            "The source-port case queue task package is generated from reduced case bundles."
+                .to_owned(),
+        ),
     }
 }
 
@@ -1405,6 +2112,7 @@ fn select_next_task(
         done_criteria: spec_capability.done_criteria.clone(),
         evidence: evidence_for_capability(capability.id, signals),
         frontier_context: None,
+        case_queue_context: None,
         next_agent_note: None,
     })
 }
@@ -1571,6 +2279,7 @@ fn evidence_for_capability(
             vec![check_evidence("sweep:state", &signals.state_sweep)]
         }
         CapabilityId::SourcePortFrontierTask => Vec::new(),
+        CapabilityId::SourcePortCaseQueueTask => Vec::new(),
     }
 }
 
@@ -1771,12 +2480,15 @@ fn print_cycle_summary(cycle: &CycleReport) {
 #[cfg(test)]
 mod tests {
     use super::{
-        CapabilityId, CapabilityStatus, CheckOutcome, GoalSpec, NextAgentNoteStatus,
-        RepositorySignals, SOURCE_PORT_FRONTIER_NOTE_PATH, SOURCE_PORT_FRONTIER_STATE_PATH,
+        CapabilityId, CapabilityStatus, CaseFailureClass, CaseQueueStatus, CheckOutcome, GoalSpec,
+        NextAgentNoteStatus, RepositorySignals, SOURCE_PORT_CASE_CACHE_PATH,
+        SOURCE_PORT_CASE_QUEUE_NOTE_PATH, SOURCE_PORT_FRONTIER_NOTE_PATH,
+        SOURCE_PORT_FRONTIER_STATE_PATH, SOURCE_PORT_RECORDINGS_CACHE_PATH,
         SOURCE_PORT_RELEASE_GATE_PATH, SOURCE_PORT_RESEARCH_MAP_PATH, SOURCE_PORT_ROADMAP_PATH,
-        SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, detect_blocker, evaluate_capabilities,
-        evaluate_source_port_frontier_cycle, fingerprint_for_capabilities,
-        load_source_port_frontier_state, select_next_task, source_port_next_agent_note,
+        SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot, detect_blocker,
+        evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
+        fingerprint_for_capabilities, load_source_port_frontier_state, select_next_task,
+        source_port_next_agent_note,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -1961,6 +2673,7 @@ mod tests {
             done_criteria: Vec::new(),
             evidence: Vec::new(),
             frontier_context: None,
+            case_queue_context: None,
             next_agent_note: None,
         };
 
@@ -2059,6 +2772,10 @@ mod tests {
             .expect("docs dir should exist");
         fs::create_dir_all(temp_dir.path().join("crates/kid-core/src"))
             .expect("source dir should exist");
+        fs::create_dir_all(temp_dir.path().join(SOURCE_PORT_CASE_CACHE_PATH))
+            .expect("case cache should exist");
+        fs::create_dir_all(temp_dir.path().join(SOURCE_PORT_RECORDINGS_CACHE_PATH))
+            .expect("recording cache should exist");
         fs::write(
             temp_dir.path().join("crates/kid-core/src/boot.rs"),
             "// boot placeholder\n",
@@ -2075,6 +2792,74 @@ mod tests {
         )
         .expect("tests source should write");
         temp_dir
+    }
+
+    fn write_case(
+        repo_root: &Path,
+        selector: &str,
+        source_json: &str,
+        first_bad_field: &str,
+        first_bad_frame: usize,
+        likely_subsystems: &[&str],
+        frame_start: usize,
+        frame_end: usize,
+    ) {
+        let case_dir = repo_root.join(SOURCE_PORT_CASE_CACHE_PATH).join(selector);
+        fs::create_dir_all(&case_dir).expect("case dir should exist");
+        fs::write(
+            case_dir.join("manifest.json"),
+            format!(
+                r#"{{
+  "case_id": "{selector}",
+  "source": {source_json},
+  "evidence_tier": "branch-matched",
+  "frame_start": {frame_start},
+  "frame_end": {frame_end},
+  "checkpoint_frame": {frame_start},
+  "checkpoint_label": "frame_{frame_start:05}"
+}}
+"#
+            ),
+        )
+        .expect("manifest should write");
+        fs::write(
+            case_dir.join("verify.json"),
+            format!(
+                r#"{{
+  "passed": false,
+  "first_failure": {{
+    "frame_index": {first_bad_frame},
+    "field": "{first_bad_field}"
+  }},
+  "likely_subsystems": [{}]
+}}
+"#,
+                likely_subsystems
+                    .iter()
+                    .map(|subsystem| format!("\"{subsystem}\""))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        )
+        .expect("verify should write");
+        fs::write(case_dir.join("summary.md"), "case summary\n").expect("summary should write");
+    }
+
+    fn write_recording(repo_root: &Path, slug: &str, with_transcript: bool) {
+        let recording_dir = repo_root
+            .join(SOURCE_PORT_RECORDINGS_CACHE_PATH)
+            .join(slug)
+            .join(slug);
+        fs::create_dir_all(&recording_dir).expect("recording dir should exist");
+        fs::write(
+            recording_dir.join("manifest.json"),
+            format!(r#"{{"slug":"{slug}"}}"#),
+        )
+        .expect("recording manifest should write");
+        if with_transcript {
+            fs::write(recording_dir.join("transcript.txt"), "trace transcript\n")
+                .expect("transcript should write");
+        }
     }
 
     fn write_source_port_frontier(repo_root: &Path, include_task_package: bool, status: &str) {
@@ -2236,5 +3021,106 @@ mod tests {
             "Advance source-port beyond the closed TAS frontier"
         );
         assert!(task_package.summary.contains("source-port is not complete"));
+    }
+
+    #[test]
+    fn case_queue_prefers_recording_backed_authoritative_case() {
+        let temp_dir = source_port_repo();
+        write_case(
+            temp_dir.path(),
+            "recording-case",
+            r#"{"kind":"recording","path":".cache/recordings/tree/tree","slug":"tree-break"}"#,
+            "player.on_ground",
+            48,
+            &["collision"],
+            0,
+            60,
+        );
+        write_case(
+            temp_dir.path(),
+            "scenario-case",
+            r#"{"kind":"gameplay_scenario","slug":"pause_resume_level1"}"#,
+            "player.on_ground",
+            90,
+            &["collision", "player physics"],
+            0,
+            140,
+        );
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+        let selected = queue.selected_case.expect("selected case should exist");
+
+        assert_eq!(selected.case_id, "recording-case");
+        assert_eq!(selected.status, CaseQueueStatus::AutonomyExecutable);
+        assert_eq!(
+            selected.failure_class,
+            Some(CaseFailureClass::Authoritative)
+        );
+    }
+
+    #[test]
+    fn case_queue_blocks_advisory_only_cases() {
+        let temp_dir = source_port_repo();
+        write_case(
+            temp_dir.path(),
+            "advisory-case",
+            r#"{"kind":"gameplay_scenario","slug":"death_respawn_level1"}"#,
+            "world.score",
+            32,
+            &["player physics"],
+            0,
+            80,
+        );
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+        assert!(queue.selected_case.is_none());
+        assert_eq!(queue.blocked_cases.len(), 1);
+        assert_eq!(queue.blocked_cases[0].status, CaseQueueStatus::Blocked);
+        assert_eq!(
+            queue.blocked_cases[0].failure_class,
+            Some(CaseFailureClass::Advisory)
+        );
+    }
+
+    #[test]
+    fn case_queue_lists_untriaged_recordings() {
+        let temp_dir = source_port_repo();
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+        assert_eq!(queue.untriaged_recordings.len(), 1);
+        assert_eq!(queue.untriaged_recordings[0].slug, "level1-tree-break");
+        assert!(queue.untriaged_recordings[0].has_transcript);
+    }
+
+    #[test]
+    fn case_queue_cycle_marks_current_note_when_case_slug_matches() {
+        let temp_dir = source_port_repo();
+        write_case(
+            temp_dir.path(),
+            "recording-case",
+            r#"{"kind":"recording","path":".cache/recordings/tree/tree","slug":"tree-break"}"#,
+            "player.on_ground",
+            48,
+            &["collision"],
+            0,
+            60,
+        );
+        let note_path = temp_dir.path().join(SOURCE_PORT_CASE_QUEUE_NOTE_PATH);
+        fs::create_dir_all(note_path.parent().expect("note dir")).expect("note dir should exist");
+        fs::write(
+            &note_path,
+            "---\nslug: recording-case\ncycle: 1\nupdated_at: 2026-03-31T20:00:00Z\n---\n# What Changed\n",
+        )
+        .expect("note should write");
+
+        let cycle = evaluate_case_queue_cycle(temp_dir.path(), 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        let note = task.next_agent_note.expect("note should exist");
+
+        assert_eq!(task.capability, CapabilityId::SourcePortCaseQueueTask);
+        assert!(task.case_queue_context.is_some());
+        assert_eq!(note.status, NextAgentNoteStatus::Current);
+        assert_eq!(note.frontmatter_slug.as_deref(), Some("recording-case"));
     }
 }
