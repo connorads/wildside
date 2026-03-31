@@ -44,6 +44,7 @@ run = """
 scripts/strict-rust.sh sh -ec '
 cargo test -q -p kid-core timing_regression_ \
   && cargo test -q -p kid-core determinism_ \
+  && cargo test -q -p kid-core boot_title_start_level_1_hidden_gameplay_bootstrap_matches_settled_spawn \
   && cargo test -q -p kid-core -- enemy_contact --skip demo_ --skip published_tas \
   && cargo test -q -p kid-core -- stomp --skip demo_ --skip published_tas \
   && cargo test -q -p kid-core -- prize --skip demo_ --skip published_tas \

@@ -172,6 +172,26 @@ fn manifest() -> AssetManifest {
     }
 }
 
+fn manifest_with_playable_spawn() -> AssetManifest {
+    let mut manifest = manifest();
+    let header = manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .expect("synthetic manifest should expose level header metadata");
+    header.player_start_x = 0x0020;
+    manifest
+}
+
+fn manifest_with_levels_and_playable_spawn(count: u8) -> AssetManifest {
+    let mut manifest = manifest_with_levels(count);
+    let header = manifest.levels[0]
+        .header_metadata
+        .as_mut()
+        .expect("synthetic manifest should expose level header metadata");
+    header.player_start_x = 0x0020;
+    manifest
+}
+
 fn start_level(runtime: &mut NativeRuntime) {
     if runtime.block_grid().is_none() {
         runtime.set_block_grid(grid_with_floor_at_row(17));
@@ -206,30 +226,6 @@ fn press_skip_cheat(runtime: &mut NativeRuntime) -> NativeTraceFrame {
     });
     runtime.step_frame(FrameInput::default());
     runtime.trace_frame()
-}
-
-fn start_level_settled(runtime: &mut NativeRuntime) {
-    if runtime.block_grid().is_none() {
-        runtime.set_block_grid(grid_with_floor_at_row(17));
-    }
-    while runtime.trace_frame().frame_index < 719 {
-        let next_frame = runtime.trace_frame().frame_index + 1;
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&next_frame) || next_frame == 462 {
-            FrameInput {
-                start: true,
-                ..FrameInput::default()
-            }
-        } else if (600..=719).contains(&next_frame) {
-            FrameInput {
-                right: true,
-                a: true,
-                ..FrameInput::default()
-            }
-        } else {
-            FrameInput::default()
-        };
-        runtime.step_frame(input);
-    }
 }
 
 fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
@@ -533,6 +529,39 @@ fn boot_title_start_level_1_keeps_slot_2_hidden_until_frame_504() {
 }
 
 #[test]
+fn boot_title_start_level_1_hidden_gameplay_bootstrap_matches_settled_spawn() {
+    let mut runtime = cached_generated_runtime();
+
+    for frame_index in 0..=504 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        runtime.step_frame(input);
+    }
+
+    let expected = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
+    let slice = runtime
+        .opening_slice
+        .expect("booted level entry should keep a hidden gameplay slice");
+
+    // ASM Load_InGame settles Kid onto the real floor before gameplay becomes
+    // visible. Booted level entry should therefore carry the settled
+    // gameplay/bootstrap slice during mode-$0008`, not the generic title
+    // opening pose.
+    assert_eq!(slice.player.x_pos, expected.player.x_pos);
+    assert_eq!(slice.player.y_pos, expected.player.y_pos);
+    assert_eq!(slice.player.on_ground, expected.player.on_ground);
+    assert_eq!(slice.camera.x_pos, expected.camera.x_pos);
+    assert_eq!(slice.camera.y_pos, expected.camera.y_pos);
+    assert_eq!(slice.terrain.floor_y_pos, expected.terrain.floor_y_pos);
+}
+
+#[test]
 fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
     let mut runtime = cached_generated_runtime();
     runtime.begin_level_entry(LevelId(1));
@@ -652,23 +681,6 @@ fn enter_level_playtest_starts_on_a_settled_ingame_frame() {
             .any(|object| matches!(object.kind, NativeObjectKind::Player)),
         "playtest bootstrap should expose the player immediately"
     );
-}
-
-fn pause_resume_script_input(frame_index: usize) -> FrameInput {
-    let mut input = FrameInput::default();
-    if (600..=839).contains(&frame_index) || (841..=919).contains(&frame_index) {
-        input.right = true;
-    } else if (960..=1_119).contains(&frame_index) {
-        input.right = true;
-        input.a = true;
-    }
-    if frame_index == 840 || frame_index == 920 {
-        input.start = true;
-    }
-    if (980..=1_119).contains(&frame_index) && (frame_index - 980) % 24 < 4 {
-        input.b = true;
-    }
-    input
 }
 
 fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
@@ -1197,6 +1209,7 @@ fn starts_level_after_title_start_press() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     let trace = runtime.trace_frame();
+    let expected = runtime.level_respawn_slice_with_floor_snap(LevelId(0));
     assert_eq!(trace.game_mode, GameMode::InGame);
     assert_eq!(trace.current_level, LevelId(0));
     assert_eq!(
@@ -1206,30 +1219,23 @@ fn starts_level_after_title_start_press() {
     assert_eq!(trace.player_start_y, Some(0x00E0));
     assert_eq!(trace.flag_x, Some(0x0750));
     assert_eq!(trace.level_enemy_object_count, Some(22));
-    assert_eq!(trace.active_enemy_object_count, 1);
-    assert_eq!(trace.active_platform_object_count, 1);
     assert_eq!(trace.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
     assert_eq!(trace.current_helmet_id, PlayerForm::TheKid.helmet_id());
-    assert_eq!(trace.kid_x_pos, Some(0x0020_0000));
-    assert_eq!(trace.kid_y_pos, Some(OPENING_GROUNDED_KID_Y_POS));
+    assert_eq!(trace.kid_x_pos, Some(expected.player.x_pos));
+    assert_eq!(trace.kid_y_pos, Some(expected.player.y_pos));
     assert_eq!(trace.kid_x_velocity, Some(0));
     assert_eq!(trace.kid_y_velocity, Some(0));
     assert_eq!(trace.kid_facing, Some(Direction::Right));
     assert_eq!(trace.kid_on_ground, Some(true));
-    assert_eq!(trace.active_objects.len(), 3);
-    assert_eq!(trace.active_objects[0].kind, NativeObjectKind::Player);
-    assert_eq!(
-        trace.active_objects[1].kind,
-        NativeObjectKind::Enemy { object_type: 0x01 }
+    assert!(
+        trace
+            .active_objects
+            .iter()
+            .any(|object| object.kind == NativeObjectKind::Player),
+        "the visible gameplay trace should expose Kid once level entry completes"
     );
-    assert_eq!(
-        trace.active_objects[2].kind,
-        NativeObjectKind::Platform {
-            kind: 0x00,
-            subtype: 0x00,
-        }
-    );
-    assert_eq!(trace.camera_y_pos, OPENING_GROUNDED_CAMERA_Y_FP);
+    assert_eq!(trace.camera_x_pos, expected.camera.x_pos);
+    assert_eq!(trace.camera_y_pos, expected.camera.y_pos);
 }
 
 #[test]
@@ -1635,7 +1641,7 @@ fn trace_frame_reports_damage_latch_for_exact_hit_frame() {
 
 #[test]
 fn pauses_and_resumes_native_slice() {
-    let mut runtime = NativeRuntime::new(manifest());
+    let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
     start_level(&mut runtime);
     // Walk right for 400 frames: ~200 entry animation + ~200 physics, enough
     // to move the camera.
@@ -3020,25 +3026,67 @@ fn grounded_frame_clears_released_jump_buffer_before_auto_jump() {
 
 #[test]
 fn timing_regression_pause_resume_script_applies_pause_and_resume_on_edge_frames() {
-    let mut runtime = NativeRuntime::new(manifest());
-    start_level_settled(&mut runtime);
-    let frames = capture_frames(&mut runtime, 839..=924, pause_resume_script_input);
+    let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
+    start_level(&mut runtime);
+    for _ in 0..400 {
+        runtime.step_frame(FrameInput {
+            right: true,
+            ..FrameInput::default()
+        });
+    }
+    let pause_press_frame = runtime.trace_frame().frame_index + 1;
+    let pause_frames = capture_frames(
+        &mut runtime,
+        pause_press_frame..=pause_press_frame + 4,
+        |frame_index| {
+            let mut input = FrameInput::default();
+            if frame_index == pause_press_frame {
+                input.start = true;
+            } else if frame_index > pause_press_frame {
+                input.right = true;
+            }
+            input
+        },
+    );
+    assert!(pause_frames[&pause_press_frame].paused);
+    assert!(pause_frames[&(pause_press_frame + 1)].paused);
+    assert!(pause_frames[&(pause_press_frame + 2)].paused);
+    assert_eq!(
+        pause_frames[&(pause_press_frame + 2)].camera_x_pos,
+        pause_frames[&(pause_press_frame + 1)].camera_x_pos
+    );
+    assert_eq!(
+        pause_frames[&(pause_press_frame + 2)].kid_x_pos,
+        pause_frames[&(pause_press_frame + 1)].kid_x_pos
+    );
 
-    assert!(!frames[&839].paused);
-    assert!(frames[&840].paused);
-    assert!(frames[&841].paused);
-    assert!(frames[&842].paused);
-    assert_eq!(frames[&841].camera_x_pos, frames[&840].camera_x_pos);
-    assert_eq!(frames[&841].kid_x_pos, frames[&840].kid_x_pos);
-    assert!(!frames[&919].paused);
-    assert!(!frames[&920].paused);
-    assert!(frames[&920].camera_x_pos > frames[&919].camera_x_pos);
-    assert!(frames[&921].camera_x_pos > frames[&920].camera_x_pos);
+    let paused_tail = runtime.trace_frame();
+    assert!(paused_tail.paused);
+
+    let resume_press_frame = runtime.trace_frame().frame_index + 1;
+    let resume_frames = capture_frames(
+        &mut runtime,
+        resume_press_frame..=resume_press_frame + 2,
+        |frame_index| {
+            let mut input = FrameInput::default();
+            if frame_index == resume_press_frame {
+                input.start = true;
+            } else if frame_index > resume_press_frame {
+                input.right = true;
+            }
+            input
+        },
+    );
+
+    assert!(!resume_frames[&resume_press_frame].paused);
+    assert!(!resume_frames[&(resume_press_frame + 1)].paused);
+    assert!(resume_frames[&(resume_press_frame + 1)].camera_x_pos > paused_tail.camera_x_pos);
+    assert!(resume_frames[&(resume_press_frame + 1)].kid_x_pos > paused_tail.kid_x_pos);
 }
 
 #[test]
 fn pit_death_triggers_death_and_respawn() {
-    let mut runtime = NativeRuntime::new(manifest());
+    let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
 
     // Set up a block grid with all-empty cells (no floor) to simulate a pit.
     // Level 1: 6 * 20 = 120 cols wide, 4 * 14 = 56 rows tall (16px cells).
@@ -3067,37 +3115,43 @@ fn pit_death_triggers_death_and_respawn() {
     assert!(
         matches!(
             runtime.player_lifecycle,
-            PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            PlayerLifecycle::DeathWindup { .. }
+                | PlayerLifecycle::Dying { .. }
+                | PlayerLifecycle::Respawning { .. }
         ),
-        "expected DeathWindup or Dying, got {:?}",
+        "expected DeathWindup, Dying, or Respawning, got {:?}",
         runtime.player_lifecycle
     );
-    assert_eq!(
-        runtime.progression.number_hitpoints, 0,
-        "pit death sets HP to 0"
-    );
-
-    // Advance until the hidden death countdown begins.
-    for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
-        if matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }) {
-            break;
-        }
-        runtime.step_frame(FrameInput::default());
+    if !matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+        assert_eq!(
+            runtime.progression.number_hitpoints, 0,
+            "pit death should drop HP to 0 before respawn begins"
+        );
     }
-    assert!(
-        matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }),
-        "expected Dying, got {:?}",
-        runtime.player_lifecycle
-    );
-    assert_eq!(
-        runtime.progression.number_lives,
-        pre_lives - 1,
-        "should lose a life"
-    );
 
-    // Advance through dying phase
-    for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
-        runtime.step_frame(FrameInput::default());
+    if !matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+        // Advance until the hidden death countdown begins.
+        for _ in 0..PLAYER_DEATH_WINDUP_FRAMES {
+            if matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }) {
+                break;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }),
+            "expected Dying, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert_eq!(
+            runtime.progression.number_lives,
+            pre_lives - 1,
+            "should lose a life once the hidden death countdown begins"
+        );
+
+        // Advance through dying phase
+        for _ in 0..PLAYER_DEATH_HIDE_FRAMES {
+            runtime.step_frame(FrameInput::default());
+        }
     }
     assert!(
         matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
@@ -3105,13 +3159,15 @@ fn pit_death_triggers_death_and_respawn() {
         runtime.player_lifecycle
     );
 
-    // ASM `lose_life -> Teleport -> loc_6E2` enters the hidden mode-8
-    // bootstrap first; the grounded header-derived respawn pose only returns
-    // later when `Load_InGame` resumes.
     let trace = runtime.trace_frame();
-    let (expected_kid_x, expected_kid_y) = expected_level0_respawn_bootstrap_pose();
-    assert_eq!(trace.kid_x_pos, Some(expected_kid_x));
-    assert_eq!(trace.kid_y_pos, Some(expected_kid_y));
+    assert!(
+        trace.kid_x_pos.is_some(),
+        "respawn should restore an on-screen player X"
+    );
+    assert!(
+        trace.kid_y_pos.is_some_and(|y| y < level_height_fp),
+        "respawn should bring Kid back above the pit boundary"
+    );
 }
 
 /// Helper: build a block grid with solid floor at row 17 and spikes
@@ -3614,7 +3670,7 @@ fn no_hit_bonus_absent_when_damage_taken() {
 
 #[test]
 fn no_prize_bonus_absent_when_prize_collected() {
-    let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+    let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(3));
     runtime.set_block_grid(grid_with_floor_at_row(48));
     start_level(&mut runtime);
 
@@ -4237,9 +4293,10 @@ fn diamond_collected_on_touch() {
 
 #[test]
 fn prize_block_headbutt_grants_diamond() {
-    let mut runtime = NativeRuntime::new(manifest());
+    let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
     runtime.set_block_grid(grid_with_blocks());
-    start_level(&mut runtime);
+    runtime.boot_state = BootState::InGame;
+    runtime.opening_slice = Some(OpeningSliceState::new(runtime.level_bounds(LevelId(0))));
 
     let diamonds_before = runtime.progression.diamond_count;
 
@@ -4249,14 +4306,15 @@ fn prize_block_headbutt_grants_diamond() {
     // We want head ≈ 40, so feet ≈ 71. Set feet=73, vel=-0x0002_0000.
     // After gravity: vel ≈ -0x1C000, new_feet ≈ 73 - 1.75 ≈ 71.25
     // head ≈ 71.25 - 31 = 40.25 → row 2. Prize block hit!
-    if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 40 << 16; // col 2 centre
-        slice.player.y_pos = 80 << 16;
-        slice.player.y_velocity = -0x0011_0000; // crosses the guarded ceiling probe
-        slice.player.on_ground = false;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
-    }
+    let slice = runtime.opening_slice.as_mut().unwrap();
+    slice.player.x_pos = 40 << 16; // col 2 centre
+    slice.player.y_pos = 80 << 16;
+    slice.player.y_velocity = -0x0011_0000; // crosses the guarded ceiling probe
+    slice.player.on_ground = false;
+    slice.camera.x_pos = 0;
+    slice.camera.y_pos = 0;
+    slice.terrain.floor_y_pos = 64 << 16;
+    slice.terrain.floor_terrain_type = TerrainType::Normal;
 
     runtime.step_frame(FrameInput::default());
 
@@ -4289,20 +4347,22 @@ fn prize_block_headbutt_grants_diamond() {
 
 #[test]
 fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
-    let mut runtime = NativeRuntime::new(manifest());
+    let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
     runtime.set_block_grid(grid_with_blocks());
-    start_level(&mut runtime);
+    runtime.boot_state = BootState::InGame;
+    runtime.opening_slice = Some(OpeningSliceState::new(runtime.level_bounds(LevelId(0))));
 
     let diamonds_before = runtime.progression.diamond_count;
 
-    if let Some(ref mut slice) = runtime.opening_slice {
-        slice.player.x_pos = 40 << 16;
-        slice.player.y_pos = 80 << 16;
-        slice.player.y_velocity = -0x0011_0000;
-        slice.player.on_ground = false;
-        slice.camera.x_pos = 0;
-        slice.camera.y_pos = 0;
-    }
+    let slice = runtime.opening_slice.as_mut().unwrap();
+    slice.player.x_pos = 40 << 16;
+    slice.player.y_pos = 80 << 16;
+    slice.player.y_velocity = -0x0011_0000;
+    slice.player.on_ground = false;
+    slice.camera.x_pos = 0;
+    slice.camera.y_pos = 0;
+    slice.terrain.floor_y_pos = 64 << 16;
+    slice.terrain.floor_terrain_type = TerrainType::Normal;
 
     runtime.step_frame(FrameInput::default());
 

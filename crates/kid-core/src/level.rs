@@ -177,8 +177,17 @@ impl NativeRuntime {
         self.pending_level_skip_resume = false;
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
-        let bounds = self.level_bounds(level_id);
-        self.opening_slice = Some(OpeningSliceState::new(bounds));
+        self.reload_block_grid_for_level(level_id);
+        self.opening_slice = Some(if self.block_grid.is_some() {
+            // ASM Load_InGame seeds the level header pose and spends hidden
+            // frames settling Kid onto the real floor before visible gameplay.
+            // Booted level entry should therefore start from the same settled
+            // spawn helper we already use for respawn/playtest paths, not the
+            // generic title-screen opening pose.
+            self.level_respawn_slice_with_floor_snap(level_id)
+        } else {
+            self.level_respawn_slice(level_id)
+        });
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.active_platforms.clear();
@@ -196,7 +205,6 @@ impl NativeRuntime {
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
-        self.reload_block_grid_for_level(level_id);
         self.rebuild_starting_level_title_workers();
     }
 
