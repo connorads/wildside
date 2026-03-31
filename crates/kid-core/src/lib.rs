@@ -535,6 +535,11 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.handle_start_press(input, start_pressed);
         self.step_boot_state(input, start_pressed);
+        if matches!(self.boot_state, BootState::StartingLevel { .. }) {
+            // ASM Execute_Objects (kid.asm:1636-1661) begins each mode-$0008
+            // frame with `Get_RandomNumber_long` before object iteration.
+            let _ = self.rom_random.next_long();
+        }
         if let BootState::DemoPlay { use_demo_2, .. } = self.boot_state
             && self.demo_gameplay_active()
             && self.opening_slice.is_none()
@@ -542,8 +547,11 @@ impl NativeRuntime {
             self.begin_demo_gameplay(NativeRuntime::demo_level_id(use_demo_2));
         }
 
-        let gameplay_slice_active = matches!(self.boot_state, BootState::InGame)
-            || (self.demo_gameplay_active() && self.opening_slice.is_some());
+        let gameplay_slice_active = matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) || (self.demo_gameplay_active()
+            && self.opening_slice.is_some());
         let preserve_demo_title_snapshot_frame =
             matches!(self.boot_state, BootState::TitleScreen { .. })
                 && self.preserve_demo_title_snapshot;
@@ -558,6 +566,9 @@ impl NativeRuntime {
                 self.step_diamond_power(input);
             }
             if gameplay_slice_active {
+                // ASM loc_1AE2E only gates the later `Game_Mode=$000C`
+                // transition; the hidden mode-$0008 level-entry shell still
+                // runs the gameplay/object slice before that visible Start.
                 let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
                     && self
                         .demo_startup_frame()

@@ -1412,6 +1412,12 @@ impl RomRandomState {
         u16::from_be_bytes([high, low])
     }
 
+    pub(crate) fn next_long(&mut self) -> u32 {
+        let high = self.next_word();
+        let low = self.next_word();
+        u32::from_be_bytes([(high >> 8) as u8, high as u8, (low >> 8) as u8, low as u8])
+    }
+
     pub(crate) fn offset_word(&self) -> u16 {
         ((self.index as i32) - (Self::RAM_LENGTH as i32)) as i16 as u16
     }
