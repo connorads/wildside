@@ -768,7 +768,8 @@ fn boot_with_start_presses_reaches_ingame_at_expected_frame() {
     }
     let trace = run_script(manifest(), &script, 500);
     assert_eq!(trace[360].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[460].game_mode, GameMode::InGame);
+    assert_eq!(trace[460].game_mode, GameMode::LevelTransition);
+    assert_eq!(trace[462].game_mode, GameMode::InGame);
 }
 
 #[test]
@@ -815,6 +816,22 @@ fn sega_screen_bootstrap_exposes_live_progression_by_frame_nine() {
     assert_eq!(frame_9.number_lives, 3);
     assert_eq!(frame_9.number_hitpoints, 2);
     assert_eq!(frame_9.current_helmet_id, 0);
+}
+
+#[test]
+fn sega_screen_start_press_switches_to_intro_sequence_on_same_frame() {
+    let mut script = vec![0; 34];
+    script[33] = 0x80;
+    let trace = run_script(manifest(), &script, script.len());
+    let frame_32 = &trace[32];
+    let frame_33 = &trace[33];
+
+    assert_eq!(frame_32.game_mode, GameMode::SegaScreen);
+    assert_eq!(
+        frame_33.game_mode,
+        GameMode::IntroSequence1,
+        "ASM loc_12E96 -> loc_12EDE writes Game_Mode=$4 immediately after the Start-edge bclr/bne path",
+    );
 }
 
 #[test]

@@ -1,58 +1,54 @@
 ---
 slug: death_respawn_level1_case_00000_00060
-cycle: 13
-updated_at: 2026-03-31T22:52:40Z
+cycle: 14
+updated_at: 2026-03-31T22:58:15Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 13 selected `death_respawn_level1_case_00000_00060` again via selector `death-respawn-level1-case`.
-- Re-verified the selected case before editing and confirmed the live failure was frame 1 `player.hitpoints` (`native 2`, `oracle 0`).
-- Read the ROM boot/init path in `.cache/upstream/kid-chameleon-disasm/kid.asm` before patching: `loc_65C` seeds `Player_1_*` / `Player_2_*`, `sub_8A4` copies the active player slot into live `Number_*`, and `loc_12EDE` is the later `move.w #4,(Game_Mode).w` transition.
-- Patched `crates/kid-core/src/trace.rs` so trace output keeps `number_lives`, `number_hitpoints`, and `current_helmet_id` cold only for the oracle-backed early Sega-screen window instead of leaking progression immediately or masking the whole mode-0 phase.
-- Added kid-core regressions covering both sides of that boundary: the second Sega-screen frame stays cold, and frame 9 already exposes live progression while `game_mode` is still `0`.
-- Re-ran the selected case. The early semantic drift is gone; the first failure moved to frame 33 `world.game_mode` (`native 0`, `oracle 4`).
+- Re-ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 14 selected `death_respawn_level1_case_00000_00060` again.
+- Re-verified the selected case before editing and confirmed the live first failure was still frame 33 `world.game_mode` (`native 0`, `oracle 4`).
+- Read `.cache/upstream/kid-chameleon-disasm/kid.asm` around `Load_SegaScreen`, especially `loc_12E96 -> loc_12EDE`, before changing gameplay timing.
+- Patched [`crates/kid-core/src/boot.rs`](/home/connor/git/kc/crates/kid-core/src/boot.rs) so the Sega-screen Start edge switches to intro sequence 1 on the same traced frame instead of deferring one extra frame.
+- Added a regression in [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs) that locks the frame-33 Start edge to the ROM-backed same-frame `Game_Mode=$4` transition.
+- Updated the broader boot expectation in [`crates/kid-core/src/tests.rs`](/home/connor/git/kc/crates/kid-core/src/tests.rs) to reflect the observed two-frame `LevelTransition` shell at frames 460..461 before `InGame` begins on frame 462.
+- Re-ran the selected case; it now passes.
 
 ## Selected Case
 
 - Case ID: `death_respawn_level1_case_00000_00060`
 - Selector: `death-respawn-level1-case`
 - Autonomy gate: `patch-allowed`
-- Current verify result: `FAIL`
-- Current first failure: frame `33`, `world.game_mode` (`native 0`, `oracle 4`)
+- Current verify result: `PASS`
+- Current first failure: none
 
 ## Why This Case
 
-- Cycle 13 kept this case as the top autonomy-executable item.
-- The stale early boot semantic mismatch was small, local, and backed by both oracle data and ROM init routines, so it was worth fixing before widening into later boot/start timing.
-- After the fix, the remaining failure is no longer HUD-state noise; it is a cleaner mode-transition boundary.
+- Cycle 14 still ranked this as the top autonomy-executable case.
+- The remaining failure was a single authoritative `world.game_mode` edge inside the boot/start path, small enough to fix without widening the frontier.
+- The ROM path was explicit, so this was a good candidate for a focused timing correction rather than more instrumentation.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- case verify --case death-respawn-level1-case` now writes `.cache/cases/death-respawn-level1-case/verify.json` with first failure frame `33` on `world.game_mode` (`native 0`, `oracle 4`).
-- `.cache/cases/death-respawn-level1-case/native-semantic.json` and `oracle-semantic.json` now agree on the early counter boundary: frames `0..8` keep `number_lives=0` / `hitpoints=0`, then frame `9` flips to `number_lives=3` / `hitpoints=2` while `game_mode` remains `0`.
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:807` / `:810` (`loc_65C`) seed `Player_1_Lives` and `Player_1_Hitpoints`, `.cache/upstream/kid-chameleon-disasm/kid.asm:964` (`sub_8A4`) copies the active player slot into live `Number_Lives` onward, and `.cache/upstream/kid-chameleon-disasm/kid.asm:25546` (`loc_12EDE`) performs `move.w #4,(Game_Mode).w`.
-- Focused verification passed: `first_boot_frame_keeps_gameplay_state_cold`, `sega_screen_frames_keep_gameplay_state_cold_until_title_transition`, `sega_screen_bootstrap_exposes_live_progression_by_frame_nine`, `early_title_frames_stay_inert_until_boot_ready`, and `gameplay_state_from_native_trace_zeroes_hidden_player_motion`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:25519` / `:25521` / `:25546` (`loc_12E96 -> loc_12EDE`) reads Start with `bclr #7,(Ctrl_1_Pressed).w` and branches straight to `move.w #4,(Game_Mode).w`.
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-case` now reports `case death_respawn_level1_case_00000_00060: PASS`.
+- `.cache/cases/death-respawn-level1-case/verify.json` now has `"passed": true` and `"first_failure": null`.
+- `cargo run -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 455 --frame-end 465` shows frame 460 entering `LevelTransition` on the Start edge and frame 462 entering `InGame`, matching the updated broader boot regression.
 
 ## Exact Next Moves
 
-1. Re-run `cargo run -p kidcli -- case verify --case death-respawn-level1-case` and confirm the first failure is still frame 33 `world.game_mode`.
-2. Read the ROM path around `.cache/upstream/kid-chameleon-disasm/kid.asm:25546` (`loc_12EDE`) and the preceding Sega logo loop to map exactly when the case’s input should trigger the `Game_Mode = 4` jump.
-3. Compare native trace around frames `30..35` against oracle output to decide whether the remaining bug is in boot/start timing or in how the native boot state maps Start presses onto the deferred mode switch.
-4. Keep work on `death_respawn_level1_case_00000_00060` only until the frame-33 mode drift is removed or moved later with equally specific evidence.
+1. Run `cargo run -p kidcli -- autonomous-loop --goal case-queue` again and take the next selected case, not this resolved one.
+2. If this case regresses later, start from `.cache/upstream/kid-chameleon-disasm/kid.asm` `Load_SegaScreen` and re-check `loc_12E96 -> loc_12EDE` before touching any title/boot timing code.
 
 ## Verification To Re-run
 
-- `cargo test -p kid-core first_boot_frame_keeps_gameplay_state_cold -- --nocapture`
-- `cargo test -p kid-core sega_screen_frames_keep_gameplay_state_cold_until_title_transition -- --nocapture`
-- `cargo test -p kid-core sega_screen_bootstrap_exposes_live_progression_by_frame_nine -- --nocapture`
-- `cargo test -p kid-core early_title_frames_stay_inert_until_boot_ready -- --nocapture`
-- `cargo test -p kidcli gameplay_state_from_native_trace_zeroes_hidden_player_motion -- --nocapture`
+- `cargo test -p kid-core sega_screen_start_press_switches_to_intro_sequence_on_same_frame -- --nocapture`
+- `cargo test -p kid-core boot_with_start_presses_reaches_ingame_at_expected_frame -- --nocapture`
 - `cargo run -p kidcli -- case verify --case death-respawn-level1-case`
 - `cargo run -p kidcli -- case summarise --case death-respawn-level1-case`
 
 ## Dead Ends / Do Not Retry
 
-- Do not retry the old “mask the whole Sega-screen phase” trace fix. Oracle counters become live on frame 9 even though `game_mode` is still `0`.
-- Do not go back to the stale frame-1 `player.hitpoints` report. That mismatch is fixed.
-- Do not widen into other reduced/open cases. The loop still requires this selected case only.
+- Do not restore the old Sega-screen deferral. The ROM does not keep Start hidden for an extra traced frame once `loc_12E96` sees the edge.
+- Do not widen this session into other case IDs. This selected case is already green.
+- Do not infer the broader boot timing from the old test expectation; use `probe-native --scenario boot-title-start-level1` when the frame boundary matters.
