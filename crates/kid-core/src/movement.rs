@@ -188,6 +188,34 @@ impl NativeRuntime {
                 }
             }
         }
+
+        if let Some(destination) = title_card.level_number_destination {
+            for number_index in 0..usize::from(title_card.level_number_glyph_count) {
+                let start_selector = self.rom_random.next_byte() & 3;
+                let (start_x_pos, start_y_pos) =
+                    level_entry_title_start_pose(&mut self.rom_random, start_selector);
+                self.starting_level_title_workers
+                    .push(LevelEntryTitleWorker {
+                        // ASM loc_1AD48 allocates the deferred number worker
+                        // after the visible title glyph shell, so the suffix
+                        // occupies the next free gfx slots above the letters.
+                        gfx_slot_index: visible_glyph_count + number_index,
+                        glyph: 0x7B,
+                        start_x_pos,
+                        start_y_pos,
+                        target_x_pos: u32::from(destination.x + (number_index as u16 * 0x10)) << 16,
+                        target_y_pos: u32::from(destination.y) << 16,
+                        x_step_fp: level_entry_title_axis_step(
+                            start_x_pos,
+                            u32::from(destination.x + (number_index as u16 * 0x10)) << 16,
+                        ),
+                        y_step_fp: level_entry_title_axis_step(
+                            start_y_pos,
+                            u32::from(destination.y) << 16,
+                        ),
+                    });
+            }
+        }
     }
 
     pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {

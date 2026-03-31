@@ -379,6 +379,56 @@ fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
 }
 
 #[test]
+fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
+    let mut runtime = cached_generated_runtime();
+
+    for frame_index in 0..=460 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        runtime.step_frame(input);
+    }
+
+    let number_worker = runtime
+        .starting_level_title_workers
+        .iter()
+        .find(|worker| worker.gfx_slot_index == 13)
+        .expect("loc_1AD48 should allocate the deferred level number worker");
+
+    // ASM loc_1AD48 consumes the extra `(x,y)` destination and allocates one
+    // `#$7B` worker per count, spaced `#$10` pixels apart from that origin.
+    assert_eq!(runtime.starting_level_title_workers.len(), 14);
+    assert_eq!(number_worker.glyph, 0x7B);
+    assert_eq!(number_worker.target_x_pos, 0x00DC_0000);
+    assert_eq!(number_worker.target_y_pos, 0x0050_0000);
+}
+
+#[test]
+fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
+    let mut runtime = cached_generated_runtime();
+    runtime.begin_level_entry(LevelId(1));
+
+    let number_workers: Vec<_> = runtime
+        .starting_level_title_workers
+        .iter()
+        .filter(|worker| worker.glyph == 0x7B)
+        .collect();
+
+    assert_eq!(number_workers.len(), 2);
+    assert_eq!(number_workers[0].gfx_slot_index, 13);
+    assert_eq!(number_workers[0].target_x_pos, 0x00DC_0000);
+    assert_eq!(number_workers[1].gfx_slot_index, 14);
+    assert_eq!(number_workers[1].target_x_pos, 0x00EC_0000);
+    assert_eq!(number_workers[0].target_y_pos, 0x0050_0000);
+    assert_eq!(number_workers[1].target_y_pos, 0x0050_0000);
+}
+
+#[test]
 fn boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens() {
     let mut runtime = cached_generated_runtime();
     runtime.begin_level_entry(LevelId(7));

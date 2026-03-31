@@ -1,32 +1,32 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 13
-updated_at: 2026-03-31T02:41:00Z
+cycle: 14
+updated_at: 2026-03-31T02:47:30Z
 ---
 # What Changed
-- Modelled the first `loc_1AB26` shell pass inside `StartingLevel`: native now expands `title_card.script_bytes` into one letter worker per visible token, keeps descending gfx-slot allocation, and derives slot 2 from that worker set instead of exposing an empty mode-8 shell.
-- Preserved the ROM token walk in the fanout loop: `0` advances to the next `(x,y)` destination, `#$84` consumes horizontal space without allocating a worker, and the special glyph widths from `loc_1ABCA..loc_1ABDC` now move the destination cursor before the next token.
-- Added regressions for both the plain level-00 shell (`boot_title_start_level_1_expands_loc_1ab26_letter_workers`) and the special-token level-07 shell (`boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens`).
+- Modelled `loc_1ABF4 -> loc_1AD48` in `StartingLevel`: native now allocates the deferred `#$7B` level-number workers from `title_card.level_number_destination` and `level_number_glyph_count`, with `#$10` horizontal spacing between suffix glyphs.
+- Kept the scope narrow: the new workers reuse the same shell-worker representation as the existing `loc_1AB26` letters, so slot 2 remains the same letter worker while the numeric suffix fills the next free gfx slots above the letters.
+- Added regressions covering both the single-digit level-00 suffix (`boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker`) and the two-digit level-01 spacing path (`boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels`).
 
 # Current Model
-- The shell is no longer empty. `compare-native-oracle` now reaches `level_entry@520` with native kid position `004EC000,00718000` instead of `00000000,00000000`, which confirms trace slot 2 is now bound to a real `loc_1AB26` worker.
-- The remaining miss is motion parity, not content parity. The current shell workers use the correct token expansion and target coordinates, but their spawn edges / RNG consumption / per-frame interpolation still do not match `loc_1AC70`.
-- `loc_1ABF4 -> loc_1AD48` is still missing entirely, so levels with numeric suffixes remain one worker short even after the letter shell exists.
+- Content parity for the mode-8 shell is now complete at the allocation level: level 00 reaches 14 title-card workers in native, matching the oracle's 14 gfx objects by `level_entry` / `level_settle`.
+- The first authoritative miss is unchanged at `level_entry@520` on kid position `004EC000,00718000` vs `007F0000,00020000`, so the remaining bug is inside `loc_1AC70`'s motion/RNG path rather than missing worker allocation.
+- The native shell still uses direct interpolation and local RNG consumption; oracle uses `loc_1AC70`'s exact edge selection, secondary random coordinate, and per-frame object-loop updates.
 
 # Strongest Evidence
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:28770-28852` `loc_1AB6A` walks bytes exactly as implemented now: `beq` swaps to the next line destination, `#$84` advances `d2` by `#$10` without allocation, and `loc_1ABCA..loc_1ABDC` apply the non-uniform glyph widths.
-- `.cache/upstream/kid-chameleon-disasm/kid.asm:28912-28988` `loc_1AC70` still owns the remaining parity gap: it chooses a random shell edge, samples another random axis coordinate, and moves through the object system rather than the current direct interpolation.
-- `cargo test -q -p kid-core boot_title_start_level_1_expands_loc_1ab26_letter_workers -- --nocapture` passes and confirms Blue Lake Woods 1 maps gfx slot 2 to the third-row `o` at `(0x40, 0x68)`.
-- `cargo test -q -p kid-core boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens -- --nocapture` passes and confirms the line-break + `#$84` spacing path for "Isle of the Lion Lord".
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:28953-28972` `loc_1AD48` does exactly what native now mirrors: read one `(x,y)` pair from the saved layout pointer, allocate `#$7B` workers, and `addi.w #$10,d1` between each digit.
+- `cargo test -q -p kid-core boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker -- --nocapture` passes and confirms level 00 now allocates slot 13 at `(0xDC, 0x50)`.
+- `cargo test -q -p kid-core boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels -- --nocapture` passes and confirms the level-01 two-digit suffix lands at `0xDC` and `0xEC`.
+- `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json:287-487` shows oracle already has 14 gfx objects at `level_settle`, with slot 13 at `(0xDC, 0x50)` while slot 2 remains the third-row `o`.
 - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
   and
   `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s`
-  both still fail first at `state level_entry@520 diverged in kid position (native 004EC000,00718000; oracle 007F0000,00020000)`.
+  still fail first at `state level_entry@520 diverged in kid position (native 004EC000,00718000; oracle 007F0000,00020000)`.
 
 # Exact Next Moves
-- Model `loc_1ABF4 -> loc_1AD48` only: consume the extracted `level_number_destination` / `level_number_glyph_count`, allocate the deferred `#$7B` number workers, and preserve the ROM's `#$10` horizontal spacing.
+- Model `loc_1AC70` only: replace the current shell-worker interpolation with the ROM's exact spawn-edge selection, random axis sampling, apostrophe Y offset, and 64-frame per-axis march.
 - Re-run `cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture`, `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`, then `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s`.
-- Do not touch `loc_1AC70` motion yet; keep the next cycle scoped to the deferred number worker only.
+- Do not revisit worker counts or number-worker spacing unless `loc_1AC70` work exposes a concrete allocation mismatch.
 
 # Verification To Re-run
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
@@ -36,6 +36,6 @@ updated_at: 2026-03-31T02:41:00Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 
 # Dead Ends / Do Not Retry
-- Do not collapse `#$84` into a visible glyph. The ROM treats it as spacing only; level 07 proves native needs the same behaviour.
-- Do not skip the line-destination table and reconstruct rows from `display_name`; `loc_1AB26` consumes explicit destination pairs from `AddrTbl_LevelNames`.
-- Do not start tuning shell motion before the deferred number worker exists. The next missing behaviour in ASM order is `loc_1ABF4 -> loc_1AD48`, not another interpolation tweak.
+- Do not spend another cycle on `loc_1AD48`; the deferred number workers now exist and space correctly.
+- Do not change slot ordering heuristically. Oracle still agrees that slot 2 is the third-row `o` and slot 13 is the deferred number worker.
+- Do not keep the direct interpolation model once you touch motion. `loc_1AC70` updates through object state and RNG, so motion parity now requires following that routine directly.
