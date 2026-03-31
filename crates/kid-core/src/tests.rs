@@ -382,9 +382,9 @@ fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
 
     // ASM loc_1AB26 allocates one worker per visible letter in descending gfx
     // slots, so Blue Lake Woods 1's third-row centre `o` lands in slot 2.
-    assert_eq!(runtime.starting_level_title_workers.len(), 13);
+    assert_eq!(runtime.starting_level_title_workers.len(), 14);
     assert_eq!(slot_2.glyph, b'o');
-    assert_eq!(slot_2.target_x_pos, 0x0040_0000);
+    assert_eq!(slot_2.target_x_pos, 0x0098_0000);
     assert_eq!(slot_2.target_y_pos, 0x0068_0000);
 }
 
@@ -414,7 +414,7 @@ fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
     // `#$7B` worker per count, spaced `#$10` pixels apart from that origin.
     assert_eq!(runtime.starting_level_title_workers.len(), 14);
     assert_eq!(number_worker.glyph, 0x7B);
-    assert_eq!(number_worker.target_x_pos, 0x00DC_0000);
+    assert_eq!(number_worker.target_x_pos, 0x0134_0000);
     assert_eq!(number_worker.target_y_pos, 0x0050_0000);
 }
 
@@ -431,9 +431,9 @@ fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
 
     assert_eq!(number_workers.len(), 2);
     assert_eq!(number_workers[0].gfx_slot_index, 13);
-    assert_eq!(number_workers[0].target_x_pos, 0x00DC_0000);
+    assert_eq!(number_workers[0].target_x_pos, 0x0134_0000);
     assert_eq!(number_workers[1].gfx_slot_index, 14);
-    assert_eq!(number_workers[1].target_x_pos, 0x00EC_0000);
+    assert_eq!(number_workers[1].target_x_pos, 0x0144_0000);
     assert_eq!(number_workers[0].target_y_pos, 0x0050_0000);
     assert_eq!(number_workers[1].target_y_pos, 0x0050_0000);
 }

@@ -26,6 +26,9 @@ const INTRO_SEQUENCE_3_ROSTERS: [[u8; 8]; 4] = [
 const INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT: usize = 2;
 const LEVEL_ENTRY_TITLE_SLOT_2_INDEX: usize = 2;
 const LEVEL_ENTRY_TITLE_ANIMATION_FRAMES: usize = 64;
+const TITLE_CARD_WIDTH_TILES: [u8; 11] = [
+    0, 0x0E, 0x11, 0x12, 0x10, 0x13, 0x10, 0x11, 0x12, 0x0F, 0x13,
+];
 
 impl PlayerState {
     pub(crate) fn intro_sequence_3_roster_count() -> usize {
@@ -135,6 +138,7 @@ impl NativeRuntime {
         else {
             return;
         };
+        let title_card_x_offset = self.level_entry_title_card_x_offset();
 
         let visible_glyph_count = title_card
             .script_bytes
@@ -164,7 +168,8 @@ impl NativeRuntime {
                     let start_selector = self.rom_random.next_byte() & 3;
                     let (start_x_pos, start_y_pos) =
                         level_entry_title_start_pose(&mut self.rom_random, start_selector);
-                    let target_x_pos = u32::from(destination.x) << 16;
+                    let target_x_pos =
+                        u32::from(destination.x.saturating_add(title_card_x_offset)) << 16;
                     let target_y_pos =
                         u32::from(level_entry_title_target_y(glyph, destination.y)) << 16;
                     self.starting_level_title_workers
@@ -203,11 +208,21 @@ impl NativeRuntime {
                         glyph: 0x7B,
                         start_x_pos,
                         start_y_pos,
-                        target_x_pos: u32::from(destination.x + (number_index as u16 * 0x10)) << 16,
+                        target_x_pos: u32::from(
+                            destination
+                                .x
+                                .saturating_add(title_card_x_offset)
+                                .saturating_add(number_index as u16 * 0x10),
+                        ) << 16,
                         target_y_pos: u32::from(destination.y) << 16,
                         x_step_fp: level_entry_title_axis_step(
                             start_x_pos,
-                            u32::from(destination.x + (number_index as u16 * 0x10)) << 16,
+                            u32::from(
+                                destination
+                                    .x
+                                    .saturating_add(title_card_x_offset)
+                                    .saturating_add(number_index as u16 * 0x10),
+                            ) << 16,
                         ),
                         y_step_fp: level_entry_title_axis_step(
                             start_y_pos,
@@ -258,6 +273,21 @@ impl NativeRuntime {
                 }
             })
             .collect()
+    }
+
+    fn level_entry_title_card_x_offset(&self) -> u16 {
+        let Some(width_tiles) = self
+            .level_record(self.current_level)
+            .and_then(|level| level.header_metadata.as_ref())
+            .and_then(|header| TITLE_CARD_WIDTH_TILES.get(header.level_theme as usize))
+            .copied()
+        else {
+            return 0;
+        };
+        // ASM Load_TitleCard (kid.asm:28654-28666) centres the title-card map
+        // with `d7=(#$28-width)/2` tiles before loc_1AB26 starts using the
+        // per-line title text coordinates.
+        u16::from((40u8.saturating_sub(width_tiles)) / 2) * 8
     }
 }
 

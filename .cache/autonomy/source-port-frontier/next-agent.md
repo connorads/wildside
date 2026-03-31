@@ -1,28 +1,35 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 18
-updated_at: 2026-03-31T03:05:56Z
+cycle: 19
+updated_at: 2026-03-31T03:09:30Z
 ---
 # What Changed
-- Traced the native title-card destination data path from `level/levelnames.asm` through `parse_level_title_cards`.
-- Confirmed native currently lifts the `TitleTextLayout_*` rows straight into `LevelTitleCard.line_destinations` as absolute `(x,y)` targets.
-- Found the missing ROM-side geometry step in `Load_TitleCard`: before `loc_1AB26` ever spawns the worker objects, the title-card background is centred via `TitleCardSize_Index`, with the horizontal tile offset carried in `d7`.
+- Applied the first `Load_TitleCard` geometry fix in native: `starting_level_title_workers` now adds the ROM's horizontal title-card centring offset from `TitleCardSize_Index` when the level theme metadata is present.
+- Updated the focused title-card worker tests to match the centred Level 1 destinations and fixed the stale worker-count assertion that still expected the pre-`loc_1AD48` shell length.
+- Verified that the patch changes the live frontier: the frame-520 native X moved from `0042C000` to `00954000`, while Y stayed at `005F8000`.
 
 # Current Model
-- The likely geometry miss is no longer "bad parsed rows" but "missing centring offset".
-- `TitleTextLayout_3Lines` really does store `$20/$28`, `$20/$48`, `$20/$68`, but `Load_TitleCard` also computes a theme-specific centre offset from `TitleCardSize_Index` before the level-entry shell appears.
-- Native `starting_level_title_workers` currently targets the raw layout rows without that ROM centring context, which explains why the oracle image's active glyphs sit far to the right of the native model.
+- `d7` horizontal centring is real and was missing in native, but it only explains part of the frame-520 shell miss.
+- The remaining divergence is now narrower: native has overshot past the oracle on X and is still far too low on Y, so either the slot/glyph mapping, vertical geometry, or the `loc_1AD2A` frame count is still off.
+- Keep the centring patch. It improved parity materially and is ASM-backed.
 
 # Strongest Evidence
-- `.cache/upstream/kid-chameleon-disasm/level/levelnames.asm:170-178` documents `TitleTextLayout_3Lines` as `$20,$28 / $20,$48 / $20,$68 / $DC,$50`; the parser in `crates/kid-data/src/lib.rs:1712-1782` copies those rows directly.
-- ASM `.cache/upstream/kid-chameleon-disasm/kid.asm:28654-28718` `Load_TitleCard` computes `d6=(#$1C-height)/2` and `d7=(#$28-width)/2` from `TitleCardSize_Index` before it finishes laying out the centred title-card map and reaches `loc_19C02`.
-- For Level 1's theme, `TitleCardSize_Index` entry 8 is `$12,$0C`, so `d7=(40-18)/2 = 11 tiles = 88 px` of horizontal centring. That is the same scale as the native/oracle X gap seen at frame 520.
-- Oracle image `.cache/native-oracle-runs/boot_title_start_level1/oracle/0520_level_entry.png` still shows the live glyph stack on the right-hand title-card columns, which the raw `$20/$40/$60` native targets cannot explain.
+- ASM `.cache/upstream/kid-chameleon-disasm/kid.asm:28654-28666` `Load_TitleCard` computes `d7=(#$28-width)/2` before the title shell appears; native now mirrors that horizontal offset.
+- Focused verification is green:
+  - `cargo test -q -p kid-core boot_title_start_level_1_expands_loc_1ab26_letter_workers -- --nocapture`
+  - `cargo test -q -p kid-core boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker -- --nocapture`
+  - `cargo test -q -p kid-core boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels -- --nocapture`
+  - `cargo test -q -p kid-core boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens -- --nocapture`
+- Listed regression checks still pass except the frontier compares:
+  - `cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture`
+  - `cargo test -q -p kid-core level_entry_has_no_damage_grace_window -- --nocapture`
+  - `cargo test -q -p kidcli compare_native_states_reports_boot_level_entry_mode_8_release_gate -- --nocapture`
+- Frontier compare now fails at `state level_entry@520 diverged in kid position (native 00954000,005F8000; oracle 007F0000,00020000)` for both boot scenarios.
 
 # Exact Next Moves
-- Stay on `loc_1AC70`: test the centring-offset hypothesis against ASM by reconciling `TitleCardSize_Index` / `d7` with the native title-card destinations, then patch native only if the adjusted targets line up with the oracle frame-520 shell.
-- Re-run `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1` after any destination-map change; if the right-side shell moves into place, then revisit worker timing/RNG.
-- Do not go back to the raw pre-roll theory, and do not patch elapsed frames first.
+- Stay on `loc_1AC70`: determine whether the remaining miss is vertical geometry (`d6` / title-card Y anchoring), slot-to-glyph mapping, or the worker timeline by checking the centred destinations against the frame-520 oracle image before changing any more code.
+- Re-run `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1` and `...boot-title-start-level1-move-right5s` after the next focused hypothesis.
+- Do not revert the horizontal centring patch, and do not jump back to the old raw-layout targets.
 
 # Verification To Re-run
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
@@ -32,6 +39,6 @@ updated_at: 2026-03-31T03:05:56Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 
 # Dead Ends / Do Not Retry
-- Do not keep assuming the `TitleTextLayout_*` rows are already final screen coordinates.
-- Do not revive the 44-frame pre-roll theory; `Load_TitleCard` allocates the shell directly.
-- Do not patch elapsed frames or RNG order before the destination geometry matches the oracle image.
+- Do not drop back to raw `TitleTextLayout_*` X coordinates; the ASM-backed `d7` offset clearly mattered.
+- Do not resurrect the 44-frame pre-roll theory.
+- Do not touch RNG order or elapsed-frame offsets until the remaining geometry/mapping ambiguity is narrowed.
