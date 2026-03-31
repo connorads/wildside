@@ -1543,6 +1543,17 @@ fn main() -> Result<()> {
                 &oracle_dir,
                 &options,
             )?;
+            let oracle_manifest_path = oracle_dir.join("manifest.json");
+            fs::write(
+                &oracle_manifest_path,
+                serde_json::to_vec_pretty(&oracle_manifest)?,
+            )
+            .with_context(|| {
+                format!(
+                    "failed to write oracle probe manifest {}",
+                    oracle_manifest_path.display()
+                )
+            })?;
 
             // Parse --when predicates
             let predicates = parse_when_predicates(&when)?;
