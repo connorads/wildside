@@ -1,50 +1,47 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 27
-updated_at: 2026-03-31T03:56:19Z
+cycle: 28
+updated_at: 2026-03-31T04:03:41Z
 ---
 # What Changed
-- Decoded the oracle frame-520 `layout_ptr` values for the title shell instead of treating them as opaque pointers.
-- Confirmed the synthetic encoding:
-  - high byte = glyph byte (`0x73='s'`, `0x64='d'`, `0x6F='o'`, ...)
-  - low word = title-card target `x` (`0x0020`, `0x0030`, `0x0040`, `0x0050`, `0x0060`, `0x00DC`)
-- That means the oracle frame-520 slot order is concretely `s d o o w e k a l e u l b {`, with slot 2 specifically the reverse-order third-line `o` at target `x=0x40`.
-- This keeps the earlier rejection standing: reversing native slot indices alone is insufficient, because slot-2 glyph identity is now known and the remaining miss is the worker's RNG-seeded start pose.
+- Solved the frame-520 oracle pose search for the concrete `o@x=0x40` worker instead of treating it as an open brute-force problem.
+- The oracle pose `0x007F0000,0x00020000` is only reachable from `loc_1AC70`'s **top-edge** branch at **elapsed frame 16** for the centred `o` target (`screen x=0xA0`, target y=`0x68`).
+- That top-edge launch needs `Get_RandomNumber_word` low byte `0x36..0x39`, which yields `start_x=0x74`.
+- Native's current `RomRandomState` stream for the second `o` worker does not provide that lineage:
+  - visible glyph order still consumes `selectorByte=0x29` (`top`)
+  - then `Get_RandomNumber_word=0x1D30`, so low byte `0x30` and `start_x=0x6C`
+- That means the remaining miss is not “pick a different branch for the current worker”. The current RNG order and the oracle pose disagree before slot remapping even matters.
 
 # Current Model
-- The creation-order model is wrong, but the naive reverse-letter model is also wrong.
-- ASM still supports the structural part of the newer model:
-  - `loc_1AB26` allocates visible letters in script order.
-  - `Allocate_ObjectSlot` inserts equal-priority objects ahead of older peers.
-  - `Delete_CurrentObject` means `loc_1AD48`'s spawned number worker does not execute until a later pass.
-  - `Allocate_GfxObjectSlot` preserves execution order within a pass.
-- Oracle frame 520 now proves something more specific than “reverse order”:
-  - slot 2 is parent object `0xFFFF1310`
-  - that worker's glyph is definitely `o`
-  - that worker's target `x` is definitely `0x40`
-- The remaining gap is therefore not glyph identity or shell order. It is the `loc_1AC70` seed lineage for that concrete `o@x=0x40` worker.
+- The concrete oracle slot-2 worker is still the reverse-order third-line `o` whose title-card target `x` is `0x40` before the title-card centring offset.
+- Its frame-520 pose implies two facts together:
+  - the worker is on `loc_1AC70`'s top-edge path
+  - the worker has only advanced 16 glide steps by frame 520
+- Native is still modelling frame 520 as a much older worker on the current script-order RNG stream. The stream itself also disagrees: the second `o` gets low byte `0x30`, not the oracle-compatible `0x36..0x39`.
+- Therefore the next causal question is timing/creation lineage: when does the ROM actually enter `Game_Mode=$0008` and seed the title workers relative to the frame-460 Start edge, and which worker consumes the `0x36..0x39` low byte on that real lineage?
 
 # Strongest Evidence
 - ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1559-1616` `Allocate_ObjectSlot`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1718-1775` `Delete_CurrentObject`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1824-1911` `Load_GfxObjectSlot` / `Allocate_GfxObjectSlot`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28695-29064` `loc_1AB26`, `loc_1AC70`, `loc_1AD48`, `loc_1AE2E`
-- Oracle frame-520 slot table from `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`:
-  - slot `0`: `s@x=0x60`, `pp=0xFFFF13F8`, pose `0x00D80000,0x00020000`
-  - slot `1`: `d@x=0x50`, `pp=0xFFFF1384`, pose `0x00620000,0x00DA0000`
-  - slot `2`: `o@x=0x40`, `pp=0xFFFF1310`, pose `0x007F0000,0x00020000`
-  - slot `3`: `o@x=0x30`, `pp=0xFFFF129C`, pose `0x00450000,0x00020000`
-  - slot `4`: `w@x=0x20`, `pp=0xFFFF1228`, pose `0x01100000,0x008C0000`
-  - slot `10`: `u@x=0x40`, `pp=0xFFFF0F70`, pose `0x01180000,0x00670000`
-  - slot `12`: `b@x=0x20`, `pp=0xFFFF0E88`, pose `0x01100000,0x00220000`
-  - slot `13`: `{@x=0xDC`, `pp=0xFFFF0DA0`, pose `0x00A1D000,0x00D6C000`
-- Rejected experiment:
-  - plain reverse-letter slot remap changed native frame 520 from `0x0089A000,0x00262000` to `0x00949000,0x005D6000`
-  - same wrong pose on `boot-title-start-level1-move-right5s`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28695-28872` `loc_1AB26`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28874-28960` `loc_1AC70`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28962-29016` `loc_1AD48`
+- Scenario timing:
+  - `crates/kidcli/src/scenarios.rs:704-706` shows the boot-to-level script presses Start on global frame 460.
+- Native title-worker rebuild:
+  - `crates/kid-core/src/movement.rs:132-230`
+  - current stream for visible glyphs is:
+    - first `o` (`target_x=0x90`): `selectorByte=0x36`, branch `right`, random Y byte `0x56`
+    - second `o` (`target_x=0xA0`): `selectorByte=0x29`, branch `top`, random word `0x1D30`, low byte `0x30`, `start_x=0x6C`
+- Oracle pose search:
+  - no branch/random combination reaches `0x007F0000,0x00020000` at elapsed `50..65`
+  - exact solutions only appear at elapsed `16`, top-edge branch, target `(0xA0,0x68)`, low byte `0x36..0x39`
+- Verification still fails unchanged:
+  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
+  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s`
+  - both still report `state level_entry@520 diverged in kid position (native 0089A000,00262000; oracle 007F0000,00020000)`
 
 # Exact Next Moves
-- Stay on the concrete `o@x=0x40` frame-520 worker and solve which `loc_1AC70` start branch (`left`, `top`, `right`, `bottom`) plus RNG byte/word outputs can land it at `0x007F0000,0x00020000`. Compare that selector stream against native's current `RomRandomState` consumption order before changing any slot mapping.
+- Trace the timing lineage, not the slot mapping: read the ASM around the Start-to-level-entry transition and determine on which global frame the ROM actually runs `loc_1AB26` / `loc_1AC70` for the frame-520 worker. Then compare that timing against native's current `BootState::StartingLevel` entry and elapsed-frame accounting before changing RNG or slot order.
 
 # Verification To Re-run
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
@@ -54,7 +51,6 @@ updated_at: 2026-03-31T03:56:19Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 
 # Dead Ends / Do Not Retry
-- Do not retry the “creation-order workers plus two `Get_RandomNumber_long` pre-rolls and a 3-frame visible delay” patch; it worsened frame 520 to native `00995000,00202000`.
-- Do not retry the old raw reverse-letter mapping (`visible_glyph_count - index - 1`) by itself; oracle parent-pointer evidence made that hypothesis plausible, but the direct remap still worsened frame 520 to native `00949000,005D6000`.
-- Do not keep brute-forcing outer-frame delays on top of either simple shell-order model; the remaining gap is worker identity / seed lineage.
-- Do not revisit title-card centring or the reverted deferred-spawn experiment.
+- Do not retry the plain reverse-letter slot remap. The oracle-compatible pose now requires an elapsed-16 top-edge launch, so remapping the current native workers cannot solve it.
+- Do not brute-force `loc_1AC70` branch/random combinations again without timing context. The search is already solved: only elapsed 16 with top-edge `start_x=0x74` fits the oracle slot-2 pose.
+- Do not keep treating frame 520 as a ~60-frame-old worker just because the visible Start press is on frame 460. That assumption is now the leading suspect.
