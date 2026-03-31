@@ -207,6 +207,10 @@ fn is_oracle_limitation_only(result: &LevelSweepResult) -> bool {
         && result.mae.is_none_or(|mae| mae < 32.0)
 }
 
+fn has_blocking_divergences(summary: &DivergenceSummary) -> bool {
+    summary.authoritative > 0 || summary.accumulation > 0 || summary.rng > 0
+}
+
 /// Convert a raw `sweep_single_level` result into a finalised `LevelSweepResult`,
 /// returning `(result, is_failure)` for fast-fail counting.
 fn finalise_level_result(
@@ -244,10 +248,10 @@ fn print_level_result(r: &LevelSweepResult) {
         return;
     }
     let oracle_limitation_only = is_oracle_limitation_only(r);
-    let status = if r.passed {
-        "PASS"
-    } else if oracle_limitation_only {
+    let status = if oracle_limitation_only {
         "ORACLE LIMITATION"
+    } else if r.passed {
+        "PASS"
     } else {
         "FAIL"
     };
@@ -585,10 +589,7 @@ fn sweep_single_level(
         &death_gap_checkpoints,
         &oracle_paused_checkpoints,
     );
-    let state_passed = divergence_summary.authoritative == 0
-        && divergence_summary.accumulation == 0
-        && divergence_summary.rng == 0
-        && divergence_summary.oracle_limitation == 0;
+    let state_passed = !has_blocking_divergences(&divergence_summary);
 
     // Tier 1 (state-only): done unless escalating
     let effective_tier = if !state_passed && requested_tier == SweepTier::State {
@@ -2876,6 +2877,32 @@ mod tests {
         };
 
         assert!(is_oracle_limitation_only(&result));
+    }
+
+    #[test]
+    fn oracle_limitation_summary_is_non_blocking() {
+        let summary = DivergenceSummary {
+            authoritative: 0,
+            advisory: 3,
+            accumulation: 0,
+            rng: 0,
+            oracle_limitation: 4,
+        };
+
+        assert!(!has_blocking_divergences(&summary));
+    }
+
+    #[test]
+    fn authoritative_summary_is_blocking() {
+        let summary = DivergenceSummary {
+            authoritative: 1,
+            advisory: 0,
+            accumulation: 0,
+            rng: 0,
+            oracle_limitation: 12,
+        };
+
+        assert!(has_blocking_divergences(&summary));
     }
 
     #[test]
