@@ -1231,17 +1231,17 @@ impl NativeRuntime {
                 self.title_screen_elapsed_frames += 1;
             }
             BootState::StartingLevel {
-                input_armed,
+                start_latched,
                 elapsed_frames,
             } => {
                 let mut enter_gameplay = false;
-                if !*input_armed {
-                    // ASM loc_1AE2E hibernates for one frame before it tests
-                    // shared Ctrl_Pressed, so the title-menu Start edge that
-                    // wrote `Game_Mode=$0008` cannot also enter gameplay.
-                    *input_armed = true;
-                } else if start_pressed {
-                    enter_gameplay = true;
+                if *elapsed_frames > 0 {
+                    // ASM loc_1AE2E: the title-card worker hibernates for one
+                    // frame, then polls the shared Start edge it inherited
+                    // from the title selection frame before it writes
+                    // `Game_Mode=$000C` and jumps to `loc_6E2`.
+                    enter_gameplay = *start_latched || start_pressed;
+                    *start_latched = false;
                 }
                 *elapsed_frames = elapsed_frames.saturating_add(1);
                 if enter_gameplay {

@@ -1249,7 +1249,7 @@ pub(crate) enum BootState {
         track: u8,
     },
     StartingLevel {
-        input_armed: bool,
+        start_latched: bool,
         elapsed_frames: usize,
     },
     LevelSkipHold,

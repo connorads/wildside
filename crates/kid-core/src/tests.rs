@@ -313,7 +313,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
 }
 
 #[test]
-fn boot_title_start_stays_in_mode_8_without_second_start_press() {
+fn boot_title_start_reaches_ingame_without_a_second_start_press() {
     let mut runtime = cached_generated_runtime();
     let mut frame_520 = None;
     let mut frame_719 = None;
@@ -335,53 +335,12 @@ fn boot_title_start_stays_in_mode_8_without_second_start_press() {
         }
     }
 
-    // ASM Title_InputLoop writes `Game_Mode=$0008` on the title-menu Start,
-    // but loc_1AE2E only writes `Game_Mode=$000C` after a later shared
-    // Ctrl_Pressed Start edge. The boot script never sends that second Start.
-    assert_eq!(
-        frame_520,
-        Some((
-            GameMode::LevelTransition,
-            Some(String::from("starting_level"))
-        ))
-    );
-    assert_eq!(
-        frame_719,
-        Some((
-            GameMode::LevelTransition,
-            Some(String::from("starting_level"))
-        ))
-    );
-}
-
-#[test]
-fn boot_title_start_mode_8_keeps_advancing_rng_before_gameplay_entry() {
-    let mut runtime = cached_generated_runtime();
-    let mut frame_520_rng = None;
-    let mut frame_719_rng = None;
-
-    for frame_index in 0..=719 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
-            FrameInput {
-                start: true,
-                ..FrameInput::default()
-            }
-        } else {
-            FrameInput::default()
-        };
-        let trace = runtime.step_frame(input);
-        if frame_index == 520 {
-            frame_520_rng = trace.rng_offset;
-        } else if frame_index == 719 {
-            frame_719_rng = trace.rng_offset;
-        }
-    }
-
-    // ASM Execute_Objects (kid.asm:1636-1661) still burns the global RNG while
-    // loc_1AE2E keeps polling Start inside `Game_Mode=$0008`, so the mode-8
-    // level-entry shell must not leave `RNG_Offset` frozen after the title
-    // workers are allocated.
-    assert_ne!(frame_520_rng, frame_719_rng);
+    // ASM loc_1AE2E hibernates for one frame, then consumes the title-menu
+    // Start edge it inherited from the selection frame and writes
+    // `Game_Mode=$000C`. The boot script must therefore reach gameplay
+    // without synthesising a second Start press later in the level card.
+    assert_eq!(frame_520, Some((GameMode::InGame, None)));
+    assert_eq!(frame_719, Some((GameMode::InGame, None)));
 }
 
 #[test]

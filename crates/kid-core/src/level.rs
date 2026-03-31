@@ -167,7 +167,7 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.level_start_frame = None;
         self.boot_state = BootState::StartingLevel {
-            input_armed: false,
+            start_latched: true,
             elapsed_frames: 0,
         };
         self.player_lifecycle = PlayerLifecycle::Alive;

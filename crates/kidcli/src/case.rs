@@ -1,4 +1,7 @@
 use crate::bootstrap::prepare_generated_assets;
+use crate::capture::{
+    GameplayState, capture_dynamic_gameplay_scenario, capture_native_dynamic_gameplay_scenario,
+};
 use crate::oracle::{
     OracleEnemyState, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture_dynamic,
 };
@@ -402,7 +405,7 @@ fn derive_case_bundle(
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
     let per_frame = build_per_frame_scenario(&scenario, options.frame_start, options.frame_end)?;
-    let verify = run_case_verification(repo_root, rom_path, manifest, &per_frame)?;
+    let verify = run_case_verification(repo_root, rom_path, manifest, &per_frame, &source)?;
 
     let manifest_doc = CaseBundleManifest {
         version: CASE_BUNDLE_VERSION,
@@ -534,6 +537,7 @@ fn verify_case_bundle(
             scenario: loaded.scenario.clone(),
             case_id: loaded.case_id.clone(),
         },
+        &loaded.source,
     )?;
     persist_case_bundle(case_dir, &loaded, &verify)?;
     println!(
@@ -559,6 +563,7 @@ fn reduce_case_bundle(
             scenario: loaded.scenario.clone(),
             case_id: loaded.case_id.clone(),
         },
+        &loaded.source,
     )?;
     let signature = initial.verify.first_failure.clone().ok_or_else(|| {
         anyhow!(
@@ -622,6 +627,7 @@ fn reduce_case_bundle(
             scenario: loaded.scenario.clone(),
             case_id: loaded.case_id.clone(),
         },
+        &loaded.source,
     )?;
     persist_case_bundle(case_dir, &loaded, &verify)?;
     println!(
@@ -649,6 +655,7 @@ fn preserves_failure_signature(
             scenario,
             case_id: loaded.case_id.clone(),
         },
+        &loaded.source,
     )?;
     Ok(verify.verify.first_failure.as_ref() == Some(signature))
 }
@@ -666,11 +673,18 @@ struct VerificationOutput {
     verify: CaseVerifyReport,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VerificationBackend {
+    OracleHelper,
+    GameplayCapture,
+}
+
 fn run_case_verification(
     repo_root: &Path,
     rom_path: &Path,
     manifest: &AssetManifest,
     verification: &VerificationScenario,
+    source: &CaseSource,
 ) -> Result<VerificationOutput> {
     let run_dir = repo_root
         .join(".cache/cases")
@@ -685,22 +699,44 @@ fn run_case_verification(
     )
     .with_context(|| format!("failed to write {}", scenario_path.display()))?;
 
-    let native_trace = kid_core::run_script_with_warp(
-        manifest.clone(),
-        &verification.scenario.script,
-        verification.scenario.frame_count,
-        verification.scenario.warp_to_level,
-    );
+    let (native_states, oracle_states) = match verification_backend_for_source(source) {
+        VerificationBackend::OracleHelper => {
+            let native_trace = kid_core::run_script_with_warp(
+                manifest.clone(),
+                &verification.scenario.script,
+                verification.scenario.frame_count,
+                verification.scenario.warp_to_level,
+            );
 
-    let env = ensure_oracles(repo_root)?;
-    let oracle_dir = run_dir.join("oracle");
-    fs::create_dir_all(&oracle_dir)
-        .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
-    let oracle = run_jgenesis_capture_dynamic(&env, rom_path, &scenario_path, &oracle_dir, None)?;
+            let env = ensure_oracles(repo_root)?;
+            let oracle_dir = run_dir.join("oracle");
+            fs::create_dir_all(&oracle_dir)
+                .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
+            let oracle =
+                run_jgenesis_capture_dynamic(&env, rom_path, &scenario_path, &oracle_dir, None)?;
 
-    let native_states =
-        extract_semantic_native_states(&native_trace, &verification.scenario.checkpoints)?;
-    let oracle_states = extract_semantic_oracle_states(&oracle)?;
+            (
+                extract_semantic_native_states(&native_trace, &verification.scenario.checkpoints)?,
+                extract_semantic_oracle_states(&oracle)?,
+            )
+        }
+        VerificationBackend::GameplayCapture => {
+            let gameplay = gameplay_scenario_from_source(source)?;
+            let rom_bytes = fs::read(rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            let oracle_capture = capture_dynamic_gameplay_scenario(
+                &rom_bytes,
+                &verification.scenario,
+                gameplay.uses_level_skip_cheat(),
+            )?;
+            let native_capture =
+                capture_native_dynamic_gameplay_scenario(manifest, &verification.scenario)?;
+            (
+                extract_semantic_gameplay_states(&native_capture.checkpoints),
+                extract_semantic_gameplay_states(&oracle_capture.checkpoints),
+            )
+        }
+    };
     let verify =
         compare_semantic_states(verification.case_id.clone(), &native_states, &oracle_states)?;
     Ok(VerificationOutput {
@@ -742,6 +778,17 @@ fn extract_semantic_oracle_states(oracle: &OracleManifest) -> Result<Vec<Semanti
         out.push(semantic);
     }
     Ok(out)
+}
+
+fn extract_semantic_gameplay_states(states: &[GameplayState]) -> Vec<SemanticGameState> {
+    let mut out = Vec::with_capacity(states.len());
+    let mut previous: Option<SemanticGameState> = None;
+    for state in states {
+        let semantic = semantic_from_gameplay_state(state, previous.as_ref());
+        previous = Some(semantic.clone());
+        out.push(semantic);
+    }
+    out
 }
 
 fn semantic_from_native(
@@ -796,6 +843,81 @@ fn semantic_from_native(
         world,
         entities,
         events,
+    }
+}
+
+fn semantic_from_gameplay_state(
+    state: &GameplayState,
+    previous: Option<&SemanticGameState>,
+) -> SemanticGameState {
+    let player = SemanticPlayerState {
+        x_pos: Some(state.kid_x_pos),
+        y_pos: Some(state.kid_y_pos),
+        x_velocity: state.kid_x_vel,
+        y_velocity: state.kid_y_vel,
+        facing: None,
+        on_ground: None,
+        movement_state: state
+            .character_movement
+            .map(|movement| format!("movement_{movement:04x}")),
+        current_form: Some(state.current_helmet_id),
+        hitpoints: Some(state.number_hitpoints),
+        invulnerable_frames: state.invulnerable_frames.map(u16::from),
+        collision_type: state.kid_collision_type,
+    };
+    let camera = SemanticCameraState {
+        x_pos: state.camera_x_pos,
+        y_pos: state.camera_y_pos,
+    };
+    let world = SemanticWorldState {
+        game_mode: state.game_mode,
+        current_level_id: state.current_level_id,
+        player_1_level_id: state.player_1_level_id,
+        current_player: state.current_player,
+        score: None,
+        number_lives: Some(state.number_lives),
+        diamond_count: None,
+        paused: false,
+        boot_phase: None,
+    };
+    let entities = Vec::new();
+    let events = semantic_events(previous, &player, &entities);
+    SemanticGameState {
+        frame_index: state.frame_index,
+        player,
+        camera,
+        world,
+        entities,
+        events,
+    }
+}
+
+fn verification_backend_for_source(source: &CaseSource) -> VerificationBackend {
+    match source {
+        CaseSource::GameplayScenario { .. } => VerificationBackend::GameplayCapture,
+        CaseSource::ScenarioPath { .. } | CaseSource::Recording { .. } => {
+            VerificationBackend::OracleHelper
+        }
+    }
+}
+
+fn gameplay_scenario_from_source(source: &CaseSource) -> Result<GameplayScenario> {
+    match source {
+        CaseSource::GameplayScenario { slug } => gameplay_scenario_from_slug(slug)
+            .ok_or_else(|| anyhow!("unknown gameplay scenario slug `{slug}` in case manifest")),
+        CaseSource::ScenarioPath { .. } | CaseSource::Recording { .. } => {
+            bail!("case source is not a gameplay scenario")
+        }
+    }
+}
+
+fn gameplay_scenario_from_slug(slug: &str) -> Option<GameplayScenario> {
+    match slug {
+        "pause_resume_level1" => Some(GameplayScenario::PauseResumeLevel1),
+        "death_respawn_level1" => Some(GameplayScenario::DeathRespawnLevel1),
+        "progress_two_transitions" => Some(GameplayScenario::ProgressTwoTransitions),
+        "soak_level_10m" => Some(GameplayScenario::SoakLevel10m),
+        _ => None,
     }
 }
 
@@ -1604,5 +1726,73 @@ mod tests {
     fn evidence_tier_labels_match_repo_language() {
         assert_eq!(EvidenceTier::ReplayMatched.label(), "replay-matched");
         assert_eq!(EvidenceTier::HumanPlayStable.label(), "human-play-stable");
+    }
+
+    #[test]
+    fn gameplay_case_sources_use_gameplay_capture_backend() {
+        let source = CaseSource::GameplayScenario {
+            slug: String::from("death_respawn_level1"),
+        };
+        assert_eq!(
+            verification_backend_for_source(&source),
+            VerificationBackend::GameplayCapture
+        );
+        assert_eq!(
+            gameplay_scenario_from_source(&source).expect("known gameplay slug"),
+            GameplayScenario::DeathRespawnLevel1
+        );
+    }
+
+    #[test]
+    fn scenario_path_sources_stay_on_oracle_helper_backend() {
+        let source = CaseSource::ScenarioPath {
+            path: String::from("fixtures/sample.json"),
+        };
+        assert_eq!(
+            verification_backend_for_source(&source),
+            VerificationBackend::OracleHelper
+        );
+    }
+
+    #[test]
+    fn semantic_from_gameplay_state_keeps_shared_gameplay_fields() {
+        let state = GameplayState {
+            label: String::from("frame_00719"),
+            frame_index: 719,
+            game_mode: 0x000c,
+            current_player: 0,
+            number_lives: 3,
+            number_hitpoints: 1,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            current_helmet_id: 0,
+            camera_x_pos: 0x0045_0000,
+            camera_y_pos: 0x0073_0000,
+            kid_x_pos: 0x00ef_0000,
+            kid_y_pos: 0x010f_0000,
+            kid_x_vel: Some(0x0002_0000),
+            kid_y_vel: Some(0),
+            character_movement: Some(2),
+            kid_collision_type: Some(0),
+            invulnerable_frames: Some(0),
+            just_received_damage: Some(false),
+            kid_ground_probe: None,
+            kid_grounded_release_probe: None,
+            kid_jump_gravity_probe: None,
+            number_objects: 4,
+            number_gfx_objects: 5,
+        };
+
+        let semantic = semantic_from_gameplay_state(&state, None);
+        assert_eq!(semantic.frame_index, 719);
+        assert_eq!(semantic.world.game_mode, 0x000c);
+        assert_eq!(semantic.world.number_lives, Some(3));
+        assert_eq!(semantic.player.x_pos, Some(0x00ef_0000));
+        assert_eq!(
+            semantic.player.movement_state.as_deref(),
+            Some("movement_0002")
+        );
+        assert_eq!(semantic.player.collision_type, Some(0));
+        assert!(semantic.entities.is_empty());
     }
 }
