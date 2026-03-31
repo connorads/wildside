@@ -128,6 +128,10 @@ pub(crate) struct AudioTraceFrame {
     pub(crate) peak_right: f32,
 }
 
+fn capture_buttons_for_frame(script: &[u8], frame_index: usize) -> u8 {
+    script.get(frame_index).copied().unwrap_or(0)
+}
+
 pub(crate) fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapture> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
     let script = scenario.script()?;
@@ -146,11 +150,7 @@ pub(crate) fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<S
     let mut previous_psg_write_count = 0usize;
 
     for frame_index in 0..scenario.frame_count() {
-        let buttons = frame_index
-            .checked_sub(1)
-            .and_then(|previous_frame| script.get(previous_frame))
-            .copied()
-            .unwrap_or(0);
+        let buttons = capture_buttons_for_frame(&script, frame_index);
         runtime.set_controller_1(buttons);
         runtime.run_until_frame_rendered(500_000);
         let snapshot = runtime.snapshot();
@@ -683,4 +683,21 @@ pub(crate) fn run_native_script_dynamic_with_trace(
     frame_count: usize,
 ) -> Vec<NativeTraceFrame> {
     run_script_with_trace(manifest.clone(), script, frame_count, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::capture_buttons_for_frame;
+    use crate::scenarios::Scenario;
+
+    #[test]
+    fn capture_uses_current_frame_script_input() {
+        let script = Scenario::BootTitleStartLevel1
+            .script()
+            .expect("scenario script should build");
+
+        assert_eq!(capture_buttons_for_frame(&script, 359), 0);
+        assert_eq!(capture_buttons_for_frame(&script, 360), 0x80);
+        assert_eq!(capture_buttons_for_frame(&script, 460), 0x80);
+    }
 }
