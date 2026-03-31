@@ -1,49 +1,49 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 31
-updated_at: 2026-03-31T04:22:12Z
+cycle: 32
+updated_at: 2026-03-31T04:25:05Z
 ---
 # What Changed
-- Added `RomRandomState::next_long()` and used it to mirror ASM `Execute_Objects`' per-frame `Get_RandomNumber_long` burn while native stays in `BootState::StartingLevel`.
-- Let the hidden gameplay slice keep stepping during mode 8 so `loc_1AE2E` only gates the later visible `Game_Mode=$000C` transition, not the underlying level shell.
-- Added a regression test proving mode-8 RNG no longer freezes:
-  - `boot_title_start_mode_8_keeps_advancing_rng_before_gameplay_entry`
-- Verification now shows:
-  - native frame 360 `rng_offset = 0xFFC8` (`-56`) unchanged
-  - native frame 520 `rng_offset = 0xFFC8` (`-56`)
-  - native frame 719 `rng_offset = 0xFFD4` (`-44`)
-  - oracle remains `-27`, `-5`, `-34`
+- Traced the cold-boot title path in ASM instead of guessing from the offset delta.
+- Confirmed from `GameLoadArray` that the cold-boot title shell is still the `Load_IntroSequence6` lineage before it reaches `Obj_TitleMenu`; it is not the separate `Load_TitleScreen` loader.
+- Read the title-path helpers on that lineage:
+  - `Load_IntroSequence6`
+  - `sub_1B222`
+  - `loc_1BAB0`
+  - `GfxObjects_Collision_BottomBoundary4`
+  - `sub_1B43A`
+  - `loc_1B6AC`
+  - `loc_1B5CE`
+  - `Obj_TitleMenu`, `loc_1BB52`, `Title_InputLoop`
+- None of those labels make a direct `Get_RandomNumber_*` call.
 
 # Current Model
-- The mode-8 freeze was real: native previously stopped advancing RNG after the eager `Load_TitleCard -> loc_1AB26/loc_1AD48` worker rebuild.
-- Burning ASM `Execute_Objects` during `StartingLevel` fixes that freeze, but it is not the full ROM model:
-  - it does nothing for the pre-mode-8 carried title offset, so frame 360 still sits on the fresh seed
-  - it overshoots mode-8 parity shape, leaving frame 520 too early in the stream (`-56` instead of oracle `-5`)
-- So the remaining bug is now narrower:
-  - identify the real boot/title object lineage that advances RNG before frame 360
-  - replace the coarse mode-8 long burn with the actual mode-8 object/activity mix
+- The missing pre-frame-360 RNG carry does not come from the obvious cold-boot title-build helpers themselves.
+- Cold-boot title is still the `Load_IntroSequence6` object lineage, but that lineage's visible helpers are RNG-silent in the disassembly.
+- That leaves two plausible ROM-side sources for the carried offset:
+  - earlier still-live object code running under the same `Execute_Objects` loop before the title shell settles
+  - some non-title helper on the cold-boot path outside the labels above
+- The `sub_1D846/sub_1D86C/sub_1D8B4` random-camera/random-spawn cluster is not on this path; its callers sit in the `loc_1D1D6` cinematic sequence, not the cold-boot title lineage.
 
 # Strongest Evidence
 - ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1106-1229` `Init_RNG`, `Get_RandomNumber_byte`, `Get_RandomNumber_word`, `Get_RandomNumber_long`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1636-1661` `Execute_Objects`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28915-28958` `loc_1AC70` title-card worker RNG setup
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29072-29080` `loc_1AE2E`
-- Native files touched this cycle:
-  - `crates/kid-core/src/lib.rs`
-  - `crates/kid-core/src/types.rs`
-  - `crates/kid-core/src/tests.rs`
-- Verification artefacts:
-  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
-  - `.cache/native-oracle-runs/boot_title_start_level1/native/state.json`
-  - `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:23558-23581` `LoadGameModeData`, `GameLoadArray`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29366-29443` `Load_IntroSequence6`, `sub_1B222`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29762-29779` `GfxObjects_Collision_BottomBoundary4`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29792-29918` `sub_1B43A`, `loc_1B6AC`, `loc_1B5CE`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30390-30470` `Obj_TitleMenu`, `loc_1BB52`, `Title_InputLoop`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:32562-32638`, `.cache/upstream/kid-chameleon-disasm/kid.asm:33070-33159` `loc_1D1D6`, `sub_1D846`, `sub_1D86C`, `sub_1D8B4` as the rejected unrelated RNG cluster
+- Verified direct-random call inventory still only shows:
+  - `Execute_Objects` at `kid.asm:1637`
+  - title-card worker init at `kid.asm:28915-28946`
+  - unrelated weather/cinematic/enemy routines elsewhere
 
 # Exact Next Moves
-- Read the ASM that actually runs on the cold-boot title path before frame 360 and find which object/helpers consume RNG there; do not guess from the offset delta.
-- Then read the real mode-8 object flow after `Load_TitleCard` and replace the coarse `Execute_Objects`-only burn with the specific object activity that explains oracle `rng_offset` moving `-5 -> -34` between frames 520 and 719.
-- Keep the new regression test, but expect to tighten it toward oracle-backed checkpoint values once the real boot/title lineage is understood.
+- Stay on the cold-boot title carry problem only: trace which objects are still alive when `Load_IntroSequence6` hands into `Obj_TitleMenu`, then identify whether any of those objects call helpers outside the RNG-silent labels above.
+- In parallel with that reading, inspect the mode-8 object roster after `Load_TitleCard` to replace the coarse `Execute_Objects` burn with the actual object activity, but do not change native code until the ASM names the real callers.
 
 # Verification To Re-run
+- rg -n "Get_RandomNumber|Random" .cache/upstream/kid-chameleon-disasm/kid.asm
 - cargo test -q -p kid-core boot_title_start_mode_8_keeps_advancing_rng_before_gameplay_entry -- --nocapture
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
 - cargo test -q -p kid-core level_entry_has_no_damage_grace_window -- --nocapture
@@ -53,6 +53,6 @@ updated_at: 2026-03-31T04:22:12Z
 - jq '.states[] | select(.frame_index==360 or .frame_index==520 or .frame_index==719) | {frame:.frame_index,label:.label,rng_offset:.rng_offset}' .cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json
 
 # Dead Ends / Do Not Retry
-- Do not treat the new `Execute_Objects` burn as the final fix. It only proves the freeze source.
-- Do not go back to slot-2 pose-only reasoning while frame-360/title RNG lineage is still wrong.
-- Do not assume every mode-8 frame should burn one random long forever; oracle `-5 -> -34` does not match a pure `+4 bytes/frame` model.
+- Do not chase `Load_TitleScreen` for the cold-boot frame-360 carry. `GameLoadArray` shows the cold-boot title uses `Load_IntroSequence6`.
+- Do not blame `Obj_TitleMenu`, `loc_1BB52`, `Title_InputLoop`, `loc_1B5CE`, `loc_1B6AC`, or `GfxObjects_Collision_BottomBoundary4` for direct RNG calls; those labels are RNG-silent.
+- Do not chase the `sub_1D846/sub_1D86C/sub_1D8B4` random-camera cluster for this frontier. Its callers are on a different cinematic path.
