@@ -1,43 +1,41 @@
 ---
-slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 39
-updated_at: 2026-03-31T04:40:56Z
+slug: release-gate-md-runtime-level-entry-position
+cycle: 40
+updated_at: 2026-03-31T05:06:00Z
 ---
 # What Changed
-- Used the single targeted WRAM check the previous handoff allowed, reading `$FFFFFBCE` directly across the early mode-`$0004` window.
-- Found that the reload flag is already latched throughout the whole observed early shell lifetime:
-  - frames 40, 50, 60, 70, 78, 79, 80: `$FFFFFBCE = $FF`
-- This changes the unresolved question:
-  - it is no longer "who sets `$FFFFFBCE` before frame 70?"
-  - it is now "which early mode-`$0004` path actually jumps into `loc_6E2` while `$FFFFFBCE` is already latched?"
+- Read the early cold-boot mode-`$0004` ROM path directly instead of probing native first.
+- Traced `Load_IntroSequence1 -> sub_1B8F4 -> loc_1B920 -> sub_1C246` and confirmed the first early intro return to `j_loc_6E2` is the shared Start-gated helper, not a separate hidden mode-`$0004` branch.
+- Re-ran the handoff verification. The old release-gate note is now stale in one important way: `compare-native-oracle --scenario boot-title-start-level1` no longer fails on `game_mode` at `level_entry@520`; it now fails on Kid position.
 
 # Current Model
-- `$FFFFFBCE` being `FF` is not enough by itself to force an immediate reload; the actual reload only happens when execution jumps to `loc_6E2`.
-- The frame-70 empty-list gap is therefore best explained as:
-  - `$FFFFFBCE` was already set
-  - some mode-`$0004` code path hit `j_loc_6E2`
-  - `loc_6E2` wiped object state and reloaded `Load_IntroSequence1`
-- Since `sub_1B8F4` and the already-traced title workers do not jump to `loc_6E2` that early, the remaining search target is the early mode-`$0004` control path that can transfer there while the flag is latched.
+- ASM answer:
+  - `sub_1B8F4` reaches `loc_1B920`, then hibernates one frame at a time while calling `sub_1C246`.
+  - `sub_1C246` does the shared Start return: `move.w #$2C,(Game_Mode).w; st ($FFFFFBCE).w; jmp (j_loc_6E2).w`.
+  - So the early cold-boot intro return is not mysterious anymore; it is the same shared Start helper used by later intro sequences.
+- Live blocker:
+  - The authoritative verifier still reports `state level_entry@520 diverged in kid position (native 0089A000,00262000; oracle 007F0000,00020000)`.
+  - That means the old “mode `$0008` vs `$000C`” release-gate note is obsolete as the active frontier. Native now reaches the later shell but lands Kid in the wrong place by level entry.
 
 # Strongest Evidence
-- WRAM flag check:
-  - `.cache/oracle-probe/oracle/wram_frame_40.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_50.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_60.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_70.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_78.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_79.bin`
-  - `.cache/oracle-probe/oracle/wram_frame_80.bin`
-- Supporting ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:789-850` `loc_65C`, `loc_6E2`, `MainGameLoop`
+- ASM:
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:29067-29074` `Load_IntroSequence1`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30220-30238` `sub_1B8F4`, `loc_1B920`, `loc_1B924`
-- Example flag bytes:
-  - frames 40/50/60/70/78/79/80: `0xFBCE = FF`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30221-30240` `sub_1B8F4`, `loc_1B920`, `loc_1B924`
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:31146-31167` `sub_1C246`, `loc_1C250`, `loc_1C264`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:823-850` `loc_6E2`
+- Oracle probe:
+  - `.cache/oracle-probe/oracle/wram_frame_330.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_340.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_350.bin`
+  - `.cache/oracle-probe/oracle/wram_frame_360.bin`
+- Verification:
+  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
+  - current failure: `level_entry@520` Kid position drift, artefacts in `.cache/native-oracle-runs/boot_title_start_level1`
 
 # Exact Next Moves
-- Stay narrow: search the early mode-`$0004` cold-boot control flow for the first path that can jump to `j_loc_6E2` before `sub_1B8F4` reaches its own end-of-sequence transition. Start from call sites and helpers reachable during the `Load_IntroSequence1` lifetime, not from later title-screen logic.
-- Only probe again if the ASM leaves two concrete candidate jump paths alive after that read.
+- Stay narrow: inspect the `level_entry@520` artefacts in `.cache/native-oracle-runs/boot_title_start_level1` and identify which shell still owns Kid placement on the oracle side.
+- Read the ROM around `loc_1AE2E` and the level-start hand-off it triggers before touching native code. The next question is no longer “who jumps to `loc_6E2`?”, it is “which post-title entry path leaves Kid at `(0x007F0000, 0x00020000)` instead of native’s later in-level pose?”
+- Only add probes if the compare artefacts plus ASM leave two concrete placement owners alive.
 
 # Verification To Re-run
 - cargo run -q -p kidcli -- oracle-probe --scenario .cache/oracle-probe/boot_title_start_level1_dense.json --frame-start 330 --frame-end 360 --wram-dump-frames 330,340,350,360
@@ -48,6 +46,6 @@ updated_at: 2026-03-31T04:40:56Z
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
 
 # Dead Ends / Do Not Retry
-- Do not spend another cycle asking who first set `$FFFFFBCE`; WRAM now shows the flag was already latched throughout the observed early window.
-- Do not re-check `Load_IntroSequence1` ownership or `loc_6E2` semantics; both are already established.
-- Do not widen to later title-screen or mode-`$002C` code yet; the unresolved jump into `loc_6E2` is still inside the early mode-`$0004` lifetime.
+- Do not spend another cycle searching for a second early mode-`$0004` jump into `loc_6E2`; ASM already shows `sub_1C246` is that path.
+- Do not keep treating `level_entry@520` as a `game_mode` split until the verifier says so again; the current authoritative failure is Kid position.
+- Do not widen back to later title-screen or timeout-restart frontiers from the stale task package until this local boot-title-start mismatch is understood.
