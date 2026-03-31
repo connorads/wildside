@@ -337,6 +337,9 @@ impl NativeRuntime {
                     | BootState::DemoPlay { .. }
                     | BootState::EndingSequence { .. }
             );
+        let hidden_mode_zero_frame =
+            matches!(self.boot_state, BootState::SegaScreen { .. }) && self.frame_index < 9;
+        let hidden_boot_progression = cold_boot_frame || hidden_mode_zero_frame;
         let current_level_name = self.level_name(self.current_level).map(str::to_owned);
         let level_header = self.level_header(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level);
@@ -441,18 +444,18 @@ impl NativeRuntime {
             level_enemy_object_count: enemy_layout.map(|layout| layout.object_count),
             active_enemy_object_count,
             active_platform_object_count,
-            number_lives: if cold_boot_frame {
+            number_lives: if hidden_boot_progression {
                 0
             } else {
                 self.progression.number_lives
             },
             number_continues: self.progression.number_continues,
-            number_hitpoints: if cold_boot_frame {
+            number_hitpoints: if hidden_boot_progression {
                 0
             } else {
                 self.progression.number_hitpoints
             },
-            current_helmet_id: if cold_boot_frame {
+            current_helmet_id: if hidden_boot_progression {
                 0
             } else {
                 self.progression.current_form.helmet_id()

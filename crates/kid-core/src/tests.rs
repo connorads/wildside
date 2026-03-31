@@ -788,6 +788,36 @@ fn first_boot_frame_keeps_gameplay_state_cold() {
 }
 
 #[test]
+fn sega_screen_frames_keep_gameplay_state_cold_until_title_transition() {
+    let trace = run_script(manifest(), &[0; 2], 2);
+    let trace = &trace[1];
+
+    assert_eq!(trace.frame_index, 1);
+    assert_eq!(trace.game_mode, GameMode::SegaScreen);
+    assert_eq!(trace.number_lives, 0);
+    assert_eq!(trace.number_hitpoints, 0);
+    assert_eq!(trace.current_helmet_id, 0);
+    assert_eq!(trace.kid_x_pos, None);
+    assert_eq!(trace.kid_y_pos, None);
+}
+
+#[test]
+fn sega_screen_bootstrap_exposes_live_progression_by_frame_nine() {
+    let trace = run_script(manifest(), &[0; 10], 10);
+    let frame_8 = &trace[8];
+    let frame_9 = &trace[9];
+
+    assert_eq!(frame_8.game_mode, GameMode::SegaScreen);
+    assert_eq!(frame_8.number_lives, 0);
+    assert_eq!(frame_8.number_hitpoints, 0);
+
+    assert_eq!(frame_9.game_mode, GameMode::SegaScreen);
+    assert_eq!(frame_9.number_lives, 3);
+    assert_eq!(frame_9.number_hitpoints, 2);
+    assert_eq!(frame_9.current_helmet_id, 0);
+}
+
+#[test]
 fn early_title_frames_stay_inert_until_boot_ready() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.frame_index = 137;
