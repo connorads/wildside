@@ -1038,7 +1038,7 @@ pub(crate) fn native_trace_to_oracle_state(
         kid_collision_source: None,
         invulnerable_frames: Some(frame.invulnerable_frames as u8),
         currently_transforming: Some(frame.form_change_flash_frames > 0),
-        rng_offset: None,
+        rng_offset: frame.rng_offset,
         level_special_effects: None,
         gameplay_debug_fields: frame.gameplay_debug_fields.clone(),
         cpu_registers: None,

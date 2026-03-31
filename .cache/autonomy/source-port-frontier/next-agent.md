@@ -1,65 +1,63 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 29
-updated_at: 2026-03-31T04:08:24Z
+cycle: 30
+updated_at: 2026-03-31T04:15:02Z
 ---
 # What Changed
-- Traced the Start-to-level-entry path far enough to pin the missing timing model in ROM terms.
-- Confirmed the title Start edge goes through:
-  - `Title_InputLoop` (`kid.asm:30399-30458`) writes `Game_Mode=$0008`
-  - `j_loc_6E2` reinitialises object/gfx RAM and calls `LoadGameModeData`
-  - `GameLoadArray` maps mode 8 to `Load_TitleCard`
-  - `Load_TitleCard` allocates `loc_1AB26` and `loc_1AE2E`
-- Confirmed `Execute_Objects` (`kid.asm:1636-1661`) burns `Get_RandomNumber_long` once at the top of **every frame** before it walks objects.
-- Confirmed native does not model that global per-frame RNG burn at all. `RomRandomState` is only consumed by local call sites such as `rebuild_starting_level_title_workers`.
-- Probed native around frames 460..520:
-  - frame 460 already enters mode 8 with all 14 title workers seeded at their start poses
-  - frame 461 still shows the untouched start poses
-  - frame 462 begins movement
-  - frame 520 therefore shows a ~59-step-old slot-2 worker in native
-- Boot-global RNG search now has a concrete oracle-compatible lineage:
-  - if the reverse-order `o@x=0x40` worker first executes after 114 frame-level `Get_RandomNumber_long` burns, it gets selector byte `0x69` (`top`) and low byte `0x38`, which is inside the required oracle window `0x36..0x39`
+- Added a typed native `rng_offset` trace field sourced from `RomRandomState`, and threaded it through `compare-native-oracle` output.
+- This removed the last big ambiguity in the title-entry RNG model: native and oracle can now be compared directly on the ROM-style `RNG_Offset` word instead of only through slot-2 poses.
+- Verified the new parity gap:
+  - oracle frame 360 `rng_offset = 0xFFE5` (`-27`)
+  - native frame 360 `rng_offset = 0xFFC8` (`-56`)
+  - oracle frame 520 `rng_offset = 0xFFFB` (`-5`)
+  - native frame 520 `rng_offset = 0xFFEC` (`-20`)
+  - oracle frame 719 `rng_offset = 0xFFDE` (`-34`)
+  - native frame 719 `rng_offset = 0xFFEC` (`-20`)
+- That proves native still does two wrong things at once:
+  - it starts title entry from the fresh seed instead of the boot-carried offset
+  - once frame-460 eager seeding finishes, its `rng_offset` stops moving entirely through the rest of mode 8
 
 # Current Model
-- The bug is no longer best described as “wrong branch for the current worker”.
-- Native currently collapses three ROM behaviours into one eager setup step:
-  - global per-frame `Get_RandomNumber_long` consumption in `Execute_Objects`
-  - object-list execution order after `Load_TitleCard`
-  - each worker's own first-execution timing at `loc_1AC70`
-- Because native seeds every title worker immediately in `begin_level_entry`, slot 2 uses a fresh local RNG stream and becomes ~59 steps old by frame 520.
-- Oracle slot 2 instead behaves like a worker whose RNG draw comes from the boot-global stream after many prior frame-level burns; that is why the oracle-compatible `o@x=0x40` solution only appears once the pre-roll count reaches the low-byte `0x38` lineage.
+- The frame-520 bug is now pinned to RNG lineage, not just pose maths.
+- Native behaviour:
+  - frame 360 title: `rng_offset=-56` (still seed position)
+  - frame 460 eager title-worker rebuild consumes local bytes immediately
+  - frame 520 and 719 both stay at `rng_offset=-20`, showing no further RNG consumption during level-entry mode
+- Oracle behaviour:
+  - title is already on a carried boot-global RNG offset by frame 360 (`-27`)
+  - mode 8 continues consuming RNG between frame 520 and frame 719 (`-5 -> -34`)
+- So the next fix must do more than seed workers later. Native needs both:
+  - carried RNG state before mode 8 starts
+  - continued RNG advancement during level-entry execution
 
 # Strongest Evidence
 - ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:823-920` `j_loc_6E2`, `LoadGameModeData`, `GameLoadArray`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:1106-1216` `Init_RNG`, `Get_RandomNumber_byte`, `Get_RandomNumber_word`
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:1636-1661` `Execute_Objects`
   - `.cache/upstream/kid-chameleon-disasm/kid.asm:30399-30458` `Title_InputLoop`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28588-28727` `Load_TitleCard`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28750-29016` `loc_1AB26`, `loc_1AC70`, `loc_1AD48`, `loc_1AE2E`
-- Native code:
-  - `crates/kid-core/src/movement.rs:132-230` eagerly consumes `rom_random` inside `rebuild_starting_level_title_workers`
-  - `crates/kid-core/src/types.rs:1384-1416` defines `RomRandomState`, but there is no native equivalent of the frame-level `Get_RandomNumber_long` burn in `Execute_Objects`
-- Native probe:
-  - `cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 450 --frame-end 520`
-  - frame 460 already shows 14 title workers at start poses
-  - frame 462 is the first moving frame
-  - frame 520 still reports native slot 2 at `0089A000,00262000`
-- RNG search:
-  - reverse-order worker stream plus boot-global pre-roll count `114` yields `o@x=0x40` selector byte `0x69` and low byte `0x38`
-  - that matches the oracle-required top-edge / `0x36..0x39` word-low window
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:28588-29016` `Load_TitleCard`, `loc_1AB26`, `loc_1AC70`, `loc_1AD48`, `loc_1AE2E`
+- Native code changes this cycle:
+  - `crates/kid-core/src/types.rs`
+  - `crates/kid-core/src/trace.rs`
+  - `crates/kidcli/src/compare.rs`
+  - constructor fallout updated in `crates/kidcli/src/native_player/mod.rs`, `crates/kidcli/src/recording.rs`, `crates/kidcli/src/sweep.rs`, `crates/kidcli/src/tas_diff.rs`, `crates/kidcli/src/main.rs`
+- Verification artefacts:
+  - `cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
+  - `.cache/native-oracle-runs/boot_title_start_level1/native/state.json`
+  - `.cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json`
 
 # Exact Next Moves
-- Implement the ROM's boot-global RNG lineage for title entry instead of rebuilding all workers eagerly: add the missing per-frame `Get_RandomNumber_long` consumption on the title/level-transition object path, then move title-worker RNG seeding to first execution order rather than `begin_level_entry`. Verify whether slot 2 now migrates from the fresh local `0x29/0x30` stream toward the oracle-compatible `0x69/0x38` lineage.
+- Use the new `rng_offset` parity target to implement the actual title-entry fix: carry native RNG consumption across the boot/title path so frame 360 no longer sits at `-56`, then add the missing mode-8 RNG advancement so frame 520/719 stop freezing at `-20`. Only once `rng_offset` tracks closer to oracle should you revisit slot-2 worker ordering/pose.
 
 # Verification To Re-run
 - cargo test -q -p kid-core boot_title_start_stays_in_mode_8_without_second_start_press -- --nocapture
 - cargo test -q -p kid-core level_entry_has_no_damage_grace_window -- --nocapture
 - cargo test -q -p kidcli compare_native_states_reports_boot_level_entry_mode_8_release_gate -- --nocapture
-- cargo run -q -p kidcli -- probe-native --scenario boot-title-start-level1 --frame-start 450 --frame-end 520
 - cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
-- cargo run -q -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
+- jq '.[] | select(.frame_index==360 or .frame_index==520 or .frame_index==719) | {frame:.frame_index,label:.label,rng_offset:.rng_offset}' .cache/native-oracle-runs/boot_title_start_level1/native/state.json
+- jq '.states[] | select(.frame_index==360 or .frame_index==520 or .frame_index==719) | {frame:.frame_index,label:.label,rng_offset:.rng_offset}' .cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json
 
 # Dead Ends / Do Not Retry
-- Do not retry slot remaps or branch brute force without modelling the frame-level RNG burn. The missing `Get_RandomNumber_long` pre-roll invalidates those local-stream searches.
-- Do not keep treating `begin_level_entry` as the moment every `loc_1AC70` worker draws its RNG. ROM timing is object-execution-driven, not eager setup.
-- Do not assume the frame-460 Start edge implies a fresh RNG seed for level entry. The relevant lineage is boot-global.
+- Do not go back to pose-only reasoning now that native `rng_offset` is available. Use the direct parity signal.
+- Do not patch slot ordering before native carries the boot/title RNG lineage. The new offsets show the stream is still wrong earlier than slot 2.
+- Do not assume mode 8 is RNG-idle after the eager frame-460 seed. Oracle `rng_offset` keeps moving through frame 719.

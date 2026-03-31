@@ -874,6 +874,7 @@ pub struct NativeTraceFrame {
     pub camera_y_pos: u32,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
+    pub rng_offset: Option<u16>,
     pub level_complete: bool,
     pub game_over: bool,
     /// Continue countdown remaining frames (None if not in continue screen).
@@ -972,6 +973,7 @@ impl Default for NativeTraceFrame {
             camera_y_pos: 0,
             number_objects: 0,
             number_gfx_objects: 0,
+            rng_offset: None,
             level_complete: false,
             game_over: false,
             continue_countdown: None,
@@ -1408,6 +1410,10 @@ impl RomRandomState {
         let high = self.next_byte();
         let low = self.next_byte();
         u16::from_be_bytes([high, low])
+    }
+
+    pub(crate) fn offset_word(&self) -> u16 {
+        ((self.index as i32) - (Self::RAM_LENGTH as i32)) as i16 as u16
     }
 }
 

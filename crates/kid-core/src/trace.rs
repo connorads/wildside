@@ -484,6 +484,7 @@ impl NativeRuntime {
             camera_y_pos: camera_state.y_pos,
             number_objects,
             number_gfx_objects,
+            rng_offset: Some(self.rom_random.offset_word()),
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             game_over: matches!(
                 self.player_lifecycle,

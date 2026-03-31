@@ -2496,6 +2496,7 @@ AddrTbl_LevelNames:
             camera_y_pos: 0x0008_0000,
             number_objects: 3,
             number_gfx_objects: 3,
+            rng_offset: None,
             level_complete: false,
             game_over: false,
             continue_countdown: None,

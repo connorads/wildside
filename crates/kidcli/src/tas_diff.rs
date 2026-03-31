@@ -812,6 +812,7 @@ mod tests {
             camera_y_pos: 0,
             number_objects: 1,
             number_gfx_objects: 0,
+            rng_offset: None,
             level_complete: false,
             game_over: false,
             continue_countdown: None,
