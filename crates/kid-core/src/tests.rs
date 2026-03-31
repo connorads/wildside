@@ -451,6 +451,54 @@ fn boot_title_start_level_1_adds_loc_1ad48_deferred_number_worker() {
 }
 
 #[test]
+fn boot_title_start_level_1_keeps_slot_13_hidden_on_frame_504() {
+    let mut runtime = cached_generated_runtime();
+    let mut frame_504_slots = None;
+    let mut frame_505_slots = None;
+
+    for frame_index in 0..=505 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        if frame_index == 504 {
+            frame_504_slots = Some(
+                trace
+                    .active_objects
+                    .iter()
+                    .filter_map(|object| object.debug_fields.get("gfx_slot_index"))
+                    .map(|slot| slot.parse::<usize>().expect("numeric gfx slot"))
+                    .collect::<Vec<_>>(),
+            );
+        } else if frame_index == 505 {
+            frame_505_slots = Some(
+                trace
+                    .active_objects
+                    .iter()
+                    .filter_map(|object| object.debug_fields.get("gfx_slot_index"))
+                    .map(|slot| slot.parse::<usize>().expect("numeric gfx slot"))
+                    .collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    let frame_504_slots = frame_504_slots.expect("frame 504 trace");
+    let frame_505_slots = frame_505_slots.expect("frame 505 trace");
+
+    // ASM Execute_Objects (kid.asm:1618-1658) executes loc_1AB26 inside the
+    // current pass, while the later loc_1AD48 allocation lands behind that
+    // cursor. Oracle frame 504 therefore exposes only the 13 loc_1AB26 letter
+    // workers; the deferred number worker appears on the following pass.
+    assert_eq!(frame_504_slots, (0..=12).collect::<Vec<_>>());
+    assert_eq!(frame_505_slots, (0..=13).collect::<Vec<_>>());
+}
+
+#[test]
 fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
     let mut runtime = cached_generated_runtime();
     runtime.begin_level_entry(LevelId(1));

@@ -26,6 +26,7 @@ const INTRO_SEQUENCE_3_ROSTERS: [[u8; 8]; 4] = [
 const INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT: usize = 2;
 const LEVEL_ENTRY_TITLE_SLOT_2_INDEX: usize = 2;
 const LEVEL_ENTRY_TITLE_ANIMATION_FRAMES: usize = 64;
+const LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME: usize = 44;
 const TITLE_CARD_WIDTH_TILES: [u8; 11] = [
     0, 0x0E, 0x11, 0x12, 0x10, 0x13, 0x10, 0x11, 0x12, 0x0F, 0x13,
 ];
@@ -255,12 +256,22 @@ impl NativeRuntime {
         &self,
         elapsed_frames: usize,
     ) -> Vec<NativeObjectSnapshot> {
+        let hide_deferred_number_worker =
+            elapsed_frames == LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
         // ASM loc_1AC70 -> loc_1AD2A hibernates once before the first movement
         // step, so the visible shell should stay at the seeded start pose on
         // the first StartingLevel frame.
         let visible_elapsed_frames = elapsed_frames.saturating_sub(1);
         self.starting_level_title_workers
             .iter()
+            .filter(|worker| {
+                // ASM loc_1AB26 spawns the visible letter workers directly,
+                // but the deferred loc_1AD48 suffix worker is allocated after
+                // loc_1AB26 has already entered the current object pass via
+                // Execute_Objects. Oracle frame 504 therefore exposes only
+                // slots 0..12, with slot 13 joining on the next pass.
+                !(hide_deferred_number_worker && worker.glyph == 0x7B)
+            })
             .map(|worker| {
                 let pose =
                     PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
