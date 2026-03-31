@@ -1,46 +1,44 @@
 ---
 slug: release-gate-md-runtime-ctrl-pressed-mode8
-cycle: 32
-updated_at: 2026-03-31T04:25:05Z
+cycle: 33
+updated_at: 2026-03-31T04:26:15Z
 ---
 # What Changed
-- Traced the cold-boot title path in ASM instead of guessing from the offset delta.
-- Confirmed from `GameLoadArray` that the cold-boot title shell is still the `Load_IntroSequence6` lineage before it reaches `Obj_TitleMenu`; it is not the separate `Load_TitleScreen` loader.
-- Read the title-path helpers on that lineage:
-  - `Load_IntroSequence6`
-  - `sub_1B222`
-  - `loc_1BAB0`
-  - `GfxObjects_Collision_BottomBoundary4`
-  - `sub_1B43A`
+- Traced the live object roster that survives into the cold-boot `Load_IntroSequence6 -> Obj_TitleMenu` hand-off.
+- Read the surviving objects' callees:
   - `loc_1B6AC`
-  - `loc_1B5CE`
-  - `Obj_TitleMenu`, `loc_1BB52`, `Title_InputLoop`
-- None of those labels make a direct `Get_RandomNumber_*` call.
+  - `sub_1B71A`
+  - `loc_1C7A0`
+  - `sub_1C034`
+  - `sub_1C0EE`
+  - `sub_1C112`
+  - `loc_1BB10`
+- Confirmed those surviving helpers are also RNG-silent.
 
 # Current Model
-- The missing pre-frame-360 RNG carry does not come from the obvious cold-boot title-build helpers themselves.
-- Cold-boot title is still the `Load_IntroSequence6` object lineage, but that lineage's visible helpers are RNG-silent in the disassembly.
-- That leaves two plausible ROM-side sources for the carried offset:
-  - earlier still-live object code running under the same `Execute_Objects` loop before the title shell settles
-  - some non-title helper on the cold-boot path outside the labels above
-- The `sub_1D846/sub_1D86C/sub_1D8B4` random-camera/random-spawn cluster is not on this path; its callers sit in the `loc_1D1D6` cinematic sequence, not the cold-boot title lineage.
+- The cold-boot frame-360 RNG carry is not coming from the obvious title builders, and it is not coming from the objects that remain alive once `loc_1BAB0` hands off into `Obj_TitleMenu`.
+- By the time the title shell reaches the visible menu/text helpers, every traced callee in that roster is RNG-silent.
+- That pushes the carry bug one step earlier:
+  - either an earlier still-live object on the pre-menu `Load_IntroSequence6` timeline is consuming RNG before it dies
+  - or the carry comes from a non-title object lineage that survives longer than expected before the hand-off settles
 
 # Strongest Evidence
 - ASM:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:23558-23581` `LoadGameModeData`, `GameLoadArray`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29366-29443` `Load_IntroSequence6`, `sub_1B222`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29762-29779` `GfxObjects_Collision_BottomBoundary4`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29792-29918` `sub_1B43A`, `loc_1B6AC`, `loc_1B5CE`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30390-30470` `Obj_TitleMenu`, `loc_1BB52`, `Title_InputLoop`
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm:32562-32638`, `.cache/upstream/kid-chameleon-disasm/kid.asm:33070-33159` `loc_1D1D6`, `sub_1D846`, `sub_1D86C`, `sub_1D8B4` as the rejected unrelated RNG cluster
-- Verified direct-random call inventory still only shows:
-  - `Execute_Objects` at `kid.asm:1637`
-  - title-card worker init at `kid.asm:28915-28946`
-  - unrelated weather/cinematic/enemy routines elsewhere
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29917-29948` `loc_1B6AC`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:29957-30029` `sub_1B71A`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30370-30458` `loc_1BAB0`, `Obj_TitleMenu`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30405-30418` `loc_1BB10`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:30849-30952` `sub_1C034`, `sub_1C0EE`, `sub_1C112`
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm:31404-31457` `loc_1C7A0`
+- Roster/lifetime facts from the ASM:
+  - `sub_1B43A` allocates `GfxObjects_Collision_BottomBoundary4`, `loc_1B6AC`, `loc_1B5CE`, then deletes itself.
+  - `loc_1B6AC` later allocates `loc_1BB10`, then `loc_1C7A0`, and keeps looping.
+  - `loc_1BAB0` later allocates another `loc_1BB10` and `loc_1C7A0` pair before `loc_1BAEA`.
+  - None of those labels or their immediate callees touch `Get_RandomNumber_*`.
 
 # Exact Next Moves
-- Stay on the cold-boot title carry problem only: trace which objects are still alive when `Load_IntroSequence6` hands into `Obj_TitleMenu`, then identify whether any of those objects call helpers outside the RNG-silent labels above.
-- In parallel with that reading, inspect the mode-8 object roster after `Load_TitleCard` to replace the coarse `Execute_Objects` burn with the actual object activity, but do not change native code until the ASM names the real callers.
+- The remaining ambiguity is now genuine. Add one targeted probe or oracle-side diagnostic that captures which object lineage is still running between the last pre-title `Load_IntroSequence6` frames and frame 360, so you can stop inferring from static call trees alone.
+- Keep it narrow: the probe should answer “which live objects still execute before frame 360?” rather than dumping broad unrelated state.
 
 # Verification To Re-run
 - rg -n "Get_RandomNumber|Random" .cache/upstream/kid-chameleon-disasm/kid.asm
@@ -53,6 +51,6 @@ updated_at: 2026-03-31T04:25:05Z
 - jq '.states[] | select(.frame_index==360 or .frame_index==520 or .frame_index==719) | {frame:.frame_index,label:.label,rng_offset:.rng_offset}' .cache/native-oracle-runs/boot_title_start_level1/oracle/manifest.json
 
 # Dead Ends / Do Not Retry
-- Do not chase `Load_TitleScreen` for the cold-boot frame-360 carry. `GameLoadArray` shows the cold-boot title uses `Load_IntroSequence6`.
-- Do not blame `Obj_TitleMenu`, `loc_1BB52`, `Title_InputLoop`, `loc_1B5CE`, `loc_1B6AC`, or `GfxObjects_Collision_BottomBoundary4` for direct RNG calls; those labels are RNG-silent.
-- Do not chase the `sub_1D846/sub_1D86C/sub_1D8B4` random-camera cluster for this frontier. Its callers are on a different cinematic path.
+- Do not re-read the already-cleared title helpers looking for direct RNG calls; `loc_1B6AC`, `sub_1B71A`, `loc_1C7A0`, `sub_1C034`, `sub_1C0EE`, `sub_1C112`, `loc_1BB10`, and `Obj_TitleMenu` are all RNG-silent.
+- Do not switch back to `Load_TitleScreen`; cold boot is still on the `Load_IntroSequence6` lineage here.
+- Do not widen the probe beyond the pre-frame-360 live object question. The missing carry source is now a narrow lifetime problem.
