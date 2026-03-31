@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 
 const INTRO_SEQUENCE_3_ROSTER_DESCRIPTOR_POSITIONS: [(u16, u16); 14] = [
     (0x00F8, 0x00D0),
@@ -23,6 +24,8 @@ const INTRO_SEQUENCE_3_ROSTERS: [[u8; 8]; 4] = [
     [1, 2, 3, 5, 7, 8, 9, 0xFF],
 ];
 const INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT: usize = 2;
+const LEVEL_ENTRY_TITLE_SLOT_2_INDEX: usize = 2;
+const LEVEL_ENTRY_TITLE_ANIMATION_FRAMES: usize = 64;
 
 impl PlayerState {
     pub(crate) fn intro_sequence_3_roster_count() -> usize {
@@ -89,6 +92,206 @@ impl PlayerState {
             wall_cling_direction: None,
         }
     }
+
+    pub(crate) fn from_level_entry_title_worker(
+        worker: &LevelEntryTitleWorker,
+        elapsed_frames: usize,
+    ) -> Self {
+        Self {
+            x_pos: level_entry_title_worker_axis_pos(
+                worker.start_x_pos,
+                worker.target_x_pos,
+                worker.x_step_fp,
+                elapsed_frames,
+            ),
+            y_pos: level_entry_title_worker_axis_pos(
+                worker.start_y_pos,
+                worker.target_y_pos,
+                worker.y_step_fp,
+                elapsed_frames,
+            ),
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        }
+    }
+}
+
+impl NativeRuntime {
+    pub(crate) fn rebuild_starting_level_title_workers(&mut self) {
+        self.starting_level_title_workers.clear();
+        let Some(title_card) = self
+            .level_record(self.current_level)
+            .and_then(|level| level.title_card.as_ref())
+            .cloned()
+        else {
+            return;
+        };
+
+        let visible_glyph_count = title_card
+            .script_bytes
+            .iter()
+            .filter(|&&glyph| glyph != 0 && glyph != 0x84 && glyph != 0xFF)
+            .count();
+        let mut current_destination = title_card.line_destinations.first().cloned();
+        let mut line_index = 0usize;
+        let mut visible_glyph_index = 0usize;
+
+        for &glyph in &title_card.script_bytes {
+            match glyph {
+                0 => {
+                    line_index += 1;
+                    current_destination = title_card.line_destinations.get(line_index).cloned();
+                }
+                0x84 => {
+                    if let Some(destination) = current_destination.as_mut() {
+                        destination.x = destination.x.saturating_add(0x10);
+                    }
+                }
+                0xFF => break,
+                _ => {
+                    let Some(destination) = current_destination.clone() else {
+                        break;
+                    };
+                    let start_selector = self.rom_random.next_byte() & 3;
+                    let (start_x_pos, start_y_pos) =
+                        level_entry_title_start_pose(&mut self.rom_random, start_selector);
+                    let target_x_pos = u32::from(destination.x) << 16;
+                    let target_y_pos =
+                        u32::from(level_entry_title_target_y(glyph, destination.y)) << 16;
+                    self.starting_level_title_workers
+                        .push(LevelEntryTitleWorker {
+                            gfx_slot_index: visible_glyph_count
+                                .saturating_sub(visible_glyph_index + 1),
+                            glyph,
+                            start_x_pos,
+                            start_y_pos,
+                            target_x_pos,
+                            target_y_pos,
+                            x_step_fp: level_entry_title_axis_step(start_x_pos, target_x_pos),
+                            y_step_fp: level_entry_title_axis_step(start_y_pos, target_y_pos),
+                        });
+                    if let Some(destination) = current_destination.as_mut() {
+                        destination.x = destination
+                            .x
+                            .saturating_add(level_entry_title_advance_x(glyph));
+                    }
+                    visible_glyph_index += 1;
+                }
+            }
+        }
+    }
+
+    pub(crate) fn starting_level_slot_2_pose(&self, elapsed_frames: usize) -> Option<PlayerState> {
+        self.starting_level_title_workers
+            .iter()
+            .find(|worker| worker.gfx_slot_index == LEVEL_ENTRY_TITLE_SLOT_2_INDEX)
+            .map(|worker| PlayerState::from_level_entry_title_worker(worker, elapsed_frames))
+    }
+
+    pub(crate) fn starting_level_title_active_objects(
+        &self,
+        elapsed_frames: usize,
+    ) -> Vec<NativeObjectSnapshot> {
+        self.starting_level_title_workers
+            .iter()
+            .map(|worker| {
+                let pose = PlayerState::from_level_entry_title_worker(worker, elapsed_frames);
+                NativeObjectSnapshot {
+                    kind: NativeObjectKind::Enemy { object_type: 0 },
+                    x_pos: pose.x_pos,
+                    y_pos: pose.y_pos,
+                    layout_index: None,
+                    x_velocity: None,
+                    y_velocity: None,
+                    facing: Some(Direction::Left),
+                    on_ground: Some(true),
+                    hit_points: None,
+                    damage_flash: false,
+                    palette_variant: 0,
+                    stationary: true,
+                    shared_walker_state: None,
+                    shared_walker_patrol_timer: None,
+                    shared_walker_patrol_short_next: None,
+                    walk_phase: None,
+                    wait_timer: None,
+                    debug_fields: BTreeMap::from([(
+                        String::from("gfx_slot_index"),
+                        worker.gfx_slot_index.to_string(),
+                    )]),
+                }
+            })
+            .collect()
+    }
+}
+
+fn level_entry_title_target_y(glyph: u8, y: u16) -> u16 {
+    if glyph == 0x83 {
+        y.saturating_sub(8)
+    } else {
+        y
+    }
+}
+
+fn level_entry_title_advance_x(glyph: u8) -> u16 {
+    match glyph.wrapping_sub(b'a') {
+        0x1B => 0x28,
+        0x1C => 0x20,
+        0x1D | 0x1E => 0x18,
+        0x08 | 0x22 => 0x08,
+        _ => 0x10,
+    }
+}
+
+fn level_entry_title_axis_step(start_pos: u32, target_pos: u32) -> i32 {
+    (target_pos as i32).wrapping_sub(start_pos as i32) >> 6
+}
+
+fn level_entry_title_worker_axis_pos(
+    start_pos: u32,
+    target_pos: u32,
+    step_fp: i32,
+    elapsed_frames: usize,
+) -> u32 {
+    let current = (start_pos as i32).wrapping_add(
+        step_fp.wrapping_mul(elapsed_frames.min(LEVEL_ENTRY_TITLE_ANIMATION_FRAMES) as i32),
+    );
+    let target = target_pos as i32;
+    if step_fp >= 0 {
+        current.min(target) as u32
+    } else {
+        current.max(target) as u32
+    }
+}
+
+fn level_entry_title_start_pose(rng: &mut RomRandomState, selector: u8) -> (u32, u32) {
+    let (x, y) = match selector {
+        0 => (-0x20, level_entry_title_random_y(rng)),
+        1 => (level_entry_title_random_x(rng), -0x20),
+        2 => (0x160, level_entry_title_random_y(rng)),
+        _ => (level_entry_title_random_x(rng), 0x100),
+    };
+    ((x << 16) as u32, (y << 16) as u32)
+}
+
+fn level_entry_title_random_y(rng: &mut RomRandomState) -> i32 {
+    let mut value = i32::from(rng.next_byte()) - 0x20;
+    if value <= 0 {
+        value += 0x28;
+    }
+    value & !3
+}
+
+fn level_entry_title_random_x(rng: &mut RomRandomState) -> i32 {
+    (i32::from(rng.next_byte()) + 0x3E) & !3
 }
 
 impl OpeningSliceState {

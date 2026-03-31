@@ -1230,13 +1230,21 @@ impl NativeRuntime {
                 }
                 self.title_screen_elapsed_frames += 1;
             }
-            BootState::StartingLevel { input_armed } => {
+            BootState::StartingLevel {
+                input_armed,
+                elapsed_frames,
+            } => {
+                let mut enter_gameplay = false;
                 if !*input_armed {
                     // ASM loc_1AE2E hibernates for one frame before it tests
                     // shared Ctrl_Pressed, so the title-menu Start edge that
                     // wrote `Game_Mode=$0008` cannot also enter gameplay.
                     *input_armed = true;
                 } else if start_pressed {
+                    enter_gameplay = true;
+                }
+                *elapsed_frames = elapsed_frames.saturating_add(1);
+                if enter_gameplay {
                     self.boot_state = BootState::InGame;
                     self.level_start_frame = Some(self.frame_index);
                 }

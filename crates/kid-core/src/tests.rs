@@ -348,6 +348,71 @@ fn boot_title_start_stays_in_mode_8_without_second_start_press() {
     );
 }
 
+#[test]
+fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
+    let mut runtime = cached_generated_runtime();
+
+    for frame_index in 0..=460 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        runtime.step_frame(input);
+    }
+
+    let slot_2 = runtime
+        .starting_level_title_workers
+        .iter()
+        .find(|worker| worker.gfx_slot_index == 2)
+        .expect("loc_1AB26 should populate gfx slot 2");
+
+    // ASM loc_1AB26 allocates one worker per visible letter in descending gfx
+    // slots, so Blue Lake Woods 1's third-row centre `o` lands in slot 2.
+    assert_eq!(runtime.starting_level_title_workers.len(), 13);
+    assert_eq!(slot_2.glyph, b'o');
+    assert_eq!(slot_2.target_x_pos, 0x0040_0000);
+    assert_eq!(slot_2.target_y_pos, 0x0068_0000);
+}
+
+#[test]
+fn boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens() {
+    let mut runtime = cached_generated_runtime();
+    runtime.begin_level_entry(LevelId(7));
+
+    // ASM loc_1AB26 advances to the next `(x,y)` pair on `0`, skips worker
+    // allocation for `#$84`, and applies per-glyph widths before continuing.
+    let workers = &runtime.starting_level_title_workers;
+    assert_eq!(workers.len(), 14);
+    assert_eq!(
+        workers.iter().filter(|worker| worker.glyph == 0x84).count(),
+        0
+    );
+
+    let second_line_special_a = workers
+        .iter()
+        .find(|worker| worker.glyph == 0x7E)
+        .expect("loc_1AB26 should allocate a worker for glyph $7E");
+    assert_eq!(second_line_special_a.target_x_pos, 0x0020_0000);
+    assert_eq!(second_line_special_a.target_y_pos, 0x003C_0000);
+
+    let second_line_special_b = workers
+        .iter()
+        .find(|worker| worker.glyph == 0x7D)
+        .expect("loc_1AB26 should allocate a worker for glyph $7D");
+    assert_eq!(second_line_special_b.target_x_pos, 0x0048_0000);
+    assert_eq!(second_line_special_b.target_y_pos, 0x003C_0000);
+
+    let third_line_l = workers
+        .iter()
+        .find(|worker| worker.glyph == b'l' && worker.target_y_pos == 0x004C_0000)
+        .expect("line break token should advance to the third line");
+    assert_eq!(third_line_l.target_x_pos, 0x0020_0000);
+}
+
 fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     assert!(runtime.killed_enemies.is_empty());
     assert!(runtime.projectiles.is_empty());

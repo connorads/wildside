@@ -166,7 +166,10 @@ impl NativeRuntime {
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = None;
-        self.boot_state = BootState::StartingLevel { input_armed: false };
+        self.boot_state = BootState::StartingLevel {
+            input_armed: false,
+            elapsed_frames: 0,
+        };
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
@@ -194,6 +197,7 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.reload_block_grid_for_level(level_id);
+        self.rebuild_starting_level_title_workers();
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).

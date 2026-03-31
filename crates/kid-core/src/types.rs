@@ -1248,6 +1248,7 @@ pub(crate) enum BootState {
     },
     StartingLevel {
         input_armed: bool,
+        elapsed_frames: usize,
     },
     LevelSkipHold,
     InGame,
@@ -1358,6 +1359,18 @@ pub(crate) struct PlayerState {
     /// pressing away, or damage. Some(Right) = wall on right ($FFFFFA72=0),
     /// Some(Left) = wall on left ($FFFFFA72=0xFF).
     pub(crate) wall_cling_direction: Option<Direction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LevelEntryTitleWorker {
+    pub(crate) gfx_slot_index: usize,
+    pub(crate) glyph: u8,
+    pub(crate) start_x_pos: u32,
+    pub(crate) start_y_pos: u32,
+    pub(crate) target_x_pos: u32,
+    pub(crate) target_y_pos: u32,
+    pub(crate) x_step_fp: i32,
+    pub(crate) y_step_fp: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

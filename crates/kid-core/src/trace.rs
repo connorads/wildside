@@ -1355,7 +1355,9 @@ impl NativeRuntime {
                 None
             }
             BootState::LevelSkipHold => self.level_skip_player_state(),
-            BootState::StartingLevel { .. } => None,
+            BootState::StartingLevel { elapsed_frames, .. } => {
+                self.starting_level_slot_2_pose(elapsed_frames)
+            }
             BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
                     && self.dying_hidden_shell_still_visible()
@@ -1504,6 +1506,9 @@ impl NativeRuntime {
         }
         if matches!(self.boot_state, BootState::LevelSkipHold) {
             return self.level_skip_active_objects();
+        }
+        if let BootState::StartingLevel { elapsed_frames, .. } = self.boot_state {
+            return self.starting_level_title_active_objects(elapsed_frames);
         }
         if self.title_uses_full_demo_snapshot() {
             let mut objects = Vec::new();
