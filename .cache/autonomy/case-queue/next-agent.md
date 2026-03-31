@@ -1,42 +1,43 @@
 ---
 slug: death_respawn_level1_case_00700_00750
-cycle: 7
-updated_at: 2026-03-31T22:32:50Z
+cycle: 8
+updated_at: 2026-03-31T22:34:24Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue` and took only `death_respawn_level1_case_00700_00750` (`test-case`).
-- Re-verified the selected case before changing code; `cargo run -p kidcli -- case verify --case test-case` now returns `PASS`.
-- Read ASM `loc_1AE2E` in `.cache/upstream/kid-chameleon-disasm/kid.asm` before considering any gameplay patch. The ROM still shows Start advancing `Game_Mode` to `$000C`.
-- No gameplay patch landed. The selected case closed during re-verification, so the remaining work is queue refresh, not another fix attempt on this case.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 8 selected `death_respawn_level1_case_00700_00750` again via selector `test-case`.
+- Re-verified the selected case first with `cargo run -p kidcli -- case verify --case test-case`; it returned `case death_respawn_level1_case_00700_00750: PASS`.
+- Refreshed the case summary with `cargo run -p kidcli -- case summarise --case test-case`; the cache still records `passed: true`.
+- Read the ROM around `loc_1AE2E` in `.cache/upstream/kid-chameleon-disasm/kid.asm` before considering gameplay changes. No gameplay patch landed because the selected case is already closed.
 
 ## Selected Case
 
 - Case ID: `death_respawn_level1_case_00700_00750`
 - Selector: `test-case`
+- Autonomy gate: `patch-allowed`
 - Current verify result: `PASS`
 - Current first failure: none
 
 ## Why This Case
 
-- Cycle 7 selected it as the autonomy-ready case-queue task.
-- It was the highest-ranked reduced authoritative gameplay case in `.cache/cases/` at selection time.
-- Re-verification showed the cached failure artefacts were stale for this case, so the focused work was to confirm closure rather than widen scope.
+- The cycle 8 task package selected this case as the highest-ranked autonomy-executable gameplay case.
+- The queue still points at stale failure metadata in `next-task.json`, so the immediate job was to re-check the live case rather than assume the cached failure was still real.
+- Re-verification showed the case is already closed, so widening into another case in this session would violate the loop contract.
 
 ## Strongest Evidence
 
 - `cargo run -p kidcli -- case verify --case test-case` prints `case death_respawn_level1_case_00700_00750: PASS`.
-- `.cache/cases/test-case/verify.json` now records `"passed": true` and `"first_failure": null`.
-- `.cache/cases/test-case/summary.md` now records `passed: true`.
-- Relevant ASM: `.cache/upstream/kid-chameleon-disasm/kid.asm:29037` (`loc_1AE2E`) waits for a Start edge, then writes `Game_Mode=$000C`.
+- `.cache/cases/test-case/verify.json` records `"passed": true` and `"first_failure": null`.
+- `.cache/cases/test-case/summary.md` records `passed: true` with matching fields including `world.game_mode`.
+- `.cache/upstream/kid-chameleon-disasm/kid.asm:29041` (`loc_1AE2E`) clears the Start edge with `bclr #Button_Start,(Ctrl_Pressed).w`, loops until pressed, then writes `move.w #$C,(Game_Mode).w`.
 
 ## Exact Next Moves
 
-1. Run `cargo run -p kidcli -- autonomous-loop --goal case-queue` again to refresh the queue after this case closure.
+1. Run `cargo run -p kidcli -- autonomous-loop --goal case-queue` again to refresh the queue after this confirmed closure.
 2. Read the refreshed `.cache/autonomy/case-queue/next-task.json`.
 3. Take the newly selected case only.
-4. Leave `death_respawn_level1_case_00700_00750` closed unless it regresses.
+4. Leave `death_respawn_level1_case_00700_00750` alone unless a future re-verify makes it fail again.
 
 ## Verification To Re-run
 
@@ -46,6 +47,6 @@ updated_at: 2026-03-31T22:32:50Z
 
 ## Dead Ends / Do Not Retry
 
-- Do not patch gameplay for this case without first re-running `case verify`; the current selected bundle already passes.
-- Do not widen into another case during the same session once the selected case closes on re-verification.
-- Do not ignore the ROM transition at `loc_1AE2E`; if this case regresses later, re-check the Start-edge path against ASM before changing gameplay code.
+- Do not patch gameplay for this case while `case verify` still passes; there is no live failing behaviour to fix.
+- Do not widen into `pause_resume_level1_case_00700_00800` or any other open case during this session; the loop says take the selected case only.
+- Do not ignore the ROM transition at `loc_1AE2E`; if `world.game_mode` regresses here later, re-check the Start-edge path against ASM before changing native code.
