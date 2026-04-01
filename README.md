@@ -244,6 +244,8 @@ The autonomous Level 1 loops write their ledger, per-cycle reports, and next-tas
 
 The live source-port frontier loop also writes to `.cache/autonomy/source-port-frontier/`. Its `next-task.json` is generated from `docs/source-port/frontier-state.yaml`, and `next-agent.md` is the cache-local handoff note the current agent leaves for the next loop cycle.
 
+Everything under `.cache/` is treated as generated runtime state. If an artefact needs to be durable, reviewable, or versioned, promote it into `docs/source-port/`, code/tests, or explicit checked-in fixtures instead of tracking it in `.cache/`.
+
 Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/` as JSON summaries and checkpoints. The long multi-level scenarios use the game's built-in level-skip path once the internal cheat flag is enabled in the verification runtime, so they stress deterministic level-load transitions without depending on brittle blind movement scripts.
 
 ## Fast regression gate

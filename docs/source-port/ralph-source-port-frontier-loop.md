@@ -32,7 +32,12 @@ Before writing ANY code, understand what the ROM does first:
 - Follow the investigation hierarchy above: ASM → oracle → fix → probe (last resort).
 - Every frontier commit must cite the ASM label it implements. If you can't name the routine, you haven't done the investigation yet. No exceptions.
 - Use the commands and source paths from `next-task.json` — do not rediscover them.
-- You MUST commit before exiting, even if findings are inconclusive. No-commit sessions are failures.
+- A successful cycle must do one of these:
+  - land a gameplay/tooling code commit
+  - land a probe or instrumentation commit that narrows the causal model
+  - move the earliest authoritative divergence forward with a verified regression/probe update
+- Refreshing `next-agent.md` alone does not count as progress and must not be committed on its own.
+- If the cycle cannot earn one of the outcomes above, stop as blocked instead of creating a handoff-only commit.
 - If the frontier changes, update `docs/source-port/frontier-state.yaml` in the same commit.
 
 ## Exit Requirement
@@ -58,23 +63,23 @@ Required sections:
 5. `Verification To Re-run`
 6. `Dead Ends / Do Not Retry`
 
-The note should be concise but complete enough that the next agent can resume from the active frontier without rediscovering the same model.
+The note should be concise but complete enough that the next agent can resume from the active frontier without rediscovering the same model. Keep it cache-local or fold it into the next substantive commit; do not land a handoff-only commit.
 
 ## What a good session looks like
 
 1. Read next-agent.md (2 min)
 2. Read the named ASM routine in kid.asm (5 min)
 3. Run tas-diff to see oracle behaviour at the frontier frame (2 min)
-4. Either implement the fix or write a handoff explaining what the ASM says (10 min)
-5. Commit + update next-agent.md (1 min)
+4. Either implement the fix or land the probe/instrumentation that disambiguates the next move (10 min)
+5. Update next-agent.md alongside the substantive work (1 min)
 
 A session that only adds debug fields without reading ASM is a wasted session.
 
 ## Stuck detection
 
-If a session produces no commit:
-1. Stage all changes and commit as `WIP: <frontier-slug>`
-2. Write/update next-agent.md with what was attempted and why it stalled
-3. The next session must use a different approach
+If a session is blocked:
+1. Write/update `next-agent.md` with what was attempted and why it stalled
+2. Do not create a handoff-only `WIP` commit
+3. The next session must use a different approach or a narrower case
 
 Never run the same investigation twice — check "Dead Ends / Do Not Retry" first.

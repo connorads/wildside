@@ -1,6 +1,6 @@
 # Source-Port Reference Guide
 
-This repo keeps source-port research material in cache-local checkouts and repo docs. Treat this file as the canonical guide for finding the right reference fast. `AGENTS.md` should point here as a symlink.
+This repo keeps source-port research material in cache-local checkouts and repo docs. Treat this file as the canonical guide for finding the right reference fast. `AGENTS.md` should point here as a symlink. `.cache/` is always generated local state; if something needs to be durable or reviewable, move it into docs, code/tests, or explicit fixtures instead of tracking it in `.cache/`.
 
 ## Ralph loop (agentic frontier sessions)
 
@@ -74,6 +74,7 @@ The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate
 
 ## Cache layout
 
+- `.cache/` is untracked generated state only. Do not commit files from it.
 - `.cache/upstream/`
   - Kid-specific upstream source repos
 - `.cache/generated/`
@@ -160,6 +161,7 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
    e. Cross-reference: compare native logic to both ASM and oracle data
    f. Write a probe scenario if one doesn't exist for this behaviour
 6. After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before another gameplay patch
+6a. Handoff-only updates to `.cache/autonomy/*/next-agent.md` do not count as progress and should stay cache-local or ride with the next substantive commit, not land on their own
 7. Fix: implement in focused commit(s)
 8. Verify visually: capture frames, Read PNGs, compare before/after
 9. Verify mechanically: `mise run verify-slice-fast` must pass

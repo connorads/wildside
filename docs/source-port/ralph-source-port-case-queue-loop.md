@@ -18,10 +18,16 @@ come from reduced semantic gameplay cases.
 - If the task package marks the case `evidence-only`, do not widen the work; tighten the case instead.
 - Read the ASM before changing gameplay code. The case queue narrows the problem, but the ROM is still the source of truth.
 - Keep the task focused on one case ID. Do not mix unrelated cases into one session.
+- A successful cycle must do one of these:
+  - land a gameplay/tooling code commit
+  - land a new probe or instrumentation commit that narrows the causal model
+  - reduce or retire the selected case with new authoritative evidence
+- Updating `.cache/autonomy/case-queue/next-agent.md` alone does not count as progress and must not be committed on its own.
+- After 2 consecutive docs-only or handoff-only commits, the next cycle must add instrumentation, narrow the case further, switch frontier, or stop as blocked.
 
 ## Exit Requirement
 
-Before finishing, refresh `.cache/autonomy/case-queue/next-agent.md` with frontmatter:
+Before finishing, refresh `.cache/autonomy/case-queue/next-agent.md` with frontmatter so the next cycle can resume quickly:
 
 ```yaml
 ---
@@ -40,3 +46,5 @@ Required sections:
 5. `Exact Next Moves`
 6. `Verification To Re-run`
 7. `Dead Ends / Do Not Retry`
+
+Keep the note cache-local or fold it into the next substantive commit. Do not create a commit whose only meaningful change is refreshing this note.
