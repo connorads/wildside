@@ -65,11 +65,24 @@ struct FloatingDiamondContactCandidate {
 }
 
 impl NativeRuntime {
+    fn early_start_title_shell_elapsed_frames(&self) -> Option<usize> {
+        match self.boot_state {
+            BootState::StartingLevel {
+                elapsed_frames,
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: false,
+                ..
+            } => Some(elapsed_frames),
+            _ => None,
+        }
+    }
+
     fn early_start_load_ingame_elapsed_frames(&self) -> Option<usize> {
         match self.boot_state {
             BootState::StartingLevel {
                 elapsed_frames,
                 uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: true,
                 ..
             } => Some(elapsed_frames),
             _ => None,
@@ -77,12 +90,12 @@ impl NativeRuntime {
     }
 
     fn early_start_title_menu_cursor_pose_carry_active(&self) -> bool {
-        self.early_start_load_ingame_elapsed_frames()
+        self.early_start_title_shell_elapsed_frames()
             .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES)
     }
 
     fn early_start_title_menu_shell_carry_active(&self) -> bool {
-        self.early_start_load_ingame_elapsed_frames()
+        self.early_start_title_shell_elapsed_frames()
             .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES)
     }
 
@@ -1441,13 +1454,24 @@ impl NativeRuntime {
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } => {
-                if self.early_start_load_ingame_elapsed_frames().is_some() {
+                if matches!(
+                    self.boot_state,
+                    BootState::StartingLevel {
+                        uses_load_ingame_bootstrap: true,
+                        load_ingame_bootstrap_started: false,
+                        ..
+                    }
+                ) {
                     // ASM Obj_TitleMenu `Title_InputLoop` writes
                     // `Game_Mode=$0008` before jumping to `loc_6E2`, and the
-                    // whole early title-start bootstrap stays in hidden mode 8
-                    // until the later Load_InGame hand-off finally returns to
-                    // live gameplay.
+                    // early title-start lineage keeps that mode-$0008 shell
+                    // until loc_1AE2E consumes the later Start edge.
                     GameMode::LevelTransition
+                } else if self.early_start_load_ingame_elapsed_frames().is_some() {
+                    // ASM loc_1AE2E writes `Game_Mode=$000C` before it jumps to
+                    // loc_6E2, so the hidden Load_InGame bootstrap already
+                    // traces as gameplay even while Kid/camera remain blank.
+                    GameMode::InGame
                 } else if self.starting_level_title_workers.is_empty() {
                     GameMode::LevelTransition
                 } else {

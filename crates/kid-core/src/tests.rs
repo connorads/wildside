@@ -550,6 +550,29 @@ fn death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200() {
 }
 
 #[test]
+fn death_respawn_level_1_reuses_loc_1ac70_slot_2_seed_on_frame_172() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_172 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(173) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 172 {
+            frame_172 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_172 = frame_172.expect("frame 172 trace");
+    // ASM Obj_TitleMenu `Title_InputLoop` keeps the carried pre-bootstrap shell
+    // alive before Load_TitleCard/loc_1AC70 starts burning RNG, so oracle frame
+    // 172 reuses slot 2's seeded `x=$0128`, `y=$0100` pose instead of the later
+    // selector-2 branch native previously reached after over-advancing the RNG.
+    assert_eq!(frame_172.kid_x_pos, Some(0x0128_0000));
+    assert_eq!(frame_172.kid_y_pos, Some(0x0100_0000));
+}
+
+#[test]
 fn death_respawn_level_1_matches_load_ingame_handoff_through_frame_300() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
@@ -573,10 +596,12 @@ fn death_respawn_level_1_matches_load_ingame_handoff_through_frame_300() {
     // ASM loc_1AE2E writes `Game_Mode=$000C`, then jumps to loc_6E2 so
     // Load_InGame rebuilds the live level state rather than carrying the
     // hidden title bootstrap slice forward. Oracle keeps Kid blank on frame
-    // 222, then reaches Load_InGame's settled Level 1 spawn by frame 300.
+    // 222, but the advisory object counts have already advanced onto
+    // Load_InGame's 2-object preload row by then; the settled Level 1 spawn
+    // still arrives by frame 300.
     assert_eq!(frame_222.kid_x_pos, None);
     assert_eq!(frame_222.kid_y_pos, None);
-    assert_eq!(frame_222.number_objects, 0);
+    assert_eq!(frame_222.number_objects, 2);
     assert_eq!(frame_222.number_gfx_objects, 0);
     assert_eq!(frame_300.camera_x_pos, 0);
     assert_eq!(frame_300.camera_y_pos, 0x0073_0000);

@@ -248,13 +248,46 @@ impl NativeRuntime {
     }
 
     pub(crate) fn maybe_seed_starting_level_title_workers(&mut self, elapsed_frames: usize) {
-        for worker in &mut self.starting_level_title_workers {
-            if worker.motion.is_some() || worker.activation_frame > elapsed_frames {
+        let uses_early_start_title_seed_rng = matches!(
+            self.boot_state,
+            BootState::StartingLevel {
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: false,
+                ..
+            }
+        );
+        let workers = &mut self.starting_level_title_workers;
+        let rom_random = &mut self.rom_random;
+        let title_rng = &mut self.starting_level_title_rng;
+        if uses_early_start_title_seed_rng && title_rng.is_none() {
+            *title_rng = Some(rom_random.clone());
+        }
+        for worker in workers {
+            let activation_frame = if matches!(
+                self.boot_state,
+                BootState::StartingLevel {
+                    uses_load_ingame_bootstrap: true,
+                    load_ingame_bootstrap_started: false,
+                    ..
+                }
+            ) {
+                EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            } else {
+                worker.activation_frame
+            };
+            if worker.motion.is_some() || activation_frame > elapsed_frames {
                 continue;
             }
-            let start_selector = self.rom_random.next_byte() & 3;
-            let (start_x_pos, start_y_pos) =
-                level_entry_title_start_pose(&mut self.rom_random, start_selector);
+            let (start_x_pos, start_y_pos) = if uses_early_start_title_seed_rng {
+                let rng = title_rng
+                    .as_mut()
+                    .expect("early-start title seed RNG should be initialised");
+                let start_selector = rng.next_byte() & 3;
+                level_entry_title_start_pose(rng, start_selector)
+            } else {
+                let start_selector = rom_random.next_byte() & 3;
+                level_entry_title_start_pose(rom_random, start_selector)
+            };
             worker.motion = Some(LevelEntryTitleWorkerMotion {
                 start_x_pos,
                 start_y_pos,
@@ -270,13 +303,25 @@ impl NativeRuntime {
             .find(|worker| worker.gfx_slot_index == LEVEL_ENTRY_TITLE_SLOT_2_INDEX)
             .and_then(|worker| {
                 worker.motion.as_ref().map(|_| {
+                    let activation_frame = if matches!(
+                        self.boot_state,
+                        BootState::StartingLevel {
+                            uses_load_ingame_bootstrap: true,
+                            load_ingame_bootstrap_started: false,
+                            ..
+                        }
+                    ) {
+                        EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                    } else {
+                        worker.activation_frame
+                    };
                     // ASM loc_1AC70 -> loc_1AD2A seeds the start pose on first
                     // execution, then hibernates for one frame before the
                     // first glide step. Oracle frame 504 is that first visible
-                    // shell for slot 2, so the trace must expose the untouched
-                    // seeded pose there.
-                    let visible_elapsed_frames =
-                        elapsed_frames.saturating_sub(worker.activation_frame);
+                    // shell for slot 2, while the early title-start lineage
+                    // exposes the same seeded pose on frame 172 after the
+                    // shorter pre-Start mode-$0008 setup.
+                    let visible_elapsed_frames = elapsed_frames.saturating_sub(activation_frame);
                     PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames)
                 })
             })
@@ -290,7 +335,19 @@ impl NativeRuntime {
             .iter()
             .filter(|worker| worker.motion.is_some())
             .map(|worker| {
-                let visible_elapsed_frames = elapsed_frames.saturating_sub(worker.activation_frame);
+                let activation_frame = if matches!(
+                    self.boot_state,
+                    BootState::StartingLevel {
+                        uses_load_ingame_bootstrap: true,
+                        load_ingame_bootstrap_started: false,
+                        ..
+                    }
+                ) {
+                    EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                } else {
+                    worker.activation_frame
+                };
+                let visible_elapsed_frames = elapsed_frames.saturating_sub(activation_frame);
                 let pose =
                     PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
                 NativeObjectSnapshot {

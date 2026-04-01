@@ -1256,6 +1256,10 @@ pub(crate) enum BootState {
         /// lineage. Keep that hidden preload path distinct from the ordinary
         /// title-card worker lineage.
         uses_load_ingame_bootstrap: bool,
+        /// ASM loc_1AE2E only starts `loc_6E2 -> Load_InGame` after the later
+        /// Start edge, so the early title-start lineage must keep the visible
+        /// loc_1AC70 worker shell alive until that second press is consumed.
+        load_ingame_bootstrap_started: bool,
     },
     LevelSkipHold,
     InGame,

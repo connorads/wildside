@@ -55,6 +55,7 @@ pub struct NativeRuntime {
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
     starting_level_title_workers: Vec<LevelEntryTitleWorker>,
+    starting_level_title_rng: Option<RomRandomState>,
     death_camera_lock: Option<CameraState>,
     level_one_opening_idle_death_arc: bool,
     level_skip_transition: Option<LevelSkipTransitionState>,
@@ -358,6 +359,7 @@ impl NativeRuntime {
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
             starting_level_title_workers: Vec::new(),
+            starting_level_title_rng: None,
             death_camera_lock: None,
             level_one_opening_idle_death_arc: false,
             level_skip_transition: None,
@@ -543,10 +545,27 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.handle_start_press(input, start_pressed);
         self.step_boot_state(input, start_pressed);
-        if let BootState::StartingLevel { elapsed_frames, .. } = self.boot_state {
+        if let BootState::StartingLevel {
+            elapsed_frames,
+            uses_load_ingame_bootstrap,
+            load_ingame_bootstrap_started,
+            ..
+        } = self.boot_state
+        {
             // ASM Execute_Objects (kid.asm:1636-1661) begins each mode-$0008
             // frame with `Get_RandomNumber_long` before object iteration.
             let _ = self.rom_random.next_long();
+            if uses_load_ingame_bootstrap
+                && !load_ingame_bootstrap_started
+                // ASM Obj_TitleMenu Title_InputLoop/loc_1BB52 still owns the
+                // carried early-start shell for this window. Keep a separate
+                // loc_1AC70 seed stream that only begins burning RNG once the
+                // later Load_TitleCard worker lineage is active.
+                && elapsed_frames >= EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES
+                && let Some(title_rng) = self.starting_level_title_rng.as_mut()
+            {
+                let _ = title_rng.next_long();
+            }
             self.maybe_seed_starting_level_title_workers(elapsed_frames);
         }
         if let BootState::DemoPlay { use_demo_2, .. } = self.boot_state

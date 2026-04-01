@@ -161,6 +161,7 @@ impl NativeRuntime {
         self.player_lifecycle = PlayerLifecycle::Respawning {
             remaining_frames: PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES,
         };
+        self.starting_level_title_rng = None;
     }
 
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
@@ -173,9 +174,10 @@ impl NativeRuntime {
                 .and_then(|level| level.title_card.as_ref())
                 .is_some();
         self.boot_state = BootState::StartingLevel {
-            start_latched: true,
+            start_latched: !uses_load_ingame_bootstrap,
             elapsed_frames: 0,
             uses_load_ingame_bootstrap,
+            load_ingame_bootstrap_started: false,
         };
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.death_camera_lock = None;
@@ -212,14 +214,12 @@ impl NativeRuntime {
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
-        if uses_load_ingame_bootstrap {
-            // ASM loc_1AE2E -> loc_6E2 -> Load_InGame: the early title-start
-            // lineage keeps the Level 1 hand-off hidden instead of exposing
-            // the visible Load_TitleCard worker shell.
-            self.starting_level_title_workers.clear();
-        } else {
-            self.rebuild_starting_level_title_workers();
-        }
+        // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
+        // the hidden loc_1AE2E gate up front. The early title-start lineage
+        // still needs the worker shell until the later Start edge flips into
+        // loc_6E2 -> Load_InGame.
+        self.rebuild_starting_level_title_workers();
+        self.starting_level_title_rng = uses_load_ingame_bootstrap.then(|| self.rom_random.clone());
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).

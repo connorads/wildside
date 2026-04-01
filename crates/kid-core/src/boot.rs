@@ -1266,10 +1266,28 @@ impl NativeRuntime {
                 start_latched,
                 elapsed_frames,
                 uses_load_ingame_bootstrap,
+                load_ingame_bootstrap_started,
             } => {
                 let mut enter_gameplay = false;
-                let title_card_bootstrap_active =
-                    !*uses_load_ingame_bootstrap && !self.starting_level_title_workers.is_empty();
+                let title_card_bootstrap_active = (!*uses_load_ingame_bootstrap
+                    || !*load_ingame_bootstrap_started)
+                    && !self.starting_level_title_workers.is_empty();
+                if *uses_load_ingame_bootstrap && !*load_ingame_bootstrap_started {
+                    if *start_latched {
+                        // ASM loc_1AE2E hibernates first, then consumes the
+                        // later Start edge and jumps to loc_6E2 on the
+                        // following traced frame. Keep that edge latched so the
+                        // hidden Load_InGame bootstrap can later release into
+                        // live gameplay without needing a third Start press.
+                        *load_ingame_bootstrap_started = true;
+                        *elapsed_frames = 0;
+                        self.starting_level_title_workers.clear();
+                    } else if start_pressed {
+                        *start_latched = true;
+                    }
+                    *elapsed_frames = elapsed_frames.saturating_add(1);
+                    return;
+                }
                 let handoff_ready = if *uses_load_ingame_bootstrap {
                     *elapsed_frames >= EARLY_START_LOAD_INGAME_HANDOFF_FRAMES
                 } else if title_card_bootstrap_active {

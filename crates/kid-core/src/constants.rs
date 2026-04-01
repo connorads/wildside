@@ -286,6 +286,11 @@ pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME: usize = 52;
 pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME: usize = 59;
 pub(crate) const EARLY_START_LOAD_INGAME_VISIBLE_FRAME: usize = 60;
 pub(crate) const EARLY_START_LOAD_INGAME_HANDOFF_FRAMES: usize = 122;
+// ASM Load_TitleCard allocates loc_1AC70 immediately on the early title-start
+// lineage too, but the later Start arrives much sooner than on the cold boot
+// path. Oracle therefore exposes slot 2's seeded loc_1AC70 pose on frame 172,
+// i.e. 34 local frames after mode-$0008 begins on frame 138.
+pub(crate) const EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME: usize = 34;
 // ASM Obj_TitleMenu `Title_InputLoop` jumps straight to `loc_6E2` after
 // writing `Game_Mode=$0008`. Oracle-backed early-start traces keep the last
 // cursor pose visible for 23 traced mode-8 frames (frames 138..160), then
