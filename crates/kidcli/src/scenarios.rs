@@ -580,6 +580,7 @@ impl GameplayScenario {
                 add_periodic_jump(&mut script, 980, 1_119, 24, 4);
             }
             Self::DeathRespawnLevel1 => {
+                apply_single_frames(&mut script, &[462], 0x80);
                 apply_range(&mut script, 600, 899, 1 << 3);
                 apply_range(&mut script, 900, 1_350, (1 << 3) | (1 << 6));
                 add_periodic_jump(&mut script, 940, 1_350, 24, 4);
@@ -758,6 +759,16 @@ mod tests {
         assert_eq!(script[178], 0x80);
         assert_eq!(script[360], 0x80);
         assert_eq!(script[460], 0x80);
+    }
+
+    #[test]
+    fn death_respawn_level_1_script_reuses_walk_only_opening_baseline() {
+        let script = GameplayScenario::DeathRespawnLevel1
+            .script()
+            .expect("scenario script should build");
+        assert_eq!(script[460], 0x80);
+        assert_eq!(script[462], 0x80);
+        assert_eq!(script[600], 1 << 3);
     }
 
     #[test]
