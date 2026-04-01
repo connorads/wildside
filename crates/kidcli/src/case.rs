@@ -404,7 +404,12 @@ fn derive_case_bundle(
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
-    let per_frame = build_per_frame_scenario(&scenario, options.frame_start, options.frame_end)?;
+    let per_frame = build_case_verification_scenario(
+        &source,
+        &scenario,
+        options.frame_start,
+        options.frame_end,
+    )?;
     let verify = run_case_verification(repo_root, rom_path, manifest, &per_frame, &source)?;
 
     let manifest_doc = CaseBundleManifest {
@@ -1562,23 +1567,39 @@ fn load_dynamic_scenario(path: &Path) -> Result<DynamicScenario> {
     serde_json::from_str(&scenario_json).context("invalid scenario JSON")
 }
 
-fn build_per_frame_scenario(
-    scenario: &DynamicScenario,
+fn build_case_verification_scenario(
+    source: &CaseSource,
+    base_scenario: &DynamicScenario,
     frame_start: usize,
     frame_end: usize,
 ) -> Result<VerificationScenario> {
-    let mut sliced = scenario.clone();
-    sliced.script.truncate(frame_end);
-    sliced.frame_count = frame_end;
-    sliced.checkpoints = (frame_start..frame_end)
-        .map(|frame_index| DynamicCheckpoint {
-            label: format!("frame_{frame_index:05}"),
-            frame_index,
-        })
-        .collect();
+    let scenario = match source {
+        CaseSource::GameplayScenario { .. } => {
+            let gameplay = gameplay_scenario_from_source(source)?;
+            // Keep gameplay cases on the same window builder used by
+            // `compare-native-gameplay-window` so reduced evidence and direct
+            // gameplay-oracle comparisons slice identical timelines.
+            gameplay.to_dynamic_window(frame_start, frame_end.saturating_sub(1), 1)?
+        }
+        CaseSource::ScenarioPath { .. } | CaseSource::Recording { .. } => {
+            let mut sliced = base_scenario.clone();
+            sliced.script.truncate(frame_end);
+            sliced.frame_count = frame_end;
+            sliced.checkpoints = (frame_start..frame_end)
+                .map(|frame_index| DynamicCheckpoint {
+                    label: format!("frame_{frame_index:05}"),
+                    frame_index,
+                })
+                .collect();
+            sliced
+        }
+    };
     Ok(VerificationScenario {
-        case_id: format!("{}_case_{frame_start:05}_{frame_end:05}", scenario.slug),
-        scenario: sliced,
+        case_id: format!(
+            "{}_case_{frame_start:05}_{frame_end:05}",
+            base_scenario.slug
+        ),
+        scenario,
     })
 }
 
@@ -1857,6 +1878,30 @@ mod tests {
             gameplay_scenario_from_source(&source).expect("known gameplay slug"),
             GameplayScenario::DeathRespawnLevel1
         );
+    }
+
+    #[test]
+    fn gameplay_case_verification_scenario_matches_canonical_window_builder() {
+        let source = CaseSource::GameplayScenario {
+            slug: String::from("death_respawn_level1"),
+        };
+        let base = GameplayScenario::DeathRespawnLevel1
+            .to_dynamic()
+            .expect("gameplay scenario");
+
+        let verification = build_case_verification_scenario(&source, &base, 720, 900)
+            .expect("verification scenario");
+        let expected = GameplayScenario::DeathRespawnLevel1
+            .to_dynamic_window(720, 899, 1)
+            .expect("canonical window");
+
+        assert_eq!(
+            verification.case_id,
+            "death_respawn_level1_case_00720_00900"
+        );
+        assert_eq!(verification.scenario.frame_count, expected.frame_count);
+        assert_eq!(verification.scenario.checkpoints, expected.checkpoints);
+        assert_eq!(verification.scenario.script, expected.script);
     }
 
     #[test]
