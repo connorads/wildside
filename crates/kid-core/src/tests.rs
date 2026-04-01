@@ -19949,6 +19949,30 @@ fn death_respawn_level_1_script() -> Vec<u8> {
 }
 
 #[test]
+fn death_respawn_level_1_reports_standingstill_on_frame_720() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_720 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(721) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 720 {
+            frame_720 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_720 = frame_720.expect("frame 720 trace");
+    // ASM loc_8DFC / loc_8E16: the grounded zero-x-velocity path writes
+    // `MoveID_Standingstill` immediately, even while the held-right input
+    // continues into the later run-up.
+    assert_eq!(frame_720.kid_x_velocity, Some(0));
+    assert_eq!(frame_720.kid_y_velocity, Some(0));
+    assert_eq!(frame_720.kid_on_ground, Some(true));
+    assert_eq!(frame_720.character_movement, Some(0));
+}
+
+#[test]
 fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();

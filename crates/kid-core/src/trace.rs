@@ -251,6 +251,12 @@ impl NativeRuntime {
         if self.trace_input.down {
             return MOVE_CRAWLING;
         }
+        // ASM loc_8DFC / loc_8E16: grounded motion that settles with zero
+        // horizontal velocity writes `MoveID_Standingstill` before the ROM
+        // reaches the walking/slope continuation.
+        if player.x_velocity == 0 {
+            return MOVE_STANDINGSTILL;
+        }
         let on_slope = self.block_grid.as_ref().is_some_and(|grid| {
             let x_px = (player.x_pos >> 16) as i32;
             let y_px = (player.y_pos >> 16) as i32;
