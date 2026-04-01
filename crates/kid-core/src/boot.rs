@@ -18,8 +18,12 @@ impl NativeRuntime {
         } else {
             self.frame_index
         };
-        self.title_menu_arm_frame = self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+        self.title_menu_arm_frame = self
+            .frame_index
+            .saturating_add(TITLE_ATTRACT_LOCK_FRAMES.saturating_sub(1));
         self.title_menu_active = false;
+        self.title_menu_cursor_pending = false;
+        self.title_menu_selection_pending = None;
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
         self.demo_title_return_after_frame = false;
@@ -1020,6 +1024,7 @@ impl NativeRuntime {
                 carry_timeout_restart_hidden_camera_wrap,
                 ..
             } => {
+                let mut just_activated_title_menu = false;
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
@@ -1035,25 +1040,9 @@ impl NativeRuntime {
                 let up_pressed = input.up && !self.prior_input.up;
                 let down_pressed = input.down && !self.prior_input.down;
 
-                if self.frame_index <= self.title_menu_arm_frame {
-                    // Oracle-backed imported TAS traces keep title fully inert for
-                    // one attract-lock window after entry, even if Start was
-                    // already being tapped during the intro skip path.
-                } else if !self.title_menu_active {
-                    if start_pressed {
-                        self.title_idle_frames = 0;
-                        self.title_menu_active = true;
-                    } else {
-                        self.title_idle_frames += 1;
-                        if self.title_idle_frames >= INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
-                            self.title_idle_frames = 0;
-                            self.demo_toggle = !self.demo_toggle;
-                            self.begin_demo_play(self.demo_toggle);
-                        }
-                    }
-                } else if start_pressed {
+                if let Some(selection) = self.title_menu_selection_pending.take() {
                     self.title_idle_frames = 0;
-                    match *cursor {
+                    match selection {
                         0 => {
                             self.two_player = false;
                             self.begin_level_entry(self.current_level);
@@ -1066,6 +1055,30 @@ impl NativeRuntime {
                             self.boot_state = BootState::OptionsMenu { cursor: 0 };
                         }
                     }
+                    self.title_screen_elapsed_frames += 1;
+                    return;
+                }
+                if self.frame_index < self.title_menu_arm_frame {
+                    // Oracle-backed imported TAS traces keep title fully inert for
+                    // one attract-lock window after entry, even if Start was
+                    // already being tapped during the intro skip path.
+                } else if !self.title_menu_active {
+                    if start_pressed {
+                        self.title_idle_frames = 0;
+                        self.title_menu_active = true;
+                        self.title_menu_cursor_pending = true;
+                        just_activated_title_menu = true;
+                    } else {
+                        self.title_idle_frames += 1;
+                        if self.title_idle_frames >= INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES {
+                            self.title_idle_frames = 0;
+                            self.demo_toggle = !self.demo_toggle;
+                            self.begin_demo_play(self.demo_toggle);
+                        }
+                    }
+                } else if start_pressed {
+                    self.title_idle_frames = 0;
+                    self.title_menu_selection_pending = Some(*cursor);
                 } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
                     *cursor -= 1;
@@ -1089,6 +1102,9 @@ impl NativeRuntime {
                         self.begin_demo_play(self.demo_toggle);
                     }
                 }
+                if self.title_menu_cursor_pending && !just_activated_title_menu {
+                    self.title_menu_cursor_pending = false;
+                }
                 self.title_screen_elapsed_frames += 1;
                 if self.preserve_demo_title_snapshot
                     && self.title_screen_elapsed_frames >= self.demo_title_partial_snapshot_frames()
@@ -1097,6 +1113,7 @@ impl NativeRuntime {
                 }
             }
             BootState::TitleScreen { cursor } => {
+                let mut just_activated_title_menu = false;
                 if self.demo_auto_timeout_handoff_active
                     && self.title_screen_elapsed_frames + 1 >= DEMO_AUTO_TIMEOUT_MODE_0_FRAMES
                 {
@@ -1112,25 +1129,9 @@ impl NativeRuntime {
                 let up_pressed = input.up && !self.prior_input.up;
                 let down_pressed = input.down && !self.prior_input.down;
 
-                if self.frame_index <= self.title_menu_arm_frame {
-                    // Oracle-backed imported TAS traces keep title fully inert for
-                    // one attract-lock window after entry, even if Start was
-                    // already being tapped during the intro skip path.
-                } else if !self.title_menu_active {
-                    if start_pressed {
-                        self.title_idle_frames = 0;
-                        self.title_menu_active = true;
-                    } else {
-                        self.title_idle_frames += 1;
-                        if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
-                            self.title_idle_frames = 0;
-                            self.demo_toggle = !self.demo_toggle;
-                            self.begin_demo_play(self.demo_toggle);
-                        }
-                    }
-                } else if start_pressed {
+                if let Some(selection) = self.title_menu_selection_pending.take() {
                     self.title_idle_frames = 0;
-                    match *cursor {
+                    match selection {
                         0 => {
                             self.two_player = false;
                             self.begin_level_entry(self.current_level);
@@ -1143,6 +1144,30 @@ impl NativeRuntime {
                             self.boot_state = BootState::OptionsMenu { cursor: 0 };
                         }
                     }
+                    self.title_screen_elapsed_frames += 1;
+                    return;
+                }
+                if self.frame_index < self.title_menu_arm_frame {
+                    // Oracle-backed imported TAS traces keep title fully inert for
+                    // one attract-lock window after entry, even if Start was
+                    // already being tapped during the intro skip path.
+                } else if !self.title_menu_active {
+                    if start_pressed {
+                        self.title_idle_frames = 0;
+                        self.title_menu_active = true;
+                        self.title_menu_cursor_pending = true;
+                        just_activated_title_menu = true;
+                    } else {
+                        self.title_idle_frames += 1;
+                        if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
+                            self.title_idle_frames = 0;
+                            self.demo_toggle = !self.demo_toggle;
+                            self.begin_demo_play(self.demo_toggle);
+                        }
+                    }
+                } else if start_pressed {
+                    self.title_idle_frames = 0;
+                    self.title_menu_selection_pending = Some(*cursor);
                 } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
                     *cursor -= 1;
@@ -1156,6 +1181,9 @@ impl NativeRuntime {
                         self.demo_toggle = !self.demo_toggle;
                         self.begin_demo_play(self.demo_toggle);
                     }
+                }
+                if self.title_menu_cursor_pending && !just_activated_title_menu {
+                    self.title_menu_cursor_pending = false;
                 }
                 self.title_screen_elapsed_frames += 1;
                 if self.preserve_demo_title_snapshot

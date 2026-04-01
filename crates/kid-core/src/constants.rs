@@ -286,6 +286,11 @@ pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME: usize = 52;
 pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME: usize = 59;
 pub(crate) const EARLY_START_LOAD_INGAME_VISIBLE_FRAME: usize = 60;
 pub(crate) const EARLY_START_LOAD_INGAME_HANDOFF_FRAMES: usize = 122;
+// ASM Obj_TitleMenu `Title_InputLoop` jumps straight to `loc_6E2` after
+// writing `Game_Mode=$0008`, but oracle-backed early-start traces keep the
+// title-menu cursor shell alive for the next 23 traced mode-8 frames before
+// the hidden bootstrap finally clears those title WRAM slots on frame 161.
+pub(crate) const EARLY_START_TITLE_MENU_CURSOR_CARRY_FRAMES: usize = 23;
 // ASM `Make_SpriteFromGfxObject` checks the death sprite against the normal
 // `$160/-$80` Y visibility window using the death frame's vertical extent, not
 // a generic "viewport + 160px" threshold. `kid_death.bin` carries height

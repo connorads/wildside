@@ -87,6 +87,24 @@ impl PlayerState {
         }
     }
 
+    pub(crate) fn title_menu_cursor_pose(y_pos: u32) -> Self {
+        Self {
+            x_pos: 0x0028_0000,
+            y_pos,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        }
+    }
+
     pub(crate) fn intro_sequence_5_slot_2_pose() -> Self {
         Self {
             x_pos: INTRO_SEQUENCE_5_SLOT_2_X_POS,

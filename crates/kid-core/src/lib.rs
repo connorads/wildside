@@ -134,6 +134,12 @@ pub struct NativeRuntime {
     /// False during the initial title attract wait where only Start matters.
     /// True once the Start press arms the real interactive title menu.
     title_menu_active: bool,
+    /// True on the exact frame the title menu gets armed; the cursor sprite
+    /// only becomes visible on the following traced frame.
+    title_menu_cursor_pending: bool,
+    /// Pending title-menu selection (0=1P, 1=2P, 2=options) applied on the
+    /// following frame to match Obj_TitleMenu's deferred hand-off.
+    title_menu_selection_pending: Option<u8>,
     /// Demo playback reads inputs after game logic (ASM ReadJoypad path), so
     /// the byte fetched this frame becomes the controller state for the next
     /// frame.
@@ -396,6 +402,8 @@ impl NativeRuntime {
             title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
             title_menu_arm_frame: 0,
             title_menu_active: false,
+            title_menu_cursor_pending: false,
+            title_menu_selection_pending: None,
             demo_buffered_input: None,
             pending_demo_title_return: 0,
             demo_title_return_after_frame: false,

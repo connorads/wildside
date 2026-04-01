@@ -944,19 +944,19 @@ fn early_title_frames_stay_inert_until_boot_ready() {
 }
 
 #[test]
-fn timing_regression_early_start_boot_path_reaches_level_transition_on_frame_178() {
+fn timing_regression_early_start_boot_path_enters_gameplay_on_frame_138() {
     let trace = run_script(manifest(), &imported_early_start_boot_script(), 181);
 
-    let before_start = &trace[177];
-    assert_eq!(before_start.game_mode, GameMode::TitleScreen);
-    assert!(!before_start.title_screen_ready);
-    assert_eq!(before_start.kid_x_pos, None);
-    assert_eq!(before_start.kid_y_pos, None);
+    let armed_title = &trace[136];
+    assert_eq!(armed_title.game_mode, GameMode::TitleScreen);
+    assert_eq!(armed_title.kid_x_pos, Some(0x0028_0000));
+    assert_eq!(armed_title.kid_y_pos, Some(0x0030_0000));
+    assert_eq!(armed_title.number_objects, 4);
+    assert_eq!(armed_title.number_gfx_objects, 3);
 
-    let level_transition = &trace[178];
+    let level_transition = &trace[138];
     assert_eq!(level_transition.game_mode, GameMode::LevelTransition);
-    assert_eq!(level_transition.kid_x_pos, None);
-    assert_eq!(level_transition.kid_y_pos, None);
+    assert_eq!(level_transition.current_level, LevelId(0));
 
     let gameplay = &trace[180];
     assert_eq!(gameplay.game_mode, GameMode::InGame);
@@ -19946,6 +19946,88 @@ fn death_respawn_level_1_script() -> Vec<u8> {
         }
     }
     script
+}
+
+#[test]
+fn death_respawn_level_1_exposes_title_menu_cursor_on_frame_136() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_130 = None;
+    let mut frame_136 = None;
+    let mut frame_138 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(139) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            130 => {
+                frame_130 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+            136 => {
+                frame_136 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+            138 => {
+                frame_138 = Some((
+                    trace.game_mode,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // ASM Obj_TitleMenu `loc_1BAEA` keeps the pre-Start title shell alive
+    // with the Sega text and title-menu worker already allocated, so oracle
+    // reports 4 objects / 2 gfx slots even before loc_1BB52 spawns the menu
+    // cursor sprite.
+    assert_eq!(
+        frame_130,
+        Some((GameMode::TitleScreen, None, None, 4, 2)),
+        "frame 130 should still be the pre-cursor title shell from Obj_TitleMenu loc_1BAEA",
+    );
+    // ASM Obj_TitleMenu `loc_1BB52`: the frame-135 Start edge spawns the menu
+    // cursor at `x=$28`, `y=$30` and enters `Title_InputLoop`, so oracle
+    // exposes that cursor pose on frame 136.
+    assert_eq!(
+        frame_136,
+        Some((
+            GameMode::TitleScreen,
+            Some(0x0028_0000),
+            Some(0x0030_0000),
+            4,
+            3,
+        )),
+        "frame 136 should expose the active title-menu cursor from Obj_TitleMenu loc_1BB52",
+    );
+    // ASM Obj_TitleMenu `Title_InputLoop`: the frame-137 Start press flips
+    // `Game_Mode=$0008` on the following frame while keeping the just-spawned
+    // cursor pose intact for the hand-off.
+    assert_eq!(
+        frame_138,
+        Some((
+            GameMode::LevelTransition,
+            Some(0x0028_0000),
+            Some(0x0030_0000),
+            4,
+            3,
+        )),
+        "frame 138 should have entered mode $0008 while preserving the title-menu cursor hand-off",
+    );
 }
 
 #[test]

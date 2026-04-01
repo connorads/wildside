@@ -76,6 +76,11 @@ impl NativeRuntime {
         }
     }
 
+    fn early_start_title_menu_cursor_carry_active(&self) -> bool {
+        self.early_start_load_ingame_elapsed_frames()
+            .is_some_and(|elapsed| elapsed <= EARLY_START_TITLE_MENU_CURSOR_CARRY_FRAMES)
+    }
+
     fn early_start_load_ingame_player_state(&self) -> Option<PlayerState> {
         let elapsed = self.early_start_load_ingame_elapsed_frames()?;
         if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
@@ -190,6 +195,9 @@ impl NativeRuntime {
 
     fn early_start_load_ingame_object_counts(&self) -> Option<(u16, u16)> {
         let elapsed = self.early_start_load_ingame_elapsed_frames()?;
+        if self.early_start_title_menu_cursor_carry_active() {
+            return Some((4, 3));
+        }
         if elapsed < EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME {
             return Some((0, 0));
         }
@@ -465,6 +473,34 @@ impl NativeRuntime {
             && self.hide_demo_return_title_player
             && (self.demo_auto_timeout_handoff_active
                 || self.title_screen_elapsed_frames < hidden_frames)
+    }
+
+    fn title_menu_cursor_player_state(&self) -> Option<PlayerState> {
+        if !self.title_menu_active || self.title_menu_cursor_pending {
+            return None;
+        }
+        let cursor = match self.boot_state {
+            // ASM Obj_TitleMenu `loc_1BB52` seeds the menu cursor at
+            // `x=$28`, `y=$30`, and `loc_1BC0E` then only adjusts the Y row
+            // across the three title entries while the sprite stays live.
+            BootState::TitleScreen { cursor } | BootState::IntroSequence6 { cursor, .. } => cursor,
+            BootState::StartingLevel { .. }
+                if self.early_start_title_menu_cursor_carry_active() =>
+            {
+                if self.two_player {
+                    1
+                } else {
+                    0
+                }
+            }
+            _ => return None,
+        };
+        let y_pos = match cursor {
+            0 => 0x0030_0000,
+            1 => 0x003A_0000,
+            _ => 0x0044_0000,
+        };
+        Some(PlayerState::title_menu_cursor_pose(y_pos))
     }
 
     pub fn trace_frame(&self) -> NativeTraceFrame {
@@ -1399,7 +1435,12 @@ impl NativeRuntime {
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } => {
                 if self.early_start_load_ingame_elapsed_frames().is_some() {
-                    GameMode::InGame
+                    // ASM Obj_TitleMenu `Title_InputLoop` writes
+                    // `Game_Mode=$0008` before jumping to `loc_6E2`, and the
+                    // whole early title-start bootstrap stays in hidden mode 8
+                    // until the later Load_InGame hand-off finally returns to
+                    // live gameplay.
+                    GameMode::LevelTransition
                 } else if self.starting_level_title_workers.is_empty() {
                     GameMode::LevelTransition
                 } else {
@@ -1480,6 +1521,9 @@ impl NativeRuntime {
                 // at `$28` until Obj_TitleMenu later reaches loc_1BB02.
                 Some(PlayerState::title_pose())
             }
+            BootState::IntroSequence6 { .. } if self.title_menu_active => {
+                self.title_menu_cursor_player_state()
+            }
             BootState::IntroSequence6 { .. } => None,
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
@@ -1496,6 +1540,9 @@ impl NativeRuntime {
                 if self.title_uses_timeout_restart_intro_sequence_5_pose() =>
             {
                 Some(PlayerState::intro_sequence_5_slot_2_pose())
+            }
+            BootState::TitleScreen { .. } if self.title_menu_active => {
+                self.title_menu_cursor_player_state()
             }
             BootState::TitleScreen { .. } if self.title_hides_demo_return_player() => None,
             BootState::TitleScreen { .. }
@@ -1518,7 +1565,9 @@ impl NativeRuntime {
             }
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { elapsed_frames, .. } => self
-                .early_start_load_ingame_player_state()
+                .title_menu_cursor_player_state()
+                .filter(|_| self.early_start_title_menu_cursor_carry_active())
+                .or_else(|| self.early_start_load_ingame_player_state())
                 .or_else(|| self.starting_level_slot_2_pose(elapsed_frames)),
             BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
@@ -1804,6 +1853,24 @@ impl NativeRuntime {
             // title objects live alongside the preserved gameplay roster while
             // the demo snapshot is still being shown.
             return (roster_count + 4, roster_count + 4);
+        }
+        if self.early_start_title_menu_cursor_carry_active() {
+            return (4, 3);
+        }
+        if matches!(
+            self.boot_state,
+            // ASM Obj_TitleMenu allocates the title shell before gameplay:
+            // the idle loop keeps 4 objects / 2 gfx slots alive, and
+            // `loc_1BB52` adds the menu cursor as a third gfx slot once the
+            // first Start press arms the active title menu.
+            BootState::TitleScreen { .. }
+        ) {
+            if self.title_menu_active && !self.title_menu_cursor_pending {
+                return (4, 3);
+            }
+            if !self.title_screen_ready() {
+                return (4, 2);
+            }
         }
         if !matches!(
             self.boot_state,
