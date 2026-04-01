@@ -795,9 +795,19 @@ fn semantic_from_native(
     snapshot: &NativeTraceFrame,
     previous: Option<&SemanticGameState>,
 ) -> SemanticGameState {
+    let sega_screen_player_hidden = snapshot.boot_phase.as_deref() == Some("sega_screen");
     let player = SemanticPlayerState {
-        x_pos: snapshot.kid_x_pos,
-        y_pos: snapshot.kid_y_pos,
+        // ASM Load_SegaScreen only drives the logo object, but oracle WRAM
+        // still exposes Kid's cleared position/movement words as zero during
+        // the boot shell. Scenario-path cases compare semantic state, so
+        // normalise that hidden Sega-screen window instead of preserving
+        // `None` from the native trace.
+        x_pos: snapshot
+            .kid_x_pos
+            .or(sega_screen_player_hidden.then_some(0)),
+        y_pos: snapshot
+            .kid_y_pos
+            .or(sega_screen_player_hidden.then_some(0)),
         x_velocity: snapshot.kid_x_velocity,
         y_velocity: snapshot.kid_y_velocity,
         facing: snapshot
@@ -806,7 +816,8 @@ fn semantic_from_native(
         on_ground: snapshot.kid_on_ground,
         movement_state: snapshot
             .character_movement
-            .map(|movement| format!("movement_{movement:04x}")),
+            .map(|movement| format!("movement_{movement:04x}"))
+            .or(sega_screen_player_hidden.then_some(String::from("movement_0000"))),
         current_form: Some(snapshot.current_helmet_id),
         hitpoints: Some(snapshot.number_hitpoints),
         invulnerable_frames: Some(snapshot.invulnerable_frames as u16),
@@ -1794,5 +1805,22 @@ mod tests {
         );
         assert_eq!(semantic.player.collision_type, Some(0));
         assert!(semantic.entities.is_empty());
+    }
+
+    #[test]
+    fn semantic_from_native_zero_fills_hidden_sega_screen_player_fields() {
+        let trace = NativeTraceFrame {
+            boot_phase: Some(String::from("sega_screen")),
+            ..NativeTraceFrame::default()
+        };
+
+        let semantic = semantic_from_native(&trace, None);
+
+        assert_eq!(semantic.player.x_pos, Some(0));
+        assert_eq!(semantic.player.y_pos, Some(0));
+        assert_eq!(
+            semantic.player.movement_state.as_deref(),
+            Some("movement_0000")
+        );
     }
 }
