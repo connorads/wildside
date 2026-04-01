@@ -1,23 +1,24 @@
 ---
 slug: death_respawn_level1_case_00000_00200
-cycle: 60
-updated_at: 2026-04-01T03:13:39Z
+cycle: 61
+updated_at: 2026-04-01T03:16:14Z
 ---
 
 ## What Changed
 
-- Re-ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle `60` selected `death_respawn_level1_case_00000_00200` again and kept it evidence-first.
+- Re-ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle `61` selected `death_respawn_level1_case_00000_00200` again and kept it evidence-first.
 - Re-verified only the selected case with `cargo run -p kidcli -- case verify --case death-respawn-test`; it still fails on frame `172` at `player.x_pos`.
 - Refreshed the reduced artefacts with `cargo run -p kidcli -- case summarise --case death-respawn-test`.
 - Re-read the ROM path in `.cache/upstream/kid-chameleon-disasm/kid.asm`: `Title_InputLoop`, `loc_6E2`, `LoadGameModeData`, `Load_InGame`, and `loc_7526`.
 - Reconfirmed from native trace code that `crates/kid-core/src/trace.rs` still suppresses the hidden pose before `EARLY_START_LOAD_INGAME_VISIBLE_FRAME`, then hardcodes Level 1 `player.x_pos = 0x0020_0000`, which matches the map header seed rather than the oracle preload.
+- Tightened the semantic evidence: frames `168..171` still match as fully empty hidden shell frames, and frame `172` is still the lone preload jump where oracle shows `player=(0x0128_0000,0x0100_0000)` while native stays at zero.
 - Left gameplay code untouched.
 
 ## Selected Case
 
 - Case ID: `death_respawn_level1_case_00000_00200`
 - Selector: `death-respawn-test`
-- Cycle: `60`
+- Cycle: `61`
 - Current result: `FAIL`
 - Current first failure: frame `172`, field `player.x_pos`, native `0`, oracle `19398656` (`0x0128_0000`)
 
@@ -30,7 +31,7 @@ updated_at: 2026-04-01T03:13:39Z
 ## Strongest Evidence
 
 - `cargo run -p kidcli -- autonomous-loop --goal case-queue`
-  - cycle `60`
+  - cycle `61`
   - status `stalled`
   - selected case still `death_respawn_level1_case_00000_00200`
 - `cargo run -p kidcli -- case verify --case death-respawn-test`
@@ -49,12 +50,13 @@ updated_at: 2026-04-01T03:13:39Z
 - `crates/kid-core/src/trace.rs`
   - `early_start_load_ingame_player_state()` still returns `None` before `EARLY_START_LOAD_INGAME_VISIBLE_FRAME`
   - once visible, Level 1 still hardcodes `player.x_pos = 0x0020_0000`, which matches the header seed, not the oracle preload pose at frame `172`
+  - implication: there is still no proved native gameplay write for `0x0128_0000`; the current mismatch is between a hidden trace exposure rule and an as-yet-unproven ROM preload source
 
 ## Exact Next Moves
 
 1. Stay on `death_respawn_level1_case_00000_00200` only; do not widen into later respawn windows or other case IDs.
 2. Map reduced frame `172` onto the exact hidden `BootState::StartingLevel` timeline, then identify which native trace producer should expose the first non-zero preload pose.
-3. Trace the ROM path after `Load_InGame` and around the first Kid object/gfx-object handoff to determine whether the oracle's `x=$0128` comes from a later writer than `PlayerStart_X_pos`.
+3. Trace the ROM path after `Load_InGame` and around the first Kid object/gfx-object handoff to determine whether the oracle's `x=$0128` comes from a later writer than `PlayerStart_X_pos`, or whether the reduced semantic export is exposing a different hidden object lineage.
 4. If a later session patches this, do not tune only `EARLY_START_LOAD_INGAME_VISIBLE_FRAME`; the `x` source must be proved from ASM or a tighter oracle correlation first.
 5. Re-run `cargo run -p kidcli -- case verify --case death-respawn-test` after any evidence or gameplay change and stop if the first bad frame moves earlier.
 
