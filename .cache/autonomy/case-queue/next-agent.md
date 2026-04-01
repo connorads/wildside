@@ -1,51 +1,52 @@
 ---
-slug: kid_chameleon_short_demo_boot_slice_case_00000_00005
-cycle: 21
-updated_at: 2026-04-01T00:08:03Z
+slug: death_respawn_level1_case_00600_00750
+cycle: 22
+updated_at: 2026-04-01T00:12:54Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 21 selected `kid_chameleon_short_demo_boot_slice_case_00000_00005`.
-- Re-ran `cargo run -p kidcli -- case verify --case kid_chameleon_short_demo_boot_slice_case_00000_00005` first; the stored case failed immediately at frame 0 on `player.x_pos`.
-- Read the ROM boot path in `.cache/upstream/kid-chameleon-disasm/kid.asm` before patching. `Load_SegaScreen` only drives the Sega logo object and leaves Kid state in cleared WRAM.
-- Traced the failure to scenario-path semantic export, not gameplay simulation: native preserved `kid_x_pos = None`, `kid_y_pos = None`, and `character_movement = None` on the hidden Sega-screen boot window while oracle semantics published the cleared WRAM zeroes.
-- Patched `crates/kidcli/src/case.rs` to zero-fill those Sega-screen semantic player fields for scenario-path verification and added a unit regression.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 22 selected `death_respawn_level1_case_00600_00750`.
+- Re-ran verification with the actual selector from `.cache/autonomy/case-queue/next-task.json`: `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`.
+- Refreshed the stored summary with `cargo run -p kidcli -- case summarise --case death-respawn-level1-600-750`.
+- Read the ROM death / teleport path in `.cache/upstream/kid-chameleon-disasm/kid.asm` before considering gameplay work. `lose_life` sets `Game_Mode` to `$0008` only after the death tumble completes, so a frame-600 mismatch is upstream of the hidden respawn bootstrap.
+- Did not patch gameplay. The selected window now re-verifies as an inherited checkpoint failure, not an isolated respawn transition bug.
 
 ## Selected Case
 
-- Case ID: `kid_chameleon_short_demo_boot_slice_case_00000_00005`
-- Selector: `kid_chameleon_short_demo_boot_slice_case_00000_00005`
-- Autonomy gate: `patch-allowed`
-- Current verify result: `PASS`
+- Case ID: `death_respawn_level1_case_00600_00750`
+- Selector: `death-respawn-level1-600-750`
+- Autonomy gate: `evidence-only`
+- Current verify result: `FAIL`
+- Current first failure: frame `600`, `player.x_pos` native `4096000`, oracle `2097152`
 
 ## Why This Case
 
-- The cycle-21 autonomy task package selected this exact case, so it was the only allowed scope.
-- The first failing field was present on frame 0, which made it a good fit for a focused semantic/boot-shell fix instead of wider gameplay work.
-- ASM plus oracle agreed the Sega-screen shell should expose cleared Kid WRAM, so the mismatch lived in native case export.
+- Cycle 22 selected this exact case, so it was the only allowed scope.
+- Re-verification was required because the packaged task summary still pointed at `world.game_mode`.
+- The refreshed failure shows this window inherits an older player-position drift at its checkpoint instead of isolating a new death / respawn transition.
 
 ## Strongest Evidence
 
-- `cargo test -p kidcli 'case::tests::semantic_from_native_zero_fills_hidden_sega_screen_player_fields' -- --exact` passes.
-- `cargo run -p kidcli -- case verify --case kid_chameleon_short_demo_boot_slice_case_00000_00005` now returns `PASS`.
-- `.cache/cases/kid_chameleon_short_demo_boot_slice_case_00000_00005/verify.json` now reports `"passed": true` and `"first_failure": null`.
-- `.cache/cases/kid_chameleon_short_demo_boot_slice_case_00000_00005/summary.md` now reports `passed: true`.
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750` returns `case death_respawn_level1_case_00600_00750: FAIL`.
+- `.cache/cases/death-respawn-level1-600-750/verify.json` now records `player.x_pos` as the first failure at frame `600`.
+- `.cache/cases/death-respawn-level1-600-750/summary.md` now matches the refreshed verify report.
+- ASM `Death` -> `lose_life` -> `Teleport` in `.cache/upstream/kid-chameleon-disasm/kid.asm` shows `Game_Mode=$0008` is a later shell hand-off, so the old `world.game_mode` report was stale for this case.
 
 ## Exact Next Moves
 
-1. Re-run `cargo run -p kidcli -- autonomous-loop --goal case-queue`.
-2. Take the newly selected case only.
-3. Re-verify it before patching, and if gameplay behaviour is involved, read the relevant ASM first.
+1. Treat this case as inherited evidence only; do not patch the respawn shell from the `600..750` window.
+2. If queue work continues, prefer the earlier `death_respawn_level1` player-position case that actually introduces the drift, or refresh queue packaging so selected-case summaries are regenerated before handoff.
+3. Re-run `cargo run -p kidcli -- autonomous-loop --goal case-queue` only after accepting that this case has been reclassified as a checkpoint-inherited `player.x_pos` failure.
 
 ## Verification To Re-run
 
-- `cargo test -p kidcli 'case::tests::semantic_from_native_zero_fills_hidden_sega_screen_player_fields' -- --exact`
-- `cargo run -p kidcli -- case verify --case kid_chameleon_short_demo_boot_slice_case_00000_00005`
-- `cargo run -p kidcli -- case summarise --case kid_chameleon_short_demo_boot_slice_case_00000_00005`
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`
+- `cargo run -p kidcli -- case summarise --case death-respawn-level1-600-750`
+- `sed -n '14714,14826p' .cache/upstream/kid-chameleon-disasm/kid.asm`
 
 ## Dead Ends / Do Not Retry
 
-- Do not widen this case into demo bootstrap gameplay physics; the selected 0..5 frame window never leaves the Sega-screen shell.
-- Do not treat `player.x_pos = 0` on this case as evidence that the native runtime must instantiate Kid during `Load_SegaScreen`; the fix belongs in semantic normalisation for scenario-path verification.
-- Do not debug `player.motion` separately if this case regresses again before checking the same semantic mapper; the hidden Sega-screen window needs both zeroed coordinates and `movement_0000`.
+- Do not use the underscore case ID with `kidcli case verify`; the command takes the selector directory name (`death-respawn-level1-600-750`).
+- Do not debug `world.game_mode` for this case unless a fresh verify report says it fails again; that was stale case metadata.
+- Do not widen this into a gameplay fix for `Death` / `Teleport`; the selected window is already wrong on `player.x_pos` at its first frame.
