@@ -294,6 +294,9 @@ pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP: u32 = 0x0128_0000
 pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP: u32 = 0x0100_0000;
 pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP: i32 = -0x0003_A000;
 pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP: i32 = -0x0002_6000;
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES: usize = 8;
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP: u32 = 0x010E_A000;
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP: u32 = 0x00EF_6000;
 // ASM Load_TitleCard allocates loc_1AC70 immediately on the early title-start
 // lineage too, but the later Start arrives much sooner than on the cold boot
 // path. Oracle therefore exposes slot 2's seeded loc_1AC70 pose on frame 172,

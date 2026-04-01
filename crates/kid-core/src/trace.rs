@@ -116,18 +116,49 @@ impl NativeRuntime {
                 uses_load_ingame_bootstrap: true,
                 load_ingame_bootstrap_started: true,
                 ..
-            } => 6usize.saturating_add(elapsed_frames),
+            } => {
+                // ASM `loc_1AE2E` only parks the carried title-card slot until
+                // it consumes the later Start edge. Oracle keeps the settled
+                // hidden pose for the first 22 traced `loc_6E2` bootstrap
+                // frames, then blanks the player WRAM view again until the
+                // later hidden `Load_InGame` reveal begins on frame 238.
+                if elapsed_frames >= 22 {
+                    return None;
+                }
+                6usize.saturating_add(elapsed_frames)
+            }
             _ => return None,
         };
 
-        let elapsed_i64 = i64::try_from(bootstrap_elapsed).unwrap_or(i64::MAX);
-        let x_pos = i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP)
-            + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP) * elapsed_i64;
-        let y_pos = i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP)
-            + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP) * elapsed_i64;
+        if bootstrap_elapsed < EARLY_START_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES {
+            let elapsed_i64 = i64::try_from(bootstrap_elapsed).unwrap_or(i64::MAX);
+            let x_pos = i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP)
+                + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP) * elapsed_i64;
+            let y_pos = i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP)
+                + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP) * elapsed_i64;
+            return Some(PlayerState {
+                x_pos: x_pos as u32,
+                y_pos: y_pos as u32,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: true,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            });
+        }
+
         Some(PlayerState {
-            x_pos: x_pos as u32,
-            y_pos: y_pos as u32,
+            // ASM loc_1AE2E -> loc_6E2 holds the early title-start lineage on
+            // the settled hidden bootstrap pose after the last traced slide
+            // step, before the later visible Load_InGame settle resumes.
+            x_pos: EARLY_START_LEVEL_ONE_BOOTSTRAP_HOLD_X_FP,
+            y_pos: EARLY_START_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP,
             x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Right,

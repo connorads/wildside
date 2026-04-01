@@ -528,20 +528,28 @@ fn death_respawn_level_1_keeps_bootstrap_hidden_on_frame_200() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
 
+    let mut frame_199 = None;
     let mut frame_200 = None;
     for (frame_index, mask) in script.iter().copied().enumerate().take(201) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if frame_index == 200 {
-            frame_200 = Some(trace);
-            break;
+        match frame_index {
+            199 => frame_199 = Some(trace),
+            200 => {
+                frame_200 = Some(trace);
+                break;
+            }
+            _ => {}
         }
     }
 
+    let frame_199 = frame_199.expect("frame 199 trace");
     let frame_200 = frame_200.expect("frame 200 trace");
     // ASM Load_TitleCard allocates loc_1AB26/loc_1AE2E immediately, but the
-    // oracle-backed Level 1 death/respawn route keeps Camera_X/Y and Kid's
-    // WRAM pose blank on frame 200 while the hidden title-card bootstrap is
-    // still running.
+    // oracle-backed Level 1 death/respawn route keeps the settled hidden pose
+    // through frame 199, then blanks Camera_X/Y and Kid's WRAM pose again on
+    // frame 200 while the hidden title-card bootstrap is still running.
+    assert_eq!(frame_199.kid_x_pos, Some(0x010E_A000));
+    assert_eq!(frame_199.kid_y_pos, Some(0x00EF_6000));
     assert_eq!(frame_200.game_mode, GameMode::InGame);
     assert_eq!(frame_200.camera_x_pos, 0);
     assert_eq!(frame_200.camera_y_pos, 0);
@@ -603,6 +611,30 @@ fn early_start_bootstrap_uses_level_one_hidden_bootstrap_slide_on_frames_172_to_
         let trace = frames.get(&frame).expect("captured frame");
         assert_eq!(trace.kid_x_pos, Some(expected_x), "frame {frame} x");
         assert_eq!(trace.kid_y_pos, Some(expected_y), "frame {frame} y");
+    }
+}
+
+#[test]
+fn early_start_bootstrap_holds_last_hidden_pose_through_frames_180_to_185() {
+    let mut runtime = cached_generated_runtime();
+    let script = imported_early_start_boot_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(186) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (180..=185).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    // ASM `loc_1AE2E -> loc_6E2` keeps the early title-start lineage parked on
+    // the hidden bootstrap hold after the last traced slide step, so the first
+    // post-slide frames must not advance until the later visible Load_InGame
+    // settle path takes over.
+    for frame in 180usize..=185 {
+        let trace = frames.get(&frame).expect("captured frame");
+        assert_eq!(trace.kid_x_pos, Some(0x010E_A000), "frame {frame} x");
+        assert_eq!(trace.kid_y_pos, Some(0x00EF_6000), "frame {frame} y");
     }
 }
 
