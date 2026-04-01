@@ -1,14 +1,14 @@
 case_id: death_respawn_level1_case_00000_00200
 evidence_tier: replay-matched
 checkpoint: frame_00000
-frames: 0..200
+frames: 0..173
 passed: false
-first_bad_frame: 136
+first_bad_frame: 172
 first_bad_field: player.x_pos
 native_value: 0
-oracle_value: 2621440
+oracle_value: 19398656
 likely_subsystems: player physics, collision
-matching_fields: camera, player.motion, entities, events
+matching_fields: world.game_mode, camera, player.motion, entities, events
 branches:
 - branch_00 seed=7726665409539590805 frames=200 actions=tap jump 2 | hold right 18 | no-op 5 | hold left 9 | alternate dir 12 | tap jump 4 | interact tap 1 | hold right 12 | tap jump 3 | crouch 8 | tap jump 4 | interact tap 1 | no-op 10 | crouch 5 | no-op 7 | interact tap 1 | crouch 5 | delay 7 | then jump 3 | interact tap 1 | delay 6 | then jump 4 | delay 2 | then jump 2 | hold left 13 | no-op 9 | tap jump 4 | hold right 18 | no-op 4 | crouch 6 | hold left 12 | no-op 2
 - branch_01 seed=7726665409539590806 frames=200 actions=delay 9 | then jump 2 | hold right 12 | crouch 7 | interact tap 1 | delay 2 | then jump 2 | delay 10 | then jump 4 | tap jump 2 | hold left 9 | crouch 4 | interact tap 1 | crouch 6 | delay 7 | then jump 3 | interact tap 1 | tap jump 4 | interact tap 1 | crouch 10 | hold left 8 | tap jump 3 | interact tap 1 | hold right 14 | tap jump 2 | tap jump 3 | tap jump 4 | alternate dir 10 | crouch 8 | interact tap 1 | hold right 16 | alternate dir 8 | hold left 7 | crouch 7 | tap jump 3 | crouch 5 | alternate dir 3

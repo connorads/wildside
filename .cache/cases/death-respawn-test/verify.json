@@ -1,14 +1,15 @@
 {
   "case_id": "death_respawn_level1_case_00000_00200",
   "passed": false,
-  "frame_count": 200,
+  "frame_count": 173,
   "first_failure": {
-    "frame_index": 136,
+    "frame_index": 172,
     "field": "player.x_pos",
     "native_value": "0",
-    "oracle_value": "2621440"
+    "oracle_value": "19398656"
   },
   "matching_fields": [
+    "world.game_mode",
     "camera",
     "player.motion",
     "entities",

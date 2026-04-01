@@ -1,59 +1,66 @@
 ---
 slug: death_respawn_level1_case_00000_00200
-cycle: 45
-updated_at: 2026-04-01T03:04:55Z
+cycle: 46
+updated_at: 2026-04-01T02:26:54Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 45 selected `death_respawn_level1_case_00000_00200` again and still labelled it evidence-first.
-- Re-verified the selected case before any code change with `cargo run -p kidcli -- case verify --case death-respawn-derived-check`; the case now passes.
-- Refreshed the reduced-case summary with `cargo run -p kidcli -- case summarise --case death-respawn-derived-check`; the summary now reports `frames: 0..162` and `passed: true`.
-- Read the ROM labels tied to the earlier title/death-respawn investigation in `.cache/upstream/kid-chameleon-disasm/kid.asm`: `Title_InputLoop`, `loc_6E2`, and `Load_InGame`.
-- Made no gameplay change and no code change because the selected case no longer reproduces.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 46 selected `death_respawn_level1_case_00000_00200` again and kept it evidence-first.
+- Re-verified the selected case with `cargo run -p kidcli -- case verify --case death-respawn-test`; it still fails, so the task package is live.
+- Read the ROM respawn hand-off in `.cache/upstream/kid-chameleon-disasm/kid.asm`: `lose_life`, `Teleport`, `loc_6E2`, and `Load_InGame` before considering any gameplay change.
+- Tightened the selected case instead of patching gameplay by running `cargo run -p kidcli -- case reduce --case death-respawn-test`; the bundle now preserves the same failure in `173` frames instead of `200`.
+- Refreshed the reduced-case summary with `cargo run -p kidcli -- case summarise --case death-respawn-test`.
+- Made no gameplay code change; the autonomy gate for this selector remains evidence-only.
 
 ## Selected Case
 
 - Case ID: `death_respawn_level1_case_00000_00200`
-- Selector used for re-verification: `death-respawn-derived-check`
-- Autonomy cycle selection summary: first bad frame `136`, field `player.x_pos`
-- Current verify result: `PASS`
+- Selector: `death-respawn-test`
+- Cycle: `46`
+- Current result: `FAIL`
+- Current first failure: frame `172`, field `player.x_pos`, native `0`, oracle `19398656`
 
 ## Why This Case
 
-- The loop selected this exact case in cycle 45, so the session stayed on it only.
-- The loop rules require re-verification before any widening or gameplay patch.
-- Re-verification invalidated the stale task-package failure, so the right action this session was to capture that fact rather than patch adjacent behaviour.
+- The loop selected this exact case, so the session stayed on it only.
+- The task package marked it `evidence-only`, which means tighten the case rather than widen into adjacent fixes.
+- Re-verification confirmed the bug still reproduces, but not at the stale frame `136`; reducing the case gave a smaller and more current bundle for the next investigation.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- case verify --case death-respawn-derived-check`
-  - result: `case death_respawn_level1_case_00000_00200: PASS`
-- `.cache/cases/death-respawn-derived-check/summary.md`
-  - `passed: true`
-  - `frames: 0..162`
-  - matching fields include `player.position` and `player.motion`
+- `cargo run -p kidcli -- case verify --case death-respawn-test`
+  - result: `case death_respawn_level1_case_00000_00200: FAIL`
+- `.cache/cases/death-respawn-test/verify.json`
+  - `frame_count: 173`
+  - `first_failure.frame_index: 172`
+  - `first_failure.field: player.x_pos`
+  - `first_failure.native_value: "0"`
+  - `first_failure.oracle_value: "19398656"`
+- `.cache/cases/death-respawn-test/summary.md`
+  - `frames: 0..173`
+  - `matching_fields: world.game_mode, camera, player.motion, entities, events`
 - `.cache/upstream/kid-chameleon-disasm/kid.asm`
-  - `Title_InputLoop` remains the title-mode input loop
-  - `loc_6E2` remains the mode-reset path
-  - `Load_InGame` remains the later gameplay hand-off
+  - `lose_life` decrements lives, resets hitpoints, then enters `Teleport`
+  - `Teleport` sets `Game_Mode=$0008` and jumps through `loc_6E2`
+  - `Load_InGame` reloads level state and player start positions after that mode reset
 
 ## Exact Next Moves
 
-1. Start by running `cargo run -p kidcli -- autonomous-loop --goal case-queue` again to refresh the queue after this stale pass result.
-2. Read the newly emitted `.cache/autonomy/case-queue/next-task.json`.
-3. Take only that newly selected case.
-4. Re-verify it before any gameplay change.
-5. Read the relevant ASM labels before patching if the new case still reproduces.
+1. Start from the tightened case only: `cargo run -p kidcli -- case verify --case death-respawn-test`.
+2. Compare native and oracle semantic state around frame `172`, especially why native still exposes `player.x_pos=0` after the `loc_6E2 -> Load_InGame` hand-off.
+3. Derive or inspect a tighter window around the surviving failure if the gate still says evidence-only.
+4. Read the exact ROM path that rebuilds Kid's gameplay object after `Load_InGame`; do not patch from observation alone.
+5. Only move to gameplay code once the queue promotes this selector to patch-allowed or the failure is tight enough to justify a focused fix.
 
 ## Verification To Re-run
 
-- `cargo run -p kidcli -- case verify --case death-respawn-derived-check`
-- `cargo run -p kidcli -- case summarise --case death-respawn-derived-check`
 - `cargo run -p kidcli -- autonomous-loop --goal case-queue`
+- `cargo run -p kidcli -- case verify --case death-respawn-test`
+- `cargo run -p kidcli -- case summarise --case death-respawn-test`
 
 ## Dead Ends / Do Not Retry
 
-- Do not patch `death_respawn_level1_case_00000_00200` again unless `case verify` turns red first.
-- Do not widen into the pause/resume twin case from this session; the loop selected only the death-respawn case.
-- Do not trust the stale `first_bad_frame: 136` task package without re-verification; cycle 45 proved the reduced case can already pass.
+- Do not trust the stale `first_bad_frame: 136` claim from older task packages; current verification moves the first failure to frame `172`.
+- Do not widen into pause/resume or the later hitpoints case from this session.
+- Do not patch gameplay from the reduced case alone while the selector is still evidence-only.
