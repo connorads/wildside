@@ -16,12 +16,7 @@ The live TAS frontier is currently closed:
 
 That is not the same thing as whole-game completion. The active programme now shifts
 from "close the next TAS window" to "make 1P actually work in native play while
-continuing to burn down fidelity debt". See `backlog.md` for the canonical active queue
-and `roadmap.md` for the programme-level workstreams. The default autonomous packaging
-lane is now `cargo run -p kidcli -- autonomous-loop --goal case-queue`, which ranks
-reduced semantic case bundles and only permits code edits for hybrid-gated
-`autonomy-executable` cases. `kidcli project-status` remains the top-level status
-surface for reading those signals together.
+continuing to burn down fidelity debt". `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint: while TAS work exists it packages the live frontier, and once TAS is closed it auto-delegates to the next repo-local lane. The default post-TAS lane is `case-queue`, which ranks reduced semantic case bundles and only permits code edits for hybrid-gated `autonomy-executable` cases; when no actionable case exists, the loop pivots to `sweep-parity`/verification hardening instead of repeating stale prose. `kidcli project-status` remains the top-level status surface for reading those signals together.
 
 ## Canonical status language
 

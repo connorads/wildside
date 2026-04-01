@@ -1,8 +1,6 @@
 # Ralph Source-Port Frontier Loop
 
-Use this as the fixed prompt/context for repeated Ralph cycles on the live source-port frontier.
-If the frontier is already closed and the work should come from reduced semantic cases
-instead, use `docs/source-port/ralph-source-port-case-queue-loop.md`.
+Use this as the fixed prompt/context for repeated Ralph cycles on the source-port operator entrypoint. When the TAS frontier is live, this loop packages that frontier. When the TAS frontier is closed, this same loop now auto-delegates to the next repo-local lane instead of handing off vague broader-work prose.
 
 ## Bootstrap (follow exactly — do not improvise)
 
@@ -32,6 +30,7 @@ Before writing ANY code, understand what the ROM does first:
 - Follow the investigation hierarchy above: ASM → oracle → fix → probe (last resort).
 - Every frontier commit must cite the ASM label it implements. If you can't name the routine, you haven't done the investigation yet. No exceptions.
 - Use the commands and source paths from `next-task.json` — do not rediscover them.
+- If the note says the TAS frontier is closed, follow the delegated lane in the task package. Do not switch to a different loop unless the delegated task explicitly tells you to.
 - A successful cycle must do one of these:
   - land a gameplay/tooling code commit
   - land a probe or instrumentation commit that narrows the causal model

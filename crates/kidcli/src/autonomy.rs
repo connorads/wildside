@@ -256,6 +256,12 @@ pub(crate) struct TaskPackage {
     #[serde(skip_serializing_if = "Option::is_none")]
     case_queue_context: Option<CaseQueueContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    delegated_goal: Option<AutonomyGoal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delegated_target: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delegation_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     next_agent_note: Option<NextAgentNoteDirective>,
 }
 
@@ -345,6 +351,7 @@ struct RecordingQueueCandidate {
 #[derive(Debug, Clone)]
 struct CaseQueueSnapshot {
     selected_case: Option<CaseQueueCandidate>,
+    selection_reason: Option<String>,
     open_cases: Vec<CaseQueueCandidate>,
     blocked_cases: Vec<CaseQueueCandidate>,
     untriaged_recordings: Vec<RecordingQueueCandidate>,
@@ -670,7 +677,7 @@ pub(crate) fn run_autonomous_loop(
                 task.next_agent_note.as_ref(),
                 task.frontier_context.as_ref(),
             ) {
-                write_source_port_next_agent_note(repo_root, note, frontier)?;
+                write_source_port_next_agent_note(repo_root, note, frontier, task)?;
             }
         } else if next_task_path.exists() {
             fs::remove_file(&next_task_path)
@@ -765,38 +772,187 @@ fn load_source_port_frontier_state(repo_root: &Path) -> Result<SourcePortFrontie
         .with_context(|| format!("failed to parse frontier state {}", path.display()))
 }
 
+fn goal_ledger_path(repo_root: &Path, goal: AutonomyGoal) -> PathBuf {
+    repo_root
+        .join(".cache/autonomy")
+        .join(goal.slug())
+        .join("ledger.json")
+}
+
+fn load_goal_ledger_if_present(repo_root: &Path, goal: AutonomyGoal) -> Result<Option<LoopLedger>> {
+    let path = goal_ledger_path(repo_root, goal);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    load_ledger(&path).map(Some)
+}
+
+fn case_queue_gate_status(candidate: &CaseQueueCandidate) -> &'static str {
+    if candidate.autonomy_ready {
+        "patch-allowed"
+    } else {
+        "evidence-only"
+    }
+}
+
+fn case_queue_candidate_progress_marker(candidate: &CaseQueueCandidate) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}",
+        candidate.case_id,
+        candidate.status.as_str(),
+        candidate
+            .first_bad_frame
+            .map(|frame| frame.to_string())
+            .unwrap_or_else(|| "none".to_owned()),
+        candidate.first_bad_field.as_deref().unwrap_or("none"),
+        case_queue_gate_status(candidate),
+        candidate.frame_end.saturating_sub(candidate.frame_start),
+        candidate
+            .failure_class
+            .map(|class| class.as_str())
+            .unwrap_or("unknown")
+    )
+}
+
+fn case_queue_progress_fingerprint(selected_case: Option<&CaseQueueCandidate>) -> String {
+    selected_case
+        .map(case_queue_candidate_progress_marker)
+        .unwrap_or_else(|| "none".to_owned())
+}
+
+fn select_case_queue_candidate(
+    repo_root: &Path,
+    cases: &[CaseQueueCandidate],
+) -> Result<(Option<CaseQueueCandidate>, Option<String>)> {
+    let actionable: Vec<_> = cases
+        .iter()
+        .filter(|candidate| {
+            candidate.autonomy_ready
+                || (candidate.failure_class == Some(CaseFailureClass::Authoritative)
+                    && candidate.duplicate_of.is_none())
+        })
+        .cloned()
+        .collect();
+    let Some(first) = actionable.first().cloned() else {
+        return Ok((None, None));
+    };
+    let previous = load_goal_ledger_if_present(repo_root, AutonomyGoal::CaseQueue)?
+        .and_then(|ledger| ledger.last_progress_fingerprint);
+    if previous.as_deref() == Some(case_queue_candidate_progress_marker(&first).as_str()) {
+        if let Some(next) = actionable.get(1).cloned() {
+            return Ok((
+                Some(next.clone()),
+                Some(format!(
+                    "previous cycle stalled on {}; pivoted to the next ranked case {}",
+                    first.case_id, next.case_id
+                )),
+            ));
+        }
+        return Ok((
+            Some(first.clone()),
+            Some(format!(
+                "{} remains the highest-ranked case and no alternate actionable case is available",
+                first.case_id
+            )),
+        ));
+    }
+    Ok((Some(first), None))
+}
+
+fn source_port_frontier_progress_fingerprint(
+    frontier: &ActiveFrontierState,
+    delegated_goal: Option<AutonomyGoal>,
+    delegated_target: Option<&str>,
+    lane_fingerprint: Option<&str>,
+) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}",
+        frontier.slug,
+        frontier.status,
+        frontier.frontier_frame,
+        frontier.authoritative_clean_through,
+        delegated_goal
+            .map(AutonomyGoal::slug)
+            .unwrap_or("tas-frontier"),
+        delegated_target.unwrap_or("none"),
+        lane_fingerprint.unwrap_or("none")
+    )
+}
+
 fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport> {
     let state = load_source_port_frontier_state(repo_root)?;
     let frontier = &state.active_frontier;
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
-    let task_package_spec = frontier.task_package_spec();
-    let task_package = source_port_frontier_task(frontier, &note);
     let task_ready = matches!(frontier.status.as_str(), "active" | "complete");
+    let (task_package, delegated_goal, delegated_target, lane_fingerprint, summary) = if frontier
+        .status
+        == "active"
+    {
+        let task = source_port_frontier_task(frontier, &note);
+        let summary = format!(
+            "Active frontier {} at frame {} (clean through {})",
+            frontier.slug, frontier.frontier_frame, frontier.authoritative_clean_through
+        );
+        (
+            task,
+            None,
+            Some(frontier.slug.clone()),
+            Some(format!(
+                "{}:{}",
+                frontier.current_hypothesis.name, frontier.current_blocker
+            )),
+            summary,
+        )
+    } else if frontier.status == "complete" {
+        let queue = build_case_queue_snapshot(repo_root)?;
+        if let Some(candidate) = queue.selected_case.as_ref() {
+            let task = source_port_frontier_case_queue_task(frontier, &note, &queue, candidate);
+            let summary = format!(
+                "TAS frontier {} is closed through frame {}; delegated to case-queue for {}.",
+                frontier.slug, frontier.authoritative_clean_through, candidate.case_id
+            );
+            (
+                task,
+                Some(AutonomyGoal::CaseQueue),
+                Some(candidate.case_id.clone()),
+                Some(case_queue_progress_fingerprint(Some(candidate))),
+                summary,
+            )
+        } else {
+            let task = source_port_frontier_sweep_task(frontier, &note);
+            let summary = format!(
+                "TAS frontier {} is closed through frame {}; no actionable case-queue case exists, so source-port pivots to sweep parity hardening.",
+                frontier.slug, frontier.authoritative_clean_through
+            );
+            (
+                task,
+                Some(AutonomyGoal::SweepParity),
+                Some("state-sweep".to_owned()),
+                Some("state-sweep".to_owned()),
+                summary,
+            )
+        }
+    } else {
+        let task = source_port_frontier_task(frontier, &note);
+        let summary = format!(
+            "Active frontier {} is no longer marked active (status={})",
+            frontier.slug, frontier.status
+        );
+        (
+            task,
+            None,
+            Some(frontier.slug.clone()),
+            Some(frontier.status.clone()),
+            summary,
+        )
+    };
     let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
         .and_then(|task| detect_blocker(repo_root, task));
-    let summary = if task_ready {
-        if frontier.status == "active" {
-            format!(
-                "Active frontier {} at frame {} (clean through {})",
-                frontier.slug, frontier.frontier_frame, frontier.authoritative_clean_through
-            )
-        } else {
-            format!(
-                "TAS frontier {} is closed (clean through {}), so the next task comes from broader source-port remaining work.",
-                frontier.slug, frontier.authoritative_clean_through
-            )
-        }
-    } else {
-        format!(
-            "Active frontier {} is no longer marked active (status={})",
-            frontier.slug, frontier.status
-        )
-    };
     let capabilities = vec![CapabilityReport {
         id: CapabilityId::SourcePortFrontierTask,
-        title: task_package_spec.title.clone(),
+        title: task_package.title.clone(),
         status: if task_ready {
             CapabilityStatus::Ready
         } else {
@@ -813,12 +969,11 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
         task_package: Some(task_package),
         selected_task,
         blocker,
-        progress_fingerprint: format!(
-            "{}:{}:{}:{}",
-            frontier.slug,
-            frontier.status,
-            note.status.as_str(),
-            note.frontmatter_slug.as_deref().unwrap_or("none")
+        progress_fingerprint: source_port_frontier_progress_fingerprint(
+            frontier,
+            delegated_goal,
+            delegated_target.as_deref(),
+            lane_fingerprint.as_deref(),
         ),
         capabilities,
     })
@@ -880,6 +1035,188 @@ fn source_port_frontier_task(
             verification_commands: frontier.verification_commands.clone(),
         }),
         case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        next_agent_note: Some(note.clone()),
+    }
+}
+
+fn source_port_frontier_case_queue_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    queue: &CaseQueueSnapshot,
+    candidate: &CaseQueueCandidate,
+) -> TaskPackage {
+    let delegation_reason = queue.selection_reason.clone().unwrap_or_else(|| {
+        format!(
+            "the TAS frontier is already closed, so the next concrete lane is the highest-ranked reduced case {}",
+            candidate.case_id
+        )
+    });
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: format!("Advance source-port via case queue: {}", candidate.case_id),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; work the reduced case {} instead of reopening the TAS frontier.",
+            frontier.recording, frontier.authoritative_clean_through, candidate.case_id
+        ),
+        sources: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            candidate.manifest_path.display().to_string(),
+            candidate.verify_path.display().to_string(),
+            candidate.summary_path.display().to_string(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+        ],
+        implementation_targets: Vec::new(),
+        commands: vec![
+            format!(
+                "cargo run -p kidcli -- case verify --case {}",
+                candidate.selector
+            ),
+            format!(
+                "cargo run -p kidcli -- case summarise --case {}",
+                candidate.selector
+            ),
+        ],
+        done_criteria: vec![
+            format!(
+                "Advance or retire {} without reopening closed TAS-frontier work.",
+                candidate.case_id
+            ),
+            "Use the reduced case evidence to land a code change, tighter probe, or an explicit blocked result."
+                .to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "delegated-lane".to_owned(),
+                status: "case-queue".to_owned(),
+                detail: delegation_reason.clone(),
+                artefact_path: Some(candidate.summary_path.clone()),
+            },
+            EvidenceItem {
+                label: "selected-case".to_owned(),
+                status: candidate.status.as_str().to_owned(),
+                detail: candidate.rank_reason.clone(),
+                artefact_path: Some(candidate.verify_path.clone()),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        case_queue_context: Some(CaseQueueContext {
+            selected_case: Some(candidate.clone()),
+            open_cases: queue.open_cases.clone(),
+            blocked_cases: queue.blocked_cases.clone(),
+            untriaged_recordings: queue.untriaged_recordings.clone(),
+        }),
+        delegated_goal: Some(AutonomyGoal::CaseQueue),
+        delegated_target: Some(candidate.case_id.clone()),
+        delegation_reason: Some(delegation_reason),
+        next_agent_note: Some(note.clone()),
+    }
+}
+
+fn source_port_frontier_sweep_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+) -> TaskPackage {
+    let delegation_reason = "the TAS frontier is closed and no actionable reduced case is available, so the next repo-local lane is sweep parity hardening".to_owned();
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: "Advance source-port via sweep parity hardening".to_owned(),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; continue with sweep parity and release-gate hardening instead of reopening TAS work.",
+            frontier.recording, frontier.authoritative_clean_through
+        ),
+        sources: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+            SOURCE_PORT_RELEASE_GATE_PATH.to_owned(),
+        ],
+        implementation_targets: vec![
+            "crates/kidcli/src/sweep.rs".to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+        ],
+        commands: vec![
+            "cargo run -p kidcli -- autonomous-loop --goal sweep-parity".to_owned(),
+            "cargo run --release -p kidcli -- sweep --levels 0-104 --tier state".to_owned(),
+            "mise run release-gate".to_owned(),
+        ],
+        done_criteria: vec![
+            "Advance sweep parity, release-gate hardening, or another explicit verification lane with new evidence."
+                .to_owned(),
+            "Do not reopen TAS-frontier work unless a new authoritative frontier appears.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "delegated-lane".to_owned(),
+                status: "sweep-parity".to_owned(),
+                detail: delegation_reason.clone(),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_RESEARCH_MAP_PATH)),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        case_queue_context: None,
+        delegated_goal: Some(AutonomyGoal::SweepParity),
+        delegated_target: Some("state-sweep".to_owned()),
+        delegation_reason: Some(delegation_reason),
         next_agent_note: Some(note.clone()),
     }
 }
@@ -980,13 +1317,19 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
         CapabilityStatus::Blocked
     };
     let summary = if let Some(candidate) = queue.selected_case.as_ref() {
-        format!(
+        let mut summary = format!(
             "Selected {} ({}, {} -> {:?}) from the semantic case queue.",
             candidate.case_id,
             candidate.status.as_str(),
             candidate.source_kind,
             candidate.first_bad_field.as_deref().unwrap_or("no-failure")
-        )
+        );
+        if let Some(reason) = queue.selection_reason.as_deref() {
+            summary.push(' ');
+            summary.push_str(reason);
+            summary.push('.');
+        }
+        summary
     } else {
         "No qualifying semantic case bundle is available yet; derive or reduce a case before patch work."
             .to_owned()
@@ -1006,20 +1349,7 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
         task_package: selected_task.clone(),
         selected_task,
         blocker,
-        progress_fingerprint: format!(
-            "{}:{}:{}",
-            queue
-                .selected_case
-                .as_ref()
-                .map(|candidate| candidate.case_id.as_str())
-                .unwrap_or("none"),
-            queue
-                .selected_case
-                .as_ref()
-                .map(|candidate| candidate.status.as_str())
-                .unwrap_or("none"),
-            note.frontmatter_slug.as_deref().unwrap_or("none")
-        ),
+        progress_fingerprint: case_queue_progress_fingerprint(queue.selected_case.as_ref()),
         capabilities,
     })
 }
@@ -1029,19 +1359,7 @@ fn build_case_queue_snapshot(repo_root: &Path) -> Result<CaseQueueSnapshot> {
     apply_case_queue_duplicate_penalties(&mut cases);
     cases.sort_by(case_queue_sort_key);
 
-    let selected_case = cases
-        .iter()
-        .find(|candidate| candidate.autonomy_ready)
-        .cloned()
-        .or_else(|| {
-            cases
-                .iter()
-                .find(|candidate| {
-                    candidate.failure_class == Some(CaseFailureClass::Authoritative)
-                        && candidate.duplicate_of.is_none()
-                })
-                .cloned()
-        });
+    let (selected_case, selection_reason) = select_case_queue_candidate(repo_root, &cases)?;
 
     let open_cases = cases
         .iter()
@@ -1059,6 +1377,7 @@ fn build_case_queue_snapshot(repo_root: &Path) -> Result<CaseQueueSnapshot> {
 
     Ok(CaseQueueSnapshot {
         selected_case,
+        selection_reason,
         open_cases,
         blocked_cases,
         untriaged_recordings,
@@ -1440,38 +1759,45 @@ fn case_queue_task(
         implementation_targets: Vec::new(),
         commands: verification_commands,
         done_criteria,
-        evidence: vec![
-            EvidenceItem {
-                label: "selected-case".to_owned(),
-                status: candidate.status.as_str().to_owned(),
-                detail: candidate.rank_reason.clone(),
-                artefact_path: Some(candidate.summary_path.clone()),
-            },
-            EvidenceItem {
-                label: "autonomy-gate".to_owned(),
-                status: if candidate.autonomy_ready {
-                    "patch-allowed".to_owned()
-                } else {
-                    "evidence-only".to_owned()
+        evidence: {
+            let mut evidence = vec![
+                EvidenceItem {
+                    label: "selected-case".to_owned(),
+                    status: candidate.status.as_str().to_owned(),
+                    detail: candidate.rank_reason.clone(),
+                    artefact_path: Some(candidate.summary_path.clone()),
                 },
-                detail: format!(
-                    "failure_class={}, subsystems={}, window={}f",
-                    candidate
-                        .failure_class
-                        .map(|class| class.as_str())
-                        .unwrap_or("unknown"),
-                    candidate.likely_subsystems.len(),
-                    candidate.frame_end - candidate.frame_start
-                ),
-                artefact_path: Some(candidate.verify_path.clone()),
-            },
-            EvidenceItem {
-                label: "next-agent-note".to_owned(),
-                status: note.status.as_str().to_owned(),
-                detail: note.detail.clone(),
-                artefact_path: Some(note.path.clone()),
-            },
-        ],
+                EvidenceItem {
+                    label: "autonomy-gate".to_owned(),
+                    status: case_queue_gate_status(candidate).to_owned(),
+                    detail: format!(
+                        "failure_class={}, subsystems={}, window={}f",
+                        candidate
+                            .failure_class
+                            .map(|class| class.as_str())
+                            .unwrap_or("unknown"),
+                        candidate.likely_subsystems.len(),
+                        candidate.frame_end - candidate.frame_start
+                    ),
+                    artefact_path: Some(candidate.verify_path.clone()),
+                },
+                EvidenceItem {
+                    label: "next-agent-note".to_owned(),
+                    status: note.status.as_str().to_owned(),
+                    detail: note.detail.clone(),
+                    artefact_path: Some(note.path.clone()),
+                },
+            ];
+            if let Some(reason) = queue.selection_reason.as_deref() {
+                evidence.push(EvidenceItem {
+                    label: "lane-pivot".to_owned(),
+                    status: "active".to_owned(),
+                    detail: reason.to_owned(),
+                    artefact_path: Some(candidate.summary_path.clone()),
+                });
+            }
+            evidence
+        },
         frontier_context: None,
         case_queue_context: Some(CaseQueueContext {
             selected_case: Some(candidate.clone()),
@@ -1479,6 +1805,9 @@ fn case_queue_task(
             blocked_cases: queue.blocked_cases.clone(),
             untriaged_recordings: queue.untriaged_recordings.clone(),
         }),
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: queue.selection_reason.clone(),
         next_agent_note: Some(note.clone()),
     }
 }
@@ -2113,6 +2442,9 @@ fn select_next_task(
         evidence: evidence_for_capability(capability.id, signals),
         frontier_context: None,
         case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
         next_agent_note: None,
     })
 }
@@ -2358,28 +2690,46 @@ fn write_source_port_next_agent_note(
     repo_root: &Path,
     note: &NextAgentNoteDirective,
     frontier: &FrontierContext,
+    task: &TaskPackage,
 ) -> Result<()> {
     let note_path = repo_root.join(&note.path);
     if let Some(parent) = note_path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create {}", parent.display()))?;
     }
-    fs::write(&note_path, render_source_port_next_agent_note(frontier))
-        .with_context(|| format!("failed to write {}", note_path.display()))
+    fs::write(
+        &note_path,
+        render_source_port_next_agent_note(frontier, task),
+    )
+    .with_context(|| format!("failed to write {}", note_path.display()))
 }
 
-fn render_source_port_next_agent_note(frontier: &FrontierContext) -> String {
+fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPackage) -> String {
     let closed_frontier = frontier.status == "complete";
     let exact_next_moves = if closed_frontier {
-        vec![
-            "Do not continue TAS-window work unless a new authoritative frontier is opened."
-                .to_owned(),
-            "Choose the next task from broader source-port remaining work: 1P playability, verification hardening, or another explicit backlog risk area.".to_owned(),
-            "Update the next-agent note again only after that broader task has fresh evidence."
-                .to_owned(),
-        ]
+        let mut moves = vec![format!(
+            "Do not reopen TAS-frontier work; continue through delegated lane `{}`.",
+            task.delegated_goal
+                .map(AutonomyGoal::slug)
+                .unwrap_or("source-port-frontier")
+        )];
+        if let Some(target) = task.delegated_target.as_deref() {
+            moves.push(format!(
+                "Target `{target}` for the next concrete source-port step."
+            ));
+        }
+        if let Some(reason) = task.delegation_reason.as_deref() {
+            moves.push(reason.to_owned());
+        }
+        moves.extend(task.done_criteria.iter().cloned());
+        moves
     } else {
         frontier.required_next_evidence.clone()
+    };
+    let verification_commands = if closed_frontier {
+        task.commands.clone()
+    } else {
+        frontier.verification_commands.clone()
     };
     format!(
         "\
@@ -2414,8 +2764,15 @@ status: {status}
         status = frontier.status,
         what_changed = if closed_frontier {
             format!(
-                "The TAS frontier is closed through frame {}; broader source-port work remains open.",
-                frontier.authoritative_clean_through
+                "The TAS frontier is closed through frame {}; the next loop is delegated to {}{}.",
+                frontier.authoritative_clean_through,
+                task.delegated_goal
+                    .map(AutonomyGoal::slug)
+                    .unwrap_or("source-port-frontier"),
+                task.delegated_target
+                    .as_deref()
+                    .map(|target| format!(" ({target})"))
+                    .unwrap_or_default()
             )
         } else {
             format!(
@@ -2434,8 +2791,7 @@ status: {status}
             .map(|step| format!("- {step}"))
             .collect::<Vec<_>>()
             .join("\n"),
-        verification_commands = frontier
-            .verification_commands
+        verification_commands = verification_commands
             .iter()
             .map(|command| format!("- {command}"))
             .collect::<Vec<_>>()
@@ -2674,6 +3030,9 @@ mod tests {
             evidence: Vec::new(),
             frontier_context: None,
             case_queue_context: None,
+            delegated_goal: None,
+            delegated_target: None,
+            delegation_reason: None,
             next_agent_note: None,
         };
 
@@ -3009,18 +3368,22 @@ mod tests {
         assert_eq!(cycle.capabilities.len(), 1);
         assert_eq!(
             cycle.capabilities[0].title,
-            "Advance source-port beyond the closed TAS frontier"
+            "Advance source-port via sweep parity hardening"
         );
         assert_eq!(cycle.capabilities[0].status, CapabilityStatus::Ready);
         assert_eq!(
             selected_task.title,
-            "Advance source-port beyond the closed TAS frontier"
+            "Advance source-port via sweep parity hardening"
         );
         assert_eq!(
-            task_package.title,
-            "Advance source-port beyond the closed TAS frontier"
+            task_package.delegated_goal,
+            Some(super::AutonomyGoal::SweepParity)
         );
-        assert!(task_package.summary.contains("source-port is not complete"));
+        assert_eq!(
+            task_package.delegated_target.as_deref(),
+            Some("state-sweep")
+        );
+        assert!(task_package.summary.contains("sweep parity"));
     }
 
     #[test]
@@ -3091,6 +3454,121 @@ mod tests {
         assert_eq!(queue.untriaged_recordings.len(), 1);
         assert_eq!(queue.untriaged_recordings[0].slug, "level1-tree-break");
         assert!(queue.untriaged_recordings[0].has_transcript);
+    }
+
+    #[test]
+    fn source_port_frontier_delegates_to_case_queue_when_case_exists() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_case(
+            temp_dir.path(),
+            "recording-case",
+            r#"{"kind":"recording","path":".cache/recordings/tree/tree","slug":"tree-break"}"#,
+            "player.on_ground",
+            48,
+            &["collision"],
+            0,
+            60,
+        );
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::CaseQueue));
+        assert_eq!(task.delegated_target.as_deref(), Some("recording-case"));
+        assert!(task.title.contains("recording-case"));
+        assert!(cycle.progress_fingerprint.contains("case-queue"));
+    }
+
+    #[test]
+    fn case_queue_pivots_after_repeating_the_same_case() {
+        let temp_dir = source_port_repo();
+        write_case(
+            temp_dir.path(),
+            "recording-case",
+            r#"{"kind":"recording","path":".cache/recordings/tree/tree","slug":"tree-break"}"#,
+            "player.on_ground",
+            48,
+            &["collision"],
+            0,
+            60,
+        );
+        write_case(
+            temp_dir.path(),
+            "scenario-case",
+            r#"{"kind":"gameplay_scenario","slug":"pause_resume_level1"}"#,
+            "player.on_ground",
+            52,
+            &["collision"],
+            0,
+            70,
+        );
+        let ledger_dir = temp_dir.path().join(".cache/autonomy/case-queue");
+        fs::create_dir_all(&ledger_dir).expect("ledger dir should exist");
+        fs::write(
+            ledger_dir.join("ledger.json"),
+            r#"{
+  "goal": "case-queue",
+  "title": "Source-port case queue",
+  "cycles_run": 7,
+  "complete": false,
+  "stalled": true,
+  "last_task": "source_port_case_queue_task",
+  "last_progress_fingerprint": "recording-case:autonomy_executable:48:player.on_ground:patch-allowed:60:authoritative",
+  "last_cycle_path": null,
+  "capabilities": [],
+  "blocker": null
+}
+"#,
+        )
+        .expect("ledger should write");
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+        let selected = queue.selected_case.expect("selected case should exist");
+
+        assert_eq!(selected.case_id, "scenario-case");
+        assert!(
+            queue
+                .selection_reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("pivoted"))
+        );
+    }
+
+    #[test]
+    fn case_queue_progress_ignores_note_state_changes() {
+        let temp_dir = source_port_repo();
+        write_case(
+            temp_dir.path(),
+            "recording-case",
+            r#"{"kind":"recording","path":".cache/recordings/tree/tree","slug":"tree-break"}"#,
+            "player.on_ground",
+            48,
+            &["collision"],
+            0,
+            60,
+        );
+        let stale_note_path = temp_dir.path().join(SOURCE_PORT_CASE_QUEUE_NOTE_PATH);
+        fs::create_dir_all(stale_note_path.parent().expect("note dir"))
+            .expect("note dir should exist");
+        fs::write(
+            &stale_note_path,
+            "---\nslug: wrong-case\ncycle: 1\nupdated_at: 2026-03-31T20:00:00Z\n---\n# What Changed\n",
+        )
+        .expect("stale note should write");
+        let stale =
+            evaluate_case_queue_cycle(temp_dir.path(), 1).expect("stale cycle should build");
+
+        fs::write(
+            &stale_note_path,
+            "---\nslug: recording-case\ncycle: 2\nupdated_at: 2026-03-31T20:05:00Z\n---\n# What Changed\n",
+        )
+        .expect("current note should write");
+        let current =
+            evaluate_case_queue_cycle(temp_dir.path(), 2).expect("current cycle should build");
+
+        assert_eq!(stale.progress_fingerprint, current.progress_fingerprint);
     }
 
     #[test]

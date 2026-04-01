@@ -42,7 +42,7 @@ Start with `kidcli project-status` or `mise run project-status`.
 - `kidcli autonomous-loop --goal level1-opening-slice` evaluates the Level 1 opening-slice completion contract, writes ledger/task artefacts under `.cache/autonomy/`, and selects the next unresolved capability.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
 - `kidcli autonomous-loop --goal level1-full-traversal` evaluates the post-opening traversal contract for default-terrain authority and long transition parity.
-- `kidcli autonomous-loop --goal source-port-frontier` packages the live source-port frontier from `docs/source-port/frontier-state.yaml` into `.cache/autonomy/source-port-frontier/` for the next Ralph loop cycle.
+- `kidcli autonomous-loop --goal source-port-frontier` is the operator entrypoint: while TAS frontier work is active it packages that frontier, and once TAS is closed it auto-delegates to the next repo-local lane such as `case-queue` or `sweep-parity`.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -242,7 +242,7 @@ The default `kid-core` runtime now loads generated `Level_Layout` terrain on con
 
 The autonomous Level 1 loops write their ledger, per-cycle reports, and next-task package under `.cache/autonomy/<goal>/`. The machine-readable goal contracts live at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
 
-The live source-port frontier loop also writes to `.cache/autonomy/source-port-frontier/`. Its `next-task.json` is generated from `docs/source-port/frontier-state.yaml`, and `next-agent.md` is the cache-local handoff note the current agent leaves for the next loop cycle.
+The live source-port frontier loop also writes to `.cache/autonomy/source-port-frontier/`. Its `next-task.json` is generated from `docs/source-port/frontier-state.yaml`, and `next-agent.md` is the cache-local handoff note the current agent leaves for the next loop cycle. When the TAS frontier is closed, that package now stays under `source-port-frontier` but points at the next concrete repo-local lane instead of vague broader-work prose.
 
 Everything under `.cache/` is treated as generated runtime state. If an artefact needs to be durable, reviewable, or versioned, promote it into `docs/source-port/`, code/tests, or explicit checked-in fixtures instead of tracking it in `.cache/`.
 
