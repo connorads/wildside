@@ -76,9 +76,14 @@ impl NativeRuntime {
         }
     }
 
-    fn early_start_title_menu_cursor_carry_active(&self) -> bool {
+    fn early_start_title_menu_cursor_pose_carry_active(&self) -> bool {
         self.early_start_load_ingame_elapsed_frames()
-            .is_some_and(|elapsed| elapsed <= EARLY_START_TITLE_MENU_CURSOR_CARRY_FRAMES)
+            .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES)
+    }
+
+    fn early_start_title_menu_shell_carry_active(&self) -> bool {
+        self.early_start_load_ingame_elapsed_frames()
+            .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES)
     }
 
     fn early_start_load_ingame_player_state(&self) -> Option<PlayerState> {
@@ -195,11 +200,14 @@ impl NativeRuntime {
 
     fn early_start_load_ingame_object_counts(&self) -> Option<(u16, u16)> {
         let elapsed = self.early_start_load_ingame_elapsed_frames()?;
-        if self.early_start_title_menu_cursor_carry_active() {
+        if self.early_start_title_menu_shell_carry_active() {
             return Some((4, 3));
         }
-        if elapsed < EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME {
+        if elapsed < EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME {
             return Some((0, 0));
+        }
+        if elapsed < EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME {
+            return Some((2, 0));
         }
         if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
             return Some((4, 2));
@@ -479,22 +487,21 @@ impl NativeRuntime {
         if !self.title_menu_active || self.title_menu_cursor_pending {
             return None;
         }
-        let cursor = match self.boot_state {
-            // ASM Obj_TitleMenu `loc_1BB52` seeds the menu cursor at
-            // `x=$28`, `y=$30`, and `loc_1BC0E` then only adjusts the Y row
-            // across the three title entries while the sprite stays live.
-            BootState::TitleScreen { cursor } | BootState::IntroSequence6 { cursor, .. } => cursor,
-            BootState::StartingLevel { .. }
-                if self.early_start_title_menu_cursor_carry_active() =>
-            {
-                if self.two_player {
-                    1
-                } else {
-                    0
+        let cursor =
+            match self.boot_state {
+                // ASM Obj_TitleMenu `loc_1BB52` seeds the menu cursor at
+                // `x=$28`, `y=$30`, and `loc_1BC0E` then only adjusts the Y row
+                // across the three title entries while the sprite stays live.
+                BootState::TitleScreen { cursor } | BootState::IntroSequence6 { cursor, .. } => {
+                    cursor
                 }
-            }
-            _ => return None,
-        };
+                BootState::StartingLevel { .. }
+                    if self.early_start_title_menu_cursor_pose_carry_active() =>
+                {
+                    if self.two_player { 1 } else { 0 }
+                }
+                _ => return None,
+            };
         let y_pos = match cursor {
             0 => 0x0030_0000,
             1 => 0x003A_0000,
@@ -1566,7 +1573,7 @@ impl NativeRuntime {
             BootState::LevelSkipHold => self.level_skip_player_state(),
             BootState::StartingLevel { elapsed_frames, .. } => self
                 .title_menu_cursor_player_state()
-                .filter(|_| self.early_start_title_menu_cursor_carry_active())
+                .filter(|_| self.early_start_title_menu_cursor_pose_carry_active())
                 .or_else(|| self.early_start_load_ingame_player_state())
                 .or_else(|| self.starting_level_slot_2_pose(elapsed_frames)),
             BootState::InGame | BootState::DemoPlay { .. } => {
@@ -1854,7 +1861,7 @@ impl NativeRuntime {
             // the demo snapshot is still being shown.
             return (roster_count + 4, roster_count + 4);
         }
-        if self.early_start_title_menu_cursor_carry_active() {
+        if self.early_start_title_menu_shell_carry_active() {
             return (4, 3);
         }
         if matches!(

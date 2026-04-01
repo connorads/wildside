@@ -20031,6 +20031,44 @@ fn death_respawn_level_1_exposes_title_menu_cursor_on_frame_136() {
 }
 
 #[test]
+fn death_respawn_level_1_clears_title_cursor_pose_before_title_shell_counts() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frames = BTreeMap::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(169) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (160..=168).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    let frame_160 = frames.get(&160).expect("frame 160 trace");
+    let frame_161 = frames.get(&161).expect("frame 161 trace");
+    let frame_165 = frames.get(&165).expect("frame 165 trace");
+    let frame_166 = frames.get(&166).expect("frame 166 trace");
+    let frame_168 = frames.get(&168).expect("frame 168 trace");
+
+    // ASM Obj_TitleMenu `Title_InputLoop` hands off to `loc_6E2`, and the
+    // oracle-backed mode-$0008 bootstrap keeps the last cursor pose only
+    // through frame 160 before the player WRAM view clears on frame 161.
+    assert_eq!(frame_160.kid_x_pos, Some(0x0028_0000));
+    assert_eq!(frame_160.kid_y_pos, Some(0x0030_0000));
+    assert_eq!(frame_161.kid_x_pos, None);
+    assert_eq!(frame_161.kid_y_pos, None);
+
+    // ASM `loc_6E2` clears the title shell in stages: the 4-object/3-gfx
+    // title shell persists after the cursor pose disappears, then drops to the
+    // empty shell on frame 166 and the later 2-object preload on frame 168.
+    assert_eq!(frame_165.number_objects, 4);
+    assert_eq!(frame_165.number_gfx_objects, 3);
+    assert_eq!(frame_166.number_objects, 0);
+    assert_eq!(frame_166.number_gfx_objects, 0);
+    assert_eq!(frame_168.number_objects, 2);
+    assert_eq!(frame_168.number_gfx_objects, 0);
+}
+
+#[test]
 fn death_respawn_level_1_reports_standingstill_on_frame_720() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();

@@ -287,10 +287,18 @@ pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME: usize = 59;
 pub(crate) const EARLY_START_LOAD_INGAME_VISIBLE_FRAME: usize = 60;
 pub(crate) const EARLY_START_LOAD_INGAME_HANDOFF_FRAMES: usize = 122;
 // ASM Obj_TitleMenu `Title_InputLoop` jumps straight to `loc_6E2` after
-// writing `Game_Mode=$0008`, but oracle-backed early-start traces keep the
-// title-menu cursor shell alive for the next 23 traced mode-8 frames before
-// the hidden bootstrap finally clears those title WRAM slots on frame 161.
-pub(crate) const EARLY_START_TITLE_MENU_CURSOR_CARRY_FRAMES: usize = 23;
+// writing `Game_Mode=$0008`. Oracle-backed early-start traces keep the last
+// cursor pose visible for 23 traced mode-8 frames (frames 138..160), then
+// clear the player WRAM view on frame 161.
+pub(crate) const EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES: usize = 23;
+// ASM `loc_6E2` clears the rest of the title shell later than the cursor pose:
+// the 4-object/3-gfx shell persists for 28 traced mode-8 frames
+// (frames 138..165) before the hidden bootstrap drops to 0/0 on frame 166.
+pub(crate) const EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES: usize = 28;
+// After the title shell clears, oracle-backed early-start traces keep the
+// mode-$0008 bootstrap fully empty for two frames (166..167), then expose the
+// first hidden preload workers from frame 168 until the later camera preload.
+pub(crate) const EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME: usize = 30;
 // ASM `Make_SpriteFromGfxObject` checks the death sprite against the normal
 // `$160/-$80` Y visibility window using the death frame's vertical extent, not
 // a generic "viewport + 160px" threshold. `kid_death.bin` carries height
