@@ -1,62 +1,63 @@
 ---
-slug: death_respawn_level1_case_00130_00141
-cycle: 39
-updated_at: 2026-04-01T01:45:31Z
+slug: death_respawn_level1_case_00000_00200
+cycle: 40
+updated_at: 2026-04-01T01:51:05Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 39 selected `death_respawn_level1_case_00130_00141` (`death-respawn-derived-check-tight-130-141`).
-- Re-verified the selected case before patching; it failed on frame 136 at `player.x_pos`.
-- Read the relevant ROM title path first:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm`: `Obj_TitleMenu`, `loc_1BAEA`, `loc_1BB52`, `Title_InputLoop`
-- Fixed the native early title-start hand-off to match that ASM:
-  - title-menu arm timing now accepts the frame-135 Start edge
-  - the title cursor only becomes visible on the following frame, matching `loc_1BB52`
-  - the second Start edge is now queued one frame before `StartingLevel`, matching `Title_InputLoop`
-  - trace output now carries the title-shell counts/cursor into the early mode-8 bootstrap window instead of dropping straight to hidden gameplay
-- Added a focused regression test for frames 130, 136, and 138 of `death_respawn_level1`.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 40 selected `death_respawn_level1_case_00000_00200` (`death-respawn-derived-check`).
+- Re-verified the selected case before any gameplay work; it now fails first on frame 161 at `player.x_pos`.
+- Refreshed the case summary after verify so the selected bundle records the shifted first failure at frame 161 instead of the stale frame-136 report.
+- Read the relevant ROM path before considering any gameplay change:
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm`: `Obj_TitleMenu`, `loc_1BAEA`, `loc_1BB52`, `Title_InputLoop`, `Load_InGame`
+- Compared native vs oracle on frames 150..170 and confirmed the broad case now diverges one frame later than the tightened 130..141 fix:
+  - native still exposes Kid at the grounded bootstrap pose on frame 161
+  - oracle clears Kid to `(0,0)` on frame 161 while `Game_Mode=$0008` still matches
+- Did not patch gameplay. The task package marks this selected case `evidence-only`, so the correct move is to tighten/reduce the case before touching runtime behaviour again.
 
 ## Selected Case
 
-- Case ID: `death_respawn_level1_case_00130_00141`
-- Selector: `death-respawn-derived-check-tight-130-141`
-- Autonomy gate: `patch-allowed`
-- Current verify result: `PASS`
+- Case ID: `death_respawn_level1_case_00000_00200`
+- Selector: `death-respawn-derived-check`
+- Autonomy gate: `evidence-only`
+- Current verify result: `FAIL`
 
 ## Why This Case
 
-- Cycle 39 selected this exact 11-frame window, so the work stayed on the chosen case only.
-- The failure was narrow enough to trace to one ROM-owned title-menu hand-off instead of widening into later gameplay bootstrap behaviour.
+- Cycle 40 selected this exact `0..200` reduced case, so the session stayed on the chosen case only.
+- The prior frame-136 title-menu mismatch is gone. The remaining failure moved to frame 161, which means the selected case now spans beyond the already-fixed title-start hand-off and into the later in-game bootstrap lineage.
+- Because the autonomy gate is now `evidence-only`, the value of this session was tightening the explanation of the remaining failure rather than widening into speculative gameplay fixes.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- case verify --case .cache/cases/death-respawn-derived-check-tight-130-141`
-  - result: `case death_respawn_level1_case_00130_00141: PASS`
-- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 130 --frame-end 141 --checkpoint-interval 1`
-  - result: `native gameplay window comparison passed`
-- `cargo test -p kid-core death_respawn_level_1_exposes_title_menu_cursor_on_frame_136 -- --nocapture`
-  - result: `ok`
+- `cargo run -p kidcli -- case verify --case death-respawn-derived-check`
+  - result: `case death_respawn_level1_case_00000_00200: FAIL`
+  - first failure: frame 161, `player.x_pos`, native `2621440`, oracle `0`
+- `cargo run -p kidcli -- case summarise --case death-respawn-derived-check`
+  - result: selected case summary refreshed with `first_bad_frame: 161`
+- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 150 --frame-end 170 --checkpoint-interval 1`
+  - result: divergence on frame 161, `kid_x_pos` native `0x00280000`, oracle `0x00000000`
 - ASM basis:
-  - `Obj_TitleMenu loc_1BAEA` keeps the title shell alive before the first Start edge
-  - `Obj_TitleMenu loc_1BB52` spawns the `$28,$30` cursor on the following frame
-  - `Title_InputLoop` defers the `Game_Mode=$0008` hand-off by one traced frame
+  - `Obj_TitleMenu loc_1BAEA` and `loc_1BB52` explain the already-fixed earlier title-menu timing
+  - `Title_InputLoop` still owns the `Game_Mode=$0008` hand-off
+  - `Load_InGame` owns the later level bootstrap that seeds the player pose from `PlayerStart_X_pos` / `PlayerStart_Y_pos` before hidden settle work
 
 ## Exact Next Moves
 
-1. Re-run the larger duplicate window `death-respawn-derived-check` (`0..200`) and confirm the first bad frame moved beyond 141.
-2. If the larger window now fails later in the same early mode-8 lineage, use the existing oracle samples around frames 160..174 before patching anything else.
-3. Do not widen into the later death/respawn frontier until the duplicate `0..200` case is either green or has a new first bad frame pinned down.
+1. Tighten the selected case around frame 161 before any gameplay patch. Use `kidcli case reduce --case death-respawn-derived-check` or derive an equivalent narrower replay-matched window that preserves the frame-161 `player.x_pos` signature.
+2. Once the reduced case is stable, inspect the native `BootState::StartingLevel` / `Load_InGame` hand-off against the ROM-owned `loc_6E2 -> Load_InGame` path. The remaining mismatch is no longer the title cursor timing.
+3. Only allow a gameplay patch after the reduced case points at the same frame-161 failure and the first responsible bootstrap step is identified from ASM plus oracle.
 
 ## Verification To Re-run
 
-- `cargo test -p kid-core death_respawn_level_1_exposes_title_menu_cursor_on_frame_136 -- --nocapture`
-- `cargo run -p kidcli -- case verify --case .cache/cases/death-respawn-derived-check-tight-130-141`
-- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 130 --frame-end 141 --checkpoint-interval 1`
-- `cargo run -p kidcli -- case summarise --case .cache/cases/death-respawn-derived-check-tight-130-141`
+- `cargo run -p kidcli -- case verify --case death-respawn-derived-check`
+- `cargo run -p kidcli -- case summarise --case death-respawn-derived-check`
+- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 150 --frame-end 170 --checkpoint-interval 1`
+- After tightening the case: re-run verify on that tighter bundle and confirm frame 161 remains the first authoritative failure.
 
 ## Dead Ends / Do Not Retry
 
-- Do not go back to `lose_life`, `Teleport`, or later `Load_InGame` gameplay logic for this case. The selected window was still owned by the title-menu hand-off.
-- Do not make the title cursor visible on the same frame as the first Start edge. Oracle only exposes `loc_1BB52` on the following frame.
-- Do not switch from title menu straight to `StartingLevel` on the same frame as the second Start edge. Oracle keeps frame 137 in `Game_Mode=$002C` and only reaches mode 8 on frame 138.
+- Do not reopen the already-fixed frame-136 title-menu work. This selected case now fails later, at frame 161.
+- Do not widen into `lose_life`, `Teleport`, or late respawn logic yet. The selected case still sits in the early `Game_Mode=$0008` bootstrap lineage.
+- Do not patch player physics or collision from the broad `0..200` case alone. Tighten the evidence first, then patch from the reduced frame-161 case.
