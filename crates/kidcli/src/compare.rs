@@ -489,6 +489,17 @@ pub(crate) fn compare_gameplay_checkpoints_against_oracle(
             oracle.number_gfx_objects,
             tolerance.number_gfx_objects,
         )?;
+        if native.character_movement != oracle.character_movement {
+            bail!(
+                "gameplay state {}@{} diverged in character movement (native {:?}, oracle {:?}); artefacts in {}{}",
+                native.label,
+                native.frame_index,
+                native.character_movement,
+                oracle.character_movement,
+                run_dir.display(),
+                gameplay_debug_context(native)
+            );
+        }
     }
 
     Ok(())
@@ -671,6 +682,9 @@ pub(crate) fn gameplay_differing_fields(
     }
     if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > CAMERA_POSITION_TOLERANCE {
         fields.push("kid_y_pos");
+    }
+    if native.character_movement != oracle.character_movement {
+        fields.push("character_movement");
     }
     fields
 }
@@ -1559,5 +1573,34 @@ mod tests {
         assert!(hint.contains("native frames 1..5"));
         assert!(hint.contains("oracle one frame earlier"));
         assert!(hint.contains("likely phase-slip onset at frame 1"));
+    }
+
+    #[test]
+    fn compare_gameplay_checkpoints_reports_character_movement_drift() {
+        let run_dir = Path::new("/tmp/gameplay-character-movement-drift");
+        let native = vec![gameplay_state(720, "frame_00720", 0x0020_0000)];
+        let mut oracle = native.clone();
+        oracle[0].character_movement = Some(0);
+
+        let error = compare_gameplay_checkpoints_against_oracle(
+            run_dir,
+            GameplayScenario::DeathRespawnLevel1,
+            &native,
+            &oracle,
+        )
+        .expect_err("movement drift should fail checkpoint comparison");
+
+        assert!(error.to_string().contains("character movement"));
+    }
+
+    #[test]
+    fn gameplay_differing_fields_reports_character_movement_drift() {
+        let native = gameplay_state(720, "frame_00720", 0x0020_0000);
+        let mut oracle = native.clone();
+        oracle.character_movement = Some(0);
+
+        let fields = gameplay_differing_fields(&native, &oracle);
+
+        assert_eq!(fields, vec!["character_movement"]);
     }
 }
