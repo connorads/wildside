@@ -286,6 +286,14 @@ pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME: usize = 52;
 pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME: usize = 59;
 pub(crate) const EARLY_START_LOAD_INGAME_VISIBLE_FRAME: usize = 60;
 pub(crate) const EARLY_START_LOAD_INGAME_HANDOFF_FRAMES: usize = 122;
+// ASM `loc_1AE2E -> loc_6E2` leaves Level 1's early title-start lineage on a
+// hidden mode-$0008 bootstrap that slides from slot 2's seeded `loc_1AC70`
+// pose toward the same `(x=$40,y=$68)` hold used by the later hidden bootstrap
+// shell before the visible `Load_InGame` settle frames begin.
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP: u32 = 0x0128_0000;
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP: u32 = 0x0100_0000;
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP: i32 = -0x0003_A000;
+pub(crate) const EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP: i32 = -0x0002_6000;
 // ASM Load_TitleCard allocates loc_1AC70 immediately on the early title-start
 // lineage too, but the later Start arrives much sooner than on the cold boot
 // path. Oracle therefore exposes slot 2's seeded loc_1AC70 pose on frame 172,

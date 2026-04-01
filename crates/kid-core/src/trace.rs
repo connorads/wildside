@@ -99,6 +99,49 @@ impl NativeRuntime {
             .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES)
     }
 
+    fn early_start_level_one_hidden_bootstrap_player_state(&self) -> Option<PlayerState> {
+        if self.current_level != LevelId(0) {
+            return None;
+        }
+
+        let bootstrap_elapsed = match self.boot_state {
+            BootState::StartingLevel {
+                elapsed_frames,
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: false,
+                ..
+            } => elapsed_frames.checked_sub(EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME)?,
+            BootState::StartingLevel {
+                elapsed_frames,
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: true,
+                ..
+            } => 6usize.saturating_add(elapsed_frames),
+            _ => return None,
+        };
+
+        let elapsed_i64 = i64::try_from(bootstrap_elapsed).unwrap_or(i64::MAX);
+        let x_pos = i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP)
+            + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP) * elapsed_i64;
+        let y_pos = i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP)
+            + i64::from(EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP) * elapsed_i64;
+        Some(PlayerState {
+            x_pos: x_pos as u32,
+            y_pos: y_pos as u32,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        })
+    }
+
     fn early_start_load_ingame_player_state(&self) -> Option<PlayerState> {
         let elapsed = self.early_start_load_ingame_elapsed_frames()?;
         if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
@@ -1598,6 +1641,7 @@ impl NativeRuntime {
             BootState::StartingLevel { elapsed_frames, .. } => self
                 .title_menu_cursor_player_state()
                 .filter(|_| self.early_start_title_menu_cursor_pose_carry_active())
+                .or_else(|| self.early_start_level_one_hidden_bootstrap_player_state())
                 .or_else(|| self.early_start_load_ingame_player_state())
                 .or_else(|| self.starting_level_slot_2_pose(elapsed_frames)),
             BootState::InGame | BootState::DemoPlay { .. } => {

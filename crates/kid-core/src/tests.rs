@@ -573,6 +573,40 @@ fn death_respawn_level_1_reuses_loc_1ac70_slot_2_seed_on_frame_172() {
 }
 
 #[test]
+fn early_start_bootstrap_uses_level_one_hidden_bootstrap_slide_on_frames_172_to_179() {
+    let mut runtime = cached_generated_runtime();
+    let script = imported_early_start_boot_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(180) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (172..=179).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    // ASM `loc_1AE2E -> loc_6E2` switches the early title-start lineage out of
+    // the visible `loc_1AC70` letter target and into Level 1's hidden
+    // bootstrap slide before the later visible `Load_InGame` settle frames.
+    let expected = [
+        (172usize, 0x0128_0000, 0x0100_0000),
+        (173usize, 0x0124_6000, 0x00FD_A000),
+        (174usize, 0x0120_C000, 0x00FB_4000),
+        (175usize, 0x011D_2000, 0x00F8_E000),
+        (176usize, 0x0119_8000, 0x00F6_8000),
+        (177usize, 0x0115_E000, 0x00F4_2000),
+        (178usize, 0x0112_4000, 0x00F1_C000),
+        (179usize, 0x010E_A000, 0x00EF_6000),
+    ];
+
+    for (frame, expected_x, expected_y) in expected {
+        let trace = frames.get(&frame).expect("captured frame");
+        assert_eq!(trace.kid_x_pos, Some(expected_x), "frame {frame} x");
+        assert_eq!(trace.kid_y_pos, Some(expected_y), "frame {frame} y");
+    }
+}
+
+#[test]
 fn death_respawn_level_1_matches_load_ingame_handoff_through_frame_300() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
