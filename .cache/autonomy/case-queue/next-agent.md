@@ -1,58 +1,54 @@
 ---
 slug: death_respawn_level1_case_00600_00750
-cycle: 36
-updated_at: 2026-04-01T01:14:20Z
+cycle: 37
+updated_at: 2026-04-01T01:21:38Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 36 selected `death_respawn_level1_case_00600_00750` from `death-respawn-level1-600-750`.
-- Re-verified the selected case with `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`; it still fails immediately at frame `600` on `player.x_pos`.
-- Refreshed `cargo run -p kidcli -- case summarise --case death-respawn-level1-600-750` so the on-disk summary matches the current verify result.
-- Read the relevant ROM path before considering any gameplay patch: `loc_B80C`, `lose_life`, `Teleport`, `loc_6E2`, `loc_74C8`, and `Load_InGame` in `.cache/upstream/kid-chameleon-disasm/kid.asm`.
-- Checked surrounding reduced cases: `death_respawn_level1_case_00700_00800` and `death_respawn_level1_case_00720_00900` both still pass, so the selected `600..750` failure does not point at a later death/respawn gameplay drift.
-- Tried `cargo run -p kidcli -- case reduce --case death-respawn-level1-600-750`; after more than a minute it produced no output or artefacts, so I killed the stray reducer and treated that as evidence.
-- Did not patch gameplay code. The selected case remains `evidence-only`.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 37 re-selected `death_respawn_level1_case_00600_00750`.
+- Re-verified the selected case before changing code. It still reported `FAIL`, but the canonical gameplay window for the same range (`600..749` and `600..750`) passed.
+- Read the ROM death/respawn path in `.cache/upstream/kid-chameleon-disasm/kid.asm`: `loc_B80C`, `lose_life`, `Teleport`, `loc_6E2`, `Load_InGame`. The ASM still says this range should already be in the normal in-level shell, so there was no basis for a gameplay patch.
+- Proved the selected cache artefact was stale: a freshly derived case bundle for the same gameplay window verified `PASS`, while the cached bundle verified `FAIL`.
+- Patched `crates/kidcli/src/case.rs` so gameplay-backed case bundles are canonicalised from source metadata during `case verify` and `case reduce` instead of trusting stale persisted scenario blobs.
+- Re-ran `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`; the selected case now passes and its summary was refreshed.
 
 ## Selected Case
 
 - Case ID: `death_respawn_level1_case_00600_00750`
 - Selector: `death-respawn-level1-600-750`
-- Autonomy gate: `evidence-only`
-- Verify result: `FAIL`
-- First bad frame/field after re-verify: frame `600`, `player.x_pos`
+- Autonomy gate at selection time: `evidence-only`
+- Current verify result: `PASS`
 
 ## Why This Case
 
-- The loop selected this exact case from `.cache/autonomy/case-queue/next-task.json`, so the session stayed on `death-respawn-level1-600-750` only.
-- Re-verification shows the miss happens on the checkpoint frame itself, before the selected window has a chance to prove any later gameplay divergence.
-- The neighbouring reduced cases that start later (`700..800`, `720..900`) already pass, so the likely problem is the `frame_00600` seed or checkpoint reconstruction rather than new death/respawn gameplay logic.
+- The loop selected this exact case for cycle 37, so the session stayed on `death-respawn-level1-600-750` only.
+- The first task was to decide whether the immediate frame-600 failure was a real gameplay drift or a stale case artefact.
+- The canonical gameplay comparison and the fresh derive proved the failure was in the cached case payload, not in live gameplay.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750` still reports `death_respawn_level1_case_00600_00750: FAIL`.
-- `.cache/cases/death-respawn-level1-600-750/verify.json` records the first failure at frame `600` on `player.x_pos` with native `4096000` and oracle `2097152`.
-- `.cache/cases/death-respawn-level1-600-750/native-semantic.json` starts the case in an impossible shell state relative to oracle: frame `600` has native `hp=0`, `x=4096000`, `y=25755648`, `y_velocity=499712`, while oracle has `hp=2`, `x=2097152`, `y=17760256`, `y_velocity=0`.
-- The same selected case does not converge onto the later passing seeds: inside `600..750`, frame `700` still has native `x=6848512`, oracle `x=13172736`, while the separate reduced case `.cache/cases/death-respawn-level1-gameplay/summary.md` (`700..800`) passes.
-- ASM says the fatal-hit path is `loc_B80C -> lose_life -> Teleport -> move.w #8,(Game_Mode).w -> jmp (j_loc_6E2).w`, with `loc_6E2` rebuilding the shell before `Load_InGame` restores in-level state. That matches the evidence pointing at checkpoint/bootstrap state, not a justified gameplay patch.
+- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 600 --frame-end 749 --checkpoint-interval 1` passes.
+- `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 600 --frame-end 750 --checkpoint-interval 1` passes.
+- `cargo run -p kidcli -- case derive --gameplay-scenario death-respawn-level1 --frame-start 600 --frame-end 750 --out /tmp/kc-case-600-750` followed by `cargo run -p kidcli -- case verify --case /tmp/kc-case-600-750` passes.
+- After the fix, `.cache/cases/death-respawn-level1-600-750/verify.json` now records `"passed": true` with matching fields `world.game_mode`, `camera`, `player.position`, `player.motion`, `entities`, and `events`.
+- ASM still points at the standard respawn shell: `lose_life -> Teleport -> move.w #8,(Game_Mode).w -> jmp (j_loc_6E2).w`, then `Load_InGame` restores `PlayerStart_*`. Nothing in that path justified a new gameplay patch for `600..750`.
 
 ## Exact Next Moves
 
-1. Investigate the `frame_00600` checkpoint builder or case-seeding path for `death-respawn-level1-600-750`; compare how the selected case materialises player/life state against the already-passing `700..800` seed.
-2. Fix or instrument `kidcli case reduce --case death-respawn-level1-600-750` so this exact selector can be tightened instead of hanging silently.
-3. Once reduction works, replace the broad `600..750` parent with the tightest child that still fails on the checkpoint frame; if the tightest failing child still starts in the same impossible shell state, keep the work in the case/checkpoint pipeline rather than gameplay.
-4. Only consider a gameplay patch after a tighter child proves a live divergence after the checkpoint seed is trustworthy; if that happens, re-read `lose_life`, `Teleport`, `loc_6E2`, and `Load_InGame` first.
+1. Run `cargo run -p kidcli -- autonomous-loop --goal case-queue` again to select the next open case now that `death-respawn-level1-600-750` is no longer failing.
+2. Re-verify the newly selected case before touching code.
+3. If the next selected case is gameplay-backed, trust `case verify`/`case reduce` again; they now rebuild canonical gameplay windows instead of replaying stale persisted scenario payloads.
 
 ## Verification To Re-run
 
-- `cargo run -p kidcli -- autonomous-loop --goal case-queue`
+- `cargo test -p kidcli canonicalise_gameplay_case_manifest_repairs_stale_window_payload`
+- `cargo test -p kidcli gameplay_case_verification_scenario_matches_canonical_window_builder`
 - `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`
 - `cargo run -p kidcli -- case summarise --case death-respawn-level1-600-750`
-- `cargo run -p kidcli -- case reduce --case death-respawn-level1-600-750`
 
 ## Dead Ends / Do Not Retry
 
-- Do not patch gameplay code from this handoff alone; the selected case is still `evidence-only`, and the ROM read does not justify a new gameplay change yet.
-- Do not widen back to another death/respawn or pause/resume case in the same session; cycle 36 selected `death-respawn-level1-600-750`.
-- Do not treat the passing `700..800` / `720..900` cases as contradictory noise; they are the key evidence that the selected `600..750` case is seeded badly rather than exposing a later live drift.
-- Do not leave `kidcli case reduce --case death-respawn-level1-600-750` running indefinitely; the bounded run here produced no output and needed manual cleanup.
+- Do not patch death/respawn gameplay for this case. The selected range now passes once the stale gameplay case manifest is canonicalised.
+- Do not assume a cached gameplay case bundle is still trustworthy if it predates gameplay-window builder fixes; re-verify or freshly derive it first.
+- Do not use `cargo test -- --exact` for these `kidcli` unit names in this crate layout; substring selection is the reliable path here.

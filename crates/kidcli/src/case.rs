@@ -533,7 +533,7 @@ fn verify_case_bundle(
     manifest: &AssetManifest,
     case_dir: &Path,
 ) -> Result<()> {
-    let loaded = load_case_manifest(case_dir)?;
+    let loaded = canonicalise_case_manifest(load_case_manifest(case_dir)?)?;
     let verify = run_case_verification(
         repo_root,
         rom_path,
@@ -559,7 +559,7 @@ fn reduce_case_bundle(
     manifest: &AssetManifest,
     case_dir: &Path,
 ) -> Result<()> {
-    let mut loaded = load_case_manifest(case_dir)?;
+    let mut loaded = canonicalise_case_manifest(load_case_manifest(case_dir)?)?;
     let initial = run_case_verification(
         repo_root,
         rom_path,
@@ -1603,6 +1603,26 @@ fn build_case_verification_scenario(
     })
 }
 
+fn canonicalise_case_manifest(mut manifest: CaseBundleManifest) -> Result<CaseBundleManifest> {
+    if !matches!(manifest.source, CaseSource::GameplayScenario { .. }) {
+        return Ok(manifest);
+    }
+
+    let verification = build_case_verification_scenario(
+        &manifest.source,
+        &manifest.scenario,
+        manifest.frame_start,
+        manifest.frame_end,
+    )?;
+    manifest.scenario = verification.scenario;
+    manifest.checkpoint_frame = manifest.frame_start;
+    manifest.checkpoint_label = format!("frame_{:05}", manifest.frame_start);
+    manifest.prefix_script = manifest.scenario.script[..manifest.frame_start].to_vec();
+    manifest.continuation_script =
+        manifest.scenario.script[manifest.frame_start..manifest.frame_end].to_vec();
+    Ok(manifest)
+}
+
 fn build_branch_scenario(
     manifest: &CaseBundleManifest,
     continuation_script: &[u8],
@@ -1902,6 +1922,43 @@ mod tests {
         assert_eq!(verification.scenario.frame_count, expected.frame_count);
         assert_eq!(verification.scenario.checkpoints, expected.checkpoints);
         assert_eq!(verification.scenario.script, expected.script);
+    }
+
+    #[test]
+    fn canonicalise_gameplay_case_manifest_repairs_stale_window_payload() {
+        let mut manifest = sample_case_manifest();
+        manifest.source = CaseSource::GameplayScenario {
+            slug: String::from("death_respawn_level1"),
+        };
+        manifest.scenario_slug = String::from("death_respawn_level1");
+        manifest.frame_start = 600;
+        manifest.frame_end = 750;
+        manifest.checkpoint_frame = 600;
+        manifest.checkpoint_label = String::from("frame_00600");
+        manifest.scenario = DynamicScenario {
+            slug: String::from("stale"),
+            script: vec![0; 750],
+            frame_count: 750,
+            checkpoints: vec![DynamicCheckpoint {
+                label: String::from("frame_00600"),
+                frame_index: 600,
+            }],
+            warp_to_level: None,
+        };
+        manifest.prefix_script = vec![0; 10];
+        manifest.continuation_script = vec![0; 10];
+
+        let repaired = canonicalise_case_manifest(manifest).expect("canonical gameplay manifest");
+        let expected = GameplayScenario::DeathRespawnLevel1
+            .to_dynamic_window(600, 749, 1)
+            .expect("canonical gameplay window");
+
+        assert_eq!(repaired.scenario, expected);
+        assert_eq!(repaired.prefix_script, expected.script[..600].to_vec());
+        assert_eq!(
+            repaired.continuation_script,
+            expected.script[600..750].to_vec()
+        );
     }
 
     #[test]
