@@ -1,53 +1,53 @@
 ---
-slug: death_respawn_level1_case_00600_00750
-cycle: 23
-updated_at: 2026-04-01T00:14:32Z
+slug: death_respawn_level1_case_00720_00900
+cycle: 24
+updated_at: 2026-04-01T00:18:09Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 23 reported a `720..900` summary on stdout, but `.cache/autonomy/case-queue/next-task.json` still selected `death_respawn_level1_case_00600_00750`.
-- Re-ran the selected case exactly as packaged: `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`.
-- Refreshed the selected case summary with `cargo run -p kidcli -- case summarise --case death-respawn-level1-600-750`.
-- Read the ROM death / teleport path in `.cache/upstream/kid-chameleon-disasm/kid.asm` before considering gameplay work.
-- Did not patch gameplay. The selected window still fails at its checkpoint on `player.x_pos`, so the respawn-shell `world.game_mode` theory remains stale metadata, not a live bug in this case.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 24 selected `death_respawn_level1_case_00720_00900`.
+- Re-verified the selected case with `cargo run -p kidcli -- case verify --case death-respawn-level1-720-900`.
+- Read the ROM death / respawn shell in `.cache/upstream/kid-chameleon-disasm/kid.asm:14714` before any gameplay edit; `Death -> lose_life -> Teleport` still writes `Game_Mode = #8`, so the case remains centred on a native/oracle mode-order mismatch, not an unexplained gameplay guess.
+- Tightened the case verifier in [`case.rs`](/home/connor/git/kc/crates/kidcli/src/case.rs) so `matching_fields` are derived from the actual semantic comparisons instead of a hard-coded list.
+- Added a regression test covering a `world.game_mode` mismatch, then refreshed the selected case summary with `cargo run -p kidcli -- case summarise --case death-respawn-level1-720-900`.
 
 ## Selected Case
 
-- Case ID: `death_respawn_level1_case_00600_00750`
-- Selector: `death-respawn-level1-600-750`
+- Case ID: `death_respawn_level1_case_00720_00900`
+- Selector: `death-respawn-level1-720-900`
 - Autonomy gate: `evidence-only`
 - Verify result: `FAIL`
-- First live failure: frame `600`, `player.x_pos` native `4096000`, oracle `2097152`
+- First live failure: frame `720`, `world.game_mode`, native `8`, oracle `12`
 
 ## Why This Case
 
-- The loop spec says to work only the selected case from `.cache/autonomy/case-queue/next-task.json`.
-- Even though `autonomous-loop` stdout mentioned `death_respawn_level1_case_00720_00900`, the task package on disk still pointed at `600..750`, so widening to the later case would have violated the selected-case rule.
-- Re-verification was required because the packaged summary still claimed `world.game_mode` as the first failure.
+- The loop spec says to take the selected case only from `.cache/autonomy/case-queue/next-task.json`.
+- This case was already narrowed to a 180-frame replay-matched window, so the useful work here was to re-verify it and tighten the evidence before considering any wider gameplay patch.
+- The stale verifier output was masking the real shape of the mismatch by claiming several categories matched when they did not.
 
 ## Strongest Evidence
 
-- `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750` returns `case death_respawn_level1_case_00600_00750: FAIL`.
-- `.cache/cases/death-respawn-level1-600-750/verify.json` now records `player.x_pos` as the first failure at frame `600`; `world.game_mode` is listed under `matching_fields`.
-- `.cache/cases/death-respawn-level1-600-750/summary.md` matches the refreshed verify report.
-- ASM `.cache/upstream/kid-chameleon-disasm/kid.asm:14772` (`Teleport`) sets `Game_Mode` to `#8` only after the death / teleport shell runs, so a frame-600 checkpoint mismatch is upstream of that shell.
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-720-900` still returns `case death_respawn_level1_case_00720_00900: FAIL`.
+- `.cache/cases/death-respawn-level1-720-900/verify.json` now records `world.game_mode` as the first failure at frame `720` with native `8` and oracle `12`.
+- The refreshed `.cache/cases/death-respawn-level1-720-900/summary.md` now reports `matching_fields: entities, events`; camera and player categories no longer appear as false positives.
+- ASM `.cache/upstream/kid-chameleon-disasm/kid.asm:14772` (`Teleport`) confirms the death / respawn shell explicitly writes `move.w #8,(Game_Mode).w` before jumping into `loc_6E2`.
 
 ## Exact Next Moves
 
-1. Keep this case evidence-only; do not patch `Death` / `Teleport` for the `600..750` window.
-2. Fix or re-queue the earlier source of the inherited `player.x_pos` drift before returning to this case.
-3. Refresh case-queue packaging so `autonomous-loop` stdout, `next-task.json`, and the case summary agree on the selected case and first failing field.
+1. Use the tightened case bundle to probe which native path advances from respawn mode `8` to in-game mode `12` too early around frame `720`.
+2. Read the ROM routine reached from `loc_6E2` and the native equivalent before changing gameplay code.
+3. Keep the work scoped to `death_respawn_level1_case_00720_00900`; if the next evidence shows an earlier inherited divergence, re-queue rather than widening ad hoc.
 
 ## Verification To Re-run
 
-- `cargo run -p kidcli -- autonomous-loop --goal case-queue`
-- `cargo run -p kidcli -- case verify --case death-respawn-level1-600-750`
-- `cargo run -p kidcli -- case summarise --case death-respawn-level1-600-750`
-- `sed -n '14714,14820p' .cache/upstream/kid-chameleon-disasm/kid.asm`
+- `cargo test -p kidcli compare_semantic_states`
+- `cargo run -p kidcli -- case verify --case death-respawn-level1-720-900`
+- `cargo run -p kidcli -- case summarise --case death-respawn-level1-720-900`
+- `sed -n '14714,14830p' .cache/upstream/kid-chameleon-disasm/kid.asm`
 
 ## Dead Ends / Do Not Retry
 
-- Do not debug `world.game_mode` for this case unless a fresh verify report says it fails again; the live verify output says it matches.
-- Do not widen this session to `death_respawn_level1_case_00720_00900` just because stdout mentioned it; the packaged selected case was still `600..750`.
-- Do not patch the respawn shell from this case alone; the checkpoint is already wrong on `player.x_pos` at frame `600`.
+- Do not trust old `matching_fields` output from before this verifier fix; it was hard-coded and could contradict `first_failure`.
+- Do not patch random respawn timing from the case summary alone; the next gameplay step still needs the post-`Teleport` ASM path.
+- Do not widen to other death-respawn windows in this session; this handoff is only for `death_respawn_level1_case_00720_00900`.

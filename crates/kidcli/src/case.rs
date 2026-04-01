@@ -1097,14 +1097,7 @@ fn compare_semantic_states(
         native_states.len(),
         oracle_states.len()
     );
-    let matching_fields = vec![
-        String::from("world.game_mode"),
-        String::from("camera"),
-        String::from("player.position"),
-        String::from("player.motion"),
-        String::from("entities"),
-        String::from("events"),
-    ];
+    let matching_fields = semantic_matching_fields(native_states, oracle_states);
 
     for (native, oracle) in native_states.iter().zip(oracle_states) {
         anyhow::ensure!(
@@ -1135,6 +1128,69 @@ fn compare_semantic_states(
         matching_fields,
         likely_subsystems: vec![String::from("none")],
     })
+}
+
+fn semantic_matching_fields(
+    native_states: &[SemanticGameState],
+    oracle_states: &[SemanticGameState],
+) -> Vec<String> {
+    let mut matching_fields = Vec::new();
+
+    if native_states
+        .iter()
+        .zip(oracle_states)
+        .all(|(native, oracle)| native.world.game_mode == oracle.world.game_mode)
+    {
+        matching_fields.push(String::from("world.game_mode"));
+    }
+    if native_states
+        .iter()
+        .zip(oracle_states)
+        .all(|(native, oracle)| {
+            native.camera.x_pos == oracle.camera.x_pos && native.camera.y_pos == oracle.camera.y_pos
+        })
+    {
+        matching_fields.push(String::from("camera"));
+    }
+    if native_states
+        .iter()
+        .zip(oracle_states)
+        .all(|(native, oracle)| {
+            native.player.x_pos == oracle.player.x_pos && native.player.y_pos == oracle.player.y_pos
+        })
+    {
+        matching_fields.push(String::from("player.position"));
+    }
+    if native_states
+        .iter()
+        .zip(oracle_states)
+        .all(|(native, oracle)| {
+            native.player.x_velocity == oracle.player.x_velocity
+                && native.player.y_velocity == oracle.player.y_velocity
+                && native.player.on_ground == oracle.player.on_ground
+                && native.player.movement_state == oracle.player.movement_state
+                && native.player.current_form == oracle.player.current_form
+                && native.player.hitpoints == oracle.player.hitpoints
+        })
+    {
+        matching_fields.push(String::from("player.motion"));
+    }
+    if native_states
+        .iter()
+        .zip(oracle_states)
+        .all(|(native, oracle)| native.entities == oracle.entities)
+    {
+        matching_fields.push(String::from("entities"));
+    }
+    if native_states
+        .iter()
+        .zip(oracle_states)
+        .all(|(native, oracle)| native.events == oracle.events)
+    {
+        matching_fields.push(String::from("events"));
+    }
+
+    matching_fields
 }
 
 fn first_semantic_failure(
@@ -1730,6 +1786,55 @@ mod tests {
         assert_eq!(
             report.likely_subsystems,
             vec!["player physics", "collision"]
+        );
+    }
+
+    #[test]
+    fn compare_semantic_states_only_reports_categories_that_match() {
+        let native = SemanticGameState {
+            frame_index: 720,
+            player: SemanticPlayerState {
+                x_pos: Some(10),
+                y_pos: Some(20),
+                x_velocity: Some(1),
+                y_velocity: Some(0),
+                facing: None,
+                on_ground: Some(true),
+                movement_state: Some(String::from("movement_0000")),
+                current_form: Some(0),
+                hitpoints: Some(3),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState { x_pos: 5, y_pos: 7 },
+            world: SemanticWorldState {
+                game_mode: 0x000c,
+                current_level_id: 0,
+                player_1_level_id: 0,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused: false,
+                boot_phase: None,
+            },
+            entities: vec![],
+            events: vec![],
+        };
+        let mut oracle = native.clone();
+        oracle.world.game_mode = 0x0008;
+        let report =
+            compare_semantic_states(String::from("sample"), &[native], &[oracle]).expect("report");
+
+        assert_eq!(
+            report.matching_fields,
+            vec![
+                "camera",
+                "player.position",
+                "player.motion",
+                "entities",
+                "events"
+            ]
         );
     }
 
