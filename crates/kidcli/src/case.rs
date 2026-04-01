@@ -600,8 +600,19 @@ fn reduce_case_bundle(
         while index > 0 {
             let start = index.saturating_sub(span);
             let mut candidate = working.clone();
+            let mut zeroed_any_input = false;
             for slot in candidate.iter_mut().take(index).skip(start) {
-                *slot = 0;
+                if *slot != 0 {
+                    *slot = 0;
+                    zeroed_any_input = true;
+                }
+            }
+            if !zeroed_any_input {
+                if start == 0 {
+                    break;
+                }
+                index = start;
+                continue;
             }
             if preserves_failure_signature(
                 repo_root, rom_path, manifest, &loaded, &candidate, &signature,
@@ -1883,6 +1894,24 @@ mod tests {
     fn evidence_tier_labels_match_repo_language() {
         assert_eq!(EvidenceTier::ReplayMatched.label(), "replay-matched");
         assert_eq!(EvidenceTier::HumanPlayStable.label(), "human-play-stable");
+    }
+
+    #[test]
+    fn reduction_skips_spans_that_are_already_zero() {
+        let working = vec![0, MASK_RIGHT, 0, 0];
+        let start = 2;
+        let index = 4;
+        let mut candidate = working.clone();
+        let mut zeroed_any_input = false;
+        for slot in candidate.iter_mut().take(index).skip(start) {
+            if *slot != 0 {
+                *slot = 0;
+                zeroed_any_input = true;
+            }
+        }
+
+        assert!(!zeroed_any_input);
+        assert_eq!(candidate, working);
     }
 
     #[test]

@@ -1,20 +1,21 @@
 ---
 slug: death_respawn_level1_case_00000_00200
-cycle: 40
-updated_at: 2026-04-01T01:51:05Z
+cycle: 41
+updated_at: 2026-04-01T02:07:09Z
 ---
 
 ## What Changed
 
-- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 40 selected `death_respawn_level1_case_00000_00200` (`death-respawn-derived-check`).
-- Re-verified the selected case before any gameplay work; it now fails first on frame 161 at `player.x_pos`.
-- Refreshed the case summary after verify so the selected bundle records the shifted first failure at frame 161 instead of the stale frame-136 report.
-- Read the relevant ROM path before considering any gameplay change:
-  - `.cache/upstream/kid-chameleon-disasm/kid.asm`: `Obj_TitleMenu`, `loc_1BAEA`, `loc_1BB52`, `Title_InputLoop`, `Load_InGame`
-- Compared native vs oracle on frames 150..170 and confirmed the broad case now diverges one frame later than the tightened 130..141 fix:
-  - native still exposes Kid at the grounded bootstrap pose on frame 161
-  - oracle clears Kid to `(0,0)` on frame 161 while `Game_Mode=$0008` still matches
-- Did not patch gameplay. The task package marks this selected case `evidence-only`, so the correct move is to tighten/reduce the case before touching runtime behaviour again.
+- Ran `cargo run -p kidcli -- autonomous-loop --goal case-queue`; cycle 41 selected the same case `death_respawn_level1_case_00000_00200` (`death-respawn-derived-check`).
+- Re-verified the selected case before any gameplay work; it still fails first on frame 161 at `player.x_pos`.
+- Read the relevant ROM bootstrap path before touching anything gameplay-facing:
+  - `.cache/upstream/kid-chameleon-disasm/kid.asm`: `loc_6E2`, `Load_InGame`, `Obj_TitleMenu`, `Title_InputLoop`
+- Confirmed with `compare-native-gameplay-window` that frame 161 diverges before `level_settle@719`:
+  - native still exposes Kid at `0x00280000`
+  - oracle has already cleared Kid to `0x00000000`
+  - `world.game_mode`, camera, and player motion still match
+- Tightened the selected case bundle from `0..200` down to `0..162` while preserving the exact first failure signature on frame 161.
+- Fixed a `kidcli case reduce` no-op span bug that could loop forever once the continuation script was already mostly zeroed; this was required to finish reducing the selected case.
 
 ## Selected Case
 
@@ -25,39 +26,44 @@ updated_at: 2026-04-01T01:51:05Z
 
 ## Why This Case
 
-- Cycle 40 selected this exact `0..200` reduced case, so the session stayed on the chosen case only.
-- The prior frame-136 title-menu mismatch is gone. The remaining failure moved to frame 161, which means the selected case now spans beyond the already-fixed title-start hand-off and into the later in-game bootstrap lineage.
-- Because the autonomy gate is now `evidence-only`, the value of this session was tightening the explanation of the remaining failure rather than widening into speculative gameplay fixes.
+- Cycle 41 selected this exact case again, so the session stayed on the chosen case only.
+- The earlier title-menu failure is gone; the remaining failure sits in the later `Game_Mode=$0008` bootstrap lineage just before the visible `Load_InGame` settle work.
+- Because the task is still `evidence-only`, the right move was to make the selected replay smaller and cleaner, not to widen into speculative player-physics patches.
 
 ## Strongest Evidence
 
 - `cargo run -p kidcli -- case verify --case death-respawn-derived-check`
   - result: `case death_respawn_level1_case_00000_00200: FAIL`
   - first failure: frame 161, `player.x_pos`, native `2621440`, oracle `0`
+- `.cache/cases/death-respawn-derived-check/manifest.json`
+  - result: selected bundle is now `frames: 0..162`
+  - surviving non-zero inputs are only four `Start` taps at frames `33`, `77`, `135`, and `137`
 - `cargo run -p kidcli -- case summarise --case death-respawn-derived-check`
-  - result: selected case summary refreshed with `first_bad_frame: 161`
+  - result: refreshed summary now reports `frames: 0..162`
+  - matching fields: `world.game_mode`, `camera`, `player.motion`, `entities`, `events`
 - `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 150 --frame-end 170 --checkpoint-interval 1`
   - result: divergence on frame 161, `kid_x_pos` native `0x00280000`, oracle `0x00000000`
 - ASM basis:
-  - `Obj_TitleMenu loc_1BAEA` and `loc_1BB52` explain the already-fixed earlier title-menu timing
-  - `Title_InputLoop` still owns the `Game_Mode=$0008` hand-off
-  - `Load_InGame` owns the later level bootstrap that seeds the player pose from `PlayerStart_X_pos` / `PlayerStart_Y_pos` before hidden settle work
+  - `loc_6E2` is the mode-reset + main-loop entry that hands control into `Load_InGame`
+  - `Load_InGame` seeds `PlayerStart_X_pos` / `PlayerStart_Y_pos`, then snaps camera and runs hidden settle/bootstrap work before normal gameplay becomes visible
+  - `Title_InputLoop` still owns the `Game_Mode=$0008` transition into that later bootstrap path
 
 ## Exact Next Moves
 
-1. Tighten the selected case around frame 161 before any gameplay patch. Use `kidcli case reduce --case death-respawn-derived-check` or derive an equivalent narrower replay-matched window that preserves the frame-161 `player.x_pos` signature.
-2. Once the reduced case is stable, inspect the native `BootState::StartingLevel` / `Load_InGame` hand-off against the ROM-owned `loc_6E2 -> Load_InGame` path. The remaining mismatch is no longer the title cursor timing.
-3. Only allow a gameplay patch after the reduced case points at the same frame-161 failure and the first responsible bootstrap step is identified from ASM plus oracle.
+1. Inspect the native `BootState::StartingLevel` / opening-slice hand-off against the ROM-owned `loc_6E2 -> Load_InGame` bootstrap. The reduced case now isolates the remaining failure to the frame immediately before the settled bootstrap pose appears.
+2. Trace why native still keeps Kid grounded at `0x0028_0000` on frame 161 while oracle clears Kid to zero even though `world.game_mode`, camera, and player motion still match.
+3. If a gameplay patch is needed later, keep it scoped to the bootstrap/respawn hand-off only. Do not reopen the already-fixed title-menu timing.
 
 ## Verification To Re-run
 
 - `cargo run -p kidcli -- case verify --case death-respawn-derived-check`
 - `cargo run -p kidcli -- case summarise --case death-respawn-derived-check`
 - `cargo run -p kidcli -- compare-native-gameplay-window --scenario death-respawn-level1 --frame-start 150 --frame-end 170 --checkpoint-interval 1`
-- After tightening the case: re-run verify on that tighter bundle and confirm frame 161 remains the first authoritative failure.
+- `cargo test -p kidcli reduction_skips_spans_that_are_already_zero`
 
 ## Dead Ends / Do Not Retry
 
 - Do not reopen the already-fixed frame-136 title-menu work. This selected case now fails later, at frame 161.
-- Do not widen into `lose_life`, `Teleport`, or late respawn logic yet. The selected case still sits in the early `Game_Mode=$0008` bootstrap lineage.
-- Do not patch player physics or collision from the broad `0..200` case alone. Tighten the evidence first, then patch from the reduced frame-161 case.
+- Do not widen into `lose_life`, `Teleport`, or late respawn gameplay logic yet. The reduced case still sits in the early `Game_Mode=$0008` bootstrap lineage.
+- Do not rerun the pre-fix reducer binary logic mentally; the selected case only finished reducing after skipping no-op zero spans.
+- Do not patch player physics or collision from the old `0..200` bundle. Use the reduced `0..162` bundle as the evidence base.
