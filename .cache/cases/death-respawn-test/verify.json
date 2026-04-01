@@ -1,0 +1,21 @@
+{
+  "case_id": "death_respawn_level1_case_00000_00200",
+  "passed": false,
+  "frame_count": 200,
+  "first_failure": {
+    "frame_index": 136,
+    "field": "player.x_pos",
+    "native_value": "0",
+    "oracle_value": "2621440"
+  },
+  "matching_fields": [
+    "camera",
+    "player.motion",
+    "entities",
+    "events"
+  ],
+  "likely_subsystems": [
+    "player physics",
+    "collision"
+  ]
+}
