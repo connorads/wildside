@@ -329,7 +329,17 @@ fn format_field_level_preview(level_ids: &[String]) -> String {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ReleaseGateFieldFocus {
     target: String,
+    step_name: String,
+    checkpoint: Option<String>,
     field: String,
+}
+
+fn compact_release_gate_step_name(step_name: &str) -> String {
+    step_name
+        .split_once(':')
+        .map(|(_, tail)| tail)
+        .unwrap_or(step_name)
+        .to_owned()
 }
 
 fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
@@ -352,6 +362,15 @@ fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
     }
     let field = field.trim_matches('_').to_owned();
     if field.is_empty() { None } else { Some(field) }
+}
+
+fn extract_release_gate_failed_checkpoint(detail: &str) -> Option<String> {
+    let (_, tail) = detail.split_once("state ")?;
+    let checkpoint = tail
+        .split_once(" diverged in ")
+        .map(|(checkpoint, _)| checkpoint.trim())
+        .filter(|checkpoint| !checkpoint.is_empty())?;
+    Some(checkpoint.to_owned())
 }
 
 fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFocus> {
@@ -381,10 +400,13 @@ fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFo
                             .is_some_and(|status| status == "failed")
                     })
                 })?;
+            let step_name = failed_step.get("name")?.as_str()?.to_owned();
             let detail = failed_step.get("detail")?.as_str()?;
             let field = extract_release_gate_failed_field(detail)?;
             Some(ReleaseGateFieldFocus {
                 target: target.to_owned(),
+                step_name,
+                checkpoint: extract_release_gate_failed_checkpoint(detail),
                 field,
             })
         })
@@ -400,17 +422,30 @@ fn format_release_gate_focus_summary(
         .find(|entry| entry.field == focus.field)
     {
         Some(entry) => format!(
-            "{} failing field {}={} diffs across {} levels{}{}",
+            "{} failing field {}={} diffs across {} levels for {}{}{}{} (field-only correlation; release-gate scenario still needs its own proof)",
             focus.target,
             entry.field,
             entry.total_diffs,
             entry.levels,
+            compact_release_gate_step_name(&focus.step_name),
+            focus
+                .checkpoint
+                .as_deref()
+                .map(|checkpoint| format!(" @ {checkpoint}"))
+                .unwrap_or_default(),
             format_field_category_summary(&entry.divergence_summary),
             format_field_level_preview(&entry.level_ids)
         ),
         None => format!(
-            "{} failing field {} not present in latest state sweep field_summary",
-            focus.target, focus.field
+            "{} failing field {} for {}{} not present in latest state sweep field_summary",
+            focus.target,
+            focus.field,
+            compact_release_gate_step_name(&focus.step_name),
+            focus
+                .checkpoint
+                .as_deref()
+                .map(|checkpoint| format!(" @ {checkpoint}"))
+                .unwrap_or_default()
         ),
     }
 }
@@ -3479,6 +3514,8 @@ mod tests {
             latest_release_gate_failed_fields(temp_dir.path()),
             vec![ReleaseGateFieldFocus {
                 target: "1p-accurate".into(),
+                step_name: "frame_oracle:boot_title_start_level1".into(),
+                checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
             }]
         );
@@ -3488,6 +3525,8 @@ mod tests {
     fn release_gate_focus_summary_uses_field_histogram_entry() {
         let focus = ReleaseGateFieldFocus {
             target: "1p-accurate".into(),
+            step_name: "frame_oracle:boot_title_start_level1".into(),
+            checkpoint: Some("title@360".into()),
             field: "game_mode".into(),
         };
         let field_summary = vec![SweepHistoryFieldEntry {
@@ -3513,7 +3552,7 @@ mod tests {
 
         assert_eq!(
             format_release_gate_focus_summary(&field_summary, &focus),
-            "1p-accurate failing field game_mode=15 diffs across 15 levels [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more]"
+            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] (field-only correlation; release-gate scenario still needs its own proof)"
         );
     }
 
