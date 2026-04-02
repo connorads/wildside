@@ -188,6 +188,8 @@ pub(crate) struct SweepHistoryFieldEntry {
     field: String,
     total_diffs: usize,
     levels: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    level_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
     divergence_summary: DivergenceSummary,
 }
@@ -299,6 +301,117 @@ fn format_field_category_summary(summary: &DivergenceSummary) -> String {
         String::new()
     } else {
         format!(" [{}]", parts.join(", "))
+    }
+}
+
+fn format_field_level_preview(level_ids: &[String]) -> String {
+    if level_ids.is_empty() {
+        return String::new();
+    }
+
+    const PREVIEW_LIMIT: usize = 5;
+    let preview = level_ids
+        .iter()
+        .take(PREVIEW_LIMIT)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    if level_ids.len() <= PREVIEW_LIMIT {
+        format!(" [{}]", preview)
+    } else {
+        format!(
+            " [{preview}, +{} more]",
+            level_ids.len().saturating_sub(PREVIEW_LIMIT)
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ReleaseGateFieldFocus {
+    target: String,
+    field: String,
+}
+
+fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
+    let (_, tail) = detail.split_once(" diverged in ")?;
+    let raw_field = tail
+        .split(['(', ';'])
+        .next()
+        .map(str::trim)
+        .filter(|field| !field.is_empty())?;
+    let mut field = String::new();
+    let mut previous_was_separator = false;
+    for ch in raw_field.chars() {
+        if ch.is_ascii_alphanumeric() {
+            field.push(ch.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            field.push('_');
+            previous_was_separator = true;
+        }
+    }
+    let field = field.trim_matches('_').to_owned();
+    if field.is_empty() { None } else { Some(field) }
+}
+
+fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFocus> {
+    ["1p-playable", "1p-accurate"]
+        .into_iter()
+        .filter_map(|target| {
+            let latest_path = repo_root
+                .join(".cache/release-gate")
+                .join(target)
+                .join("latest.json");
+            let contents = fs::read_to_string(&latest_path).ok()?;
+            let report = serde_json::from_str::<serde_json::Value>(&contents).ok()?;
+            if report
+                .get("passed")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+            {
+                return None;
+            }
+            let failed_step = report
+                .get("steps")
+                .and_then(serde_json::Value::as_array)
+                .and_then(|steps| {
+                    steps.iter().find(|step| {
+                        step.get("status")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|status| status == "failed")
+                    })
+                })?;
+            let detail = failed_step.get("detail")?.as_str()?;
+            let field = extract_release_gate_failed_field(detail)?;
+            Some(ReleaseGateFieldFocus {
+                target: target.to_owned(),
+                field,
+            })
+        })
+        .collect()
+}
+
+fn format_release_gate_focus_summary(
+    field_summary: &[SweepHistoryFieldEntry],
+    focus: &ReleaseGateFieldFocus,
+) -> String {
+    match field_summary
+        .iter()
+        .find(|entry| entry.field == focus.field)
+    {
+        Some(entry) => format!(
+            "{} failing field {}={} diffs across {} levels{}{}",
+            focus.target,
+            entry.field,
+            entry.total_diffs,
+            entry.levels,
+            format_field_category_summary(&entry.divergence_summary),
+            format_field_level_preview(&entry.level_ids)
+        ),
+        None => format!(
+            "{} failing field {} not present in latest state sweep field_summary",
+            focus.target, focus.field
+        ),
     }
 }
 
@@ -593,16 +706,26 @@ pub(crate) fn run_sweep_with_options(
             .take(5)
             .map(|entry| {
                 format!(
-                    "{}={} diffs across {} levels{}",
+                    "{}={} diffs across {} levels{}{}",
                     entry.field,
                     entry.total_diffs,
                     entry.levels,
-                    format_field_category_summary(&entry.divergence_summary)
+                    format_field_category_summary(&entry.divergence_summary),
+                    format_field_level_preview(&entry.level_ids)
                 )
             })
             .collect::<Vec<_>>()
             .join(", ");
         println!("top diff fields: {summary}");
+    }
+    let release_gate_focuses = latest_release_gate_failed_fields(repo_root);
+    if !release_gate_focuses.is_empty() {
+        let summary = release_gate_focuses
+            .iter()
+            .map(|focus| format_release_gate_focus_summary(&report.field_summary, focus))
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("release-gate focus: {summary}");
     }
     println!("report: {}", report_path.display());
 
@@ -847,6 +970,14 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
             levels: levels
                 .get(&field)
                 .map_or(0, std::collections::BTreeSet::len),
+            level_ids: levels
+                .get(&field)
+                .map(|ids| {
+                    ids.iter()
+                        .map(|level_id| format!("{level_id:#04x}"))
+                        .collect()
+                })
+                .unwrap_or_default(),
             divergence_summary: divergence_summaries.remove(&field).unwrap_or_default(),
             field,
             total_diffs,
@@ -3159,6 +3290,7 @@ mod tests {
                 field: "game_mode".into(),
                 total_diffs: 3,
                 levels: 2,
+                level_ids: vec!["0x00".into(), "0x01".into()],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 3,
@@ -3192,6 +3324,8 @@ mod tests {
         assert_eq!(value["field_summary"][0]["field"], "game_mode");
         assert_eq!(value["field_summary"][0]["total_diffs"], 3);
         assert_eq!(value["field_summary"][0]["levels"], 2);
+        assert_eq!(value["field_summary"][0]["level_ids"][0], "0x00");
+        assert_eq!(value["field_summary"][0]["level_ids"][1], "0x01");
         assert_eq!(value["per_level"][0]["fields"][0], "game_mode");
         assert_eq!(value["per_level"][0]["fields"][1], "number_objects");
     }
@@ -3271,6 +3405,7 @@ mod tests {
                     field: "camera_y_pos".into(),
                     total_diffs: 3,
                     levels: 2,
+                    level_ids: vec!["0x00".into(), "0x01".into()],
                     divergence_summary: DivergenceSummary {
                         authoritative: 0,
                         advisory: 0,
@@ -3283,6 +3418,7 @@ mod tests {
                     field: "game_mode".into(),
                     total_diffs: 1,
                     levels: 1,
+                    level_ids: vec!["0x00".into()],
                     divergence_summary: DivergenceSummary {
                         authoritative: 0,
                         advisory: 1,
@@ -3295,6 +3431,7 @@ mod tests {
                     field: "number_objects".into(),
                     total_diffs: 1,
                     levels: 1,
+                    level_ids: vec!["0x01".into()],
                     divergence_summary: DivergenceSummary {
                         authoritative: 0,
                         advisory: 1,
@@ -3304,6 +3441,79 @@ mod tests {
                     },
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn extracts_release_gate_failed_field_from_detail() {
+        let detail = "state title@360 diverged in game mode (native 000C, oracle 002C); artefacts in /tmp/run";
+
+        assert_eq!(
+            extract_release_gate_failed_field(detail).as_deref(),
+            Some("game_mode")
+        );
+    }
+
+    #[test]
+    fn latest_release_gate_failed_fields_reads_latest_reports() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        std::fs::create_dir_all(&gate_dir).expect("create gate dir");
+        std::fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "target": "1p-accurate",
+  "passed": false,
+  "steps": [
+    {
+      "name": "frame_oracle:boot_title_start_level1",
+      "status": "failed",
+      "detail": "state title@360 diverged in game mode (native 000C, oracle 002C); artefacts in /tmp/run"
+    }
+  ]
+}"#,
+        )
+        .expect("write report");
+
+        assert_eq!(
+            latest_release_gate_failed_fields(temp_dir.path()),
+            vec![ReleaseGateFieldFocus {
+                target: "1p-accurate".into(),
+                field: "game_mode".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn release_gate_focus_summary_uses_field_histogram_entry() {
+        let focus = ReleaseGateFieldFocus {
+            target: "1p-accurate".into(),
+            field: "game_mode".into(),
+        };
+        let field_summary = vec![SweepHistoryFieldEntry {
+            field: "game_mode".into(),
+            total_diffs: 15,
+            levels: 15,
+            level_ids: vec![
+                "0x09".into(),
+                "0x32".into(),
+                "0x33".into(),
+                "0x50".into(),
+                "0x57".into(),
+                "0x5a".into(),
+            ],
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 0,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 15,
+            },
+        }];
+
+        assert_eq!(
+            format_release_gate_focus_summary(&field_summary, &focus),
+            "1p-accurate failing field game_mode=15 diffs across 15 levels [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more]"
         );
     }
 
