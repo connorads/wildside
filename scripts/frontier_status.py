@@ -64,6 +64,15 @@ def next_agent_note_status(active_slug: str) -> tuple[str, str]:
     return ("current", f"note slug `{slug}` matches the active frontier")
 
 
+def load_next_task() -> dict | None:
+    try:
+        return json.loads(SOURCE_PORT_NEXT_TASK_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError:
+        return None
+
+
 def main() -> int:
     path = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else STATE_PATH
     state = load_state(path)
@@ -130,8 +139,9 @@ def main() -> int:
     print()
 
     note_status, note_detail = next_agent_note_status(frontier["slug"])
+    next_task = load_next_task()
     print("Ralph Loop")
-    print("  package command:")
+    print("  regenerate before every run:")
     print("    - cargo run -p kidcli -- autonomous-loop --goal source-port-frontier")
     print(f"  package dir: {repo_rel(SOURCE_PORT_AUTONOMY_DIR)}")
     print(f"  next task path: {repo_rel(SOURCE_PORT_NEXT_TASK_PATH)}")
@@ -139,6 +149,11 @@ def main() -> int:
         "  next-agent note: "
         f"{repo_rel(SOURCE_PORT_NEXT_AGENT_NOTE_PATH)} ({note_status}: {note_detail})"
     )
+    if next_task:
+        delegated_goal = next_task.get("delegated_goal") or "source-port-frontier"
+        delegated_target = next_task.get("delegated_target") or "none"
+        print(f"  delegated lane: {delegated_goal} ({delegated_target})")
+        print(f"  package cycle: {next_task.get('cycle', 'unknown')}")
     print()
 
     registry_candidates = [

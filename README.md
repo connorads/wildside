@@ -43,6 +43,8 @@ Start with `kidcli project-status` or `mise run project-status`.
 - `kidcli autonomous-loop --goal level1-gameplay-lifecycle` evaluates the Level 1 gameplay lifecycle contract for pause/resume and death/respawn parity.
 - `kidcli autonomous-loop --goal level1-full-traversal` evaluates the post-opening traversal contract for default-terrain authority and long transition parity.
 - `kidcli autonomous-loop --goal source-port-frontier` is the operator entrypoint: while TAS frontier work is active it packages that frontier, and once TAS is closed it auto-delegates to the next repo-local lane such as `case-queue` or `sweep-parity`.
+- `mise run source-port-rl-prompt` regenerates the live source-port package and prints the canonical prompt for `rl`/Codex runs so operators stay on the current delegated lane.
+- `mise run source-port-rl-run` is the shell-safe single-run launcher for Codex/RL source-port work; it avoids backtick expansion and always starts from the checked-in prompt file.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
@@ -102,6 +104,8 @@ cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-le
 mise run port-loop
 cargo run -p kidcli -- autonomous-loop --goal level1-opening-slice
 cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal
+mise run source-port-rl-prompt
+mise run source-port-rl-run
 mise run verify-frames
 mise run verify-audio-output
 mise run verify-oracle

@@ -4,11 +4,13 @@ Use this as the fixed prompt/context for repeated Ralph cycles on the source-por
 
 ## Bootstrap (follow exactly — do not improvise)
 
-**Step 1.** Read `.cache/autonomy/source-port-frontier/next-agent.md` — this is your primary context. It contains the current model, dead ends, and exact next moves. If this file is missing, run `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` to generate it, then read it.
+**Step 1.** Run `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier` to regenerate the live package for this run. Do this every cycle, even if the package files already exist.
 
-**Step 2.** Read `.cache/autonomy/source-port-frontier/next-task.json` for commands and source paths.
+**Step 2.** Read `.cache/autonomy/source-port-frontier/next-task.json` for the live delegated lane, commands, freshness metadata, and allowed source paths.
 
-**Step 3.** Pick ONE item from "Exact Next Moves" in the handoff note. That is your task for this session.
+**Step 3.** Read `.cache/autonomy/source-port-frontier/next-agent.md` — this is your primary narrative context. It contains the current model, dead ends, and exact next moves.
+
+**Step 4.** Pick ONE item from "Exact Next Moves" in the handoff note. That is your task for this session.
 
 **STOP.** Do not read `docs/source-port/frontier-state.yaml`, `docs/source-port/backlog.md`, `docs/source-port/tas-roadmap.md`, or any other broad context document. The handoff note already distils them. Reading them wastes your context window on information you already have.
 
@@ -26,10 +28,12 @@ Before writing ANY code, understand what the ROM does first:
 ## Working Rules
 
 - Your session has ONE task — the item you picked from "Exact Next Moves".
+- Treat the freshly generated `next-task.json` as the source of truth. If it delegates to `case-queue` or `sweep-parity`, do not override it with an ad hoc backlog hunt.
 - Check "Dead Ends / Do Not Retry" before starting — do not repeat rejected approaches.
 - Follow the investigation hierarchy above: ASM → oracle → fix → probe (last resort).
 - Every frontier commit must cite the ASM label it implements. If you can't name the routine, you haven't done the investigation yet. No exceptions.
 - Use the commands and source paths from `next-task.json` — do not rediscover them.
+- Sanity-check `generated_at`, `cycle`, `progress_fingerprint`, `delegated_goal`, and `delegated_target` in `next-task.json` before starting work. If they do not describe the current lane, regenerate the package instead of working stale instructions.
 - If the note says the TAS frontier is closed, follow the delegated lane in the task package. Do not switch to a different loop unless the delegated task explicitly tells you to.
 - A successful cycle must do one of these:
   - land a gameplay/tooling code commit

@@ -5,15 +5,16 @@ come from reduced semantic gameplay cases.
 
 ## Bootstrap
 
-1. Run `cargo run -p kidcli -- autonomous-loop --goal case-queue`
+1. Run `cargo run -q -p kidcli -- autonomous-loop --goal case-queue` to regenerate the live package for this run. Do this every cycle, even if the package files already exist.
 2. Read `.cache/autonomy/case-queue/next-task.json`
 3. Read `.cache/autonomy/case-queue/next-agent.md` if it exists
-4. Work only the selected case from the task package
+4. Work only the selected case from the freshly generated task package
 
 ## Working Rules
 
 - Re-verify the selected case before changing code:
   `cargo run -p kidcli -- case verify --case <selector>`
+- Sanity-check `generated_at`, `cycle`, and `progress_fingerprint` in the task package before doing anything else. If they are stale, regenerate instead of reusing the old package.
 - If the task package marks the case `patch-allowed`, you may patch and locally verify.
 - If the task package marks the case `evidence-only`, do not widen the work; tighten the case instead.
 - Read the ASM before changing gameplay code. The case queue narrows the problem, but the ROM is still the source of truth.
