@@ -123,8 +123,8 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 
 On 2026-04-02 those lanes were intentionally not equivalent:
 
-- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels again with only advisory/oracle-limitation classifications (`.cache/sweep-runs/1775120772/report.json`), and `.cache/metrics/sweep-history.jsonl` records the same run as `advisory=320`, `oracle_limitation=648`, `failed=0`, `errors=0` plus per-level category/field summaries for quick correlation.
-- `mise run release-gate` still failed at `boot_title_start_level1`, `title@360`, where `game_mode` diverged (`native 0x000C`, `oracle 0x002C`); the fresh gate artefact is `.cache/release-gate/1p-accurate/1775120943/report.json`.
+- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels again with only advisory/oracle-limitation classifications (`.cache/sweep-runs/1775167033/report.json`), and `.cache/metrics/sweep-history.jsonl` records the same run as `advisory=320`, `oracle_limitation=648`, `failed=0`, `errors=0` plus both a cross-level `field_summary` histogram and the existing per-level category/field summaries for quick correlation. The CLI now labels levels carrying both categories as `NON-BLOCKING` so operators can see mixed debt directly in the sweep output.
+- `mise run release-gate` still failed at `boot_title_start_level1`, `title@360`, where `game_mode` diverged (`native 0x000C`, `oracle 0x002C`); the fresh gate artefact is `.cache/release-gate/1p-accurate/1775167032/report.json`.
 - Automation in this lane should report the live failing artefact detail, not static capability prose. Otherwise the loop output can imply success while the cached gate still points at the boot/title blocker.
 
 Treat that shape as a boot/title verification blocker, not as evidence to reopen TAS work or to claim the sweep lane regressed.
@@ -336,7 +336,7 @@ Sweep output should log per-level divergence counts by category:
 }
 ```
 
-Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis.
+Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis. As of the 2026-04-02 sweep-parity hardening pass, both the per-run report and the history entry also persist a compact `field_summary` histogram so operators can see which non-blocking fields dominate the current advisory/oracle-limitation debt without rereading every per-level record, and the CLI distinguishes mixed advisory+oracle-limitation levels as `NON-BLOCKING` instead of collapsing them into a pure oracle-limitation label.
 
 ---
 

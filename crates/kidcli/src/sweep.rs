@@ -133,6 +133,8 @@ pub(crate) struct SweepReport {
     pub(crate) errors: usize,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
     pub(crate) divergence_summary: DivergenceSummary,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) field_summary: Vec<SweepHistoryFieldEntry>,
 }
 
 /// Per-level golden snapshot: full NativeTraceFrame at each checkpoint.
@@ -175,7 +177,16 @@ struct SweepHistoryEntry {
     divergence_summary: DivergenceSummary,
     report_path: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    field_summary: Vec<SweepHistoryFieldEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     per_level: Vec<SweepHistoryLevelEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct SweepHistoryFieldEntry {
+    field: String,
+    total_diffs: usize,
+    levels: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -226,6 +237,43 @@ fn has_blocking_divergences(summary: &DivergenceSummary) -> bool {
     summary.authoritative > 0 || summary.accumulation > 0 || summary.rng > 0
 }
 
+fn level_result_status(r: &LevelSweepResult) -> &'static str {
+    let has_advisory = r.divergence_summary.advisory > 0;
+    let has_oracle_limitation = r.divergence_summary.oracle_limitation > 0;
+
+    if has_blocking_divergences(&r.divergence_summary) {
+        "FAIL"
+    } else {
+        match (has_advisory, has_oracle_limitation) {
+            (true, true) => "NON-BLOCKING",
+            (true, false) => "ADVISORY",
+            (false, true) => "ORACLE LIMITATION",
+            (false, false) => "PASS",
+        }
+    }
+}
+
+fn format_divergence_summary(summary: &DivergenceSummary) -> String {
+    let mut parts = Vec::new();
+
+    let blocking = summary.authoritative + summary.accumulation + summary.rng;
+    if blocking > 0 {
+        parts.push(format!("{blocking} blocking diffs"));
+    }
+    if summary.advisory > 0 {
+        parts.push(format!("{} advisory diffs", summary.advisory));
+    }
+    if summary.oracle_limitation > 0 {
+        parts.push(format!("{} oracle limitations", summary.oracle_limitation));
+    }
+
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", parts.join(", "))
+    }
+}
+
 /// Convert a raw `sweep_single_level` result into a finalised `LevelSweepResult`,
 /// returning `(result, is_failure)` for fast-fail counting.
 fn finalise_level_result(
@@ -262,34 +310,13 @@ fn print_level_result(r: &LevelSweepResult) {
         println!("  level {:#04x}: ERROR: {err}", r.level_id);
         return;
     }
-    let oracle_limitation_only = is_oracle_limitation_only(r);
-    let status = if oracle_limitation_only {
-        "ORACLE LIMITATION"
-    } else if r.passed {
-        "PASS"
-    } else {
-        "FAIL"
-    };
+    let status = level_result_status(r);
     let mae_str = r.mae.map(|v| format!(" MAE={v:.1}")).unwrap_or_default();
     let px_str = r
         .pixel_mismatches
         .map(|v| format!(" px_diff={v}"))
         .unwrap_or_default();
-    let blocking_diffs = r.divergence_summary.authoritative
-        + r.divergence_summary.accumulation
-        + r.divergence_summary.rng;
-    let advisory_diffs = r.divergence_summary.advisory;
-    let oracle_limitations = r.divergence_summary.oracle_limitation;
-    let diff_count = match (blocking_diffs, advisory_diffs, oracle_limitations) {
-        (0, 0, 0) => String::new(),
-        (0, 0, o) => format!(" ({o} oracle limitations)"),
-        (0, a, 0) => format!(" ({a} advisory diffs)"),
-        (b, 0, 0) => format!(" ({b} blocking diffs)"),
-        (b, a, 0) => format!(" ({b} blocking diffs, {a} advisory)"),
-        (0, a, o) => format!(" ({a} advisory diffs, {o} oracle limitations)"),
-        (b, 0, o) => format!(" ({b} blocking diffs, {o} oracle limitations)"),
-        (b, a, o) => format!(" ({b} blocking diffs, {a} advisory, {o} oracle limitations)"),
-    };
+    let diff_count = format_divergence_summary(&r.divergence_summary);
     println!(
         "  level {:#04x}: {status}{mae_str}{px_str}{diff_count}",
         r.level_id
@@ -433,6 +460,7 @@ pub(crate) fn run_sweep_with_options(
         .filter(|r| r.error.is_some() && !is_oracle_limitation_only(r))
         .count();
     let divergence_summary = summarise_results(&results);
+    let field_summary = summarise_field_diffs(&results);
 
     let source_hash = kid_core_source_hash(repo_root).ok();
     let report = SweepReport {
@@ -443,6 +471,7 @@ pub(crate) fn run_sweep_with_options(
         failed,
         errors,
         divergence_summary,
+        field_summary,
     };
 
     // Emit per-level telemetry to JSONL
@@ -500,6 +529,7 @@ pub(crate) fn run_sweep_with_options(
             kid_core_hash: report.kid_core_hash.clone(),
             divergence_summary: report.divergence_summary.clone(),
             report_path: report_path.to_string_lossy().into_owned(),
+            field_summary: report.field_summary.clone(),
             per_level: report
                 .levels
                 .iter()
@@ -524,7 +554,25 @@ pub(crate) fn run_sweep_with_options(
         },
     )?;
 
-    println!("\nsweep complete: {passed} passed, {failed} failed, {errors} errors");
+    let divergence_summary = format_divergence_summary(&report.divergence_summary);
+    println!(
+        "\nsweep complete: {passed} passed, {failed} failed, {errors} errors{divergence_summary}"
+    );
+    if !report.field_summary.is_empty() {
+        let summary = report
+            .field_summary
+            .iter()
+            .take(5)
+            .map(|entry| {
+                format!(
+                    "{}={} diffs across {} levels",
+                    entry.field, entry.total_diffs, entry.levels
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("top diff fields: {summary}");
+    }
     println!("report: {}", report_path.display());
 
     Ok(report)
@@ -735,6 +783,41 @@ fn summarise_results(results: &[LevelSweepResult]) -> DivergenceSummary {
     for result in results {
         summary.merge(&result.divergence_summary);
     }
+    summary
+}
+
+fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldEntry> {
+    let mut totals: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let mut levels: std::collections::BTreeMap<String, std::collections::BTreeSet<u8>> =
+        std::collections::BTreeMap::new();
+
+    for result in results {
+        for diff in &result.state_diffs {
+            *totals.entry(diff.field.clone()).or_default() += 1;
+            levels
+                .entry(diff.field.clone())
+                .or_default()
+                .insert(result.level_id);
+        }
+    }
+
+    let mut summary = totals
+        .into_iter()
+        .map(|(field, total_diffs)| SweepHistoryFieldEntry {
+            levels: levels
+                .get(&field)
+                .map_or(0, std::collections::BTreeSet::len),
+            field,
+            total_diffs,
+        })
+        .collect::<Vec<_>>();
+    summary.sort_by(|left, right| {
+        right
+            .total_diffs
+            .cmp(&left.total_diffs)
+            .then_with(|| right.levels.cmp(&left.levels))
+            .then_with(|| left.field.cmp(&right.field))
+    });
     summary
 }
 
@@ -1367,6 +1450,7 @@ fn warm_oracle_cache(
         failed: 0,
         errors: errored,
         divergence_summary: DivergenceSummary::default(),
+        field_summary: Vec::new(),
     })
 }
 
@@ -1826,6 +1910,7 @@ pub(crate) fn golden_diff(
     let passed = results.iter().filter(|r| r.passed).count();
     let failed = results.iter().filter(|r| !r.passed).count();
     let divergence_summary = summarise_results(&results);
+    let field_summary = summarise_field_diffs(&results);
     println!(
         "\ngolden diff complete: {passed} passed, {failed} failed, {total_diffs} total field changes"
     );
@@ -1838,6 +1923,7 @@ pub(crate) fn golden_diff(
         failed,
         errors: 0,
         divergence_summary,
+        field_summary,
     })
 }
 
@@ -1970,6 +2056,7 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
         .count();
     let errors = results.iter().filter(|r| r.error.is_some()).count();
     let divergence_summary = summarise_results(&results);
+    let field_summary = summarise_field_diffs(&results);
 
     let report = SweepReport {
         timestamp,
@@ -1979,6 +2066,7 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
         failed,
         errors,
         divergence_summary,
+        field_summary,
     };
 
     println!("\ngameplay sweep complete: {passed} passed, {failed} failed, {errors} errors");
@@ -2945,6 +3033,46 @@ mod tests {
     }
 
     #[test]
+    fn mixed_advisory_and_oracle_limitations_are_reported_as_non_blocking() {
+        let result = LevelSweepResult {
+            level_id: 0x45,
+            slug: "idle_level_45".into(),
+            tier: SweepTier::State,
+            passed: true,
+            state_diffs: Vec::new(),
+            mae: None,
+            pixel_mismatches: None,
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 3,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 4,
+            },
+        };
+
+        assert_eq!(level_result_status(&result), "NON-BLOCKING");
+    }
+
+    #[test]
+    fn divergence_summary_lists_all_non_blocking_categories() {
+        let summary = DivergenceSummary {
+            authoritative: 0,
+            advisory: 3,
+            accumulation: 0,
+            rng: 0,
+            oracle_limitation: 4,
+        };
+
+        assert_eq!(
+            format_divergence_summary(&summary),
+            " (3 advisory diffs, 4 oracle limitations)"
+        );
+    }
+
+    #[test]
     fn append_sweep_history_persists_per_level_categories() {
         let temp_dir = tempfile::tempdir().expect("tempdir");
         let entry = SweepHistoryEntry {
@@ -2963,6 +3091,11 @@ mod tests {
                 oracle_limitation: 5,
             },
             report_path: "/tmp/report.json".into(),
+            field_summary: vec![SweepHistoryFieldEntry {
+                field: "game_mode".into(),
+                total_diffs: 3,
+                levels: 2,
+            }],
             per_level: vec![SweepHistoryLevelEntry {
                 level: "0x00".into(),
                 passed: true,
@@ -2985,8 +3118,96 @@ mod tests {
 
         assert_eq!(value["per_level"][0]["level"], "0x00");
         assert_eq!(value["per_level"][0]["blocking"], false);
+        assert_eq!(value["field_summary"][0]["field"], "game_mode");
+        assert_eq!(value["field_summary"][0]["total_diffs"], 3);
+        assert_eq!(value["field_summary"][0]["levels"], 2);
         assert_eq!(value["per_level"][0]["fields"][0], "game_mode");
         assert_eq!(value["per_level"][0]["fields"][1], "number_objects");
+    }
+
+    #[test]
+    fn summarise_field_diffs_orders_by_frequency_then_coverage() {
+        let results = vec![
+            LevelSweepResult {
+                level_id: 0x00,
+                slug: "idle_level_00".into(),
+                tier: SweepTier::State,
+                passed: true,
+                state_diffs: vec![
+                    StateDiff {
+                        checkpoint: "level_settle".into(),
+                        field: "camera_y_pos".into(),
+                        native_value: "1".into(),
+                        oracle_value: "2".into(),
+                    },
+                    StateDiff {
+                        checkpoint: "idle_tail".into(),
+                        field: "camera_y_pos".into(),
+                        native_value: "3".into(),
+                        oracle_value: "4".into(),
+                    },
+                    StateDiff {
+                        checkpoint: "idle_tail".into(),
+                        field: "game_mode".into(),
+                        native_value: "0008".into(),
+                        oracle_value: "0010".into(),
+                    },
+                ],
+                mae: None,
+                pixel_mismatches: None,
+                diff_images: Vec::new(),
+                error: None,
+                divergence_summary: DivergenceSummary::default(),
+            },
+            LevelSweepResult {
+                level_id: 0x01,
+                slug: "idle_level_01".into(),
+                tier: SweepTier::State,
+                passed: true,
+                state_diffs: vec![
+                    StateDiff {
+                        checkpoint: "level_settle".into(),
+                        field: "camera_y_pos".into(),
+                        native_value: "5".into(),
+                        oracle_value: "6".into(),
+                    },
+                    StateDiff {
+                        checkpoint: "idle_tail".into(),
+                        field: "number_objects".into(),
+                        native_value: "2".into(),
+                        oracle_value: "4".into(),
+                    },
+                ],
+                mae: None,
+                pixel_mismatches: None,
+                diff_images: Vec::new(),
+                error: None,
+                divergence_summary: DivergenceSummary::default(),
+            },
+        ];
+
+        let summary = summarise_field_diffs(&results);
+
+        assert_eq!(
+            summary,
+            vec![
+                SweepHistoryFieldEntry {
+                    field: "camera_y_pos".into(),
+                    total_diffs: 3,
+                    levels: 2,
+                },
+                SweepHistoryFieldEntry {
+                    field: "game_mode".into(),
+                    total_diffs: 1,
+                    levels: 1,
+                },
+                SweepHistoryFieldEntry {
+                    field: "number_objects".into(),
+                    total_diffs: 1,
+                    levels: 1,
+                },
+            ]
+        );
     }
 
     #[test]
