@@ -114,6 +114,20 @@ When reimplementing a game formula (physics, damage, spawn rates), use the OpenM
 | Visual | Pixel-perfect frame output | `capture-frames` + byte comparison | Key frames | Before/after fix verification |
 | Gameplay | Multi-frame player journeys | `verify-gameplay` scenarios | Key paths | pause/resume, death/respawn, transitions |
 
+### Verification lane split
+
+Once the active TAS frontier is closed, keep the verification lanes separate:
+
+- `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
+- `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, frame-oracle, audio-oracle, and state-sweep all stay green together?"
+
+On 2026-04-02 those lanes were intentionally not equivalent:
+
+- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels with only advisory/oracle-limitation classifications (`.cache/sweep-runs/1775118265/report.json`).
+- `mise run release-gate` still failed at `boot_title_start_level1`, `title@360`, where `game_mode` diverged (`native 0x000C`, `oracle 0x002C`).
+
+Treat that shape as a boot/title verification blocker, not as evidence to reopen TAS work or to claim the sweep lane regressed.
+
 ### TAS (Tool-Assisted Speedrun) fidelity testing
 
 TAS recordings are deterministic per-frame button sequences from real full-game playthroughs. They exercise code paths that synthetic scenarios don't: level transitions, helmet pickups, boss fights, warps, and full boot-to-completion.
@@ -167,11 +181,13 @@ Each case bundle should answer:
 Autonomous execution should consume these bundles through the repo-native source-port dispatcher rather than by repeating stale closed-frontier handoffs:
 
 - `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint
+- regenerate that source-port package at the start of every loop run; do not reuse an old `next-task.json`
 - while TAS work is active it packages the live frontier
 - once TAS is closed it auto-delegates to `case-queue` first
 - recording-backed cases outrank generic replay slices
 - only `autonomy-executable` cases may patch code without a human re-triage
 - if `case-queue` has no actionable or non-stalled target, the loop pivots to sweep/verification hardening instead of reopening TAS work
+- use `mise run source-port-rl-prompt` for `rl`/Codex operator runs so the live delegated lane is printed from the freshly generated package
 
 ### Decision tree
 
