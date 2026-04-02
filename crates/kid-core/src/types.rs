@@ -149,7 +149,6 @@ pub(crate) enum KidFramePostMotionMutator {
     FlagTouch,
     StompBounce,
     ContactDamage,
-    LevelOneOpeningHit,
     CycloneTornadoBounce,
 }
 
@@ -168,7 +167,6 @@ impl KidFramePostMotionMutator {
             Self::FlagTouch => "flag_touch",
             Self::StompBounce => "stomp_bounce",
             Self::ContactDamage => "contact_damage",
-            Self::LevelOneOpeningHit => "level_one_opening_hit",
             Self::CycloneTornadoBounce => "cyclone_tornado_bounce",
         }
     }

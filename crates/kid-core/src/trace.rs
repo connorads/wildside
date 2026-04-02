@@ -287,16 +287,15 @@ impl NativeRuntime {
 
     fn early_start_load_ingame_object_counts(&self) -> Option<(u16, u16)> {
         let elapsed = self.early_start_load_ingame_elapsed_frames()?;
-        if self.early_start_title_menu_shell_carry_active() {
-            return Some((4, 3));
-        }
-        if elapsed < EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME {
+        if elapsed + 1 < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
+            // ASM loc_1AE2E -> loc_6E2 keeps the carried title workers alive
+            // internally for the later hidden Load_InGame hand-off, but the
+            // oracle leaves `number_objects`/`number_gfx_objects` blank until
+            // the final hidden preload frame immediately before Kid becomes
+            // visible again.
             return Some((0, 0));
         }
-        if elapsed < EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME {
-            return Some((2, 0));
-        }
-        if elapsed < EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
+        if elapsed + 1 == EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
             return Some((4, 2));
         }
         if elapsed == EARLY_START_LOAD_INGAME_VISIBLE_FRAME {
@@ -1674,7 +1673,13 @@ impl NativeRuntime {
                 .filter(|_| self.early_start_title_menu_cursor_pose_carry_active())
                 .or_else(|| self.early_start_level_one_hidden_bootstrap_player_state())
                 .or_else(|| self.early_start_load_ingame_player_state())
-                .or_else(|| self.starting_level_slot_2_pose(elapsed_frames)),
+                .or_else(|| {
+                    if self.early_start_load_ingame_elapsed_frames().is_some() {
+                        None
+                    } else {
+                        self.starting_level_slot_2_pose(elapsed_frames)
+                    }
+                }),
             BootState::InGame | BootState::DemoPlay { .. } => {
                 if let Some(snapshot) = self.death_shell_snapshot.as_ref()
                     && self.dying_hidden_shell_still_visible()
@@ -1962,6 +1967,33 @@ impl NativeRuntime {
         }
         if self.early_start_title_menu_shell_carry_active() {
             return (4, 3);
+        }
+        if let BootState::StartingLevel {
+            elapsed_frames,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+            ..
+        } = self.boot_state
+        {
+            let total_worker_count = self.starting_level_title_workers.len() as u16;
+            // ASM Obj_TitleMenu `Title_InputLoop` has already cleared the
+            // cursor pose by frame 161, but oracle-backed early-start traces
+            // keep the later mode-$0008 preload workers alive before
+            // loc_1AE2E consumes the second Start edge.
+            return if elapsed_frames > EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME {
+                (total_worker_count.saturating_add(1), total_worker_count)
+            } else if elapsed_frames == EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME {
+                (
+                    total_worker_count.saturating_add(1),
+                    total_worker_count.saturating_sub(1),
+                )
+            } else if elapsed_frames + 1 == EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME {
+                (total_worker_count.saturating_add(1), 0)
+            } else if elapsed_frames >= EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME {
+                (2, 0)
+            } else {
+                (0, 0)
+            };
         }
         if matches!(
             self.boot_state,

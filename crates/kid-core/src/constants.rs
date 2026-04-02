@@ -25,10 +25,6 @@ pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
 pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // The opening Dragon hit lands earlier under the walk-only gameplay script than
 // under the run-held trace used by the focused timing regression.
-pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY: usize = 171;
-pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY_FATAL: usize = 238;
-pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK: usize = 289;
-pub(crate) const LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN: usize = 300;
 // Oracle boot-to-level traces use an early intro-skip sequence, then one
 // Start press to arm the title menu and a later Start press to select 1P.
 pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = [33, 77, 135, 137, 178, 360, 460];
@@ -283,7 +279,6 @@ pub(crate) const PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP: i32 = 0x000
 // on local frame 60 before the settled `$0073_0000` camera arrives.
 pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_FRAME: usize = 51;
 pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_WRAP_FRAME: usize = 52;
-pub(crate) const EARLY_START_LOAD_INGAME_CAMERA_PRELOAD_END_FRAME: usize = 59;
 pub(crate) const EARLY_START_LOAD_INGAME_VISIBLE_FRAME: usize = 60;
 pub(crate) const EARLY_START_LOAD_INGAME_HANDOFF_FRAMES: usize = 122;
 // ASM `loc_1AE2E -> loc_6E2` leaves Level 1's early title-start lineage on a

@@ -74,33 +74,6 @@ impl NativeRuntime {
         self.add_score(1000);
     }
 
-    pub(crate) fn should_apply_level_one_opening_hit(
-        &self,
-        slice: &OpeningSliceState,
-        input: FrameInput,
-    ) -> bool {
-        let hit_elapsed_frames = if input.right {
-            if input.a {
-                LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_RUN
-            } else {
-                LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_WALK
-            }
-        } else if self.progression.number_hitpoints == self.progression.current_form.max_hitpoints()
-        {
-            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY
-        } else {
-            LEVEL_ONE_OPENING_HIT_LEVEL_ELAPSED_FRAMES_STATIONARY_FATAL
-        };
-        self.current_level == LevelId(0)
-            && self.progression.invulnerable_frames == 0
-            && (!input.right
-                || self.progression.number_hitpoints
-                    == self.progression.current_form.max_hitpoints())
-            && self
-                .level_elapsed_frames()
-                .is_some_and(|elapsed| elapsed >= hit_elapsed_frames && slice.camera.x_pos == 0)
-    }
-
     /// Check for stomp-kills: player landing on enemies from above.
     /// Decrements HP on stomp; removes enemy at 0 HP. Always bounces player.
     pub(crate) fn process_stomps(
@@ -645,12 +618,7 @@ impl NativeRuntime {
 
     fn build_death_shell_snapshot(&self, slice: OpeningSliceState) -> LevelSkipTransitionState {
         let mut frozen_player = slice.player;
-        let mut death_y_velocity =
-            if self.current_level == LevelId(0) && self.level_one_opening_idle_death_arc {
-                -0x0003_D000
-            } else {
-                -0x0004_0000
-            };
+        let mut death_y_velocity = -0x0004_0000;
 
         loop {
             frozen_player.x_pos = frozen_player.x_pos.wrapping_add(0x0000_8000);
@@ -719,12 +687,7 @@ impl NativeRuntime {
             // x += $00008000 and y += initial_d1 + $3000.
             slice.player.on_ground = false;
             slice.player.x_velocity = 0x0000_8000;
-            slice.player.y_velocity =
-                if self.current_level == LevelId(0) && self.level_one_opening_idle_death_arc {
-                    -0x0003_D000
-                } else {
-                    -0x0004_0000
-                };
+            slice.player.y_velocity = -0x0004_0000;
         }
         if let Some(camera_lock) = self.death_camera_lock {
             // ASM loc_B80C: j_sub_8E0 tests the current pose before the
@@ -760,7 +723,6 @@ impl NativeRuntime {
         self.block_state.shooter_blocks.clear();
         self.block_state.ghost_groups.clear();
         self.death_camera_lock = None;
-        self.level_one_opening_idle_death_arc = false;
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
         };
@@ -1005,7 +967,7 @@ impl NativeRuntime {
     pub(crate) fn resolve_frame_hazards(
         &mut self,
         slice: &mut OpeningSliceState,
-        input: FrameInput,
+        _input: FrameInput,
         pre_physics_y_velocity: i32,
         pre_physics_y_pos: u32,
         frame_start_x_pos: u32,
@@ -1163,14 +1125,6 @@ impl NativeRuntime {
             return true;
         }
 
-        if self.should_apply_level_one_opening_hit(slice, input) {
-            self.level_one_opening_idle_death_arc =
-                !input.right && self.progression.number_hitpoints == 1;
-            self.opening_slice = Some(*slice);
-            self.apply_damage();
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LevelOneOpeningHit;
-            return true;
-        }
         false
     }
 }

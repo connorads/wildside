@@ -331,6 +331,20 @@ impl NativeRuntime {
         &self,
         elapsed_frames: usize,
     ) -> Vec<NativeObjectSnapshot> {
+        if matches!(
+            self.boot_state,
+            BootState::StartingLevel {
+                uses_load_ingame_bootstrap: true,
+                load_ingame_bootstrap_started: true,
+                ..
+            }
+        ) {
+            // ASM loc_1AE2E -> loc_6E2 stops exposing the carried loc_1AB26 /
+            // loc_1AD48 title workers once the hidden Load_InGame bootstrap
+            // begins; the later preload-object timeline owns the trace from
+            // there.
+            return Vec::new();
+        }
         self.starting_level_title_workers
             .iter()
             .filter(|worker| worker.motion.is_some())

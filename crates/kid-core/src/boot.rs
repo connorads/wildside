@@ -1279,9 +1279,12 @@ impl NativeRuntime {
                         // following traced frame. Keep that edge latched so the
                         // hidden Load_InGame bootstrap can later release into
                         // live gameplay without needing a third Start press.
+                        // ASM loc_1AE2E -> loc_6E2 still carries the hidden
+                        // loc_1AB26 / loc_1AD48 shell through the first traced
+                        // mode-$000C frames, so keep those workers alive until
+                        // live gameplay finishes consuming the carry window.
                         *load_ingame_bootstrap_started = true;
                         *elapsed_frames = 0;
-                        self.starting_level_title_workers.clear();
                     } else if start_pressed {
                         *start_latched = true;
                     }

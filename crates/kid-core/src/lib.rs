@@ -57,7 +57,6 @@ pub struct NativeRuntime {
     starting_level_title_workers: Vec<LevelEntryTitleWorker>,
     starting_level_title_rng: Option<RomRandomState>,
     death_camera_lock: Option<CameraState>,
-    level_one_opening_idle_death_arc: bool,
     level_skip_transition: Option<LevelSkipTransitionState>,
     death_shell_snapshot: Option<LevelSkipTransitionState>,
     level_skip_resume_hold: bool,
@@ -361,7 +360,6 @@ impl NativeRuntime {
             starting_level_title_workers: Vec::new(),
             starting_level_title_rng: None,
             death_camera_lock: None,
-            level_one_opening_idle_death_arc: false,
             level_skip_transition: None,
             death_shell_snapshot: None,
             level_skip_resume_hold: false,
@@ -968,11 +966,6 @@ impl NativeRuntime {
 
         probe.release_triggered = probe.support_col.is_none();
         self.last_kid_frame_grounded_release_probe = Some(probe);
-    }
-
-    fn level_elapsed_frames(&self) -> Option<usize> {
-        self.level_start_frame
-            .map(|frame| self.frame_index.saturating_sub(frame))
     }
 
     fn gameplay_input(&self, input: FrameInput) -> FrameInput {

@@ -662,12 +662,11 @@ fn death_respawn_level_1_matches_load_ingame_handoff_through_frame_300() {
     // ASM loc_1AE2E writes `Game_Mode=$000C`, then jumps to loc_6E2 so
     // Load_InGame rebuilds the live level state rather than carrying the
     // hidden title bootstrap slice forward. Oracle keeps Kid blank on frame
-    // 222, but the advisory object counts have already advanced onto
-    // Load_InGame's 2-object preload row by then; the settled Level 1 spawn
-    // still arrives by frame 300.
+    // 222 and does not expose the preload objects until frame 237; the
+    // settled Level 1 spawn still arrives by frame 300.
     assert_eq!(frame_222.kid_x_pos, None);
     assert_eq!(frame_222.kid_y_pos, None);
-    assert_eq!(frame_222.number_objects, 2);
+    assert_eq!(frame_222.number_objects, 0);
     assert_eq!(frame_222.number_gfx_objects, 0);
     assert_eq!(frame_300.camera_x_pos, 0);
     assert_eq!(frame_300.camera_y_pos, 0x0073_0000);
@@ -675,6 +674,41 @@ fn death_respawn_level_1_matches_load_ingame_handoff_through_frame_300() {
     assert_eq!(frame_300.kid_y_pos, Some(0x010F_0000));
     assert_eq!(frame_300.number_objects, 4);
     assert_eq!(frame_300.number_gfx_objects, 5);
+}
+
+#[test]
+fn early_start_load_ingame_keeps_preload_title_workers_through_frame_175() {
+    let mut runtime = cached_generated_runtime();
+    let script = imported_early_start_boot_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(176) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (168..=175).contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    // ASM loc_1AE2E -> loc_6E2 keeps the hidden mode-$0008 bootstrap alive
+    // after the title shell clears. Oracle-backed traces show the preload
+    // workers from loc_1AB26/loc_1AD48 reappearing on frames 168..175 before
+    // the later camera preload and visible Load_InGame settle.
+    assert_eq!(frames[&168].number_objects, 2);
+    assert_eq!(frames[&168].number_gfx_objects, 0);
+    assert_eq!(frames[&169].number_objects, 2);
+    assert_eq!(frames[&169].number_gfx_objects, 0);
+    assert_eq!(frames[&170].number_objects, 2);
+    assert_eq!(frames[&170].number_gfx_objects, 0);
+    assert_eq!(frames[&171].number_objects, 15);
+    assert_eq!(frames[&171].number_gfx_objects, 0);
+    assert_eq!(frames[&172].number_objects, 15);
+    assert_eq!(frames[&172].number_gfx_objects, 13);
+    assert_eq!(frames[&173].number_objects, 15);
+    assert_eq!(frames[&173].number_gfx_objects, 14);
+    assert_eq!(frames[&174].number_objects, 15);
+    assert_eq!(frames[&174].number_gfx_objects, 14);
+    assert_eq!(frames[&175].number_objects, 15);
+    assert_eq!(frames[&175].number_gfx_objects, 14);
 }
 
 #[test]
@@ -815,6 +849,28 @@ fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
         input.start = true;
         input.a = true;
         input.c = true;
+    }
+    input
+}
+
+fn pause_resume_level1_script_input(frame_index: usize) -> FrameInput {
+    let mut input = FrameInput::default();
+    if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) || frame_index == 840 || frame_index == 920
+    {
+        input.start = true;
+    }
+    if (600..=839).contains(&frame_index) || (841..=919).contains(&frame_index) {
+        input.right = true;
+    }
+    if (960..=1_119).contains(&frame_index) {
+        input.right = true;
+        input.c = true;
+    }
+    if (980..=1_119)
+        .step_by(24)
+        .any(|start| (start..start + 4).contains(&frame_index))
+    {
+        input.a = true;
     }
     input
 }
@@ -2152,124 +2208,41 @@ fn moves_camera_when_holding_right_in_game() {
 }
 
 #[test]
-fn level_one_opening_idle_path_takes_first_damage_on_frame_631() {
+fn pause_resume_level1_keeps_oracle_hitpoints_through_frame_472() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
-    let mut first_hit_frame = None;
+    let mut frame_472 = None;
 
-    for frame in 0..700 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
-            FrameInput {
-                start: true,
-                ..FrameInput::default()
-            }
-        } else {
-            FrameInput::default()
-        };
-        let trace = runtime.step_frame(input);
-        if frame >= 600 && trace.number_hitpoints == 1 {
-            first_hit_frame = Some(frame);
-            break;
+    for frame in 0..=472 {
+        let trace = runtime.step_frame(pause_resume_level1_script_input(frame));
+        if frame == 472 {
+            frame_472 = Some(trace);
         }
     }
 
+    let frame_472 = frame_472.expect("frame 472 should be captured");
+    // ASM loc_1AE2E only consumes Start and jumps back through loc_6E2, while
+    // Character_CheckCollision -> Check_for_recent_damge decrements HP only
+    // after collision_type(a3) is set. The oracle-backed pause_resume_level1
+    // window keeps Kid grounded and unharmed through frame 472.
     assert_eq!(
-        first_hit_frame,
-        Some(631),
-        "the idle opening path should match the oracle-backed first dragon hit"
+        frame_472.number_hitpoints,
+        PlayerForm::TheKid.max_hitpoints(),
+        "frame 472 should still match the oracle-backed 2 HP pause-resume opening",
     );
-}
-
-#[test]
-fn level_one_opening_idle_path_reaches_fatal_hit_on_frame_698() {
-    let mut runtime = NativeRuntime::new(manifest());
-    runtime.set_block_grid(grid_with_floor_at_row(17));
-    let mut fatal_hit_frame = None;
-
-    for frame in 0..760 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
-            FrameInput {
-                start: true,
-                ..FrameInput::default()
-            }
-        } else {
-            FrameInput::default()
-        };
-        let trace = runtime.step_frame(input);
-        if frame >= 650 && trace.number_hitpoints == 0 {
-            fatal_hit_frame = Some(frame);
-            break;
-        }
-    }
-
     assert_eq!(
-        fatal_hit_frame,
-        Some(698),
-        "the idle opening path should match the oracle-backed fatal follow-up hit"
+        frame_472.kid_x_pos,
+        Some(0x0750_0000),
+        "frame 472 should preserve the oracle-backed grounded X pose before movement begins",
     );
-}
-
-#[test]
-fn level_one_opening_idle_hit_keeps_spawn_pose() {
-    let mut runtime = NativeRuntime::new(manifest());
-    runtime.set_block_grid(grid_with_floor_at_row(17));
-
-    for frame in 0..632 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
-            FrameInput {
-                start: true,
-                ..FrameInput::default()
-            }
-        } else {
-            FrameInput::default()
-        };
-        let trace = runtime.step_frame(input);
-        if frame == 631 {
-            assert_eq!(
-                trace.kid_x_pos,
-                Some(0x0020_0000),
-                "the first idle opening hit should not displace Kid horizontally"
-            );
-            assert_eq!(
-                trace.kid_y_pos,
-                Some(0x010F_0000),
-                "the first idle opening hit should leave the grounded spawn pose intact"
-            );
-            assert_eq!(trace.number_hitpoints, 1);
-        }
-    }
-}
-
-#[test]
-fn progress_two_transitions_takes_opening_damage_by_frame_749() {
-    let mut runtime = NativeRuntime::new(manifest());
-    runtime.set_block_grid(grid_with_floor_at_row(17));
-
-    for frame in 0..632 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
-            FrameInput {
-                start: true,
-                ..FrameInput::default()
-            }
-        } else if (720..750).contains(&frame) {
-            FrameInput {
-                right: true,
-                ..FrameInput::default()
-            }
-        } else {
-            FrameInput::default()
-        };
-        runtime.step_frame(input);
-    }
-
-    let trace = runtime.trace_frame();
     assert_eq!(
-        trace.number_hitpoints, 1,
-        "progress-two-transitions should carry the oracle-backed idle opening hit before any movement input"
+        frame_472.kid_y_pos,
+        Some(0x010F_0000),
+        "frame 472 should preserve the oracle-backed grounded Y pose before movement begins",
     );
-    assert!(
-        trace.invulnerable_frames > 0,
-        "post-hit damage grace should begin immediately after the traced opening hit"
+    assert_eq!(
+        runtime.progression.invulnerable_frames, 0,
+        "frame 472 should not enter damage grace before ROM-backed collision dispatch",
     );
 }
 
@@ -20181,6 +20154,36 @@ fn death_respawn_level_1_reports_standingstill_on_frame_720() {
     assert_eq!(frame_720.kid_y_velocity, Some(0));
     assert_eq!(frame_720.kid_on_ground, Some(true));
     assert_eq!(frame_720.character_movement, Some(0));
+}
+
+#[test]
+fn early_start_load_ingame_stays_blank_until_preload_frame_237() {
+    let mut runtime = cached_generated_runtime();
+    let script = imported_early_start_boot_script();
+    let mut frames = BTreeMap::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(239) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if [221usize, 229, 230, 237, 238].contains(&frame_index) {
+            frames.insert(frame_index, trace);
+        }
+    }
+
+    // ASM `loc_1AE2E -> loc_6E2`: once the later Start edge enters the hidden
+    // Load_InGame bootstrap, the carried loc_1AB26 / loc_1AD48 title workers
+    // disappear until the explicit preload objects appear on frame 237.
+    assert_eq!(frames[&221].kid_x_pos, None);
+    assert_eq!(frames[&221].kid_y_pos, None);
+    assert_eq!(frames[&221].number_objects, 0);
+    assert_eq!(frames[&221].number_gfx_objects, 0);
+    assert_eq!(frames[&229].number_objects, 0);
+    assert_eq!(frames[&229].number_gfx_objects, 0);
+    assert_eq!(frames[&230].number_objects, 0);
+    assert_eq!(frames[&230].number_gfx_objects, 0);
+    assert_eq!(frames[&237].number_objects, 4);
+    assert_eq!(frames[&237].number_gfx_objects, 2);
+    assert_eq!(frames[&238].number_objects, 5);
+    assert_eq!(frames[&238].number_gfx_objects, 4);
 }
 
 #[test]
