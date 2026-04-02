@@ -440,9 +440,7 @@ pub fn verify_tas(
         &oracle.states,
         frontier_kind,
     );
-    let empty_set: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    let divergence_summary =
-        crate::sweep::summarise_state_diffs(&state_diffs, &empty_set, &empty_set);
+    let divergence_summary = crate::sweep::summarise_state_diffs(&state_diffs);
 
     if state_diffs.is_empty() {
         println!(

@@ -119,6 +119,7 @@ pub(crate) struct StateDiff {
     pub(crate) field: String,
     pub(crate) native_value: String,
     pub(crate) oracle_value: String,
+    pub(crate) category: DivergenceCategory,
 }
 
 /// Top-level sweep report.
@@ -187,6 +188,8 @@ pub(crate) struct SweepHistoryFieldEntry {
     field: String,
     total_diffs: usize,
     levels: usize,
+    #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
+    divergence_summary: DivergenceSummary,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -271,6 +274,31 @@ fn format_divergence_summary(summary: &DivergenceSummary) -> String {
         String::new()
     } else {
         format!(" ({})", parts.join(", "))
+    }
+}
+
+fn format_field_category_summary(summary: &DivergenceSummary) -> String {
+    let mut parts = Vec::new();
+    if summary.authoritative > 0 {
+        parts.push(format!("authoritative={}", summary.authoritative));
+    }
+    if summary.advisory > 0 {
+        parts.push(format!("advisory={}", summary.advisory));
+    }
+    if summary.accumulation > 0 {
+        parts.push(format!("accumulation={}", summary.accumulation));
+    }
+    if summary.rng > 0 {
+        parts.push(format!("rng={}", summary.rng));
+    }
+    if summary.oracle_limitation > 0 {
+        parts.push(format!("oracle_limitations={}", summary.oracle_limitation));
+    }
+
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" [{}]", parts.join(", "))
     }
 }
 
@@ -565,8 +593,11 @@ pub(crate) fn run_sweep_with_options(
             .take(5)
             .map(|entry| {
                 format!(
-                    "{}={} diffs across {} levels",
-                    entry.field, entry.total_diffs, entry.levels
+                    "{}={} diffs across {} levels{}",
+                    entry.field,
+                    entry.total_diffs,
+                    entry.levels,
+                    format_field_category_summary(&entry.divergence_summary)
                 )
             })
             .collect::<Vec<_>>()
@@ -645,7 +676,7 @@ fn sweep_single_level(
     }
 
     // Compare states
-    let state_diffs = compare_sweep_states(&native_states, &oracle.states);
+    let mut state_diffs = compare_sweep_states(&native_states, &oracle.states);
     // Build set of checkpoint labels where the native player died during idle
     // but the oracle survived. Detected by: (a) native HP=0, or (b) native
     // lives decreased between checkpoints (died and respawned before capture).
@@ -668,11 +699,12 @@ fn sweep_single_level(
         .filter(|s| s.game_paused || s.game_mode == 0x0008)
         .map(|s| s.label.as_str())
         .collect();
-    let divergence_summary = summarise_state_diffs(
-        &state_diffs,
+    reclassify_state_diffs(
+        &mut state_diffs,
         &death_gap_checkpoints,
         &oracle_paused_checkpoints,
     );
+    let divergence_summary = summarise_state_diffs(&state_diffs);
     let state_passed = !has_blocking_divergences(&divergence_summary);
 
     // Tier 1 (state-only): done unless escalating
@@ -728,18 +760,20 @@ fn sweep_single_level(
     })
 }
 
-pub(crate) fn summarise_state_diffs(
-    diffs: &[StateDiff],
+fn reclassify_state_diffs(
+    diffs: &mut [StateDiff],
     death_gap_checkpoints: &std::collections::HashSet<&str>,
     oracle_paused_checkpoints: &std::collections::HashSet<&str>,
-) -> DivergenceSummary {
+) {
+    for diff in diffs {
+        diff.category = classify_state_diff(diff, death_gap_checkpoints, oracle_paused_checkpoints);
+    }
+}
+
+pub(crate) fn summarise_state_diffs(diffs: &[StateDiff]) -> DivergenceSummary {
     let mut summary = DivergenceSummary::default();
     for diff in diffs {
-        summary.increment(classify_state_diff(
-            diff,
-            death_gap_checkpoints,
-            oracle_paused_checkpoints,
-        ));
+        summary.increment(diff.category);
     }
     summary
 }
@@ -790,6 +824,8 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
     let mut totals: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let mut levels: std::collections::BTreeMap<String, std::collections::BTreeSet<u8>> =
         std::collections::BTreeMap::new();
+    let mut divergence_summaries: std::collections::BTreeMap<String, DivergenceSummary> =
+        std::collections::BTreeMap::new();
 
     for result in results {
         for diff in &result.state_diffs {
@@ -798,6 +834,10 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
                 .entry(diff.field.clone())
                 .or_default()
                 .insert(result.level_id);
+            divergence_summaries
+                .entry(diff.field.clone())
+                .or_default()
+                .increment(diff.category);
         }
     }
 
@@ -807,6 +847,7 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
             levels: levels
                 .get(&field)
                 .map_or(0, std::collections::BTreeSet::len),
+            divergence_summary: divergence_summaries.remove(&field).unwrap_or_default(),
             field,
             total_diffs,
         })
@@ -910,6 +951,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "game_mode".into(),
                 native_value: format!("{:#06x}", native.game_mode),
                 oracle_value: format!("{:#06x}", oracle.game_mode),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.current_level_id != oracle.current_level_id {
@@ -918,6 +960,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "current_level_id".into(),
                 native_value: format!("{:#06x}", native.current_level_id),
                 oracle_value: format!("{:#06x}", oracle.current_level_id),
+                category: DivergenceCategory::Authoritative,
             });
         }
         let cam_x_delta = native.camera_x_pos.abs_diff(oracle.camera_x_pos);
@@ -927,6 +970,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "camera_x_pos".into(),
                 native_value: format!("{:#010x}", native.camera_x_pos),
                 oracle_value: format!("{:#010x}", oracle.camera_x_pos),
+                category: DivergenceCategory::Authoritative,
             });
         }
         let cam_y_delta = native.camera_y_pos.abs_diff(oracle.camera_y_pos);
@@ -936,6 +980,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "camera_y_pos".into(),
                 native_value: format!("{:#010x}", native.camera_y_pos),
                 oracle_value: format!("{:#010x}", oracle.camera_y_pos),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.number_objects != oracle.number_objects {
@@ -944,6 +989,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "number_objects".into(),
                 native_value: format!("{}", native.number_objects),
                 oracle_value: format!("{}", oracle.number_objects),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.number_hitpoints != oracle.number_hitpoints {
@@ -952,6 +998,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "number_hitpoints".into(),
                 native_value: format!("{}", native.number_hitpoints),
                 oracle_value: format!("{}", oracle.number_hitpoints),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.kid_x_pos.abs_diff(oracle.kid_x_pos) > POSITION_TOLERANCE {
@@ -960,6 +1007,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "kid_x_pos".into(),
                 native_value: format!("{:#010x}", native.kid_x_pos),
                 oracle_value: format!("{:#010x}", oracle.kid_x_pos),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.kid_y_pos.abs_diff(oracle.kid_y_pos) > POSITION_TOLERANCE {
@@ -968,6 +1016,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "kid_y_pos".into(),
                 native_value: format!("{:#010x}", native.kid_y_pos),
                 oracle_value: format!("{:#010x}", oracle.kid_y_pos),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.score != oracle.score {
@@ -976,6 +1025,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "score".into(),
                 native_value: format!("{}", native.score),
                 oracle_value: format!("{}", oracle.score),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.number_lives != oracle.number_lives {
@@ -984,6 +1034,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "number_lives".into(),
                 native_value: format!("{}", native.number_lives),
                 oracle_value: format!("{}", oracle.number_lives),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.number_diamonds != oracle.number_diamonds {
@@ -992,6 +1043,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "number_diamonds".into(),
                 native_value: format!("{}", native.number_diamonds),
                 oracle_value: format!("{}", oracle.number_diamonds),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.current_helmet_id != oracle.current_helmet_id {
@@ -1000,6 +1052,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "current_helmet_id".into(),
                 native_value: format!("{}", native.current_helmet_id),
                 oracle_value: format!("{}", oracle.current_helmet_id),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.diamond_power_active != oracle.diamond_power_active {
@@ -1008,6 +1061,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "diamond_power_active".into(),
                 native_value: format!("{}", native.diamond_power_active),
                 oracle_value: format!("{}", oracle.diamond_power_active),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.murder_wall_x != oracle.murder_wall_x {
@@ -1016,6 +1070,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "murder_wall_x".into(),
                 native_value: format!("{:?}", native.murder_wall_x),
                 oracle_value: format!("{:?}", oracle.murder_wall_x),
+                category: DivergenceCategory::Authoritative,
             });
         }
         // Extended fields — velocity comparison (authoritative when both available)
@@ -1027,6 +1082,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "kid_x_vel".into(),
                 native_value: format!("{n_xv:#010x}"),
                 oracle_value: format!("{o_xv:#010x}"),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if let (Some(n_yv), Some(o_yv)) = (native.kid_y_vel, oracle.kid_y_vel)
@@ -1037,6 +1093,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "kid_y_vel".into(),
                 native_value: format!("{n_yv:#010x}"),
                 oracle_value: format!("{o_yv:#010x}"),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if let (Some(n_inv), Some(o_inv)) = (native.invulnerable_frames, oracle.invulnerable_frames)
@@ -1047,6 +1104,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "invulnerable_frames".into(),
                 native_value: format!("{n_inv}"),
                 oracle_value: format!("{o_inv}"),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if let (Some(n_transform), Some(o_transform)) =
@@ -1058,6 +1116,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "currently_transforming".into(),
                 native_value: format!("{n_transform}"),
                 oracle_value: format!("{o_transform}"),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if let (Some(n_movement), Some(o_movement)) =
@@ -1069,6 +1128,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "character_movement".into(),
                 native_value: format!("{n_movement:#06x}"),
                 oracle_value: format!("{o_movement:#06x}"),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if let (Some(n_damage), Some(o_damage)) =
@@ -1080,6 +1140,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "just_received_damage".into(),
                 native_value: format!("{n_damage}"),
                 oracle_value: format!("{o_damage}"),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if native.game_paused != oracle.game_paused {
@@ -1088,6 +1149,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "game_paused".into(),
                 native_value: format!("{}", native.game_paused),
                 oracle_value: format!("{}", oracle.game_paused),
+                category: DivergenceCategory::Authoritative,
             });
         }
         if matches!(frontier_kind, FrontierKind::Enemy)
@@ -1098,6 +1160,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "enemy_roster".into(),
                 native_value: summarise_enemy_states(&native.active_enemies),
                 oracle_value: summarise_enemy_states(&oracle.active_enemies),
+                category: DivergenceCategory::Authoritative,
             });
         }
     }
@@ -1893,6 +1956,7 @@ pub(crate) fn golden_diff(
                     field: d.field.clone(),
                     native_value: d.new_value.clone(),
                     oracle_value: d.old_value.clone(),
+                    category: DivergenceCategory::Authoritative,
                 })
                 .collect(),
             mae: None,
@@ -2188,6 +2252,7 @@ fn check_walk_right_assertions(
             field: "kid_x_pos_monotonic".into(),
             native_value: format!("start={sx:#010x} end={ex:#010x}"),
             oracle_value: "end > start".into(),
+            category: DivergenceCategory::Authoritative,
         });
     }
 
@@ -2252,6 +2317,7 @@ fn check_jump_assertions(trace: &[NativeTraceFrame], scenario: &DynamicScenario)
                 field: "kid_on_ground_false_after_jump".into(),
                 native_value: "negative vy but never left ground".into(),
                 oracle_value: "kid_on_ground=false after B press".into(),
+                category: DivergenceCategory::Authoritative,
             });
         }
     }
@@ -2295,8 +2361,6 @@ pub(crate) fn run_sweep_compare(
     );
     println!("{}", "-".repeat(96));
 
-    let empty_set = std::collections::HashSet::new();
-
     for &level_id in levels {
         let scenario = idle_level_scenario(level_id, None);
         let level_dir = repo_root
@@ -2329,8 +2393,7 @@ pub(crate) fn run_sweep_compare(
         );
         let current_states = extract_checkpoint_states(&current_trace, &scenario.checkpoints);
         let current_diffs_vec = compare_sweep_states(&current_states, &oracle.states);
-        let current_auth =
-            summarise_state_diffs(&current_diffs_vec, &empty_set, &empty_set).authoritative;
+        let current_auth = summarise_state_diffs(&current_diffs_vec).authoritative;
 
         // Run native with PositionFirst
         let pos_first_trace = kid_core::run_script_with_physics_order(
@@ -2342,8 +2405,7 @@ pub(crate) fn run_sweep_compare(
         );
         let pos_first_states = extract_checkpoint_states(&pos_first_trace, &scenario.checkpoints);
         let pos_first_diffs_vec = compare_sweep_states(&pos_first_states, &oracle.states);
-        let pos_first_auth =
-            summarise_state_diffs(&pos_first_diffs_vec, &empty_set, &empty_set).authoritative;
+        let pos_first_auth = summarise_state_diffs(&pos_first_diffs_vec).authoritative;
 
         // Run native with AsmFaithful
         let asm_trace = kid_core::run_script_with_physics_order(
@@ -2355,7 +2417,7 @@ pub(crate) fn run_sweep_compare(
         );
         let asm_states = extract_checkpoint_states(&asm_trace, &scenario.checkpoints);
         let asm_diffs_vec = compare_sweep_states(&asm_states, &oracle.states);
-        let asm_auth = summarise_state_diffs(&asm_diffs_vec, &empty_set, &empty_set).authoritative;
+        let asm_auth = summarise_state_diffs(&asm_diffs_vec).authoritative;
 
         let verdict = if asm_auth < current_auth && asm_auth <= pos_first_auth {
             "ASM_BEST"
@@ -2947,6 +3009,7 @@ mod tests {
             field: "camera_y_pos".into(),
             native_value: "0x00830000".into(),
             oracle_value: "0x00b30000".into(),
+            category: DivergenceCategory::Authoritative,
         };
         let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
         let oracle_paused_checkpoints = std::collections::HashSet::from(["idle_tail"]);
@@ -2967,6 +3030,7 @@ mod tests {
                 field: field.into(),
                 native_value: "true".into(),
                 oracle_value: "false".into(),
+                category: DivergenceCategory::Authoritative,
             };
             let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
             let oracle_paused_checkpoints = std::collections::HashSet::from(["level_settle"]);
@@ -3095,6 +3159,13 @@ mod tests {
                 field: "game_mode".into(),
                 total_diffs: 3,
                 levels: 2,
+                divergence_summary: DivergenceSummary {
+                    authoritative: 0,
+                    advisory: 3,
+                    accumulation: 0,
+                    rng: 0,
+                    oracle_limitation: 0,
+                },
             }],
             per_level: vec![SweepHistoryLevelEntry {
                 level: "0x00".into(),
@@ -3139,18 +3210,21 @@ mod tests {
                         field: "camera_y_pos".into(),
                         native_value: "1".into(),
                         oracle_value: "2".into(),
+                        category: DivergenceCategory::OracleLimitation,
                     },
                     StateDiff {
                         checkpoint: "idle_tail".into(),
                         field: "camera_y_pos".into(),
                         native_value: "3".into(),
                         oracle_value: "4".into(),
+                        category: DivergenceCategory::OracleLimitation,
                     },
                     StateDiff {
                         checkpoint: "idle_tail".into(),
                         field: "game_mode".into(),
                         native_value: "0008".into(),
                         oracle_value: "0010".into(),
+                        category: DivergenceCategory::Advisory,
                     },
                 ],
                 mae: None,
@@ -3170,12 +3244,14 @@ mod tests {
                         field: "camera_y_pos".into(),
                         native_value: "5".into(),
                         oracle_value: "6".into(),
+                        category: DivergenceCategory::OracleLimitation,
                     },
                     StateDiff {
                         checkpoint: "idle_tail".into(),
                         field: "number_objects".into(),
                         native_value: "2".into(),
                         oracle_value: "4".into(),
+                        category: DivergenceCategory::Advisory,
                     },
                 ],
                 mae: None,
@@ -3195,16 +3271,37 @@ mod tests {
                     field: "camera_y_pos".into(),
                     total_diffs: 3,
                     levels: 2,
+                    divergence_summary: DivergenceSummary {
+                        authoritative: 0,
+                        advisory: 0,
+                        accumulation: 0,
+                        rng: 0,
+                        oracle_limitation: 3,
+                    },
                 },
                 SweepHistoryFieldEntry {
                     field: "game_mode".into(),
                     total_diffs: 1,
                     levels: 1,
+                    divergence_summary: DivergenceSummary {
+                        authoritative: 0,
+                        advisory: 1,
+                        accumulation: 0,
+                        rng: 0,
+                        oracle_limitation: 0,
+                    },
                 },
                 SweepHistoryFieldEntry {
                     field: "number_objects".into(),
                     total_diffs: 1,
                     levels: 1,
+                    divergence_summary: DivergenceSummary {
+                        authoritative: 0,
+                        advisory: 1,
+                        accumulation: 0,
+                        rng: 0,
+                        oracle_limitation: 0,
+                    },
                 },
             ]
         );

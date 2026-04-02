@@ -2121,7 +2121,105 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
                 Some(format!("{name}: {detail}"))
             })
             .unwrap_or_else(|| "latest release gate did not pass".to_owned());
+        let detail = correlate_release_gate_failure_with_state_sweep(repo_root, &detail)
+            .map(|correlation| format!("{detail}; {correlation}"))
+            .unwrap_or(detail);
         CheckOutcome::failing(detail, Some(latest_path))
+    }
+}
+
+fn correlate_release_gate_failure_with_state_sweep(
+    repo_root: &Path,
+    release_gate_detail: &str,
+) -> Option<String> {
+    let failed_field = extract_release_gate_failed_field(release_gate_detail)?;
+    let history_path = repo_root.join(".cache/metrics/sweep-history.jsonl");
+    let contents = fs::read_to_string(&history_path).ok()?;
+    let latest = contents.lines().rev().find_map(|line| {
+        let parsed = serde_json::from_str::<serde_json::Value>(line).ok()?;
+        if parsed
+            .get("tier")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|tier| tier == "state")
+        {
+            Some(parsed)
+        } else {
+            None
+        }
+    })?;
+    let report_path = latest
+        .get("report_path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    let field_entry = latest
+        .get("field_summary")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|entries| {
+            entries.iter().find(|entry| {
+                entry
+                    .get("field")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|field| field == failed_field)
+            })
+        })?;
+    let total_diffs = field_entry
+        .get("total_diffs")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let levels = field_entry
+        .get("levels")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let categories = format_divergence_summary_value(field_entry.get("divergence_summary"))?;
+    Some(format!(
+        "latest state sweep classifies `{failed_field}` as {categories} across {levels} levels ({total_diffs} diffs, report={report_path})"
+    ))
+}
+
+fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
+    let (_, tail) = detail.split_once(" diverged in ")?;
+    let raw_field = tail
+        .split(['(', ';'])
+        .next()
+        .map(str::trim)
+        .filter(|field| !field.is_empty())?;
+    let mut field = String::new();
+    let mut previous_was_separator = false;
+    for ch in raw_field.chars() {
+        if ch.is_ascii_alphanumeric() {
+            field.push(ch.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            field.push('_');
+            previous_was_separator = true;
+        }
+    }
+    let field = field.trim_matches('_').to_owned();
+    if field.is_empty() { None } else { Some(field) }
+}
+
+fn format_divergence_summary_value(summary: Option<&serde_json::Value>) -> Option<String> {
+    let summary = summary?;
+    let mut parts = Vec::new();
+    for (key, label) in [
+        ("authoritative", "authoritative"),
+        ("advisory", "advisory"),
+        ("accumulation", "accumulation"),
+        ("rng", "rng"),
+        ("oracle_limitation", "oracle_limitations"),
+    ] {
+        let count = summary
+            .get(key)
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        if count > 0 {
+            parts.push(format!("{label}={count}"));
+        }
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(", "))
     }
 }
 
@@ -3305,6 +3403,58 @@ mod tests {
         assert!(
             outcome.detail.contains("title@360"),
             "signal should include the failed step detail"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_correlates_failed_field_with_state_sweep_summary() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775168489",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775168490","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":320,"accumulation":0,"rng":0,"oracle_limitation":648},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":15,"levels":15,"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":15}}]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(!outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains("frame_oracle:boot_title_start_level1"),
+            "signal should still include the failed step name"
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("latest state sweep classifies `game_mode` as oracle_limitations=15"),
+            "signal should correlate the failed field with the latest sweep classes"
+        );
+        assert!(
+            outcome.detail.contains("report=/tmp/sweep-report.json"),
+            "signal should include the sweep report path"
         );
     }
 
