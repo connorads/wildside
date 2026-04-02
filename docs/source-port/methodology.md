@@ -123,8 +123,9 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 
 On 2026-04-02 those lanes were intentionally not equivalent:
 
-- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels with only advisory/oracle-limitation classifications (`.cache/sweep-runs/1775118265/report.json`).
-- `mise run release-gate` still failed at `boot_title_start_level1`, `title@360`, where `game_mode` diverged (`native 0x000C`, `oracle 0x002C`).
+- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels again with only advisory/oracle-limitation classifications (`.cache/sweep-runs/1775120772/report.json`), and `.cache/metrics/sweep-history.jsonl` records the same run as `advisory=320`, `oracle_limitation=648`, `failed=0`, `errors=0` plus per-level category/field summaries for quick correlation.
+- `mise run release-gate` still failed at `boot_title_start_level1`, `title@360`, where `game_mode` diverged (`native 0x000C`, `oracle 0x002C`); the fresh gate artefact is `.cache/release-gate/1p-accurate/1775120943/report.json`.
+- Automation in this lane should report the live failing artefact detail, not static capability prose. Otherwise the loop output can imply success while the cached gate still points at the boot/title blocker.
 
 Treat that shape as a boot/title verification blocker, not as evidence to reopen TAS work or to claim the sweep lane regressed.
 
@@ -187,7 +188,7 @@ Autonomous execution should consume these bundles through the repo-native source
 - recording-backed cases outrank generic replay slices
 - only `autonomy-executable` cases may patch code without a human re-triage
 - if `case-queue` has no actionable or non-stalled target, the loop pivots to sweep/verification hardening instead of reopening TAS work
-- use `mise run source-port-rl-prompt` for `rl`/Codex operator runs so the live delegated lane is printed from the freshly generated package
+- use `mise run source-port-rl-run` for `rl`/Codex operator runs so the shell-safe launcher regenerates the live package and follows the checked-in prompt without backtick expansion; use `mise run source-port-rl-prompt` only to inspect the generated package by hand
 
 ### Decision tree
 

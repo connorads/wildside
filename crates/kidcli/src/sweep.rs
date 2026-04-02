@@ -174,6 +174,21 @@ struct SweepHistoryEntry {
     kid_core_hash: Option<String>,
     divergence_summary: DivergenceSummary,
     report_path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    per_level: Vec<SweepHistoryLevelEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SweepHistoryLevelEntry {
+    level: String,
+    passed: bool,
+    blocking: bool,
+    authoritative: usize,
+    advisory: usize,
+    accumulation: usize,
+    rng: usize,
+    oracle_limitation: usize,
+    fields: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -485,6 +500,27 @@ pub(crate) fn run_sweep_with_options(
             kid_core_hash: report.kid_core_hash.clone(),
             divergence_summary: report.divergence_summary.clone(),
             report_path: report_path.to_string_lossy().into_owned(),
+            per_level: report
+                .levels
+                .iter()
+                .map(|result| {
+                    let mut fields: Vec<String> =
+                        result.state_diffs.iter().map(|d| d.field.clone()).collect();
+                    fields.sort_unstable();
+                    fields.dedup();
+                    SweepHistoryLevelEntry {
+                        level: format!("{:#04x}", result.level_id),
+                        passed: result.passed,
+                        blocking: has_blocking_divergences(&result.divergence_summary),
+                        authoritative: result.divergence_summary.authoritative,
+                        advisory: result.divergence_summary.advisory,
+                        accumulation: result.divergence_summary.accumulation,
+                        rng: result.divergence_summary.rng,
+                        oracle_limitation: result.divergence_summary.oracle_limitation,
+                        fields,
+                    }
+                })
+                .collect(),
         },
     )?;
 
@@ -2906,6 +2942,51 @@ mod tests {
         };
 
         assert!(has_blocking_divergences(&summary));
+    }
+
+    #[test]
+    fn append_sweep_history_persists_per_level_categories() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let entry = SweepHistoryEntry {
+            timestamp: "1775118265".into(),
+            tier: SweepTier::State,
+            levels_requested: 2,
+            passed: 2,
+            failed: 0,
+            errors: 0,
+            kid_core_hash: Some("deadbeef".into()),
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 3,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 5,
+            },
+            report_path: "/tmp/report.json".into(),
+            per_level: vec![SweepHistoryLevelEntry {
+                level: "0x00".into(),
+                passed: true,
+                blocking: false,
+                authoritative: 0,
+                advisory: 1,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 2,
+                fields: vec!["game_mode".into(), "number_objects".into()],
+            }],
+        };
+
+        append_sweep_history(temp_dir.path(), entry).expect("append history");
+
+        let history_path = temp_dir.path().join(".cache/metrics/sweep-history.jsonl");
+        let line = std::fs::read_to_string(&history_path).expect("history jsonl");
+        let value: serde_json::Value =
+            serde_json::from_str(line.lines().next().expect("history line")).expect("json line");
+
+        assert_eq!(value["per_level"][0]["level"], "0x00");
+        assert_eq!(value["per_level"][0]["blocking"], false);
+        assert_eq!(value["per_level"][0]["fields"][0], "game_mode");
+        assert_eq!(value["per_level"][0]["fields"][1], "number_objects");
     }
 
     #[test]

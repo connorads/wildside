@@ -246,6 +246,9 @@ pub(crate) struct TaskPackage {
     capability: CapabilityId,
     title: String,
     summary: String,
+    generated_at: String,
+    cycle: u32,
+    progress_fingerprint: String,
     sources: Vec<String>,
     implementation_targets: Vec<String>,
     commands: Vec<String>,
@@ -946,6 +949,18 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
             summary,
         )
     };
+    let progress_fingerprint = source_port_frontier_progress_fingerprint(
+        frontier,
+        delegated_goal,
+        delegated_target.as_deref(),
+        lane_fingerprint.as_deref(),
+    );
+    let task_package = TaskPackage {
+        generated_at: autonomy_timestamp(),
+        cycle,
+        progress_fingerprint: progress_fingerprint.clone(),
+        ..task_package
+    };
     let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
@@ -969,12 +984,7 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
         task_package: Some(task_package),
         selected_task,
         blocker,
-        progress_fingerprint: source_port_frontier_progress_fingerprint(
-            frontier,
-            delegated_goal,
-            delegated_target.as_deref(),
-            lane_fingerprint.as_deref(),
-        ),
+        progress_fingerprint,
         capabilities,
     })
 }
@@ -988,6 +998,9 @@ fn source_port_frontier_task(
         capability: CapabilityId::SourcePortFrontierTask,
         title: task_package.title,
         summary: task_package.summary,
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
         sources: task_package.sources,
         implementation_targets: task_package.implementation_targets,
         commands: task_package.commands,
@@ -1061,6 +1074,9 @@ fn source_port_frontier_case_queue_task(
             "{} is authoritative-clean through frame {}; work the reduced case {} instead of reopening the TAS frontier.",
             frontier.recording, frontier.authoritative_clean_through, candidate.case_id
         ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
         sources: vec![
             SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
             candidate.manifest_path.display().to_string(),
@@ -1155,6 +1171,9 @@ fn source_port_frontier_sweep_task(
             "{} is authoritative-clean through frame {}; continue with sweep parity and release-gate hardening instead of reopening TAS work.",
             frontier.recording, frontier.authoritative_clean_through
         ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
         sources: vec![
             SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
             SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
@@ -1341,6 +1360,14 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
         summary,
     }];
 
+    let progress_fingerprint = case_queue_progress_fingerprint(queue.selected_case.as_ref());
+    let selected_task = selected_task.map(|task| TaskPackage {
+        generated_at: autonomy_timestamp(),
+        cycle,
+        progress_fingerprint: progress_fingerprint.clone(),
+        ..task
+    });
+
     Ok(CycleReport {
         goal: AutonomyGoal::CaseQueue.slug().to_owned(),
         cycle,
@@ -1349,7 +1376,7 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
         task_package: selected_task.clone(),
         selected_task,
         blocker,
-        progress_fingerprint: case_queue_progress_fingerprint(queue.selected_case.as_ref()),
+        progress_fingerprint,
         capabilities,
     })
 }
@@ -1749,6 +1776,9 @@ fn case_queue_task(
                 "this remains evidence-first until the case is tighter"
             }
         ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
         sources: vec![
             candidate.manifest_path.display().to_string(),
             candidate.verify_path.display().to_string(),
@@ -1841,7 +1871,13 @@ fn evaluate_cycle(
 ) -> Result<CycleReport> {
     let signals = collect_repository_signals(repo_root, rom_path, manifest)?;
     let capabilities = evaluate_capabilities(spec, repo_root, &signals);
-    let selected_task = select_next_task(spec, &capabilities, &signals);
+    let progress_fingerprint = fingerprint_for_capabilities(&capabilities);
+    let selected_task = select_next_task(spec, &capabilities, &signals).map(|task| TaskPackage {
+        generated_at: autonomy_timestamp(),
+        cycle,
+        progress_fingerprint: progress_fingerprint.clone(),
+        ..task
+    });
     let blocker = selected_task
         .as_ref()
         .and_then(|task| detect_blocker(repo_root, task))
@@ -1857,7 +1893,7 @@ fn evaluate_cycle(
         task_package: selected_task.clone(),
         selected_task,
         blocker,
-        progress_fingerprint: fingerprint_for_capabilities(&capabilities),
+        progress_fingerprint,
         capabilities,
     })
 }
@@ -2059,9 +2095,33 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false)
     {
-        CheckOutcome::passing("latest release gate passed", Some(latest_path))
+        let timestamp = report
+            .get("timestamp")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown");
+        CheckOutcome::passing(
+            format!("latest release gate passed (timestamp {timestamp})"),
+            Some(latest_path),
+        )
     } else {
-        CheckOutcome::failing("latest release gate did not pass", Some(latest_path))
+        let failed_step = report
+            .get("steps")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|steps| {
+                steps.iter().find(|step| {
+                    step.get("status")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|status| status == "failed")
+                })
+            });
+        let detail = failed_step
+            .and_then(|step| {
+                let name = step.get("name")?.as_str()?;
+                let detail = step.get("detail")?.as_str()?;
+                Some(format!("{name}: {detail}"))
+            })
+            .unwrap_or_else(|| "latest release gate did not pass".to_owned());
+        CheckOutcome::failing(detail, Some(latest_path))
     }
 }
 
@@ -2104,10 +2164,42 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(1)
             == 0;
+    let report_path = latest
+        .get("report_path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    let failed = latest
+        .get("failed")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let errors = latest
+        .get("errors")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let advisory = latest
+        .get("divergence_summary")
+        .and_then(|summary| summary.get("advisory"))
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let oracle_limitations = latest
+        .get("divergence_summary")
+        .and_then(|summary| summary.get("oracle_limitation"))
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
     if passed {
-        CheckOutcome::passing("latest state sweep passed", Some(history_path))
+        CheckOutcome::passing(
+            format!(
+                "latest state sweep passed (failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
+            ),
+            Some(history_path),
+        )
     } else {
-        CheckOutcome::failing("latest state sweep reported failures", Some(history_path))
+        CheckOutcome::failing(
+            format!(
+                "latest state sweep reported failures (failed={failed}, errors={errors}, report={report_path})"
+            ),
+            Some(history_path),
+        )
     }
 }
 
@@ -2434,7 +2526,10 @@ fn select_next_task(
     Some(TaskPackage {
         capability: capability.id,
         title: spec_capability.title.clone(),
-        summary: spec_capability.summary.clone(),
+        summary: capability.summary.clone(),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
         sources: spec_capability.sources.clone(),
         implementation_targets: spec_capability.implementation_targets.clone(),
         commands: spec_capability.commands.clone(),
@@ -2843,8 +2938,8 @@ mod tests {
         SOURCE_PORT_RELEASE_GATE_PATH, SOURCE_PORT_RESEARCH_MAP_PATH, SOURCE_PORT_ROADMAP_PATH,
         SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot, detect_blocker,
         evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
-        fingerprint_for_capabilities, load_source_port_frontier_state, select_next_task,
-        source_port_next_agent_note,
+        fingerprint_for_capabilities, latest_release_gate_signal, latest_state_sweep_signal,
+        load_source_port_frontier_state, select_next_task, source_port_next_agent_note,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -3023,6 +3118,9 @@ mod tests {
             capability: CapabilityId::PlayerCameraMovement,
             title: "Player/camera".to_owned(),
             summary: "Player/camera".to_owned(),
+            generated_at: "0".to_owned(),
+            cycle: 0,
+            progress_fingerprint: "test".to_owned(),
             sources: vec!["missing/source.asm".to_owned()],
             implementation_targets: Vec::new(),
             commands: Vec::new(),
@@ -3123,6 +3221,115 @@ mod tests {
 
         let task = select_next_task(&spec, &capabilities, &signals).expect("task should exist");
         assert_eq!(task.capability, CapabilityId::TerrainRuntimeAuthority);
+    }
+
+    #[test]
+    fn selected_task_summary_uses_live_capability_status() {
+        let spec: GoalSpec = serde_json::from_str(
+            r#"
+            {
+              "goal_id": "sweep-parity",
+              "title": "Whole-game sweep parity",
+              "summary": "Test goal",
+              "capabilities": [
+                {
+                  "id": "release_gate_green",
+                  "title": "Release gate green",
+                  "summary": "Static summary that should not leak into the selected task",
+                  "prerequisites": [],
+                  "sources": ["src/main.rs"],
+                  "implementation_targets": ["src/main.rs"],
+                  "commands": ["mise run release-gate"],
+                  "done_criteria": ["release gate passes"]
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("goal spec should parse");
+        let mut signals = base_signals();
+        signals.release_gate = CheckOutcome::failing(
+            "frame_oracle:boot_title_start_level1: state title@360 diverged in game mode",
+            None,
+        );
+
+        let capabilities = evaluate_capabilities(&spec, Path::new("."), &signals);
+        let task = select_next_task(&spec, &capabilities, &signals).expect("task should exist");
+
+        assert_eq!(task.capability, CapabilityId::ReleaseGateGreen);
+        assert!(
+            task.summary
+                .contains("frame_oracle:boot_title_start_level1"),
+            "task summary should describe the live failing evidence"
+        );
+        assert!(
+            !task
+                .summary
+                .contains("Static summary that should not leak into the selected task"),
+            "task summary should not reuse static goal-spec prose"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_reports_failed_step_detail() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775119879",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(!outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains("frame_oracle:boot_title_start_level1"),
+            "signal should include the failed step name"
+        );
+        assert!(
+            outcome.detail.contains("title@360"),
+            "signal should include the failed step detail"
+        );
+    }
+
+    #[test]
+    fn state_sweep_signal_reports_advisory_and_oracle_limitation_counts() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775120772","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":320,"accumulation":0,"rng":0,"oracle_limitation":648},"report_path":"/tmp/sweep-report.json"}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_state_sweep_signal(temp_dir.path());
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains("advisory=320"),
+            "signal should include advisory counts"
+        );
+        assert!(
+            outcome.detail.contains("oracle_limitations=648"),
+            "signal should include oracle limitation counts"
+        );
     }
 
     fn source_port_repo() -> TempDir {
@@ -3384,6 +3591,67 @@ mod tests {
             Some("state-sweep")
         );
         assert!(task_package.summary.contains("sweep parity"));
+        assert_eq!(task_package.cycle, 1);
+        assert_eq!(
+            task_package.progress_fingerprint,
+            cycle.progress_fingerprint
+        );
+        assert!(!task_package.generated_at.is_empty());
+    }
+
+    #[test]
+    fn source_port_frontier_skips_green_case_queue_bundles() {
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_case(
+            temp_dir.path(),
+            "green-case",
+            r#"{"kind":"gameplay_scenario","slug":"pause_resume_level1"}"#,
+            "player.hitpoints",
+            472,
+            &["combat"],
+            0,
+            60,
+        );
+        fs::write(
+            temp_dir
+                .path()
+                .join(SOURCE_PORT_CASE_CACHE_PATH)
+                .join("green-case")
+                .join("verify.json"),
+            "{\n  \"passed\": true,\n  \"first_failure\": null,\n  \"likely_subsystems\": [\"none\"]\n}\n",
+        )
+        .expect("green verify should write");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::SweepParity));
+        assert_eq!(task.delegated_target.as_deref(), Some("state-sweep"));
+        assert!(task.summary.contains("sweep parity"));
     }
 
     #[test]
@@ -3600,5 +3868,8 @@ mod tests {
         assert!(task.case_queue_context.is_some());
         assert_eq!(note.status, NextAgentNoteStatus::Current);
         assert_eq!(note.frontmatter_slug.as_deref(), Some("recording-case"));
+        assert_eq!(task.cycle, 1);
+        assert_eq!(task.progress_fingerprint, cycle.progress_fingerprint);
+        assert!(!task.generated_at.is_empty());
     }
 }

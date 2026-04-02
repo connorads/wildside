@@ -17,12 +17,13 @@ The live TAS frontier is currently closed:
 That is not the same thing as whole-game completion. The active programme now shifts
 from "close the next TAS window" to "make 1P actually work in native play while
 continuing to burn down fidelity debt". `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint: while TAS work exists it packages the live frontier, and once TAS is closed it auto-delegates to the next repo-local lane. The default post-TAS lane is `case-queue`, which ranks reduced semantic case bundles and only permits code edits for hybrid-gated `autonomy-executable` cases; when no actionable case exists, the loop pivots to `sweep-parity`/verification hardening instead of repeating stale prose. `kidcli project-status` remains the top-level status surface for reading those signals together.
-For `rl`/Codex runs, use `mise run source-port-rl-prompt` rather than shell-history prompts. That command regenerates the live package first and prints the current delegated lane so the loop cannot drift back into stale backlog scavenging.
+For `rl`/Codex runs, use `mise run source-port-rl-run` rather than shell-history prompts. That launcher wraps a shell-safe `rl ... -- cxys 'Read tasks/source-port-rl-prompt.md and follow it exactly.'` invocation, so the shell cannot expand the generated prompt before Codex starts. Use `mise run source-port-rl-prompt` only when you need to inspect the freshly generated package without launching Codex.
 
 Current post-TAS verification split as of 2026-04-02:
 
-- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels; the fresh report is `.cache/sweep-runs/1775118265/report.json` and the run remained advisory/oracle-limitation only.
-- `mise run release-gate` still fails the `1p-accurate` lane at `boot_title_start_level1`: `title@360` diverges in `game_mode` (`native 0x000C`, `oracle 0x002C`), so release-gate hardening is now a boot/title verification problem rather than a sweep-parity problem.
+- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels again; the fresh report is `.cache/sweep-runs/1775120772/report.json`, and the matching `.cache/metrics/sweep-history.jsonl` entry records `advisory=320` and `oracle_limitation=648` with zero blocking diffs.
+- `mise run release-gate` still fails the `1p-accurate` lane at `boot_title_start_level1`: `title@360` diverges in `game_mode` (`native 0x000C`, `oracle 0x002C`), and the fresh gate report is `.cache/release-gate/1p-accurate/1775120943/report.json`. Release-gate hardening is still a boot/title verification problem rather than a sweep-parity problem.
+- `cargo run -p kidcli -- autonomous-loop --goal sweep-parity` should keep surfacing both halves of that split: the state sweep is clean apart from advisory/oracle-limitation debt, while the delegated blocker remains the live release-gate failure until the gate genuinely flips green.
 
 ## Canonical status language
 
@@ -127,10 +128,10 @@ High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), Tornado Cyclone-flyi
 Medium impact: Sphere/Fireball slope deflection, Driller block drilling, probe half-width per-family.
 Low impact: speed caps at high HP, Cloud lightning bolt attack, Dragon Flying fire spawn X offset.
 
-### Oracle sweep hardening (not yet implemented)
+### Oracle sweep hardening
 - **Advisory field promotion**: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.
 - **Framewise checksumming**: methodology.md describes CRC32 per-frame game state checksumming for pinpointing divergences (player + enemies + camera + blocks). Not yet implemented. Add `--checksum` flag to sweep. First mismatch = exact divergence frame.
-- **Divergence classification output**: sweep history now persists per-run `divergence_summary` totals, which is enough to prove the 2026-04-02 full BCD state sweep stayed advisory/oracle-limitation only. The next gap is per-level category logging to `.cache/metrics/sweep-history.jsonl` so release-gate failures can be correlated against sweep classes without opening the full report.
+- **Divergence classification output**: sweep history now persists both per-run `divergence_summary` totals and per-level category/field summaries in `.cache/metrics/sweep-history.jsonl`; the flatter `.cache/metrics/sweep-telemetry.jsonl` stream remains available for append-only metrics ingestion. The remaining gap is using those summaries to correlate release-gate failures against known sweep classes automatically.
 - **Full-frame pixel comparison sweep**: run frame capture on all 105 levels at key frames (0, 30, 60, 120, 300), compare pixel-for-pixel against oracle. Extend `kidcli` with `sweep --tier frames`. Each pixel difference classified as rendering, palette, timing, sprite priority, or position error.
 
 ### Testing infrastructure
