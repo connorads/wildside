@@ -44,7 +44,7 @@ Start with `kidcli project-status` or `mise run project-status`.
 - `kidcli autonomous-loop --goal level1-full-traversal` evaluates the post-opening traversal contract for default-terrain authority and long transition parity.
 - `kidcli autonomous-loop --goal source-port-frontier` is the operator entrypoint: while TAS frontier work is active it packages that frontier, and once TAS is closed it auto-delegates to the next repo-local lane such as `case-queue` or `sweep-parity`.
 - `mise run source-port-rl-prompt` regenerates the live source-port package and prints the canonical prompt for `rl`/Codex runs so operators stay on the current delegated lane.
-- `mise run source-port-rl-run` is the shell-safe single-run launcher for Codex/RL source-port work; it avoids backtick expansion and always starts from the checked-in prompt file.
+- `mise run source-port-rl-run` is the single-run launcher for Codex/RL source-port work; it regenerates the live package and pipes the generated prompt straight to `cxys`.
 - `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
 - `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.

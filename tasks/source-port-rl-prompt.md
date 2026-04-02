@@ -10,7 +10,7 @@ Run:
 mise run source-port-rl-run
 ```
 
-That command starts a shell-safe single `rl`/Codex run from this checked-in prompt.
+That command starts a single `rl`/Codex run by piping the generated live prompt to `cxys`.
 
 If you only need to inspect the live delegated package without starting Codex, run:
 

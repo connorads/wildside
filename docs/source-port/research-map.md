@@ -17,7 +17,7 @@ The live TAS frontier is currently closed:
 That is not the same thing as whole-game completion. The active programme now shifts
 from "close the next TAS window" to "make 1P actually work in native play while
 continuing to burn down fidelity debt". `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint: while TAS work exists it packages the live frontier, and once TAS is closed it auto-delegates to the next repo-local lane. The default post-TAS lane is `case-queue`, which ranks reduced semantic case bundles and only permits code edits for hybrid-gated `autonomy-executable` cases; when no actionable case exists, the loop pivots to `sweep-parity`/verification hardening instead of repeating stale prose. `kidcli project-status` remains the top-level status surface for reading those signals together.
-For `rl`/Codex runs, use `mise run source-port-rl-run` rather than shell-history prompts. That launcher wraps a shell-safe `rl ... -- cxys 'Read tasks/source-port-rl-prompt.md and follow it exactly.'` invocation, so the shell cannot expand the generated prompt before Codex starts. Use `mise run source-port-rl-prompt` only when you need to inspect the freshly generated package without launching Codex.
+For `rl`/Codex runs, use `mise run source-port-rl-run` rather than shell-history prompts. That launcher regenerates the live delegated package and pipes the generated prompt straight to `cxys`, so Codex consumes the real task package instead of re-reading the checked-in operator note. Use `mise run source-port-rl-prompt` only when you need to inspect the freshly generated package without launching Codex.
 
 Current post-TAS verification split as of 2026-04-02:
 

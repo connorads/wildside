@@ -188,7 +188,7 @@ Autonomous execution should consume these bundles through the repo-native source
 - recording-backed cases outrank generic replay slices
 - only `autonomy-executable` cases may patch code without a human re-triage
 - if `case-queue` has no actionable or non-stalled target, the loop pivots to sweep/verification hardening instead of reopening TAS work
-- use `mise run source-port-rl-run` for `rl`/Codex operator runs so the shell-safe launcher regenerates the live package and follows the checked-in prompt without backtick expansion; use `mise run source-port-rl-prompt` only to inspect the generated package by hand
+- use `mise run source-port-rl-run` for `rl`/Codex operator runs so the launcher regenerates the live package and pipes the generated prompt directly to `cxys`; use `mise run source-port-rl-prompt` only to inspect the generated package by hand
 
 ### Decision tree
 

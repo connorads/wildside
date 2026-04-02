@@ -179,8 +179,8 @@ run = "python3 scripts/source_port_rl_prompt.py"
 description = "Regenerate the live source-port package and print the canonical RL prompt for the current delegated lane"
 
 [tasks.source-port-rl-run]
-run = "rl 1 -t 60m -- cxys 'Read tasks/source-port-rl-prompt.md and follow it exactly.'"
-description = "Shell-safe single RL/Codex source-port run that regenerates and follows the live delegated lane"
+run = "scripts/source_port_rl_run.sh"
+description = "Single RL/Codex source-port run that pipes the live delegated prompt to the cxys launcher"
 
 [tasks.audit-debug-fields]
 run = "python3 scripts/audit_debug_fields.py"
