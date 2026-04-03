@@ -26,6 +26,18 @@ pub(crate) fn advance_gfx_animation_sub_1194(
     Some(())
 }
 
+#[allow(dead_code)]
+pub(crate) fn rewind_gfx_animation_pointer_sub_11ac(
+    current_byte: u8,
+    script_offset: usize,
+) -> Option<usize> {
+    let rewind = i8::from_be_bytes([current_byte]);
+
+    // ASM sub_11AC (kid.asm:2176): sign-extend the current byte and subtract it
+    // from a2, so positive values rewind while negative values move forward.
+    script_offset.checked_add_signed(-(isize::from(rewind)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,5 +78,24 @@ mod tests {
         assert_eq!(state.timer, 7);
         assert_eq!(state.sprite_offset, 0xAAAA);
         assert_eq!(state.script_offset, 9);
+    }
+
+    #[test]
+    fn sub_11ac_rewinds_by_unsigned_distance_byte() {
+        let next_offset = rewind_gfx_animation_pointer_sub_11ac(0x04, 12)
+            .expect("ASM sub_11AC should rewind a2 by the current byte");
+
+        assert_eq!(next_offset, 8);
+    }
+
+    #[test]
+    fn sub_11ac_treats_high_bytes_as_signed_forward_jumps() {
+        let next_offset = rewind_gfx_animation_pointer_sub_11ac(0xFC, 12)
+            .expect("ASM sub_11AC sign-extends the rewind byte before subtracting it");
+
+        assert_eq!(
+            next_offset, 16,
+            "0xFC extends to -4, so subtracting it moves the script pointer forward by 4"
+        );
     }
 }
