@@ -6023,6 +6023,112 @@ fn lion_sub_3e8ba_keeps_live_object_active_after_spawn_point_scrolls_offscreen()
 }
 
 #[test]
+fn mini_hopping_skull_sub_3f29a_keeps_live_object_active_after_spawn_point_scrolls_offscreen() {
+    // ASM Mini_Hopping_Skull.asm sub_3F29A keeps the live skull loaded from
+    // its current position with 11..20 active objects while it stays inside
+    // x=[-$1A4,+$2E4], y=[-$1A4,+$284] relative to camera.
+    let layout = EnemyLayout {
+        axis_uses_y_position: false,
+        unknown_prefix: 0,
+        enemy_type_slots: vec![],
+        unknown_word: 0,
+        header_byte: 0,
+        object_count: 1,
+        objects: vec![kid_data::EnemyLayoutObject {
+            object_type: 0x1C,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x: 336,
+            y: 432,
+        }],
+        segments: vec![],
+    };
+    let enemy = ActiveEnemy {
+        x_pos: 0x020B_0000,
+        y_pos: 0x01C0_0000,
+        family: EnemyFamily::MiniHoppingSkull,
+        on_ground: true,
+        hit_points: 1,
+        ..test_enemy(EnemyFamily::MiniHoppingSkull, 0, 0, 1)
+    };
+    let camera = CameraState {
+        x_pos: 715u32 << 16,
+        y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+    };
+    let window = ActivationWindow::from_camera(camera);
+    let view = enemy_layout_view(&layout, 715, OPENING_GROUNDED_CAMERA_Y_FP >> 16);
+    let level_bounds = physics::LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+
+    assert!(
+        !window.contains(
+            u32::from(layout.objects[0].x),
+            u32::from(layout.objects[0].y),
+        ),
+        "spawn point should be outside the activation window"
+    );
+    assert!(
+        enemy_should_remain_active(
+            &enemy,
+            &view,
+            window,
+            715,
+            OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+            level_bounds,
+            11,
+        ),
+        "Mini Hopping Skull should remain active while its live position stays inside sub_3F29A's medium-load retention box"
+    );
+}
+
+#[test]
+fn mini_hopping_skull_sub_3f29a_despawns_outside_heavy_load_retention_box() {
+    // ASM Mini_Hopping_Skull.asm sub_3F29A tightens to
+    // x=[-$40,+$180], y=[-$40,+$120] once Number_Objects exceeds $14.
+    let layout = EnemyLayout {
+        axis_uses_y_position: false,
+        unknown_prefix: 0,
+        enemy_type_slots: vec![],
+        unknown_word: 0,
+        header_byte: 0,
+        object_count: 1,
+        objects: vec![kid_data::EnemyLayoutObject {
+            object_type: 0x1C,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x: 336,
+            y: 432,
+        }],
+        segments: vec![],
+    };
+    let enemy = ActiveEnemy {
+        x_pos: 0x020B_0000,
+        y_pos: 0x01C0_0000,
+        family: EnemyFamily::MiniHoppingSkull,
+        on_ground: true,
+        hit_points: 1,
+        ..test_enemy(EnemyFamily::MiniHoppingSkull, 0, 0, 1)
+    };
+    let camera = CameraState {
+        x_pos: 120u32 << 16,
+        y_pos: 256u32 << 16,
+    };
+    let window = ActivationWindow::from_camera(camera);
+    let view = enemy_layout_view(&layout, 120, 256);
+    let level_bounds = physics::LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+
+    assert!(
+        !enemy_should_remain_active(&enemy, &view, window, 120, 256, level_bounds, 21,),
+        "Mini Hopping Skull should despawn once its live position leaves sub_3F29A's heavy-load retention box"
+    );
+}
+
+#[test]
 fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
     let layout = EnemyLayout {
         axis_uses_y_position: false,

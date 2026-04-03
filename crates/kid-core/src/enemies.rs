@@ -2319,6 +2319,15 @@ pub(crate) fn enemy_should_remain_active(
                 active_enemy_count,
             )
         }
+        EnemyArchetype::Hopper if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) => {
+            mini_hopping_skull_should_remain_active(
+                enemy,
+                camera_x_px,
+                camera_y_px,
+                level_bounds,
+                active_enemy_count,
+            )
+        }
         _ => window.contains(u32::from(object.x), u32::from(object.y)),
     }
 }
@@ -2350,6 +2359,43 @@ fn large_pacer_should_remain_active(
         (0x1A4, 0x2E4, 0x1A4, 0x284)
     } else {
         (0x104, 0x244, 0x104, 0x1E4)
+    };
+    let relative_x = x_pos - camera_x_px as i32;
+    let relative_y = y_pos - camera_y_px as i32;
+    relative_x >= -left_margin
+        && relative_x <= right_margin
+        && relative_y >= -top_margin
+        && relative_y <= bottom_margin
+}
+
+fn mini_hopping_skull_should_remain_active(
+    enemy: &ActiveEnemy,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+    active_enemy_count: usize,
+) -> bool {
+    // ASM Mini_Hopping_Skull.asm sub_3F29A culls from the skull's live
+    // object position, not its layout anchor. The routine first rejects
+    // positions outside [-$20, level+$20] on both axes.
+    let x_pos = (enemy.x_pos as i32) >> 16;
+    let y_pos = (enemy.y_pos as i32) >> 16;
+    let level_x_max = i32::from(level_bounds.width_pixels) + 0x20;
+    let level_y_max = i32::from(level_bounds.height_pixels) + 0x20;
+    if x_pos <= -0x20 || y_pos <= -0x20 || x_pos > level_x_max || y_pos > level_y_max {
+        return false;
+    }
+    if active_enemy_count <= 10 {
+        return true;
+    }
+
+    // ASM Mini_Hopping_Skull.asm sub_3F29A:
+    // 11..20 active objects use [-$1A4,+$2E4]x[-$1A4,+$284] relative to camera.
+    // 21+ active objects tighten to [-$40,+$180]x[-$40,+$120].
+    let (left_margin, right_margin, top_margin, bottom_margin) = if active_enemy_count <= 20 {
+        (0x1A4, 0x2E4, 0x1A4, 0x284)
+    } else {
+        (0x40, 0x180, 0x40, 0x120)
     };
     let relative_x = x_pos - camera_x_px as i32;
     let relative_y = y_pos - camera_y_px as i32;
