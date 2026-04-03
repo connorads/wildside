@@ -392,6 +392,8 @@ enum Commands {
         no_resume: bool,
         #[arg(long, default_value_t = false)]
         emit_json: bool,
+        #[arg(long, default_value_t = 1)]
+        routines_per_task: u32,
     },
     ReferenceBuild {
         #[arg(long)]
@@ -1181,6 +1183,7 @@ fn main() -> Result<()> {
             max_cycles,
             no_resume,
             emit_json,
+            routines_per_task,
         } => {
             let repo_root = current_dir()?;
             let (rom_path, upstream_dir) = if matches!(
@@ -1203,6 +1206,7 @@ fn main() -> Result<()> {
                 max_cycles,
                 !no_resume,
                 emit_json,
+                routines_per_task,
             )?;
         }
         Commands::ReferenceBuild {

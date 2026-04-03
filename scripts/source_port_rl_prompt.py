@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history
 
 
 def run_autonomy_loop() -> None:
+    routines = os.environ.get("SOURCE_PORT_ROUTINES", "3")
     result = subprocess.run(
         [
             "cargo",
@@ -26,6 +28,8 @@ def run_autonomy_loop() -> None:
             "autonomous-loop",
             "--goal",
             "source-port-frontier",
+            "--routines-per-task",
+            routines,
         ],
         cwd=REPO_ROOT,
         check=False,
@@ -66,6 +70,19 @@ def tracked_dirty_files() -> list[str]:
         if len(line) >= 4:
             files.append(line[3:].strip())
     return [path for path in files if path]
+
+
+def render_target_routines(task: dict) -> str:
+    routines = task.get("target_routines")
+    if not routines or len(routines) == 0:
+        return ""
+    lines = [f"## Routines to implement ({len(routines)})", ""]
+    for i, r in enumerate(routines, 1):
+        lines.append(
+            f"{i}. `{r['label']}` — {r['subsystem']} — {r['asm_file']}:{r['line_number']}"
+        )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -126,6 +143,8 @@ def main() -> int:
     elif recovery_mode:
         task_heading = "## Recovery task"
 
+    routines_section = render_target_routines(task)
+
     print(
         f"""# Source-Port RL Prompt
 
@@ -147,7 +166,7 @@ Use the live source-port task package for this run. Do not invent a backlog hunt
 - Title: {task["title"]}
 - Summary: {task["summary"]}
 
-## Read only these repo artefacts
+{routines_section}## Read only these repo artefacts
 
 {bullet_list([str(NEXT_TASK_PATH.relative_to(REPO_ROOT)), str(NEXT_AGENT_PATH.relative_to(REPO_ROOT)), *sources])}
 
@@ -170,13 +189,7 @@ After verify-slice-fast passes:
 1. `kidcli asm-coverage --update`
 2. `git add <changed files>`
 3. `git commit` citing the ASM label
-If you finish your turn with uncommitted tracked changes, the session has FAILED.
-
-## Multi-routine sessions
-
-After committing a routine, you may pick the next uncovered routine and continue.
-Aim for 2-3 routines per session when they are straightforward.
-Stop when: blocked, 3+ routines committed, or context is getting long.
+Commit each routine individually. If you finish your turn with uncommitted tracked changes, the session has FAILED.
 
 ## Hard rules
 

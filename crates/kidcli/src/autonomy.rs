@@ -285,6 +285,16 @@ pub(crate) struct TaskPackage {
     next_fallback_goal: Option<AutonomyGoal>,
     #[serde(skip_serializing_if = "Option::is_none")]
     next_agent_note: Option<NextAgentNoteDirective>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_routines: Option<Vec<TargetRoutine>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TargetRoutine {
+    label: String,
+    subsystem: String,
+    asm_file: String,
+    line_number: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -679,6 +689,7 @@ pub(crate) fn run_autonomous_loop(
     max_cycles: u32,
     resume: bool,
     emit_json: bool,
+    routines_per_task: u32,
 ) -> Result<()> {
     let goal_state = match goal {
         AutonomyGoal::SourcePortFrontier => GoalState::SourcePortFrontier,
@@ -724,7 +735,7 @@ pub(crate) fn run_autonomous_loop(
     };
     for _ in 0..cycle_limit {
         let cycle_number = ledger.cycles_run + 1;
-        let mut cycle = goal_state.evaluate_cycle(repo_root, cycle_number)?;
+        let mut cycle = goal_state.evaluate_cycle(repo_root, cycle_number, routines_per_task)?;
         cycle.stalled = ledger
             .last_progress_fingerprint
             .as_deref()
@@ -812,7 +823,12 @@ impl GoalState {
         }
     }
 
-    fn evaluate_cycle(&self, repo_root: &Path, cycle_number: u32) -> Result<CycleReport> {
+    fn evaluate_cycle(
+        &self,
+        repo_root: &Path,
+        cycle_number: u32,
+        routines_per_task: u32,
+    ) -> Result<CycleReport> {
         match self {
             Self::SpecDriven {
                 spec,
@@ -820,10 +836,12 @@ impl GoalState {
                 manifest,
             } => evaluate_cycle(repo_root, rom_path, manifest, spec, cycle_number),
             Self::SourcePortFrontier => {
-                evaluate_source_port_frontier_cycle(repo_root, cycle_number)
+                evaluate_source_port_frontier_cycle(repo_root, cycle_number, routines_per_task)
             }
             Self::CaseQueue => evaluate_case_queue_cycle(repo_root, cycle_number),
-            Self::GameplayBacklog => evaluate_gameplay_backlog_cycle(repo_root, cycle_number),
+            Self::GameplayBacklog => {
+                evaluate_gameplay_backlog_cycle(repo_root, cycle_number, routines_per_task)
+            }
         }
     }
 }
@@ -1138,7 +1156,11 @@ fn apply_stalled_recovery(
     task.next_fallback_goal = next_fallback_goal;
 }
 
-fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport> {
+fn evaluate_source_port_frontier_cycle(
+    repo_root: &Path,
+    cycle: u32,
+    routines_per_task: u32,
+) -> Result<CycleReport> {
     let state = load_source_port_frontier_state(repo_root)?;
     let frontier = &state.active_frontier;
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
@@ -1195,29 +1217,28 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
             // instead of sweep-parity, to keep the loop producing game code.
             let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
             if !uncovered.is_empty() {
-                let (subsystem, label, asm_file, line_number, priority) = &uncovered[0];
+                let batch_size = (routines_per_task as usize).min(uncovered.len());
+                let batch = &uncovered[..batch_size];
+                let first_label = &batch[0].1;
                 let task = source_port_frontier_gameplay_backlog_task(
                     frontier,
                     &note,
-                    label,
-                    asm_file,
-                    *line_number,
-                    subsystem,
-                    priority.as_deref(),
+                    batch,
                     uncovered.len(),
                 );
                 let summary = format!(
-                    "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, next: {}).",
+                    "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
                     frontier.slug,
                     frontier.authoritative_clean_through,
                     uncovered.len(),
-                    label
+                    batch_size,
+                    first_label
                 );
                 (
                     task,
                     Some(AutonomyGoal::GameplayBacklog),
-                    Some(label.clone()),
-                    Some(format!("gameplay-backlog:{}", label)),
+                    Some(first_label.clone()),
+                    Some(format!("gameplay-backlog:{}", first_label)),
                     summary,
                 )
             } else {
@@ -1273,15 +1294,13 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
                 // Stalled case-queue: pivot to gameplay-backlog if uncovered routines exist
                 let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
                 if !uncovered.is_empty() {
-                    let (subsystem, label, asm_file, line_number, priority) = &uncovered[0];
+                    let batch_size = (routines_per_task as usize).min(uncovered.len());
+                    let batch = &uncovered[..batch_size];
+                    let first_label = batch[0].1.clone();
                     let backlog_task = source_port_frontier_gameplay_backlog_task(
                         frontier,
                         &note,
-                        label,
-                        asm_file,
-                        *line_number,
-                        subsystem,
-                        priority.as_deref(),
+                        batch,
                         uncovered.len(),
                     );
                     task_package = TaskPackage {
@@ -1289,13 +1308,13 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
                         cycle,
                         progress_fingerprint: base_progress_fingerprint.clone(),
                         delegated_goal: Some(AutonomyGoal::GameplayBacklog),
-                        delegated_target: Some(label.clone()),
+                        delegated_target: Some(first_label.clone()),
                         recovery_mode: Some(RecoveryMode::StalledFingerprint),
                         recovery_step: Some(RecoveryStep::PivotToNextLane),
                         stalled_repetition_count: Some(repeated_cycles),
                         pivot_reason: Some(format!(
                             "case-queue delegated fingerprint repeated for {} stalled cycles; pivot to gameplay-backlog (next: {})",
-                            repeated_cycles, label
+                            repeated_cycles, first_label
                         )),
                         next_fallback_goal: Some(AutonomyGoal::GameplayBacklog),
                         ..backlog_task
@@ -1472,6 +1491,7 @@ fn source_port_frontier_task(
         pivot_reason: None,
         next_fallback_goal: None,
         next_agent_note: Some(note.clone()),
+        target_routines: None,
     }
 }
 
@@ -1582,6 +1602,7 @@ fn source_port_frontier_case_queue_task(
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
+        target_routines: None,
     }
 }
 
@@ -1668,52 +1689,117 @@ fn source_port_frontier_sweep_task(
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::CaseQueue),
         next_agent_note: Some(note.clone()),
+        target_routines: None,
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn source_port_frontier_gameplay_backlog_task(
     frontier: &ActiveFrontierState,
     note: &NextAgentNoteDirective,
-    label: &str,
-    asm_file: &str,
-    line_number: usize,
-    subsystem: &str,
-    priority: Option<&str>,
+    routines: &[(String, String, String, usize, Option<String>)],
     total_uncovered: usize,
 ) -> TaskPackage {
+    let (subsystem, label, asm_file, line_number, priority) = &routines[0];
+    let batch_size = routines.len();
     let delegation_reason = format!(
         "TAS frontier closed, no actionable case-queue; delegated to gameplay-backlog ({} uncovered sub_ labels)",
         total_uncovered
     );
+
+    let (title, summary, done_criteria, target_routines) = if batch_size == 1 {
+        (
+            format!("Implement ASM routine {} ({})", label, subsystem),
+            format!(
+                "{} is authoritative-clean through frame {}; implement {} from {} line {}.",
+                frontier.recording,
+                frontier.authoritative_clean_through,
+                label,
+                asm_file,
+                line_number
+            ),
+            vec![
+                format!("Native code cites {} with a passing test.", label),
+                "verify-slice-fast passes.".to_owned(),
+            ],
+            None,
+        )
+    } else {
+        let subsystems: Vec<&str> = routines.iter().map(|(s, ..)| s.as_str()).collect();
+        let all_same = subsystems.iter().all(|s| *s == subsystems[0]);
+        let subsystem_desc = if all_same {
+            subsystems[0].to_owned()
+        } else {
+            "mixed subsystems".to_owned()
+        };
+        let routine_list: Vec<String> = routines
+            .iter()
+            .map(|(sub, lbl, file, line, _)| format!("{} ({}, {}:{})", lbl, sub, file, line))
+            .collect();
+        let tr: Vec<TargetRoutine> = routines
+            .iter()
+            .map(|(sub, lbl, file, line, _)| TargetRoutine {
+                label: lbl.clone(),
+                subsystem: sub.clone(),
+                asm_file: file.clone(),
+                line_number: *line,
+            })
+            .collect();
+        (
+            format!("Implement {} ASM routines ({})", batch_size, subsystem_desc),
+            format!(
+                "{} is authoritative-clean through frame {}; implement {} routines: {}.",
+                frontier.recording,
+                frontier.authoritative_clean_through,
+                batch_size,
+                routine_list.join(", ")
+            ),
+            vec![
+                format!(
+                    "Commit {} routines with passing tests (or fewer if blocked). Each commit cites its ASM label.",
+                    batch_size
+                ),
+                "verify-slice-fast passes after each commit.".to_owned(),
+            ],
+            Some(tr),
+        )
+    };
+
+    // Collect unique ASM files for sources
+    let mut asm_sources: Vec<String> = routines
+        .iter()
+        .map(|(_, _, file, ..)| format!(".cache/upstream/kid-chameleon-disasm/{}", file))
+        .collect();
+    asm_sources.sort();
+    asm_sources.dedup();
+    let mut sources = asm_sources;
+    sources.push("docs/source-port/asm-coverage.yaml".to_owned());
+    sources.push("docs/source-port/ralph-gameplay-loop.md".to_owned());
+
+    // Collect unique subsystems for commands
+    let mut subsystems: Vec<String> = routines.iter().map(|(s, ..)| s.clone()).collect();
+    subsystems.sort();
+    subsystems.dedup();
+    let mut commands: Vec<String> = subsystems
+        .iter()
+        .map(|s| format!("kidcli asm-coverage --uncovered --subsystem {}", s))
+        .collect();
+    commands.push("mise run verify-slice-fast".to_owned());
+    commands.push("kidcli asm-coverage --update".to_owned());
+
     TaskPackage {
         capability: CapabilityId::GameplayBacklogTask,
-        title: format!("Implement ASM routine {} ({})", label, subsystem),
-        summary: format!(
-            "{} is authoritative-clean through frame {}; implement {} from {} line {}.",
-            frontier.recording, frontier.authoritative_clean_through, label, asm_file, line_number
-        ),
+        title,
+        summary,
         generated_at: String::new(),
         cycle: 0,
         progress_fingerprint: String::new(),
-        sources: vec![
-            format!(".cache/upstream/kid-chameleon-disasm/{}", asm_file),
-            "docs/source-port/asm-coverage.yaml".to_owned(),
-            "docs/source-port/ralph-gameplay-loop.md".to_owned(),
-        ],
+        sources,
         implementation_targets: vec![
             "crates/kid-core/src/".to_owned(),
             "crates/kid-data/src/".to_owned(),
         ],
-        commands: vec![
-            format!("kidcli asm-coverage --uncovered --subsystem {}", subsystem),
-            "mise run verify-slice-fast".to_owned(),
-            "kidcli asm-coverage --update".to_owned(),
-        ],
-        done_criteria: vec![
-            format!("Native code cites {} with a passing test.", label),
-            "verify-slice-fast passes.".to_owned(),
-        ],
+        commands,
+        done_criteria,
         evidence: vec![
             EvidenceItem {
                 label: "active-frontier".to_owned(),
@@ -1726,7 +1812,7 @@ fn source_port_frontier_gameplay_backlog_task(
             },
             EvidenceItem {
                 label: "uncovered-routine".to_owned(),
-                status: priority.unwrap_or("unranked").to_owned(),
+                status: priority.as_deref().unwrap_or("unranked").to_owned(),
                 detail: format!(
                     "{} in {} line {} ({} uncovered sub_ remain)",
                     label, asm_file, line_number, total_uncovered
@@ -1764,6 +1850,7 @@ fn source_port_frontier_gameplay_backlog_task(
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
+        target_routines,
     }
 }
 
@@ -1934,7 +2021,11 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
     })
 }
 
-fn evaluate_gameplay_backlog_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport> {
+fn evaluate_gameplay_backlog_cycle(
+    repo_root: &Path,
+    cycle: u32,
+    routines_per_task: u32,
+) -> Result<CycleReport> {
     let coverage_path = repo_root.join("docs/source-port/asm-coverage.yaml");
     if !coverage_path.is_file() {
         bail!("asm-coverage.yaml not found; run `kidcli asm-coverage --update` first");
@@ -1962,37 +2053,100 @@ fn evaluate_gameplay_backlog_cycle(repo_root: &Path, cycle: u32) -> Result<Cycle
         });
     }
 
-    // Pick the first uncovered routine (sorted by priority annotation, then subsystem gap)
-    let (subsystem, label, asm_file, line_number, priority) = &uncovered[0];
+    let batch_size = (routines_per_task as usize).min(uncovered.len());
+    let batch = &uncovered[..batch_size];
+    let (subsystem, label, asm_file, line_number, priority) = &batch[0];
+
+    let (title, summary_text, done_criteria, target_routines) = if batch_size == 1 {
+        (
+            format!("Implement ASM routine {} ({})", label, subsystem),
+            format!(
+                "Uncovered sub_ label {} in {} (line {}). Read the ASM, write a failing test, implement, run verify-slice-fast.",
+                label, asm_file, line_number
+            ),
+            vec![
+                format!("Native code cites {} with a passing test.", label),
+                "verify-slice-fast passes.".to_owned(),
+                "asm-coverage.yaml updated to reflect the new citation.".to_owned(),
+            ],
+            None,
+        )
+    } else {
+        let subsystems: Vec<&str> = batch.iter().map(|(s, ..)| s.as_str()).collect();
+        let all_same = subsystems.iter().all(|s| *s == subsystems[0]);
+        let subsystem_desc = if all_same {
+            subsystems[0].to_owned()
+        } else {
+            "mixed subsystems".to_owned()
+        };
+        let routine_list: Vec<String> = batch
+            .iter()
+            .map(|(sub, lbl, file, line, _)| format!("{} ({}, {}:{})", lbl, sub, file, line))
+            .collect();
+        let tr: Vec<TargetRoutine> = batch
+            .iter()
+            .map(|(sub, lbl, file, line, _)| TargetRoutine {
+                label: lbl.clone(),
+                subsystem: sub.clone(),
+                asm_file: file.clone(),
+                line_number: *line,
+            })
+            .collect();
+        (
+            format!("Implement {} ASM routines ({})", batch_size, subsystem_desc),
+            format!(
+                "{} uncovered routines to implement: {}.",
+                batch_size,
+                routine_list.join(", ")
+            ),
+            vec![
+                format!(
+                    "Commit {} routines with passing tests (or fewer if blocked). Each commit cites its ASM label.",
+                    batch_size
+                ),
+                "verify-slice-fast passes after each commit.".to_owned(),
+                "asm-coverage.yaml updated to reflect new citations.".to_owned(),
+            ],
+            Some(tr),
+        )
+    };
+
+    // Collect unique ASM files for sources
+    let mut asm_sources: Vec<String> = batch
+        .iter()
+        .map(|(_, _, file, ..)| format!(".cache/upstream/kid-chameleon-disasm/{}", file))
+        .collect();
+    asm_sources.sort();
+    asm_sources.dedup();
+    let mut sources = asm_sources;
+    sources.push("docs/source-port/asm-coverage.yaml".to_owned());
+    sources.push("docs/source-port/ralph-gameplay-loop.md".to_owned());
+
+    // Collect unique subsystems for commands
+    let mut cmd_subsystems: Vec<String> = batch.iter().map(|(s, ..)| s.clone()).collect();
+    cmd_subsystems.sort();
+    cmd_subsystems.dedup();
+    let mut commands: Vec<String> = cmd_subsystems
+        .iter()
+        .map(|s| format!("kidcli asm-coverage --uncovered --subsystem {}", s))
+        .collect();
+    commands.push("mise run verify-slice-fast".to_owned());
+    commands.push("kidcli asm-coverage --update".to_owned());
+
     let task = TaskPackage {
         capability: CapabilityId::GameplayBacklogTask,
-        title: format!("Implement ASM routine {} ({})", label, subsystem),
-        summary: format!(
-            "Uncovered sub_ label {} in {} (line {}). Read the ASM, write a failing test, implement, run verify-slice-fast.",
-            label, asm_file, line_number
-        ),
+        title,
+        summary: summary_text,
         generated_at: autonomy_timestamp(),
         cycle,
         progress_fingerprint: String::new(),
-        sources: vec![
-            format!(".cache/upstream/kid-chameleon-disasm/{}", asm_file),
-            "docs/source-port/asm-coverage.yaml".to_owned(),
-            "docs/source-port/ralph-gameplay-loop.md".to_owned(),
-        ],
+        sources,
         implementation_targets: vec![
             "crates/kid-core/src/".to_owned(),
             "crates/kid-data/src/".to_owned(),
         ],
-        commands: vec![
-            format!("kidcli asm-coverage --uncovered --subsystem {}", subsystem),
-            "mise run verify-slice-fast".to_owned(),
-            "kidcli asm-coverage --update".to_owned(),
-        ],
-        done_criteria: vec![
-            format!("Native code cites {} with a passing test.", label),
-            "verify-slice-fast passes.".to_owned(),
-            "asm-coverage.yaml updated to reflect the new citation.".to_owned(),
-        ],
+        commands,
+        done_criteria,
         evidence: vec![EvidenceItem {
             label: "uncovered-routine".to_owned(),
             status: priority.clone().unwrap_or_else(|| "unranked".to_owned()),
@@ -2016,6 +2170,7 @@ fn evaluate_gameplay_backlog_cycle(repo_root: &Path, cycle: u32) -> Result<Cycle
         pivot_reason: None,
         next_fallback_goal: None,
         next_agent_note: None,
+        target_routines,
     };
 
     let progress_fingerprint = format!("gameplay-backlog:{}", label);
@@ -2608,6 +2763,7 @@ fn case_queue_task(
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
+        target_routines: None,
     }
 }
 
@@ -2730,6 +2886,7 @@ fn source_port_frontier_recording_task(
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
+        target_routines: None,
     }
 }
 
@@ -2851,6 +3008,7 @@ fn case_queue_recording_task(
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
+        target_routines: None,
     }
 }
 
@@ -3640,6 +3798,7 @@ fn select_next_task(
         pivot_reason: None,
         next_fallback_goal: None,
         next_agent_note: None,
+        target_routines: None,
     })
 }
 
@@ -4244,6 +4403,7 @@ mod tests {
             pivot_reason: None,
             next_fallback_goal: None,
             next_agent_note: None,
+            target_routines: None,
         };
 
         let blocker =
@@ -4770,7 +4930,7 @@ mod tests {
         write_source_port_frontier(temp_dir.path(), true, "active");
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("task should be selected");
         let note = task.next_agent_note.expect("note directive should exist");
 
@@ -4826,7 +4986,7 @@ mod tests {
         .expect("release gate should write");
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
 
         assert!(!cycle.goal_complete);
         let selected_task = cycle.selected_task.expect("task should still be selected");
@@ -4907,7 +5067,7 @@ mod tests {
         .expect("green verify should write");
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::SweepParity));
@@ -4948,7 +5108,7 @@ mod tests {
         .expect("dirty methodology change should write");
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(task.recovery_mode, Some(super::RecoveryMode::DirtyTree));
@@ -5018,7 +5178,7 @@ mod tests {
         }
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 3).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(
@@ -5160,7 +5320,7 @@ mod tests {
         );
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::CaseQueue));
@@ -5176,7 +5336,7 @@ mod tests {
         write_recording(temp_dir.path(), "level1-tree-break", true);
 
         let cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
         assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::CaseQueue));

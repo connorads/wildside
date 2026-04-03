@@ -16,11 +16,7 @@
 9. Update coverage: `kidcli asm-coverage --update`
 10. Commit (MUST touch crates/kid-core/src/ or crates/kid-data/src/)
 11. Commit message MUST cite ASM label
-
-## Repeat
-After committing a routine:
-- If verify-slice-fast is green and you have context budget, go back to step 1 and pick the next uncovered routine
-- Stop when: blocked, 3+ routines committed this session, or context is getting long
+12. If the task package lists multiple routines, go back to step 1 for the next one
 
 ## Rules
 - Every commit modifies game source code. No exceptions.
