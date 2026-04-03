@@ -5,7 +5,7 @@ use crate::capture::{
 use crate::oracle::{
     OracleEnemyState, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture_dynamic,
 };
-use crate::recording::{load_recording, oracle_scenario_for_recording};
+use crate::recording::{load_recording, oracle_scenario_for_recording, run_recorded_trace};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario, GameplayScenario};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Subcommand, ValueEnum};
@@ -371,13 +371,12 @@ fn derive_case_bundle(
                 .ok_or_else(|| anyhow!("missing recording source"))?
         };
         let recording = load_recording(&record_dir)?;
-        let (oracle_scenario, _) = oracle_scenario_for_recording(&recording);
         (
             CaseSource::Recording {
                 path: record_dir.display().to_string(),
                 slug: recording.manifest.slug,
             },
-            oracle_scenario,
+            recording.manifest.scenario,
         )
     };
 
@@ -717,19 +716,47 @@ fn run_case_verification(
 
     let (native_states, oracle_states) = match verification_backend_for_source(source) {
         VerificationBackend::OracleHelper => {
-            let native_trace = kid_core::run_script_with_warp(
-                manifest.clone(),
-                &verification.scenario.script,
-                verification.scenario.frame_count,
-                verification.scenario.warp_to_level,
-            );
+            let native_trace = if matches!(source, CaseSource::Recording { .. }) {
+                let recording = recording_from_source(source)?;
+                run_recorded_trace(
+                    manifest,
+                    recording.manifest.start,
+                    &verification.scenario.script,
+                )?
+            } else {
+                kid_core::run_script_with_warp(
+                    manifest.clone(),
+                    &verification.scenario.script,
+                    verification.scenario.frame_count,
+                    verification.scenario.warp_to_level,
+                )
+            };
 
             let env = ensure_oracles(repo_root)?;
             let oracle_dir = run_dir.join("oracle");
             fs::create_dir_all(&oracle_dir)
                 .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
-            let oracle =
-                run_jgenesis_capture_dynamic(&env, rom_path, &scenario_path, &oracle_dir, None)?;
+            let oracle = if matches!(source, CaseSource::Recording { .. }) {
+                let recording = recording_from_source(source)?;
+                let oracle_scenario =
+                    oracle_scenario_for_case_recording(&recording, &verification.scenario);
+                let oracle_scenario_path = run_dir.join("oracle-scenario.json");
+                fs::write(
+                    &oracle_scenario_path,
+                    serde_json::to_vec_pretty(&oracle_scenario.0)?,
+                )
+                .with_context(|| format!("failed to write {}", oracle_scenario_path.display()))?;
+                let oracle = run_jgenesis_capture_dynamic(
+                    &env,
+                    rom_path,
+                    &oracle_scenario_path,
+                    &oracle_dir,
+                    None,
+                )?;
+                normalise_recording_oracle_capture(oracle, oracle_scenario.1)
+            } else {
+                run_jgenesis_capture_dynamic(&env, rom_path, &scenario_path, &oracle_dir, None)?
+            };
 
             (
                 extract_semantic_native_states(&native_trace, &verification.scenario.checkpoints)?,
@@ -760,6 +787,45 @@ fn run_case_verification(
         oracle_states,
         verify,
     })
+}
+
+fn recording_from_source(source: &CaseSource) -> Result<crate::recording::NativeRecording> {
+    match source {
+        CaseSource::Recording { path, .. } => load_recording(Path::new(path)),
+        CaseSource::ScenarioPath { .. } | CaseSource::GameplayScenario { .. } => {
+            bail!("case source is not a recording")
+        }
+    }
+}
+
+fn oracle_scenario_for_case_recording(
+    recording: &crate::recording::NativeRecording,
+    scenario: &DynamicScenario,
+) -> (DynamicScenario, usize) {
+    let mut manifest = recording.manifest.clone();
+    manifest.scenario = scenario.clone();
+    oracle_scenario_for_recording(&crate::recording::NativeRecording {
+        manifest,
+        trace: Vec::new(),
+    })
+}
+
+fn normalise_recording_oracle_capture(
+    oracle: OracleManifest,
+    prefix_frames: usize,
+) -> OracleManifest {
+    if prefix_frames == 0 {
+        return oracle;
+    }
+
+    let mut oracle = oracle;
+    for frame in &mut oracle.frames {
+        frame.frame_index = frame.frame_index.saturating_sub(prefix_frames);
+    }
+    for state in &mut oracle.states {
+        state.frame_index = state.frame_index.saturating_sub(prefix_frames);
+    }
+    oracle
 }
 
 fn extract_semantic_native_states(
@@ -1999,6 +2065,33 @@ mod tests {
             verification_backend_for_source(&source),
             VerificationBackend::OracleHelper
         );
+    }
+
+    #[test]
+    fn recording_case_verification_scenario_stays_on_recording_timeline() {
+        let source = CaseSource::Recording {
+            path: String::from(".cache/recordings/level1-tree-break"),
+            slug: String::from("level1-tree-break"),
+        };
+        let base = DynamicScenario {
+            slug: String::from("level1-tree-break"),
+            script: vec![1; 180],
+            frame_count: 180,
+            checkpoints: vec![DynamicCheckpoint {
+                label: String::from("start"),
+                frame_index: 0,
+            }],
+            warp_to_level: Some(0),
+        };
+
+        let verification = build_case_verification_scenario(&source, &base, 0, 120)
+            .expect("verification scenario");
+
+        assert_eq!(verification.case_id, "level1-tree-break_case_00000_00120");
+        assert_eq!(verification.scenario.frame_count, 120);
+        assert_eq!(verification.scenario.script.len(), 120);
+        assert_eq!(verification.scenario.checkpoints[0].frame_index, 0);
+        assert_eq!(verification.scenario.checkpoints[119].frame_index, 119);
     }
 
     #[test]

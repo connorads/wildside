@@ -320,6 +320,10 @@ pub(crate) fn run_recorded_trace(
         level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
     }
 
+    if start.settled {
+        rebase_trace_frame_indices(&mut replay);
+    }
+
     Ok(replay)
 }
 
@@ -759,7 +763,32 @@ fn normalise_loaded_recording(recording: &mut NativeRecording) -> Result<()> {
             recording.manifest.slug
         );
     }
+    rebase_settled_trace_frame_indices(recording);
     Ok(())
+}
+
+fn rebase_settled_trace_frame_indices(recording: &mut NativeRecording) {
+    if !recording.manifest.start.settled {
+        return;
+    }
+    rebase_trace_frame_indices(&mut recording.trace);
+}
+
+fn rebase_trace_frame_indices(trace: &mut [NativeTraceFrame]) {
+    let Some(first_frame_index) = trace.first().map(|frame| frame.frame_index) else {
+        return;
+    };
+    if first_frame_index == 0 {
+        return;
+    }
+
+    // Settled recordings keep script/checkpoint indices relative to the
+    // recorded window, but some bundles preserve absolute runtime frame indices
+    // from playtest entry. Rebase them so verification and case derivation can
+    // address the trace by recording-local frame numbers.
+    for frame in trace {
+        frame.frame_index = frame.frame_index.saturating_sub(first_frame_index);
+    }
 }
 
 fn write_recording_artifacts(
@@ -1546,6 +1575,40 @@ mod tests {
         assert_eq!(frame.death_windup_elapsed, 0);
         assert!(frame.gameplay_debug_fields.is_empty());
         assert_eq!(frame.physics_trace, None);
+    }
+
+    #[test]
+    fn load_recording_rebases_settled_trace_frame_indices() {
+        let temp = TempDir::new().expect("temp dir");
+        fs::write(
+            temp.path().join("manifest.json"),
+            r#"{
+  "slug": "settled-frame-offset",
+  "recorded_at": "123",
+  "start": { "warp_level": 0, "settled": true },
+  "scenario": {
+    "slug": "settled-frame-offset",
+    "checkpoints": [{ "label": "start", "frame_index": 0 }],
+    "frame_count": 2,
+    "script": [0, 0],
+    "warp_to_level": 0
+  }
+}"#,
+        )
+        .expect("manifest");
+
+        let first = sample_trace_frame(261);
+        let second = sample_trace_frame(262);
+        fs::write(
+            temp.path().join("trace.json"),
+            serde_json::to_vec(&vec![first, second]).expect("trace json"),
+        )
+        .expect("trace");
+
+        let recording = load_recording(temp.path()).expect("load settled recording");
+
+        assert_eq!(recording.trace[0].frame_index, 0);
+        assert_eq!(recording.trace[1].frame_index, 1);
     }
 
     #[test]
