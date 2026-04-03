@@ -169,9 +169,10 @@ Use the live source-port task package for this run. Do not invent a backlog hunt
 - If the git tree is dirty, resolve that tracked work first; do not jump to a fresh lane until the dirty unit is verified, committed, or intentionally discarded.
 - Do not read `docs/source-port/backlog.md`, `docs/source-port/frontier-state.yaml`, or `docs/source-port/tas-roadmap.md` unless this package explicitly lists them in `sources`.
 - Do not reopen TAS-frontier work if the live package delegates to `case-queue` or `sweep-parity`.
-- If the delegated goal is `sweep-parity`, stay on sweep/release-gate hardening.
-- If the delegated goal is `case-queue`, re-verify the selected case before changing code.
-- If the package shows no actionable reduced case, do not invent one from stale notes; follow the delegated lane that was generated for this run.
+- If the delegated goal is `sweep-parity`, stay on sweep/release-gate hardening, but only because the live package found no gameplay-producing lane for this run.
+- If the delegated goal is `case-queue` and the delegated target is a reduced case, re-verify that case before changing code.
+- If the delegated goal is `case-queue` and the delegated target is a recording slug, derive and reduce a failing gameplay case from that recording before doing any sweep-only work.
+- Do not choose `sweep-parity` or another verification-only lane while the live package is delegating to recording-derived gameplay work.
 - If `recovery_mode` is present, complete that recovery step before resuming routine lane work.
 - Use ASM first for gameplay behaviour; use probes only when ASM plus oracle still leave ambiguity.
 - Do not make a handoff-only commit.

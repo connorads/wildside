@@ -344,6 +344,7 @@ struct FrontierContext {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CaseQueueContext {
     selected_case: Option<CaseQueueCandidate>,
+    selected_recording: Option<RecordingQueueCandidate>,
     open_cases: Vec<CaseQueueCandidate>,
     blocked_cases: Vec<CaseQueueCandidate>,
     untriaged_recordings: Vec<RecordingQueueCandidate>,
@@ -396,6 +397,7 @@ enum CaseFailureClass {
 struct RecordingQueueCandidate {
     slug: String,
     manifest_path: PathBuf,
+    frame_count: usize,
     has_transcript: bool,
     has_notes: bool,
 }
@@ -403,6 +405,7 @@ struct RecordingQueueCandidate {
 #[derive(Debug, Clone)]
 struct CaseQueueSnapshot {
     selected_case: Option<CaseQueueCandidate>,
+    selected_recording: Option<RecordingQueueCandidate>,
     selection_reason: Option<String>,
     open_cases: Vec<CaseQueueCandidate>,
     blocked_cases: Vec<CaseQueueCandidate>,
@@ -874,9 +877,20 @@ fn case_queue_candidate_progress_marker(candidate: &CaseQueueCandidate) -> Strin
     )
 }
 
-fn case_queue_progress_fingerprint(selected_case: Option<&CaseQueueCandidate>) -> String {
+fn recording_queue_candidate_progress_marker(recording: &RecordingQueueCandidate) -> String {
+    format!(
+        "recording:{}:derive:{}f",
+        recording.slug, recording.frame_count
+    )
+}
+
+fn case_queue_progress_fingerprint(
+    selected_case: Option<&CaseQueueCandidate>,
+    selected_recording: Option<&RecordingQueueCandidate>,
+) -> String {
     selected_case
         .map(case_queue_candidate_progress_marker)
+        .or_else(|| selected_recording.map(recording_queue_candidate_progress_marker))
         .unwrap_or_else(|| "none".to_owned())
 }
 
@@ -913,6 +927,36 @@ fn select_case_queue_candidate(
             Some(format!(
                 "{} remains the highest-ranked case and no alternate actionable case is available",
                 first.case_id
+            )),
+        ));
+    }
+    Ok((Some(first), None))
+}
+
+fn select_recording_queue_candidate(
+    repo_root: &Path,
+    recordings: &[RecordingQueueCandidate],
+) -> Result<(Option<RecordingQueueCandidate>, Option<String>)> {
+    let Some(first) = recordings.first().cloned() else {
+        return Ok((None, None));
+    };
+    let previous = load_goal_ledger_if_present(repo_root, AutonomyGoal::CaseQueue)?
+        .and_then(|ledger| ledger.last_progress_fingerprint);
+    if previous.as_deref() == Some(recording_queue_candidate_progress_marker(&first).as_str()) {
+        if let Some(next) = recordings.get(1).cloned() {
+            return Ok((
+                Some(next.clone()),
+                Some(format!(
+                    "previous cycle stalled while deriving from recording {}; pivoted to the next untriaged recording {}",
+                    first.slug, next.slug
+                )),
+            ));
+        }
+        return Ok((
+            Some(first.clone()),
+            Some(format!(
+                "recording {} remains the highest-priority gameplay source and no alternate untriaged recording is available",
+                first.slug
             )),
         ));
     }
@@ -1116,7 +1160,20 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
                 task,
                 Some(AutonomyGoal::CaseQueue),
                 Some(candidate.case_id.clone()),
-                Some(case_queue_progress_fingerprint(Some(candidate))),
+                Some(case_queue_progress_fingerprint(Some(candidate), None)),
+                summary,
+            )
+        } else if let Some(recording) = queue.selected_recording.as_ref() {
+            let task = source_port_frontier_recording_task(frontier, &note, &queue, recording);
+            let summary = format!(
+                "TAS frontier {} is closed through frame {}; delegated to recording-derived gameplay work for {}.",
+                frontier.slug, frontier.authoritative_clean_through, recording.slug
+            );
+            (
+                task,
+                Some(AutonomyGoal::CaseQueue),
+                Some(recording.slug.clone()),
+                Some(recording_queue_candidate_progress_marker(recording)),
                 summary,
             )
         } else {
@@ -1188,17 +1245,39 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
                 };
             }
             Some(AutonomyGoal::SweepParity) => {
-                apply_stalled_recovery(
-                    &mut task_package,
-                    &base_progress_fingerprint,
-                    repeated_cycles,
-                    RecoveryStep::RefreshEvidence,
-                    format!(
-                        "sweep-parity delegated fingerprint repeated for {} stalled cycles; narrow the next run to release-gate evidence refresh instead of another broad lane replay",
-                        repeated_cycles
-                    ),
-                    Some(AutonomyGoal::SweepParity),
-                );
+                let queue = build_case_queue_snapshot(repo_root)?;
+                if let Some(recording) = queue.selected_recording.as_ref() {
+                    let recording_task =
+                        source_port_frontier_recording_task(frontier, &note, &queue, recording);
+                    task_package = TaskPackage {
+                        generated_at: autonomy_timestamp(),
+                        cycle,
+                        progress_fingerprint: base_progress_fingerprint.clone(),
+                        delegated_goal: Some(AutonomyGoal::CaseQueue),
+                        delegated_target: Some(recording.slug.clone()),
+                        recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                        recovery_step: Some(RecoveryStep::PivotToNextLane),
+                        stalled_repetition_count: Some(repeated_cycles),
+                        pivot_reason: Some(format!(
+                            "sweep-parity delegated fingerprint repeated for {} stalled cycles; pivot to gameplay case derivation from recording {}",
+                            repeated_cycles, recording.slug
+                        )),
+                        next_fallback_goal: Some(AutonomyGoal::CaseQueue),
+                        ..recording_task
+                    };
+                } else {
+                    apply_stalled_recovery(
+                        &mut task_package,
+                        &base_progress_fingerprint,
+                        repeated_cycles,
+                        RecoveryStep::RefreshEvidence,
+                        format!(
+                            "sweep-parity delegated fingerprint repeated for {} stalled cycles; narrow the next run to release-gate evidence refresh instead of another broad lane replay",
+                            repeated_cycles
+                        ),
+                        Some(AutonomyGoal::SweepParity),
+                    );
+                }
             }
             _ => {
                 apply_stalled_recovery(
@@ -1413,6 +1492,7 @@ fn source_port_frontier_case_queue_task(
         }),
         case_queue_context: Some(CaseQueueContext {
             selected_case: Some(candidate.clone()),
+            selected_recording: None,
             open_cases: queue.open_cases.clone(),
             blocked_cases: queue.blocked_cases.clone(),
             untriaged_recordings: queue.untriaged_recordings.clone(),
@@ -1590,12 +1670,24 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
         .selected_case
         .as_ref()
         .map(|candidate| candidate.case_id.as_str())
+        .or_else(|| {
+            queue
+                .selected_recording
+                .as_ref()
+                .map(|recording| recording.slug.as_str())
+        })
         .unwrap_or("no-selected-case");
     let note = case_queue_next_agent_note(repo_root, active_slug);
     let selected_task = queue
         .selected_case
         .as_ref()
-        .map(|candidate| case_queue_task(candidate, &queue, &note));
+        .map(|candidate| case_queue_task(candidate, &queue, &note))
+        .or_else(|| {
+            queue
+                .selected_recording
+                .as_ref()
+                .map(|recording| case_queue_recording_task(recording, &queue, &note))
+        });
     let blocker = if let Some(task) = selected_task.as_ref() {
         detect_blocker(repo_root, task)
     } else {
@@ -1624,6 +1716,17 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
             summary.push('.');
         }
         summary
+    } else if let Some(recording) = queue.selected_recording.as_ref() {
+        let mut summary = format!(
+            "Selected recording {} ({}f) for gameplay case derivation.",
+            recording.slug, recording.frame_count
+        );
+        if let Some(reason) = queue.selection_reason.as_deref() {
+            summary.push(' ');
+            summary.push_str(reason);
+            summary.push('.');
+        }
+        summary
     } else {
         "No qualifying semantic case bundle is available yet; derive or reduce a case before patch work."
             .to_owned()
@@ -1635,7 +1738,10 @@ fn evaluate_case_queue_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport
         summary,
     }];
 
-    let progress_fingerprint = case_queue_progress_fingerprint(queue.selected_case.as_ref());
+    let progress_fingerprint = case_queue_progress_fingerprint(
+        queue.selected_case.as_ref(),
+        queue.selected_recording.as_ref(),
+    );
     let selected_task = selected_task.map(|task| TaskPackage {
         generated_at: autonomy_timestamp(),
         cycle,
@@ -1662,6 +1768,12 @@ fn build_case_queue_snapshot(repo_root: &Path) -> Result<CaseQueueSnapshot> {
     cases.sort_by(case_queue_sort_key);
 
     let (selected_case, selection_reason) = select_case_queue_candidate(repo_root, &cases)?;
+    let selectable_recordings = load_untriaged_recordings(repo_root, &cases)?;
+    let (selected_recording, recording_reason) = if selected_case.is_none() {
+        select_recording_queue_candidate(repo_root, &selectable_recordings)?
+    } else {
+        (None, None)
+    };
 
     let open_cases = cases
         .iter()
@@ -1675,11 +1787,12 @@ fn build_case_queue_snapshot(repo_root: &Path) -> Result<CaseQueueSnapshot> {
         .take(8)
         .cloned()
         .collect();
-    let untriaged_recordings = load_untriaged_recordings(repo_root, &cases)?;
+    let untriaged_recordings = selectable_recordings;
 
     Ok(CaseQueueSnapshot {
         selected_case,
-        selection_reason,
+        selected_recording,
+        selection_reason: selection_reason.or(recording_reason),
         open_cases,
         blocked_cases,
         untriaged_recordings,
@@ -1818,6 +1931,11 @@ fn load_untriaged_recordings(
         out.push(RecordingQueueCandidate {
             slug,
             manifest_path: repo_relative_path(repo_root, &manifest_path),
+            frame_count: manifest
+                .get("scenario")
+                .and_then(|scenario| scenario.get("frame_count"))
+                .and_then(|value| value.as_u64())
+                .unwrap_or(0) as usize,
             has_transcript: bundle_root.join("transcript.txt").is_file(),
             has_notes: bundle_root.join("notes.txt").is_file(),
         });
@@ -2106,6 +2224,7 @@ fn case_queue_task(
         frontier_context: None,
         case_queue_context: Some(CaseQueueContext {
             selected_case: Some(candidate.clone()),
+            selected_recording: None,
             open_cases: queue.open_cases.clone(),
             blocked_cases: queue.blocked_cases.clone(),
             untriaged_recordings: queue.untriaged_recordings.clone(),
@@ -2113,6 +2232,128 @@ fn case_queue_task(
         delegated_goal: None,
         delegated_target: None,
         delegation_reason: queue.selection_reason.clone(),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::SweepParity),
+        next_agent_note: Some(note.clone()),
+    }
+}
+
+fn source_port_frontier_recording_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    queue: &CaseQueueSnapshot,
+    recording: &RecordingQueueCandidate,
+) -> TaskPackage {
+    let initial_frame_end = recording.frame_count.min(120);
+    let case_path = PathBuf::from(SOURCE_PORT_CASE_CACHE_PATH).join(&recording.slug);
+    let delegation_reason = queue.selection_reason.clone().unwrap_or_else(|| {
+        format!(
+            "the TAS frontier is already closed and no failing reduced case is ready, so the next concrete lane is deriving gameplay work from recording {}",
+            recording.slug
+        )
+    });
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: format!(
+            "Advance source-port via gameplay recording: {}",
+            recording.slug
+        ),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; derive a reduced gameplay case from recording {} before any sweep-only hardening.",
+            frontier.recording, frontier.authoritative_clean_through, recording.slug
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            recording.manifest_path.display().to_string(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+        ],
+        implementation_targets: vec![
+            case_path.display().to_string(),
+            SOURCE_PORT_CASE_CACHE_PATH.to_owned(),
+        ],
+        commands: vec![
+            format!("cargo run -p kidcli -- verify-recording --slug {}", recording.slug),
+            format!(
+                "cargo run -p kidcli -- case derive --recording-slug {} --frame-start 0 --frame-end {} --out {}",
+                recording.slug,
+                initial_frame_end,
+                case_path.display()
+            ),
+            format!("cargo run -p kidcli -- case verify --case {}", recording.slug),
+            format!("cargo run -p kidcli -- case reduce --case {}", recording.slug),
+            format!("cargo run -p kidcli -- case summarise --case {}", recording.slug),
+        ],
+        done_criteria: vec![
+            format!(
+                "Convert recording {} into a reduced gameplay case or record an explicit blocked result with fresh evidence.",
+                recording.slug
+            ),
+            "Prefer a failing authoritative window of 120 frames or fewer before reopening broad verification lanes."
+                .to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "delegated-lane".to_owned(),
+                status: "case-queue".to_owned(),
+                detail: delegation_reason.clone(),
+                artefact_path: Some(recording.manifest_path.clone()),
+            },
+            EvidenceItem {
+                label: "selected-recording".to_owned(),
+                status: "derive-case".to_owned(),
+                detail: format!(
+                    "recording={}, frame_count={}, transcript={}, notes={}",
+                    recording.slug, recording.frame_count, recording.has_transcript, recording.has_notes
+                ),
+                artefact_path: Some(recording.manifest_path.clone()),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        case_queue_context: Some(CaseQueueContext {
+            selected_case: None,
+            selected_recording: Some(recording.clone()),
+            open_cases: queue.open_cases.clone(),
+            blocked_cases: queue.blocked_cases.clone(),
+            untriaged_recordings: queue.untriaged_recordings.clone(),
+        }),
+        delegated_goal: Some(AutonomyGoal::CaseQueue),
+        delegated_target: Some(recording.slug.clone()),
+        delegation_reason: Some(delegation_reason),
         recovery_mode: None,
         recovery_step: None,
         stalled_repetition_count: None,
@@ -2139,6 +2380,107 @@ fn case_queue_next_agent_note(repo_root: &Path, active_slug: &str) -> NextAgentN
             .iter()
             .map(|section| (*section).to_owned())
             .collect(),
+    }
+}
+
+fn case_queue_recording_task(
+    recording: &RecordingQueueCandidate,
+    queue: &CaseQueueSnapshot,
+    note: &NextAgentNoteDirective,
+) -> TaskPackage {
+    let initial_frame_end = recording.frame_count.min(120);
+    let case_selector = recording.slug.clone();
+    let case_path = PathBuf::from(SOURCE_PORT_CASE_CACHE_PATH).join(&case_selector);
+    let delegation_reason = queue.selection_reason.clone().unwrap_or_else(|| {
+        format!(
+            "no failing reduced case is currently available, so derive the next gameplay case from recording {}",
+            recording.slug
+        )
+    });
+    TaskPackage {
+        capability: CapabilityId::SourcePortCaseQueueTask,
+        title: format!(
+            "Derive reduced gameplay case from recording: {}",
+            recording.slug
+        ),
+        summary: format!(
+            "No failing reduced case is currently selected; mine recording {} into a reduced authoritative case before any sweep-only work.",
+            recording.slug
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            recording.manifest_path.display().to_string(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+        ],
+        implementation_targets: vec![
+            case_path.display().to_string(),
+            SOURCE_PORT_CASE_CACHE_PATH.to_owned(),
+        ],
+        commands: vec![
+            format!("cargo run -p kidcli -- verify-recording --slug {}", recording.slug),
+            format!(
+                "cargo run -p kidcli -- case derive --recording-slug {} --frame-start 0 --frame-end {} --out {}",
+                recording.slug,
+                initial_frame_end,
+                case_path.display()
+            ),
+            format!("cargo run -p kidcli -- case verify --case {}", case_selector),
+            format!("cargo run -p kidcli -- case reduce --case {}", case_selector),
+            format!("cargo run -p kidcli -- case summarise --case {}", case_selector),
+        ],
+        done_criteria: vec![
+            format!(
+                "Turn recording {} into a locally re-checkable reduced gameplay case or capture an explicit blocked result explaining why reduction failed.",
+                recording.slug
+            ),
+            "Prefer an authoritative failing window of 120 frames or fewer; if the first derived window passes, tighten or move the window instead of pivoting to sweep."
+                .to_owned(),
+            "Leave behind a failing reduced case, or explicit evidence that this recording did not yield one."
+                .to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "selected-recording".to_owned(),
+                status: "derive-case".to_owned(),
+                detail: format!(
+                    "recording={}, frame_count={}, transcript={}, notes={}",
+                    recording.slug, recording.frame_count, recording.has_transcript, recording.has_notes
+                ),
+                artefact_path: Some(recording.manifest_path.clone()),
+            },
+            EvidenceItem {
+                label: "autonomy-gate".to_owned(),
+                status: "gameplay-first".to_owned(),
+                detail: delegation_reason.clone(),
+                artefact_path: Some(recording.manifest_path.clone()),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: None,
+        case_queue_context: Some(CaseQueueContext {
+            selected_case: None,
+            selected_recording: Some(recording.clone()),
+            open_cases: queue.open_cases.clone(),
+            blocked_cases: queue.blocked_cases.clone(),
+            untriaged_recordings: queue.untriaged_recordings.clone(),
+        }),
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: queue.selection_reason.clone(),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::SweepParity),
+        next_agent_note: Some(note.clone()),
     }
 }
 
@@ -3914,7 +4256,14 @@ mod tests {
         fs::create_dir_all(&recording_dir).expect("recording dir should exist");
         fs::write(
             recording_dir.join("manifest.json"),
-            format!(r#"{{"slug":"{slug}"}}"#),
+            format!(
+                r#"{{
+  "slug":"{slug}",
+  "scenario": {{
+    "frame_count": 180
+  }}
+}}"#
+            ),
         )
         .expect("recording manifest should write");
         if with_transcript {
@@ -4338,7 +4687,23 @@ mod tests {
         let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
         assert_eq!(queue.untriaged_recordings.len(), 1);
         assert_eq!(queue.untriaged_recordings[0].slug, "level1-tree-break");
+        assert_eq!(queue.untriaged_recordings[0].frame_count, 180);
         assert!(queue.untriaged_recordings[0].has_transcript);
+    }
+
+    #[test]
+    fn case_queue_selects_recording_when_no_failing_case_exists() {
+        let temp_dir = source_port_repo();
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(queue.selected_case.is_none());
+        let recording = queue
+            .selected_recording
+            .expect("selected recording should exist");
+        assert_eq!(recording.slug, "level1-tree-break");
+        assert_eq!(recording.frame_count, 180);
     }
 
     #[test]
@@ -4363,6 +4728,28 @@ mod tests {
         assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::CaseQueue));
         assert_eq!(task.delegated_target.as_deref(), Some("recording-case"));
         assert!(task.title.contains("recording-case"));
+        assert!(cycle.progress_fingerprint.contains("case-queue"));
+    }
+
+    #[test]
+    fn source_port_frontier_delegates_to_recording_derivation_before_sweep() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_recording(temp_dir.path(), "level1-tree-break", true);
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::CaseQueue));
+        assert_eq!(task.delegated_target.as_deref(), Some("level1-tree-break"));
+        assert!(task.title.contains("level1-tree-break"));
+        assert!(task.summary.contains("reduced gameplay case"));
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("case derive --recording-slug level1-tree-break"))
+        );
         assert!(cycle.progress_fingerprint.contains("case-queue"));
     }
 
