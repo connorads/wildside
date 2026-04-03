@@ -2405,6 +2405,24 @@ fn mini_hopping_skull_should_remain_active(
         && relative_y <= bottom_margin
 }
 
+fn mini_hopping_skull_snap_slopeup_x(grid: &terrain::BlockGrid, x_px: i32, y_px: i32) -> u32 {
+    let row = terrain::pixel_to_cell(y_px).max(0) as u16;
+    let start_col = terrain::pixel_to_cell(x_px).max(0) as u16;
+
+    for col in start_col..grid.width_cells {
+        let cell = grid.cell_at(col, row);
+        if cell.collision == terrain::CollisionKind::SlopeUp {
+            // ASM Mini_Hopping_Skull.asm sub_3F366: `addi.w #$10,d6` before the
+            // collision check means the snap uses the matched slope cell's right
+            // edge, then subtracts the low nibble of the current Y position.
+            let snapped_x_px = ((i32::from(col) + 1) * 16) - (y_px & 0x0F);
+            return (snapped_x_px.max(0) as u32) << 16;
+        }
+    }
+
+    (x_px.max(0) as u32) << 16
+}
+
 pub(crate) fn step_hopper(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -2474,6 +2492,13 @@ pub(crate) fn step_hopper(
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
         if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
+            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
+                    grid,
+                    (enemy.x_pos >> 16) as i32,
+                    (enemy.y_pos >> 16) as i32,
+                );
+            }
             enemy.y_pos = floor_y_fp;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
