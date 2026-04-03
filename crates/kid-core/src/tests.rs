@@ -6158,6 +6158,35 @@ fn mini_hopping_skull_sub_3f366_snaps_x_to_slopeup_surface() {
 }
 
 #[test]
+fn mini_hopping_skull_sub_3f3a6_snaps_x_to_slopedown_surface() {
+    // ASM Mini_Hopping_Skull.asm sub_3F3A6 starts from the cell to the right,
+    // walks left to the first `$5000` slope-down cell on the current row, then
+    // snaps `x_pos` to `cell_left_px + (y_pos & $F)`.
+    let grid = grid_with_cells(8, 8, &[(3, 2, 0x50, 0)]);
+    let mut enemy = ActiveEnemy {
+        x_pos: 55u32 << 16,
+        y_pos: 46u32 << 16,
+        family: EnemyFamily::MiniHoppingSkull,
+        y_velocity: 0,
+        ..test_enemy(EnemyFamily::MiniHoppingSkull, 0, 0, 1)
+    };
+
+    step_hopper(&mut enemy, Some(&grid), None);
+
+    assert_eq!(
+        enemy.x_pos,
+        62u32 << 16,
+        "sub_3F3A6 should snap the skull to cell_left + (y & 0xF) on slope-down contact"
+    );
+    assert_eq!(
+        enemy.y_pos,
+        39u32 << 16,
+        "landing should still use the slope floor Y"
+    );
+    assert!(enemy.on_ground, "the slope contact should ground the skull");
+}
+
+#[test]
 fn dragon_flyer_despawns_once_it_moves_past_retention_margin() {
     let layout = EnemyLayout {
         axis_uses_y_position: false,
