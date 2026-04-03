@@ -26568,8 +26568,38 @@ fn process_block_effects_smash_creates_destroy_effect() {
 
     assert_eq!(rt.block_destroy_effects.len(), 1);
     assert_eq!(rt.block_destroy_effects[0].x_px, 80);
-    assert_eq!(rt.block_destroy_effects[0].y_px, 48);
-    assert_eq!(rt.block_destroy_effects[0].remaining, 8);
+    assert_eq!(rt.block_destroy_effects[0].y_px, 52);
+    assert_eq!(rt.block_destroy_effects[0].remaining, 2);
+}
+
+#[test]
+fn iron_knight_smash_block_uses_sub_10eda_upward_offset() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+    let mut grid = grid_with_floor_at_row(14);
+    grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    runtime.block_grid = Some(grid);
+
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = (5 * 16 + 8) << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.y_velocity = 0x0002_0000;
+    slice.player.on_ground = false;
+    runtime.opening_slice = Some(slice);
+
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(runtime.block_destroy_effects.len(), 1);
+    assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
+    assert_eq!(
+        runtime.block_destroy_effects[0].y_px, 220,
+        "ASM sub_10EDA direction=2 nudges the smash effect 4px upward before the 2-frame hibernate"
+    );
+    assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
 }
 
 #[test]

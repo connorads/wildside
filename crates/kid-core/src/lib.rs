@@ -1305,12 +1305,25 @@ impl NativeRuntime {
                     let probe = terrain::probe_floor_hitbox(grid, px, py, hw);
                     if probe.on_ground && probe.cell.has_block {
                         match probe.cell.block_type {
-                            // ASM sub_AF7A/off_AFD8: Smash, Prize, and Ice
-                            // dispatch to their destructive handlers and then
-                            // bounce Iron Knight back upward.
-                            terrain::BlockType::Smash
-                            | terrain::BlockType::Prize
-                            | terrain::BlockType::Ice => {
+                            // ASM sub_AF7A/off_AFD8 routes floor-smashed blocks
+                            // to the same directional destroy helpers the
+                            // block coroutines use, then kicks Iron Knight
+                            // back upward.
+                            terrain::BlockType::Smash => {
+                                grid.set_cell_at(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    terrain::Cell::from_be_bytes(0x00, 0x00),
+                                );
+                                self.spawn_smash_block_effect_sub_10eda(
+                                    probe.cell_x * 16,
+                                    probe.cell_y * 16,
+                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                );
+                                slice.player.y_velocity = -0x8000;
+                                slice.player.on_ground = false;
+                            }
+                            terrain::BlockType::Prize | terrain::BlockType::Ice => {
                                 grid.set_cell_at(
                                     probe.cell_x,
                                     probe.cell_y,

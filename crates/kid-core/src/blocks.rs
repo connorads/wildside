@@ -84,6 +84,10 @@ impl NativeRuntime {
         (0, 3),
         (0, 0),
     ];
+    pub(crate) const BLOCK_DESTROY_DIRECTION_BELOW: u16 = 0;
+    pub(crate) const BLOCK_DESTROY_DIRECTION_LEFT: u16 = 1;
+    pub(crate) const BLOCK_DESTROY_DIRECTION_ABOVE: u16 = 2;
+    pub(crate) const BLOCK_DESTROY_DIRECTION_RIGHT: u16 = 3;
 
     fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
         if cell.block_type != terrain::BlockType::Rubber {
@@ -182,6 +186,32 @@ impl NativeRuntime {
         for (col, row, base_skin, skin_offset) in pending_writes {
             self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, skin_offset);
         }
+    }
+
+    fn offset_block_destroy_effect_origin(direction: u16, x_px: u16, y_px: u16) -> (u16, u16) {
+        match direction {
+            Self::BLOCK_DESTROY_DIRECTION_RIGHT => (x_px.saturating_add(4), y_px),
+            Self::BLOCK_DESTROY_DIRECTION_ABOVE => (x_px, y_px.saturating_sub(4)),
+            Self::BLOCK_DESTROY_DIRECTION_LEFT => (x_px.saturating_sub(4), y_px),
+            _ => (x_px, y_px.saturating_add(4)),
+        }
+    }
+
+    pub(crate) fn spawn_smash_block_effect_sub_10eda(
+        &mut self,
+        x_px: u16,
+        y_px: u16,
+        direction: u16,
+    ) {
+        let (x_px, y_px) = Self::offset_block_destroy_effect_origin(direction, x_px, y_px);
+        self.block_destroy_effects.push(BlockDestroyEffect {
+            // ASM sub_10EDA swaps the smash-block sprite art immediately,
+            // nudges it 4px in the impact direction, then hibernates for 2
+            // frames before dispatching the shared debris worker.
+            x_px,
+            y_px,
+            remaining: 2,
+        });
     }
 
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
@@ -599,11 +629,11 @@ impl NativeRuntime {
         // Smash block destruction effect
         if let Some((x_px, y_px)) = slice.smash_block_hit {
             self.blocks_hit_this_frame += 1;
-            self.block_destroy_effects.push(BlockDestroyEffect {
+            self.spawn_smash_block_effect_sub_10eda(
                 x_px,
                 y_px,
-                remaining: 8,
-            });
+                Self::BLOCK_DESTROY_DIRECTION_BELOW,
+            );
         }
 
         // Lift block: headbutt spawns a rising platform (ASM sub_113C0)
