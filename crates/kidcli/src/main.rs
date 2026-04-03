@@ -3,6 +3,7 @@
     clippy::type_complexity,
     clippy::doc_lazy_continuation
 )]
+mod asm_coverage;
 mod autonomy;
 mod bootstrap;
 mod cache;
@@ -678,6 +679,21 @@ enum Commands {
         dir: Option<PathBuf>,
         /// Path to hypothesis TOML file
         hypothesis: PathBuf,
+    },
+    /// Cross-reference ASM labels against native code citations.
+    AsmCoverage {
+        /// Regenerate docs/source-port/asm-coverage.yaml (preserves hand annotations).
+        #[arg(long, default_value_t = false)]
+        update: bool,
+        /// Filter to subsystems matching this substring (e.g. "enemy").
+        #[arg(long)]
+        subsystem: Option<String>,
+        /// List only uncovered sub_ labels.
+        #[arg(long, default_value_t = false)]
+        uncovered: bool,
+        /// Machine-readable JSON output.
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
 }
 
@@ -1689,6 +1705,21 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             hypothesis::test_hypothesis(&repo_root, &rom_path, &manifest, &hypothesis)?;
+        }
+        Commands::AsmCoverage {
+            update,
+            subsystem,
+            uncovered,
+            json,
+        } => {
+            let repo_root = current_dir()?;
+            asm_coverage::run_asm_coverage(
+                &repo_root,
+                update,
+                subsystem.as_deref(),
+                uncovered,
+                json,
+            )?;
         }
     }
     Ok(())

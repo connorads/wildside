@@ -19,6 +19,7 @@ rayon.workspace = true
 sdl2 = { version = "0.38.0", features = ["bundled"] }
 serde.workspace = true
 serde_json.workspace = true
+serde_yaml.workspace = true
 sha1.workspace = true
 tempfile.workspace = true
 toml = "0.8.23"
