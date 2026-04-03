@@ -71,7 +71,7 @@ def main() -> int:
         return prompt_result.returncode
 
     task = load_task()
-    dirty_files = tracked_dirty_files()
+    dirty_before = tracked_dirty_files()
     cxys = subprocess.run(
         ["/home/connor/.local/bin/cxys", "-"],
         cwd=REPO_ROOT,
@@ -79,13 +79,25 @@ def main() -> int:
         input=prompt_result.stdout,
         text=True,
     )
+    dirty_after = tracked_dirty_files()
+
+    if cxys.returncode == 0 and dirty_after:
+        outcome = "uncommitted"
+        sys.stderr.write(
+            f"⚠ Agent exited 0 but left uncommitted tracked files: {dirty_after}\n"
+        )
+    elif cxys.returncode == 0:
+        outcome = "completed"
+    else:
+        outcome = "failed"
+
     append_history(
         task,
-        dirty_files,
-        outcome="completed" if cxys.returncode == 0 else "failed",
+        dirty_before,
+        outcome=outcome,
         exit_code=cxys.returncode,
     )
-    return cxys.returncode
+    return 1 if outcome == "uncommitted" else cxys.returncode
 
 
 if __name__ == "__main__":

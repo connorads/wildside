@@ -163,6 +163,21 @@ Use the live source-port task package for this run. Do not invent a backlog hunt
 
 {bullet_list(implementation_targets) if implementation_targets else '- None specified; stay inside the delegated lane.'}
 
+## Commit gate (mandatory)
+
+Every completed routine MUST be committed before the session ends.
+After verify-slice-fast passes:
+1. `kidcli asm-coverage --update`
+2. `git add <changed files>`
+3. `git commit` citing the ASM label
+If you finish your turn with uncommitted tracked changes, the session has FAILED.
+
+## Multi-routine sessions
+
+After committing a routine, you may pick the next uncovered routine and continue.
+Aim for 2-3 routines per session when they are straightforward.
+Stop when: blocked, 3+ routines committed, or context is getting long.
+
 ## Hard rules
 
 - Work only the delegated lane from the live package above.

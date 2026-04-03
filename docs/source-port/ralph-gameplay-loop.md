@@ -17,8 +17,14 @@
 10. Commit (MUST touch crates/kid-core/src/ or crates/kid-data/src/)
 11. Commit message MUST cite ASM label
 
+## Repeat
+After committing a routine:
+- If verify-slice-fast is green and you have context budget, go back to step 1 and pick the next uncovered routine
+- Stop when: blocked, 3+ routines committed this session, or context is getting long
+
 ## Rules
 - Every commit modifies game source code. No exceptions.
 - No handoff notes. The coverage map + git log is the state.
 - Sweep is a gate, not the work. Never "harden" sweep.
 - If stuck after reading ASM + oracle, mark routine `blocked` with reason, move to next.
+- **Commit gate**: if you finish your turn with uncommitted tracked changes, the session has failed. Always `git commit` after verify-slice-fast passes.
