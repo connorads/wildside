@@ -1185,7 +1185,9 @@ fn main() -> Result<()> {
             let repo_root = current_dir()?;
             let (rom_path, upstream_dir) = if matches!(
                 goal,
-                AutonomyGoal::SourcePortFrontier | AutonomyGoal::CaseQueue
+                AutonomyGoal::SourcePortFrontier
+                    | AutonomyGoal::CaseQueue
+                    | AutonomyGoal::GameplayBacklog
             ) {
                 (None, None)
             } else {

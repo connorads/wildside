@@ -1,5 +1,8 @@
 # Ralph Source-Port Frontier Loop
 
+> **Deprecated**: this loop is for TAS frontier work. If TAS work reopens, this loop applies.
+> For post-TAS gameplay work, use `ralph-gameplay-loop.md` instead.
+
 Use this as the fixed prompt/context for repeated Ralph cycles on the source-port operator entrypoint. When the TAS frontier is live, this loop packages that frontier. When the TAS frontier is closed, this same loop now auto-delegates to the next repo-local lane instead of handing off vague broader-work prose.
 
 ## Bootstrap (follow exactly — do not improvise)

@@ -121,6 +121,9 @@ mise run extract-assets
 cargo run -p kidcli -- inspect-level --level 00
 cargo run -p kidcli -- inspect-enemy --enemy 01
 cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
+cargo run -p kidcli -- asm-coverage                    # coverage summary
+cargo run -p kidcli -- asm-coverage --uncovered        # uncovered sub_ labels
+cargo run -p kidcli -- asm-coverage --update           # regenerate asm-coverage.yaml
 ```
 
 ## Level 1 reading order
@@ -151,7 +154,7 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 ### Session protocol
 1. Run `mise run frontier-status` and read `docs/source-port/frontier-state.yaml` before scanning wider prose
 2. If there is an active frontier, continue that work unless a higher-priority backlog item now blocks it
-3. Read `docs/source-port/backlog.md`; pick the highest-priority open item only if no active frontier supersedes it
+3. If no active frontier, follow `docs/source-port/ralph-gameplay-loop.md`: run `kidcli asm-coverage --uncovered`, pick the highest-priority uncovered routine
 4. Mark `[~]` when starting work
 5. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug
@@ -192,6 +195,9 @@ diff composites, and per-layer diagnostics.
 - `cargo run -p kidcli -- diagnose-frame --level XX --frame N --output .cache/debug/ --save-layers`
 - `cargo run -p kidcli -- sweep --levels 0-104 --tier state` (full oracle comparison)
 - `cargo run -p kidcli -- diagnose-level XX` (deep single-level analysis)
+- `cargo run -p kidcli -- asm-coverage` (ASM label coverage summary)
+- `cargo run -p kidcli -- asm-coverage --uncovered` (gap list)
+- `cargo run -p kidcli -- asm-coverage --update` (regenerate asm-coverage.yaml)
 
 ### Verification loop
 1. CAPTURE BEFORE: `capture-frames` to `.cache/debug/before/`

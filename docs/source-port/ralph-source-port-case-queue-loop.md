@@ -1,5 +1,9 @@
 # Ralph Source-Port Case-Queue Loop
 
+> **Deprecated**: the post-TAS delegation cascade now prefers `gameplay-backlog`
+> (ASM-driven coverage) over case-queue when no actionable cases exist.
+> Use `ralph-gameplay-loop.md` for the generative agent loop.
+
 Use this loop when the live TAS frontier is closed and the next autonomous task should
 come from reduced semantic gameplay cases.
 
