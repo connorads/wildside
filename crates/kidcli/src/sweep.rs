@@ -196,8 +196,16 @@ pub(crate) struct SweepHistoryFieldEntry {
     level_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     checkpoints: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    checkpoint_counts: Vec<SweepHistoryCheckpointCount>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
     divergence_summary: DivergenceSummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct SweepHistoryCheckpointCount {
+    checkpoint: String,
+    diffs: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -332,7 +340,7 @@ fn format_field_level_preview(level_ids: &[String]) -> String {
     }
 }
 
-fn format_checkpoint_preview(checkpoints: &[String]) -> String {
+fn format_checkpoint_count_preview(checkpoints: &[SweepHistoryCheckpointCount]) -> String {
     if checkpoints.is_empty() {
         return String::new();
     }
@@ -341,7 +349,7 @@ fn format_checkpoint_preview(checkpoints: &[String]) -> String {
     let preview = checkpoints
         .iter()
         .take(PREVIEW_LIMIT)
-        .cloned()
+        .map(|entry| format!("{}={}", entry.checkpoint, entry.diffs))
         .collect::<Vec<_>>()
         .join(", ");
     if checkpoints.len() <= PREVIEW_LIMIT {
@@ -374,6 +382,8 @@ pub(crate) struct ReleaseGateFocusSummary {
     levels: Option<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     level_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    matched_checkpoints: Vec<SweepHistoryCheckpointCount>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
     divergence_summary: DivergenceSummary,
     summary: String,
@@ -537,9 +547,10 @@ fn format_release_gate_focus_summary(
                     }
                 })
                 .unwrap_or_default();
+            let checkpoint_preview = format_checkpoint_count_preview(&entry.checkpoint_counts);
 
             format!(
-                "{} failing field {}={} diffs across {} levels for {}{}{}{}{}{} (field-only correlation; release-gate scenario still needs its own proof)",
+                "{} failing field {}={} diffs across {} levels for {}{}{}{}{}{}{} (field-only correlation; release-gate scenario still needs its own proof)",
                 focus.target,
                 entry.field,
                 entry.total_diffs,
@@ -553,7 +564,8 @@ fn format_release_gate_focus_summary(
                 format_field_category_summary(&entry.divergence_summary),
                 format_field_level_preview(&entry.level_ids),
                 scenario_level_note,
-                checkpoint_note
+                checkpoint_note,
+                checkpoint_preview
             )
         }
         None => format!(
@@ -610,6 +622,9 @@ fn summarise_release_gate_focuses(
                 levels: matched.map(|entry| entry.levels),
                 level_ids: matched
                     .map(|entry| entry.level_ids.clone())
+                    .unwrap_or_default(),
+                matched_checkpoints: matched
+                    .map(|entry| entry.checkpoint_counts.clone())
                     .unwrap_or_default(),
                 divergence_summary: matched
                     .map(|entry| entry.divergence_summary.clone())
@@ -923,7 +938,7 @@ pub(crate) fn run_sweep_with_options(
                     entry.levels,
                     format_field_category_summary(&entry.divergence_summary),
                     format_field_level_preview(&entry.level_ids),
-                    format_checkpoint_preview(&entry.checkpoints)
+                    format_checkpoint_count_preview(&entry.checkpoint_counts)
                 )
             })
             .collect::<Vec<_>>()
@@ -1161,6 +1176,10 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
         std::collections::BTreeMap::new();
     let mut checkpoints: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
         std::collections::BTreeMap::new();
+    let mut checkpoint_counts: std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<String, usize>,
+    > = std::collections::BTreeMap::new();
     let mut divergence_summaries: std::collections::BTreeMap<String, DivergenceSummary> =
         std::collections::BTreeMap::new();
 
@@ -1175,6 +1194,11 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
                 .entry(diff.field.clone())
                 .or_default()
                 .insert(diff.checkpoint.clone());
+            *checkpoint_counts
+                .entry(diff.field.clone())
+                .or_default()
+                .entry(diff.checkpoint.clone())
+                .or_default() += 1;
             divergence_summaries
                 .entry(diff.field.clone())
                 .or_default()
@@ -1199,6 +1223,25 @@ fn summarise_field_diffs(results: &[LevelSweepResult]) -> Vec<SweepHistoryFieldE
             checkpoints: checkpoints
                 .get(&field)
                 .map(|labels| labels.iter().cloned().collect())
+                .unwrap_or_default(),
+            checkpoint_counts: checkpoint_counts
+                .remove(&field)
+                .map(|counts| {
+                    let mut entries = counts
+                        .into_iter()
+                        .map(|(checkpoint, diffs)| SweepHistoryCheckpointCount {
+                            checkpoint,
+                            diffs,
+                        })
+                        .collect::<Vec<_>>();
+                    entries.sort_by(|left, right| {
+                        right
+                            .diffs
+                            .cmp(&left.diffs)
+                            .then_with(|| left.checkpoint.cmp(&right.checkpoint))
+                    });
+                    entries
+                })
                 .unwrap_or_default(),
             divergence_summary: divergence_summaries.remove(&field).unwrap_or_default(),
             field,
@@ -3517,6 +3560,10 @@ mod tests {
                 levels: 2,
                 level_ids: vec!["0x00".into(), "0x01".into()],
                 checkpoints: vec!["idle_tail".into()],
+                checkpoint_counts: vec![SweepHistoryCheckpointCount {
+                    checkpoint: "idle_tail".into(),
+                    diffs: 3,
+                }],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 3,
@@ -3537,6 +3584,10 @@ mod tests {
                 total_diffs: Some(3),
                 levels: Some(2),
                 level_ids: vec!["0x00".into(), "0x01".into()],
+                matched_checkpoints: vec![SweepHistoryCheckpointCount {
+                    checkpoint: "idle_tail".into(),
+                    diffs: 3,
+                }],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 3,
@@ -3544,7 +3595,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 0,
                 },
-                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=3] (field-only correlation; release-gate scenario still needs its own proof)".into(),
             }],
             per_level: vec![SweepHistoryLevelEntry {
                 level: "0x00".into(),
@@ -3574,8 +3625,20 @@ mod tests {
         assert_eq!(value["field_summary"][0]["level_ids"][0], "0x00");
         assert_eq!(value["field_summary"][0]["level_ids"][1], "0x01");
         assert_eq!(value["field_summary"][0]["checkpoints"][0], "idle_tail");
+        assert_eq!(
+            value["field_summary"][0]["checkpoint_counts"][0]["checkpoint"],
+            "idle_tail"
+        );
+        assert_eq!(
+            value["field_summary"][0]["checkpoint_counts"][0]["diffs"],
+            3
+        );
         assert_eq!(value["release_gate_focus"][0]["field"], "game_mode");
         assert_eq!(value["release_gate_focus"][0]["checkpoint"], "title@360");
+        assert_eq!(
+            value["release_gate_focus"][0]["matched_checkpoints"][0]["checkpoint"],
+            "idle_tail"
+        );
         assert_eq!(
             value["release_gate_focus"][0]["checkpoint_matched_in_state_sweep"],
             false
@@ -3606,6 +3669,16 @@ mod tests {
                 levels: 15,
                 level_ids: vec!["0x00".into(), "0x09".into()],
                 checkpoints: vec!["idle_tail".into(), "title@360".into()],
+                checkpoint_counts: vec![
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "idle_tail".into(),
+                        diffs: 10,
+                    },
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "title@360".into(),
+                        diffs: 5,
+                    },
+                ],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 0,
@@ -3626,6 +3699,16 @@ mod tests {
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
+                matched_checkpoints: vec![
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "idle_tail".into(),
+                        diffs: 10,
+                    },
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "title@360".into(),
+                        diffs: 5,
+                    },
+                ],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 0,
@@ -3633,7 +3716,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-only correlation; release-gate scenario still needs its own proof)".into(),
             }],
         };
 
@@ -3733,6 +3816,16 @@ mod tests {
                     levels: 2,
                     level_ids: vec!["0x00".into(), "0x01".into()],
                     checkpoints: vec!["idle_tail".into(), "level_settle".into()],
+                    checkpoint_counts: vec![
+                        SweepHistoryCheckpointCount {
+                            checkpoint: "level_settle".into(),
+                            diffs: 2,
+                        },
+                        SweepHistoryCheckpointCount {
+                            checkpoint: "idle_tail".into(),
+                            diffs: 1,
+                        },
+                    ],
                     divergence_summary: DivergenceSummary {
                         authoritative: 0,
                         advisory: 0,
@@ -3747,6 +3840,10 @@ mod tests {
                     levels: 1,
                     level_ids: vec!["0x00".into()],
                     checkpoints: vec!["idle_tail".into()],
+                    checkpoint_counts: vec![SweepHistoryCheckpointCount {
+                        checkpoint: "idle_tail".into(),
+                        diffs: 1,
+                    }],
                     divergence_summary: DivergenceSummary {
                         authoritative: 0,
                         advisory: 1,
@@ -3761,6 +3858,10 @@ mod tests {
                     levels: 1,
                     level_ids: vec!["0x01".into()],
                     checkpoints: vec!["idle_tail".into()],
+                    checkpoint_counts: vec![SweepHistoryCheckpointCount {
+                        checkpoint: "idle_tail".into(),
+                        diffs: 1,
+                    }],
                     divergence_summary: DivergenceSummary {
                         authoritative: 0,
                         advisory: 1,
@@ -3856,6 +3957,16 @@ mod tests {
                 "0x5a".into(),
             ],
             checkpoints: vec!["idle_tail".into(), "level_settle".into()],
+            checkpoint_counts: vec![
+                SweepHistoryCheckpointCount {
+                    checkpoint: "idle_tail".into(),
+                    diffs: 9,
+                },
+                SweepHistoryCheckpointCount {
+                    checkpoint: "level_settle".into(),
+                    diffs: 6,
+                },
+            ],
             divergence_summary: DivergenceSummary {
                 authoritative: 0,
                 advisory: 0,
@@ -3867,7 +3978,7 @@ mod tests {
 
         assert_eq!(
             format_release_gate_focus_summary(&field_summary, &focus),
-            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] [excludes checkpoint title@360] (field-only correlation; release-gate scenario still needs its own proof)"
+            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=9, level_settle=6] (field-only correlation; release-gate scenario still needs its own proof)"
         );
     }
 
@@ -3886,6 +3997,16 @@ mod tests {
             levels: 15,
             level_ids: vec!["0x00".into(), "0x09".into()],
             checkpoints: vec!["idle_tail".into(), "title@360".into()],
+            checkpoint_counts: vec![
+                SweepHistoryCheckpointCount {
+                    checkpoint: "idle_tail".into(),
+                    diffs: 10,
+                },
+                SweepHistoryCheckpointCount {
+                    checkpoint: "title@360".into(),
+                    diffs: 5,
+                },
+            ],
             divergence_summary: DivergenceSummary {
                 authoritative: 0,
                 advisory: 0,
@@ -3909,6 +4030,16 @@ mod tests {
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
+                matched_checkpoints: vec![
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "idle_tail".into(),
+                        diffs: 10,
+                    },
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "title@360".into(),
+                        diffs: 5,
+                    },
+                ],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 0,
@@ -3916,7 +4047,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-only correlation; release-gate scenario still needs its own proof)".into(),
             }]
         );
     }
@@ -3945,6 +4076,7 @@ mod tests {
                 total_diffs: None,
                 levels: None,
                 level_ids: Vec::new(),
+                matched_checkpoints: Vec::new(),
                 divergence_summary: DivergenceSummary::default(),
                 summary: "1p-accurate failing field boot_phase_elapsed for boot_title_start_level1 @ title@360 not present in latest state sweep field_summary".into(),
             }]
