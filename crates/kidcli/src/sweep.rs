@@ -370,12 +370,18 @@ pub(crate) struct ReleaseGateFocusSummary {
     checkpoint: Option<String>,
     field: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    native_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    oracle_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     scenario_level_id: Option<String>,
     matched_in_state_sweep: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     scenario_level_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     checkpoint_matched_in_state_sweep: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exact_value_pair_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_diffs: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -384,6 +390,8 @@ pub(crate) struct ReleaseGateFocusSummary {
     level_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     matched_checkpoints: Vec<SweepHistoryCheckpointCount>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    exact_value_pair_checkpoints: Vec<SweepHistoryCheckpointCount>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
     divergence_summary: DivergenceSummary,
     summary: String,
@@ -395,6 +403,8 @@ struct ReleaseGateFieldFocus {
     step_name: String,
     checkpoint: Option<String>,
     field: String,
+    native_value: Option<String>,
+    oracle_value: Option<String>,
     scenario_level_id: Option<String>,
 }
 
@@ -435,6 +445,26 @@ fn extract_release_gate_failed_checkpoint(detail: &str) -> Option<String> {
         .map(|(checkpoint, _)| checkpoint.trim())
         .filter(|checkpoint| !checkpoint.is_empty())?;
     Some(checkpoint.to_owned())
+}
+
+fn normalise_release_gate_value(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let hex = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+    if !hex.is_empty() && hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        format!("0x{}", hex.to_ascii_lowercase())
+    } else {
+        trimmed.to_ascii_lowercase()
+    }
+}
+
+fn extract_release_gate_failed_values(detail: &str) -> Option<(String, String)> {
+    let (_, tail) = detail.split_once("(native ")?;
+    let (native_raw, tail) = tail.split_once(", oracle ")?;
+    let (oracle_raw, _) = tail.split_once(')')?;
+    Some((
+        normalise_release_gate_value(native_raw),
+        normalise_release_gate_value(oracle_raw),
+    ))
 }
 
 fn decimal_level_index_to_bcd(level_index: usize) -> Option<u8> {
@@ -496,12 +526,18 @@ fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFo
             let step_name = failed_step.get("name")?.as_str()?.to_owned();
             let detail = failed_step.get("detail")?.as_str()?;
             let field = extract_release_gate_failed_field(detail)?;
+            let (native_value, oracle_value) = extract_release_gate_failed_values(detail)
+                .map_or((None, None), |(native, oracle)| {
+                    (Some(native), Some(oracle))
+                });
             let scenario_level_id = extract_release_gate_scenario_level_id(&step_name);
             Some(ReleaseGateFieldFocus {
                 target: target.to_owned(),
                 step_name,
                 checkpoint: extract_release_gate_failed_checkpoint(detail),
                 field,
+                native_value,
+                oracle_value,
                 scenario_level_id,
             })
         })
@@ -550,7 +586,7 @@ fn format_release_gate_focus_summary(
             let checkpoint_preview = format_checkpoint_count_preview(&entry.checkpoint_counts);
 
             format!(
-                "{} failing field {}={} diffs across {} levels for {}{}{}{}{}{}{} (field-only correlation; release-gate scenario still needs its own proof)",
+                "{} failing field {}={} diffs across {} levels for {}{}{}{}{}{}{} (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof)",
                 focus.target,
                 entry.field,
                 entry.total_diffs,
@@ -583,6 +619,7 @@ fn format_release_gate_focus_summary(
 }
 
 fn summarise_release_gate_focuses(
+    results: &[LevelSweepResult],
     field_summary: &[SweepHistoryFieldEntry],
     focuses: &[ReleaseGateFieldFocus],
 ) -> Vec<ReleaseGateFocusSummary> {
@@ -592,6 +629,37 @@ fn summarise_release_gate_focuses(
             let matched = field_summary
                 .iter()
                 .find(|entry| entry.field == focus.field);
+            let exact_value_pair_checkpoints = match (&focus.native_value, &focus.oracle_value) {
+                (Some(native_value), Some(oracle_value)) => {
+                    let mut counts: std::collections::BTreeMap<String, usize> =
+                        std::collections::BTreeMap::new();
+                    for result in results {
+                        for diff in &result.state_diffs {
+                            if diff.field == focus.field
+                                && normalise_release_gate_value(&diff.native_value) == *native_value
+                                && normalise_release_gate_value(&diff.oracle_value) == *oracle_value
+                            {
+                                *counts.entry(diff.checkpoint.clone()).or_default() += 1;
+                            }
+                        }
+                    }
+                    let mut entries = counts
+                        .into_iter()
+                        .map(|(checkpoint, diffs)| SweepHistoryCheckpointCount {
+                            checkpoint,
+                            diffs,
+                        })
+                        .collect::<Vec<_>>();
+                    entries.sort_by(|left, right| {
+                        right
+                            .diffs
+                            .cmp(&left.diffs)
+                            .then_with(|| left.checkpoint.cmp(&right.checkpoint))
+                    });
+                    entries
+                }
+                _ => Vec::new(),
+            };
             let scenario_level_matched_in_state_sweep =
                 focus.scenario_level_id.as_ref().map(|level_id| {
                     matched.is_some_and(|entry| {
@@ -609,15 +677,44 @@ fn summarise_release_gate_focuses(
                         .any(|candidate| candidate == checkpoint)
                 })
             });
+            let exact_value_pair_matched_in_state_sweep =
+                if focus.native_value.is_some() && focus.oracle_value.is_some() {
+                    Some(!exact_value_pair_checkpoints.is_empty())
+                } else {
+                    None
+                };
+            let exact_pair_note = match (&focus.native_value, &focus.oracle_value) {
+                (Some(native_value), Some(oracle_value)) => {
+                    if exact_value_pair_checkpoints.is_empty() {
+                        format!(
+                            " [exact pair {native_value}->{oracle_value} absent from latest state sweep]"
+                        )
+                    } else {
+                        format!(
+                            " [exact pair {native_value}->{oracle_value} seen{}]",
+                            format_checkpoint_count_preview(&exact_value_pair_checkpoints)
+                        )
+                    }
+                }
+                _ => String::new(),
+            };
+            let summary = format!(
+                "{}{}",
+                format_release_gate_focus_summary(field_summary, focus),
+                exact_pair_note
+            );
             ReleaseGateFocusSummary {
                 target: focus.target.clone(),
                 step_name: focus.step_name.clone(),
                 checkpoint: focus.checkpoint.clone(),
                 field: focus.field.clone(),
+                native_value: focus.native_value.clone(),
+                oracle_value: focus.oracle_value.clone(),
                 scenario_level_id: focus.scenario_level_id.clone(),
                 matched_in_state_sweep: matched.is_some(),
                 scenario_level_matched_in_state_sweep,
                 checkpoint_matched_in_state_sweep,
+                exact_value_pair_matched_in_state_sweep,
                 total_diffs: matched.map(|entry| entry.total_diffs),
                 levels: matched.map(|entry| entry.levels),
                 level_ids: matched
@@ -626,10 +723,11 @@ fn summarise_release_gate_focuses(
                 matched_checkpoints: matched
                     .map(|entry| entry.checkpoint_counts.clone())
                     .unwrap_or_default(),
+                exact_value_pair_checkpoints,
                 divergence_summary: matched
                     .map(|entry| entry.divergence_summary.clone())
                     .unwrap_or_default(),
-                summary: format_release_gate_focus_summary(field_summary, focus),
+                summary,
             }
         })
         .collect()
@@ -825,6 +923,7 @@ pub(crate) fn run_sweep_with_options(
 
     let source_hash = kid_core_source_hash(repo_root).ok();
     let release_gate_focus = summarise_release_gate_focuses(
+        &results,
         &field_summary,
         &latest_release_gate_failed_fields(repo_root),
     );
@@ -3577,10 +3676,13 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                native_value: Some("0x000c".into()),
+                oracle_value: Some("0x002c".into()),
                 scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(false),
+                exact_value_pair_matched_in_state_sweep: Some(false),
                 total_diffs: Some(3),
                 levels: Some(2),
                 level_ids: vec!["0x00".into(), "0x01".into()],
@@ -3588,6 +3690,7 @@ mod tests {
                     checkpoint: "idle_tail".into(),
                     diffs: 3,
                 }],
+                exact_value_pair_checkpoints: Vec::new(),
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 3,
@@ -3595,7 +3698,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 0,
                 },
-                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=3] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=3] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c absent from latest state sweep]".into(),
             }],
             per_level: vec![SweepHistoryLevelEntry {
                 level: "0x00".into(),
@@ -3635,12 +3738,18 @@ mod tests {
         );
         assert_eq!(value["release_gate_focus"][0]["field"], "game_mode");
         assert_eq!(value["release_gate_focus"][0]["checkpoint"], "title@360");
+        assert_eq!(value["release_gate_focus"][0]["native_value"], "0x000c");
+        assert_eq!(value["release_gate_focus"][0]["oracle_value"], "0x002c");
         assert_eq!(
             value["release_gate_focus"][0]["matched_checkpoints"][0]["checkpoint"],
             "idle_tail"
         );
         assert_eq!(
             value["release_gate_focus"][0]["checkpoint_matched_in_state_sweep"],
+            false
+        );
+        assert_eq!(
+            value["release_gate_focus"][0]["exact_value_pair_matched_in_state_sweep"],
             false
         );
         assert_eq!(value["per_level"][0]["fields"][0], "game_mode");
@@ -3692,10 +3801,13 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                native_value: Some("0x000c".into()),
+                oracle_value: Some("0x002c".into()),
                 scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(true),
+                exact_value_pair_matched_in_state_sweep: Some(true),
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
@@ -3709,6 +3821,10 @@ mod tests {
                         diffs: 5,
                     },
                 ],
+                exact_value_pair_checkpoints: vec![SweepHistoryCheckpointCount {
+                    checkpoint: "title@360".into(),
+                    diffs: 5,
+                }],
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 0,
@@ -3716,7 +3832,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c seen checkpoints=[title@360=5]]".into(),
             }],
         };
 
@@ -3724,6 +3840,8 @@ mod tests {
 
         assert_eq!(value["release_gate_focus"][0]["field"], "game_mode");
         assert_eq!(value["release_gate_focus"][0]["checkpoint"], "title@360");
+        assert_eq!(value["release_gate_focus"][0]["native_value"], "0x000c");
+        assert_eq!(value["release_gate_focus"][0]["oracle_value"], "0x002c");
         assert_eq!(value["release_gate_focus"][0]["scenario_level_id"], "0x00");
         assert_eq!(
             value["release_gate_focus"][0]["scenario_level_matched_in_state_sweep"],
@@ -3731,6 +3849,10 @@ mod tests {
         );
         assert_eq!(
             value["release_gate_focus"][0]["checkpoint_matched_in_state_sweep"],
+            true
+        );
+        assert_eq!(
+            value["release_gate_focus"][0]["exact_value_pair_matched_in_state_sweep"],
             true
         );
         assert_eq!(
@@ -3930,6 +4052,8 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                native_value: Some("0x000c".into()),
+                oracle_value: Some("0x002c".into()),
                 scenario_level_id: Some("0x00".into()),
             }]
         );
@@ -3942,6 +4066,8 @@ mod tests {
             step_name: "frame_oracle:boot_title_start_level1".into(),
             checkpoint: Some("title@360".into()),
             field: "game_mode".into(),
+            native_value: Some("0x000c".into()),
+            oracle_value: Some("0x002c".into()),
             scenario_level_id: Some("0x00".into()),
         };
         let field_summary = vec![SweepHistoryFieldEntry {
@@ -3978,7 +4104,7 @@ mod tests {
 
         assert_eq!(
             format_release_gate_focus_summary(&field_summary, &focus),
-            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=9, level_settle=6] (field-only correlation; release-gate scenario still needs its own proof)"
+            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=9, level_settle=6] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof)"
         );
     }
 
@@ -3989,6 +4115,8 @@ mod tests {
             step_name: "frame_oracle:boot_title_start_level1".into(),
             checkpoint: Some("title@360".into()),
             field: "game_mode".into(),
+            native_value: Some("0x000c".into()),
+            oracle_value: Some("0x002c".into()),
             scenario_level_id: Some("0x00".into()),
         }];
         let field_summary = vec![SweepHistoryFieldEntry {
@@ -4017,16 +4145,19 @@ mod tests {
         }];
 
         assert_eq!(
-            summarise_release_gate_focuses(&field_summary, &focuses),
+            summarise_release_gate_focuses(&[], &field_summary, &focuses),
             vec![ReleaseGateFocusSummary {
                 target: "1p-accurate".into(),
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                native_value: Some("0x000c".into()),
+                oracle_value: Some("0x002c".into()),
                 scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(true),
+                exact_value_pair_matched_in_state_sweep: Some(false),
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
@@ -4040,6 +4171,7 @@ mod tests {
                         diffs: 5,
                     },
                 ],
+                exact_value_pair_checkpoints: Vec::new(),
                 divergence_summary: DivergenceSummary {
                     authoritative: 0,
                     advisory: 0,
@@ -4047,7 +4179,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c absent from latest state sweep]".into(),
             }]
         );
     }
@@ -4059,26 +4191,132 @@ mod tests {
             step_name: "frame_oracle:boot_title_start_level1".into(),
             checkpoint: Some("title@360".into()),
             field: "boot_phase_elapsed".into(),
+            native_value: Some("120".into()),
+            oracle_value: Some("150".into()),
             scenario_level_id: Some("0x00".into()),
         }];
 
         assert_eq!(
-            summarise_release_gate_focuses(&[], &focuses),
+            summarise_release_gate_focuses(&[], &[], &focuses),
             vec![ReleaseGateFocusSummary {
                 target: "1p-accurate".into(),
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "boot_phase_elapsed".into(),
+                native_value: Some("120".into()),
+                oracle_value: Some("150".into()),
                 scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: false,
                 scenario_level_matched_in_state_sweep: Some(false),
                 checkpoint_matched_in_state_sweep: Some(false),
+                exact_value_pair_matched_in_state_sweep: Some(false),
                 total_diffs: None,
                 levels: None,
                 level_ids: Vec::new(),
                 matched_checkpoints: Vec::new(),
+                exact_value_pair_checkpoints: Vec::new(),
                 divergence_summary: DivergenceSummary::default(),
-                summary: "1p-accurate failing field boot_phase_elapsed for boot_title_start_level1 @ title@360 not present in latest state sweep field_summary".into(),
+                summary: "1p-accurate failing field boot_phase_elapsed for boot_title_start_level1 @ title@360 not present in latest state sweep field_summary [exact pair 120->150 absent from latest state sweep]".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn release_gate_focus_summary_marks_exact_value_pair_matches() {
+        let focuses = vec![ReleaseGateFieldFocus {
+            target: "1p-accurate".into(),
+            step_name: "frame_oracle:boot_title_start_level1".into(),
+            checkpoint: Some("title@360".into()),
+            field: "game_mode".into(),
+            native_value: Some("0x000c".into()),
+            oracle_value: Some("0x002c".into()),
+            scenario_level_id: Some("0x00".into()),
+        }];
+        let field_summary = vec![SweepHistoryFieldEntry {
+            field: "game_mode".into(),
+            total_diffs: 2,
+            levels: 1,
+            level_ids: vec!["0x00".into()],
+            checkpoints: vec!["title@360".into()],
+            checkpoint_counts: vec![SweepHistoryCheckpointCount {
+                checkpoint: "title@360".into(),
+                diffs: 2,
+            }],
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 0,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 2,
+            },
+        }];
+        let results = vec![LevelSweepResult {
+            level_id: 0x00,
+            slug: "idle_level_00".into(),
+            tier: SweepTier::State,
+            passed: true,
+            state_diffs: vec![
+                StateDiff {
+                    checkpoint: "title@360".into(),
+                    field: "game_mode".into(),
+                    native_value: "0x000c".into(),
+                    oracle_value: "0x002c".into(),
+                    category: DivergenceCategory::OracleLimitation,
+                },
+                StateDiff {
+                    checkpoint: "title@360".into(),
+                    field: "game_mode".into(),
+                    native_value: "0x000c".into(),
+                    oracle_value: "0x002c".into(),
+                    category: DivergenceCategory::OracleLimitation,
+                },
+            ],
+            mae: None,
+            pixel_mismatches: None,
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 0,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 2,
+            },
+        }];
+
+        assert_eq!(
+            summarise_release_gate_focuses(&results, &field_summary, &focuses),
+            vec![ReleaseGateFocusSummary {
+                target: "1p-accurate".into(),
+                step_name: "frame_oracle:boot_title_start_level1".into(),
+                checkpoint: Some("title@360".into()),
+                field: "game_mode".into(),
+                native_value: Some("0x000c".into()),
+                oracle_value: Some("0x002c".into()),
+                scenario_level_id: Some("0x00".into()),
+                matched_in_state_sweep: true,
+                scenario_level_matched_in_state_sweep: Some(true),
+                checkpoint_matched_in_state_sweep: Some(true),
+                exact_value_pair_matched_in_state_sweep: Some(true),
+                total_diffs: Some(2),
+                levels: Some(1),
+                level_ids: vec!["0x00".into()],
+                matched_checkpoints: vec![SweepHistoryCheckpointCount {
+                    checkpoint: "title@360".into(),
+                    diffs: 2,
+                }],
+                exact_value_pair_checkpoints: vec![SweepHistoryCheckpointCount {
+                    checkpoint: "title@360".into(),
+                    diffs: 2,
+                }],
+                divergence_summary: DivergenceSummary {
+                    authoritative: 0,
+                    advisory: 0,
+                    accumulation: 0,
+                    rng: 0,
+                    oracle_limitation: 2,
+                },
+                summary: "1p-accurate failing field game_mode=2 diffs across 1 levels for boot_title_start_level1 @ title@360 [oracle_limitations=2] [0x00] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[title@360=2] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c seen checkpoints=[title@360=2]]".into(),
             }]
         );
     }
