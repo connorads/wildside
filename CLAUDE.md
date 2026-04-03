@@ -167,7 +167,7 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 6a. Handoff-only updates to `.cache/autonomy/*/next-agent.md` do not count as progress and should stay cache-local or ride with the next substantive commit, not land on their own
 7. Fix: implement in focused commit(s)
 8. Verify visually: capture frames, Read PNGs, compare before/after
-9. Verify mechanically: `mise run verify-slice-fast` must pass
+9. Verify mechanically: `mise run verify-slice-fast` must pass. **Gate must be green on main at all times** — never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
 10. Update `docs/source-port/frontier-state.yaml` whenever the frontier, current hypothesis, rejected-hypothesis ledger, or `candidate_promotions` list changes
 11. Mark `[x]` in backlog (same commit as the fix)
 12. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
@@ -251,6 +251,8 @@ Run per-file with demo/TAS/snapshot tests skipped (they have pre-existing failur
 ```bash
 cargo mutants -p kid-core -f <file>.rs -j 4 -- --lib -- --skip demo_ --skip published_tas --skip snapshot
 ```
+
+**Never use `--in-place`** — it silently corrupts source files with `/* ~ changed by cargo-mutants ~ */` markers. Always use `--output /tmp/mutants-<name>`.
 
 **Lessons learned:**
 - Proptest properties (bounded, converges) are too loose to catch sign/direction mutations — pair them with exact-value unit tests
