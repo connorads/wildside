@@ -4,6 +4,7 @@ mod combat;
 pub(crate) mod constants;
 mod demo;
 pub(crate) mod enemies;
+mod gfx_animation;
 mod helmets;
 mod level;
 mod movement;
