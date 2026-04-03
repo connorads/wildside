@@ -335,7 +335,11 @@ pub(crate) struct ReleaseGateFocusSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     checkpoint: Option<String>,
     field: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scenario_level_id: Option<String>,
     matched_in_state_sweep: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scenario_level_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_diffs: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -353,6 +357,7 @@ struct ReleaseGateFieldFocus {
     step_name: String,
     checkpoint: Option<String>,
     field: String,
+    scenario_level_id: Option<String>,
 }
 
 fn compact_release_gate_step_name(step_name: &str) -> String {
@@ -394,6 +399,35 @@ fn extract_release_gate_failed_checkpoint(detail: &str) -> Option<String> {
     Some(checkpoint.to_owned())
 }
 
+fn decimal_level_index_to_bcd(level_index: usize) -> Option<u8> {
+    if level_index > 68 {
+        return None;
+    }
+    let tens = level_index / 10;
+    let ones = level_index % 10;
+    Some(((tens as u8) << 4) | ones as u8)
+}
+
+fn extract_release_gate_scenario_level_id(step_name: &str) -> Option<String> {
+    let scenario = compact_release_gate_step_name(step_name);
+    let marker = "level";
+    let start = scenario.find(marker)? + marker.len();
+    let digits = scenario[start..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    if digits.is_empty() {
+        return None;
+    }
+    let human_level = digits.parse::<usize>().ok()?;
+    let level_index = human_level.checked_sub(1)?;
+    let bcd = decimal_level_index_to_bcd(level_index)?;
+    if !is_valid_level_id(bcd) {
+        return None;
+    }
+    Some(format!("{:#04x}", bcd))
+}
+
 fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFocus> {
     ["1p-playable", "1p-accurate"]
         .into_iter()
@@ -424,11 +458,13 @@ fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFo
             let step_name = failed_step.get("name")?.as_str()?.to_owned();
             let detail = failed_step.get("detail")?.as_str()?;
             let field = extract_release_gate_failed_field(detail)?;
+            let scenario_level_id = extract_release_gate_scenario_level_id(&step_name);
             Some(ReleaseGateFieldFocus {
                 target: target.to_owned(),
                 step_name,
                 checkpoint: extract_release_gate_failed_checkpoint(detail),
                 field,
+                scenario_level_id,
             })
         })
         .collect()
@@ -442,21 +478,40 @@ fn format_release_gate_focus_summary(
         .iter()
         .find(|entry| entry.field == focus.field)
     {
-        Some(entry) => format!(
-            "{} failing field {}={} diffs across {} levels for {}{}{}{} (field-only correlation; release-gate scenario still needs its own proof)",
-            focus.target,
-            entry.field,
-            entry.total_diffs,
-            entry.levels,
-            compact_release_gate_step_name(&focus.step_name),
-            focus
-                .checkpoint
+        Some(entry) => {
+            let scenario_level_note = focus
+                .scenario_level_id
                 .as_deref()
-                .map(|checkpoint| format!(" @ {checkpoint}"))
-                .unwrap_or_default(),
-            format_field_category_summary(&entry.divergence_summary),
-            format_field_level_preview(&entry.level_ids)
-        ),
+                .map(|level_id| {
+                    if entry
+                        .level_ids
+                        .iter()
+                        .any(|candidate| candidate == level_id)
+                    {
+                        format!(" [includes scenario level {level_id}]")
+                    } else {
+                        format!(" [excludes scenario level {level_id}]")
+                    }
+                })
+                .unwrap_or_default();
+
+            format!(
+                "{} failing field {}={} diffs across {} levels for {}{}{}{}{} (field-only correlation; release-gate scenario still needs its own proof)",
+                focus.target,
+                entry.field,
+                entry.total_diffs,
+                entry.levels,
+                compact_release_gate_step_name(&focus.step_name),
+                focus
+                    .checkpoint
+                    .as_deref()
+                    .map(|checkpoint| format!(" @ {checkpoint}"))
+                    .unwrap_or_default(),
+                format_field_category_summary(&entry.divergence_summary),
+                format_field_level_preview(&entry.level_ids),
+                scenario_level_note
+            )
+        }
         None => format!(
             "{} failing field {} for {}{} not present in latest state sweep field_summary",
             focus.target,
@@ -481,12 +536,23 @@ fn summarise_release_gate_focuses(
             let matched = field_summary
                 .iter()
                 .find(|entry| entry.field == focus.field);
+            let scenario_level_matched_in_state_sweep =
+                focus.scenario_level_id.as_ref().map(|level_id| {
+                    matched.is_some_and(|entry| {
+                        entry
+                            .level_ids
+                            .iter()
+                            .any(|candidate| candidate == level_id)
+                    })
+                });
             ReleaseGateFocusSummary {
                 target: focus.target.clone(),
                 step_name: focus.step_name.clone(),
                 checkpoint: focus.checkpoint.clone(),
                 field: focus.field.clone(),
+                scenario_level_id: focus.scenario_level_id.clone(),
                 matched_in_state_sweep: matched.is_some(),
+                scenario_level_matched_in_state_sweep,
                 total_diffs: matched.map(|entry| entry.total_diffs),
                 levels: matched.map(|entry| entry.levels),
                 level_ids: matched
@@ -3458,7 +3524,9 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: true,
+                scenario_level_matched_in_state_sweep: Some(true),
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
@@ -3469,7 +3537,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] (field-only correlation; release-gate scenario still needs its own proof)".into(),
             }],
         };
 
@@ -3477,6 +3545,11 @@ mod tests {
 
         assert_eq!(value["release_gate_focus"][0]["field"], "game_mode");
         assert_eq!(value["release_gate_focus"][0]["checkpoint"], "title@360");
+        assert_eq!(value["release_gate_focus"][0]["scenario_level_id"], "0x00");
+        assert_eq!(
+            value["release_gate_focus"][0]["scenario_level_matched_in_state_sweep"],
+            true
+        );
         assert_eq!(
             value["release_gate_focus"][0]["divergence_summary"]["oracle_limitation"],
             15
@@ -3608,6 +3681,24 @@ mod tests {
     }
 
     #[test]
+    fn extracts_release_gate_scenario_level_id_from_step_name() {
+        assert_eq!(
+            extract_release_gate_scenario_level_id("frame_oracle:boot_title_start_level1")
+                .as_deref(),
+            Some("0x00")
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("frame_oracle:boot_title_start_level10")
+                .as_deref(),
+            Some("0x09")
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("frame_oracle:boot_title_idle_10s"),
+            None
+        );
+    }
+
+    #[test]
     fn latest_release_gate_failed_fields_reads_latest_reports() {
         let temp_dir = tempfile::tempdir().expect("tempdir");
         let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
@@ -3635,6 +3726,7 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                scenario_level_id: Some("0x00".into()),
             }]
         );
     }
@@ -3646,6 +3738,7 @@ mod tests {
             step_name: "frame_oracle:boot_title_start_level1".into(),
             checkpoint: Some("title@360".into()),
             field: "game_mode".into(),
+            scenario_level_id: Some("0x00".into()),
         };
         let field_summary = vec![SweepHistoryFieldEntry {
             field: "game_mode".into(),
@@ -3670,7 +3763,7 @@ mod tests {
 
         assert_eq!(
             format_release_gate_focus_summary(&field_summary, &focus),
-            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] (field-only correlation; release-gate scenario still needs its own proof)"
+            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] (field-only correlation; release-gate scenario still needs its own proof)"
         );
     }
 
@@ -3681,6 +3774,7 @@ mod tests {
             step_name: "frame_oracle:boot_title_start_level1".into(),
             checkpoint: Some("title@360".into()),
             field: "game_mode".into(),
+            scenario_level_id: Some("0x00".into()),
         }];
         let field_summary = vec![SweepHistoryFieldEntry {
             field: "game_mode".into(),
@@ -3703,7 +3797,9 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "game_mode".into(),
+                scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: true,
+                scenario_level_matched_in_state_sweep: Some(true),
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
@@ -3714,7 +3810,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] (field-only correlation; release-gate scenario still needs its own proof)".into(),
             }]
         );
     }
@@ -3726,6 +3822,7 @@ mod tests {
             step_name: "frame_oracle:boot_title_start_level1".into(),
             checkpoint: Some("title@360".into()),
             field: "boot_phase_elapsed".into(),
+            scenario_level_id: Some("0x00".into()),
         }];
 
         assert_eq!(
@@ -3735,7 +3832,9 @@ mod tests {
                 step_name: "frame_oracle:boot_title_start_level1".into(),
                 checkpoint: Some("title@360".into()),
                 field: "boot_phase_elapsed".into(),
+                scenario_level_id: Some("0x00".into()),
                 matched_in_state_sweep: false,
+                scenario_level_matched_in_state_sweep: Some(false),
                 total_diffs: None,
                 levels: None,
                 level_ids: Vec::new(),

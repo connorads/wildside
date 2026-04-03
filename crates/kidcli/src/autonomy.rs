@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const LEVEL_ONE_ID: u8 = 0x00;
@@ -265,7 +266,55 @@ pub(crate) struct TaskPackage {
     #[serde(skip_serializing_if = "Option::is_none")]
     delegation_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    recovery_mode: Option<RecoveryMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recovery_step: Option<RecoveryStep>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stalled_repetition_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pivot_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_fallback_goal: Option<AutonomyGoal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     next_agent_note: Option<NextAgentNoteDirective>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RecoveryMode {
+    DirtyTree,
+    StalledFingerprint,
+}
+
+impl RecoveryMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::DirtyTree => "dirty_tree",
+            Self::StalledFingerprint => "stalled_fingerprint",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RecoveryStep {
+    FinishDirtyWork,
+    ReverifyCurrentLane,
+    PivotToNextLane,
+    RefreshEvidence,
+    OperatorNoteOnly,
+}
+
+impl RecoveryStep {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::FinishDirtyWork => "finish_dirty_work",
+            Self::ReverifyCurrentLane => "reverify_current_lane",
+            Self::PivotToNextLane => "pivot_to_next_lane",
+            Self::RefreshEvidence => "refresh_evidence",
+            Self::OperatorNoteOnly => "operator_note_only",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -712,7 +761,15 @@ pub(crate) fn run_autonomous_loop(
             print_cycle_summary(&cycle);
         }
 
-        if cycle.goal_complete || cycle.blocker.is_some() || cycle.stalled {
+        if cycle.goal_complete
+            || cycle.blocker.is_some()
+            || cycle.stalled
+            || cycle
+                .selected_task
+                .as_ref()
+                .and_then(|task| task.recovery_mode)
+                .is_some()
+        {
             break;
         }
     }
@@ -882,6 +939,147 @@ fn source_port_frontier_progress_fingerprint(
     )
 }
 
+fn tracked_dirty_files(repo_root: &Path) -> Vec<String> {
+    let output = Command::new("git")
+        .args(["status", "--short", "--untracked-files=no"])
+        .current_dir(repo_root)
+        .output();
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.get(3..).map(str::trim))
+        .filter(|path| !path.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn source_port_recent_matching_stall_count(repo_root: &Path, fingerprint: &str) -> u32 {
+    let run_dir = repo_root.join(".cache/autonomy/source-port-frontier");
+    let Ok(entries) = fs::read_dir(run_dir) else {
+        return 0;
+    };
+    let mut cycle_paths = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("cycle-") && name.ends_with(".json"))
+        })
+        .collect::<Vec<_>>();
+    cycle_paths.sort();
+    cycle_paths.reverse();
+
+    let mut matches = 0;
+    for cycle_path in cycle_paths {
+        let Ok(bytes) = fs::read(&cycle_path) else {
+            break;
+        };
+        let Ok(cycle) = serde_json::from_slice::<CycleReport>(&bytes) else {
+            break;
+        };
+        if cycle.progress_fingerprint == fingerprint && cycle.stalled {
+            matches += 1;
+            continue;
+        }
+        break;
+    }
+    matches
+}
+
+fn prepend_commands(existing: &[String], prefix: &[String]) -> Vec<String> {
+    prefix
+        .iter()
+        .cloned()
+        .chain(existing.iter().cloned())
+        .collect()
+}
+
+fn apply_dirty_tree_recovery(
+    task: &mut TaskPackage,
+    dirty_files: &[String],
+    delegated_goal: Option<AutonomyGoal>,
+) {
+    let detail = format!(
+        "tracked git changes exist and must be resolved before the loop can trust a fresh delegated lane: {}",
+        dirty_files.join(", ")
+    );
+    task.summary = format!("Resolve the current tracked work first. {}", task.summary);
+    task.done_criteria.insert(
+        0,
+        "Resolve the tracked git diff as a coherent unit: verify it, commit it if it passes, or deliberately discard only that unit.".to_owned(),
+    );
+    task.evidence.push(EvidenceItem {
+        label: "dirty-tree".to_owned(),
+        status: "tracked-changes".to_owned(),
+        detail,
+        artefact_path: None,
+    });
+    task.commands = prepend_commands(
+        &task.commands,
+        &[
+            "git status --short".to_owned(),
+            "git diff --stat".to_owned(),
+        ],
+    );
+    let additional_targets = dirty_files
+        .iter()
+        .filter(|path| {
+            !task
+                .implementation_targets
+                .iter()
+                .any(|existing| existing == *path)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    task.implementation_targets.extend(additional_targets);
+    task.recovery_mode = Some(RecoveryMode::DirtyTree);
+    task.recovery_step = Some(RecoveryStep::FinishDirtyWork);
+    task.pivot_reason =
+        Some("dirty tracked work takes priority over starting a fresh delegated lane".to_owned());
+    task.next_fallback_goal = delegated_goal;
+}
+
+fn apply_stalled_recovery(
+    task: &mut TaskPackage,
+    fingerprint: &str,
+    repeated_stalls: u32,
+    recovery_step: RecoveryStep,
+    pivot_reason: String,
+    next_fallback_goal: Option<AutonomyGoal>,
+) {
+    task.summary = format!(
+        "Recovery mode after {} repeated stalled cycles on the same delegated fingerprint. {}",
+        repeated_stalls, task.summary
+    );
+    task.done_criteria.insert(
+        0,
+        format!(
+            "Break the repeated stall by completing the `{}` recovery step before returning to routine lane work.",
+            recovery_step.as_str()
+        ),
+    );
+    task.evidence.push(EvidenceItem {
+        label: "stalled-fingerprint".to_owned(),
+        status: "repeated".to_owned(),
+        detail: format!(
+            "{} repeated stalled cycles for fingerprint {}",
+            repeated_stalls, fingerprint
+        ),
+        artefact_path: Some(PathBuf::from(".cache/autonomy/source-port-frontier")),
+    });
+    task.recovery_mode = Some(RecoveryMode::StalledFingerprint);
+    task.recovery_step = Some(recovery_step);
+    task.stalled_repetition_count = Some(repeated_stalls);
+    task.pivot_reason = Some(pivot_reason);
+    task.next_fallback_goal = next_fallback_goal;
+}
+
 fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<CycleReport> {
     let state = load_source_port_frontier_state(repo_root)?;
     let frontier = &state.active_frontier;
@@ -949,18 +1147,80 @@ fn evaluate_source_port_frontier_cycle(repo_root: &Path, cycle: u32) -> Result<C
             summary,
         )
     };
-    let progress_fingerprint = source_port_frontier_progress_fingerprint(
+    let base_progress_fingerprint = source_port_frontier_progress_fingerprint(
         frontier,
         delegated_goal,
         delegated_target.as_deref(),
         lane_fingerprint.as_deref(),
     );
-    let task_package = TaskPackage {
+    let mut task_package = TaskPackage {
         generated_at: autonomy_timestamp(),
         cycle,
-        progress_fingerprint: progress_fingerprint.clone(),
+        progress_fingerprint: base_progress_fingerprint.clone(),
         ..task_package
     };
+    let dirty_files = tracked_dirty_files(repo_root);
+    let repeated_stalls =
+        source_port_recent_matching_stall_count(repo_root, &base_progress_fingerprint);
+    if !dirty_files.is_empty() {
+        apply_dirty_tree_recovery(&mut task_package, &dirty_files, delegated_goal);
+    } else if repeated_stalls >= 2 {
+        let repeated_cycles = repeated_stalls + 1;
+        match delegated_goal {
+            Some(AutonomyGoal::CaseQueue) => {
+                let pivot_reason = format!(
+                    "case-queue delegated fingerprint repeated for {} stalled cycles; pivot to sweep-parity as the next deterministic repo-native lane",
+                    repeated_cycles
+                );
+                let sweep_task = source_port_frontier_sweep_task(frontier, &note);
+                task_package = TaskPackage {
+                    generated_at: autonomy_timestamp(),
+                    cycle,
+                    progress_fingerprint: base_progress_fingerprint.clone(),
+                    delegated_goal: Some(AutonomyGoal::SweepParity),
+                    delegated_target: Some("state-sweep".to_owned()),
+                    recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                    recovery_step: Some(RecoveryStep::PivotToNextLane),
+                    stalled_repetition_count: Some(repeated_cycles),
+                    pivot_reason: Some(pivot_reason),
+                    next_fallback_goal: Some(AutonomyGoal::SweepParity),
+                    ..sweep_task
+                };
+            }
+            Some(AutonomyGoal::SweepParity) => {
+                apply_stalled_recovery(
+                    &mut task_package,
+                    &base_progress_fingerprint,
+                    repeated_cycles,
+                    RecoveryStep::RefreshEvidence,
+                    format!(
+                        "sweep-parity delegated fingerprint repeated for {} stalled cycles; narrow the next run to release-gate evidence refresh instead of another broad lane replay",
+                        repeated_cycles
+                    ),
+                    Some(AutonomyGoal::SweepParity),
+                );
+            }
+            _ => {
+                apply_stalled_recovery(
+                    &mut task_package,
+                    &base_progress_fingerprint,
+                    repeated_cycles,
+                    RecoveryStep::ReverifyCurrentLane,
+                    format!(
+                        "delegated fingerprint repeated for {} stalled cycles; re-verify the current lane before attempting another pivot",
+                        repeated_cycles
+                    ),
+                    delegated_goal,
+                );
+            }
+        }
+    }
+    let progress_fingerprint = if let Some(step) = task_package.recovery_step {
+        format!("{}:recovery:{}", base_progress_fingerprint, step.as_str())
+    } else {
+        base_progress_fingerprint
+    };
+    task_package.progress_fingerprint = progress_fingerprint.clone();
     let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
@@ -1051,6 +1311,11 @@ fn source_port_frontier_task(
         delegated_goal: None,
         delegated_target: None,
         delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
         next_agent_note: Some(note.clone()),
     }
 }
@@ -1155,6 +1420,11 @@ fn source_port_frontier_case_queue_task(
         delegated_goal: Some(AutonomyGoal::CaseQueue),
         delegated_target: Some(candidate.case_id.clone()),
         delegation_reason: Some(delegation_reason),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
     }
 }
@@ -1236,6 +1506,11 @@ fn source_port_frontier_sweep_task(
         delegated_goal: Some(AutonomyGoal::SweepParity),
         delegated_target: Some("state-sweep".to_owned()),
         delegation_reason: Some(delegation_reason),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::CaseQueue),
         next_agent_note: Some(note.clone()),
     }
 }
@@ -1838,6 +2113,11 @@ fn case_queue_task(
         delegated_goal: None,
         delegated_target: None,
         delegation_reason: queue.selection_reason.clone(),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
     }
 }
@@ -2638,6 +2918,11 @@ fn select_next_task(
         delegated_goal: None,
         delegated_target: None,
         delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
         next_agent_note: None,
     })
 }
@@ -3023,6 +3308,12 @@ fn print_cycle_summary(cycle: &CycleReport) {
     if let Some(task) = &cycle.selected_task {
         println!("next task: {}", task.capability.as_str());
         println!("task summary: {}", task.summary);
+        if let Some(mode) = task.recovery_mode {
+            println!("recovery mode: {}", mode.as_str());
+        }
+        if let Some(step) = task.recovery_step {
+            println!("recovery step: {}", step.as_str());
+        }
     }
 }
 
@@ -3042,6 +3333,7 @@ mod tests {
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::process::Command;
     use tempfile::TempDir;
 
     fn goal_spec() -> GoalSpec {
@@ -3229,6 +3521,11 @@ mod tests {
             delegated_goal: None,
             delegated_target: None,
             delegation_reason: None,
+            recovery_mode: None,
+            recovery_step: None,
+            stalled_repetition_count: None,
+            pivot_reason: None,
+            next_fallback_goal: None,
             next_agent_note: None,
         };
 
@@ -3507,7 +3804,55 @@ mod tests {
             "// tests placeholder\n",
         )
         .expect("tests source should write");
+        fs::write(
+            temp_dir.path().join("docs/source-port/methodology.md"),
+            "# Methodology\n",
+        )
+        .expect("methodology doc should write");
+        fs::write(
+            temp_dir.path().join("docs/source-port/research-map.md"),
+            "# Research Map\n",
+        )
+        .expect("research map should write");
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .status()
+            .expect("git init should run");
+        Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .status()
+            .expect("git email config should run");
+        Command::new("git")
+            .args(["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .status()
+            .expect("git name config should run");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(temp_dir.path())
+            .status()
+            .expect("git add should run");
+        Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(temp_dir.path())
+            .status()
+            .expect("git commit should run");
         temp_dir
+    }
+
+    fn commit_repo(repo_root: &Path, message: &str) {
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(repo_root)
+            .status()
+            .expect("git add should run");
+        Command::new("git")
+            .args(["commit", "-m", message])
+            .current_dir(repo_root)
+            .status()
+            .expect("git commit should run");
     }
 
     fn write_case(
@@ -3802,6 +4147,128 @@ mod tests {
         assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::SweepParity));
         assert_eq!(task.delegated_target.as_deref(), Some("state-sweep"));
         assert!(task.summary.contains("sweep parity"));
+    }
+
+    #[test]
+    fn source_port_frontier_prioritises_dirty_tree_recovery() {
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        fs::write(
+            temp_dir.path().join("docs/source-port/methodology.md"),
+            "dirty change\n",
+        )
+        .expect("dirty methodology change should write");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.recovery_mode, Some(super::RecoveryMode::DirtyTree));
+        assert_eq!(
+            task.recovery_step,
+            Some(super::RecoveryStep::FinishDirtyWork)
+        );
+        assert!(
+            task.summary
+                .contains("Resolve the current tracked work first")
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "dirty-tree" && item.detail.contains("methodology.md"))
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_enters_recovery_after_repeated_sweep_stalls() {
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        commit_repo(temp_dir.path(), "prepare clean sweep parity repo");
+        let run_dir = temp_dir.path().join(".cache/autonomy/source-port-frontier");
+        fs::create_dir_all(&run_dir).expect("run dir should exist");
+        let fingerprint = "test-frontier:complete:6906:6905:sweep-parity:state-sweep:state-sweep";
+        for cycle_no in 1..=2 {
+            fs::write(
+                run_dir.join(format!("cycle-{cycle_no:04}.json")),
+                format!(
+                    r#"{{
+  "goal": "source-port-frontier",
+  "cycle": {cycle_no},
+  "goal_complete": false,
+  "stalled": true,
+  "selected_task": null,
+  "task_package": null,
+  "blocker": null,
+  "capabilities": [],
+  "progress_fingerprint": "{fingerprint}"
+}}"#
+                ),
+            )
+            .expect("prior cycle should write");
+        }
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 3).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            task.recovery_mode,
+            Some(super::RecoveryMode::StalledFingerprint)
+        );
+        assert_eq!(
+            task.recovery_step,
+            Some(super::RecoveryStep::RefreshEvidence)
+        );
+        assert_eq!(task.stalled_repetition_count, Some(3));
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("recovery:refresh_evidence")
+        );
     }
 
     #[test]

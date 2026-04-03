@@ -27,4 +27,7 @@ That command regenerates the live source-port package and prints the prompt for 
 - Do not start from `backlog.md`, `frontier-state.yaml`, or `tas-roadmap.md`.
 - Always regenerate the source-port package first, then follow the emitted delegated lane.
 - If the package delegates to `case-queue` or `sweep-parity`, stay there until the live package changes.
+- If tracked git changes already exist, treat that diff as the first recovery task: verify it, commit it if it passes, or deliberately discard only that unit before switching lanes.
+- If the live package reports `recovery_mode`, complete that recovery step before resuming routine delegated-lane work.
+- Repeated stalled fingerprints are a cue to change tact, not to replay the same prompt again.
 - Treat `.cache/autonomy/source-port-frontier/next-task.json` and `.cache/autonomy/source-port-frontier/next-agent.md` as the primary context for the run.
