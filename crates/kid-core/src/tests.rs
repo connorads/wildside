@@ -26378,6 +26378,78 @@ fn deferred_ankh_ceiling_clear_uses_sub_10c78_lifetime() {
     assert!(rt.floating_items[0].first_row_grace);
 }
 
+#[test]
+fn deferred_helmet_ceiling_clear_replaces_existing_helmet_via_sub_10cec() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_blocks());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 0x0070_0000,
+        y_pos: 0x0080_0000,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 7,
+        level_row: 8,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Skycutter,
+        collected: false,
+    });
+    rt.floating_items.push(FloatingItem {
+        x_pos: 0x0030_0000,
+        y_pos: 0x0040_0000,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 3,
+        level_row: 4,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Clock,
+        collected: false,
+    });
+    rt.block_state
+        .deferred_ceiling_clears
+        .push(DeferredCeilingClear {
+            col: 5,
+            row: 2,
+            content: terrain::PrizeContent::Cyclone,
+            restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x03),
+            deleted_frames_remaining: 0,
+            phase: DeferredPrizeBlockPhase::PendingClear,
+        });
+
+    rt.finish_deferred_ceiling_clears();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        2,
+        "sub_10CEC should delete only the older helmet before spawning the new one"
+    );
+    assert!(
+        rt.floating_items
+            .iter()
+            .all(|item| item.content != terrain::PrizeContent::Skycutter),
+        "the older floating helmet should be removed"
+    );
+    assert!(
+        rt.floating_items
+            .iter()
+            .any(|item| item.content == terrain::PrizeContent::Clock),
+        "non-helmet prize items should survive the helmet cleanup"
+    );
+    assert!(
+        rt.floating_items
+            .iter()
+            .any(|item| item.content == terrain::PrizeContent::Cyclone),
+        "the newly spawned helmet should still appear"
+    );
+    assert!(
+        rt.block_destroy_effects
+            .iter()
+            .any(|effect| effect.x_px == 0x0070 && effect.y_px == 0x0078),
+        "ASM sub_10CEC/sub_10D3E deletes the old helmet and spawns a transient effect at x, y-8"
+    );
+}
+
 // --- Process block effects ---
 
 #[test]

@@ -35,6 +35,43 @@ impl NativeRuntime {
             | terrain::PrizeContent::TenDiamonds => Self::PRIZE_GENERIC_LIFETIME_FRAMES,
         }
     }
+
+    fn is_helmet_prize(content: terrain::PrizeContent) -> bool {
+        matches!(
+            content,
+            terrain::PrizeContent::Skycutter
+                | terrain::PrizeContent::Cyclone
+                | terrain::PrizeContent::RedStealth
+                | terrain::PrizeContent::Eyeclops
+                | terrain::PrizeContent::Juggernaut
+                | terrain::PrizeContent::IronKnight
+                | terrain::PrizeContent::Berzerker
+                | terrain::PrizeContent::Maniaxe
+                | terrain::PrizeContent::Micromax
+        )
+    }
+
+    fn clear_existing_helmet_prizes_for_sub_10cec(&mut self) {
+        let mut removed_effects = Vec::new();
+        self.floating_items.retain(|item| {
+            if !Self::is_helmet_prize(item.content) {
+                return true;
+            }
+
+            let x_px = (item.x_pos >> 16) as u16;
+            let y_px = ((item.y_pos >> 16) as u16).saturating_sub(8);
+            removed_effects.push(BlockDestroyEffect {
+                // ASM sub_10CEC deletes the older helmet owner, then sub_10D3E
+                // spawns a transient animation at the deleted helmet's x_pos
+                // and y_pos-8.
+                x_px,
+                y_px,
+                remaining: 8,
+            });
+            false
+        });
+        self.block_destroy_effects.extend(removed_effects);
+    }
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
@@ -154,46 +191,57 @@ impl NativeRuntime {
     }
 
     pub(crate) fn finish_deferred_ceiling_clears(&mut self) {
-        if let Some(grid) = &mut self.block_grid {
-            let mut spawned_items = Vec::new();
-            self.block_state
-                .deferred_ceiling_clears
-                .retain_mut(|entry| match entry.phase {
-                    DeferredPrizeBlockPhase::Deleted | DeferredPrizeBlockPhase::Restored => true,
-                    DeferredPrizeBlockPhase::PendingClear => {
-                        // ASM sub_1007A line 21411: after prize spawns, restore
-                        // cell to $E001 (Smash block, skin=1). The player can
-                        // then smash this block on a second headbutt.
+        if self.block_grid.is_none() {
+            return;
+        }
+
+        let mut spawned_items = Vec::new();
+        let mut retained_entries = Vec::new();
+        for mut entry in std::mem::take(&mut self.block_state.deferred_ceiling_clears) {
+            match entry.phase {
+                DeferredPrizeBlockPhase::Deleted | DeferredPrizeBlockPhase::Restored => {
+                    retained_entries.push(entry);
+                }
+                DeferredPrizeBlockPhase::PendingClear => {
+                    // ASM sub_1007A line 21411: after prize spawns, restore
+                    // cell to $E001 (Smash block, skin=1). The player can
+                    // then smash this block on a second headbutt.
+                    if let Some(grid) = self.block_grid.as_mut() {
                         grid.set_cell_at(
                             entry.col,
                             entry.row,
                             terrain::Cell::from_be_bytes(0xE0, 0x01),
                         );
-                        spawned_items.push(FloatingItem {
-                            x_pos: (u32::from(entry.col) * 16 + 8) << 16,
-                            y_pos: i64::from(u32::from(entry.row) * 16) << 16,
-                            y_velocity: 0,
-                            remaining: Self::floating_item_lifetime(entry.content),
-                            spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
-                            level_col: entry.col,
-                            level_row: entry.row,
-                            first_row_grace: true,
-                            content: entry.content,
-                            collected: false,
-                        });
-                        // ASM sub_7196 creates Kid with priority #1, while
-                        // sub_1007A runs as object #$2001 and spawns Prize_Init
-                        // at #$1FFF. Kid therefore finishes this frame before the
-                        // prize-block coroutine writes $E001, so the freshly
-                        // restored Smash cell must stay non-blocking for Kid
-                        // until the next frame ends.
-                        entry.phase = DeferredPrizeBlockPhase::FreshSmash;
-                        true
                     }
-                    DeferredPrizeBlockPhase::FreshSmash => false,
-                });
-            self.floating_items.extend(spawned_items);
+                    if Self::is_helmet_prize(entry.content) {
+                        self.clear_existing_helmet_prizes_for_sub_10cec();
+                    }
+                    spawned_items.push(FloatingItem {
+                        x_pos: (u32::from(entry.col) * 16 + 8) << 16,
+                        y_pos: i64::from(u32::from(entry.row) * 16) << 16,
+                        y_velocity: 0,
+                        remaining: Self::floating_item_lifetime(entry.content),
+                        spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
+                        level_col: entry.col,
+                        level_row: entry.row,
+                        first_row_grace: true,
+                        content: entry.content,
+                        collected: false,
+                    });
+                    // ASM sub_7196 creates Kid with priority #1, while
+                    // sub_1007A runs as object #$2001 and spawns Prize_Init
+                    // at #$1FFF. Kid therefore finishes this frame before the
+                    // prize-block coroutine writes $E001, so the freshly
+                    // restored Smash cell must stay non-blocking for Kid
+                    // until the next frame ends.
+                    entry.phase = DeferredPrizeBlockPhase::FreshSmash;
+                    retained_entries.push(entry);
+                }
+                DeferredPrizeBlockPhase::FreshSmash => {}
+            }
         }
+        self.block_state.deferred_ceiling_clears = retained_entries;
+        self.floating_items.extend(spawned_items);
     }
 
     pub(crate) fn step_shooter_blocks(&mut self, slice: &OpeningSliceState) {
