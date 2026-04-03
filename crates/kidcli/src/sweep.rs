@@ -182,6 +182,8 @@ struct SweepHistoryEntry {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     field_summary: Vec<SweepHistoryFieldEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    release_gate_focus: Vec<ReleaseGateFocusSummary>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     per_level: Vec<SweepHistoryLevelEntry>,
 }
 
@@ -879,6 +881,7 @@ pub(crate) fn run_sweep_with_options(
             divergence_summary: report.divergence_summary.clone(),
             report_path: report_path.to_string_lossy().into_owned(),
             field_summary: report.field_summary.clone(),
+            release_gate_focus: report.release_gate_focus.clone(),
             per_level: report
                 .levels
                 .iter()
@@ -3522,6 +3525,27 @@ mod tests {
                     oracle_limitation: 0,
                 },
             }],
+            release_gate_focus: vec![ReleaseGateFocusSummary {
+                target: "1p-accurate".into(),
+                step_name: "frame_oracle:boot_title_start_level1".into(),
+                checkpoint: Some("title@360".into()),
+                field: "game_mode".into(),
+                scenario_level_id: Some("0x00".into()),
+                matched_in_state_sweep: true,
+                scenario_level_matched_in_state_sweep: Some(true),
+                checkpoint_matched_in_state_sweep: Some(false),
+                total_diffs: Some(3),
+                levels: Some(2),
+                level_ids: vec!["0x00".into(), "0x01".into()],
+                divergence_summary: DivergenceSummary {
+                    authoritative: 0,
+                    advisory: 3,
+                    accumulation: 0,
+                    rng: 0,
+                    oracle_limitation: 0,
+                },
+                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] (field-only correlation; release-gate scenario still needs its own proof)".into(),
+            }],
             per_level: vec![SweepHistoryLevelEntry {
                 level: "0x00".into(),
                 passed: true,
@@ -3550,6 +3574,12 @@ mod tests {
         assert_eq!(value["field_summary"][0]["level_ids"][0], "0x00");
         assert_eq!(value["field_summary"][0]["level_ids"][1], "0x01");
         assert_eq!(value["field_summary"][0]["checkpoints"][0], "idle_tail");
+        assert_eq!(value["release_gate_focus"][0]["field"], "game_mode");
+        assert_eq!(value["release_gate_focus"][0]["checkpoint"], "title@360");
+        assert_eq!(
+            value["release_gate_focus"][0]["checkpoint_matched_in_state_sweep"],
+            false
+        );
         assert_eq!(value["per_level"][0]["fields"][0], "game_mode");
         assert_eq!(value["per_level"][0]["fields"][1], "number_objects");
     }
