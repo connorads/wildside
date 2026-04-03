@@ -5,7 +5,9 @@ use crate::capture::{
 use crate::oracle::{
     OracleEnemyState, OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture_dynamic,
 };
-use crate::recording::{load_recording, oracle_scenario_for_recording, run_recorded_trace};
+use crate::recording::{
+    NativeRecording, load_recording, oracle_scenario_for_recording, run_recorded_trace,
+};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario, GameplayScenario};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Subcommand, ValueEnum};
@@ -190,6 +192,8 @@ pub(crate) struct CaseVerifyReport {
     pub(crate) first_failure: Option<CaseFailure>,
     pub(crate) matching_fields: Vec<String>,
     pub(crate) likely_subsystems: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) blocked_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -718,11 +722,34 @@ fn run_case_verification(
         VerificationBackend::OracleHelper => {
             let native_trace = if matches!(source, CaseSource::Recording { .. }) {
                 let recording = recording_from_source(source)?;
-                run_recorded_trace(
+                let replay_trace = run_recorded_trace(
                     manifest,
                     recording.manifest.start,
                     &verification.scenario.script,
-                )?
+                )?;
+                if let Some(blocked_reason) =
+                    recording_replay_drift_reason(&recording, &replay_trace)
+                {
+                    let native_states = extract_semantic_native_states(
+                        &replay_trace,
+                        &verification.scenario.checkpoints,
+                    )?;
+                    let frame_count = native_states.len();
+                    return Ok(VerificationOutput {
+                        native_states,
+                        oracle_states: Vec::new(),
+                        verify: CaseVerifyReport {
+                            case_id: verification.case_id.clone(),
+                            passed: false,
+                            frame_count,
+                            first_failure: None,
+                            matching_fields: Vec::new(),
+                            likely_subsystems: vec![String::from("recording verification")],
+                            blocked_reason: Some(blocked_reason),
+                        },
+                    });
+                }
+                replay_trace
             } else {
                 kid_core::run_script_with_warp(
                     manifest.clone(),
@@ -796,6 +823,29 @@ fn recording_from_source(source: &CaseSource) -> Result<crate::recording::Native
             bail!("case source is not a recording")
         }
     }
+}
+
+fn recording_replay_drift_reason(
+    recording: &NativeRecording,
+    replay: &[NativeTraceFrame],
+) -> Option<String> {
+    for (index, (expected, actual)) in recording.trace.iter().zip(replay).enumerate() {
+        if expected != actual {
+            return Some(format!(
+                "source recording replay drifted at frame {index}; re-verify or re-record `{}` before treating this case as gameplay-authoritative",
+                recording.manifest.slug
+            ));
+        }
+    }
+    if recording.trace.len() != replay.len() {
+        return Some(format!(
+            "source recording replay length drifted (recorded {}, replay {}); re-verify or re-record `{}` before treating this case as gameplay-authoritative",
+            recording.trace.len(),
+            replay.len(),
+            recording.manifest.slug
+        ));
+    }
+    None
 }
 
 fn oracle_scenario_for_case_recording(
@@ -1198,6 +1248,7 @@ fn compare_semantic_states(
                 first_failure: Some(failure),
                 matching_fields,
                 likely_subsystems,
+                blocked_reason: None,
             });
         }
     }
@@ -1209,6 +1260,7 @@ fn compare_semantic_states(
         first_failure: None,
         matching_fields,
         likely_subsystems: vec![String::from("none")],
+        blocked_reason: None,
     })
 }
 
@@ -1553,6 +1605,9 @@ fn write_case_summary(
         )
         .ok();
     }
+    if let Some(blocked_reason) = verify.blocked_reason.as_ref() {
+        writeln!(&mut summary, "blocked_reason: {}", blocked_reason).ok();
+    }
     writeln!(
         &mut summary,
         "matching_fields: {}",
@@ -1616,6 +1671,7 @@ fn load_case_bundle(case_dir: &Path) -> Result<LoadedCaseBundle> {
             first_failure: None,
             matching_fields: Vec::new(),
             likely_subsystems: Vec::new(),
+            blocked_reason: None,
         });
     Ok(LoadedCaseBundle {
         dir: case_dir.to_path_buf(),
@@ -2092,6 +2148,51 @@ mod tests {
         assert_eq!(verification.scenario.script.len(), 120);
         assert_eq!(verification.scenario.checkpoints[0].frame_index, 0);
         assert_eq!(verification.scenario.checkpoints[119].frame_index, 119);
+    }
+
+    #[test]
+    fn recording_replay_drift_reason_blocks_stale_recording_cases() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level1-tree-break"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0),
+                    settled: true,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level1-tree-break"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    warp_to_level: Some(0),
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+        };
+        let replay_frame = NativeTraceFrame {
+            game_mode_value: 0x000c,
+            ..NativeTraceFrame::default()
+        };
+        let reason =
+            recording_replay_drift_reason(&recording, &[replay_frame]).expect("drift reason");
+
+        assert!(reason.contains("source recording replay drifted at frame 0"));
+        assert!(reason.contains("level1-tree-break"));
     }
 
     #[test]

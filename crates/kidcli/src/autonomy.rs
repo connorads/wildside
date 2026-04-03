@@ -438,6 +438,8 @@ struct CaseVerifyReportView {
     first_failure: Option<CaseFailureView>,
     #[serde(default)]
     likely_subsystems: Vec<String>,
+    #[serde(default)]
+    blocked_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1832,16 +1834,22 @@ fn load_case_queue_candidates(repo_root: &Path) -> Result<Vec<CaseQueueCandidate
         let first_failure = verify.first_failure.as_ref();
         let failure_class = first_failure.map(|failure| classify_case_failure(&failure.field));
         let window_len = manifest.frame_end.saturating_sub(manifest.frame_start);
-        let autonomy_ready = failure_class == Some(CaseFailureClass::Authoritative)
+        let source_blocked = verify.blocked_reason.is_some();
+        let autonomy_ready = !source_blocked
+            && failure_class == Some(CaseFailureClass::Authoritative)
             && window_len <= 120
             && !verify.likely_subsystems.is_empty()
             && verify.likely_subsystems.len() <= 2;
-        let status = case_queue_status(
-            failure_class,
-            autonomy_ready,
-            window_len,
-            verify.likely_subsystems.len(),
-        );
+        let status = if source_blocked {
+            CaseQueueStatus::Blocked
+        } else {
+            case_queue_status(
+                failure_class,
+                autonomy_ready,
+                window_len,
+                verify.likely_subsystems.len(),
+            )
+        };
         let score = case_queue_score(
             &manifest.source,
             failure_class,
@@ -4248,6 +4256,48 @@ mod tests {
         fs::write(case_dir.join("summary.md"), "case summary\n").expect("summary should write");
     }
 
+    fn write_blocked_case(
+        repo_root: &Path,
+        selector: &str,
+        source_json: &str,
+        blocked_reason: &str,
+        frame_start: usize,
+        frame_end: usize,
+    ) {
+        let case_dir = repo_root.join(SOURCE_PORT_CASE_CACHE_PATH).join(selector);
+        fs::create_dir_all(&case_dir).expect("case dir should exist");
+        fs::write(
+            case_dir.join("manifest.json"),
+            format!(
+                r#"{{
+  "case_id": "{selector}",
+  "source": {source_json},
+  "evidence_tier": "branch-matched",
+  "frame_start": {frame_start},
+  "frame_end": {frame_end},
+  "checkpoint_frame": {frame_start},
+  "checkpoint_label": "frame_{frame_start:05}"
+}}
+"#
+            ),
+        )
+        .expect("manifest should write");
+        fs::write(
+            case_dir.join("verify.json"),
+            format!(
+                r#"{{
+  "passed": false,
+  "first_failure": null,
+  "likely_subsystems": ["recording verification"],
+  "blocked_reason": "{blocked_reason}"
+}}
+"#
+            ),
+        )
+        .expect("verify should write");
+        fs::write(case_dir.join("summary.md"), "case summary\n").expect("summary should write");
+    }
+
     fn write_recording(repo_root: &Path, slug: &str, with_transcript: bool) {
         let recording_dir = repo_root
             .join(SOURCE_PORT_RECORDINGS_CACHE_PATH)
@@ -4677,6 +4727,27 @@ mod tests {
             queue.blocked_cases[0].failure_class,
             Some(CaseFailureClass::Advisory)
         );
+    }
+
+    #[test]
+    fn case_queue_blocks_recording_cases_with_source_drift() {
+        let temp_dir = source_port_repo();
+        write_blocked_case(
+            temp_dir.path(),
+            "recording-case",
+            r#"{"kind":"recording","path":".cache/recordings/tree/tree","slug":"tree-break"}"#,
+            "source recording replay drifted at frame 0",
+            0,
+            60,
+        );
+
+        let queue = build_case_queue_snapshot(temp_dir.path()).expect("queue should build");
+
+        assert!(queue.selected_case.is_none());
+        assert_eq!(queue.blocked_cases.len(), 1);
+        assert_eq!(queue.blocked_cases[0].case_id, "recording-case");
+        assert_eq!(queue.blocked_cases[0].status, CaseQueueStatus::Blocked);
+        assert_eq!(queue.blocked_cases[0].failure_class, None);
     }
 
     #[test]
