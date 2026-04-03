@@ -16,6 +16,7 @@ mod trace;
 pub(crate) mod types;
 mod weather;
 
+use combat::{PendingSoundEffect, QueuedSoundEffect};
 use constants::*;
 use enemies::*;
 use kid_data::{
@@ -90,6 +91,12 @@ pub struct NativeRuntime {
     /// Prize diamonds award their count later via PrizeDiamondCollected_Init,
     /// not on the touch frame.
     pending_prize_diamond_awards: Vec<u8>,
+    /// ASM Mini_Hopping_Skull.asm sub_3F3F0 spawns a transient worker that
+    /// hibernates 15 frames, then optionally plays the scream SFX before
+    /// deleting itself.
+    pending_sound_effects: Vec<PendingSoundEffect>,
+    /// Internal log used by focused sound-worker tests.
+    played_sound_effects: Vec<QueuedSoundEffect>,
     /// Enemy death particle effects.
     enemy_death_effects: Vec<EnemyDeathEffect>,
     /// Set each frame if a stomp occurred.
@@ -382,6 +389,8 @@ impl NativeRuntime {
             block_destroy_effects: Vec::new(),
             floating_items: Vec::new(),
             pending_prize_diamond_awards: Vec::new(),
+            pending_sound_effects: Vec::new(),
+            played_sound_effects: Vec::new(),
             enemy_death_effects: Vec::new(),
             stomped_this_frame: false,
             pending_stomp_bounce: None,
@@ -584,6 +593,7 @@ impl NativeRuntime {
         if !freeze_demo_auto_timeout_snapshot && !preserve_demo_title_snapshot_frame {
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
+            self.step_pending_sound_effects();
             // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
             if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
                 && gameplay_slice_active

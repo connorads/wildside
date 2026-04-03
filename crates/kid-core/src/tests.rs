@@ -4330,6 +4330,47 @@ fn enemy_survives_after_damaging_player() {
 }
 
 #[test]
+fn mini_hopping_skull_contact_queues_sub_3f3f0_scream_worker() {
+    // ASM Mini_Hopping_Skull.asm sub_3F3F0 is allocated from the side/below
+    // contact branches and starts with `move.w #$F,-(sp); jsr
+    // (j_Hibernate_Object).w`.
+    let mut runtime = NativeRuntime::new(manifest_with_static_skull());
+    runtime.set_block_grid(grid_with_floor_at_row(14));
+    start_level(&mut runtime);
+    advance_past_level_entry_damage_grace(&mut runtime);
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x00E0_0000;
+        slice.player.on_ground = true;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+    }
+    runtime.step_frame(FrameInput::default());
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 0x0120_0000;
+        slice.player.y_pos = 0x00E0_0000;
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+    }
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(runtime.pending_sound_effects.len(), 1);
+    assert_eq!(
+        runtime.pending_sound_effects[0],
+        PendingSoundEffect {
+            effect: QueuedSoundEffect::MiniHoppingSkullScream,
+            delay_frames: 15,
+            suppress: false,
+        },
+        "side contact should queue sub_3F3F0's 15-frame delayed scream worker",
+    );
+}
+
+#[test]
 fn unsupported_enemy_family_stays_inert_on_contact() {
     let mut runtime = NativeRuntime::new(manifest_with_static_unknown_enemy());
     runtime.set_block_grid(grid_with_floor_at_row(14));
@@ -6155,6 +6196,36 @@ fn mini_hopping_skull_sub_3f366_snaps_x_to_slopeup_surface() {
         "landing should still use the slope floor Y"
     );
     assert!(enemy.on_ground, "the slope contact should ground the skull");
+}
+
+#[test]
+fn mini_hopping_skull_sub_3f3f0_plays_scream_after_15_hibernated_frames() {
+    // ASM Mini_Hopping_Skull.asm sub_3F3F0 hibernates for `$F` frames, then
+    // plays `sfx_Mini_Hopping_Skull_screams` when `$19(a3)` is clear.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.queue_mini_hopping_skull_scream(false);
+
+    for _ in 0..14 {
+        runtime.step_pending_sound_effects();
+    }
+
+    assert!(
+        runtime.played_sound_effects.is_empty(),
+        "sub_3F3F0 should stay silent until the 15th hibernated frame",
+    );
+    assert_eq!(runtime.pending_sound_effects.len(), 1);
+
+    runtime.step_pending_sound_effects();
+
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::MiniHoppingSkullScream],
+        "sub_3F3F0 should emit the scream SFX when the 15-frame hibernate expires",
+    );
+    assert!(
+        runtime.pending_sound_effects.is_empty(),
+        "the transient sub_3F3F0 worker should delete itself after emitting",
+    );
 }
 
 #[test]

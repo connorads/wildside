@@ -1,5 +1,17 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum QueuedSoundEffect {
+    MiniHoppingSkullScream,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PendingSoundEffect {
+    pub(crate) effect: QueuedSoundEffect,
+    pub(crate) delay_frames: u8,
+    pub(crate) suppress: bool,
+}
+
 /// Per-helmet transform animation frame counts from ASM Kid_Transform tables
 /// (kid.asm:8678-8812, stru_7EFA..stru_808A). TheKid (helmet 0) has no table.
 /// These counts sum the first `anim_frame` field only; the second field is sprite/meta
@@ -24,6 +36,7 @@ impl NativeRuntime {
     // the contact frame, so the queued native award needs to survive 33 frame
     // starts before the diamond count increments.
     const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 33;
+    const MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES: u8 = 15;
 
     pub(crate) fn apply_pending_stomp_bounce(&mut self, slice: &mut OpeningSliceState) {
         let Some(pending) = self.pending_stomp_bounce.take() else {
@@ -349,6 +362,27 @@ impl NativeRuntime {
         for _ in 0..awards_to_apply {
             self.award_prize_diamond();
         }
+    }
+
+    pub(crate) fn queue_mini_hopping_skull_scream(&mut self, suppress: bool) {
+        self.pending_sound_effects.push(PendingSoundEffect {
+            effect: QueuedSoundEffect::MiniHoppingSkullScream,
+            delay_frames: Self::MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES,
+            suppress,
+        });
+    }
+
+    pub(crate) fn step_pending_sound_effects(&mut self) {
+        let mut played_effects = Vec::new();
+        for pending in &mut self.pending_sound_effects {
+            pending.delay_frames = pending.delay_frames.saturating_sub(1);
+            if pending.delay_frames == 0 && !pending.suppress {
+                played_effects.push(pending.effect);
+            }
+        }
+        self.pending_sound_effects
+            .retain(|pending| pending.delay_frames > 0);
+        self.played_sound_effects.extend(played_effects);
     }
 
     pub(crate) fn apply_prize_content(&mut self, content: terrain::PrizeContent) {
@@ -1118,6 +1152,12 @@ impl NativeRuntime {
                 && pre_physics_y_velocity > 0
             {
                 return false;
+            }
+            if matches!(enemy_family, EnemyFamily::MiniHoppingSkull) {
+                // ASM Mini_Hopping_Skull.asm sub_3F3F0: side/below contact
+                // allocates a helper object that hibernates for 15 frames,
+                // then plays the scream SFX unless `$19(a3)` suppresses it.
+                self.queue_mini_hopping_skull_scream(false);
             }
             self.apply_damage_with_knockback(slice, enemy_x);
             self.opening_slice = Some(*slice);
