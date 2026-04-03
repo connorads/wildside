@@ -1668,6 +1668,13 @@ pub(crate) struct GhostGroup {
     pub(crate) solid: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyProjectileOwner {
+    pub(crate) segment_index: usize,
+    pub(crate) layout_index: usize,
+    pub(crate) token: u8,
+}
+
 /// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
@@ -1701,6 +1708,9 @@ pub(crate) struct EnemyProjectile {
     /// Destroy on terrain contact instead of timer expiry (Archer arrows).
     /// ASM loc_342D6: `tst.b $19(a3)` / `tst.w collision_type(a3)`.
     pub(crate) terrain_kill: bool,
+    /// Owning enemy identity for projectiles whose lifecycle feeds back into
+    /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
+    pub(crate) owner: Option<EnemyProjectileOwner>,
 }
 
 /// Murder wall: an advancing wall that kills the player on contact.

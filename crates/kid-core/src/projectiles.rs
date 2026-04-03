@@ -2,6 +2,19 @@ use super::*;
 use crate::enemies::{archer_adjust_angle, archer_angle_to_player, arrow_velocity_from_angle};
 
 impl NativeRuntime {
+    fn release_lion_projectile_owners(&mut self, owners: Vec<EnemyProjectileOwner>) {
+        for owner in owners {
+            if let Some(enemy) = self.active_enemies.iter_mut().find(|enemy| {
+                enemy.family == EnemyFamily::Lion
+                    && enemy.segment_index == owner.segment_index
+                    && enemy.layout_index == owner.layout_index
+                    && enemy.ufo_beam_interval == owner.token
+            }) {
+                enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_sub(1);
+            }
+        }
+    }
+
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.
     /// Homing projectiles accelerate toward `player_pos` each frame.
     /// Re-aiming projectiles (Archer arrows) adjust angle ±1 every `reaim_interval` frames.
@@ -9,9 +22,14 @@ impl NativeRuntime {
     pub(crate) fn step_projectiles(&mut self) {
         let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
         let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);
+        let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let grid = self.block_grid.as_ref();
+        let mut released_owners = Vec::new();
         self.projectiles.retain_mut(|p| {
             if p.lifetime == 0 {
+                if let Some(owner) = p.owner {
+                    released_owners.push(owner);
+                }
                 return false;
             }
             p.lifetime -= 1;
@@ -60,6 +78,20 @@ impl NativeRuntime {
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
 
+            // ASM Lion.asm sub_3E2CE: lion projectiles only survive while the
+            // parent token matches and the object stays inside the camera box
+            // x=[-0x40,0x180], y=[-0x40,0x120].
+            if let (Some(owner), Some(camera)) = (p.owner, camera) {
+                let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+                let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
+                let in_camera_box =
+                    (-0x40..=0x180).contains(&screen_x) && (-0x40..=0x120).contains(&screen_y);
+                if !in_camera_box {
+                    released_owners.push(owner);
+                    return false;
+                }
+            }
+
             // Terrain-kill: Archer arrows die on level/object collision.
             // ASM loc_342D6: `tst.b $19(a3)` (has_level_collision) / `tst.w collision_type(a3)`.
             if p.terrain_kill
@@ -71,6 +103,9 @@ impl NativeRuntime {
                 let row = terrain::pixel_to_cell(py_i).max(0) as u16;
                 let cell = g.cell_at(col, row);
                 if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
+                    if let Some(owner) = p.owner {
+                        released_owners.push(owner);
+                    }
                     return false; // destroyed on terrain contact
                 }
             }
@@ -129,6 +164,7 @@ impl NativeRuntime {
             }
             true
         });
+        self.release_lion_projectile_owners(released_owners);
     }
 
     /// Check if any projectile overlaps the player hitbox, returning true if hit.
@@ -137,6 +173,7 @@ impl NativeRuntime {
         let py = (slice.player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
         let mut hit = false;
+        let mut released_owners = Vec::new();
         self.projectiles.retain(|p| {
             if p.friendly {
                 return true; // player-fired projectiles don't damage player
@@ -146,11 +183,15 @@ impl NativeRuntime {
             let overlaps = (prx - px).abs() < half + 8 && (pry - py).abs() < half + 16;
             if overlaps {
                 hit = true;
+                if let Some(owner) = p.owner {
+                    released_owners.push(owner);
+                }
                 false // remove projectile on hit
             } else {
                 true
             }
         });
+        self.release_lion_projectile_owners(released_owners);
         hit
     }
 }

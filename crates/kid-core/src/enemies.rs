@@ -2906,6 +2906,14 @@ pub(crate) const LION_PROJECTILE_X_OFFSET: i32 = 10;
 /// Lion projectile spawn Y offset: 24px above Lion's Y position ($18).
 pub(crate) const LION_PROJECTILE_Y_OFFSET: i32 = 24;
 
+fn lion_active_projectile_count(enemy: &ActiveEnemy) -> u8 {
+    enemy.ufo_beam_segments
+}
+
+fn increment_lion_active_projectile_count(enemy: &mut ActiveEnemy) {
+    enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_add(1);
+}
+
 /// Step a Lion enemy: paces normally, then charges toward player and fires a
 /// homing projectile. Charge ends on wall/edge or player overshoot >112px.
 /// ASM: Lion.asm — full state machine with detection, charge, and cooldown.
@@ -2924,6 +2932,13 @@ pub(crate) fn step_lion(
             // the charge fires unconditionally on expiry (no Kid distance gate).
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
+                return;
+            }
+
+            // ASM loc_3E078: after reloading $54(a5) to $B4, a live projectile
+            // count in $5B(a5) suppresses the next roar/fire cycle.
+            if lion_active_projectile_count(enemy) > 0 {
+                enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                 return;
             }
 
@@ -2966,8 +2981,14 @@ pub(crate) fn step_lion(
                     homing_accel: 0x2000,             // Lion.asm loc_3E1C2
                     speed_cap: LION_PROJECTILE_SPEED, // ±$60000 cap (Lion.asm)
                     wall_bounce: true,                // Lion.asm loc_3E260
+                    owner: Some(EnemyProjectileOwner {
+                        segment_index: enemy.segment_index,
+                        layout_index: enemy.layout_index,
+                        token: enemy.ufo_beam_interval,
+                    }),
                     ..Default::default()
                 });
+                increment_lion_active_projectile_count(enemy);
             }
 
             // Post-fire cooldown is longer: $B4 (180 frames) at loc_3E096.
@@ -4366,6 +4387,7 @@ pub(crate) fn step_archer(
         reaim_countdown: reaim,
         current_angle: angle as u8,
         terrain_kill: true,
+        owner: None,
     });
 }
 

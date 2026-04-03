@@ -27199,6 +27199,42 @@ fn wall_bounce_blocked_cell_checks_both_has_block_and_collision() {
 }
 
 #[test]
+fn lion_projectile_sub_3e2ce_deletes_offscreen_shot_and_releases_owner_count() {
+    // ASM Lion.asm sub_3E2CE: if the owner token still matches and the
+    // projectile leaves x=[-0x40,0x180], y=[-0x40,0x120] relative to camera,
+    // it decrements the lion's $5B(a5) active-shot count and deletes itself.
+    let mut rt = NativeRuntime::new(manifest());
+    let mut lion = test_enemy(EnemyFamily::Lion, 40 << 16, 80 << 16, 6);
+    lion.ufo_beam_interval = 0x5A;
+    lion.ufo_beam_segments = 1;
+    rt.active_enemies.push(lion);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.camera.x_pos = 0;
+    slice.camera.y_pos = 0;
+    rt.opening_slice = Some(slice);
+
+    let mut projectile = make_projectile(0x181, 0x40);
+    projectile.owner = Some(EnemyProjectileOwner {
+        segment_index: lion.segment_index,
+        layout_index: lion.layout_index,
+        token: 0x5A,
+    });
+    rt.projectiles.push(projectile);
+
+    rt.step_projectiles();
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "projectile beyond the right camera bound should be deleted"
+    );
+    assert_eq!(
+        rt.active_enemies[0].ufo_beam_segments, 0,
+        "matching owner token should release the lion active-shot count"
+    );
+}
+
+#[test]
 fn homing_y_target_offset_is_16px_above_player() {
     // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
     // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
