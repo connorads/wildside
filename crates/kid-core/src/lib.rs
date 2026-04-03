@@ -1323,7 +1323,7 @@ impl NativeRuntime {
                                 slice.player.y_velocity = -0x8000;
                                 slice.player.on_ground = false;
                             }
-                            terrain::BlockType::Prize | terrain::BlockType::Ice => {
+                            terrain::BlockType::Prize => {
                                 grid.set_cell_at(
                                     probe.cell_x,
                                     probe.cell_y,
@@ -1334,6 +1334,20 @@ impl NativeRuntime {
                                     y_px: probe.cell_y * 16,
                                     remaining: 8,
                                 });
+                                slice.player.y_velocity = -0x8000;
+                                slice.player.on_ground = false;
+                            }
+                            terrain::BlockType::Ice => {
+                                grid.set_cell_at(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    terrain::Cell::from_be_bytes(0x00, 0x00),
+                                );
+                                self.spawn_ice_block_effect_sub_10f9c(
+                                    probe.cell_x * 16,
+                                    probe.cell_y * 16,
+                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                );
                                 slice.player.y_velocity = -0x8000;
                                 slice.player.on_ground = false;
                             }

@@ -214,6 +214,23 @@ impl NativeRuntime {
         });
     }
 
+    pub(crate) fn spawn_ice_block_effect_sub_10f9c(
+        &mut self,
+        x_px: u16,
+        y_px: u16,
+        direction: u16,
+    ) {
+        let (x_px, y_px) = Self::offset_block_destroy_effect_origin(direction, x_px, y_px);
+        self.block_destroy_effects.push(BlockDestroyEffect {
+            // ASM sub_10F9C mirrors sub_10EDA's directional 4px nudge but uses
+            // the ice-block sprite set and a 3-frame hibernate before the
+            // shared debris worker runs.
+            x_px,
+            y_px,
+            remaining: 3,
+        });
+    }
+
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
