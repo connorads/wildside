@@ -1105,6 +1105,7 @@ impl NativeRuntime {
         slice.metal_block_hit = None;
         slice.rubber_block_hit = None;
         slice.smash_block_hit = None;
+        slice.shooter_block_hit = None;
         slice.teleporter_contact = None;
         slice.ceiling_prize_clear = None;
         self.blocks_hit_this_frame = 0;
@@ -1122,6 +1123,9 @@ impl NativeRuntime {
         // Prize blocks headbutted from below update their queued sub_1007A
         // lifecycle before movement, so the clear frame is collision-visible.
         self.step_deferred_ceiling_clears();
+        // ASM sub_114C0 / sub_114F4 are the same style of coroutine: shooter
+        // headbutt tiles update before physics on their wake frames.
+        self.step_shooter_headbutt_workers();
         // Step helmet abilities BEFORE physics
         let player_before_skycutter_flipboard = slice.player;
         self.step_skycutter_flipboard(&mut slice, input);

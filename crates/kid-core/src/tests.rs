@@ -3103,6 +3103,7 @@ fn grounded_slope_to_solid_seam_keeps_level_one_runner_grounded() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -4635,6 +4636,7 @@ fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -4711,6 +4713,7 @@ fn fresh_smash_prize_ceiling_frame_does_not_block_motion() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8115,6 +8118,7 @@ fn headbutt_prize_block_changes_to_empty() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8179,6 +8183,7 @@ fn ceiling_collision_skips_when_upward_motion_stays_within_same_tile() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8244,6 +8249,7 @@ fn headbutt_metal_block_does_not_clear() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8313,6 +8319,7 @@ fn headbutt_smash_block_changes_to_empty() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8378,6 +8385,7 @@ fn cleared_smash_block_no_longer_blocks_movement() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8450,6 +8458,7 @@ fn cleared_prize_block_no_longer_blocks_movement() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8531,6 +8540,7 @@ fn wall_collision_clamps_one_pixel_tighter_when_moving_right() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8591,6 +8601,7 @@ fn airborne_right_wall_stickiness_waits_for_top_edge_to_clear() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8667,6 +8678,7 @@ fn airborne_top_edge_contact_does_not_start_wall_cling_without_direct_wall_hit()
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8722,6 +8734,7 @@ fn landing_frame_rewinds_airborne_horizontal_step() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8777,6 +8790,7 @@ fn solid_floor_snap_lands_from_sub_half_pixel_gap() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8829,6 +8843,7 @@ fn solid_floor_snap_waits_at_half_pixel_gap() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -8881,6 +8896,7 @@ fn asm_faithful_solid_floor_snap_waits_for_contact_row() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -13087,6 +13103,7 @@ fn floor_collision_sets_terrain_type_from_block() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -13142,6 +13159,7 @@ fn leaving_ground_resets_terrain_type_to_normal() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -13206,6 +13224,7 @@ fn make_airborne_slice(x: u16, y: u16) -> OpeningSliceState {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14140,6 +14159,7 @@ fn shooter_test_slice(camera_x_px: u32, camera_y_px: u32) -> OpeningSliceState {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14190,6 +14210,7 @@ fn evanescent_block_triggers_when_player_stands_on_it() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14249,6 +14270,7 @@ fn evanescent_block_not_triggered_when_airborne() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14317,6 +14339,7 @@ fn evanescent_block_clears_after_timer_expires() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14394,6 +14417,7 @@ fn evanescent_block_with_skin_delay() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14591,6 +14615,7 @@ fn evanescent_block_not_triggered_twice() {
         metal_block_hit: None,
         rubber_block_hit: None,
         smash_block_hit: None,
+        shooter_block_hit: None,
         teleporter_contact: None,
         ceiling_prize_clear: None,
         pre_gravity_y_vel: 0,
@@ -14721,6 +14746,41 @@ fn shooter_block_rearms_when_it_leaves_and_reenters_view() {
         runtime.projectiles.len(),
         1,
         "re-entering view should register and fire again immediately"
+    );
+}
+
+#[test]
+fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 4));
+    rt.process_block_effects(&mut slice);
+
+    rt.step_shooter_headbutt_workers();
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 4),
+        terrain::Cell::from_be_bytes(0xEF, 0x1B),
+        "ASM sub_114C0 writes `$EF1B` on its first active frame"
+    );
+
+    for _ in 0..8 {
+        rt.step_shooter_headbutt_workers();
+    }
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 4),
+        terrain::Cell::from_be_bytes(0xEF, 0x1A),
+        "ASM sub_114C0 writes `$EF1A` after the first 8-frame hibernate"
+    );
+
+    for _ in 0..8 {
+        rt.step_shooter_headbutt_workers();
+    }
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 4),
+        terrain::Cell::from_be_bytes(0, 0),
+        "ASM sub_114C0 erases the shooter cell after the second 8-frame hibernate"
     );
 }
 
@@ -26573,6 +26633,44 @@ fn process_block_effects_smash_creates_destroy_effect() {
 }
 
 #[test]
+fn process_block_effects_sub_1149c_queues_empty_support_workers() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x02)]);
+    grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0x60, 0));
+    rt.set_block_grid(grid);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 4));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 4),
+        terrain::Cell::from_be_bytes(0xEF, 0x02),
+        "ASM loc_11430 immediately marks the struck shooter as deleted-solid before sub_114C0 wakes"
+    );
+    assert_eq!(rt.block_state.shooter_headbutt_workers.len(), 3);
+    assert_eq!(
+        rt.block_state
+            .shooter_headbutt_workers
+            .iter()
+            .filter(|worker| worker.kind == ShooterHeadbuttWorkerKind::Center)
+            .count(),
+        1,
+        "sub_114C0 should always be queued for the struck shooter cell"
+    );
+    assert_eq!(
+        rt.block_state
+            .shooter_headbutt_workers
+            .iter()
+            .filter(|worker| worker.kind == ShooterHeadbuttWorkerKind::Support)
+            .count(),
+        2,
+        "ASM sub_1149C should queue only the empty support cells above the shooter"
+    );
+}
+
+#[test]
 fn iron_knight_smash_block_uses_sub_10eda_upward_offset() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
@@ -26751,6 +26849,41 @@ fn shooter_block_pruned_when_cell_no_longer_shooter() {
     assert!(
         rt.block_state.shooter_blocks.is_empty(),
         "shooter entry should be pruned when cell is no longer a shooter"
+    );
+}
+
+#[test]
+fn shooter_headbutt_support_worker_runs_sub_114f4_timeline() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 4));
+    rt.process_block_effects(&mut slice);
+
+    rt.step_shooter_headbutt_workers();
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 3),
+        terrain::Cell::from_be_bytes(0xEF, 0x1A),
+        "ASM sub_114F4 writes `$EF1A` when the support cell is still empty"
+    );
+
+    for _ in 0..8 {
+        rt.step_shooter_headbutt_workers();
+    }
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 3),
+        terrain::Cell::from_be_bytes(0xEF, 0x1B),
+        "ASM sub_114F4 writes `$EF1B` after the first 8-frame hibernate"
+    );
+
+    for _ in 0..8 {
+        rt.step_shooter_headbutt_workers();
+    }
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 3),
+        terrain::Cell::from_be_bytes(0xE9, 0x19),
+        "ASM sub_114F4 finishes by restoring `$E919` to the support cell"
     );
 }
 

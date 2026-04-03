@@ -320,6 +320,15 @@ impl NativeRuntime {
     /// shooter once, fires on age 0, then frees the slot again at age $16.
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
+    const SHOOTER_HEADBUTT_HOLD_FRAMES: u8 = 8;
+
+    fn shooter_deleted_tile_for_sub_114c0(skin: u8) -> terrain::Cell {
+        terrain::Cell::from_be_bytes(0xEF, skin)
+    }
+
+    fn shooter_support_tile_for_sub_114f4() -> terrain::Cell {
+        terrain::Cell::from_be_bytes(0xE9, 0x19)
+    }
 
     /// Tick prize-block bounce lifecycles. ASM sub_1007A holds 0x6F, briefly
     /// restores the original prize cell, then writes `$E001` and creates the
@@ -497,6 +506,83 @@ impl NativeRuntime {
         });
     }
 
+    pub(crate) fn step_shooter_headbutt_workers(&mut self) {
+        let Some(grid) = &mut self.block_grid else {
+            self.block_state.shooter_headbutt_workers.clear();
+            return;
+        };
+
+        self.block_state
+            .shooter_headbutt_workers
+            .retain_mut(|worker| {
+                match worker.kind {
+                    ShooterHeadbuttWorkerKind::Center => match worker.age {
+                        0 => {
+                            // ASM sub_114C0: first execution writes `$EF1B`.
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                Self::shooter_deleted_tile_for_sub_114c0(0x1B),
+                            );
+                        }
+                        Self::SHOOTER_HEADBUTT_HOLD_FRAMES => {
+                            // ASM sub_114C0: after one 8-frame hibernate, write `$EF1A`.
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                Self::shooter_deleted_tile_for_sub_114c0(0x1A),
+                            );
+                        }
+                        age if age == Self::SHOOTER_HEADBUTT_HOLD_FRAMES * 2 => {
+                            // ASM sub_114C0: after the second 8-frame hibernate, erase the cell.
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                terrain::Cell::from_be_bytes(0, 0),
+                            );
+                            return false;
+                        }
+                        _ => {}
+                    },
+                    ShooterHeadbuttWorkerKind::Support => match worker.age {
+                        0 => {
+                            // ASM sub_114F4 bails if the target cell is no longer empty when
+                            // the worker first wakes.
+                            if grid.cell_at(worker.col, worker.row)
+                                != terrain::Cell::from_be_bytes(0, 0)
+                            {
+                                return false;
+                            }
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                Self::shooter_deleted_tile_for_sub_114c0(0x1A),
+                            );
+                        }
+                        Self::SHOOTER_HEADBUTT_HOLD_FRAMES => {
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                Self::shooter_deleted_tile_for_sub_114c0(0x1B),
+                            );
+                        }
+                        age if age == Self::SHOOTER_HEADBUTT_HOLD_FRAMES * 2 => {
+                            grid.set_cell_at(
+                                worker.col,
+                                worker.row,
+                                Self::shooter_support_tile_for_sub_114f4(),
+                            );
+                            return false;
+                        }
+                        _ => {}
+                    },
+                }
+
+                worker.age = worker.age.saturating_add(1);
+                true
+            });
+    }
+
     pub(crate) fn apply_shifting_blocks(&mut self, slice: &OpeningSliceState) {
         if !slice.player.on_ground {
             return;
@@ -651,6 +737,56 @@ impl NativeRuntime {
                 y_px,
                 Self::BLOCK_DESTROY_DIRECTION_BELOW,
             );
+        }
+
+        if let Some((cell_x, cell_y)) = slice.shooter_block_hit
+            && let Some(grid) = self.block_grid.as_mut()
+        {
+            self.blocks_hit_this_frame += 1;
+            let shooter_cell = grid.cell_at(cell_x, cell_y);
+            // ASM loc_11430 marks the struck shooter as deleted-solid
+            // immediately via `or.b #$F,(a1)` before the timed workers run.
+            grid.set_cell_at(
+                cell_x,
+                cell_y,
+                Self::shooter_deleted_tile_for_sub_114c0(shooter_cell.skin),
+            );
+
+            self.block_state
+                .shooter_headbutt_workers
+                .push(ShooterHeadbuttWorker {
+                    col: cell_x,
+                    row: cell_y,
+                    age: 0,
+                    kind: ShooterHeadbuttWorkerKind::Center,
+                });
+
+            if cell_y > 0 {
+                let support_row = cell_y - 1;
+                let mut try_queue_support = |support_col: u16| {
+                    if grid.cell_at(support_col, support_row) == terrain::Cell::from_be_bytes(0, 0)
+                    {
+                        // ASM sub_1149C: queue one support worker per empty cell above the
+                        // struck shooter, including the diagonals when in bounds.
+                        self.block_state
+                            .shooter_headbutt_workers
+                            .push(ShooterHeadbuttWorker {
+                                col: support_col,
+                                row: support_row,
+                                age: 0,
+                                kind: ShooterHeadbuttWorkerKind::Support,
+                            });
+                    }
+                };
+
+                try_queue_support(cell_x);
+                if cell_x > 0 {
+                    try_queue_support(cell_x - 1);
+                }
+                if cell_x + 1 < grid.width_cells {
+                    try_queue_support(cell_x + 1);
+                }
+            }
         }
 
         // Lift block: headbutt spawns a rising platform (ASM sub_113C0)

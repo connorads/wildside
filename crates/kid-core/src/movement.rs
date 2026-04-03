@@ -504,6 +504,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
+            shooter_block_hit: None,
             teleporter_contact: None,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
@@ -562,6 +563,7 @@ impl OpeningSliceState {
             metal_block_hit: None,
             rubber_block_hit: None,
             smash_block_hit: None,
+            shooter_block_hit: None,
             teleporter_contact: None,
             ceiling_prize_clear: None,
             pre_gravity_y_vel: 0,
@@ -2334,6 +2336,12 @@ impl OpeningSliceState {
                     }
                     terrain::BlockType::Metal => {
                         self.metal_block_hit = Some((probe.cell_x, probe.cell_y));
+                    }
+                    terrain::BlockType::Shooter => {
+                        // ASM loc_BBC2 -> loc_11430 routes shooter ceiling
+                        // hits into the deleted-tile worker coroutines instead
+                        // of clearing the block immediately.
+                        self.shooter_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
                     terrain::BlockType::Rubber => {
                         // ASM sub_902A -> sub_914A -> loc_91F6/loc_10DA4:

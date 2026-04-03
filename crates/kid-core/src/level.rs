@@ -12,6 +12,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.shooter_blocks.clear();
+        self.block_state.shooter_headbutt_workers.clear();
         self.block_state.ghost_groups.clear();
         self.block_state.lift_platforms.clear();
         self.projectiles.clear();
@@ -97,6 +98,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.shooter_blocks.clear();
+        self.block_state.shooter_headbutt_workers.clear();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
         self.pending_prize_diamond_awards.clear();
@@ -144,6 +146,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.shooter_blocks.clear();
+        self.block_state.shooter_headbutt_workers.clear();
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
         self.pending_prize_diamond_awards.clear();
@@ -203,6 +206,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.shooter_blocks.clear();
+        self.block_state.shooter_headbutt_workers.clear();
         self.block_state.ghost_groups.clear();
         self.pending_prize_diamond_awards.clear();
         self.init_murder_wall(level_id, 0);
@@ -278,6 +282,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.block_state.evanescent_blocks.clear();
         self.block_state.shooter_blocks.clear();
+        self.block_state.shooter_headbutt_workers.clear();
         self.block_state.ghost_groups.clear();
         self.pending_prize_diamond_awards.clear();
         self.init_murder_wall(level_id, 0);

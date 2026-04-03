@@ -528,6 +528,10 @@ pub(crate) struct BlockInteractionState {
     /// ASM loc_EB72 -> LoadBulletsFromEvanescentBlock: visible shooter blocks
     /// register once, fire immediately, then keep their slot for 22 frames.
     pub(crate) shooter_blocks: Vec<ShooterBlockEntry>,
+    /// ASM loc_11430 / sub_1149C / sub_114C0 / sub_114F4: shooter blocks
+    /// hit from below queue transient deleted-tile workers for the struck cell
+    /// and any empty support cells above it.
+    pub(crate) shooter_headbutt_workers: Vec<ShooterHeadbuttWorker>,
     /// Prize blocks headbutted from below: ASM sub_1007A owns the full
     /// lifecycle — keep the cell Solid (0x6F), run the bounce coroutine,
     /// then clear the tile and spawn the prize object.
@@ -543,6 +547,20 @@ pub(crate) struct ShooterBlockEntry {
     pub(crate) row: u16,
     pub(crate) directions: u8,
     pub(crate) age: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterHeadbuttWorkerKind {
+    Center,
+    Support,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterHeadbuttWorker {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) age: u8,
+    pub(crate) kind: ShooterHeadbuttWorkerKind,
 }
 
 /// Weather system state for the current level.
@@ -1769,6 +1787,8 @@ pub(crate) struct OpeningSliceState {
     pub(crate) rubber_block_hit: Option<(u16, u16)>,
     /// Smash block destroyed this frame — (x_px, y_px).
     pub(crate) smash_block_hit: Option<(u16, u16)>,
+    /// Shooter block headbutted this frame — (cell_x, cell_y).
+    pub(crate) shooter_block_hit: Option<(u16, u16)>,
     /// Teleporter block contacted this frame — (cell_x, cell_y).
     pub(crate) teleporter_contact: Option<(u16, u16)>,
     /// Prize block ceiling hit: queue the sub_1007A lifecycle for this cell.

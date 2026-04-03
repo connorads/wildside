@@ -5053,6 +5053,7 @@ impl NativeRuntime {
             self.active_enemies.clear();
             self.block_state.evanescent_blocks.clear();
             self.block_state.shooter_blocks.clear();
+            self.block_state.shooter_headbutt_workers.clear();
             self.block_state.ghost_groups.clear();
             return;
         }
