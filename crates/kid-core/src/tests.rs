@@ -26912,6 +26912,29 @@ fn shooter_headbutt_support_worker_runs_sub_114f4_timeline() {
     );
 }
 
+#[test]
+fn shooter_headbutt_support_worker_sub_114f4_aborts_when_target_refills_before_wake() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 4));
+    rt.process_block_effects(&mut slice);
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        5,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
+
+    rt.step_shooter_headbutt_workers();
+
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 3),
+        terrain::Cell::from_be_bytes(0x60, 0),
+        "ASM sub_114F4 deletes itself immediately if the support cell is no longer empty on wake"
+    );
+}
+
 // --- Floating items: spawn delay, lifetime, collision boxes ---
 
 #[test]
