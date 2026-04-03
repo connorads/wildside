@@ -26506,6 +26506,59 @@ fn process_block_effects_metal_and_rubber_create_bounce_anims() {
 }
 
 #[test]
+fn rubber_block_contact_runs_sub_10de4_skin_sequence() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_floor_at_row(10);
+    grid.set_cell_at(7, 4, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+    rt.set_block_grid(grid);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.rubber_block_hit = Some((7, 4));
+
+    rt.process_block_effects(&mut slice);
+
+    let skin =
+        |runtime: &NativeRuntime| runtime.block_grid().expect("block grid").cell_at(7, 4).skin;
+
+    assert_eq!(
+        skin(&rt),
+        0x0D,
+        "ASM sub_10DE4 writes the `base+1` rubber frame on the contact frame"
+    );
+
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0D);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0C);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0D);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0C);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0D);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0D);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0C);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0C);
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0D);
+    rt.step_visual_effects();
+    rt.step_visual_effects();
+    rt.step_visual_effects();
+    assert_eq!(skin(&rt), 0x0C);
+    rt.step_visual_effects();
+    rt.step_visual_effects();
+    rt.step_visual_effects();
+    assert_eq!(
+        skin(&rt),
+        0x0C,
+        "ASM sub_10DE4 finishes on the base rubber frame after the final 3-frame hibernate"
+    );
+}
+
+#[test]
 fn process_block_effects_smash_creates_destroy_effect() {
     let mut rt = NativeRuntime::new(manifest());
     let mut slice = OpeningSliceState::new(default_bounds());

@@ -72,6 +72,118 @@ impl NativeRuntime {
         });
         self.block_destroy_effects.extend(removed_effects);
     }
+
+    const RUBBER_BLOCK_SUB_10DE4_SEQUENCE: [(u8, u8); 9] = [
+        (1, 2),
+        (0, 1),
+        (1, 1),
+        (0, 1),
+        (1, 2),
+        (0, 2),
+        (1, 3),
+        (0, 3),
+        (0, 0),
+    ];
+
+    fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
+        if cell.block_type != terrain::BlockType::Rubber {
+            return None;
+        }
+
+        Some(match cell.skin {
+            0x0C | 0x0D => 0x0C,
+            _ => 0x0E,
+        })
+    }
+
+    fn write_rubber_block_skin_for_sub_10de4(
+        &mut self,
+        col: u16,
+        row: u16,
+        base_skin: u8,
+        skin_offset: u8,
+    ) {
+        let Some(grid) = self.block_grid.as_mut() else {
+            return;
+        };
+        let cell = grid.cell_at(col, row);
+        if cell.block_type != terrain::BlockType::Rubber {
+            return;
+        }
+
+        // ASM sub_10DE4 writes back into the same Level_Layout cell via
+        // sub_11530, preserving the collision/block bits and only toggling the
+        // rubber animation skin between the two adjacent frames.
+        grid.set_cell_at(
+            col,
+            row,
+            terrain::Cell::from_be_bytes(0xE6, base_skin.saturating_add(skin_offset)),
+        );
+    }
+
+    fn start_rubber_block_animation_sub_10de4(&mut self, col: u16, row: u16) {
+        let Some(grid) = self.block_grid.as_ref() else {
+            return;
+        };
+        let Some(base_skin) = Self::rubber_block_base_skin_for_sub_10de4(grid.cell_at(col, row))
+        else {
+            return;
+        };
+
+        if let Some(existing) = self
+            .block_state
+            .rubber_block_animations
+            .iter_mut()
+            .find(|entry| entry.col == col && entry.row == row)
+        {
+            existing.base_skin = base_skin;
+            existing.phase = 0;
+            existing.frames_until_next_write = Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE[0].1;
+        } else {
+            self.block_state
+                .rubber_block_animations
+                .push(RubberBlockAnimation {
+                    col,
+                    row,
+                    base_skin,
+                    phase: 0,
+                    frames_until_next_write: Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE[0].1,
+                });
+        }
+
+        // ASM sub_10DE4 writes the `base+1` frame immediately before the first
+        // hibernate, so the contact frame already shows the jiggled rubber.
+        self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, 1);
+    }
+
+    fn step_rubber_block_animations_sub_10de4(&mut self) {
+        let mut pending_writes = Vec::new();
+        self.block_state
+            .rubber_block_animations
+            .retain_mut(|entry| {
+                if entry.frames_until_next_write > 0 {
+                    entry.frames_until_next_write -= 1;
+                }
+                if entry.frames_until_next_write > 0 {
+                    return true;
+                }
+
+                entry.phase = entry.phase.saturating_add(1);
+                let Some(&(skin_offset, next_delay)) =
+                    Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE.get(usize::from(entry.phase))
+                else {
+                    return false;
+                };
+                pending_writes.push((entry.col, entry.row, entry.base_skin, skin_offset));
+                entry.frames_until_next_write = next_delay;
+                entry.phase + 1 < Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE.len() as u8
+            });
+
+        for (col, row, base_skin, skin_offset) in pending_writes {
+            self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, skin_offset);
+        }
+    }
+
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
@@ -476,6 +588,7 @@ impl NativeRuntime {
         // plays sfx_Rubber_block without changing the collision response.
         if let Some((cx, cy)) = slice.rubber_block_hit {
             self.blocks_hit_this_frame += 1;
+            self.start_rubber_block_animation_sub_10de4(cx, cy);
             self.block_bounces.push(BlockBounceAnim {
                 cell_x: cx,
                 cell_y: cy,
@@ -625,6 +738,8 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_visual_effects(&mut self) {
+        self.step_rubber_block_animations_sub_10de4();
+
         let floating_item_can_fall = |grid: &terrain::BlockGrid, item: &FloatingItem| {
             let current_cell = grid.cell_at(item.level_col, item.level_row);
             let current_row_open = matches!(

@@ -532,6 +532,9 @@ pub(crate) struct BlockInteractionState {
     /// lifecycle — keep the cell Solid (0x6F), run the bounce coroutine,
     /// then clear the tile and spawn the prize object.
     pub(crate) deferred_ceiling_clears: Vec<DeferredCeilingClear>,
+    /// ASM sub_10DE4: rubber-block contact toggles the same cell between two
+    /// skins with 2/1/1/1/2/2/3/3 frame hibernate gaps.
+    pub(crate) rubber_block_animations: Vec<RubberBlockAnimation>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1633,6 +1636,15 @@ pub(crate) struct EvanescentEntry {
     pub(crate) row: u16,
     /// Timer value (starts negative from skin offset, incremented each frame).
     pub(crate) timer: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RubberBlockAnimation {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) base_skin: u8,
+    pub(crate) phase: u8,
+    pub(crate) frames_until_next_write: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
