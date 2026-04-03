@@ -14785,6 +14785,31 @@ fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
 }
 
 #[test]
+fn shooter_headbutt_center_worker_sub_114c0_ignores_support_cell_changes() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 4));
+    rt.process_block_effects(&mut slice);
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        5,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
+
+    for _ in 0..17 {
+        rt.step_shooter_headbutt_workers();
+    }
+
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 4),
+        terrain::Cell::from_be_bytes(0, 0),
+        "ASM sub_114C0 only reads the struck shooter cell, so support refills should not stop the centre erase"
+    );
+}
+
+#[test]
 fn next_level_id_advances_logical_level_ids_not_resource_map_order() {
     let mut manifest = manifest_with_levels(4);
     manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
