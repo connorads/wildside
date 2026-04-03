@@ -26334,6 +26334,10 @@ fn deferred_ceiling_clear_full_lifecycle() {
         DeferredPrizeBlockPhase::FreshSmash
     );
     assert_eq!(rt.floating_items.len(), 1, "should spawn floating item");
+    assert_eq!(
+        rt.floating_items[0].remaining,
+        NativeRuntime::PRIZE_DIAMOND_LIFETIME_FRAMES
+    );
     // Grid should now have Smash block ($E001)
     let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 2);
     assert!(cell.has_block);
@@ -26345,6 +26349,33 @@ fn deferred_ceiling_clear_full_lifecycle() {
         rt.block_state.deferred_ceiling_clears.is_empty(),
         "FreshSmash should be cleaned up"
     );
+}
+
+#[test]
+fn deferred_ankh_ceiling_clear_uses_sub_10c78_lifetime() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_blocks());
+    rt.block_state
+        .deferred_ceiling_clears
+        .push(DeferredCeilingClear {
+            col: 3,
+            row: 2,
+            content: terrain::PrizeContent::Ankh,
+            restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x0B),
+            deleted_frames_remaining: 0,
+            phase: DeferredPrizeBlockPhase::PendingClear,
+        });
+
+    rt.finish_deferred_ceiling_clears();
+
+    assert_eq!(rt.floating_items.len(), 1);
+    // ASM sub_10C78 initialises d3 as `$0001_0320`, so non-diamond fallers
+    // keep the bit-16 first-row grace flag and an 0x320-frame lifetime.
+    assert_eq!(
+        rt.floating_items[0].remaining,
+        NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES
+    );
+    assert!(rt.floating_items[0].first_row_grace);
 }
 
 // --- Process block effects ---

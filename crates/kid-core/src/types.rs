@@ -1102,7 +1102,8 @@ pub(crate) struct FloatingItem {
     pub(crate) y_pos: i64,
     /// FP16.16 Y velocity (accumulates by +$1388 per frame = downward).
     pub(crate) y_velocity: i32,
-    /// Frames remaining (ASM: 500 = $1F4). Only counts down once active.
+    /// Frames remaining. ASM PrizeDiamond_Init uses `$01F4`, while the shared
+    /// sub_10C78/sub_10CB0 falling-prize initialisers use `$0320`.
     pub(crate) remaining: u16,
     /// Delay frames before the item becomes active after object creation.
     /// Oracle-backed TAS probing for demo 0x1B shows the spawned prize object

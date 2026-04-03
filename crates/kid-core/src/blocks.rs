@@ -7,9 +7,34 @@ impl NativeRuntime {
     // frame N+33:       restore original prize cell (E1xx)
     // frame N+34:       clear cell and spawn prize object
     pub(crate) const PRIZE_BLOCK_DELETED_FRAMES: u16 = 32;
+    pub(crate) const PRIZE_DIAMOND_LIFETIME_FRAMES: u16 = 0x01F4;
+    pub(crate) const PRIZE_GENERIC_LIFETIME_FRAMES: u16 = 0x0320;
     // PrizeDiamond_Init starts moving on the frame after object creation, so a
     // newly spawned native floating item should be active immediately.
     pub(crate) const PRIZE_ITEM_INITIAL_DORMANT_FRAMES: u16 = 0;
+
+    fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {
+        match content {
+            terrain::PrizeContent::Diamond => Self::PRIZE_DIAMOND_LIFETIME_FRAMES,
+            // ASM sub_10C78 seeds d3 with $0001_0320 for the shared
+            // Ankh/Clock/Continue falling-prize initialiser, while sub_10CB0
+            // reuses the same lifetime for helmets before its extra cleanup.
+            terrain::PrizeContent::Points10000
+            | terrain::PrizeContent::Skycutter
+            | terrain::PrizeContent::Cyclone
+            | terrain::PrizeContent::RedStealth
+            | terrain::PrizeContent::Eyeclops
+            | terrain::PrizeContent::Juggernaut
+            | terrain::PrizeContent::IronKnight
+            | terrain::PrizeContent::Berzerker
+            | terrain::PrizeContent::Maniaxe
+            | terrain::PrizeContent::Micromax
+            | terrain::PrizeContent::Ankh
+            | terrain::PrizeContent::Clock
+            | terrain::PrizeContent::Continue
+            | terrain::PrizeContent::TenDiamonds => Self::PRIZE_GENERIC_LIFETIME_FRAMES,
+        }
+    }
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
@@ -148,7 +173,7 @@ impl NativeRuntime {
                             x_pos: (u32::from(entry.col) * 16 + 8) << 16,
                             y_pos: i64::from(u32::from(entry.row) * 16) << 16,
                             y_velocity: 0,
-                            remaining: 500,
+                            remaining: Self::floating_item_lifetime(entry.content),
                             spawn_delay: Self::PRIZE_ITEM_INITIAL_DORMANT_FRAMES,
                             level_col: entry.col,
                             level_row: entry.row,
