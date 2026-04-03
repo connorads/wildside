@@ -2308,8 +2308,10 @@ pub(crate) fn enemy_should_remain_active(
             FLYER_RETENTION_X_PADDING,
             FLYER_RETENTION_Y_PADDING,
         ),
-        EnemyArchetype::Pacer if matches!(enemy.family, EnemyFamily::DragonWalking) => {
-            dragon_walking_should_remain_active(
+        EnemyArchetype::Pacer
+            if matches!(enemy.family, EnemyFamily::DragonWalking | EnemyFamily::Lion) =>
+        {
+            large_pacer_should_remain_active(
                 enemy,
                 camera_x_px,
                 camera_y_px,
@@ -2321,13 +2323,15 @@ pub(crate) fn enemy_should_remain_active(
     }
 }
 
-fn dragon_walking_should_remain_active(
+fn large_pacer_should_remain_active(
     enemy: &ActiveEnemy,
     camera_x_px: u32,
     camera_y_px: u32,
     level_bounds: physics::LevelBounds,
     active_enemy_count: usize,
 ) -> bool {
+    // ASM Dragon.asm loc_374E8 and Lion.asm sub_3E8BA both cull the live
+    // object from its current world position rather than the layout anchor.
     let x_pos = (enemy.x_pos as i32) >> 16;
     let y_pos = (enemy.y_pos as i32) >> 16;
     let level_x_max = i32::from(level_bounds.width_pixels) + 0x20;
@@ -2339,6 +2343,9 @@ fn dragon_walking_should_remain_active(
         return true;
     }
 
+    // ASM Dragon.asm loc_37552 / Lion.asm sub_3E8BA:
+    // 11..20 active objects use the wider [-$1A4,+$2E4]x[-$1A4,+$284] box,
+    // 21+ active objects tighten to [-$104,+$244]x[-$104,+$1E4].
     let (left_margin, right_margin, top_margin, bottom_margin) = if active_enemy_count <= 20 {
         (0x1A4, 0x2E4, 0x1A4, 0x284)
     } else {
