@@ -7,6 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
+mod level_layout;
+
 const COPIED_DIRECTORIES: &[&str] = &[
     "code/enemy",
     "doc",
