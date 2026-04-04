@@ -1,7 +1,7 @@
 use super::*;
 use crate::boot::{
-    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
-    sega_screen_tile_strip_sub_12E3C,
+    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
+    end_sequence_display_refresh_sub_1D830, sega_screen_tile_strip_sub_12E3C,
 };
 use crate::combat::*;
 use crate::level::{
@@ -18598,6 +18598,33 @@ fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rn
         end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x05),
         (camera_x_pos, camera_y_pos),
         "ASM sub_1D846's `bclr #7,d5` means the top bit of `V_Int_counter` must not affect either camera offset",
+    );
+}
+
+#[test]
+fn end_sequence_burst_sprite_init_sub_1d86c_uses_masked_rng_offsets_and_preserves_priority() {
+    let init = end_sequence_burst_sprite_init_sub_1D86C(0x81, 0x44, 0x85, 0x01);
+
+    assert_eq!(
+        init.callback_label, "sub_1D9D6",
+        "ASM sub_1D86C should allocate a worker whose callback is `sub_1D9D6`",
+    );
+    assert_eq!(
+        init.x_pos, 0x0062,
+        "ASM sub_1D86C should arithmetic-shift the first signed RNG byte by one and add it to base X `$A0`",
+    );
+    assert_eq!(
+        init.y_pos, 0x0090,
+        "ASM sub_1D86C should arithmetic-shift the second signed RNG byte by one and add it to base Y `$70`",
+    );
+    assert_eq!(
+        init.priority, 0x01,
+        "ASM sub_1D86C should copy `d4` into the spawned worker's `$48(a0)` priority byte",
+    );
+    assert_eq!(
+        end_sequence_burst_sprite_init_sub_1D86C(0x81, 0x44, 0x05, 0x01),
+        init,
+        "ASM sub_1D86C's `bclr #7,d5` means bit 7 of `V_Int_counter` must not affect the spawned offsets",
     );
 }
 

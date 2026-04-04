@@ -65,6 +65,14 @@ pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
     pub(crate) right_panel_x: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceBurstSpriteInitSub1D86C {
+    pub(crate) callback_label: &'static str,
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+    pub(crate) priority: u8,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -347,6 +355,29 @@ pub(crate) fn end_sequence_camera_shake_sub_1D846(
     let camera_x_pos = i16::from((random_x_byte ^ masked_v_int) as i8) >> 5;
     let camera_y_pos = i16::from((random_y_byte ^ masked_v_int) as i8) >> 5;
     (camera_x_pos, camera_y_pos)
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(
+    random_x_byte: u8,
+    random_y_byte: u8,
+    v_int_counter: u8,
+    priority: u8,
+) -> EndSequenceBurstSpriteInitSub1D86C {
+    // ASM sub_1D86C (kid.asm:33107): fetch two random bytes, XOR them with
+    // `V_Int_counter` after `bclr #7,d5`, sign-extend and `asr.w #1` them,
+    // then allocate an object running `sub_1D9D6` at `(#$A0+d6,#$70+d7)`
+    // while copying `d4` into `$48(a0)`.
+    let masked_v_int = v_int_counter & 0x7F;
+    let x_offset = i16::from((random_x_byte ^ masked_v_int) as i8) >> 1;
+    let y_offset = i16::from((random_y_byte ^ masked_v_int) as i8) >> 1;
+    EndSequenceBurstSpriteInitSub1D86C {
+        callback_label: "sub_1D9D6",
+        x_pos: 0x00A0_i16.wrapping_add(x_offset),
+        y_pos: 0x0070_i16.wrapping_add(y_offset),
+        priority,
+    }
 }
 
 impl NativeRuntime {
