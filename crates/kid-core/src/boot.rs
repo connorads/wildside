@@ -1,5 +1,17 @@
 use super::*;
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {
+    // ASM sub_12E3C (kid.asm:25476): write 12 successive tile words starting
+    // from d1 to the VDP data port, incrementing d1 after each write.
+    core::array::from_fn(|index| {
+        first_tile
+            .checked_add(index as u16)
+            .expect("Sega screen tile strip should stay within u16 tile words")
+    })
+}
+
 impl NativeRuntime {
     fn activate_intro_sequence_3_roster(&mut self) {
         self.active_intro_sequence_3_roster_index = self.next_intro_sequence_3_roster_index;

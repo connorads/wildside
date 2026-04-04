@@ -1,4 +1,5 @@
 use super::*;
+use crate::boot::sega_screen_tile_strip_sub_12E3C;
 use crate::combat::*;
 use crate::level::swap_forest_background_palette_entries_sub_129AE;
 use crate::movement::*;
@@ -223,6 +224,20 @@ fn sub_129ae_swaps_forest_palette_words_only() {
         "ASM sub_129AE must leave non-Forest background palettes unchanged"
     );
     assert_eq!(non_forest_palette[0x1A], 0x5678);
+}
+
+#[test]
+fn sub_12e3c_builds_the_incrementing_sega_screen_tile_strip() {
+    let strip = sega_screen_tile_strip_sub_12E3C(0x80BC);
+
+    assert_eq!(
+        strip,
+        [
+            0x80BC, 0x80BD, 0x80BE, 0x80BF, 0x80C0, 0x80C1, 0x80C2, 0x80C3, 0x80C4, 0x80C5, 0x80C6,
+            0x80C7,
+        ],
+        "ASM sub_12E3C should emit twelve successive tile words from the starting d1 value"
+    );
 }
 
 fn manifest_with_levels_and_playable_spawn(count: u8) -> AssetManifest {
