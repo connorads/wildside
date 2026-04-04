@@ -6154,6 +6154,34 @@ fn diamond_power_object_remove_sub_3f5e8_clears_shared_flags_when_the_last_slot_
     );
 }
 
+#[test]
+fn diamond_power_object_reset_sub_3f63c_clears_heads_and_flags_but_keeps_the_stale_last_pointer() {
+    let result =
+        helmets::diamond_power_object_reset_sub_3F63C(helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: vec![0xF2AC, 0xF2F8],
+            free_slots: vec![0xF344, 0xF390],
+            last_active_slot: Some(0xF2F8),
+            diamond_power_active: true,
+            five_way_shot_ready: true,
+            samurai_haze_active: true,
+            kid_is_invulnerable: true,
+        });
+
+    assert_eq!(
+        result,
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: Vec::new(),
+            free_slots: Vec::new(),
+            last_active_slot: Some(0xF2F8),
+            diamond_power_active: false,
+            five_way_shot_ready: false,
+            samurai_haze_active: false,
+            kid_is_invulnerable: false,
+        },
+        "ASM sub_3F63C should clear `Addr_FirstDPObjectSlot` and `Addr_NextFreeDPObjectSlot` plus the shared flags, but it does not write `Addr_LastDPObjectSlot`"
+    );
+}
+
 // -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------

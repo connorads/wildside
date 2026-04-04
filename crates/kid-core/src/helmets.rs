@@ -116,6 +116,23 @@ pub(crate) fn diamond_power_object_remove_sub_3F5E8(
     lists
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_reset_sub_3F63C(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F63C clears `Addr_FirstDPObjectSlot` and
+    // `Addr_NextFreeDPObjectSlot`, then drops the shared diamond-power flags.
+    // It does not touch `Addr_LastDPObjectSlot`.
+    lists.active_slots.clear();
+    lists.free_slots.clear();
+    lists.diamond_power_active = false;
+    lists.five_way_shot_ready = false;
+    lists.samurai_haze_active = false;
+    lists.kid_is_invulnerable = false;
+    lists
+}
+
 impl NativeRuntime {
     pub(crate) fn step_skycutter_flipboard(
         &mut self,
