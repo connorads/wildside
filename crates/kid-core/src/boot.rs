@@ -45,6 +45,20 @@ pub(crate) struct TitleTextChameleonFrameUploadSub1B71A {
     pub(crate) rows: Vec<TitleTextChameleonRowWriteSub1B71A>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleTextWordWritesSub1B7B6 {
+    pub(crate) base_word_address: u16,
+    pub(crate) top_words: [u16; 2],
+    pub(crate) bottom_words: [u16; 2],
+}
+
+impl TitleTextWordWritesSub1B7B6 {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
+        [self.base_word_address + 0x50, self.base_word_address + 0x52]
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B652 {
@@ -158,6 +172,30 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
         tilemap_label,
         rows,
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_word_writes_sub_1B7B6() -> Vec<TitleTextWordWritesSub1B7B6> {
+    // ASM sub_1B7B6 (kid.asm:30035): iterate `unk_1B7E0` until the `$FFFF`
+    // sentinel and stamp the fixed `$21AB..$21AE` 2x2 word pattern at each
+    // listed title-screen VRAM word address.
+    const BASE_WORD_ADDRESSES: [u16; 55] = [
+        0x7C12, 0x7C1A, 0x7C22, 0x7C2A, 0x7C32, 0x7CB2, 0x7CB6, 0x7CBA, 0x7CBE, 0x7CC2, 0x7CC6,
+        0x7CCA, 0x7CCE, 0x7CD2, 0x7D52, 0x7D56, 0x7D5A, 0x7D5E, 0x7D62, 0x7D66, 0x7D6A, 0x7D6E,
+        0x7D72, 0x7DF2, 0x7DF6, 0x7DFA, 0x7DFE, 0x7E02, 0x7E06, 0x7E0A, 0x7E0E, 0x7E12, 0x7E92,
+        0x7E96, 0x7E9A, 0x7E9E, 0x7EA2, 0x7EA6, 0x7EAA, 0x7EAE, 0x7EB2, 0x7F36, 0x7F3A, 0x7F3E,
+        0x7F42, 0x7F46, 0x7F4A, 0x7F4E, 0x7FD6, 0x7FDA, 0x7FDE, 0x7FE2, 0x7FE6, 0x7FEA, 0x7FEE,
+    ];
+
+    BASE_WORD_ADDRESSES
+        .into_iter()
+        .map(|base_word_address| TitleTextWordWritesSub1B7B6 {
+            base_word_address,
+            top_words: [0x21AB, 0x21AC],
+            bottom_words: [0x21AD, 0x21AE],
+        })
+        .collect()
 }
 
 impl NativeRuntime {
@@ -1912,5 +1950,47 @@ mod tests {
             title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0x22, 0).is_none(),
             "ASM sub_1B71A returns immediately once `cmpi.w #$22,d2` succeeds"
         );
+    }
+
+    #[test]
+    fn sub_1b7b6_replays_the_full_title_word_write_table() {
+        let writes = title_text_word_writes_sub_1B7B6();
+
+        assert_eq!(
+            writes.len(),
+            55,
+            "ASM sub_1B7B6 walks the 55-entry `unk_1B7E0` table before the `$FFFF` sentinel",
+        );
+        assert_eq!(
+            writes.first(),
+            Some(&TitleTextWordWritesSub1B7B6 {
+                base_word_address: 0x7C12,
+                top_words: [0x21AB, 0x21AC],
+                bottom_words: [0x21AD, 0x21AE],
+            }),
+            "ASM sub_1B7B6 starts by writing the fixed four-word pattern at $7C12",
+        );
+        assert_eq!(
+            writes.last(),
+            Some(&TitleTextWordWritesSub1B7B6 {
+                base_word_address: 0x7FEE,
+                top_words: [0x21AB, 0x21AC],
+                bottom_words: [0x21AD, 0x21AE],
+            }),
+            "ASM sub_1B7B6 should stop after the last `$7FEE` entry and not include the `$FFFF` terminator",
+        );
+    }
+
+    #[test]
+    fn sub_1b7b6_keeps_the_bottom_row_offset_by_0x50_words() {
+        let writes = title_text_word_writes_sub_1B7B6();
+
+        assert!(writes.iter().all(|entry| {
+            entry.bottom_word_addresses()
+                == [
+                    entry.base_word_address + 0x50,
+                    entry.base_word_address + 0x52,
+                ]
+        }));
     }
 }
