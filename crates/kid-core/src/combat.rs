@@ -253,6 +253,44 @@ pub(crate) struct HeadyMetalScatterVelocities {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalBreakupPieceSub37708 {
+    pub(crate) sprite_word_y: i16,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HeadyMetalScatterPatternSub37708 {
+    Primary,
+    Alternate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalScatterStepSub37708 {
+    pub(crate) pattern: HeadyMetalScatterPatternSub37708,
+    pub(crate) d6_x_velocity_delta: i32,
+    pub(crate) d7_velocity_delta: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalBreakupStepSub37708 {
+    pub(crate) next_collision_type: i16,
+    pub(crate) next_phase_counter: u16,
+    pub(crate) next_remaining_scatter_frames: u16,
+    pub(crate) piece_slots: [Option<HeadyMetalBreakupPieceSub37708>; 13],
+    pub(crate) played_sound_effect: Option<&'static str>,
+    pub(crate) spawned_pop_effect_at: Option<(u16, u16)>,
+    pub(crate) spawned_attack_at: Option<(u16, u16)>,
+    pub(crate) set_has_kid_collision: bool,
+    pub(crate) set_global_hit_latch: bool,
+    pub(crate) reveal_anchor_worker: bool,
+    pub(crate) clear_anchor_hidden_flag: bool,
+    pub(crate) reveal_linked_worker: bool,
+    pub(crate) trigger_cleanup_sub_378c8: bool,
+    pub(crate) scatter_step: Option<HeadyMetalScatterStepSub37708>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyeAttackFrameInputsSub37332 {
     pub(crate) effect_x: u16,
     pub(crate) effect_y: u16,
@@ -602,6 +640,117 @@ pub(crate) fn heady_metal_scatter_step_sub_3787C(
     velocities.slot_fbae_x_velocity += d6_x_velocity_delta;
     velocities.slot_fbb2_x_velocity += d7_velocity_delta;
     velocities
+}
+
+const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [
+    0, 7, 2, 10, 4, 3, 8, 5, 9, 12, 6, 11, 1, 12, 2, 7, 4, 9, 6, 3, 10, 5, 8, 11, 1, 2, 1, 7, 4, 9,
+    6, 3, 10, 5, 8, 11, 12,
+];
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_breakup_step_sub_37708(
+    anchor_present: bool,
+    collision_type: i16,
+    phase_counter: u16,
+    remaining_scatter_frames: u16,
+    frame_counter: u16,
+    piece_slots: [Option<HeadyMetalBreakupPieceSub37708>; 13],
+) -> HeadyMetalBreakupStepSub37708 {
+    // ASM sub_37708 (kid.asm:39503): advance the HeadyMetal breakup sequence
+    // rooted at `$FFFFFB72`, using `unk_3795E` to pick one of the 13 child
+    // worker pointers at `$FFFFFB7A` before the final alternating scatter.
+    let mut result = HeadyMetalBreakupStepSub37708 {
+        next_collision_type: collision_type,
+        next_phase_counter: phase_counter,
+        next_remaining_scatter_frames: remaining_scatter_frames,
+        piece_slots,
+        played_sound_effect: None,
+        spawned_pop_effect_at: None,
+        spawned_attack_at: None,
+        set_has_kid_collision: false,
+        set_global_hit_latch: false,
+        reveal_anchor_worker: false,
+        clear_anchor_hidden_flag: false,
+        reveal_linked_worker: false,
+        trigger_cleanup_sub_378c8: false,
+        scatter_step: None,
+    };
+
+    if !anchor_present {
+        return result;
+    }
+
+    if collision_type != 0 {
+        result.next_collision_type = 0;
+
+        if collision_type == 0x002C {
+            result.next_phase_counter = phase_counter.wrapping_add(1);
+            if let Some(&piece_index) =
+                HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708.get(usize::from(result.next_phase_counter))
+                && let Some(mut piece) = result.piece_slots[piece_index]
+            {
+                match result.next_phase_counter {
+                    0x0000..=0x000C => {
+                        piece.sprite_word_y += 2;
+                        result.played_sound_effect = Some("sfx_Boss_eye_pops");
+                        result.piece_slots[piece_index] = Some(piece);
+                    }
+                    0x000D..=0x0018 => {
+                        piece.sprite_word_y -= 2;
+                        result.piece_slots[piece_index] = Some(piece);
+                    }
+                    0x0019..=0x0024 => {
+                        result.spawned_pop_effect_at = Some((piece.x_pos, piece.y_pos));
+                        result.spawned_attack_at = Some((piece.x_pos, piece.y_pos));
+                        result.piece_slots[piece_index] = None;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    if result.next_phase_counter < 0x0025 {
+        return result;
+    }
+
+    result.set_has_kid_collision = true;
+    result.set_global_hit_latch = true;
+
+    if remaining_scatter_frames == 0 {
+        result.reveal_anchor_worker = true;
+        result.clear_anchor_hidden_flag = true;
+        result.reveal_linked_worker = true;
+        result.trigger_cleanup_sub_378c8 = true;
+        return result;
+    }
+
+    result.next_remaining_scatter_frames = remaining_scatter_frames - 1;
+    let timer = result.next_remaining_scatter_frames;
+    let (d6_x_velocity_delta, d7_velocity_delta) = if timer > 0x015E {
+        (-0x0003_0D40, 0x0003_0D40)
+    } else if timer > 0x00FA {
+        (-0x0004_93E0, 0x0004_93E0)
+    } else if timer > 0x0096 {
+        (-0x0006_1A80, 0x0006_1A80)
+    } else if timer > 0x0064 {
+        (-0x0007_A120, 0x0007_A120)
+    } else {
+        (-0x0009_27C0, 0x0009_27C0)
+    };
+
+    result.scatter_step = Some(HeadyMetalScatterStepSub37708 {
+        pattern: if frame_counter & 2 == 0 {
+            HeadyMetalScatterPatternSub37708::Primary
+        } else {
+            HeadyMetalScatterPatternSub37708::Alternate
+        },
+        d6_x_velocity_delta,
+        d7_velocity_delta,
+    });
+
+    result
 }
 
 impl NativeRuntime {

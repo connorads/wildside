@@ -19864,6 +19864,115 @@ fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pa
 }
 
 #[test]
+fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collision_type_2c() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 0xFFFF, 0, 0, {
+        let mut pieces = [None; 13];
+        pieces[0] = Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 6,
+            x_pos: 0x0044,
+            y_pos: 0x0046,
+        });
+        pieces
+    });
+
+    assert_eq!(
+        result.next_collision_type, 0,
+        "ASM sub_37708 should clear `collision_type(a3)` before handling the HeadyMetal breakup hit",
+    );
+    assert_eq!(
+        result.next_phase_counter, 0,
+        "ASM sub_37708 should wrap `$3E(a3)` from `$FFFF` to 0 on the first valid breakup collision",
+    );
+    assert_eq!(
+        result.piece_slots[0],
+        Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 8,
+            x_pos: 0x0044,
+            y_pos: 0x0046,
+        }),
+        "ASM sub_37708 should add 2 to the selected worker's `$A(a3)` during the opening 13-pop phase",
+    );
+    assert_eq!(
+        result.played_sound_effect,
+        Some("sfx_Boss_eye_pops"),
+        "ASM sub_37708 should play `sfx_Boss_eye_pops` during the opening 13-pop phase",
+    );
+}
+
+#[test]
+fn heady_metal_breakup_step_sub_37708_spawns_the_late_pop_pair_and_clears_the_piece_slot() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 24, 0, 0, {
+        let mut pieces = [None; 13];
+        pieces[2] = Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 0,
+            x_pos: 0x0070,
+            y_pos: 0x0088,
+        });
+        pieces
+    });
+
+    assert_eq!(
+        result.next_phase_counter, 25,
+        "ASM sub_37708 should advance into the late breakup range before spawning the paired effects",
+    );
+    assert_eq!(
+        result.spawned_pop_effect_at,
+        Some((0x0070, 0x0088)),
+        "ASM sub_37708 should spawn `sub_3729E` from the selected worker's `x_pos/y_pos`",
+    );
+    assert_eq!(
+        result.spawned_attack_at,
+        Some((0x0070, 0x0088)),
+        "ASM sub_37708 should also spawn `sub_37332` from that same worker position",
+    );
+    assert_eq!(
+        result.piece_slots[2], None,
+        "ASM sub_37708 should clear the selected worker pointer after launching the late breakup pair",
+    );
+}
+
+#[test]
+fn heady_metal_breakup_step_sub_37708_arms_the_final_scatter_with_the_primary_pattern() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0025, 0x0160, 0, [None; 13]);
+
+    assert!(
+        result.set_has_kid_collision && result.set_global_hit_latch,
+        "ASM sub_37708 should set `has_kid_collision(a3)` and `($FFFFFB4E).w` once `$3E(a3)` reaches `$25`",
+    );
+    assert_eq!(
+        result.next_remaining_scatter_frames, 0x015F,
+        "ASM sub_37708 should decrement `$40(a3)` before choosing the final scatter speed tier",
+    );
+    assert_eq!(
+        result.scatter_step,
+        Some(HeadyMetalScatterStepSub37708 {
+            pattern: HeadyMetalScatterPatternSub37708::Primary,
+            d6_x_velocity_delta: -0x0003_0D40,
+            d7_velocity_delta: 0x0003_0D40,
+        }),
+        "ASM sub_37708 should choose sub_3787C's primary pattern with the `$30D40` tier when the decremented timer stays above `$15E`",
+    );
+}
+
+#[test]
+fn heady_metal_breakup_step_sub_37708_reveals_the_anchor_pair_before_cleanup_when_the_timer_is_zero()
+ {
+    let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0025, 0, 0, [None; 13]);
+
+    assert!(
+        result.reveal_anchor_worker
+            && result.clear_anchor_hidden_flag
+            && result.reveal_linked_worker
+            && result.trigger_cleanup_sub_378c8,
+        "ASM sub_37708 should unhide the boss anchor pair and jump into sub_378C8 immediately when `$40(a3)` is already zero",
+    );
+    assert_eq!(
+        result.scatter_step, None,
+        "ASM sub_37708 should skip the alternating scatter velocity branches on the zero-timer cleanup path",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
