@@ -274,6 +274,28 @@ pub struct IntroSequence5FrameLoadPlanSub1C034 {
     pub vram_rows: [VramRowWriteSub1C034; 25],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicEnigmaTilemapLoadSub1C0EE {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+    pub width_words: u16,
+    pub height_words: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaneRectUploadSub1C0EE {
+    pub plane_cell_x: u16,
+    pub plane_cell_y: u16,
+    pub width_words: u16,
+    pub height_words: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IntroSequence5PanelLoadPlanSub1C0EE {
+    pub tilemap_load: SymbolicEnigmaTilemapLoadSub1C0EE,
+    pub plane_upload: PlaneRectUploadSub1C0EE,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LongwordVramUploadSub1B41C {
     pub vram_word_address: u16,
@@ -1560,6 +1582,30 @@ pub fn intro_sequence_5_frame_load_plan_sub_1C034(
         },
         vram_rows,
     })
+}
+
+#[allow(non_snake_case)]
+pub fn intro_sequence_5_panel_load_plan_sub_1C0EE(
+    plane_cell_x: u16,
+    plane_cell_y: u16,
+) -> IntroSequence5PanelLoadPlanSub1C0EE {
+    // ASM sub_1C0EE + loc_1C104 (kid.asm:30926): decode `unk_2FDA6` with base
+    // tile `$A340`, then hand the resulting 10x10 block to sub_1C5D0 at the
+    // caller-supplied plane cell in d4/d5.
+    IntroSequence5PanelLoadPlanSub1C0EE {
+        tilemap_load: SymbolicEnigmaTilemapLoadSub1C0EE {
+            vram_word_address: 0xA340,
+            asset_label: "unk_2FDA6",
+            width_words: 10,
+            height_words: 10,
+        },
+        plane_upload: PlaneRectUploadSub1C0EE {
+            plane_cell_x,
+            plane_cell_y,
+            width_words: 10,
+            height_words: 10,
+        },
+    }
 }
 
 #[allow(non_snake_case)]
@@ -3938,6 +3984,32 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 15,
             },
             "ASM loc_1C0D0 returns to 15-word rows for the tail of the upload",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_panel_load_plan_sub_1c0ee_reuses_the_shared_10x10_sub_1c5d0_blit() {
+        let plan = intro_sequence_5_panel_load_plan_sub_1C0EE(3, 0x13);
+
+        assert_eq!(
+            plan.tilemap_load,
+            SymbolicEnigmaTilemapLoadSub1C0EE {
+                vram_word_address: 0xA340,
+                asset_label: "unk_2FDA6",
+                width_words: 10,
+                height_words: 10,
+            },
+            "ASM sub_1C0EE should decode `unk_2FDA6` with base tile `$A340` before reusing loc_1C104",
+        );
+        assert_eq!(
+            plan.plane_upload,
+            PlaneRectUploadSub1C0EE {
+                plane_cell_x: 3,
+                plane_cell_y: 0x13,
+                width_words: 10,
+                height_words: 10,
+            },
+            "ASM loc_1C104 should hand the decoded panel to sub_1C5D0 as a 10x10 blit at the caller's plane cell",
         );
     }
 
