@@ -196,6 +196,36 @@ pub(crate) fn drain_fg_update_queue_custom_sub_1596(
     writes
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
+    // ASM sub_1C85E (kid.asm:31507): starting at Palette_Buffer+`d7`, darken
+    // 16 palette words by subtracting 2 from each non-zero low channel nibble,
+    // $20 from each non-zero mid channel, and $200 from each non-zero high
+    // channel before rebuilding the palette word.
+    let start_word = usize::from(byte_offset >> 1);
+    let Some(span) = palette_buffer.get_mut(start_word..) else {
+        return;
+    };
+
+    for word in span.iter_mut().take(0x10) {
+        let low = match *word & 0x000F {
+            0 => 0,
+            channel => channel.wrapping_sub(0x0002),
+        };
+        let mid = match *word & 0x00F0 {
+            0 => 0,
+            channel => channel.wrapping_sub(0x0020),
+        };
+        let high = match *word & 0x0F00 {
+            0 => 0,
+            channel => channel.wrapping_sub(0x0200),
+        };
+
+        *word = high | mid | low;
+    }
+}
+
 impl NativeRuntime {
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
         let level_id = self.current_level;

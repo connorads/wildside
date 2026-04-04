@@ -5,7 +5,7 @@ use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
     apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
     build_palette_fade_curve_sub_14C0, drain_fg_update_queue_custom_sub_1596,
-    swap_forest_background_palette_entries_sub_129AE,
+    fade_palette_span_sub_1C85E, swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use kid_data::{
@@ -417,6 +417,34 @@ fn sub_1596_returns_no_writes_when_no_custom_fg_queue_is_pending() {
     assert!(
         pending_queue.is_none(),
         "ASM sub_1596 should leave an empty custom FG queue idle"
+    );
+}
+
+#[test]
+fn sub_1c85e_darkens_each_non_zero_channel_in_the_selected_palette_span() {
+    let mut palette_buffer = [0u16; 0x40];
+    palette_buffer[0x10] = 0x0ACE;
+    palette_buffer[0x11] = 0x0246;
+    palette_buffer[0x1F] = 0x0000;
+    palette_buffer[0x20] = 0x0EEE;
+
+    fade_palette_span_sub_1C85E(&mut palette_buffer, 0x0020);
+
+    assert_eq!(
+        palette_buffer[0x10], 0x08AC,
+        "ASM sub_1C85E should subtract $200/$20/2 from each non-zero channel in Palette_Buffer+$20",
+    );
+    assert_eq!(
+        palette_buffer[0x11], 0x0024,
+        "ASM sub_1C85E should leave zero high channels at zero while still darkening the mid and low channels",
+    );
+    assert_eq!(
+        palette_buffer[0x1F], 0x0000,
+        "ASM sub_1C85E should leave fully black palette words unchanged",
+    );
+    assert_eq!(
+        palette_buffer[0x20], 0x0EEE,
+        "ASM sub_1C85E should stop after 16 words and leave the following palette span untouched",
     );
 }
 
