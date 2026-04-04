@@ -35,6 +35,87 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyDeathBurstInitSub37002 {
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) x_direction: u8,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_word_y_adjust: u16,
+    pub(crate) chase_frames: u16,
+    pub(crate) homing_accel: i32,
+    pub(crate) delete_collision_types: [i16; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyDeathBurstHomingStepSub37002 {
+    pub(crate) x_direction: u8,
+    pub(crate) x_velocity_delta: i32,
+    pub(crate) y_velocity_delta: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_death_burst_init_sub_37002(
+    x_pos: u16,
+    y_pos: u16,
+) -> EnemyDeathBurstInitSub37002 {
+    // ASM sub_37002 (kid.asm:38894): play `sfx_Boss_eye_pops`, allocate gfx
+    // slot `$01010002`, seed the shared burst sprite, then run a 60-frame
+    // homing loop that deletes on collision types `$001C`, `$002C`, or `$FFFF`.
+    EnemyDeathBurstInitSub37002 {
+        sound_effect_label: "sfx_Boss_eye_pops",
+        gfx_slot_base: 0x0101_0002,
+        priority: 0,
+        object_meta: 0x0020,
+        display_enabled: true,
+        is_moved: true,
+        x_direction: 0,
+        sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        x_pos,
+        y_pos,
+        sprite_word_y_adjust: 4,
+        chase_frames: 0x003C,
+        homing_accel: 0x0000_0FA0,
+        delete_collision_types: [0x001C, 0x002C, -1],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_death_burst_homing_step_sub_37002(
+    effect_x: u16,
+    effect_y: u16,
+    kid_x: u16,
+    kid_y: u16,
+) -> EnemyDeathBurstHomingStepSub37002 {
+    // ASM loc_37078..loc_370C0 (kid.asm:38930): compare the spawned burst
+    // sprite against Kid and accelerate toward him by `$FA0` on each axis.
+    let homing_accel = 0x0000_0FA0;
+    let (x_direction, x_velocity_delta) = if effect_x > kid_x {
+        (0, -homing_accel)
+    } else {
+        (0xFF, homing_accel)
+    };
+    let y_velocity_delta = if effect_y > kid_y {
+        -homing_accel
+    } else {
+        homing_accel
+    };
+
+    EnemyDeathBurstHomingStepSub37002 {
+        x_direction,
+        x_velocity_delta,
+        y_velocity_delta,
+    }
+}
+
 impl NativeRuntime {
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
     // the contact frame, so the queued native award needs to survive 33 frame

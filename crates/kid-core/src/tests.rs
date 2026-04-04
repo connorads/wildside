@@ -19282,6 +19282,82 @@ fn end_sequence_falling_sprite_init_sub_1d8b4_keeps_full_v_int_delay_and_121_fra
 }
 
 #[test]
+fn enemy_death_burst_init_sub_37002_seeds_the_shared_homing_burst_sprite() {
+    let init = enemy_death_burst_init_sub_37002(0x0044, 0x0046);
+
+    assert_eq!(
+        init.sound_effect_label, "sfx_Boss_eye_pops",
+        "ASM sub_37002 should play `sfx_Boss_eye_pops` before allocating the burst sprite",
+    );
+    assert_eq!(
+        init.gfx_slot_base, 0x0101_0002,
+        "ASM sub_37002 should allocate gfx slot `$01010002` for the burst sprite",
+    );
+    assert_eq!(
+        init.object_meta, 0x0020,
+        "ASM sub_37002 should seed `object_meta(a3)` with `$20` before `loc_32146`",
+    );
+    assert!(
+        init.display_enabled && init.is_moved,
+        "ASM sub_37002 should set both `$13(a3)` and `is_moved(a3)` on the spawned burst sprite",
+    );
+    assert_eq!(
+        init.x_direction, 0,
+        "ASM sub_37002 should clear `x_direction(a3)` before the homing loop starts",
+    );
+    assert_eq!(
+        init.sprite_mapping_label, "LnkTo_unk_C8460-Data_Index",
+        "ASM sub_37002 should load the shared burst sprite mapping before the first hibernate",
+    );
+    assert_eq!(
+        (init.x_pos, init.y_pos, init.sprite_word_y_adjust),
+        (0x0044, 0x0046, 4),
+        "ASM sub_37002 should copy `$44/$46(a5)` into the burst sprite and then add 4 to `$A(a3)`",
+    );
+    assert_eq!(
+        init.chase_frames, 0x003C,
+        "ASM sub_37002 should run the burst homing loop for `#$3C` hibernated frames unless collision deletes it first",
+    );
+    assert_eq!(
+        init.homing_accel, 0x0000_0FA0,
+        "ASM sub_37002 should accelerate the burst sprite toward Kid by `$FA0` on each axis per frame",
+    );
+    assert_eq!(
+        init.delete_collision_types,
+        [0x001C, 0x002C, -1],
+        "ASM sub_37002 should delete immediately on collision types `$1C`, `$2C`, or `$FFFF`",
+    );
+}
+
+#[test]
+fn enemy_death_burst_homing_step_sub_37002_tracks_kid_with_signed_axis_accel() {
+    let left_and_up = enemy_death_burst_homing_step_sub_37002(0x0040, 0x0080, 0x0060, 0x0040);
+    assert_eq!(
+        left_and_up.x_direction, 0xFF,
+        "ASM loc_37078 should set `x_direction(a3)=$FF` when the burst sprite is at or left of Kid",
+    );
+    assert_eq!(
+        (left_and_up.x_velocity_delta, left_and_up.y_velocity_delta),
+        (0x0000_0FA0, -0x0000_0FA0),
+        "ASM loc_37078..loc_370B8 should add `$FA0` toward Kid on both axes",
+    );
+
+    let right_and_down = enemy_death_burst_homing_step_sub_37002(0x0080, 0x0040, 0x0060, 0x0080);
+    assert_eq!(
+        right_and_down.x_direction, 0,
+        "ASM loc_3709E should clear `x_direction(a3)` when the burst sprite is right of Kid",
+    );
+    assert_eq!(
+        (
+            right_and_down.x_velocity_delta,
+            right_and_down.y_velocity_delta
+        ),
+        (-0x0000_0FA0, 0x0000_0FA0),
+        "ASM loc_3709E..loc_370C0 should subtract or add `$FA0` so velocity always points back toward Kid",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
