@@ -154,6 +154,71 @@ pub struct IngameVramUpload {
     pub asset: LoadedAsset,
 }
 
+const SPRITE_SIZE_TILE_COUNTS_SUB_13C0: [u16; 16] =
+    [0, 1, 2, 3, 1, 3, 5, 7, 2, 5, 8, 11, 3, 7, 11, 15];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SpriteTableEntrySub13C0 {
+    y: u16,
+    size: u8,
+    link: u8,
+    tile_word: u16,
+    x: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SpriteDmaTransferSub13C0 {
+    tile_count: u16,
+    art_source: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SpriteBuilderStateSub13C0 {
+    number_sprites: u8,
+    tile_word_cursor: u16,
+    dma_tile_word_cursor: u16,
+    next_art_source: u32,
+    dma_transfers: Vec<SpriteDmaTransferSub13C0>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn append_sprite_entry_sub_13c0(
+    state: &mut SpriteBuilderStateSub13C0,
+    x: u16,
+    y: u16,
+    size: u8,
+    uses_dynamic_art: bool,
+) -> SpriteTableEntrySub13C0 {
+    // ASM sub_13C0 (kid.asm:2452): append one sprite-table entry, bump
+    // Number_Sprites, then advance the shared tile-word cursor by
+    // NumberTilesPerSpriteSize[size]+1. Dynamic-art entries also mirror that
+    // increment into $FFFFF83C and queue a DMA transfer from a4.
+    let link = state.number_sprites.wrapping_add(1);
+    state.number_sprites = link;
+    let tile_word = state.tile_word_cursor;
+    let tiles_used = SPRITE_SIZE_TILE_COUNTS_SUB_13C0[usize::from(size)].wrapping_add(1);
+    state.tile_word_cursor = state.tile_word_cursor.wrapping_add(tiles_used);
+
+    if uses_dynamic_art {
+        state.dma_tile_word_cursor = state.dma_tile_word_cursor.wrapping_add(tiles_used);
+        state.dma_transfers.push(SpriteDmaTransferSub13C0 {
+            tile_count: tiles_used,
+            art_source: state.next_art_source,
+        });
+        state.next_art_source = state
+            .next_art_source
+            .wrapping_add(u32::from(tiles_used) * 32);
+    }
+
+    SpriteTableEntrySub13C0 {
+        y,
+        size,
+        link,
+        tile_word,
+        x,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyDefinition {
     pub id: u8,
@@ -2695,6 +2760,70 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(bits.current_word_d5, 0xEF12);
         assert_eq!(bits.bits_remaining_d6, 16);
         assert_eq!(bits.input_position, 4);
+    }
+
+    #[test]
+    fn sub_13c0_appends_a_static_sprite_entry_and_advances_the_tile_cursor() {
+        let mut state = SpriteBuilderStateSub13C0 {
+            number_sprites: 3,
+            tile_word_cursor: 0x8200,
+            dma_tile_word_cursor: 0x9000,
+            next_art_source: 0x0012_3400,
+            dma_transfers: Vec::new(),
+        };
+
+        let entry = append_sprite_entry_sub_13c0(&mut state, 0x0180, 0x0090, 0x0F, false);
+
+        assert_eq!(
+            entry,
+            SpriteTableEntrySub13C0 {
+                y: 0x0090,
+                size: 0x0F,
+                link: 4,
+                tile_word: 0x8200,
+                x: 0x0180,
+            }
+        );
+        assert_eq!(state.number_sprites, 4);
+        assert_eq!(state.tile_word_cursor, 0x8210);
+        assert_eq!(state.dma_tile_word_cursor, 0x9000);
+        assert_eq!(state.next_art_source, 0x0012_3400);
+        assert!(state.dma_transfers.is_empty());
+    }
+
+    #[test]
+    fn sub_13c0_queues_dynamic_art_dma_and_advances_both_cursors() {
+        let mut state = SpriteBuilderStateSub13C0 {
+            number_sprites: 0,
+            tile_word_cursor: 0x6000,
+            dma_tile_word_cursor: 0x6000,
+            next_art_source: 0x00AB_C000,
+            dma_transfers: Vec::new(),
+        };
+
+        let entry = append_sprite_entry_sub_13c0(&mut state, 0x0108, 0x00B8, 0x06, true);
+
+        assert_eq!(
+            entry,
+            SpriteTableEntrySub13C0 {
+                y: 0x00B8,
+                size: 0x06,
+                link: 1,
+                tile_word: 0x6000,
+                x: 0x0108,
+            }
+        );
+        assert_eq!(state.number_sprites, 1);
+        assert_eq!(state.tile_word_cursor, 0x6006);
+        assert_eq!(state.dma_tile_word_cursor, 0x6006);
+        assert_eq!(state.next_art_source, 0x00AB_C0C0);
+        assert_eq!(
+            state.dma_transfers,
+            vec![SpriteDmaTransferSub13C0 {
+                tile_count: 6,
+                art_source: 0x00AB_C000,
+            }]
+        );
     }
 
     #[test]
