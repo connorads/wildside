@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use image::{GrayImage, Luma};
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
@@ -357,6 +357,38 @@ pub struct LongwordVramUploadSub1B41C {
 pub struct LevelLayoutXorVramUploadSub1C180 {
     pub vram_word_address: u16,
     pub longwords: [u32; 704],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlaneLongwordStripUploadSub30194 {
+    pub vram_word_address: u16,
+    pub longwords: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlaneWordStripUploadSub30194 {
+    pub vram_word_address: u16,
+    pub words: Vec<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LevelPlaneScrollUpdatePlanSub30194 {
+    pub horizontal_uploads: Vec<PlaneLongwordStripUploadSub30194>,
+    pub vertical_uploads: Vec<PlaneWordStripUploadSub30194>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LevelPlaneScrollUpdateInputsSub30194<'a> {
+    pub camera_x_pos: i16,
+    pub camera_y_pos: i16,
+    pub previous_camera_x_pos: i16,
+    pub previous_camera_y_pos: i16,
+    pub level_layout_row_offsets_cells: &'a [u16],
+    pub level_layout_cells: &'a [u16],
+    pub level_width_tiles: u16,
+    pub level_height_tiles: u16,
+    pub theme_mappings: &'a [u16],
+    pub block_mappings: &'a [u16],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2342,6 +2374,268 @@ pub fn level_layout_xor_vram_upload_sub_1C180(
     Ok(LevelLayoutXorVramUploadSub1C180 {
         vram_word_address: 0x1780,
         longwords,
+    })
+}
+
+#[allow(non_snake_case)]
+fn mapped_longword_sub_3034A(
+    cell: u16,
+    row_half_word_offset: usize,
+    theme_mappings: &[u16],
+    block_mappings: &[u16],
+) -> Result<u32> {
+    let tile_index = usize::from(cell & 0x00FF);
+    let base = tile_index
+        .checked_mul(4)
+        .and_then(|base| base.checked_add(row_half_word_offset))
+        .context("sub_3034A tile mapping offset overflowed")?;
+    let mappings = if cell & 0x8000 != 0 {
+        block_mappings
+    } else {
+        theme_mappings
+    };
+    let (&word_0, &word_1) = mappings
+        .get(base)
+        .zip(mappings.get(base + 1))
+        .context("sub_3034A needs two theme/block mapping words for the selected tile row")?;
+    let priority_mask = if cell & 0x0100 != 0 { 0x8000 } else { 0 };
+    Ok((u32::from(word_0 | priority_mask) << 16) | u32::from(word_1 | priority_mask))
+}
+
+#[allow(non_snake_case)]
+fn mapped_word_pair_sub_302F6(
+    cell: u16,
+    column_half_word_offset: usize,
+    theme_mappings: &[u16],
+    block_mappings: &[u16],
+) -> Result<[u16; 2]> {
+    let tile_index = usize::from(cell & 0x00FF);
+    let base = tile_index
+        .checked_mul(4)
+        .and_then(|base| base.checked_add(column_half_word_offset))
+        .context("sub_302F6 tile mapping offset overflowed")?;
+    let mappings = if cell & 0x8000 != 0 {
+        block_mappings
+    } else {
+        theme_mappings
+    };
+    let (&word_0, &word_1) = mappings
+        .get(base)
+        .zip(mappings.get(base + 2))
+        .context("sub_302F6 needs two theme/block mapping words for the selected tile column")?;
+    let priority_mask = if cell & 0x0100 != 0 { 0x8000 } else { 0 };
+    Ok([word_0 | priority_mask, word_1 | priority_mask])
+}
+
+fn plane_row_word_address_sub_30194(tile_row: u16, tile_pair_column: u16) -> u16 {
+    ((tile_row & 0x001F) << 6).wrapping_add((tile_pair_column & 0x001F) << 1)
+}
+
+fn plane_column_word_address_sub_30194(tile_row_even: u16, tile_column: u16) -> u16 {
+    ((tile_row_even & 0x001F) << 6).wrapping_add(tile_column & 0x003F)
+}
+
+#[allow(non_snake_case)]
+pub fn level_plane_scroll_update_plan_sub_30194(
+    inputs: LevelPlaneScrollUpdateInputsSub30194<'_>,
+) -> Result<LevelPlaneScrollUpdatePlanSub30194> {
+    // ASM sub_30194 (kid.asm:33745): when the camera crosses an 8px tile
+    // boundary, stream the newly exposed foreground strip from the row-pointer
+    // table at `$FFFF4A04`, using theme mappings for non-negative cells and
+    // Block_Mappings for negative cells. Horizontal updates write 21 longwords
+    // via sub_3034A, while vertical updates write 15 two-word cell pairs via
+    // sub_302F6, splitting the upload when the 64x32 plane wrap is crossed.
+    ensure!(
+        inputs.level_width_tiles != 0 && inputs.level_width_tiles.is_multiple_of(2),
+        "sub_30194 needs a non-zero even Level_width_tiles row stride",
+    );
+
+    let level_width_cells = usize::from(inputs.level_width_tiles / 2);
+    let camera_column_tiles = inputs.camera_x_pos >> 3;
+    let camera_row_tiles = inputs.camera_y_pos >> 3;
+    let previous_column_tiles = inputs.previous_camera_x_pos >> 3;
+    let previous_row_tiles = inputs.previous_camera_y_pos >> 3;
+
+    let mut horizontal_uploads = Vec::new();
+    if camera_row_tiles != previous_row_tiles {
+        let mut streamed_row_tiles = camera_row_tiles;
+        if camera_row_tiles >= previous_row_tiles {
+            streamed_row_tiles = streamed_row_tiles.wrapping_add(0x001C);
+            if streamed_row_tiles >= inputs.level_height_tiles as i16 {
+                streamed_row_tiles = -1;
+            }
+        }
+
+        if streamed_row_tiles >= 0 {
+            let streamed_row_tiles_u16 = u16::try_from(streamed_row_tiles)
+                .expect("sub_30194 keeps streamed rows non-negative");
+            let row_pair_index = usize::from(streamed_row_tiles_u16 >> 1);
+            let row_half_word_offset = if streamed_row_tiles_u16 & 1 != 0 {
+                2
+            } else {
+                0
+            };
+            let row_start = usize::from(
+                *inputs
+                    .level_layout_row_offsets_cells
+                    .get(row_pair_index)
+                    .context("sub_30194 row-pointer table is missing the streamed row pair")?,
+            );
+            let source_cell_offset = row_start
+                .checked_add(usize::from(
+                    u16::try_from(camera_column_tiles >> 1)
+                        .context("sub_30194 expects non-negative camera columns")?,
+                ))
+                .context("sub_30194 horizontal source cell offset overflowed")?;
+            let plane_column_tiles = u16::try_from(camera_column_tiles)
+                .context("sub_30194 expects non-negative camera columns")?
+                & 0x001F;
+            let first_count = if plane_column_tiles < 0x000C {
+                21
+            } else {
+                usize::from(0x0020_u16.wrapping_sub(plane_column_tiles))
+            };
+            let second_count = 21usize.saturating_sub(first_count);
+
+            let mut first_longwords = Vec::with_capacity(first_count);
+            for source_index in 0..first_count {
+                let &cell = inputs
+                    .level_layout_cells
+                    .get(source_cell_offset + source_index)
+                    .context("sub_30194 horizontal strip ran past Level_Layout cells")?;
+                first_longwords.push(mapped_longword_sub_3034A(
+                    cell,
+                    row_half_word_offset,
+                    inputs.theme_mappings,
+                    inputs.block_mappings,
+                )?);
+            }
+            horizontal_uploads.push(PlaneLongwordStripUploadSub30194 {
+                vram_word_address: plane_row_word_address_sub_30194(
+                    streamed_row_tiles_u16,
+                    u16::try_from(camera_column_tiles >> 1)
+                        .context("sub_30194 expects non-negative camera columns")?,
+                ),
+                longwords: first_longwords,
+            });
+
+            if second_count > 0 {
+                let mut second_longwords = Vec::with_capacity(second_count);
+                for source_index in first_count..(first_count + second_count) {
+                    let &cell = inputs
+                        .level_layout_cells
+                        .get(source_cell_offset + source_index)
+                        .context(
+                            "sub_30194 wrapped horizontal strip ran past Level_Layout cells",
+                        )?;
+                    second_longwords.push(mapped_longword_sub_3034A(
+                        cell,
+                        row_half_word_offset,
+                        inputs.theme_mappings,
+                        inputs.block_mappings,
+                    )?);
+                }
+                horizontal_uploads.push(PlaneLongwordStripUploadSub30194 {
+                    vram_word_address: plane_row_word_address_sub_30194(streamed_row_tiles_u16, 0),
+                    longwords: second_longwords,
+                });
+            }
+        }
+    }
+
+    let mut vertical_uploads = Vec::new();
+    if camera_column_tiles != previous_column_tiles {
+        let mut streamed_column_tiles = camera_column_tiles;
+        if camera_column_tiles >= previous_column_tiles {
+            streamed_column_tiles = streamed_column_tiles.wrapping_add(0x0028);
+            if streamed_column_tiles >= inputs.level_width_tiles as i16 {
+                streamed_column_tiles = -1;
+            }
+        }
+
+        if streamed_column_tiles >= 0 {
+            let streamed_column_tiles_u16 = u16::try_from(streamed_column_tiles)
+                .expect("sub_30194 keeps streamed columns non-negative");
+            let column_half_word_offset = if streamed_column_tiles_u16 & 1 != 0 {
+                1
+            } else {
+                0
+            };
+            let source_column = usize::from(streamed_column_tiles_u16 >> 1);
+            let source_row_even_tiles = u16::try_from(camera_row_tiles & !1)
+                .context("sub_30194 expects non-negative camera rows")?;
+            let row_pair_index = usize::from(source_row_even_tiles >> 1);
+            let row_start = usize::from(
+                *inputs
+                    .level_layout_row_offsets_cells
+                    .get(row_pair_index)
+                    .context(
+                        "sub_30194 row-pointer table is missing the streamed column start row",
+                    )?,
+            );
+            let source_cell_offset = row_start
+                .checked_add(source_column)
+                .context("sub_30194 vertical source cell offset overflowed")?;
+            let plane_row_pair = (u16::try_from(camera_row_tiles)
+                .context("sub_30194 expects non-negative camera rows")?
+                >> 1)
+                & 0x000F;
+            let first_count = if plane_row_pair < 0x0002 {
+                15
+            } else {
+                usize::from(0x0010_u16.wrapping_sub(plane_row_pair))
+            };
+            let second_count = 15usize.saturating_sub(first_count);
+
+            let mut first_words = Vec::with_capacity(first_count * 2);
+            for row_index in 0..first_count {
+                let &cell = inputs
+                    .level_layout_cells
+                    .get(source_cell_offset + row_index * level_width_cells)
+                    .context("sub_30194 vertical strip ran past Level_Layout cells")?;
+                first_words.extend(mapped_word_pair_sub_302F6(
+                    cell,
+                    column_half_word_offset,
+                    inputs.theme_mappings,
+                    inputs.block_mappings,
+                )?);
+            }
+            vertical_uploads.push(PlaneWordStripUploadSub30194 {
+                vram_word_address: plane_column_word_address_sub_30194(
+                    source_row_even_tiles,
+                    streamed_column_tiles_u16,
+                ),
+                words: first_words,
+            });
+
+            if second_count > 0 {
+                let mut second_words = Vec::with_capacity(second_count * 2);
+                for row_index in first_count..(first_count + second_count) {
+                    let &cell = inputs
+                        .level_layout_cells
+                        .get(source_cell_offset + row_index * level_width_cells)
+                        .context("sub_30194 wrapped vertical strip ran past Level_Layout cells")?;
+                    second_words.extend(mapped_word_pair_sub_302F6(
+                        cell,
+                        column_half_word_offset,
+                        inputs.theme_mappings,
+                        inputs.block_mappings,
+                    )?);
+                }
+                vertical_uploads.push(PlaneWordStripUploadSub30194 {
+                    vram_word_address: plane_column_word_address_sub_30194(
+                        0,
+                        streamed_column_tiles_u16,
+                    ),
+                    words: second_words,
+                });
+            }
+        }
+    }
+
+    Ok(LevelPlaneScrollUpdatePlanSub30194 {
+        horizontal_uploads,
+        vertical_uploads,
     })
 }
 
@@ -5836,5 +6130,112 @@ PlatformScript_361C:   ; relative offset: 001A
         assert_eq!(script_1a.commands[0].duration, 0xE1);
         assert_eq!(script_1a.commands[0].x_velocity, 0);
         assert_eq!(script_1a.commands[0].y_velocity, -0x11000);
+    }
+
+    fn synthetic_mappings_sub_30194(base: u16) -> Vec<u16> {
+        let mut mappings = vec![0u16; 0x100 * 4];
+        for tile in 0..0x100u16 {
+            let offset = usize::from(tile) * 4;
+            mappings[offset] = base.wrapping_add(tile.wrapping_mul(4));
+            mappings[offset + 1] = base.wrapping_add(tile.wrapping_mul(4)).wrapping_add(1);
+            mappings[offset + 2] = base.wrapping_add(tile.wrapping_mul(4)).wrapping_add(2);
+            mappings[offset + 3] = base.wrapping_add(tile.wrapping_mul(4)).wrapping_add(3);
+        }
+        mappings
+    }
+
+    fn synthetic_row_offsets_sub_30194(row_pairs: usize, width_cells: usize) -> Vec<u16> {
+        (0..row_pairs)
+            .map(|row_pair| u16::try_from(row_pair * width_cells).expect("row offset fits in u16"))
+            .collect()
+    }
+
+    #[test]
+    fn sub_30194_builds_the_new_bottom_row_longword_upload_from_theme_and_block_mappings() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let row_offsets = synthetic_row_offsets_sub_30194(32, 40);
+        let mut level_layout_cells = vec![0u16; 32 * 40];
+        let streamed_row_start = 14 * 40;
+        level_layout_cells[streamed_row_start] = 0x0001;
+        level_layout_cells[streamed_row_start + 1] = 0x0102;
+        level_layout_cells[streamed_row_start + 2] = 0x8003;
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 0,
+            camera_y_pos: 8,
+            previous_camera_x_pos: 0,
+            previous_camera_y_pos: 0,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should accept a valid row-pointer table and mapping tables");
+
+        assert_eq!(
+            plan.vertical_uploads,
+            Vec::<PlaneWordStripUploadSub30194>::new()
+        );
+        assert_eq!(plan.horizontal_uploads.len(), 1);
+        assert_eq!(plan.horizontal_uploads[0].vram_word_address, 0x0740);
+        assert_eq!(
+            &plan.horizontal_uploads[0].longwords[..3],
+            &[0x1006_1007, 0x900A_900B, 0x500E_500F],
+            "ASM sub_30194/sub_3034A should select the streamed bottom row, set bit 15 for priority-marked theme cells, and switch to Block_Mappings for negative cells",
+        );
+        assert_eq!(
+            plan.horizontal_uploads[0].longwords.len(),
+            21,
+            "ASM sub_30194 should emit 21 longwords for the newly exposed horizontal strip when the plane row does not wrap",
+        );
+    }
+
+    #[test]
+    fn sub_30194_splits_vertical_strip_uploads_when_the_fg_plane_wraps() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let row_offsets = synthetic_row_offsets_sub_30194(20, 40);
+        let mut level_layout_cells = vec![0u16; 20 * 40];
+        let source_column = 32;
+        let source_row_start = 2 * 40;
+        level_layout_cells[source_row_start + source_column] = 0x0004;
+        level_layout_cells[source_row_start + 40 + source_column] = 0x0105;
+        level_layout_cells[source_row_start + 14 * 40 + source_column] = 0x8006;
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 24 * 8,
+            camera_y_pos: 32,
+            previous_camera_x_pos: 23 * 8,
+            previous_camera_y_pos: 32,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should split wrapped vertical uploads across the FG plane");
+
+        assert_eq!(
+            plan.horizontal_uploads,
+            Vec::<PlaneLongwordStripUploadSub30194>::new()
+        );
+        assert_eq!(plan.vertical_uploads.len(), 2);
+        assert_eq!(plan.vertical_uploads[0].vram_word_address, 0x0100);
+        assert_eq!(
+            &plan.vertical_uploads[0].words[..4],
+            &[0x1010, 0x1012, 0x9014, 0x9016],
+            "ASM sub_30194/sub_302F6 should stream the left metatile column as two words per row and set bit 15 for priority cells",
+        );
+        assert_eq!(plan.vertical_uploads[0].words.len(), 28);
+        assert_eq!(plan.vertical_uploads[1].vram_word_address, 0x0000);
+        assert_eq!(
+            plan.vertical_uploads[1].words,
+            vec![0x5018, 0x501A],
+            "ASM sub_30194 should wrap the fifteenth row write back to the top of the plane while continuing to read the next source row from Block_Mappings",
+        );
     }
 }
