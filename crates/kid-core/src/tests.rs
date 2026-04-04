@@ -19469,6 +19469,94 @@ fn boss_death_burst_finish_sub_3728c_plays_the_final_anim_then_deletes() {
 }
 
 #[test]
+fn boss_eye_pop_effect_init_sub_3729e_seeds_the_tracking_sprite_and_counter() {
+    let init = boss_eye_pop_effect_init_sub_3729E(0x0044, 0x0046);
+
+    assert_eq!(
+        init.gfx_slot_base, 0x0101_0002,
+        "ASM sub_3729E should allocate gfx slot `$01010002` for the boss eye pop effect",
+    );
+    assert_eq!(
+        init.object_meta, 0x0020,
+        "ASM sub_3729E should seed `object_meta(a3)` with `$20` before `loc_32146`",
+    );
+    assert!(
+        init.display_enabled && init.is_moved,
+        "ASM sub_3729E should set `$13(a3)` and `is_moved(a3)` on the spawned eye effect",
+    );
+    assert_eq!(
+        init.x_direction, 0,
+        "ASM sub_3729E should clear `x_direction(a3)` before the entry animation starts",
+    );
+    assert_eq!(
+        init.sprite_mapping_label, "LnkTo_unk_C8460-Data_Index",
+        "ASM sub_3729E should use the shared burst sprite mapping for the eye effect",
+    );
+    assert_eq!(
+        (init.x_pos, init.y_pos, init.sprite_word_y_adjust),
+        (0x0044, 0x0046, 1),
+        "ASM sub_3729E should copy `$44/$46(a5)` into the sprite and add 1 to `$A(a3)`",
+    );
+    assert_eq!(
+        init.active_eye_delta, 1,
+        "ASM sub_3729E should increment `$FFFFFB4F` before the eye effect starts tracking",
+    );
+    assert_eq!(
+        (
+            init.entry_animation_label,
+            init.entry_hibernate_until_anim_finished
+        ),
+        ("stru_37BEA", true),
+        "ASM sub_3729E should play `stru_37BEA` and hibernate until that entry animation finishes",
+    );
+    assert_eq!(
+        init.chase_frames, 0x0064,
+        "ASM loc_372F6 should run exactly `#$64` hibernated tracking frames before finishing",
+    );
+}
+
+#[test]
+fn boss_eye_pop_effect_face_kid_sub_3729e_points_left_when_not_right_of_kid() {
+    assert_eq!(
+        boss_eye_pop_effect_face_kid_sub_3729E(0x0040, 0x0060),
+        0xFF,
+        "ASM loc_37300 should set `x_direction(a3)=$FF` when the effect is left of Kid",
+    );
+    assert_eq!(
+        boss_eye_pop_effect_face_kid_sub_3729E(0x0060, 0x0060),
+        0xFF,
+        "ASM loc_37300 should keep `x_direction(a3)=$FF` when the effect shares Kid's X position",
+    );
+    assert_eq!(
+        boss_eye_pop_effect_face_kid_sub_3729E(0x0061, 0x0060),
+        0,
+        "ASM loc_37316 should clear `x_direction(a3)` only when the effect is strictly right of Kid",
+    );
+}
+
+#[test]
+fn boss_eye_pop_effect_finish_sub_3729e_plays_the_final_anim_and_decrements_the_counter() {
+    let finish = boss_eye_pop_effect_finish_sub_3729E();
+
+    assert_eq!(
+        finish.animation_label, "stru_37BFC",
+        "ASM loc_3731C should switch the eye effect to `stru_37BFC` before its final hibernate",
+    );
+    assert!(
+        finish.hibernate_until_anim_finished,
+        "ASM loc_3731C should call `Hibernate_UntilAnimFinished` before deleting the eye effect",
+    );
+    assert_eq!(
+        finish.active_eye_delta, -1,
+        "ASM loc_3731C should decrement `$FFFFFB4F` after the final animation completes",
+    );
+    assert!(
+        finish.delete_current_object,
+        "ASM loc_3731C should delete the current object after the final animation and counter decrement",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);

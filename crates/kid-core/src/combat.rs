@@ -152,6 +152,32 @@ pub(crate) struct BossDeathBurstFinishSub3728C {
     pub(crate) delete_current_object: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyePopEffectInitSub3729E {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) x_direction: u8,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_word_y_adjust: u16,
+    pub(crate) active_eye_delta: i8,
+    pub(crate) entry_animation_label: &'static str,
+    pub(crate) entry_hibernate_until_anim_finished: bool,
+    pub(crate) chase_frames: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyePopEffectFinishSub3729E {
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_anim_finished: bool,
+    pub(crate) active_eye_delta: i8,
+    pub(crate) delete_current_object: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_init_sub_370D2(
@@ -229,6 +255,54 @@ pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728
     BossDeathBurstFinishSub3728C {
         animation_label: "stru_37BFC",
         hibernate_until_anim_finished: true,
+        delete_current_object: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
+    x_pos: u16,
+    y_pos: u16,
+) -> BossEyePopEffectInitSub3729E {
+    // ASM sub_3729E (kid.asm:39142): allocate gfx slot `$01010002`, seed
+    // sprite mapping `LnkTo_unk_C8460-Data_Index`, bump `$FFFFFB4F`, play
+    // `stru_37BEA`, then enter a 100-frame facing loop.
+    BossEyePopEffectInitSub3729E {
+        gfx_slot_base: 0x0101_0002,
+        priority: 0,
+        object_meta: 0x0020,
+        display_enabled: true,
+        is_moved: true,
+        x_direction: 0,
+        sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        x_pos,
+        y_pos,
+        sprite_word_y_adjust: 1,
+        active_eye_delta: 1,
+        entry_animation_label: "stru_37BEA",
+        entry_hibernate_until_anim_finished: true,
+        chase_frames: 0x0064,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) -> u8 {
+    // ASM loc_37300..loc_3731A (kid.asm:39170): if the effect is to the right
+    // of Kid clear `x_direction(a3)`, otherwise set it to `$FF`.
+    if effect_x > kid_x { 0 } else { 0xFF }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_pop_effect_finish_sub_3729E() -> BossEyePopEffectFinishSub3729E {
+    // ASM loc_3731C (kid.asm:39187): play `stru_37BFC`, hibernate until the
+    // animation ends, decrement `$FFFFFB4F`, then delete the object.
+    BossEyePopEffectFinishSub3729E {
+        animation_label: "stru_37BFC",
+        hibernate_until_anim_finished: true,
+        active_eye_delta: -1,
         delete_current_object: true,
     }
 }
