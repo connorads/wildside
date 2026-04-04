@@ -250,6 +250,12 @@ pub(crate) struct BossHeadMovementStepSub39846 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadMovementWrapper {
+    pub(crate) movement: BossHeadMovementStepSub39846,
+    pub(crate) runs_shared_collision_helper_sub_3_a292: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -782,6 +788,42 @@ pub(crate) fn boss_head_movement_step_sub_39846(
             next_x_velocity: Some(to_fp16_16(x_word)),
             next_y_velocity: Some(to_fp16_16(y_word)),
         };
+    }
+}
+
+const SHISHKA_BOSS_HEAD_MOVEMENT_SUB_39872: [(i16, i16, i16); 12] = [
+    (0x0168, 0, -1),
+    (0x0168, -1, 0),
+    (0x0168, 0, 1),
+    (0x0168, 1, 0),
+    (0x00B4, 0, -2),
+    (0x01CC, -1, 0),
+    (0x0168, 0, 1),
+    (0x00E6, 2, 0),
+    (0x00B4, -1, 0),
+    (0x012C, 0, 0),
+    (0x00B4, -1, 0),
+    (0x0168, 1, 0),
+];
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_movement_wrapper_sub_398BC(
+    delay_counter_d0: u16,
+    current_script_index: usize,
+    current_script: &[(i16, i16, i16)],
+) -> BossHeadMovementWrapper {
+    // ASM sub_398BC (kid.asm:42522): run the Shishka head movement step via
+    // `sub_39846`, which rewinds sentinels to `unk_39872`, then tail-call the
+    // shared boss collision/palette helper `sub_3A292`.
+    BossHeadMovementWrapper {
+        movement: boss_head_movement_step_sub_39846(
+            delay_counter_d0,
+            current_script_index,
+            current_script,
+            &SHISHKA_BOSS_HEAD_MOVEMENT_SUB_39872,
+        ),
+        runs_shared_collision_helper_sub_3_a292: true,
     }
 }
 

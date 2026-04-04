@@ -19979,6 +19979,35 @@ fn boss_head_movement_step_sub_39846_rewinds_negative_sentinel_entries_to_unk_39
 }
 
 #[test]
+fn boss_head_movement_wrapper_sub_398bc_rewinds_negative_sentinel_entries_to_unk_39872_and_runs_sub_3a292()
+ {
+    let sentinel_only_script = [(-1, 0, 0)];
+
+    let result = boss_head_movement_wrapper_sub_398BC(1, 0, &sentinel_only_script);
+
+    assert_eq!(
+        result.movement.next_delay_counter, 0x0168,
+        "ASM sub_398BC should inherit `sub_39846`'s rewind to `unk_39872` when the current entry is the negative sentinel",
+    );
+    assert_eq!(
+        result.movement.next_script_index, 1,
+        "ASM sub_398BC should resume after the first real `unk_39872` entry once the sentinel rewinds the script pointer",
+    );
+    assert_eq!(
+        (
+            result.movement.next_x_velocity,
+            result.movement.next_y_velocity
+        ),
+        (Some(0), Some(-0x0000_8000)),
+        "ASM sub_398BC should load the first `unk_39872` velocity pair before tail-calling `sub_3A292`",
+    );
+    assert!(
+        result.runs_shared_collision_helper_sub_3_a292,
+        "ASM sub_398BC should always tail-call the shared boss collision/palette helper `sub_3A292` after the movement step",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
