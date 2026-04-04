@@ -418,6 +418,13 @@ pub struct BackgroundTileUploadSub30744 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackgroundRowUploadSegmentSub307D8 {
+    pub vram_word_address: u16,
+    pub tile_words: Vec<u16>,
+    pub background_chunk_ids: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OptionMenuTileSplitUploadSub1CCAE {
     pub upper_vram_word_address: u16,
     pub upper_words: Vec<u16>,
@@ -2662,6 +2669,137 @@ pub fn background_tile_uploads_sub_30744(
     }
 
     Ok(uploads)
+}
+
+#[allow(non_snake_case)]
+pub fn background_row_uploads_sub_307D8(
+    camera_y_pos: i16,
+    previous_camera_row_chunk: i16,
+    background_width: u16,
+    background_row_offsets: &[u16],
+    bgscroll_profile: &[u8],
+    horiz_scroll_entries: &[BackgroundScrollStateSub30744],
+    background_chunk_buffer: &[u8],
+) -> Result<Vec<BackgroundRowUploadSegmentSub307D8>> {
+    // ASM sub_307D8 (kid.asm:34625): when `Camera_Y_pos>>5` changes, upload the
+    // newly exposed 40-cell background row. Upward scroll streams the current
+    // row chunk; downward scroll streams `current+#$1C`. The routine then walks
+    // 40 chunk ids from the selected background row, splitting the upload any
+    // time either the background row source wraps by `Background_width` or the
+    // plane row address wraps back to its `$6000 | row<<7` base.
+    ensure!(
+        background_width != 0,
+        "sub_307D8 needs a non-zero Background_width"
+    );
+    ensure!(
+        camera_y_pos >= 0,
+        "sub_307D8 expects a non-negative Camera_Y_pos"
+    );
+
+    let current_camera_row_chunk = camera_y_pos >> 5;
+    if current_camera_row_chunk == previous_camera_row_chunk {
+        return Ok(Vec::new());
+    }
+
+    let streamed_row_chunk = if previous_camera_row_chunk > current_camera_row_chunk {
+        current_camera_row_chunk
+    } else {
+        current_camera_row_chunk.wrapping_add(0x001C)
+    };
+    ensure!(
+        streamed_row_chunk >= 0,
+        "sub_307D8 streamed row chunk should stay non-negative"
+    );
+    let streamed_row_chunk = usize::try_from(streamed_row_chunk)
+        .context("sub_307D8 streamed row chunk should fit into usize")?;
+
+    let entry_offset = *bgscroll_profile
+        .get(streamed_row_chunk)
+        .context("sub_307D8 bgscroll profile is missing the streamed row chunk")?;
+    if entry_offset == 0xFF {
+        return Ok(Vec::new());
+    }
+    ensure!(
+        entry_offset % 8 == 0,
+        "sub_307D8 bgscroll entries should point at 8-byte Horiz_Scroll_Data slots"
+    );
+    let entry = *horiz_scroll_entries
+        .get(usize::from(entry_offset / 8))
+        .context("sub_307D8 bgscroll entry points past Horiz_Scroll_Data")?;
+    let background_buffer_column = entry
+        .background_buffer_column
+        .context("sub_307D8 needs a visible Horiz_Scroll_Data entry")?;
+
+    let row_offset = usize::from(
+        *background_row_offsets
+            .get(streamed_row_chunk)
+            .context("sub_307D8 background row-offset table is missing the streamed row")?,
+    );
+    let background_width = usize::from(background_width);
+    let source_row_start = row_offset
+        .checked_add(usize::from(background_buffer_column))
+        .context("sub_307D8 background source row start overflowed")?;
+    let row_base_vram_word_address =
+        0x6000 | (((u16::try_from(streamed_row_chunk).unwrap_or_default()) & 0x001F) << 7);
+    let mut current_vram_word_address = row_base_vram_word_address | entry.vram_word_offset;
+    let mut current_source_index = source_row_start;
+    let mut source_remaining_until_wrap = background_width
+        .checked_sub(usize::from(background_buffer_column))
+        .context("sub_307D8 wrapped source column exceeded Background_width")?;
+    let mut vram_remaining_until_wrap = 0x40_usize
+        .checked_sub(usize::from(entry.vram_word_offset >> 1))
+        .context("sub_307D8 VDP word offset exceeded the 64-cell plane row")?;
+    let mut remaining_cells = 0x28_usize;
+    let mut segments = Vec::new();
+
+    while remaining_cells != 0 {
+        let segment_len = remaining_cells
+            .min(source_remaining_until_wrap)
+            .min(vram_remaining_until_wrap);
+        ensure!(
+            segment_len != 0,
+            "sub_307D8 segment length unexpectedly reached zero"
+        );
+
+        let mut background_chunk_ids = Vec::with_capacity(segment_len);
+        let mut tile_words = Vec::with_capacity(segment_len);
+        for offset in 0..segment_len {
+            let background_chunk_id = *background_chunk_buffer
+                .get(current_source_index + offset)
+                .context(
+                "sub_307D8 background chunk buffer is missing the streamed source byte",
+            )?;
+            background_chunk_ids.push(background_chunk_id);
+            tile_words.push(background_tile_word_sub_30744(background_chunk_id));
+        }
+        segments.push(BackgroundRowUploadSegmentSub307D8 {
+            vram_word_address: current_vram_word_address,
+            tile_words,
+            background_chunk_ids,
+        });
+
+        remaining_cells -= segment_len;
+        current_source_index += segment_len;
+        source_remaining_until_wrap -= segment_len;
+        vram_remaining_until_wrap -= segment_len;
+
+        if remaining_cells == 0 {
+            break;
+        }
+        if source_remaining_until_wrap == 0 {
+            current_source_index = row_offset;
+            source_remaining_until_wrap = background_width;
+        }
+        if vram_remaining_until_wrap == 0 {
+            current_vram_word_address = row_base_vram_word_address;
+            vram_remaining_until_wrap = 0x40;
+        } else {
+            current_vram_word_address =
+                current_vram_word_address.wrapping_add(u16::try_from(segment_len * 2).unwrap_or(0));
+        }
+    }
+
+    Ok(segments)
 }
 
 #[allow(non_snake_case)]
@@ -6639,6 +6777,112 @@ PlatformScript_361C:   ; relative offset: 001A
                 background_chunk_id: 9,
             }],
             "ASM sub_30744 should treat negative `Horiz_Scroll_Data` entries as skips, then upload the next visible row from the advanced background row base",
+        );
+    }
+
+    #[test]
+    fn background_row_uploads_sub_307d8_uses_the_newly_exposed_downward_row_chunk() {
+        let mut background_chunk_buffer = vec![0u8; 32 * 40];
+        for (index, byte) in background_chunk_buffer[31 * 40..32 * 40]
+            .iter_mut()
+            .enumerate()
+        {
+            *byte = u8::try_from(index).expect("row payload should fit into u8");
+        }
+
+        let uploads = background_row_uploads_sub_307D8(
+            96,
+            2,
+            40,
+            &(0..32)
+                .map(|row| u16::try_from(row * 40).unwrap_or(0))
+                .collect::<Vec<_>>(),
+            &[0; 32],
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(0),
+                vram_word_offset: 0x0000,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect("ASM sub_307D8 should stream `current+#$1C` when the camera row increases");
+
+        assert_eq!(
+            uploads,
+            vec![BackgroundRowUploadSegmentSub307D8 {
+                vram_word_address: 0x6F80,
+                tile_words: (0x2780..=0x27A7).collect(),
+                background_chunk_ids: (0u8..=39).collect(),
+            }],
+            "ASM sub_307D8 should pick row chunk 31 for the 3->31 downward reveal and upload the full 40-cell strip without wrapping",
+        );
+    }
+
+    #[test]
+    fn background_row_uploads_sub_307d8_splits_when_source_and_vdp_rows_wrap() {
+        let mut background_chunk_buffer = vec![0u8; 10];
+        background_chunk_buffer[..10].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+        let uploads = background_row_uploads_sub_307D8(
+            0,
+            1,
+            10,
+            &[0],
+            &[0],
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(8),
+                vram_word_offset: 0x0078,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect(
+            "ASM sub_307D8 should split the streamed strip whenever the source row or plane row wraps",
+        );
+
+        assert_eq!(
+            uploads,
+            vec![
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6078,
+                    tile_words: vec![0x2789, 0x278A],
+                    background_chunk_ids: vec![9, 10],
+                },
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x607C,
+                    tile_words: vec![0x2781, 0x2782],
+                    background_chunk_ids: vec![1, 2],
+                },
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6000,
+                    tile_words: vec![
+                        0x2783, 0x2784, 0x2785, 0x2786, 0x2787, 0x2788, 0x2789, 0x278A
+                    ],
+                    background_chunk_ids: vec![3, 4, 5, 6, 7, 8, 9, 10],
+                },
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6010,
+                    tile_words: vec![
+                        0x2781, 0x2782, 0x2783, 0x2784, 0x2785, 0x2786, 0x2787, 0x2788, 0x2789,
+                        0x278A,
+                    ],
+                    background_chunk_ids: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                },
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6024,
+                    tile_words: vec![
+                        0x2781, 0x2782, 0x2783, 0x2784, 0x2785, 0x2786, 0x2787, 0x2788, 0x2789,
+                        0x278A,
+                    ],
+                    background_chunk_ids: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                },
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6038,
+                    tile_words: vec![
+                        0x2781, 0x2782, 0x2783, 0x2784, 0x2785, 0x2786, 0x2787, 0x2788
+                    ],
+                    background_chunk_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
+                },
+            ],
+            "ASM sub_307D8 should keep reissuing row segments whenever the 10-cell source wraps, even after the plane row has already wrapped back to $6000",
         );
     }
 }
