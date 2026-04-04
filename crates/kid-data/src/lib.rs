@@ -199,6 +199,33 @@ pub struct TitleScreenLoadPlanSub1B2A4 {
     pub palette_loads: Vec<SymbolicPaletteLoadSub1B2A4>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicVramAssetLoadSub1B850 {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicEnigmaTilemapLoadSub1B850 {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+    pub width_words: u16,
+    pub height_words: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepeatedWordRowsVramUploadSub1B850 {
+    pub vram_byte_address: u16,
+    pub rows: [[u16; 64]; 28],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TitleIntroLoadPlanSub1B850 {
+    pub art_uploads: [SymbolicVramAssetLoadSub1B850; 5],
+    pub tilemap_load: SymbolicEnigmaTilemapLoadSub1B850,
+    pub repeated_rows_upload: RepeatedWordRowsVramUploadSub1B850,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LongwordVramUploadSub1B41C {
     pub vram_word_address: u16,
@@ -1304,6 +1331,58 @@ pub fn title_screen_load_plan_sub_1B2A4(region_byte: u8) -> TitleScreenLoadPlanS
         tile_patch_words: TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4,
         palette_loads,
     }
+}
+
+#[allow(non_snake_case)]
+pub fn title_intro_load_plan_sub_1B850(
+    decoded_row_words: &[u16],
+) -> Result<TitleIntroLoadPlanSub1B850> {
+    // ASM sub_1B850 (kid.asm:30172): queue five title-intro art decompresses,
+    // decode `unk_2FDE0` to a 40x28 tilemap at VRAM word address 0 via
+    // sub_1C5D0, then decode `unk_2FDCE` and let loc_1B8E4/loc_1B8E6 stamp
+    // each of the first 28 words across a full 64-word row at VRAM byte
+    // address $E000.
+    let decoded_row_words = decoded_row_words.get(..28).ok_or_else(|| {
+        anyhow!(
+            "sub_1B850 needs 28 decoded row words for loc_1B8E4 but only received {}",
+            decoded_row_words.len()
+        )
+    })?;
+    let rows = core::array::from_fn(|row_index| [decoded_row_words[row_index]; 64]);
+    Ok(TitleIntroLoadPlanSub1B850 {
+        art_uploads: [
+            SymbolicVramAssetLoadSub1B850 {
+                vram_word_address: 0x1780,
+                asset_label: "byte_2D73B",
+            },
+            SymbolicVramAssetLoadSub1B850 {
+                vram_word_address: 0x2740,
+                asset_label: "byte_2D71A",
+            },
+            SymbolicVramAssetLoadSub1B850 {
+                vram_word_address: 0x2800,
+                asset_label: "byte_2DEBF",
+            },
+            SymbolicVramAssetLoadSub1B850 {
+                vram_word_address: 0x3AC0,
+                asset_label: "byte_261D7",
+            },
+            SymbolicVramAssetLoadSub1B850 {
+                vram_word_address: 0xFA60,
+                asset_label: "ArtComp_1DA86_LettersNumbers",
+            },
+        ],
+        tilemap_load: SymbolicEnigmaTilemapLoadSub1B850 {
+            vram_word_address: 0x0000,
+            asset_label: "unk_2FDE0",
+            width_words: 40,
+            height_words: 28,
+        },
+        repeated_rows_upload: RepeatedWordRowsVramUploadSub1B850 {
+            vram_byte_address: 0xE000,
+            rows,
+        },
+    })
 }
 
 #[allow(non_snake_case)]
@@ -3487,6 +3566,51 @@ AddrTbl_LevelNames:   ;1A842
             }],
             "ASM loc_1C4B2 should copy only the base palette when ($FFFFFC82).w is zero",
         );
+    }
+
+    #[test]
+    fn title_intro_load_plan_sub_1b850_replays_the_rom_upload_order() {
+        let plan = title_intro_load_plan_sub_1B850(&(0u16..28).collect::<Vec<_>>())
+            .expect("ASM sub_1B850 should accept the 28 decoded words consumed by loc_1B8E4");
+
+        assert_eq!(
+            plan.art_uploads
+                .iter()
+                .map(|upload| (upload.vram_word_address, upload.asset_label))
+                .collect::<Vec<_>>(),
+            vec![
+                (0x1780, "byte_2D73B"),
+                (0x2740, "byte_2D71A"),
+                (0x2800, "byte_2DEBF"),
+                (0x3AC0, "byte_261D7"),
+                (0xFA60, "ArtComp_1DA86_LettersNumbers"),
+            ],
+            "ASM sub_1B850 should queue the five title-intro art decompresses in ROM order",
+        );
+        assert_eq!(
+            plan.tilemap_load,
+            SymbolicEnigmaTilemapLoadSub1B850 {
+                vram_word_address: 0x0000,
+                asset_label: "unk_2FDE0",
+                width_words: 40,
+                height_words: 28,
+            },
+            "ASM sub_1B850 should decode `unk_2FDE0` and hand it to sub_1C5D0 as a 40x28 tilemap at VRAM word address 0",
+        );
+    }
+
+    #[test]
+    fn title_intro_load_plan_sub_1b850_repeats_each_second_tilemap_word_across_a_full_row() {
+        let decoded_row_words = (0u16..28).collect::<Vec<_>>();
+        let plan = title_intro_load_plan_sub_1B850(&decoded_row_words).expect(
+            "ASM sub_1B850 should keep the second tilemap blit when 28 row words are available",
+        );
+
+        assert_eq!(plan.repeated_rows_upload.vram_byte_address, 0xE000);
+        assert_eq!(plan.repeated_rows_upload.rows.len(), 28);
+        assert_eq!(plan.repeated_rows_upload.rows[0], [0; 64]);
+        assert_eq!(plan.repeated_rows_upload.rows[1], [1; 64]);
+        assert_eq!(plan.repeated_rows_upload.rows[27], [27; 64]);
     }
 
     #[test]
