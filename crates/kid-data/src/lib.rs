@@ -231,6 +231,13 @@ pub struct RepeatedWordRowsVramUploadSub1B850 {
     pub rows: [[u16; 64]; 28],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicPaletteBuffer2Load {
+    pub destination_word_offset: u16,
+    pub palette_label: &'static str,
+    pub word_count: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleIntroLoadPlanSub1B850 {
     pub art_uploads: [SymbolicVramAssetLoadSub1B850; 5],
@@ -1480,6 +1487,17 @@ pub fn title_intro_load_plan_sub_1B850(
             rows,
         },
     })
+}
+
+#[allow(non_snake_case)]
+pub fn title_intro_palette_load_sub_1C4EA() -> SymbolicPaletteBuffer2Load {
+    // ASM sub_1C4EA (kid.asm:31227): copy 0x33 words from `Pal_1C28A` into
+    // Palette_Buffer_2 starting at word offset 0.
+    SymbolicPaletteBuffer2Load {
+        destination_word_offset: 0x0000,
+        palette_label: "Pal_1C28A",
+        word_count: 0x0033,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -4005,6 +4023,19 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x0013,
             },
             "ASM loc_1C4B2 should switch to Pal_1C48C once ($FFFFFC82).w is non-zero and not 1",
+        );
+    }
+
+    #[test]
+    fn title_intro_palette_load_sub_1c4ea_copies_intro1_wildside_into_palette_buffer_2() {
+        assert_eq!(
+            title_intro_palette_load_sub_1C4EA(),
+            SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0000,
+                palette_label: "Pal_1C28A",
+                word_count: 0x0033,
+            },
+            "ASM sub_1C4EA should seed Palette_Buffer_2 from `Pal_1C28A` for the Intro 1 Wild Side palette",
         );
     }
 
