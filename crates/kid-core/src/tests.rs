@@ -20225,6 +20225,34 @@ fn boss_head_movement_step_sub_39c02_rewinds_negative_sentinel_entries_to_unk_39
 }
 
 #[test]
+fn boss_head_movement_wrapper_sub_39d4a_uses_sub_39c02_and_runs_sub_3a292() {
+    let sentinel_only_script = [(-1, 0, 0)];
+
+    let result = boss_head_movement_wrapper_sub_39D4A(1, 0, &sentinel_only_script);
+
+    assert_eq!(
+        result.movement.next_delay_counter, 0x001E,
+        "ASM sub_39D4A should inherit `sub_39C02`'s rewind to `unk_39C2E` before the shared helper runs",
+    );
+    assert_eq!(
+        result.movement.next_script_index, 1,
+        "ASM sub_39D4A should advance past the first rewound Bagel Brothers variant head script entry",
+    );
+    assert_eq!(
+        (
+            result.movement.next_x_velocity,
+            result.movement.next_y_velocity
+        ),
+        (Some(0), Some(-0x8000)),
+        "ASM sub_39D4A should preserve the `sub_39C02` velocity load before tail-calling `sub_3A292`",
+    );
+    assert!(
+        result.runs_shared_collision_helper_sub_3_a292,
+        "ASM sub_39D4A should always tail-call the shared boss collision/palette helper `sub_3A292` after `sub_39C02`",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
