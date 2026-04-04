@@ -432,6 +432,13 @@ pub struct VdpDataFillSub1DA62 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VramZeroFillSub1DA72 {
+    pub vram_byte_address: u16,
+    pub vdp_control_longword: u32,
+    pub words: [u16; 16],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EndSequenceGlyphUploadSub1D080 {
     pub vram_byte_address: u16,
     pub vdp_control_longword: u32,
@@ -2013,6 +2020,17 @@ pub fn vdp_data_fill_sub_1DA62() -> VdpDataFillSub1DA62 {
     VdpDataFillSub1DA62 {
         word_count: 0x0800,
         fill_word: 0x0094,
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn vram_zero_fill_sub_1DA72() -> VramZeroFillSub1DA72 {
+    // ASM sub_1DA72 (kid.asm:33350): point the VDP at VRAM byte `$1280`, then
+    // stream 16 zero words via `moveq #$F,d0` / `dbf d0`.
+    VramZeroFillSub1DA72 {
+        vram_byte_address: 0x1280,
+        vdp_control_longword: vdp_write_control_longword(0x1280),
+        words: [0; 16],
     }
 }
 
@@ -5085,6 +5103,23 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(
             fill.fill_word, 0x0094,
             "ASM sub_1DA62 should write the constant word `$94` on every loop iteration",
+        );
+    }
+
+    #[test]
+    fn vram_zero_fill_sub_1da72_targets_vram_1280_for_16_zero_words() {
+        let fill = vram_zero_fill_sub_1DA72();
+
+        assert_eq!(fill.vram_byte_address, 0x1280);
+        assert_eq!(fill.vdp_control_longword, 0x5280_0000);
+        assert_eq!(
+            fill.words.len(),
+            16,
+            "ASM sub_1DA72 should run the `dbf d0` loop for `$F+1` zero-word writes",
+        );
+        assert!(
+            fill.words.iter().all(|&word| word == 0),
+            "ASM sub_1DA72 should clear all 16 VDP data words to zero",
         );
     }
 
