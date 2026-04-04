@@ -259,6 +259,38 @@ impl BlockGrid {
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn blank_top_rows_from_height_flag_bits_sub_140F6(height_flag_bits: u8) -> u16 {
+    // ASM sub_140F6 relies on Number_blank_top_rows, which Load_LevelData
+    // seeds from the header's top two height bits as `height_flag_bits * 2`.
+    u16::from(height_flag_bits & 0x03) * 2
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn insert_blank_top_rows_sub_140F6(
+    level_layout: &[u8],
+    width_blocks: u16,
+    blank_top_rows: u16,
+) -> Vec<u8> {
+    // ASM sub_140F6 (kid.asm:26925) shifts the populated level-layout rows
+    // downward to make room for Number_blank_top_rows empty rows at the top.
+    if width_blocks == 0 {
+        return level_layout.to_vec();
+    }
+
+    let row_bytes = usize::from(width_blocks) * 2;
+    if row_bytes == 0 || level_layout.is_empty() || !level_layout.len().is_multiple_of(row_bytes) {
+        return level_layout.to_vec();
+    }
+
+    let blank_row_bytes = usize::from(blank_top_rows) * row_bytes;
+    let mut shifted = vec![0_u8; blank_row_bytes + level_layout.len()];
+    shifted[blank_row_bytes..].copy_from_slice(level_layout);
+    shifted
+}
+
 // ---------------------------------------------------------------------------
 // Block List — prize/ghost/teleporter/hidden block data from RAM dump
 // ---------------------------------------------------------------------------
@@ -1970,5 +2002,47 @@ mod tests {
         // Player feet 2px below floor surface — should still detect floor
         let probe = probe_floor_hitbox(&grid, 8, 50, 5);
         assert!(probe.on_ground);
+    }
+
+    #[test]
+    fn sub_140f6_height_flag_bits_expand_to_blank_top_rows() {
+        assert_eq!(
+            blank_top_rows_from_height_flag_bits_sub_140F6(0),
+            0,
+            "ASM Load_LevelData -> sub_140F6 should add no blank rows when the header flags are clear"
+        );
+        assert_eq!(
+            blank_top_rows_from_height_flag_bits_sub_140F6(1),
+            2,
+            "ASM Load_LevelData rotates the top two height bits into Number_blank_top_rows, then doubles them"
+        );
+        assert_eq!(
+            blank_top_rows_from_height_flag_bits_sub_140F6(3),
+            6,
+            "ASM Load_LevelData's maximum two-bit height flag value should produce six blank top rows"
+        );
+    }
+
+    #[test]
+    fn sub_140f6_inserts_zero_rows_above_existing_layout() {
+        let shifted = insert_blank_top_rows_sub_140F6(
+            &[
+                0xE0, 0x01, 0x60, 0x02, // row 0
+                0x20, 0x03, 0xA0, 0x04, // row 1
+            ],
+            2,
+            2,
+        );
+
+        assert_eq!(
+            shifted,
+            vec![
+                0x00, 0x00, 0x00, 0x00, // blank row 0
+                0x00, 0x00, 0x00, 0x00, // blank row 1
+                0xE0, 0x01, 0x60, 0x02, // original row 0
+                0x20, 0x03, 0xA0, 0x04, // original row 1
+            ],
+            "ASM sub_140F6 should shift the populated rows downward and clear the inserted top rows"
+        );
     }
 }
