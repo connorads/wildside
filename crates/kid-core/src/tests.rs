@@ -21,8 +21,9 @@ use crate::projectiles::{
     KidProjectileCollisionPassSub1D76, kid_projectile_collision_passes_sub_1D76,
 };
 use crate::weather::{
-    MurderWallWarningInputSub5E02, MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
-    compile_murder_wall_warning_sprites_sub_5E02,
+    LevelSpecialEffectsRoutineSub6034, MurderWallWarningInputSub5E02,
+    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
+    compile_murder_wall_warning_sprites_sub_5E02, dispatch_level_special_effects_sub_6034,
 };
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
@@ -16413,6 +16414,34 @@ fn sub_5e02_returns_early_when_wall_is_far_from_camera() {
             sprites: Vec::new(),
         },
         "ASM sub_5E02 should stop before sprite emission when the murder wall is at least `$30` pixels away from the camera"
+    );
+}
+
+#[test]
+fn sub_6034_returns_without_dispatch_for_none_or_lava_effects() {
+    assert_eq!(
+        dispatch_level_special_effects_sub_6034(0),
+        None,
+        "ASM sub_6034 should return immediately when `Level_Special_Effects` is zero"
+    );
+    assert_eq!(
+        dispatch_level_special_effects_sub_6034(1),
+        None,
+        "ASM sub_6034 should also return for the lava special-effect slot because `subq.w #1,d0` leaves the branch on `ble`"
+    );
+}
+
+#[test]
+fn sub_6034_dispatches_storm_and_storm_hail_to_sub_6048() {
+    assert_eq!(
+        dispatch_level_special_effects_sub_6034(2),
+        Some(LevelSpecialEffectsRoutineSub6034::WeatherSub6048),
+        "ASM sub_6034 should pick the first non-null jump-table entry for storm weather"
+    );
+    assert_eq!(
+        dispatch_level_special_effects_sub_6034(3),
+        Some(LevelSpecialEffectsRoutineSub6034::WeatherSub6048),
+        "ASM sub_6034 should also dispatch the storm+hail slot to sub_6048 because both jump-table entries point there"
     );
 }
 

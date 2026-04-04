@@ -127,6 +127,29 @@ pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
     render
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LevelSpecialEffectsRoutineSub6034 {
+    WeatherSub6048,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn dispatch_level_special_effects_sub_6034(
+    level_special_effects: u16,
+) -> Option<LevelSpecialEffectsRoutineSub6034> {
+    // ASM sub_6034 (kid.asm:6032): `Level_Special_Effects` values 2 and 3
+    // both dispatch through the local jump table to sub_6048; 0 and 1 return.
+    let dispatch_index = level_special_effects.checked_sub(1)?;
+    if dispatch_index == 0 {
+        return None;
+    }
+    if dispatch_index <= 2 {
+        return Some(LevelSpecialEffectsRoutineSub6034::WeatherSub6048);
+    }
+    None
+}
+
 #[derive(Clone, Copy)]
 struct LavaFireballSegment {
     frames: u8,
