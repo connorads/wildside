@@ -1324,6 +1324,33 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
+    collision_type: i16,
+) -> FireDemonFragmentCollisionStep {
+    // ASM sub_3A1A6 (kid.asm:43240): same collision clear/filter as
+    // `sub_3A172`, but the matching fragment hit deletes immediately instead
+    // of switching into `stru_3A1E0`.
+    let mut result = FireDemonFragmentCollisionStep {
+        next_collision_type: collision_type,
+        animation_label: None,
+        hibernate_until_anim_finished: false,
+        delete_current_object: false,
+    };
+
+    if collision_type == 0 {
+        return result;
+    }
+
+    result.next_collision_type = 0;
+    if matches!(collision_type, 0x001C | 0x002C | -1) {
+        result.delete_current_object = true;
+    }
+
+    result
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_sprite_init_sub_3764A(
     x_pos: u16,
     y_pos: u16,

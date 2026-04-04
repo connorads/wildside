@@ -20325,6 +20325,28 @@ fn fire_demon_fragment_collision_step_sub_3a172_clears_matching_collision_into_d
 }
 
 #[test]
+fn fire_demon_fragment_collision_step_sub_3a1a6_clears_matching_collision_without_animation() {
+    let result = fire_demon_fragment_collision_step_sub_3A1A6(-1);
+
+    assert_eq!(
+        result.next_collision_type, 0,
+        "ASM sub_3A1A6 should clear `collision_type(a3)` before handling the fragment hit",
+    );
+    assert_eq!(
+        result.animation_label, None,
+        "ASM sub_3A1A6 should skip the `stru_3A1E0` animation and delete immediately",
+    );
+    assert!(
+        !result.hibernate_until_anim_finished,
+        "ASM sub_3A1A6 should not call `Hibernate_UntilAnimFinished` before deleting",
+    );
+    assert!(
+        result.delete_current_object,
+        "ASM loc_3A1C6 should delete the fragment immediately for collision types `$1C`, `$2C`, and `$FFFF`",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
