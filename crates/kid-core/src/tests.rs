@@ -1,11 +1,12 @@
 use super::*;
 use crate::boot::{
-    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
+    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC, IoPortFlagsSub6E24,
     PauseMenuSpriteEntrySub6874, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
-    init_hud_animation_frames_sub_44B0, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
+    init_hud_animation_frames_sub_44B0, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::level::{
@@ -105,6 +106,47 @@ fn imported_early_start_boot_script() -> Vec<u8> {
         script[frame] = 1 << 7;
     }
     script
+}
+
+#[test]
+fn sub_6e24_decodes_the_raw_a10001_bits_with_seq_and_sne_semantics() {
+    let both_clear = read_io_port_a10001_flags_sub_6E24(0x00);
+    let bit_6_only = read_io_port_a10001_flags_sub_6E24(0x40);
+    let bit_7_only = read_io_port_a10001_flags_sub_6E24(0x80);
+    let both_set = read_io_port_a10001_flags_sub_6E24(0xC0);
+
+    assert_eq!(
+        both_clear,
+        IoPortFlagsSub6E24 {
+            bit_7_clear_flag: true,
+            bit_6_set_flag: false,
+        },
+        "ASM sub_6E24 should treat `btst #7` + `seq` as true when bit 7 is clear",
+    );
+    assert_eq!(
+        bit_6_only,
+        IoPortFlagsSub6E24 {
+            bit_7_clear_flag: true,
+            bit_6_set_flag: true,
+        },
+        "ASM sub_6E24 should set both output bytes when bit 7 is clear and bit 6 is set",
+    );
+    assert_eq!(
+        bit_7_only,
+        IoPortFlagsSub6E24 {
+            bit_7_clear_flag: false,
+            bit_6_set_flag: false,
+        },
+        "ASM sub_6E24 should clear the `seq`-backed flag once bit 7 is set",
+    );
+    assert_eq!(
+        both_set,
+        IoPortFlagsSub6E24 {
+            bit_7_clear_flag: false,
+            bit_6_set_flag: true,
+        },
+        "ASM sub_6E24 should keep the `sne`-backed flag true whenever bit 6 is set",
+    );
 }
 
 fn collision_rect_sub_1f52(

@@ -308,6 +308,24 @@ pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IoPortFlagsSub6E24 {
+    pub(crate) bit_7_clear_flag: bool,
+    pub(crate) bit_6_set_flag: bool,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn read_io_port_a10001_flags_sub_6E24(port_value: u8) -> IoPortFlagsSub6E24 {
+    // ASM sub_6E24 (kid.asm:7224): after the `$A10001` read, `btst #7,d0`
+    // followed by `seq` stores `$FF` when bit 7 is clear, while `btst #6,d0`
+    // followed by `sne` stores `$FF` when bit 6 is set.
+    IoPortFlagsSub6E24 {
+        bit_7_clear_flag: port_value & 0x80 == 0,
+        bit_6_set_flag: port_value & 0x40 != 0,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleTextBurstAnimationFrameSub1B652 {
     pub(crate) duration_frames: u16,
     pub(crate) sprite_label: Option<&'static str>,
