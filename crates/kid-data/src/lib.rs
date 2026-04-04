@@ -3536,8 +3536,10 @@ fn read_inline_value_sub_13588(
 ) -> Result<u16> {
     // ASM sub_13588 (kid.asm:25973): start from the caller's base tile word,
     // fold in the enabled high-flag bits from d4, then append the packet bits.
+    // This is not a thin wrapper over sub_13622: loc_13602/loc_13614 either
+    // tail into loc_13650 or reload d5/d6 directly from the next 16-bit word.
     let flags = read_enigma_flags(bits, flag_mask)?;
-    let packet_bits = bits.read_bits_sub_13622(packet_length)?;
+    let packet_bits = bits.read_inline_packet_sub_13588(packet_length)?;
     Ok(base_tile_word.wrapping_add(flags).wrapping_add(packet_bits))
 }
 
@@ -3662,6 +3664,50 @@ impl<'a> EnigmaBitReader<'a> {
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
+    fn read_inline_packet_sub_13588(&mut self, bit_count: usize) -> Result<u16> {
+        // ASM sub_13588 loc_135D2/loc_13602/loc_13614 (kid.asm:26016-26056):
+        // inline packets consume from the existing buffered word when possible,
+        // but equality or underflow reseeds d5/d6 from the next 16-bit word
+        // instead of delegating to sub_13622's rolling refill helper.
+        if bit_count == 0 || bit_count > 16 {
+            bail!("Enigma inline packets must be between 1 and 16 bits");
+        }
+        if self.bits_remaining_d6 == 0 {
+            self.refill_word_sub_13618()?;
+        }
+
+        let bits_remaining = usize::from(self.bits_remaining_d6);
+        let mask = ENIGMA_BIT_MASKS[bit_count - 1];
+
+        if bits_remaining > bit_count {
+            let shift = bits_remaining - bit_count;
+            let value = (self.current_word_d5 >> shift) & mask;
+            self.consume_bits_loc_13650(bit_count as u16)?;
+            return Ok(value);
+        }
+
+        let current_tail_mask = ENIGMA_BIT_MASKS[bits_remaining - 1];
+        let next_word = self.peek_refill_word_sub_13588()?;
+
+        if bits_remaining == bit_count {
+            let value = self.current_word_d5 & current_tail_mask;
+            self.current_word_d5 = next_word;
+            self.bits_remaining_d6 = 16;
+            self.input_position += 2;
+            return Ok(value);
+        }
+
+        let missing_bits = bit_count - bits_remaining;
+        let next_mask = ENIGMA_BIT_MASKS[missing_bits - 1];
+        let carried = (self.current_word_d5 & current_tail_mask) << missing_bits;
+        let appended = (next_word >> (16 - missing_bits)) & next_mask;
+        self.current_word_d5 = next_word;
+        self.bits_remaining_d6 = (16 - missing_bits) as u16;
+        self.input_position += 2;
+        Ok((carried | appended) & mask)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
     fn read_bits_sub_13622(&mut self, bit_count: usize) -> Result<u16> {
         // ASM sub_13622 (kid.asm:26074): read up to 16 bits from the current
         // Enigma word buffer, splitting wide reads into a high chunk and a low
@@ -3717,6 +3763,18 @@ impl<'a> EnigmaBitReader<'a> {
         let next_byte = read_input_byte(self.bytes, &mut self.input_position)?;
         self.current_word_d5 |= u16::from(next_byte);
         Ok(())
+    }
+
+    fn peek_refill_word_sub_13588(&self) -> Result<u16> {
+        let high_byte = *self
+            .bytes
+            .get(self.input_position)
+            .ok_or_else(|| anyhow!("compressed payload ended unexpectedly"))?;
+        let low_byte = *self
+            .bytes
+            .get(self.input_position + 1)
+            .ok_or_else(|| anyhow!("compressed payload ended unexpectedly"))?;
+        Ok((u16::from(high_byte) << 8) | u16::from(low_byte))
     }
 }
 
@@ -4910,6 +4968,41 @@ AddrTbl_LevelNames:   ;1A842
                 .expect("next Enigma prefix should still be readable after a 7-bit inline packet"),
             (1, 0x0E)
         );
+    }
+
+    #[test]
+    fn sub_13588_reloads_the_next_word_after_a_cross_boundary_packet() {
+        let mut bits = EnigmaBitReader {
+            bytes: &[0xCA, 0xFE],
+            input_position: 0,
+            current_word_d5: 0x000B,
+            bits_remaining_d6: 4,
+        };
+
+        assert_eq!(
+            read_inline_value_sub_13588(&mut bits, 0, 0, 7).expect(
+                "ASM sub_13588 should splice packet bits from the current tail and next word"
+            ),
+            0x005E
+        );
+        assert_eq!(bits.current_word_d5, 0xCAFE);
+        assert_eq!(bits.bits_remaining_d6, 13);
+        assert_eq!(bits.input_position, 2);
+    }
+
+    #[test]
+    fn enigma_inline_packet_crosses_into_the_reloaded_word() {
+        let decoded = decode_enigma(
+            &[
+                0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header
+                0xE1, 0x55, 0x7F, 0x80,
+                0x00, // command 7,count 0; inline 0x2AA; terminator; refill tail byte
+            ],
+            0,
+        )
+        .expect("ASM EniDec should finish after an inline packet that crosses the initial word");
+
+        assert_eq!(decoded, vec![0x02AA]);
     }
 
     #[test]
