@@ -226,6 +226,31 @@ pub struct TitleIntroLoadPlanSub1B850 {
     pub repeated_rows_upload: RepeatedWordRowsVramUploadSub1B850,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicEnigmaTilemapLoadSub1BF24 {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+    pub width_words: u16,
+    pub height_words: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaneRectUploadSub1BF24 {
+    pub plane_cell_x: u16,
+    pub plane_cell_y: u16,
+    pub width_words: u16,
+    pub height_words: u16,
+    pub fill_word: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TitleScreenCharacterLoadPlanSub1BF24 {
+    pub region_variant: TitleScreenRegionVariantSub1B2A4,
+    pub frame_index: u16,
+    pub tilemap_load: SymbolicEnigmaTilemapLoadSub1BF24,
+    pub plane_upload: PlaneRectUploadSub1BF24,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LongwordVramUploadSub1B41C {
     pub vram_word_address: u16,
@@ -1381,6 +1406,83 @@ pub fn title_intro_load_plan_sub_1B850(
         repeated_rows_upload: RepeatedWordRowsVramUploadSub1B850 {
             vram_byte_address: 0xE000,
             rows,
+        },
+    })
+}
+
+#[allow(non_snake_case)]
+pub fn title_screen_character_load_plan_sub_1BF24(
+    frame_index: u16,
+    region_byte: u8,
+) -> Result<TitleScreenCharacterLoadPlanSub1BF24> {
+    // ASM sub_1BF24 (kid.asm:30740): select one of eight title-screen
+    // character tilemaps, switch the non-zero frames between the Red Stealth /
+    // Maniaxe / Juggernaut banks via ($FFFFFC82).w, decode the chosen Enigma
+    // tilemap with base tile `$20C1` for frame 0 or `$210F` otherwise, fill
+    // the 18x20 staging plane with `$20BC`, then blit it through sub_1C5D0 at
+    // plane cell `(x,y)=(#$15,#1)`.
+    if frame_index > 7 {
+        bail!("sub_1BF24 expects a title-screen frame index between 0 and 7, got {frame_index}");
+    }
+
+    const DEFAULT_FRAME_LABELS: [&str; 8] = [
+        "unk_2F7D0",
+        "unk_2EACE",
+        "unk_2EB32",
+        "unk_2EBD4",
+        "unk_2EC86",
+        "unk_2ED62",
+        "unk_2EE54",
+        "unk_2EF2C",
+    ];
+    const REGION_1_FRAME_LABELS: [&str; 7] = [
+        "unk_2F306",
+        "unk_2F374",
+        "unk_2F41E",
+        "unk_2F4D0",
+        "unk_2F592",
+        "unk_2F674",
+        "unk_2F76A",
+    ];
+    const REGION_2_FRAME_LABELS: [&str; 7] = [
+        "unk_2EF92",
+        "unk_2EFFE",
+        "unk_2F09C",
+        "unk_2F124",
+        "unk_2F1B0",
+        "unk_2F242",
+        "unk_2F2D0",
+    ];
+
+    let region_variant = TitleScreenRegionVariantSub1B2A4::from_region_byte(region_byte);
+    let asset_label = if frame_index == 0 {
+        DEFAULT_FRAME_LABELS[0]
+    } else {
+        let bank_index = usize::from(frame_index as u8 - 1);
+        match region_variant {
+            TitleScreenRegionVariantSub1B2A4::Default => {
+                DEFAULT_FRAME_LABELS[usize::from(frame_index as u8)]
+            }
+            TitleScreenRegionVariantSub1B2A4::Variant1 => REGION_1_FRAME_LABELS[bank_index],
+            TitleScreenRegionVariantSub1B2A4::Variant2 => REGION_2_FRAME_LABELS[bank_index],
+        }
+    };
+
+    Ok(TitleScreenCharacterLoadPlanSub1BF24 {
+        region_variant,
+        frame_index,
+        tilemap_load: SymbolicEnigmaTilemapLoadSub1BF24 {
+            vram_word_address: if frame_index == 0 { 0x20C1 } else { 0x210F },
+            asset_label,
+            width_words: 18,
+            height_words: 20,
+        },
+        plane_upload: PlaneRectUploadSub1BF24 {
+            plane_cell_x: 0x15,
+            plane_cell_y: 0x01,
+            width_words: 18,
+            height_words: 20,
+            fill_word: 0x20BC,
         },
     })
 }
@@ -3647,6 +3749,53 @@ AddrTbl_LevelNames:   ;1A842
             },
             "ASM loc_1C4B2 should switch to Pal_1C48C once ($FFFFFC82).w is non-zero and not 1",
         );
+    }
+
+    #[test]
+    fn title_screen_character_load_plan_sub_1bf24_keeps_frame_zero_on_the_default_tile_base() {
+        let plan = title_screen_character_load_plan_sub_1BF24(0, 0)
+            .expect("ASM sub_1BF24 should accept the shared frame-0 title tilemap");
+
+        assert_eq!(
+            plan.region_variant,
+            TitleScreenRegionVariantSub1B2A4::Default
+        );
+        assert_eq!(
+            plan.tilemap_load,
+            SymbolicEnigmaTilemapLoadSub1BF24 {
+                vram_word_address: 0x20C1,
+                asset_label: "unk_2F7D0",
+                width_words: 18,
+                height_words: 20,
+            },
+            "ASM sub_1BF24 should keep frame 0 on `unk_2F7D0` with base tile `$20C1`",
+        );
+        assert_eq!(
+            plan.plane_upload,
+            PlaneRectUploadSub1BF24 {
+                plane_cell_x: 0x15,
+                plane_cell_y: 0x01,
+                width_words: 18,
+                height_words: 20,
+                fill_word: 0x20BC,
+            },
+            "ASM sub_1BF24 should fill an 18x20 staging rectangle with `$20BC` before sub_1C5D0 blits it at `(#$15,#1)`",
+        );
+    }
+
+    #[test]
+    fn title_screen_character_load_plan_sub_1bf24_switches_non_zero_frames_by_region_bank() {
+        let default_plan = title_screen_character_load_plan_sub_1BF24(7, 0)
+            .expect("ASM sub_1BF24 should accept the final default-region title frame");
+        let region_1_plan = title_screen_character_load_plan_sub_1BF24(7, 1)
+            .expect("ASM sub_1BF24 should accept the final region-1 title frame");
+        let region_2_plan = title_screen_character_load_plan_sub_1BF24(7, 2)
+            .expect("ASM sub_1BF24 should accept the final region-2 title frame");
+
+        assert_eq!(default_plan.tilemap_load.vram_word_address, 0x210F);
+        assert_eq!(default_plan.tilemap_load.asset_label, "unk_2EF2C");
+        assert_eq!(region_1_plan.tilemap_load.asset_label, "unk_2F76A");
+        assert_eq!(region_2_plan.tilemap_load.asset_label, "unk_2F2D0");
     }
 
     #[test]
