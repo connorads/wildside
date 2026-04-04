@@ -979,6 +979,26 @@ pub(crate) fn boss_head_movement_step_sub_399EE(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_movement_wrapper_sub_39A7C(
+    delay_counter_d0: u16,
+    current_script_index: usize,
+    current_script: &[(i16, i16, i16)],
+) -> BossHeadMovementWrapper {
+    // ASM sub_39A7C (kid.asm:42701): run `sub_399EE`'s Boomerang head-3 script
+    // step, then tail-call the shared boss collision/palette helper
+    // `sub_3A292`.
+    BossHeadMovementWrapper {
+        movement: boss_head_movement_step_sub_399EE(
+            delay_counter_d0,
+            current_script_index,
+            current_script,
+        ),
+        runs_shared_collision_helper_sub_3_a292: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'static str {
     // ASM loc_371D4..loc_37200 (kid.asm:39060): choose the timeout sound from
     // bit 0 of `$FFFFF809`. The odd branch queues `sfx_Plethora_x` but the ROM
