@@ -1,7 +1,9 @@
 use super::*;
 use crate::boot::sega_screen_tile_strip_sub_12E3C;
 use crate::combat::*;
-use crate::level::swap_forest_background_palette_entries_sub_129AE;
+use crate::level::{
+    blend_selected_palette_entries_sub_1536, swap_forest_background_palette_entries_sub_129AE,
+};
 use crate::movement::*;
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
@@ -237,6 +239,63 @@ fn sub_12e3c_builds_the_incrementing_sega_screen_tile_strip() {
             0x80C7,
         ],
         "ASM sub_12E3C should emit twelve successive tile words from the starting d1 value"
+    );
+}
+
+#[test]
+fn sub_1536_blends_masked_palette_words_with_signed_curve_steps() {
+    let palette_buffer_2 = [0x0ACE, 0x0246, 0x0EEE];
+    let palette_buffer_3 = [0x0246, 0x0ACE, 0x0000];
+    let mut palette_buffer = [0x0000, 0x0000, 0x0EEE];
+    let mut fade_curve = [0u8; 15];
+    fade_curve[3] = 0x02;
+    fade_curve[11] = 0xFE;
+
+    blend_selected_palette_entries_sub_1536(
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+        0xC000_0000,
+        &fade_curve,
+    );
+
+    assert_eq!(
+        palette_buffer[0], 0x08AC,
+        "ASM sub_1536 should subtract the indexed fade-curve byte from each source channel when blending downward"
+    );
+    assert_eq!(
+        palette_buffer[1], 0x0468,
+        "ASM sub_1536 should treat fade-curve bytes as signed via byte wrapping, so $FE adds two steps on upward blends"
+    );
+    assert_eq!(
+        palette_buffer[2], 0x0EEE,
+        "ASM sub_1536 should leave clear-mask palette words untouched"
+    );
+}
+
+#[test]
+fn sub_1536_masks_each_word_from_bit_31_downward() {
+    let palette_buffer_2 = [0x0ACE, 0x0246];
+    let palette_buffer_3 = [0x0246, 0x0ACE];
+    let mut palette_buffer = [0x0EEE, 0x0EEE];
+    let mut fade_curve = [0u8; 15];
+    fade_curve[3] = 0x02;
+
+    blend_selected_palette_entries_sub_1536(
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+        0x4000_0000,
+        &fade_curve,
+    );
+
+    assert_eq!(
+        palette_buffer[0], 0x0EEE,
+        "ASM sub_1536 starts at btst d6,d7 with d6=$1F, so a mask without bit 31 must skip the first palette word"
+    );
+    assert_eq!(
+        palette_buffer[1], 0x0246,
+        "ASM sub_1536 decrements the tested bit each iteration, so bit 30 should control the second palette word even when the selected fade-curve slot contributes zero"
     );
 }
 

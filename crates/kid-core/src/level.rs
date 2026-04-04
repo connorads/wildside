@@ -17,6 +17,65 @@ pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
     palette_buffer.swap(0x18, 0x1A);
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn blend_selected_palette_entries_sub_1536(
+    palette_buffer_2: &[u16],
+    palette_buffer_3: &[u16],
+    palette_buffer: &mut [u16],
+    pending_mask: u32,
+    fade_curve: &[u8; 15],
+) {
+    // ASM sub_1536 (kid.asm:2636): for each set bit in d7, blend one palette
+    // word from Palette_Buffer_2 toward Palette_Buffer_3 via the 15-byte
+    // signed fade curve built by sub_14C0. Clear bits leave Palette_Buffer
+    // untouched because the ROM only advances a2 by two bytes.
+    let entry_count = palette_buffer_2
+        .len()
+        .min(palette_buffer_3.len())
+        .min(palette_buffer.len())
+        .min(0x20);
+
+    for index in 0..entry_count {
+        let bit = 31_u32
+            .checked_sub(index as u32)
+            .expect("sub_1536 should only scan the first 32 palette words");
+        if pending_mask & (1_u32 << bit) == 0 {
+            continue;
+        }
+
+        let mut assembled_word = 0_u16;
+        let mut src_word = palette_buffer_2[index] & 0x0EEE;
+        let mut dst_word = palette_buffer_3[index] & 0x0EEE;
+
+        for _ in 0..2 {
+            let src_channel = (src_word & 0x000F) as u8;
+            let dst_channel = (dst_word & 0x000F) as u8;
+            let half_delta = ((i16::from(dst_channel) - i16::from(src_channel)) >> 1) + 7;
+            let fade_step = fade_curve[usize::try_from(half_delta)
+                .expect("sub_1536 channel deltas should stay inside the 15-byte fade curve")];
+            let blended_channel = src_channel.wrapping_sub(fade_step);
+
+            assembled_word = assembled_word.rotate_right(4);
+            assembled_word |= u16::from(blended_channel);
+
+            src_word >>= 4;
+            dst_word >>= 4;
+        }
+
+        let src_channel = (src_word & 0x000F) as u8;
+        let dst_channel = (dst_word & 0x000F) as u8;
+        let half_delta = ((i16::from(dst_channel) - i16::from(src_channel)) >> 1) + 7;
+        let fade_step = fade_curve[usize::try_from(half_delta)
+            .expect("sub_1536 top channel deltas should stay inside the 15-byte fade curve")];
+        let blended_channel = src_channel.wrapping_sub(fade_step);
+
+        assembled_word = assembled_word.rotate_right(4);
+        assembled_word |= u16::from(blended_channel);
+        palette_buffer[index] = assembled_word.rotate_right(8);
+    }
+}
+
 impl NativeRuntime {
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
         let level_id = self.current_level;
