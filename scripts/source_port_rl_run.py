@@ -15,6 +15,7 @@ NEXT_TASK_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/next-task.jso
 RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history.jsonl"
 
 
+
 def tracked_dirty_files() -> list[str]:
     result = subprocess.run(
         ["git", "status", "--short", "--untracked-files=no"],
@@ -57,7 +58,23 @@ def append_history(task: dict, dirty_files: list[str], outcome: str, exit_code: 
         handle.write("\n")
 
 
+def which(name: str) -> str:
+    import shutil
+
+    path = shutil.which(name)
+    if path is None:
+        raise SystemExit(f"agent command not found: {name}")
+    return path
+
+
+def resolve_agent(name: str | None) -> list[str]:
+    name = name or "cxys"
+    return [which(name), "-"]
+
+
 def main() -> int:
+    agent_name = sys.argv[1] if len(sys.argv) > 1 else None
+
     prompt_result = subprocess.run(
         [sys.executable, str(PROMPT_SCRIPT)],
         cwd=REPO_ROOT,
@@ -70,10 +87,11 @@ def main() -> int:
         sys.stderr.write(prompt_result.stderr)
         return prompt_result.returncode
 
+    agent_cmd = resolve_agent(agent_name)
     task = load_task()
     dirty_before = tracked_dirty_files()
     cxys = subprocess.run(
-        ["/home/connor/.local/bin/cxys", "-"],
+        agent_cmd,
         cwd=REPO_ROOT,
         check=False,
         input=prompt_result.stdout,
