@@ -251,6 +251,29 @@ pub struct TitleScreenCharacterLoadPlanSub1BF24 {
     pub plane_upload: PlaneRectUploadSub1BF24,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicEnigmaTilemapLoadSub1C034 {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+    pub width_words: u16,
+    pub height_words: u16,
+    pub left_padding_words: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VramRowWriteSub1C034 {
+    pub vram_word_address: u16,
+    pub source_word_offset: u16,
+    pub word_count: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IntroSequence5FrameLoadPlanSub1C034 {
+    pub frame_index: u16,
+    pub tilemap_load: SymbolicEnigmaTilemapLoadSub1C034,
+    pub vram_rows: [VramRowWriteSub1C034; 25],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LongwordVramUploadSub1B41C {
     pub vram_word_address: u16,
@@ -1484,6 +1507,58 @@ pub fn title_screen_character_load_plan_sub_1BF24(
             height_words: 20,
             fill_word: 0x20BC,
         },
+    })
+}
+
+#[allow(non_snake_case)]
+pub fn intro_sequence_5_frame_load_plan_sub_1C034(
+    frame_index: u16,
+) -> Result<IntroSequence5FrameLoadPlanSub1C034> {
+    // ASM sub_1C034 (kid.asm:30849): select one of eight intro-sequence-5
+    // Enigma tilemaps from `off_1C126`, decode it with base tile `$A340`,
+    // stage it inside a 16x25 word buffer with the table's byte padding, then
+    // stream 25 VDP rows starting at VRAM word `$A340` with the fixed
+    // 15/15/..../16/16/15/..../15 row shape from loc_1C09E/loc_1C0B8/loc_1C0D0.
+    const FRAME_TABLE: [(&str, u16, u16, u16); 8] = [
+        ("unk_2F856", 0x000C, 0x0018, 0x0006),
+        ("unk_2F882", 0x000C, 0x0018, 0x0006),
+        ("unk_2F8D2", 0x000C, 0x0019, 0x0006),
+        ("unk_2F94E", 0x000E, 0x0019, 0x0004),
+        ("unk_2F9DE", 0x000F, 0x0019, 0x0000),
+        ("unk_2FAA8", 0x000D, 0x0019, 0x0004),
+        ("unk_2FC3A", 0x000D, 0x0019, 0x0004),
+        ("unk_2FCE4", 0x000D, 0x0019, 0x0004),
+    ];
+
+    let Some(&(asset_label, width_words, height_words, left_padding_bytes)) =
+        FRAME_TABLE.get(frame_index as usize)
+    else {
+        bail!(
+            "sub_1C034 expects an intro-sequence-5 frame index between 0 and 7, got {frame_index}"
+        );
+    };
+
+    let vram_rows = core::array::from_fn(|row_index| {
+        let row_index_u16 =
+            u16::try_from(row_index).expect("sub_1C034 row indices should fit into u16");
+        let word_count = if (8..10).contains(&row_index) { 16 } else { 15 };
+        VramRowWriteSub1C034 {
+            vram_word_address: 0xA340 + row_index_u16 * 0x40,
+            source_word_offset: row_index_u16 * 16,
+            word_count,
+        }
+    });
+
+    Ok(IntroSequence5FrameLoadPlanSub1C034 {
+        frame_index,
+        tilemap_load: SymbolicEnigmaTilemapLoadSub1C034 {
+            vram_word_address: 0xA340,
+            asset_label,
+            width_words,
+            height_words,
+            left_padding_words: left_padding_bytes / 2,
+        },
+        vram_rows,
     })
 }
 
@@ -3796,6 +3871,74 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(default_plan.tilemap_load.asset_label, "unk_2EF2C");
         assert_eq!(region_1_plan.tilemap_load.asset_label, "unk_2F76A");
         assert_eq!(region_2_plan.tilemap_load.asset_label, "unk_2F2D0");
+    }
+
+    #[test]
+    fn intro_sequence_5_frame_load_plan_sub_1c034_replays_the_rom_frame_table() {
+        let expectations = [
+            ("unk_2F856", 12, 24, 3),
+            ("unk_2F882", 12, 24, 3),
+            ("unk_2F8D2", 12, 25, 3),
+            ("unk_2F94E", 14, 25, 2),
+            ("unk_2F9DE", 15, 25, 0),
+            ("unk_2FAA8", 13, 25, 2),
+            ("unk_2FC3A", 13, 25, 2),
+            ("unk_2FCE4", 13, 25, 2),
+        ];
+
+        let actual = (0..8)
+            .map(|frame_index| {
+                let plan = intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
+                    .expect("ASM sub_1C034 should accept the 8 intro-sequence-5 frame indices");
+                (
+                    plan.tilemap_load.asset_label,
+                    plan.tilemap_load.width_words,
+                    plan.tilemap_load.height_words,
+                    plan.tilemap_load.left_padding_words,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            actual, expectations,
+            "ASM sub_1C034 should keep the `off_1C126` asset, size, and left-padding table intact",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_frame_load_plan_sub_1c034_keeps_the_fixed_25_row_vdp_stream_shape() {
+        let plan = intro_sequence_5_frame_load_plan_sub_1C034(4)
+            .expect("ASM sub_1C034 should accept the centred 15-word frame");
+
+        assert_eq!(plan.tilemap_load.vram_word_address, 0xA340);
+        assert_eq!(plan.vram_rows.len(), 25);
+        assert_eq!(
+            plan.vram_rows[0],
+            VramRowWriteSub1C034 {
+                vram_word_address: 0xA340,
+                source_word_offset: 0,
+                word_count: 15,
+            },
+            "ASM loc_1C09E starts the row stream at VRAM `$A340` and skips the 16th staged word on the top rows",
+        );
+        assert_eq!(
+            plan.vram_rows[8],
+            VramRowWriteSub1C034 {
+                vram_word_address: 0xA540,
+                source_word_offset: 128,
+                word_count: 16,
+            },
+            "ASM loc_1C0B8 widens the middle band to all 16 staged words",
+        );
+        assert_eq!(
+            plan.vram_rows[24],
+            VramRowWriteSub1C034 {
+                vram_word_address: 0xA940,
+                source_word_offset: 384,
+                word_count: 15,
+            },
+            "ASM loc_1C0D0 returns to 15-word rows for the tail of the upload",
+        );
     }
 
     #[test]
