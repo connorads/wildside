@@ -1,9 +1,10 @@
 use super::*;
 use crate::boot::{
+    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
     end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
     init_hud_animation_frames_sub_44B0, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    vdp_upload_32_longwords_sub_44D0,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::level::{
@@ -31632,4 +31633,140 @@ fn vdp_upload_32_longwords_sub_44d0_copies_all_bytes() {
             i, chunk[0], chunk[1], chunk[2], chunk[3]
         );
     }
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_advances_the_first_expiring_diamond_slot() {
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 3,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 4,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 5,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 1,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 2,
+        flag_frame_offset_fb61: 0,
+    });
+
+    assert_eq!(step.next_state.coin_countdown_fb5b, 2);
+    assert_eq!(step.next_state.life_countdown_fb59, 3);
+    assert_eq!(step.next_state.clock_countdown_fb5a, 4);
+    assert_eq!(step.next_state.flag_countdown_fb5c, 1);
+    assert_eq!(step.next_state.diamond_countdown_fb58, 6);
+    assert_eq!(step.next_state.diamond_frame_offset_fb5d, 2);
+    assert_eq!(
+        step.diamond_upload.as_ref().map(|upload| (
+            upload.asset_label,
+            upload.dma_source_address,
+            upload.vram_byte_address
+        )),
+        Some(("unk_9A1CC", 0x0009_A1CE, 0xDD40)),
+        "ASM sub_44DC should advance `unk_461C` from offset 0 to 2, which makes sub_5D4A upload the second diamond frame to VRAM byte `$DD40`",
+    );
+    assert!(step.coin_upload.is_none());
+    assert!(step.life_upload.is_none());
+    assert!(step.clock_upload.is_none());
+    assert!(step.flag_upload.is_none());
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_wraps_coin_life_clock_and_flag_tables_at_ff_ff() {
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 1,
+        coin_frame_offset_fb60: 18,
+        life_countdown_fb59: 1,
+        life_frame_offset_fb5e: 6,
+        clock_countdown_fb5a: 1,
+        clock_frame_offset_fb5f: 6,
+        diamond_countdown_fb58: 6,
+        diamond_frame_offset_fb5d: 2,
+        flag_countdown_fb5c: 1,
+        flag_frame_offset_fb61: 10,
+    });
+
+    assert_eq!(
+        step.coin_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4992",
+            vram_word_address: 0x4720,
+            frame_table_byte_offset: 0,
+        }),
+        "ASM loc_44F4 should wrap the coin table sentinel back to frame 0",
+    );
+    assert_eq!(step.next_state.coin_countdown_fb5b, 6);
+    assert_eq!(step.next_state.coin_frame_offset_fb60, 0);
+
+    assert_eq!(
+        step.life_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4692",
+            vram_word_address: 0x4620,
+            frame_table_byte_offset: 0,
+        }),
+        "ASM loc_455E should wrap the life-icon table sentinel back to the long-hold frame 0",
+    );
+    assert_eq!(step.next_state.life_countdown_fb59, 0x48);
+    assert_eq!(step.next_state.life_frame_offset_fb5e, 0);
+
+    assert_eq!(
+        step.clock_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4812",
+            vram_word_address: 0x46A0,
+            frame_table_byte_offset: 0,
+        }),
+        "ASM loc_45B2 should wrap the clock table sentinel back to the long-hold frame 0",
+    );
+    assert_eq!(step.next_state.clock_countdown_fb5a, 0x48);
+    assert_eq!(step.next_state.clock_frame_offset_fb5f, 0);
+
+    assert_eq!(
+        step.flag_upload,
+        Some(FlagHudDmaUploadSub44DC {
+            asset_label: "ArtUnc_4C92",
+            vram_byte_address: 0xD340,
+            frame_table_byte_offset: 0,
+        }),
+        "ASM loc_4648 should wrap the flag table sentinel back to frame 0 before sub_5DA6 uploads to VRAM byte `$D340`",
+    );
+    assert_eq!(step.next_state.flag_countdown_fb5c, 6);
+    assert_eq!(step.next_state.flag_frame_offset_fb61, 0);
+
+    assert!(step.diamond_upload.is_none());
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_keeps_existing_offsets_when_no_counter_expires() {
+    let state = HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 5,
+        coin_frame_offset_fb60: 8,
+        life_countdown_fb59: 7,
+        life_frame_offset_fb5e: 2,
+        clock_countdown_fb5a: 9,
+        clock_frame_offset_fb5f: 4,
+        diamond_countdown_fb58: 3,
+        diamond_frame_offset_fb5d: 6,
+        flag_countdown_fb5c: 4,
+        flag_frame_offset_fb61: 8,
+    };
+
+    let step = step_hud_animation_sub_44DC(state);
+
+    assert_eq!(step.next_state.coin_countdown_fb5b, 4);
+    assert_eq!(step.next_state.coin_frame_offset_fb60, 8);
+    assert_eq!(step.next_state.life_countdown_fb59, 6);
+    assert_eq!(step.next_state.life_frame_offset_fb5e, 2);
+    assert_eq!(step.next_state.clock_countdown_fb5a, 8);
+    assert_eq!(step.next_state.clock_frame_offset_fb5f, 4);
+    assert_eq!(step.next_state.diamond_countdown_fb58, 2);
+    assert_eq!(step.next_state.diamond_frame_offset_fb5d, 6);
+    assert_eq!(step.next_state.flag_countdown_fb5c, 3);
+    assert_eq!(step.next_state.flag_frame_offset_fb61, 8);
+    assert!(step.coin_upload.is_none());
+    assert!(step.life_upload.is_none());
+    assert!(step.clock_upload.is_none());
+    assert!(step.diamond_upload.is_none());
+    assert!(step.flag_upload.is_none());
 }

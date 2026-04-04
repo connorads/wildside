@@ -1,4 +1,5 @@
 use super::*;
+use kid_data::{DiamondHudDmaTransferSub5D4A, diamond_hud_dma_transfer_sub_5D4A};
 
 /// ASM sub_40236 (kid.asm:45620): angle-to-sine/cosine lookup.
 /// Takes an 8-bit angle (0-255 representing 0-360° in 256 steps), returns (cos, sin) as
@@ -113,6 +114,162 @@ pub(crate) fn vdp_upload_32_longwords_sub_44D0(data: &[u8; 128]) -> [u32; 32] {
             data[offset + 3],
         ])
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudAnimationStateSub44DC {
+    pub(crate) coin_countdown_fb5b: u8,
+    pub(crate) coin_frame_offset_fb60: u8,
+    pub(crate) life_countdown_fb59: u8,
+    pub(crate) life_frame_offset_fb5e: u8,
+    pub(crate) clock_countdown_fb5a: u8,
+    pub(crate) clock_frame_offset_fb5f: u8,
+    pub(crate) diamond_countdown_fb58: u8,
+    pub(crate) diamond_frame_offset_fb5d: u8,
+    pub(crate) flag_countdown_fb5c: u8,
+    pub(crate) flag_frame_offset_fb61: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudFrameUploadSub44DC {
+    pub(crate) asset_label: &'static str,
+    pub(crate) vram_word_address: u16,
+    pub(crate) frame_table_byte_offset: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FlagHudDmaUploadSub44DC {
+    pub(crate) asset_label: &'static str,
+    pub(crate) vram_byte_address: u16,
+    pub(crate) frame_table_byte_offset: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HudAnimationStepSub44DC {
+    pub(crate) next_state: HudAnimationStateSub44DC,
+    pub(crate) coin_upload: Option<HudFrameUploadSub44DC>,
+    pub(crate) life_upload: Option<HudFrameUploadSub44DC>,
+    pub(crate) clock_upload: Option<HudFrameUploadSub44DC>,
+    pub(crate) diamond_upload: Option<DiamondHudDmaTransferSub5D4A>,
+    pub(crate) flag_upload: Option<FlagHudDmaUploadSub44DC>,
+}
+
+fn step_hud_animation_pair_table(
+    countdown: u8,
+    frame_offset: u8,
+    table: &[u8],
+    sentinel: u8,
+) -> (u8, u8, Option<u8>) {
+    let decremented = countdown.wrapping_sub(1);
+    if decremented != 0 {
+        return (decremented, frame_offset, None);
+    }
+
+    let mut next_offset = frame_offset.wrapping_add(2);
+    loop {
+        let speed = table
+            .get(usize::from(next_offset))
+            .copied()
+            .unwrap_or(sentinel);
+        if speed != sentinel {
+            let frame_table_byte_offset = table[usize::from(next_offset) + 1];
+            return (speed, next_offset, Some(frame_table_byte_offset));
+        }
+        next_offset = 0;
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn step_hud_animation_sub_44DC(
+    state: HudAnimationStateSub44DC,
+) -> HudAnimationStepSub44DC {
+    // ASM sub_44DC (kid.asm:5546): decrement five staggered HUD animation
+    // countdown bytes, and whenever one expires, advance its paired speed/frame
+    // table by two bytes, wrap on the `$FF,$FF` sentinel, then issue the
+    // matching VRAM write or DMA for coin, life, clock, diamond, and flag art.
+    const COIN_TABLE: &[u8] = &[
+        6, 0x00, 6, 0x04, 6, 0x08, 6, 0x14, 6, 0x10, 6, 0x0C, 6, 0x10, 6, 0x14, 6, 0x08, 6, 0x04,
+        0xFF, 0xFF,
+    ];
+    const LIFE_TABLE: &[u8] = &[0x48, 0x00, 6, 0x04, 6, 0x08, 6, 0x04, 0xFF, 0xFF];
+    const CLOCK_TABLE: &[u8] = &[0x48, 0x00, 6, 0x04, 6, 0x08, 6, 0x04, 0xFF, 0xFF];
+    const DIAMOND_TABLE: &[u8] = &[6, 0x00, 6, 0x04, 6, 0x08, 6, 0x0C, 0xFF, 0xFF];
+    const FLAG_TABLE: &[u8] = &[
+        6, 0x00, 6, 0x04, 6, 0x08, 6, 0x0C, 6, 0x10, 6, 0x14, 0xFF, 0xFF,
+    ];
+
+    let (coin_countdown_fb5b, coin_frame_offset_fb60, coin_frame) = step_hud_animation_pair_table(
+        state.coin_countdown_fb5b,
+        state.coin_frame_offset_fb60,
+        COIN_TABLE,
+        0xFF,
+    );
+    let (life_countdown_fb59, life_frame_offset_fb5e, life_frame) = step_hud_animation_pair_table(
+        state.life_countdown_fb59,
+        state.life_frame_offset_fb5e,
+        LIFE_TABLE,
+        0xFF,
+    );
+    let (clock_countdown_fb5a, clock_frame_offset_fb5f, clock_frame) =
+        step_hud_animation_pair_table(
+            state.clock_countdown_fb5a,
+            state.clock_frame_offset_fb5f,
+            CLOCK_TABLE,
+            0xFF,
+        );
+    let (diamond_countdown_fb58, diamond_frame_offset_fb5d, diamond_frame) =
+        step_hud_animation_pair_table(
+            state.diamond_countdown_fb58,
+            state.diamond_frame_offset_fb5d,
+            DIAMOND_TABLE,
+            0xFF,
+        );
+    let (flag_countdown_fb5c, flag_frame_offset_fb61, flag_frame) = step_hud_animation_pair_table(
+        state.flag_countdown_fb5c,
+        state.flag_frame_offset_fb61,
+        FLAG_TABLE,
+        0xFF,
+    );
+
+    HudAnimationStepSub44DC {
+        next_state: HudAnimationStateSub44DC {
+            coin_countdown_fb5b,
+            coin_frame_offset_fb60,
+            life_countdown_fb59,
+            life_frame_offset_fb5e,
+            clock_countdown_fb5a,
+            clock_frame_offset_fb5f,
+            diamond_countdown_fb58,
+            diamond_frame_offset_fb5d,
+            flag_countdown_fb5c,
+            flag_frame_offset_fb61,
+        },
+        coin_upload: coin_frame.map(|frame_table_byte_offset| HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4992",
+            vram_word_address: 0x4720,
+            frame_table_byte_offset,
+        }),
+        life_upload: life_frame.map(|frame_table_byte_offset| HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4692",
+            vram_word_address: 0x4620,
+            frame_table_byte_offset,
+        }),
+        clock_upload: clock_frame.map(|frame_table_byte_offset| HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4812",
+            vram_word_address: 0x46A0,
+            frame_table_byte_offset,
+        }),
+        diamond_upload: diamond_frame.map(|frame_table_byte_offset| {
+            diamond_hud_dma_transfer_sub_5D4A(u16::from(frame_table_byte_offset))
+                .expect("ASM sub_44DC only emits selectors from `unk_461C` that fit sub_5D4A")
+        }),
+        flag_upload: flag_frame.map(|frame_table_byte_offset| FlagHudDmaUploadSub44DC {
+            asset_label: "ArtUnc_4C92",
+            vram_byte_address: 0xD340,
+            frame_table_byte_offset,
+        }),
+    }
 }
 
 #[allow(non_snake_case)]
