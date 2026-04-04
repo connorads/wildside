@@ -297,6 +297,12 @@ pub struct IntroSequence5PanelLoadPlanSub1C0EE {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IntroSequence5BlankPanelLoadPlanSub1C112 {
+    pub cleared_word_count: u16,
+    pub plane_upload: PlaneRectUploadSub1C0EE,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LongwordVramUploadSub1B41C {
     pub vram_word_address: u16,
     pub longwords: [u32; 32],
@@ -1599,6 +1605,25 @@ pub fn intro_sequence_5_panel_load_plan_sub_1C0EE(
             width_words: 10,
             height_words: 10,
         },
+        plane_upload: PlaneRectUploadSub1C0EE {
+            plane_cell_x,
+            plane_cell_y,
+            width_words: 10,
+            height_words: 10,
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn intro_sequence_5_blank_panel_load_plan_sub_1C112(
+    plane_cell_x: u16,
+    plane_cell_y: u16,
+) -> IntroSequence5BlankPanelLoadPlanSub1C112 {
+    // ASM sub_1C112 (kid.asm:30943): clear `$5A` words in
+    // `Decompression_Buffer`, then branch into loc_1C104 so sub_1C5D0 blits
+    // the resulting blank 10x10 panel at the caller-supplied plane cell.
+    IntroSequence5BlankPanelLoadPlanSub1C112 {
+        cleared_word_count: 0x005A,
         plane_upload: PlaneRectUploadSub1C0EE {
             plane_cell_x,
             plane_cell_y,
@@ -4010,6 +4035,26 @@ AddrTbl_LevelNames:   ;1A842
                 height_words: 10,
             },
             "ASM loc_1C104 should hand the decoded panel to sub_1C5D0 as a 10x10 blit at the caller's plane cell",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_blank_panel_load_plan_sub_1c112_clears_5a_words_then_reuses_loc_1c104() {
+        let plan = intro_sequence_5_blank_panel_load_plan_sub_1C112(4, 0x12);
+
+        assert_eq!(
+            plan.cleared_word_count, 0x005A,
+            "ASM sub_1C112 should clear exactly `$5A` words in `Decompression_Buffer` before branching to loc_1C104",
+        );
+        assert_eq!(
+            plan.plane_upload,
+            PlaneRectUploadSub1C0EE {
+                plane_cell_x: 4,
+                plane_cell_y: 0x12,
+                width_words: 10,
+                height_words: 10,
+            },
+            "ASM sub_1C112 should reuse loc_1C104's shared 10x10 sub_1C5D0 blit at the caller's plane cell",
         );
     }
 
