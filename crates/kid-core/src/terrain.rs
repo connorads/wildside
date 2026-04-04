@@ -203,6 +203,15 @@ pub struct CeilingProbe {
     pub cell_y: u16,
 }
 
+/// Result of ROM horizontal body/lead-column scans.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HorizontalCollisionScan {
+    /// Any bit-$4000 collision cell inside the current hitbox rectangle.
+    pub hitbox_blocked: bool,
+    /// Any bit-$4000 collision cell in the lead column, or the level boundary.
+    pub lead_column_blocked: bool,
+}
+
 impl BlockGrid {
     /// Parse from raw Level_Layout RAM dump (big-endian, 2 bytes per cell,
     /// row-major order). `width_cells` and `height_cells` come from
@@ -987,6 +996,98 @@ pub fn probe_wall_top_edge(
         cell_x: 0,
         cell_y: 0,
     }
+}
+
+fn sets_collision_bit_14(cell: Cell) -> bool {
+    matches!(
+        cell.collision,
+        CollisionKind::SlopeUp
+            | CollisionKind::SlopeDown
+            | CollisionKind::Solid
+            | CollisionKind::Spikes
+    )
+}
+
+fn horizontal_collision_scan(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+    leading_right: bool,
+) -> HorizontalCollisionScan {
+    let top_row = pixel_to_cell(foot_y_px - height).max(0);
+    let mut bottom_row = pixel_to_cell(foot_y_px - 1).max(0);
+    if bottom_row >= i32::from(grid.height_cells) {
+        bottom_row = i32::from(grid.height_cells).saturating_sub(1);
+    }
+    if bottom_row < top_row {
+        let lead_column_blocked = if leading_right {
+            pixel_to_cell(center_x_px + half_width - 1) + 1 >= i32::from(grid.width_cells)
+        } else {
+            pixel_to_cell(center_x_px - half_width) <= 0
+        };
+        return HorizontalCollisionScan {
+            hitbox_blocked: false,
+            lead_column_blocked,
+        };
+    }
+
+    let left_col = pixel_to_cell(center_x_px - half_width).max(0);
+    let mut right_col = pixel_to_cell(center_x_px + half_width - 1).max(0);
+    if right_col >= i32::from(grid.width_cells) {
+        right_col = i32::from(grid.width_cells).saturating_sub(1);
+    }
+
+    let mut hitbox_blocked = false;
+    for row in top_row..=bottom_row {
+        for col in left_col..=right_col {
+            if sets_collision_bit_14(grid.cell_at(col as u16, row as u16)) {
+                hitbox_blocked = true;
+                break;
+            }
+        }
+        if hitbox_blocked {
+            break;
+        }
+    }
+
+    let lead_column_blocked = if leading_right {
+        let lead_col = right_col + 1;
+        if lead_col >= i32::from(grid.width_cells) {
+            true
+        } else {
+            (top_row..=bottom_row)
+                .any(|row| sets_collision_bit_14(grid.cell_at(lead_col as u16, row as u16)))
+        }
+    } else if left_col == 0 {
+        true
+    } else {
+        let lead_col = left_col - 1;
+        (top_row..=bottom_row)
+            .any(|row| sets_collision_bit_14(grid.cell_at(lead_col as u16, row as u16)))
+    };
+
+    HorizontalCollisionScan {
+        hitbox_blocked,
+        lead_column_blocked,
+    }
+}
+
+/// Mirror Robot/Driller/Tank rightward rectangle scan `sub_36B3C`.
+#[allow(non_snake_case)]
+pub fn horizontal_collision_scan_right_sub_36B3C(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> HorizontalCollisionScan {
+    // ASM sub_36B3C (kid.asm:38356): scan the current hitbox rectangle for any
+    // bit-$4000 collision cells, then scan the lead column immediately to the
+    // right over the same row span, treating the level's right boundary as
+    // blocked.
+    horizontal_collision_scan(grid, center_x_px, foot_y_px, half_width, height, true)
 }
 
 /// Check for a ceiling above the player's hitbox.
@@ -2002,6 +2103,42 @@ mod tests {
         // Player feet 2px below floor surface — should still detect floor
         let probe = probe_floor_hitbox(&grid, 8, 50, 5);
         assert!(probe.on_ground);
+    }
+
+    #[test]
+    fn horizontal_collision_scan_right_sub_36b3c_flags_a_slope_inside_the_hitbox() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        let slope_offset = (1 * 4 + 1) * 2;
+        data[slope_offset] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_right_sub_36B3C(&grid, 24, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: true,
+                lead_column_blocked: false,
+            },
+            "ASM sub_36B3C should treat any bit-$4000 collision cell inside the body rectangle as a hit, including slopes",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_right_sub_36b3c_treats_the_right_boundary_as_blocked() {
+        let data = [0u8; 4 * 4 * 2];
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_right_sub_36B3C(&grid, 56, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: true,
+            },
+            "ASM sub_36B3C should return a blocked lead column once the next cell would step beyond Level_width_blocks",
+        );
     }
 
     #[test]
