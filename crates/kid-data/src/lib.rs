@@ -144,6 +144,12 @@ pub struct LoadedAsset {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IngameVramUpload {
+    pub vram_word_address: u16,
+    pub asset: LoadedAsset,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyDefinition {
     pub id: u8,
     pub constant_name: String,
@@ -1064,6 +1070,38 @@ fn load_asset(
         relative_path: relative_path.to_owned(),
         bytes,
     }))
+}
+
+pub fn load_ingame_asset(manifest: &AssetManifest, relative_path: &str) -> Result<LoadedAsset> {
+    let full_path = manifest.output_root.join("ingame").join(relative_path);
+    let bytes = fs::read(&full_path)
+        .with_context(|| format!("failed to read ingame asset {}", full_path.display()))?;
+    Ok(LoadedAsset {
+        relative_path: relative_path.to_owned(),
+        bytes,
+    })
+}
+
+#[allow(non_snake_case)]
+pub fn load_juggernaut_skull_and_star_art_sub_129CE(
+    manifest: &AssetManifest,
+) -> Result<[IngameVramUpload; 3]> {
+    // ASM sub_129CE (kid.asm:25354): upload two Juggernaut skull frames to
+    // VRAM $CDC0/$CDE0, then the star art to VRAM $DF40.
+    Ok([
+        IngameVramUpload {
+            vram_word_address: 0xCDC0,
+            asset: load_ingame_asset(manifest, "artunc/Juggernaut_skull_frame_1.bin")?,
+        },
+        IngameVramUpload {
+            vram_word_address: 0xCDE0,
+            asset: load_ingame_asset(manifest, "artunc/Juggernaut_skull_frame_2.bin")?,
+        },
+        IngameVramUpload {
+            vram_word_address: 0xDF40,
+            asset: load_ingame_asset(manifest, "artunc/Some_kind_of_star.bin")?,
+        },
+    ])
 }
 
 fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLevelAssets>> {
@@ -2150,6 +2188,24 @@ AddrTbl_LevelNames:   ;1A842
         );
     }
 
+    fn write_sub_129ce_test_assets(source_root: &Path) {
+        fs::write(
+            source_root.join("ingame/artunc/Juggernaut_skull_frame_1.bin"),
+            [0x11; 32 * 4],
+        )
+        .expect("skull frame 1");
+        fs::write(
+            source_root.join("ingame/artunc/Juggernaut_skull_frame_2.bin"),
+            [0x22; 32 * 4],
+        )
+        .expect("skull frame 2");
+        fs::write(
+            source_root.join("ingame/artunc/Some_kind_of_star.bin"),
+            [0x33; 32 * 4],
+        )
+        .expect("star");
+    }
+
     #[test]
     fn parses_level_names_and_titles() {
         let parsed =
@@ -2670,6 +2726,41 @@ AddrTbl_LevelNames:   ;1A842
                 .map(|object| object.object_type),
             Some(0x80)
         );
+    }
+
+    #[test]
+    fn load_juggernaut_skull_and_star_art_sub_129ce_reads_the_expected_ingame_assets() {
+        let source = TempDir::new().expect("temp dir");
+        let output = TempDir::new().expect("temp dir");
+        write_default_test_bundle_source(source.path());
+        write_sub_129ce_test_assets(source.path());
+        let manifest = export_split_bundle(source.path(), output.path(), "abc123", "deadbeef")
+            .expect("bundle should export");
+
+        let uploads = load_juggernaut_skull_and_star_art_sub_129CE(&manifest)
+            .expect("ASM sub_129CE assets should load");
+
+        assert_eq!(
+            uploads
+                .iter()
+                .map(|upload| upload.vram_word_address)
+                .collect::<Vec<_>>(),
+            vec![0xCDC0, 0xCDE0, 0xDF40]
+        );
+        assert_eq!(
+            uploads
+                .iter()
+                .map(|upload| upload.asset.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "artunc/Juggernaut_skull_frame_1.bin",
+                "artunc/Juggernaut_skull_frame_2.bin",
+                "artunc/Some_kind_of_star.bin",
+            ]
+        );
+        assert_eq!(uploads[0].asset.bytes, vec![0x11; 32 * 4]);
+        assert_eq!(uploads[1].asset.bytes, vec![0x22; 32 * 4]);
+        assert_eq!(uploads[2].asset.bytes, vec![0x33; 32 * 4]);
     }
 
     #[test]
