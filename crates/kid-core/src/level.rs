@@ -1,5 +1,18 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FgUpdateQueueCustomEntrySub1596 {
+    pub(crate) vram_word_address: u16,
+    pub(crate) first_longword: u32,
+    pub(crate) second_longword: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FgPlaneCustomWriteSub1596 {
+    pub(crate) control_words: [u16; 2],
+    pub(crate) data_longword: u32,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
@@ -152,6 +165,35 @@ pub(crate) fn apply_pending_palette_fade_sub_14C0(
         pending_mask,
         &fade_curve,
     );
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn drain_fg_update_queue_custom_sub_1596(
+    pending_queue: &mut Option<Vec<FgUpdateQueueCustomEntrySub1596>>,
+) -> Vec<FgPlaneCustomWriteSub1596> {
+    // ASM sub_1596 / loc_15B8 / loc_15C8 (kid.asm:2689): if
+    // FGUpdateQueueCustom_NextSlot is non-zero, terminate the queue, then walk
+    // each non-negative address word in FGPlane_UpdateQueueCustom and emit two
+    // VDP control writes at `address|$4000` and `address|$4080`, consuming the
+    // pending queue when finished.
+    let Some(entries) = pending_queue.take() else {
+        return Vec::new();
+    };
+
+    let mut writes = Vec::with_capacity(entries.len() * 2);
+    for entry in entries {
+        let first_control_word = entry.vram_word_address | 0x4000;
+        writes.push(FgPlaneCustomWriteSub1596 {
+            control_words: [first_control_word, 0],
+            data_longword: entry.first_longword,
+        });
+        writes.push(FgPlaneCustomWriteSub1596 {
+            control_words: [first_control_word.wrapping_add(0x0080), 0],
+            data_longword: entry.second_longword,
+        });
+    }
+    writes
 }
 
 impl NativeRuntime {

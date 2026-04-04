@@ -2,8 +2,10 @@ use super::*;
 use crate::boot::sega_screen_tile_strip_sub_12E3C;
 use crate::combat::*;
 use crate::level::{
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
     apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, swap_forest_background_palette_entries_sub_129AE,
+    build_palette_fade_curve_sub_14C0, drain_fg_update_queue_custom_sub_1596,
+    swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use kid_data::{
@@ -354,6 +356,67 @@ fn sub_14c0_dispatches_both_palette_halves_and_clears_pending_masks() {
     assert_eq!(
         palette_buffer[1], 0x0EEE,
         "ASM sub_14C0 must not touch other palette words when their pending bits are clear"
+    );
+}
+
+#[test]
+fn sub_1596_drains_each_custom_fg_entry_into_two_vdp_writes() {
+    let mut pending_queue = Some(vec![
+        FgUpdateQueueCustomEntrySub1596 {
+            vram_word_address: 0x0123,
+            first_longword: 0x1111_2222,
+            second_longword: 0x3333_4444,
+        },
+        FgUpdateQueueCustomEntrySub1596 {
+            vram_word_address: 0x4567,
+            first_longword: 0xAAAA_BBBB,
+            second_longword: 0xCCCC_DDDD,
+        },
+    ]);
+
+    let writes = drain_fg_update_queue_custom_sub_1596(&mut pending_queue);
+
+    assert_eq!(
+        writes,
+        vec![
+            FgPlaneCustomWriteSub1596 {
+                control_words: [0x4123, 0],
+                data_longword: 0x1111_2222,
+            },
+            FgPlaneCustomWriteSub1596 {
+                control_words: [0x41A3, 0],
+                data_longword: 0x3333_4444,
+            },
+            FgPlaneCustomWriteSub1596 {
+                control_words: [0x4567 | 0x4000, 0],
+                data_longword: 0xAAAA_BBBB,
+            },
+            FgPlaneCustomWriteSub1596 {
+                control_words: [(0x4567 | 0x4000) + 0x0080, 0],
+                data_longword: 0xCCCC_DDDD,
+            },
+        ],
+        "ASM sub_1596 should expand each pending custom FG queue entry into two VDP writes spaced by $80 words"
+    );
+    assert!(
+        pending_queue.is_none(),
+        "ASM sub_1596 clears FGUpdateQueueCustom_NextSlot after draining the queue"
+    );
+}
+
+#[test]
+fn sub_1596_returns_no_writes_when_no_custom_fg_queue_is_pending() {
+    let mut pending_queue = None;
+
+    let writes = drain_fg_update_queue_custom_sub_1596(&mut pending_queue);
+
+    assert!(
+        writes.is_empty(),
+        "ASM sub_1596 should return immediately when FGUpdateQueueCustom_NextSlot is zero"
+    );
+    assert!(
+        pending_queue.is_none(),
+        "ASM sub_1596 should leave an empty custom FG queue idle"
     );
 }
 
