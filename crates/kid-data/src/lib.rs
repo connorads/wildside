@@ -327,6 +327,9 @@ const TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4: [u16; 32] = [
     0x0000, 0x0000, 0x0000, 0x0000, 0x0010, 0x0000, 0x0110, 0x0000, 0x1010, 0x0000, 0x0010, 0x0000,
     0x0010, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 ];
+const COLUMN_MASK_LOOKUP_SUB_1C1A2: [u8; 16] = [
+    0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A, 0x0A, 0x18,
+];
 
 const SPRITE_SIZE_TILE_COUNTS_SUB_13C0: [u16; 16] =
     [0, 1, 2, 3, 1, 3, 5, 7, 2, 5, 8, 11, 3, 7, 11, 15];
@@ -1684,6 +1687,49 @@ pub fn level_layout_xor_vram_upload_sub_1C180(
         vram_word_address: 0x1780,
         longwords,
     })
+}
+
+#[allow(non_snake_case)]
+pub fn mask_level_layout_column_sub_1C1A2(level_layout: &mut [u8], selector: i16) {
+    // ASM sub_1C1A2 (kid.asm:31014): increment the signed selector, reject any
+    // value outside `0..$3F`, then map that 6-bit column id through
+    // `byte_1C1F4`. ASM sub_1C1D2 (kid.asm:31043) applies the resulting nibble
+    // mask down 16 rows at a fixed `$20`-byte stride across `Level_Layout`.
+    let adjusted_selector = selector.saturating_add(1);
+    if !(0..0x40).contains(&adjusted_selector) {
+        return;
+    }
+
+    let adjusted_selector =
+        u16::try_from(adjusted_selector).expect("sub_1C1A2 should keep selectors in range");
+    let mut encoded_offset =
+        u16::from(COLUMN_MASK_LOOKUP_SUB_1C1A2[usize::from(adjusted_selector >> 2)]);
+    if adjusted_selector & 0x0001 != 0 {
+        encoded_offset += 0x20;
+    }
+    if adjusted_selector & 0x0002 != 0 {
+        encoded_offset += 0x04;
+    }
+
+    apply_level_layout_nibble_mask_sub_1C1D2(level_layout, encoded_offset);
+}
+
+#[allow(non_snake_case)]
+fn apply_level_layout_nibble_mask_sub_1C1D2(level_layout: &mut [u8], encoded_offset: u16) {
+    let byte_mask = if encoded_offset & 0x0001 == 0 {
+        0x0F
+    } else {
+        0xF0
+    };
+    let base_offset = usize::from(encoded_offset >> 1);
+
+    for row in 0..16usize {
+        let offset = base_offset + row * 0x20;
+        let Some(cell) = level_layout.get_mut(offset) else {
+            break;
+        };
+        *cell &= byte_mask;
+    }
 }
 
 #[allow(non_snake_case)]
@@ -4150,6 +4196,60 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1C180 needs 0x0B00 bytes of Level_Layout"),
             "the error should describe the required ROM-sized Level_Layout byte span",
+        );
+    }
+
+    #[test]
+    fn mask_level_layout_column_sub_1c1a2_keeps_the_low_nibble_for_selector_minus_1() {
+        let mut level_layout = vec![0xAB; 16 * 0x20];
+
+        mask_level_layout_column_sub_1C1A2(&mut level_layout, -1);
+
+        for row in 0..16usize {
+            assert_eq!(
+                level_layout[row * 0x20],
+                0x0B,
+                "ASM sub_1C1A2/sub_1C1D2 should keep only the low nibble when selector -1 maps to the first column",
+            );
+        }
+        assert_eq!(
+            level_layout[1], 0xAB,
+            "sub_1C1D2 should only touch the selected byte in each `$20`-byte row",
+        );
+    }
+
+    #[test]
+    fn mask_level_layout_column_sub_1c1a2_keeps_the_high_nibble_for_selector_15() {
+        let mut level_layout = vec![0xAB; 16 * 0x20];
+
+        mask_level_layout_column_sub_1C1A2(&mut level_layout, 15);
+
+        for row in 0..16usize {
+            assert_eq!(
+                level_layout[4 + row * 0x20],
+                0xA0,
+                "ASM sub_1C1A2 should follow `byte_1C1F4` entry `$09`, and sub_1C1D2 should keep only the high nibble when the encoded offset is odd",
+            );
+        }
+        assert_eq!(level_layout[5], 0xAB);
+    }
+
+    #[test]
+    fn mask_level_layout_column_sub_1c1a2_ignores_selectors_outside_the_signed_rom_range() {
+        let baseline = vec![0xAB; 16 * 0x20];
+        let mut negative = baseline.clone();
+        let mut too_large = baseline.clone();
+
+        mask_level_layout_column_sub_1C1A2(&mut negative, -2);
+        mask_level_layout_column_sub_1C1A2(&mut too_large, 63);
+
+        assert_eq!(
+            negative, baseline,
+            "ASM sub_1C1A2 should return immediately when the pre-increment selector stays negative",
+        );
+        assert_eq!(
+            too_large, baseline,
+            "ASM sub_1C1A2 should return immediately when the incremented selector reaches `$40`",
         );
     }
 
