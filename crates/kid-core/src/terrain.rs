@@ -1090,6 +1090,22 @@ pub fn horizontal_collision_scan_right_sub_36B3C(
     horizontal_collision_scan(grid, center_x_px, foot_y_px, half_width, height, true)
 }
 
+/// Mirror Robot/Driller/Tank leftward rectangle scan `sub_36BD6`.
+#[allow(non_snake_case)]
+pub fn horizontal_collision_scan_left_sub_36BD6(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> HorizontalCollisionScan {
+    // ASM sub_36BD6 (kid.asm:38434): scan the current hitbox rectangle for any
+    // bit-$4000 collision cells, then scan the lead column immediately to the
+    // left over the same row span, treating column -1 / the level's left edge
+    // as blocked.
+    horizontal_collision_scan(grid, center_x_px, foot_y_px, half_width, height, false)
+}
+
 /// Check for a ceiling above the player's hitbox.
 ///
 /// Probes both horizontal edges at the top of the hitbox.
@@ -2138,6 +2154,42 @@ mod tests {
                 lead_column_blocked: true,
             },
             "ASM sub_36B3C should return a blocked lead column once the next cell would step beyond Level_width_blocks",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_sub_36bd6_flags_a_slope_inside_the_hitbox() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        let slope_offset = (1 * 4 + 1) * 2;
+        data[slope_offset] = 0x50;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_left_sub_36BD6(&grid, 24, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: true,
+                lead_column_blocked: false,
+            },
+            "ASM sub_36BD6 should treat any bit-$4000 collision cell inside the body rectangle as a hit, including left-side slopes",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_sub_36bd6_treats_the_left_boundary_as_blocked() {
+        let data = [0u8; 4 * 4 * 2];
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_left_sub_36BD6(&grid, 8, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: true,
+            },
+            "ASM sub_36BD6 should return a blocked lead column once the next cell would step beyond the level's left edge",
         );
     }
 
