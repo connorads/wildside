@@ -908,6 +908,85 @@ pub(crate) fn first_shooter_hit_sub_219C(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SolidOverlapAxisSub1FA2 {
+    Horizontal,
+    Vertical,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SolidOverlapResolutionSub1FA2 {
+    pub(crate) axis: SolidOverlapAxisSub1FA2,
+    pub(crate) x_delta_px: i16,
+    pub(crate) y_delta_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
+    kid_hitbox: CollisionRectSub1F52,
+    solid_tiles: &[CollisionRectSub1F52],
+) -> Option<SolidOverlapResolutionSub1FA2> {
+    // ASM sub_1FA2 (kid.asm:3784) scans the overlapped level cells, finds the
+    // first ordinary solid tile region, then compares horizontal vs vertical
+    // escape distances. This helper mirrors that core push-out choice and the
+    // ROM tie-breaks (`horizontal` on axis ties, then `left` / `up` on equal
+    // edge distances). TODO(fidelity): the special-tile hurt branch at
+    // `loc_211C..loc_216A` is intentionally not modelled here yet.
+    let solid = solid_tiles.iter().copied().find(|solid| {
+        solid.left_px <= kid_hitbox.right_px
+            && solid.right_px >= kid_hitbox.left_px
+            && solid.top_px <= kid_hitbox.bottom_px
+            && solid.bottom_px >= kid_hitbox.top_px
+    })?;
+
+    let push_down = solid
+        .bottom_px
+        .saturating_sub(kid_hitbox.top_px)
+        .saturating_add(1);
+    let push_up = kid_hitbox
+        .bottom_px
+        .saturating_sub(solid.top_px)
+        .saturating_add(1);
+    let vertical_span = push_down.min(push_up);
+
+    let push_right = solid
+        .right_px
+        .saturating_sub(kid_hitbox.left_px)
+        .saturating_add(1);
+    let push_left = kid_hitbox
+        .right_px
+        .saturating_sub(solid.left_px)
+        .saturating_add(1);
+    let horizontal_span = push_right.min(push_left);
+
+    if horizontal_span <= vertical_span {
+        let x_delta_px = if push_left <= push_right {
+            -push_left
+        } else {
+            push_right
+        };
+        Some(SolidOverlapResolutionSub1FA2 {
+            axis: SolidOverlapAxisSub1FA2::Horizontal,
+            x_delta_px,
+            y_delta_px: 0,
+        })
+    } else {
+        let y_delta_px = if push_up <= push_down {
+            -push_up
+        } else {
+            push_down
+        };
+        Some(SolidOverlapResolutionSub1FA2 {
+            axis: SolidOverlapAxisSub1FA2::Vertical,
+            x_delta_px: 0,
+            y_delta_px,
+        })
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn support_overlap_detected_sub_1F52(
     kid_hitbox: CollisionRectSub1F52,

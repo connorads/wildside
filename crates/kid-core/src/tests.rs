@@ -256,6 +256,50 @@ fn first_shooter_hit_sub_219c_returns_first_strict_interior_hit() {
     );
 }
 
+#[test]
+fn first_solid_overlap_resolution_sub_1fa2_returns_none_without_overlap() {
+    assert_eq!(
+        first_solid_overlap_resolution_sub_1FA2(
+            collision_rect_sub_1f52(100, 120, 40, 80),
+            &[collision_rect_sub_1f52(130, 145, 40, 55)],
+        ),
+        None,
+        "ASM sub_1FA2 only reacts once Kid's hitbox actually overlaps a solid tile",
+    );
+}
+
+#[test]
+fn first_solid_overlap_resolution_sub_1fa2_prefers_vertical_escape_when_it_is_shorter() {
+    assert_eq!(
+        first_solid_overlap_resolution_sub_1FA2(
+            collision_rect_sub_1f52(100, 120, 40, 80),
+            &[collision_rect_sub_1f52(99, 121, 70, 90)],
+        ),
+        Some(SolidOverlapResolutionSub1FA2 {
+            axis: SolidOverlapAxisSub1FA2::Vertical,
+            x_delta_px: 0,
+            y_delta_px: -11,
+        }),
+        "ASM sub_1FA2's ordinary-solid branch should choose the smaller vertical clearance and add the ROM's extra 1px separation before moving Kid up",
+    );
+}
+
+#[test]
+fn first_solid_overlap_resolution_sub_1fa2_breaks_ties_toward_horizontal_then_left() {
+    assert_eq!(
+        first_solid_overlap_resolution_sub_1FA2(
+            collision_rect_sub_1f52(100, 120, 40, 80),
+            &[collision_rect_sub_1f52(110, 130, 50, 70)],
+        ),
+        Some(SolidOverlapResolutionSub1FA2 {
+            axis: SolidOverlapAxisSub1FA2::Horizontal,
+            x_delta_px: -11,
+            y_delta_px: 0,
+        }),
+        "ASM sub_1FA2 falls into the horizontal branch on equal axis spans, then prefers the left/up subtraction path on equal edge distances",
+    );
+}
+
 fn manifest() -> AssetManifest {
     AssetManifest {
         generated_bundle_version: kid_data::GENERATED_BUNDLE_VERSION,
