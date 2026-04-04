@@ -19823,6 +19823,47 @@ fn heady_metal_apply_piece_velocities_sub_376ec_updates_each_live_worker_slot() 
 }
 
 #[test]
+fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
+    let updated = heady_metal_scatter_step_sub_3787C(
+        HeadyMetalScatterVelocities {
+            slot_fb72_x_velocity: 0x10,
+            slot_fb76_x_velocity: 0x20,
+            slot_fb7a_y_velocity: 0x30,
+            slot_fbae_x_velocity: 0x40,
+            slot_fbb2_x_velocity: 0x50,
+        },
+        -0x0001_86A0,
+        0x0001_86A0,
+    );
+
+    assert_eq!(
+        updated.slot_fb72_x_velocity,
+        0x10 - 0x0001_86A0,
+        "ASM sub_3787C should add `d6` to `$FFFFFB72`'s `x_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fb76_x_velocity,
+        0x20 + 0x0001_86A0,
+        "ASM sub_3787C should add `d7` to `$FFFFFB76`'s `x_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fb7a_y_velocity,
+        0x30 + 0x0001_86A0,
+        "ASM sub_3787C should add `d7` to `$FFFFFB7A`'s `y_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fbae_x_velocity,
+        0x40 - 0x0001_86A0,
+        "ASM sub_3787C should add `d6` to `$FFFFFBAE`'s `x_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fbb2_x_velocity,
+        0x50 + 0x0001_86A0,
+        "ASM sub_3787C should add `d7` to `$FFFFFBB2`'s `x_vel(a3)`",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);

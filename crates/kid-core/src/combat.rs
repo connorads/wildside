@@ -244,6 +244,15 @@ pub(crate) struct HeadyMetalSpriteVelocitySub376EC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalScatterVelocities {
+    pub(crate) slot_fb72_x_velocity: i32,
+    pub(crate) slot_fb76_x_velocity: i32,
+    pub(crate) slot_fb7a_y_velocity: i32,
+    pub(crate) slot_fbae_x_velocity: i32,
+    pub(crate) slot_fbb2_x_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyeAttackFrameInputsSub37332 {
     pub(crate) effect_x: u16,
     pub(crate) effect_y: u16,
@@ -575,6 +584,24 @@ pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
     }
 
     slots
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_scatter_step_sub_3787C(
+    mut velocities: HeadyMetalScatterVelocities,
+    d6_x_velocity_delta: i32,
+    d7_velocity_delta: i32,
+) -> HeadyMetalScatterVelocities {
+    // ASM sub_3787C (kid.asm:39641): apply the primary alternating breakup
+    // pattern to the five fixed HeadyMetal worker slots rooted at
+    // `$FFFFFB72/$76/$7A/$BAE/$BB2`.
+    velocities.slot_fb72_x_velocity += d6_x_velocity_delta;
+    velocities.slot_fb76_x_velocity += d7_velocity_delta;
+    velocities.slot_fb7a_y_velocity += d7_velocity_delta;
+    velocities.slot_fbae_x_velocity += d6_x_velocity_delta;
+    velocities.slot_fbb2_x_velocity += d7_velocity_delta;
+    velocities
 }
 
 impl NativeRuntime {
