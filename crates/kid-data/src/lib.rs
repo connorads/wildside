@@ -154,6 +154,57 @@ pub struct IngameVramUpload {
     pub asset: LoadedAsset,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TitleScreenRegionVariantSub1B2A4 {
+    Default,
+    Variant1,
+    Variant2,
+}
+
+impl TitleScreenRegionVariantSub1B2A4 {
+    fn from_region_byte(region_byte: u8) -> Self {
+        match region_byte {
+            0 => Self::Default,
+            1 => Self::Variant1,
+            _ => Self::Variant2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicVramAssetLoadSub1B2A4 {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicEnigmaTilemapLoadSub1B2A4 {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicPaletteLoadSub1B2A4 {
+    pub destination_word_offset: u16,
+    pub palette_label: &'static str,
+    pub word_count: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TitleScreenLoadPlanSub1B2A4 {
+    pub region_variant: TitleScreenRegionVariantSub1B2A4,
+    pub art_uploads: [SymbolicVramAssetLoadSub1B2A4; 4],
+    pub tilemap_load: SymbolicEnigmaTilemapLoadSub1B2A4,
+    pub tile_patch_words: [u16; 32],
+    pub palette_loads: Vec<SymbolicPaletteLoadSub1B2A4>,
+}
+
+const TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4: [u16; 32] = [
+    0x1111, 0x1010, 0x0010, 0x0011, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0010, 0x0000, 0x0110, 0x0000, 0x1010, 0x0000, 0x0010, 0x0000,
+    0x0010, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+];
+
 const SPRITE_SIZE_TILE_COUNTS_SUB_13C0: [u16; 16] =
     [0, 1, 2, 3, 1, 3, 5, 7, 2, 5, 8, 11, 3, 7, 11, 15];
 
@@ -1182,6 +1233,63 @@ pub fn load_hitpoint_display_art_sub_12C24(manifest: &AssetManifest) -> Result<I
         vram_word_address: 0x45A0,
         asset: load_ingame_asset(manifest, "artunc/Hitpoint_display.bin")?,
     })
+}
+
+#[allow(non_snake_case)]
+pub fn title_screen_load_plan_sub_1B2A4(region_byte: u8) -> TitleScreenLoadPlanSub1B2A4 {
+    // ASM sub_1B2A4 + loc_1C4B2 (kid.asm:29472-29505, 31197-31222): queue four
+    // title-screen VRAM uploads, decode one Enigma tilemap to VRAM $20C1, push
+    // the 32-word `unk_1B32C` patch to VRAM $F000, then seed Palette_Buffer
+    // with the base `Pal_1C400` copy plus an optional region-specific overlay.
+    let region_variant = TitleScreenRegionVariantSub1B2A4::from_region_byte(region_byte);
+    let region_art_label = match region_variant {
+        TitleScreenRegionVariantSub1B2A4::Default => "byte_26E3D",
+        TitleScreenRegionVariantSub1B2A4::Variant1 => "byte_2927C",
+        TitleScreenRegionVariantSub1B2A4::Variant2 => "byte_282C1",
+    };
+    let mut palette_loads = vec![SymbolicPaletteLoadSub1B2A4 {
+        destination_word_offset: 0x0000,
+        palette_label: "Pal_1C400",
+        word_count: 0x0033,
+    }];
+    if !matches!(region_variant, TitleScreenRegionVariantSub1B2A4::Default) {
+        palette_loads.push(SymbolicPaletteLoadSub1B2A4 {
+            destination_word_offset: 0x001A,
+            palette_label: match region_variant {
+                TitleScreenRegionVariantSub1B2A4::Variant1 => "Pal_1C466",
+                TitleScreenRegionVariantSub1B2A4::Variant2 => "Pal_1C48C",
+                TitleScreenRegionVariantSub1B2A4::Default => unreachable!(),
+            },
+            word_count: 0x0013,
+        });
+    }
+    TitleScreenLoadPlanSub1B2A4 {
+        region_variant,
+        art_uploads: [
+            SymbolicVramAssetLoadSub1B2A4 {
+                vram_word_address: 0x1820,
+                asset_label: "byte_2A756",
+            },
+            SymbolicVramAssetLoadSub1B2A4 {
+                vram_word_address: 0x21E0,
+                asset_label: region_art_label,
+            },
+            SymbolicVramAssetLoadSub1B2A4 {
+                vram_word_address: 0x6620,
+                asset_label: "byte_2A961",
+            },
+            SymbolicVramAssetLoadSub1B2A4 {
+                vram_word_address: 0xFA60,
+                asset_label: "ArtComp_1DA86_LettersNumbers",
+            },
+        ],
+        tilemap_load: SymbolicEnigmaTilemapLoadSub1B2A4 {
+            vram_word_address: 0x20C1,
+            asset_label: "unk_2F7D0",
+        },
+        tile_patch_words: TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4,
+        palette_loads,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -3257,6 +3365,85 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(upload.vram_word_address, 0x45A0);
         assert_eq!(upload.asset.relative_path, "artunc/Hitpoint_display.bin");
         assert_eq!(upload.asset.bytes, vec![0x44; 32 * 4]);
+    }
+
+    #[test]
+    fn title_screen_load_plan_sub_1b2a4_uses_default_region_assets_without_overlay_palette() {
+        let plan = title_screen_load_plan_sub_1B2A4(0);
+
+        assert_eq!(
+            plan.region_variant,
+            TitleScreenRegionVariantSub1B2A4::Default
+        );
+        assert_eq!(
+            plan.art_uploads
+                .iter()
+                .map(|upload| (upload.vram_word_address, upload.asset_label))
+                .collect::<Vec<_>>(),
+            vec![
+                (0x1820, "byte_2A756"),
+                (0x21E0, "byte_26E3D"),
+                (0x6620, "byte_2A961"),
+                (0xFA60, "ArtComp_1DA86_LettersNumbers"),
+            ],
+            "ASM sub_1B2A4 should keep the default title art at VRAM $21E0 when ($FFFFFC82).w is zero",
+        );
+        assert_eq!(
+            plan.tilemap_load,
+            SymbolicEnigmaTilemapLoadSub1B2A4 {
+                vram_word_address: 0x20C1,
+                asset_label: "unk_2F7D0",
+            }
+        );
+        assert_eq!(
+            plan.tile_patch_words,
+            TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4
+        );
+        assert_eq!(
+            plan.palette_loads,
+            vec![SymbolicPaletteLoadSub1B2A4 {
+                destination_word_offset: 0x0000,
+                palette_label: "Pal_1C400",
+                word_count: 0x0033,
+            }],
+            "ASM loc_1C4B2 should copy only the base palette when ($FFFFFC82).w is zero",
+        );
+    }
+
+    #[test]
+    fn title_screen_load_plan_sub_1b2a4_switches_art_and_palette_overlay_for_non_zero_region() {
+        let region_1 = title_screen_load_plan_sub_1B2A4(1);
+        let region_2 = title_screen_load_plan_sub_1B2A4(2);
+
+        assert_eq!(
+            region_1.region_variant,
+            TitleScreenRegionVariantSub1B2A4::Variant1
+        );
+        assert_eq!(region_1.art_uploads[1].asset_label, "byte_2927C");
+        assert_eq!(
+            region_1.palette_loads[1],
+            SymbolicPaletteLoadSub1B2A4 {
+                destination_word_offset: 0x001A,
+                palette_label: "Pal_1C466",
+                word_count: 0x0013,
+            },
+            "ASM loc_1C4B2 should overlay Pal_1C466 at Palette_Buffer+$1A for region byte 1",
+        );
+
+        assert_eq!(
+            region_2.region_variant,
+            TitleScreenRegionVariantSub1B2A4::Variant2
+        );
+        assert_eq!(region_2.art_uploads[1].asset_label, "byte_282C1");
+        assert_eq!(
+            region_2.palette_loads[1],
+            SymbolicPaletteLoadSub1B2A4 {
+                destination_word_offset: 0x001A,
+                palette_label: "Pal_1C48C",
+                word_count: 0x0013,
+            },
+            "ASM loc_1C4B2 should switch to Pal_1C48C once ($FFFFFC82).w is non-zero and not 1",
+        );
     }
 
     #[test]
