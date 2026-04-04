@@ -30793,6 +30793,55 @@ fn shared_enemy_attachment_sub_3bf72_driller_spawns_the_paired_treads() {
 }
 
 #[test]
+fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
+    let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
+
+    assert_eq!(
+        result,
+        SharedEnemyDriveSoundResultSub3C352 {
+            next_previous_motion_active: true,
+            next_refcount: 0,
+            sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(
+                SharedEnemyDriveSoundEffectSub3C352::DrillMoving,
+            )),
+        },
+        "ASM sub_3C352 should decrement the shared Driller refcount on the stopped->moving edge and call `PlaySound2` when that counter reaches zero",
+    );
+}
+
+#[test]
+fn shared_enemy_drive_sound_sub_3c352_stops_the_last_tank_loop_with_playsound() {
+    let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Tank, false, true, 0);
+
+    assert_eq!(
+        result,
+        SharedEnemyDriveSoundResultSub3C352 {
+            next_previous_motion_active: false,
+            next_refcount: 1,
+            sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+            )),
+        },
+        "ASM sub_3C352 should call `PlaySound` on the moving->stopped edge before incrementing the shared Tank refcount back to one",
+    );
+}
+
+#[test]
+fn shared_enemy_drive_sound_sub_3c352_ignores_non_transition_frames() {
+    let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Tank, true, true, 3);
+
+    assert_eq!(
+        result,
+        SharedEnemyDriveSoundResultSub3C352 {
+            next_previous_motion_active: true,
+            next_refcount: 3,
+            sound_call: None,
+        },
+        "ASM sub_3C352 should leave the latch and shared refcount untouched while the drive loop stays continuously active",
+    );
+}
+
+#[test]
 fn homing_y_target_offset_is_16px_above_player() {
     // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
     // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

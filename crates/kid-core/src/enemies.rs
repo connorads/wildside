@@ -5082,6 +5082,25 @@ pub(crate) struct SharedEnemyAttachmentInputSub3BF72 {
     pub(crate) child_x_direction: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SharedEnemyDriveSoundEffectSub3C352 {
+    DrillMoving,
+    TankDriving,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SharedEnemyDriveSoundCallSub3C352 {
+    PlaySound(SharedEnemyDriveSoundEffectSub3C352),
+    PlaySound2(SharedEnemyDriveSoundEffectSub3C352),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
+    pub(crate) next_previous_motion_active: bool,
+    pub(crate) next_refcount: u8,
+    pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_attachment_sub_3BF72(
@@ -5154,6 +5173,63 @@ pub(crate) fn shared_enemy_attachment_sub_3BF72(
             x_direction: Some(primary_x_direction),
         },
         secondary: None,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shared_enemy_drive_sound_sub_3C352(
+    family: EnemyFamily,
+    motion_active: bool,
+    previous_motion_active: bool,
+    refcount: u8,
+) -> SharedEnemyDriveSoundResultSub3C352 {
+    let Some(effect) = (match family {
+        // ASM sub_3C352 (kid.asm:43849-43880): `d6=0` selects
+        // `byte_3C46C[0]=sfx_Drill_moving`.
+        EnemyFamily::Driller => Some(SharedEnemyDriveSoundEffectSub3C352::DrillMoving),
+        // ASM sub_3C352: `d6=1` selects `byte_3C46C[1]=sfx_Tank_driving` for
+        // both RockTank variants.
+        EnemyFamily::Tank => Some(SharedEnemyDriveSoundEffectSub3C352::TankDriving),
+        _ => None,
+    }) else {
+        return SharedEnemyDriveSoundResultSub3C352 {
+            next_previous_motion_active: previous_motion_active,
+            next_refcount: refcount,
+            sound_call: None,
+        };
+    };
+
+    if motion_active {
+        if previous_motion_active {
+            return SharedEnemyDriveSoundResultSub3C352 {
+                next_previous_motion_active: true,
+                next_refcount: refcount,
+                sound_call: None,
+            };
+        }
+
+        let next_refcount = refcount.wrapping_sub(1);
+        return SharedEnemyDriveSoundResultSub3C352 {
+            next_previous_motion_active: true,
+            next_refcount,
+            sound_call: (next_refcount == 0)
+                .then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(effect)),
+        };
+    }
+
+    if !previous_motion_active {
+        return SharedEnemyDriveSoundResultSub3C352 {
+            next_previous_motion_active: false,
+            next_refcount: refcount,
+            sound_call: None,
+        };
+    }
+
+    SharedEnemyDriveSoundResultSub3C352 {
+        next_previous_motion_active: false,
+        next_refcount: refcount.wrapping_add(1),
+        sound_call: (refcount == 0).then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound(effect)),
     }
 }
 
