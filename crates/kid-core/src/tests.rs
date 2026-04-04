@@ -7,8 +7,9 @@ use crate::boot::{
 use crate::combat::*;
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, SUB_28FC_SLOT_COUNT,
-    ScratchDebrisPieceSub292E, apply_pending_palette_fade_sub_14C0,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
     drain_fg_update_queue_custom_sub_1596, fade_palette_span_sub_1C85E,
     initialise_scratch_queue_sub_28FC, scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
     swap_forest_background_palette_entries_sub_129AE,
@@ -225,6 +226,89 @@ fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
         scratch_debris_pieces_sub_292E(&queue, SUB_28FC_SLOT_COUNT - 1)[0].x_velocity_px,
         -5,
         "ASM sub_292E should keep using the selected direction table right up to the wrapping sixth slot",
+    );
+}
+
+#[test]
+fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
+
+    let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 0, 0, 0);
+
+    assert_eq!(
+        render,
+        ScratchDebrisRenderSub2A4C {
+            sprites: vec![
+                ScratchDebrisSpriteSub2A4C {
+                    y: 0x00FF,
+                    link: 1,
+                    tile_word: 0x8228,
+                    x: 0x019D,
+                },
+                ScratchDebrisSpriteSub2A4C {
+                    y: 0x0107,
+                    link: 2,
+                    tile_word: 0x8228,
+                    x: 0x019D,
+                },
+                ScratchDebrisSpriteSub2A4C {
+                    y: 0x0108,
+                    link: 3,
+                    tile_word: 0x8228,
+                    x: 0x01A5,
+                },
+                ScratchDebrisSpriteSub2A4C {
+                    y: 0x0101,
+                    link: 4,
+                    tile_word: 0x8228,
+                    x: 0x01A5,
+                },
+                ScratchDebrisSpriteSub2A4C {
+                    y: 0x0104,
+                    link: 5,
+                    tile_word: 0x8228,
+                    x: 0x01A1,
+                },
+            ],
+            number_sprites: 5,
+        },
+        "ASM sub_2A4C should advance each debris record once, add the `$80` sprite bias, and link the five emitted `$8228` sprites from the starting Number_Sprites value",
+    );
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, 0)[0],
+        ScratchDebrisPieceSub292E {
+            y_velocity_px: -1,
+            x_velocity_px: -3,
+            y_pos_px: 0x007F,
+            x_pos_px: 0x011D,
+        },
+        "ASM sub_2A4C should keep the high words of the first debris record in sync with its 16.16 stepped y/x state after one frame",
+    );
+    assert_eq!(
+        queue.slots[0][0], 0xFF,
+        "ASM sub_2A4C should keep the slot active while the lead fragment remains inside the primary bounds",
+    );
+}
+
+#[test]
+fn compile_block_debris_sprites_sub_2a4c_clears_slots_when_the_lead_fragment_leaves_bounds() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+    spawn_block_debris_sub_292E(&mut queue, 0x0000, 0x0000, 0);
+
+    let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 7, 0, 0);
+
+    assert!(
+        render.sprites.is_empty(),
+        "ASM sub_2A4C should stop before emitting any sprites when the lead fragment falls outside the initial x/y visibility checks",
+    );
+    assert_eq!(
+        render.number_sprites, 7,
+        "ASM sub_2A4C should leave Number_Sprites unchanged when the slot dies before its first sprite write",
+    );
+    assert_eq!(
+        queue.slots[0][0], 0x00,
+        "ASM sub_2A4C should clear the slot's active byte once the lead fragment trips the off-screen kill path",
     );
 }
 

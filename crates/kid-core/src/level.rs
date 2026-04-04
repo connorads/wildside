@@ -32,6 +32,20 @@ pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) x_pos_px: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ScratchDebrisSpriteSub2A4C {
+    pub(crate) y: u16,
+    pub(crate) link: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) x: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ScratchDebrisRenderSub2A4C {
+    pub(crate) sprites: Vec<ScratchDebrisSpriteSub2A4C>,
+    pub(crate) number_sprites: u8,
+}
+
 const SUB_292E_PIECE_COUNT: usize = 5;
 const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
 const SUB_292E_SLOT_FLAG_OFFSET: usize = 1;
@@ -51,6 +65,9 @@ const SUB_292E_X_VELOCITIES: [[i16; SUB_292E_PIECE_COUNT]; 4] = [
     [-3, -3, -3, -3, -3],
     [-5, -4, -3, -2, -1],
 ];
+const SUB_2A4C_GRAVITY_STEP_FP: i32 = 0x0000_36B0;
+const SUB_2A4C_SPRITE_TILE_WORD: u16 = 0x8228;
+const SUB_2A4C_SPRITE_COORD_BIAS: i16 = 0x0080;
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
@@ -127,6 +144,103 @@ pub(crate) fn scratch_debris_pieces_sub_292E(
             x_pos_px: u16::from_be_bytes([slot[base + 12], slot[base + 13]]),
         }
     })
+}
+
+#[allow(non_snake_case)]
+fn scratch_debris_slot_piece_long_sub_2A4C(
+    slot: &[u8; SUB_28FC_SLOT_STRIDE_BYTES],
+    piece_index: usize,
+    field_offset: usize,
+) -> i32 {
+    let base =
+        SUB_292E_SLOT_PIECES_OFFSET + piece_index * SUB_292E_PIECE_STRIDE_BYTES + field_offset;
+    i32::from_be_bytes([slot[base], slot[base + 1], slot[base + 2], slot[base + 3]])
+}
+
+#[allow(non_snake_case)]
+fn set_scratch_debris_slot_piece_long_sub_2A4C(
+    slot: &mut [u8; SUB_28FC_SLOT_STRIDE_BYTES],
+    piece_index: usize,
+    field_offset: usize,
+    value: i32,
+) {
+    let base =
+        SUB_292E_SLOT_PIECES_OFFSET + piece_index * SUB_292E_PIECE_STRIDE_BYTES + field_offset;
+    slot[base..base + 4].copy_from_slice(&value.to_be_bytes());
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn compile_block_debris_sprites_sub_2A4C(
+    queue: &mut ScratchQueueSub28FC,
+    number_sprites: u8,
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+) -> ScratchDebrisRenderSub2A4C {
+    // ASM sub_2A4C (kid.asm:5053): iterate all six `$52`-byte scratch slots,
+    // skip inactive ones, then advance each of the five debris records as
+    // 16.16 fixed-point `(velocity += $36B0, position += velocity)` before
+    // emitting sprite entries with tile `$8228`. The lead fragment kills the
+    // slot if it leaves `x:[0,$13F]` or `y:[$FF9C,$DF]`; the tail fragment
+    // also kills the slot once its x position reaches `$1EF`.
+    let mut sprites = Vec::new();
+    let mut link = u16::from(number_sprites);
+
+    for slot in &mut queue.slots {
+        if slot[SUB_292E_SLOT_ACTIVE_OFFSET] == 0 {
+            continue;
+        }
+
+        let mut slot_active = true;
+        for piece_index in 0..SUB_292E_PIECE_COUNT {
+            let mut y_velocity_fp = scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 0);
+            let mut y_pos_fp = scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 4);
+            let x_velocity_fp = scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 8);
+            let mut x_pos_fp = scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 12);
+
+            y_pos_fp = y_pos_fp.wrapping_add(y_velocity_fp);
+            x_pos_fp = x_pos_fp.wrapping_add(x_velocity_fp);
+            y_velocity_fp = y_velocity_fp.wrapping_add(SUB_2A4C_GRAVITY_STEP_FP);
+
+            set_scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 0, y_velocity_fp);
+            set_scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 4, y_pos_fp);
+            set_scratch_debris_slot_piece_long_sub_2A4C(slot, piece_index, 12, x_pos_fp);
+
+            let world_y = (y_pos_fp >> 16) as i16;
+            let world_x = (x_pos_fp >> 16) as i16;
+            let relative_y = world_y.wrapping_sub(camera_y_pos);
+            let relative_x = world_x.wrapping_sub(camera_x_pos);
+
+            if piece_index == 0
+                && (!(-100..0x00E0).contains(&relative_y) || !(0..0x0140).contains(&relative_x))
+            {
+                slot_active = false;
+                break;
+            }
+
+            if piece_index == SUB_292E_PIECE_COUNT - 1 && relative_x >= 0x01EF {
+                slot_active = false;
+                break;
+            }
+
+            link = link.wrapping_add(1);
+            sprites.push(ScratchDebrisSpriteSub2A4C {
+                y: relative_y.wrapping_add(SUB_2A4C_SPRITE_COORD_BIAS) as u16,
+                link,
+                tile_word: SUB_2A4C_SPRITE_TILE_WORD,
+                x: relative_x.wrapping_add(SUB_2A4C_SPRITE_COORD_BIAS) as u16,
+            });
+        }
+
+        if !slot_active {
+            slot[SUB_292E_SLOT_ACTIVE_OFFSET] = 0x00;
+        }
+    }
+
+    ScratchDebrisRenderSub2A4C {
+        sprites,
+        number_sprites: link as u8,
+    }
 }
 
 #[allow(non_snake_case)]
