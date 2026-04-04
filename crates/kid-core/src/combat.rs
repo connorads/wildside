@@ -884,6 +884,30 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterPointSub219C {
+    pub(crate) x_px: i16,
+    pub(crate) y_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn first_shooter_hit_sub_219C(
+    kid_hitbox: CollisionRectSub1F52,
+    shooter_points: &[ShooterPointSub219C],
+) -> Option<usize> {
+    // ASM sub_219C (kid.asm:3997): walk the shooter-slot linked list and
+    // report only the first point strictly inside Kid's hitbox. Edge-equal
+    // contacts are rejected because the routine skips on `ble` / `bge`.
+    shooter_points.iter().position(|point| {
+        point.x_px > kid_hitbox.left_px
+            && point.x_px < kid_hitbox.right_px
+            && point.y_px > kid_hitbox.top_px
+            && point.y_px < kid_hitbox.bottom_px
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn support_overlap_detected_sub_1F52(
     kid_hitbox: CollisionRectSub1F52,

@@ -82,6 +82,10 @@ fn collision_size_entry_sub_21f8(
     }
 }
 
+fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
+    ShooterPointSub219C { x_px, y_px }
+}
+
 #[test]
 fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
     // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
@@ -212,6 +216,43 @@ fn kid_hitbox_from_collision_size_sub_21f8_mirrors_width_back_from_the_anchor_si
         hitbox,
         collision_rect_sub_1f52(115, 125, 49, 80),
         "ASM sub_21F8 negates the left offset, anchors the mirrored edge first, then subtracts width to recover the opposite side",
+    );
+}
+
+#[test]
+fn first_shooter_hit_sub_219c_rejects_edge_equal_contacts() {
+    let hitbox = collision_rect_sub_1f52(100, 120, 40, 80);
+
+    assert_eq!(
+        first_shooter_hit_sub_219C(
+            hitbox,
+            &[
+                shooter_point_sub_219c(100, 60),
+                shooter_point_sub_219c(120, 60),
+                shooter_point_sub_219c(110, 40),
+                shooter_point_sub_219c(110, 80),
+            ],
+        ),
+        None,
+        "ASM sub_219C skips shooter points that land exactly on any Kid hitbox edge because all four comparisons are strict",
+    );
+}
+
+#[test]
+fn first_shooter_hit_sub_219c_returns_first_strict_interior_hit() {
+    let hitbox = collision_rect_sub_1f52(100, 120, 40, 80);
+
+    assert_eq!(
+        first_shooter_hit_sub_219C(
+            hitbox,
+            &[
+                shooter_point_sub_219c(95, 60),
+                shooter_point_sub_219c(110, 60),
+                shooter_point_sub_219c(111, 61),
+            ],
+        ),
+        Some(1),
+        "ASM sub_219C should stop on the first shooter-slot point strictly inside Kid's hitbox and leave later slots for future passes",
     );
 }
 
