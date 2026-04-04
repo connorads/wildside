@@ -28,6 +28,11 @@ const PRESERVED_BUNDLE_DIRECTORIES: &[&str] = &["level-layout"];
 pub const GENERATED_BUNDLE_VERSION: u32 = 9;
 pub const DECODED_LEVEL_ASSET_VERSION: u32 = 3;
 const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
+#[cfg_attr(not(test), allow(dead_code))]
+const ENIGMA_BIT_MASKS: [u16; 16] = [
+    0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF,
+    0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF,
+];
 
 fn decoded_level_output_dir(level_id: u8) -> String {
     format!("decoded/level/{level_id:02x}")
@@ -1552,6 +1557,58 @@ impl<'a> EnigmaBitReader<'a> {
         Ok(((self.current_word_d5 >> shift) & 1) as u8)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn read_bits_sub_13622(&mut self, bit_count: usize) -> Result<u16> {
+        // ASM sub_13622 (kid.asm:26074): read up to 16 bits from the current
+        // Enigma word buffer, splitting wide reads into a high chunk and a low
+        // byte while preserving loc_13650's rolling refill.
+        if bit_count == 0 || bit_count > 16 {
+            bail!("Enigma bit reads must be between 1 and 16 bits");
+        }
+        if self.bits_remaining_d6 == 0 {
+            self.refill_word_sub_13618()?;
+        }
+
+        if bit_count <= 8 {
+            return self.read_short_bits_sub_1364c(bit_count as u16);
+        }
+
+        let high = self.read_short_bits_sub_1364c((bit_count - 8) as u16)?;
+        let low = self.read_short_bits_sub_1364c(8)?;
+        Ok((high << 8) | low)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn read_short_bits_sub_1364c(&mut self, bit_count: u16) -> Result<u16> {
+        let value = self.peek_bits_sub_1363c(bit_count)?;
+        self.consume_bits_loc_13650(bit_count)?;
+        Ok(value)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn peek_bits_sub_1363c(&self, bit_count: u16) -> Result<u16> {
+        if bit_count == 0 || bit_count > self.bits_remaining_d6 {
+            bail!("Enigma short read exceeded buffered bits");
+        }
+        let shift = self.bits_remaining_d6 - bit_count;
+        let mask = ENIGMA_BIT_MASKS[usize::from(bit_count - 1)];
+        Ok((self.current_word_d5 >> shift) & mask)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn consume_bits_loc_13650(&mut self, bit_count: u16) -> Result<()> {
+        self.bits_remaining_d6 -= bit_count;
+        if self.bits_remaining_d6 >= 9 {
+            return Ok(());
+        }
+
+        self.bits_remaining_d6 += 8;
+        self.current_word_d5 = (self.current_word_d5 << 8) & 0xFF00;
+        let next_byte = read_input_byte(self.bytes, &mut self.input_position)?;
+        self.current_word_d5 |= u16::from(next_byte);
+        Ok(())
+    }
+
     fn read_bits(&mut self, count: usize) -> Result<u16> {
         let mut value = 0_u16;
         for _ in 0..count {
@@ -2559,6 +2616,28 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(bits.current_word_d5, 0x1234);
         assert_eq!(bits.bits_remaining_d6, 16);
         assert_eq!(bits.input_position, 2);
+    }
+
+    #[test]
+    fn sub_13622_reads_wide_values_across_the_rolling_refill_boundary() {
+        let mut bits = EnigmaBitReader::new(&[0xAB, 0xCD, 0xEF, 0x12]);
+
+        assert_eq!(
+            bits.read_bits_sub_13622(12)
+                .expect("ASM sub_13622 should split 12-bit reads at 8 bits"),
+            0x0ABC
+        );
+        assert_eq!(bits.current_word_d5, 0xCDEF);
+        assert_eq!(bits.bits_remaining_d6, 12);
+        assert_eq!(bits.input_position, 3);
+        assert_eq!(
+            bits.read_bits_sub_13622(4)
+                .expect("ASM sub_13622 should keep the post-refill nibble aligned"),
+            0x000D
+        );
+        assert_eq!(bits.current_word_d5, 0xEF12);
+        assert_eq!(bits.bits_remaining_d6, 16);
+        assert_eq!(bits.input_position, 4);
     }
 
     #[test]
