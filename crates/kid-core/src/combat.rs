@@ -153,6 +153,14 @@ pub(crate) struct BossDeathBurstFinishSub3728C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireDemonFragmentCollisionStep {
+    pub(crate) next_collision_type: i16,
+    pub(crate) animation_label: Option<&'static str>,
+    pub(crate) hibernate_until_anim_finished: bool,
+    pub(crate) delete_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyePopEffectInitSub3729E {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1283,6 +1291,35 @@ pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'
     } else {
         "sfx_Boss_dies"
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
+    collision_type: i16,
+) -> FireDemonFragmentCollisionStep {
+    // ASM sub_3A172 (kid.asm:43214): clear `collision_type(a3)` whenever the
+    // fragment is hit; only `$001C`, `$002C`, and `$FFFF` switch into
+    // `stru_3A1E0`, hibernate until the animation ends, then delete.
+    let mut result = FireDemonFragmentCollisionStep {
+        next_collision_type: collision_type,
+        animation_label: None,
+        hibernate_until_anim_finished: false,
+        delete_current_object: false,
+    };
+
+    if collision_type == 0 {
+        return result;
+    }
+
+    result.next_collision_type = 0;
+    if matches!(collision_type, 0x001C | 0x002C | -1) {
+        result.animation_label = Some("stru_3A1E0");
+        result.hibernate_until_anim_finished = true;
+        result.delete_current_object = true;
+    }
+
+    result
 }
 
 #[allow(non_snake_case)]

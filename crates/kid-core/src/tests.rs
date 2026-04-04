@@ -20302,6 +20302,29 @@ fn boss_head_movement_wrapper_sub_39eb4_runs_sub_39d54_before_shared_collision_h
 }
 
 #[test]
+fn fire_demon_fragment_collision_step_sub_3a172_clears_matching_collision_into_delete_animation() {
+    let result = fire_demon_fragment_collision_step_sub_3A172(0x002C);
+
+    assert_eq!(
+        result.next_collision_type, 0,
+        "ASM sub_3A172 should clear `collision_type(a3)` before handling the fragment hit",
+    );
+    assert_eq!(
+        result.animation_label,
+        Some("stru_3A1E0"),
+        "ASM loc_3A192 should switch to `stru_3A1E0` for collision types `$1C`, `$2C`, and `$FFFF`",
+    );
+    assert!(
+        result.hibernate_until_anim_finished,
+        "ASM loc_3A192 should call `Hibernate_UntilAnimFinished` before deleting the fragment",
+    );
+    assert!(
+        result.delete_current_object,
+        "ASM sub_3A172 should delete the fragment after the collision animation finishes",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
