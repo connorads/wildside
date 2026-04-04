@@ -514,6 +514,16 @@ pub struct VramZeroFillSub1DA72 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DiamondHudDmaTransferSub5D4A {
+    pub frame_table_byte_offset: u16,
+    pub asset_label: &'static str,
+    pub dma_source_address: u32,
+    pub dma_length_registers: [u16; 2],
+    pub dma_source_registers: [u16; 3],
+    pub vram_byte_address: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LevelLayoutCellCoordsSub1F8E {
     pub row_index: u16,
     pub column_index: u16,
@@ -1950,6 +1960,54 @@ fn vdp_write_control_longword(vram_byte_address: u16) -> u32 {
     let high_word = (vram_byte_address & 0x3FFF) | 0x4000;
     let low_word = vram_byte_address.rotate_left(2) & 0x0003;
     (u32::from(high_word) << 16) | u32::from(low_word)
+}
+
+fn dma_source_register_words(source_address: u32) -> [u16; 3] {
+    let shifted = source_address >> 1;
+    [
+        0x9500 | ((shifted as u16) & 0x00FF),
+        0x9600 | (((shifted as u16) >> 8) & 0x00FF),
+        0x9700 | (((shifted >> 16) as u16) & 0x00FF),
+    ]
+}
+
+#[allow(non_snake_case)]
+pub fn diamond_hud_dma_transfer_sub_5D4A(
+    frame_table_byte_offset: u16,
+) -> Result<DiamondHudDmaTransferSub5D4A> {
+    // ASM sub_5D4A (kid.asm:5771): use the caller's 4-byte selector inside
+    // `off_7B0AC`, read the chosen longword pointer, skip the two-byte header
+    // on the pointed resource, then programme a `$200`-byte VRAM DMA to `$DD40`.
+    const DIAMOND_FRAME_POINTERS: [(&str, u32); 4] = [
+        ("unk_99FCA", 0x0009_9FCA),
+        ("unk_9A1CC", 0x0009_A1CC),
+        ("unk_9A3CE", 0x0009_A3CE),
+        ("unk_9A5D0", 0x0009_A5D0),
+    ];
+
+    ensure!(
+        frame_table_byte_offset.is_multiple_of(4),
+        "sub_5D4A expects a 4-byte selector into `off_7B0AC`, got {frame_table_byte_offset:#06X}",
+    );
+
+    let frame_index = usize::from(frame_table_byte_offset >> 2);
+    let (asset_label, table_address) = *DIAMOND_FRAME_POINTERS
+        .get(frame_index)
+        .ok_or_else(|| {
+            anyhow!(
+                "sub_5D4A selector {frame_table_byte_offset:#06X} falls outside the 4-entry `off_7B0AC` table"
+            )
+        })?;
+    let dma_source_address = table_address + 2;
+
+    Ok(DiamondHudDmaTransferSub5D4A {
+        frame_table_byte_offset,
+        asset_label,
+        dma_source_address,
+        dma_length_registers: [0x9300, 0x9401],
+        dma_source_registers: dma_source_register_words(dma_source_address),
+        vram_byte_address: 0xDD40,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -6109,6 +6167,49 @@ AddrTbl_LevelNames:   ;1A842
         assert!(
             fill.words.iter().all(|&word| word == 0),
             "ASM sub_1DA72 should clear all 16 VDP data words to zero",
+        );
+    }
+
+    #[test]
+    fn diamond_hud_dma_transfer_sub_5d4a_uses_the_first_off_7b0ac_entry() {
+        let transfer = diamond_hud_dma_transfer_sub_5D4A(0)
+            .expect("ASM sub_5D4A should accept the first 4-byte selector from `off_7B0AC`");
+
+        assert_eq!(
+            transfer,
+            DiamondHudDmaTransferSub5D4A {
+                frame_table_byte_offset: 0,
+                asset_label: "unk_99FCA",
+                dma_source_address: 0x0009_9FCC,
+                dma_length_registers: [0x9300, 0x9401],
+                dma_source_registers: [0x95E6, 0x96CF, 0x9704],
+                vram_byte_address: 0xDD40,
+            },
+            "ASM sub_5D4A should skip the two-byte `dc.w $10` header on `unk_99FCA` and programme a `$200`-byte DMA into VRAM byte `$DD40`",
+        );
+    }
+
+    #[test]
+    fn diamond_hud_dma_transfer_sub_5d4a_uses_the_last_off_7b0ac_entry() {
+        let transfer = diamond_hud_dma_transfer_sub_5D4A(0x000C)
+            .expect("ASM sub_5D4A should accept the fourth 4-byte selector from `off_7B0AC`");
+
+        assert_eq!(transfer.asset_label, "unk_9A5D0");
+        assert_eq!(transfer.dma_source_address, 0x0009_A5D2);
+        assert_eq!(transfer.dma_source_registers, [0x95E9, 0x96D2, 0x9704]);
+        assert_eq!(transfer.vram_byte_address, 0xDD40);
+    }
+
+    #[test]
+    fn diamond_hud_dma_transfer_sub_5d4a_rejects_non_longword_selectors() {
+        let error = diamond_hud_dma_transfer_sub_5D4A(2)
+            .expect_err("ASM sub_5D4A indexes `off_7B0AC` in longwords, not bytes");
+
+        assert!(
+            error
+                .to_string()
+                .contains("expects a 4-byte selector into `off_7B0AC`"),
+            "the failure should explain the longword selector requirement from ASM sub_5D4A",
         );
     }
 
