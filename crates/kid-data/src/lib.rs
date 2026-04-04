@@ -376,6 +376,11 @@ pub struct ClearBit15VramUploadSub1CD44 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecompressionBufferRowsUploadSub1CD88 {
+    pub rows: [[u16; 64]; 28],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1715,6 +1720,38 @@ pub fn clear_bit15_vram_upload_sub_1CD44(
         masked_words: source_words.iter().map(|word| word & 0x7FFF).collect(),
         delay_loop_iterations: 0x0101,
     })
+}
+
+#[allow(non_snake_case)]
+pub fn decompression_buffer_rows_upload_sub_1CD88(
+    decoded_words: &[u16],
+) -> Result<DecompressionBufferRowsUploadSub1CD88> {
+    // ASM sub_1CD88 (kid.asm:31931): stream 28 rows from
+    // `Decompression_Buffer`, taking 40 sequential decoded words per row and
+    // padding the remaining 24 columns with tile word `$94`.
+    const ROW_COUNT: usize = 28;
+    const SOURCE_WORDS_PER_ROW: usize = 40;
+    const REQUIRED_WORDS: usize = ROW_COUNT * SOURCE_WORDS_PER_ROW;
+
+    let decoded_words = decoded_words.get(..REQUIRED_WORDS).ok_or_else(|| {
+        anyhow!(
+            "sub_1CD88 needs {REQUIRED_WORDS:#06X} decoded words but only received {:#06X}",
+            decoded_words.len()
+        )
+    })?;
+
+    let rows = core::array::from_fn(|row_index| {
+        let row_start = row_index * SOURCE_WORDS_PER_ROW;
+        core::array::from_fn(|column_index| {
+            if column_index < SOURCE_WORDS_PER_ROW {
+                decoded_words[row_start + column_index]
+            } else {
+                0x0094
+            }
+        })
+    });
+
+    Ok(DecompressionBufferRowsUploadSub1CD88 { rows })
 }
 
 #[allow(non_snake_case)]
@@ -4474,6 +4511,51 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1CD44 needs 0x0800 source words"),
             "the error should describe the exact ROM-sized VRAM source requirement",
+        );
+    }
+
+    #[test]
+    fn decompression_buffer_rows_upload_sub_1cd88_packs_28_rows_of_40_words_plus_24_fill_tiles() {
+        let decoded_words = (0u16..(28 * 40) as u16).collect::<Vec<_>>();
+
+        let upload = decompression_buffer_rows_upload_sub_1CD88(&decoded_words)
+            .expect("ASM sub_1CD88 should accept the full `28*40` decoded-word span");
+
+        assert_eq!(
+            upload.rows[0][..44],
+            [
+                0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009,
+                0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x000F, 0x0010, 0x0011, 0x0012, 0x0013,
+                0x0014, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x001A, 0x001B, 0x001C, 0x001D,
+                0x001E, 0x001F, 0x0020, 0x0021, 0x0022, 0x0023, 0x0024, 0x0025, 0x0026, 0x0027,
+                0x0094, 0x0094, 0x0094, 0x0094
+            ],
+            "ASM sub_1CD88 should write 40 sequential `Decompression_Buffer` words then pad the row with `$94`",
+        );
+        assert_eq!(
+            upload.rows[27][0],
+            27 * 40,
+            "ASM sub_1CD88 should keep advancing `a0` across all 28 rows rather than restarting each row",
+        );
+        assert!(
+            upload
+                .rows
+                .iter()
+                .all(|row| row[40..].iter().all(|&word| word == 0x0094)),
+            "ASM sub_1CD88 should stamp `$94` into the trailing 24 columns of every row",
+        );
+    }
+
+    #[test]
+    fn decompression_buffer_rows_upload_sub_1cd88_rejects_short_decoded_spans() {
+        let error = decompression_buffer_rows_upload_sub_1CD88(&vec![0; 28 * 40 - 1])
+            .expect_err("ASM sub_1CD88 should require all 28 decoded rows");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1CD88 needs 0x0460 decoded words"),
+            "the error should describe the exact decoded-word requirement",
         );
     }
 
