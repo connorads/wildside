@@ -1406,8 +1406,8 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
             match mode {
                 0..=2 => {
                     let count = usize::from(bits.read_bits(4)?) + 1;
-                    let flags = read_enigma_flags(&mut bits, flag_mask)?;
-                    let mut value = bits.read_bits(packet_length)? | flags;
+                    let mut value =
+                        read_inline_value_sub_13588(&mut bits, 0, flag_mask, packet_length)?;
                     for _ in 0..count {
                         output.push(value);
                         value = match mode {
@@ -1424,8 +1424,8 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
                         break;
                     }
                     for _ in 0..=count {
-                        let flags = read_enigma_flags(&mut bits, flag_mask)?;
-                        let value = bits.read_bits(packet_length)? | flags;
+                        let value =
+                            read_inline_value_sub_13588(&mut bits, 0, flag_mask, packet_length)?;
                         output.push(value);
                     }
                 }
@@ -1444,6 +1444,19 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
     }
 
     Ok(output)
+}
+
+fn read_inline_value_sub_13588(
+    bits: &mut EnigmaBitReader<'_>,
+    base_tile_word: u16,
+    flag_mask: u8,
+    packet_length: usize,
+) -> Result<u16> {
+    // ASM sub_13588 (kid.asm:25973): start from the caller's base tile word,
+    // fold in the enabled high-flag bits from d4, then append the packet bits.
+    let flags = read_enigma_flags(bits, flag_mask)?;
+    let packet_bits = bits.read_bits(packet_length)?;
+    Ok(base_tile_word.wrapping_add(flags).wrapping_add(packet_bits))
 }
 
 fn read_enigma_flags(bits: &mut EnigmaBitReader<'_>, flag_mask: u8) -> Result<u16> {
@@ -2638,6 +2651,17 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(bits.current_word_d5, 0xEF12);
         assert_eq!(bits.bits_remaining_d6, 16);
         assert_eq!(bits.input_position, 4);
+    }
+
+    #[test]
+    fn sub_13588_combines_enabled_flag_bits_with_packet_bits() {
+        let mut bits = EnigmaBitReader::new(&[0xAC, 0x00]);
+
+        assert_eq!(
+            read_inline_value_sub_13588(&mut bits, 0x0040, 0b1_0101, 5)
+                .expect("ASM sub_13588 should merge flag bits and packet bits into the tile word"),
+            0x884C
+        );
     }
 
     #[test]
