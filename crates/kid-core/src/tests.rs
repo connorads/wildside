@@ -100,6 +100,12 @@ fn kid_projectile_hitbox_candidate_sub_226a(
     }
 }
 
+fn active_platform_handle_sub_2728(layout_offset_words: u16) -> ActivePlatformHandleSub2728 {
+    ActivePlatformHandleSub2728 {
+        layout_offset_words,
+    }
+}
+
 #[test]
 fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
     // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
@@ -14241,6 +14247,37 @@ fn platform_is_active_requires_both_x_and_y_in_window() {
     assert!(
         !platform_is_active(&outside_y, window),
         "platform outside y range should be inactive even if x is in range"
+    );
+}
+
+#[test]
+fn find_active_platform_by_layout_offset_sub_2728_returns_the_first_matching_slot() {
+    assert_eq!(
+        find_active_platform_by_layout_offset_sub_2728(
+            0x0030,
+            &[
+                active_platform_handle_sub_2728(0x0018),
+                active_platform_handle_sub_2728(0x0030),
+                active_platform_handle_sub_2728(0x0030),
+            ],
+        ),
+        Some(1),
+        "ASM sub_2728 should stop on the first active platform slot whose `$20(a2)` matches the loader offset, leaving later duplicates untouched",
+    );
+}
+
+#[test]
+fn find_active_platform_by_layout_offset_sub_2728_returns_none_when_no_slot_matches() {
+    assert_eq!(
+        find_active_platform_by_layout_offset_sub_2728(
+            0x0048,
+            &[
+                active_platform_handle_sub_2728(0x0018),
+                active_platform_handle_sub_2728(0x0030),
+            ],
+        ),
+        None,
+        "ASM sub_2728 returns zero when the active platform-slot list contains no matching `$20(a2)` loader offset",
     );
 }
 

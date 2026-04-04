@@ -1,5 +1,25 @@
 use super::*;
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ActivePlatformHandleSub2728 {
+    pub(crate) layout_offset_words: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
+    layout_offset_words: u16,
+    active_platforms: &[ActivePlatformHandleSub2728],
+) -> Option<usize> {
+    // ASM sub_2728 (kid.asm:4649): walk the active platform-slot linked list
+    // in allocation order and stop on the first slot whose `$20(a2)` matches
+    // the current PlatformLoader_Offset word.
+    active_platforms
+        .iter()
+        .position(|platform| platform.layout_offset_words == layout_offset_words)
+}
+
 impl PlatformLoaderState {
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
         while self.next_index < layout.placements.len() {
