@@ -6478,6 +6478,23 @@ fn mini_hopping_skull_sub_3f3f0_plays_scream_after_15_hibernated_frames() {
 }
 
 #[test]
+fn sub_1b36c_plays_thunderstorm_without_clobbering_d0() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    let preserved = runtime.play_thunderstorm_sound_sub_1B36C(0x4A2C);
+
+    assert_eq!(
+        preserved, 0x4A2C,
+        "ASM sub_1B36C should restore d0 after playing sfx_Thunderstorm",
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::Thunderstorm],
+        "sub_1B36C should emit the thunderstorm sound effect exactly once",
+    );
+}
+
+#[test]
 fn mini_hopping_skull_sub_3f3a6_snaps_x_to_slopedown_surface() {
     // ASM Mini_Hopping_Skull.asm sub_3F3A6 starts from the cell to the right,
     // walks left to the first `$5000` slope-down cell on the current row, then

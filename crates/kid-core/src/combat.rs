@@ -3,6 +3,8 @@ use super::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
+    #[cfg_attr(not(test), allow(dead_code))]
+    Thunderstorm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -383,6 +385,16 @@ impl NativeRuntime {
         self.pending_sound_effects
             .retain(|pending| pending.delay_frames > 0);
         self.played_sound_effects.extend(played_effects);
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(non_snake_case)]
+    pub(crate) fn play_thunderstorm_sound_sub_1B36C(&mut self, d0: u16) -> u16 {
+        // ASM sub_1B36C (kid.asm:29577-29583) saves d0 on the stack, plays
+        // `sfx_Thunderstorm`, then restores d0 before returning.
+        self.played_sound_effects
+            .push(QueuedSoundEffect::Thunderstorm);
+        d0
     }
 
     pub(crate) fn apply_prize_content(&mut self, content: terrain::PrizeContent) {
