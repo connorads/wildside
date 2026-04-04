@@ -1184,6 +1184,34 @@ pub fn load_hitpoint_display_art_sub_12C24(manifest: &AssetManifest) -> Result<I
     })
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn compose_indoor_rubber_block_art_sub_144DA(
+    base_art: &[u8],
+    rubber_overlay_art: &[u8],
+) -> Vec<u8> {
+    // ASM sub_144DA (kid.asm:27356) keeps each non-zero nibble from the
+    // indoor base block art at $FFFF78B2 and only fills zero nibbles from the
+    // decompressed rubber overlay art.
+    base_art
+        .iter()
+        .zip(rubber_overlay_art.iter())
+        .map(|(&base, &overlay)| {
+            let high = if base & 0xF0 != 0 {
+                base & 0xF0
+            } else {
+                overlay & 0xF0
+            };
+            let low = if base & 0x0F != 0 {
+                base & 0x0F
+            } else {
+                overlay & 0x0F
+            };
+            high | low
+        })
+        .collect()
+}
+
 fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLevelAssets>> {
     let mut results = Vec::new();
     for level in &manifest.levels {
@@ -1452,17 +1480,9 @@ pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
 }
 
 pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
-    if data.len() < 6 {
-        bail!("Enigma payload is too short");
-    }
-    let packet_length = usize::from(data[0]);
-    if packet_length == 0 || packet_length > 16 {
-        bail!("Enigma packet length must be between 1 and 16 bits");
-    }
-    let flag_mask = data[1];
-    let mut incrementing_value = read_u16_be(data, 2);
-    let common_value = read_u16_be(data, 4);
-    let mut bits = EnigmaBitReader::new(&data[6..]);
+    let header = parse_enigma_header_sub_142CC(data, 0)?;
+    let mut incrementing_value = header.incrementing_value;
+    let mut bits = EnigmaBitReader::new(header.bitstream);
     let mut output = Vec::new();
 
     loop {
@@ -1471,8 +1491,12 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
             match mode {
                 0..=2 => {
                     let count = usize::from(bits.read_bits(4)?) + 1;
-                    let mut value =
-                        read_inline_value_sub_13588(&mut bits, 0, flag_mask, packet_length)?;
+                    let mut value = read_inline_value_sub_13588(
+                        &mut bits,
+                        0,
+                        header.flag_mask,
+                        header.packet_length,
+                    )?;
                     for _ in 0..count {
                         output.push(value);
                         value = match mode {
@@ -1489,8 +1513,12 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
                         break;
                     }
                     for _ in 0..=count {
-                        let value =
-                            read_inline_value_sub_13588(&mut bits, 0, flag_mask, packet_length)?;
+                        let value = read_inline_value_sub_13588(
+                            &mut bits,
+                            0,
+                            header.flag_mask,
+                            header.packet_length,
+                        )?;
                         output.push(value);
                     }
                 }
@@ -1504,11 +1532,56 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
             }
         } else {
             let count = usize::from(bits.read_bits(4)?) + 1;
-            output.extend(std::iter::repeat_n(common_value, count));
+            output.extend(std::iter::repeat_n(header.common_value, count));
         }
     }
 
     Ok(output)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EnigmaHeaderSub142CC<'a> {
+    packet_length: usize,
+    flag_mask: u8,
+    incrementing_value: u16,
+    common_value: u16,
+    vdp_control_word: u32,
+    bitstream: &'a [u8],
+}
+
+#[allow(non_snake_case)]
+fn parse_enigma_header_sub_142CC<'a>(
+    data: &'a [u8],
+    vram_word_address: u16,
+) -> Result<EnigmaHeaderSub142CC<'a>> {
+    // ASM sub_142CC (kid.asm:27121): seed the VDP control word from the
+    // destination word address, then split the Enigma header into packet
+    // length, flag mask, incrementing seed, common value, and bitstream base.
+    if data.len() < 6 {
+        bail!("Enigma payload is too short");
+    }
+    let packet_length = usize::from(data[0]);
+    if packet_length == 0 || packet_length > 16 {
+        bail!("Enigma packet length must be between 1 and 16 bits");
+    }
+
+    Ok(EnigmaHeaderSub142CC {
+        packet_length,
+        flag_mask: data[1],
+        incrementing_value: read_u16_be(data, 2),
+        common_value: read_u16_be(data, 4),
+        vdp_control_word: enigma_vdp_control_word_sub_142CC(vram_word_address),
+        bitstream: &data[6..],
+    })
+}
+
+#[allow(non_snake_case)]
+fn enigma_vdp_control_word_sub_142CC(vram_word_address: u16) -> u32 {
+    // ASM sub_142CC folds the low two VRAM address bits into the low control
+    // word and adds the standard VRAM-write base ($4000) to the upper word.
+    let control_low = vram_word_address.rotate_left(2) & 0x0003;
+    let control_high = (u32::from(vram_word_address & 0x3FFF) + 0x4000) << 16;
+    control_high | u32::from(control_low)
 }
 
 fn read_inline_value_sub_13588(
@@ -2835,6 +2908,22 @@ AddrTbl_LevelNames:   ;1A842
                 .expect("ASM sub_13588 should merge flag bits and packet bits into the tile word"),
             0x884C
         );
+    }
+
+    #[test]
+    fn sub_142cc_parses_enigma_header_and_vdp_command() {
+        let header = parse_enigma_header_sub_142CC(ENIGMA_FIXTURE, 0x5F60)
+            .expect("ASM sub_142CC should parse the Enigma header prefix");
+
+        assert_eq!(header.packet_length, 5);
+        assert_eq!(header.flag_mask, 0);
+        assert_eq!(header.incrementing_value, 0x0001);
+        assert_eq!(header.common_value, 0x000A);
+        assert_eq!(
+            header.vdp_control_word, 0x5F60_0001,
+            "ASM sub_142CC should build the same VDP control word as DecompressToVRAM for VRAM word address $5F60"
+        );
+        assert_eq!(header.bitstream, &ENIGMA_FIXTURE[6..]);
     }
 
     #[test]
