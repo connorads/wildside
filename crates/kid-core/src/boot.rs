@@ -32,6 +32,16 @@ pub(crate) struct TitleTextBurstSpriteSub1B652 {
     pub(crate) animation_rewind_distance: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleMenuPromptSpriteSub1C54A {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority_flag: bool,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_label: &'static str,
+    pub(crate) vram_tile: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -97,6 +107,22 @@ pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B65
         ],
         animation_command: 2,
         animation_rewind_distance: 0x15,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_menu_prompt_sprite_sub_1C54A() -> TitleMenuPromptSpriteSub1C54A {
+    // ASM sub_1C54A (kid.asm:31288): allocate gfx slot `$1000000`, set the
+    // sprite priority flag at `$13(a1)`, then seed the fixed title prompt
+    // sprite at `(x,y)=(#$81,#$C8)` with tile `$140` and `unk_E109E`.
+    TitleMenuPromptSpriteSub1C54A {
+        gfx_slot_base: 0x0100_0000,
+        priority_flag: true,
+        x_pos: 0x0081,
+        y_pos: 0x00C8,
+        sprite_label: "unk_E109E",
+        vram_tile: 0x0140,
     }
 }
 
@@ -1887,6 +1913,27 @@ mod tests {
         assert_eq!(
             sprite.animation_rewind_distance, 0x15,
             "ASM stru_1B68A ends with `dc.b 2, $15` after the five `anim_frame` entries"
+        );
+    }
+
+    #[test]
+    fn sub_1c54a_seeds_the_fixed_title_menu_prompt_sprite() {
+        let sprite = title_menu_prompt_sprite_sub_1C54A();
+
+        assert_eq!(sprite.gfx_slot_base, 0x0100_0000);
+        assert!(
+            sprite.priority_flag,
+            "ASM sub_1C54A sets `$13(a1)` immediately after allocating the title prompt sprite",
+        );
+        assert_eq!(sprite.x_pos, 0x0081);
+        assert_eq!(sprite.y_pos, 0x00C8);
+        assert_eq!(
+            sprite.sprite_label, "unk_E109E",
+            "ASM sub_1C54A writes `#(LnkTo_unk_E109E-Data_Index)` into `$22(a1)`",
+        );
+        assert_eq!(
+            sprite.vram_tile, 0x0140,
+            "ASM sub_1C54A writes `move.w #$140,$24(a1)` for the prompt sprite tile base",
         );
     }
 
