@@ -86,6 +86,20 @@ fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }
 
+fn kid_projectile_hitbox_candidate_sub_226a(
+    x_anchor_px: i16,
+    y_anchor_px: i16,
+    mirrored: bool,
+    collision_size: Option<CollisionSizeEntrySub21F8>,
+) -> KidProjectileHitboxCandidateSub226A {
+    KidProjectileHitboxCandidateSub226A {
+        x_anchor_px,
+        y_anchor_px,
+        mirrored,
+        collision_size,
+    }
+}
+
 #[test]
 fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
     // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
@@ -253,6 +267,92 @@ fn first_shooter_hit_sub_219c_returns_first_strict_interior_hit() {
         ),
         Some(1),
         "ASM sub_219C should stop on the first shooter-slot point strictly inside Kid's hitbox and leave later slots for future passes",
+    );
+}
+
+#[test]
+fn first_shooter_projectile_overlap_sub_226a_skips_zero_collision_entries_and_finds_the_first_hit()
+{
+    assert_eq!(
+        first_shooter_projectile_overlap_sub_226A(
+            &[
+                shooter_point_sub_219c(110, 61),
+                shooter_point_sub_219c(140, 80)
+            ],
+            &[
+                kid_projectile_hitbox_candidate_sub_226a(
+                    110,
+                    61,
+                    false,
+                    Some(collision_size_entry_sub_21f8(0, 8, -4, 8)),
+                ),
+                kid_projectile_hitbox_candidate_sub_226a(
+                    109,
+                    60,
+                    false,
+                    Some(collision_size_entry_sub_21f8(-2, 4, -2, 4)),
+                ),
+                kid_projectile_hitbox_candidate_sub_226a(
+                    140,
+                    80,
+                    false,
+                    Some(collision_size_entry_sub_21f8(-2, 4, -2, 4)),
+                ),
+            ],
+        ),
+        Some(ShooterProjectileOverlapSub226A {
+            shooter_index: 0,
+            projectile_index: 1,
+        }),
+        "ASM sub_226A should ignore CollisionSize entries whose first word is zero, then stop on the first shooter-slot / projectile overlap pair",
+    );
+}
+
+#[test]
+fn first_shooter_projectile_overlap_sub_226a_uses_inclusive_left_top_and_exclusive_right_bottom_edges()
+ {
+    assert_eq!(
+        first_shooter_projectile_overlap_sub_226A(
+            &[
+                shooter_point_sub_219c(98, 58),
+                shooter_point_sub_219c(102, 62),
+                shooter_point_sub_219c(106, 66),
+            ],
+            &[kid_projectile_hitbox_candidate_sub_226a(
+                100,
+                60,
+                false,
+                Some(collision_size_entry_sub_21f8(-2, 6, -2, 6)),
+            )],
+        ),
+        Some(ShooterProjectileOverlapSub226A {
+            shooter_index: 0,
+            projectile_index: 0,
+        }),
+        "ASM loc_22A6 accepts points on the left/top edges but rejects points on the right/bottom edges because it skips on `bgt` / `ble` after building the hitbox",
+    );
+}
+
+#[test]
+fn first_shooter_projectile_overlap_sub_226a_mirrors_offsets_before_subtracting_width() {
+    assert_eq!(
+        first_shooter_projectile_overlap_sub_226A(
+            &[
+                shooter_point_sub_219c(115, 49),
+                shooter_point_sub_219c(125, 80)
+            ],
+            &[kid_projectile_hitbox_candidate_sub_226a(
+                120,
+                80,
+                true,
+                Some(collision_size_entry_sub_21f8(-5, 10, -31, 31)),
+            )],
+        ),
+        Some(ShooterProjectileOverlapSub226A {
+            shooter_index: 0,
+            projectile_index: 0,
+        }),
+        "ASM loc_22D2 negates the mirrored left offset, anchors the facing edge first, and only then subtracts the width back across the sprite body",
     );
 }
 

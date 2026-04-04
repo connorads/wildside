@@ -891,6 +891,22 @@ pub(crate) struct ShooterPointSub219C {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidProjectileHitboxCandidateSub226A {
+    pub(crate) x_anchor_px: i16,
+    pub(crate) y_anchor_px: i16,
+    pub(crate) mirrored: bool,
+    pub(crate) collision_size: Option<CollisionSizeEntrySub21F8>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterProjectileOverlapSub226A {
+    pub(crate) shooter_index: usize,
+    pub(crate) projectile_index: usize,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn first_shooter_hit_sub_219C(
     kid_hitbox: CollisionRectSub1F52,
@@ -905,6 +921,74 @@ pub(crate) fn first_shooter_hit_sub_219C(
             && point.y_px > kid_hitbox.top_px
             && point.y_px < kid_hitbox.bottom_px
     })
+}
+
+fn projectile_hitbox_sub_226a(
+    projectile: KidProjectileHitboxCandidateSub226A,
+) -> Option<CollisionRectSub1F52> {
+    let collision_size = projectile.collision_size?;
+    if collision_size.left_offset_px == 0 {
+        return None;
+    }
+
+    let (left_px, right_px) = if !projectile.mirrored {
+        // ASM loc_22A6: use the stored left offset directly, then add width.
+        let left_px = projectile
+            .x_anchor_px
+            .saturating_add(collision_size.left_offset_px);
+        let right_px = left_px.saturating_add(collision_size.width_px);
+        (left_px, right_px)
+    } else {
+        // ASM loc_22D2: negate the left offset for mirrored sprites, anchor
+        // that edge first, then subtract width back toward the facing side.
+        let right_px = projectile
+            .x_anchor_px
+            .saturating_sub(collision_size.left_offset_px);
+        let left_px = right_px.saturating_sub(collision_size.width_px);
+        (left_px, right_px)
+    };
+    let top_px = projectile
+        .y_anchor_px
+        .saturating_add(collision_size.top_offset_px);
+    let bottom_px = top_px.saturating_add(collision_size.height_px);
+
+    Some(CollisionRectSub1F52 {
+        left_px,
+        right_px,
+        top_px,
+        bottom_px,
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn first_shooter_projectile_overlap_sub_226A(
+    shooter_points: &[ShooterPointSub219C],
+    projectiles: &[KidProjectileHitboxCandidateSub226A],
+) -> Option<ShooterProjectileOverlapSub226A> {
+    // ASM sub_226A (kid.asm:4086): walk the shooter-slot list first, then for
+    // each live slot scan Kid projectiles until the first overlap. The tests
+    // below mirror loc_22A6/loc_22D2's inclusive-left/top and
+    // exclusive-right/bottom comparisons.
+    for (shooter_index, shooter_point) in shooter_points.iter().enumerate() {
+        for (projectile_index, projectile) in projectiles.iter().copied().enumerate() {
+            let Some(hitbox) = projectile_hitbox_sub_226a(projectile) else {
+                continue;
+            };
+            if shooter_point.x_px >= hitbox.left_px
+                && shooter_point.x_px < hitbox.right_px
+                && shooter_point.y_px >= hitbox.top_px
+                && shooter_point.y_px < hitbox.bottom_px
+            {
+                return Some(ShooterProjectileOverlapSub226A {
+                    shooter_index,
+                    projectile_index,
+                });
+            }
+        }
+    }
+
+    None
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
