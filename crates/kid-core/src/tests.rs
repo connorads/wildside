@@ -68,6 +68,20 @@ fn collision_rect_sub_1f52(
     }
 }
 
+fn collision_size_entry_sub_21f8(
+    left_offset_px: i16,
+    width_px: i16,
+    top_offset_px: i16,
+    height_px: i16,
+) -> CollisionSizeEntrySub21F8 {
+    CollisionSizeEntrySub21F8 {
+        left_offset_px,
+        width_px,
+        top_offset_px,
+        height_px,
+    }
+}
+
 #[test]
 fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
     // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
@@ -130,6 +144,74 @@ fn support_overlap_detected_sub_1f52_stops_at_the_zero_left_edge_terminator() {
     assert!(
         !overlapped,
         "ASM sub_1F52 should stop immediately when the entry's first word is zero, even if later RAM slots would overlap",
+    );
+}
+
+#[test]
+fn kid_hitbox_from_collision_size_sub_21f8_uses_anchor_point_when_pointer_is_zero() {
+    let hitbox = kid_hitbox_from_collision_size_sub_21F8(
+        collision_rect_sub_1f52(1, 2, 3, 4),
+        120,
+        80,
+        false,
+        None,
+    );
+
+    assert_eq!(
+        hitbox,
+        collision_rect_sub_1f52(120, 120, 80, 80),
+        "ASM sub_21F8 should collapse Kid's hitbox to x/y when `$22(a0)` is zero",
+    );
+}
+
+#[test]
+fn kid_hitbox_from_collision_size_sub_21f8_keeps_previous_hitbox_on_zero_left_sentinel() {
+    let previous = collision_rect_sub_1f52(90, 101, 40, 71);
+    let hitbox = kid_hitbox_from_collision_size_sub_21F8(
+        previous,
+        120,
+        80,
+        false,
+        Some(collision_size_entry_sub_21f8(0, 10, -31, 31)),
+    );
+
+    assert_eq!(
+        hitbox, previous,
+        "ASM sub_21F8 returns early when the CollisionSize entry begins with zero, leaving the last hitbox live",
+    );
+}
+
+#[test]
+fn kid_hitbox_from_collision_size_sub_21f8_expands_non_mirrored_entries_from_left_offset() {
+    let hitbox = kid_hitbox_from_collision_size_sub_21F8(
+        collision_rect_sub_1f52(0, 0, 0, 0),
+        120,
+        80,
+        false,
+        Some(collision_size_entry_sub_21f8(-5, 10, -31, 31)),
+    );
+
+    assert_eq!(
+        hitbox,
+        collision_rect_sub_1f52(115, 125, 49, 80),
+        "ASM sub_21F8 should treat CollisionSize entries as left/top offsets plus width/height when `$16(a0)` is clear",
+    );
+}
+
+#[test]
+fn kid_hitbox_from_collision_size_sub_21f8_mirrors_width_back_from_the_anchor_side() {
+    let hitbox = kid_hitbox_from_collision_size_sub_21F8(
+        collision_rect_sub_1f52(0, 0, 0, 0),
+        120,
+        80,
+        true,
+        Some(collision_size_entry_sub_21f8(-5, 10, -31, 31)),
+    );
+
+    assert_eq!(
+        hitbox,
+        collision_rect_sub_1f52(115, 125, 49, 80),
+        "ASM sub_21F8 negates the left offset, anchors the mirrored edge first, then subtracts width to recover the opposite side",
     );
 }
 

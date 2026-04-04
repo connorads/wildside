@@ -828,6 +828,62 @@ pub(crate) struct CollisionRectSub1F52 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CollisionSizeEntrySub21F8 {
+    pub(crate) left_offset_px: i16,
+    pub(crate) width_px: i16,
+    pub(crate) top_offset_px: i16,
+    pub(crate) height_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
+    previous_hitbox: CollisionRectSub1F52,
+    x_anchor_px: i16,
+    y_anchor_px: i16,
+    mirrored: bool,
+    collision_size: Option<CollisionSizeEntrySub21F8>,
+) -> CollisionRectSub1F52 {
+    // ASM sub_21F8 (kid.asm:4036): if `$22(a0)` is zero, collapse Kid's
+    // hitbox to the current anchor point. Otherwise, load a CollisionSize
+    // entry; a zero first word is a sentinel that leaves the prior hitbox
+    // untouched. Non-mirrored entries use `left + width`, mirrored entries use
+    // `-left` then subtract the width back toward the facing side.
+    let Some(collision_size) = collision_size else {
+        return CollisionRectSub1F52 {
+            left_px: x_anchor_px,
+            right_px: x_anchor_px,
+            top_px: y_anchor_px,
+            bottom_px: y_anchor_px,
+        };
+    };
+
+    if collision_size.left_offset_px == 0 {
+        return previous_hitbox;
+    }
+
+    let (left_px, right_px) = if !mirrored {
+        let left_px = x_anchor_px.saturating_add(collision_size.left_offset_px);
+        let right_px = left_px.saturating_add(collision_size.width_px);
+        (left_px, right_px)
+    } else {
+        let right_px = x_anchor_px.saturating_sub(collision_size.left_offset_px);
+        let left_px = right_px.saturating_sub(collision_size.width_px);
+        (left_px, right_px)
+    };
+    let top_px = y_anchor_px.saturating_add(collision_size.top_offset_px);
+    let bottom_px = top_px.saturating_add(collision_size.height_px);
+
+    CollisionRectSub1F52 {
+        left_px,
+        right_px,
+        top_px,
+        bottom_px,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn support_overlap_detected_sub_1F52(
     kid_hitbox: CollisionRectSub1F52,
