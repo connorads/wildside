@@ -1,5 +1,132 @@
 use super::*;
 
+#[allow(dead_code)]
+const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MurderWallWarningInputSub5E02 {
+    pub(crate) murder_wall_enabled: bool,
+    pub(crate) murder_wall_x_px: i16,
+    pub(crate) murder_wall_reversed: bool,
+    pub(crate) kid_hitbox_left_px: i16,
+    pub(crate) kid_hitbox_right_px: i16,
+    pub(crate) camera_x_px: i16,
+    pub(crate) camera_y_px: u16,
+    pub(crate) animation_timer: u8,
+    pub(crate) animation_frame: u8,
+    pub(crate) starting_number_sprites: u8,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MurderWallWarningSpriteSub5E02 {
+    pub(crate) y: u16,
+    pub(crate) link: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) x: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MurderWallWarningRenderSub5E02 {
+    pub(crate) push_animation_timer: Option<u16>,
+    pub(crate) push_animation_offset: Option<u16>,
+    pub(crate) animation_timer: u8,
+    pub(crate) animation_frame: u8,
+    pub(crate) number_sprites: u8,
+    pub(crate) sprites: Vec<MurderWallWarningSpriteSub5E02>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
+    input: MurderWallWarningInputSub5E02,
+) -> MurderWallWarningRenderSub5E02 {
+    // ASM sub_5E02 (kid.asm:5840): when the murder wall is active and within
+    // `$30` pixels of the camera, write Kid's push animation words and emit a
+    // 2x12 warning-tile strip into the shared sprite table.
+    let mut render = MurderWallWarningRenderSub5E02 {
+        push_animation_timer: None,
+        push_animation_offset: None,
+        animation_timer: input.animation_timer.wrapping_sub(1),
+        animation_frame: input.animation_frame,
+        number_sprites: input.starting_number_sprites,
+        sprites: Vec::new(),
+    };
+
+    if !input.murder_wall_enabled {
+        return render;
+    }
+
+    if render.animation_timer == 0 {
+        render.animation_timer = 5;
+        render.animation_frame = render.animation_frame.wrapping_add(1) & 3;
+    }
+
+    if input.murder_wall_reversed {
+        let overlap =
+            i32::from(input.murder_wall_x_px) + 0x110 - i32::from(input.kid_hitbox_right_px);
+        if overlap <= 0 {
+            render.push_animation_timer = Some(4);
+        }
+    } else {
+        let overlap =
+            i32::from(input.murder_wall_x_px) + 0x30 - i32::from(input.kid_hitbox_left_px);
+        if overlap >= 0 {
+            render.push_animation_offset = Some(0x30);
+            render.push_animation_timer = Some(4);
+        }
+    }
+
+    let mut relative_wall_x = i32::from(input.camera_x_px) - i32::from(input.murder_wall_x_px);
+    if input.murder_wall_reversed {
+        relative_wall_x = -relative_wall_x;
+    }
+    if relative_wall_x >= 0x30 {
+        return render;
+    }
+
+    let mut x = if input.murder_wall_reversed {
+        0x190 + relative_wall_x
+    } else {
+        0x80 - relative_wall_x
+    };
+    let base_y = 0x80 - i32::from(input.camera_y_px / 0x30);
+    let pattern = MURDER_WALL_PATTERN_SUB_5E02[usize::from(render.animation_frame & 3)];
+
+    for column in 0..2 {
+        let tile_offsets: [u16; 2] = if input.murder_wall_reversed {
+            if column == 0 {
+                [0x0812, 0x081B]
+            } else {
+                [0x0809, 0x0800]
+            }
+        } else if column == 0 {
+            [0x0000, 0x0009]
+        } else {
+            [0x0012, 0x001B]
+        };
+
+        let mut y = base_y;
+        for _ in 0..6 {
+            for tile_offset in tile_offsets {
+                render.number_sprites = render.number_sprites.wrapping_add(1);
+                render.sprites.push(MurderWallWarningSpriteSub5E02 {
+                    y: y as u16,
+                    link: 0x0A00 + u16::from(render.number_sprites),
+                    tile_word: pattern.wrapping_add(tile_offset),
+                    x: x as u16,
+                });
+                y += 0x18;
+            }
+        }
+        x += 0x18;
+    }
+
+    render
+}
+
 #[derive(Clone, Copy)]
 struct LavaFireballSegment {
     frames: u8,

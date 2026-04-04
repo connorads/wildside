@@ -20,6 +20,10 @@ use crate::movement::*;
 use crate::projectiles::{
     KidProjectileCollisionPassSub1D76, kid_projectile_collision_passes_sub_1D76,
 };
+use crate::weather::{
+    MurderWallWarningInputSub5E02, MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
+    compile_murder_wall_warning_sprites_sub_5E02,
+};
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
     PlatformLayout, PlatformPlacement, PlatformScriptRef,
@@ -16256,6 +16260,159 @@ fn init_murder_wall_zero_camera_starts_offscreen_left() {
     assert_eq!(
         wall.x_pos, expected,
         "zero camera should start wall offscreen left"
+    );
+}
+
+#[test]
+fn sub_5e02_emits_forward_warning_strip_and_push_state() {
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0070,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0095,
+        kid_hitbox_right_px: 0x00A5,
+        camera_x_px: 0x0090,
+        camera_y_px: 0x0060,
+        animation_timer: 1,
+        animation_frame: 2,
+        starting_number_sprites: 0x10,
+    });
+
+    assert_eq!(
+        render.push_animation_offset,
+        Some(0x30),
+        "ASM sub_5E02 should write `$30` to Kid `$3A(a0)` when the forward murder wall reaches Kid's left hitbox"
+    );
+    assert_eq!(
+        render.push_animation_timer,
+        Some(4),
+        "ASM sub_5E02 should write `4` to Kid `$38(a0)` once the forward murder wall overlaps Kid"
+    );
+    assert_eq!(
+        render.animation_timer, 5,
+        "ASM sub_5E02 should reload the warning animation timer to 5 when `($FFFFFAC0).w` decrements to zero"
+    );
+    assert_eq!(
+        render.animation_frame, 3,
+        "ASM sub_5E02 should wrap the 2-bit warning pattern index after reloading `($FFFFFABF).w`"
+    );
+    assert_eq!(render.sprites.len(), 24);
+    assert_eq!(
+        render.number_sprites, 0x28,
+        "ASM sub_5E02 should advance Number_Sprites once per emitted warning sprite"
+    );
+    assert_eq!(
+        render.sprites[0],
+        MurderWallWarningSpriteSub5E02 {
+            y: 0x007E,
+            link: 0x0A11,
+            tile_word: 0xA367,
+            x: 0x0060,
+        },
+        "ASM sub_5E02 should start the forward warning strip at `x=$80-d3`, `y=$80-(Camera_Y_pos/$30)` with the selected base tile"
+    );
+    assert_eq!(
+        render.sprites[1],
+        MurderWallWarningSpriteSub5E02 {
+            y: 0x0096,
+            link: 0x0A12,
+            tile_word: 0xA370,
+            x: 0x0060,
+        },
+        "ASM sub_5E02 should emit the second forward tile in the first column at base tile + 9"
+    );
+    assert_eq!(
+        render.sprites[12],
+        MurderWallWarningSpriteSub5E02 {
+            y: 0x007E,
+            link: 0x0A1D,
+            tile_word: 0xA379,
+            x: 0x0078,
+        },
+        "ASM sub_5E02 should restart Y and advance X by `$18` for the second warning column"
+    );
+}
+
+#[test]
+fn sub_5e02_emits_reversed_warning_strip_without_forward_push_offset() {
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0090,
+        murder_wall_reversed: true,
+        kid_hitbox_left_px: 0x0050,
+        kid_hitbox_right_px: 0x01A0,
+        camera_x_px: 0x0088,
+        camera_y_px: 0x0030,
+        animation_timer: 3,
+        animation_frame: 1,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        render.push_animation_offset, None,
+        "ASM sub_5E02 only writes Kid `$3A(a0)` on the forward murder-wall path"
+    );
+    assert_eq!(
+        render.push_animation_timer,
+        Some(4),
+        "ASM sub_5E02 should still write Kid `$38(a0)=4` when the reversed murder wall reaches Kid's right hitbox"
+    );
+    assert_eq!(
+        render.animation_timer, 2,
+        "ASM sub_5E02 should just decrement `($FFFFFAC0).w` when it does not reach zero"
+    );
+    assert_eq!(
+        render.animation_frame, 1,
+        "ASM sub_5E02 should keep the current pattern index when the animation timer stays non-zero"
+    );
+    assert_eq!(
+        render.sprites[0],
+        MurderWallWarningSpriteSub5E02 {
+            y: 0x007F,
+            link: 0x0A01,
+            tile_word: 0xAB31,
+            x: 0x0198,
+        },
+        "ASM sub_5E02 should offset the reversed warning strip by `$812` from the selected base tile"
+    );
+    assert_eq!(
+        render.sprites[12],
+        MurderWallWarningSpriteSub5E02 {
+            y: 0x007F,
+            link: 0x0A0D,
+            tile_word: 0xAB28,
+            x: 0x01B0,
+        },
+        "ASM sub_5E02 should use the reversed second-column tile order `$809/$800`"
+    );
+}
+
+#[test]
+fn sub_5e02_returns_early_when_wall_is_far_from_camera() {
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0000,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0030,
+        camera_y_px: 0,
+        animation_timer: 4,
+        animation_frame: 0,
+        starting_number_sprites: 7,
+    });
+
+    assert_eq!(
+        render,
+        MurderWallWarningRenderSub5E02 {
+            push_animation_timer: None,
+            push_animation_offset: None,
+            animation_timer: 3,
+            animation_frame: 0,
+            number_sprites: 7,
+            sprites: Vec::new(),
+        },
+        "ASM sub_5E02 should stop before sprite emission when the murder wall is at least `$30` pixels away from the camera"
     );
 }
 
