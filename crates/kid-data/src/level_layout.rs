@@ -69,6 +69,35 @@ fn mark_background_neighbour_sub_12792(
     *hi_byte |= 0x01;
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundLayoutRecord {
+    pub(crate) layout_word_offset: u16,
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) tile_kind: u8,
+    pub(crate) tile_variant: u8,
+}
+
+impl BackgroundLayoutRecord {
+    #[allow(dead_code)]
+    pub(crate) const fn new(
+        layout_word_offset: u16,
+        col: u16,
+        row: u16,
+        tile_kind: u8,
+        tile_variant: u8,
+    ) -> Self {
+        Self {
+            layout_word_offset,
+            col,
+            row,
+            tile_kind,
+            tile_variant,
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn prepare_background_layout_cell_sub_127A8(
@@ -87,6 +116,20 @@ pub(crate) fn prepare_background_layout_cell_sub_127A8(
     };
     cell[0] = 0x20;
     cell[1] = terrain_byte;
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn insert_background_layout_record_sub_127CE(
+    records: &mut Vec<BackgroundLayoutRecord>,
+    record: BackgroundLayoutRecord,
+) {
+    // ASM sub_127CE (kid.asm:25110): scan for the first existing 8-byte record
+    // whose layout pointer is greater than the new one, shift the tail upward,
+    // and insert the new record after all lower-or-equal offsets.
+    let insertion_index = records
+        .partition_point(|existing| existing.layout_word_offset <= record.layout_word_offset);
+    records.insert(insertion_index, record);
 }
 
 #[cfg(test)]
@@ -171,6 +214,31 @@ mod tests {
             layout,
             vec![0x11, 0x22, 0x20, 0x91, 0x55, 0x66],
             "ASM sub_127A8 should write $20 to the high byte and copy the terrain byte from the matching cell index"
+        );
+    }
+
+    #[test]
+    fn sub_127ce_inserts_record_after_existing_lower_or_equal_offsets() {
+        let mut records = vec![
+            BackgroundLayoutRecord::new(0x0010, 1, 1, 0x80, 0x00),
+            BackgroundLayoutRecord::new(0x0020, 2, 2, 0x81, 0x01),
+            BackgroundLayoutRecord::new(0x0020, 3, 3, 0x82, 0x02),
+            BackgroundLayoutRecord::new(0x0030, 4, 4, 0x83, 0x03),
+        ];
+        let inserted = BackgroundLayoutRecord::new(0x0020, 9, 9, 0xAA, 0xBB);
+
+        insert_background_layout_record_sub_127CE(&mut records, inserted);
+
+        assert_eq!(
+            records,
+            vec![
+                BackgroundLayoutRecord::new(0x0010, 1, 1, 0x80, 0x00),
+                BackgroundLayoutRecord::new(0x0020, 2, 2, 0x81, 0x01),
+                BackgroundLayoutRecord::new(0x0020, 3, 3, 0x82, 0x02),
+                BackgroundLayoutRecord::new(0x0020, 9, 9, 0xAA, 0xBB),
+                BackgroundLayoutRecord::new(0x0030, 4, 4, 0x83, 0x03),
+            ],
+            "ASM sub_127CE should shift the first greater 8-byte record upward, leaving equal offsets ahead of the inserted slot"
         );
     }
 }
