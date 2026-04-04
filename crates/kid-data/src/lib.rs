@@ -404,6 +404,19 @@ pub struct BackgroundScrollUpdateSub304B4 {
     pub vram_word_offset: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BackgroundScrollStateSub30744 {
+    pub background_buffer_column: Option<u16>,
+    pub vram_word_offset: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BackgroundTileUploadSub30744 {
+    pub vram_word_address: u16,
+    pub tile_word: u16,
+    pub background_chunk_id: u8,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OptionMenuTileSplitUploadSub1CCAE {
     pub upper_vram_word_address: u16,
@@ -2571,6 +2584,84 @@ pub fn background_scroll_update_sub_304B4(
         background_buffer_column: wrapped_column as u16,
         vram_word_offset: (((unwrapped_column as u16) & 0x003F) << 1),
     })
+}
+
+#[allow(non_snake_case)]
+fn background_tile_word_sub_30744(background_chunk_id: u8) -> u16 {
+    // ASM sub_30744 reads `unk_309B8(background_chunk_id*2)`, which is the
+    // contiguous word table `$2780..$27FF`.
+    0x2780_u16.wrapping_add(u16::from(background_chunk_id))
+}
+
+#[allow(non_snake_case)]
+pub fn background_tile_uploads_sub_30744(
+    camera_y_pos: i16,
+    background_width: u16,
+    background_row_offsets: &[u16],
+    bgscroll_profile: &[u8],
+    horiz_scroll_entries: &[BackgroundScrollStateSub30744],
+    background_chunk_buffer: &[u8],
+) -> Result<Vec<BackgroundTileUploadSub30744>> {
+    // ASM sub_30744 (kid.asm:34563): starting at row `Camera_Y_pos>>5`, walk
+    // up to 29 bgscroll bytes, stop on `$FF`, skip negative `Horiz_Scroll_Data`
+    // entries, and otherwise emit one background tile upload per row using the
+    // wrapped VDP row address and the chunk-id lookup from `unk_309B8`.
+    ensure!(
+        background_width != 0,
+        "sub_30744 needs a non-zero Background_width"
+    );
+    ensure!(
+        camera_y_pos >= 0,
+        "sub_30744 expects a non-negative Camera_Y_pos"
+    );
+
+    let camera_chunk = usize::try_from(camera_y_pos >> 5)
+        .context("sub_30744 camera row chunk should fit into usize")?;
+    let mut background_row_offset = usize::from(
+        *background_row_offsets
+            .get(camera_chunk)
+            .context("sub_30744 background row-offset table is missing the camera chunk")?,
+    );
+    let background_width = usize::from(background_width);
+
+    let mut uploads = Vec::new();
+    for row_index in 0..=0x001C_u16 {
+        let entry_offset = *bgscroll_profile
+            .get(camera_chunk + usize::from(row_index))
+            .context("sub_30744 bgscroll profile ended before the 29-row window")?;
+        if entry_offset == 0xFF {
+            break;
+        }
+        ensure!(
+            entry_offset % 8 == 0,
+            "sub_30744 bgscroll entries should point at 8-byte Horiz_Scroll_Data slots"
+        );
+
+        let entry = *horiz_scroll_entries
+            .get(usize::from(entry_offset / 8))
+            .context("sub_30744 bgscroll entry points past Horiz_Scroll_Data")?;
+        if let Some(background_buffer_column) = entry.background_buffer_column {
+            let source_index = background_row_offset
+                .checked_add(usize::from(background_buffer_column))
+                .context("sub_30744 background source index overflowed")?;
+            let background_chunk_id = *background_chunk_buffer
+                .get(source_index)
+                .context("sub_30744 background chunk buffer is missing the selected source byte")?;
+            uploads.push(BackgroundTileUploadSub30744 {
+                vram_word_address: 0x6000
+                    | (((camera_chunk as u16).wrapping_add(row_index) & 0x001F) << 7)
+                    | entry.vram_word_offset,
+                tile_word: background_tile_word_sub_30744(background_chunk_id),
+                background_chunk_id,
+            });
+        }
+
+        background_row_offset = background_row_offset
+            .checked_add(background_width)
+            .context("sub_30744 row advance overflowed")?;
+    }
+
+    Ok(uploads)
 }
 
 #[allow(non_snake_case)]
@@ -6482,6 +6573,72 @@ PlatformScript_361C:   ; relative offset: 001A
                 vram_word_offset: 84,
             },
             "ASM sub_304B4 should add `#$28` before wrapping so the upload targets the newly exposed far column while keeping the pre-wrap VDP offset",
+        );
+    }
+
+    #[test]
+    fn background_tile_uploads_sub_30744_stops_on_ff_after_the_first_visible_row() {
+        let mut background_chunk_buffer = vec![0u8; 16];
+        background_chunk_buffer[3] = 5;
+
+        let uploads = background_tile_uploads_sub_30744(
+            0,
+            10,
+            &[0],
+            &[0, 0xFF],
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(3),
+                vram_word_offset: 0x0020,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect("ASM sub_30744 should accept a valid first-row bgscroll entry plus terminator");
+
+        assert_eq!(
+            uploads,
+            vec![BackgroundTileUploadSub30744 {
+                vram_word_address: 0x6020,
+                tile_word: 0x2785,
+                background_chunk_id: 5,
+            }],
+            "ASM sub_30744 should stop at `$FF` and map the selected chunk id through `unk_309B8`",
+        );
+    }
+
+    #[test]
+    fn background_tile_uploads_sub_30744_advances_rows_across_skipped_scroll_entries() {
+        let mut background_chunk_buffer = vec![0u8; 80];
+        background_chunk_buffer[64] = 9;
+
+        let uploads = background_tile_uploads_sub_30744(
+            0,
+            60,
+            &[0],
+            &[8, 0, 0xFF],
+            &[
+                BackgroundScrollStateSub30744 {
+                    background_buffer_column: Some(4),
+                    vram_word_offset: 0x0006,
+                },
+                BackgroundScrollStateSub30744 {
+                    background_buffer_column: None,
+                    vram_word_offset: 0x0010,
+                },
+            ],
+            &background_chunk_buffer,
+        )
+        .expect(
+            "ASM sub_30744 should skip hidden rows but keep advancing the background source row",
+        );
+
+        assert_eq!(
+            uploads,
+            vec![BackgroundTileUploadSub30744 {
+                vram_word_address: 0x6086,
+                tile_word: 0x2789,
+                background_chunk_id: 9,
+            }],
+            "ASM sub_30744 should treat negative `Horiz_Scroll_Data` entries as skips, then upload the next visible row from the advanced background row base",
         );
     }
 }
