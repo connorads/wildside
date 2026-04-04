@@ -411,6 +411,20 @@ pub struct PlaneLineUploadSub1D990 {
     pub words: [u16; 14],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicEnigmaTilemapDecodeSub1D944 {
+    pub asset_label: &'static str,
+    pub vram_word_address: u16,
+    pub panel_flag_fb5c: u8,
+    pub panel_flag_fb5e: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TitlePanelLoadPlanSub1D944 {
+    pub tilemap_decode: SymbolicEnigmaTilemapDecodeSub1D944,
+    pub line_uploads: [PlaneLineUploadSub1D990; 14],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EndSequenceGlyphUploadSub1D080 {
     pub vram_byte_address: u16,
@@ -1925,6 +1939,64 @@ pub fn title_panel_line_upload_sub_1D990(
         vram_byte_address,
         vdp_control_longword: vdp_write_control_longword(vram_byte_address),
         words: core::array::from_fn(|index| source_words[index]),
+    })
+}
+
+#[allow(non_snake_case)]
+pub fn title_panel_load_plan_sub_1D944(
+    panel_selector_with_flags: u16,
+    decoded_words: &[u16],
+) -> Result<TitlePanelLoadPlanSub1D944> {
+    // ASM sub_1D944 (kid.asm:33220): strip bits 15 and 14 into
+    // `($FFFFFB5C).w`/`($FFFFFB5E).w`, use the remaining low selector bits to
+    // choose one of the seven Enigma tilemaps at `off_1D936`, decode it to
+    // `Decompression_Buffer` with base tile `$813E` unless only bit 15 was
+    // set, then call sub_1D990 for rows `d7=13..0`.
+    const ASSET_LABELS: [&str; 7] = [
+        "unk_2E39A",
+        "unk_2E436",
+        "unk_2E4D6",
+        "unk_2E582",
+        "unk_2E64A",
+        "unk_2EA26",
+        "unk_2EA5E",
+    ];
+
+    let panel_flag_fb5c = if panel_selector_with_flags & 0x8000 != 0 {
+        0xFF
+    } else {
+        0x00
+    };
+    let panel_flag_fb5e = if panel_selector_with_flags & 0x4000 != 0 {
+        0xFF
+    } else {
+        0x00
+    };
+    let selector = (panel_selector_with_flags & 0x3FFF) as usize;
+    let asset_label = *ASSET_LABELS.get(selector).ok_or_else(|| {
+        anyhow!(
+            "sub_1D944 selector {selector:#06X} is outside off_1D936's {} entries",
+            ASSET_LABELS.len()
+        )
+    })?;
+    let vram_word_address = if panel_flag_fb5c != 0 && panel_flag_fb5e == 0 {
+        0x22DC
+    } else {
+        0x813E
+    };
+
+    Ok(TitlePanelLoadPlanSub1D944 {
+        tilemap_decode: SymbolicEnigmaTilemapDecodeSub1D944 {
+            asset_label,
+            vram_word_address,
+            panel_flag_fb5c,
+            panel_flag_fb5e,
+        },
+        line_uploads: core::array::from_fn(|index| {
+            let row_index = 13 - index as u16;
+            title_panel_line_upload_sub_1D990(decoded_words, row_index, panel_flag_fb5c)
+                .expect("sub_1D944 should already have validated the decoded row span")
+        }),
     })
 }
 
@@ -4920,6 +4992,69 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1D990 needs row 13 words [0x016C..0x017A)"),
             "the error should describe the exact decoded row range requested by the ASM stride math",
+        );
+    }
+
+    #[test]
+    fn title_panel_load_plan_sub_1d944_selects_the_enigma_asset_flags_and_descending_row_uploads() {
+        let decoded_words = (0u16..0x0400).collect::<Vec<_>>();
+
+        let plan = title_panel_load_plan_sub_1D944(0x8004, &decoded_words)
+            .expect("ASM sub_1D944 should accept selector 4 with the bit-15 flag set");
+
+        assert_eq!(
+            plan.tilemap_decode,
+            SymbolicEnigmaTilemapDecodeSub1D944 {
+                asset_label: "unk_2E64A",
+                vram_word_address: 0x22DC,
+                panel_flag_fb5c: 0xFF,
+                panel_flag_fb5e: 0x00,
+            },
+            "ASM sub_1D944 should clear bits 15/14 into `($FFFFFB5C).w` and `($FFFFFB5E).w`, then use the remaining selector in `off_1D936`",
+        );
+        assert_eq!(plan.line_uploads.len(), 14);
+        assert_eq!(
+            plan.line_uploads[0].row_index, 13,
+            "ASM sub_1D944 should start the `dbf d7` loop at row 13",
+        );
+        assert_eq!(
+            plan.line_uploads[13].row_index, 0,
+            "ASM sub_1D944 should finish the `dbf d7` loop at row 0",
+        );
+        assert_eq!(
+            plan.line_uploads[0].vram_byte_address, 0xEA1A,
+            "ASM sub_1D944 should pass the bit-15-derived `($FFFFFB5C).w` state through to sub_1D990's VRAM bank select",
+        );
+        assert_eq!(
+            plan.line_uploads[13].vram_byte_address, 0xE39A,
+            "ASM sub_1D944 should keep descending the destination rows by `$80` bytes down to row 0",
+        );
+    }
+
+    #[test]
+    fn title_panel_load_plan_sub_1d944_keeps_base_tile_813e_when_bit14_is_set() {
+        let decoded_words = vec![0; 14 * 0x1C];
+
+        let plan = title_panel_load_plan_sub_1D944(0x4006, &decoded_words)
+            .expect("ASM sub_1D944 should accept selector 6 with only the bit-14 flag set");
+
+        assert_eq!(plan.tilemap_decode.asset_label, "unk_2EA5E");
+        assert_eq!(plan.tilemap_decode.vram_word_address, 0x813E);
+        assert_eq!(plan.tilemap_decode.panel_flag_fb5c, 0x00);
+        assert_eq!(plan.tilemap_decode.panel_flag_fb5e, 0xFF);
+    }
+
+    #[test]
+    fn title_panel_load_plan_sub_1d944_rejects_selectors_outside_off_1d936() {
+        let error = title_panel_load_plan_sub_1D944(7, &vec![0; 14 * 0x1C]).expect_err(
+            "ASM sub_1D944 should reject selectors beyond the seven-entry `off_1D936` table",
+        );
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1D944 selector 0x0007 is outside off_1D936's 7 entries"),
+            "the error should describe the exact selector overflow against `off_1D936`",
         );
     }
 
