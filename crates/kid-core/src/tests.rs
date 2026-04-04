@@ -1,5 +1,6 @@
 use super::*;
 use crate::combat::*;
+use crate::level::swap_forest_background_palette_entries_sub_129AE;
 use crate::movement::*;
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
@@ -180,6 +181,48 @@ fn manifest_with_playable_spawn() -> AssetManifest {
         .expect("synthetic manifest should expose level header metadata");
     header.player_start_x = 0x0020;
     manifest
+}
+
+#[test]
+fn sub_129ae_swaps_forest_palette_words_only() {
+    let forest_header = LevelHeader {
+        width_screens: 1,
+        height_screens: 1,
+        height_flag_bits: 0,
+        level_theme: 0,
+        murder_wall_flags: 0,
+        background_theme: 9,
+        weather_flags: 0,
+        player_start_x: 0,
+        player_start_y: 0,
+        flag_x: 0,
+        flag_y: 0,
+    };
+    let non_forest_header = LevelHeader {
+        background_theme: 8,
+        ..forest_header.clone()
+    };
+    let mut forest_palette = vec![0u16; 0x1B];
+    forest_palette[0x18] = 0x1234;
+    forest_palette[0x1A] = 0x5678;
+    let mut non_forest_palette = forest_palette.clone();
+
+    swap_forest_background_palette_entries_sub_129AE(Some(&forest_header), &mut forest_palette);
+    swap_forest_background_palette_entries_sub_129AE(
+        Some(&non_forest_header),
+        &mut non_forest_palette,
+    );
+
+    assert_eq!(
+        forest_palette[0x18], 0x5678,
+        "ASM sub_129AE should swap Palette_Buffer+$30 with Palette_Buffer+$34 for Forest backgrounds"
+    );
+    assert_eq!(forest_palette[0x1A], 0x1234);
+    assert_eq!(
+        non_forest_palette[0x18], 0x1234,
+        "ASM sub_129AE must leave non-Forest background palettes unchanged"
+    );
+    assert_eq!(non_forest_palette[0x1A], 0x5678);
 }
 
 fn manifest_with_levels_and_playable_spawn(count: u8) -> AssetManifest {

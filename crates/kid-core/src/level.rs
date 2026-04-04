@@ -1,5 +1,22 @@
 use super::*;
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
+    header: Option<&kid_data::LevelHeader>,
+    palette_buffer: &mut [u16],
+) {
+    // ASM sub_129AE (kid.asm:25339): Forest backgrounds swap the palette
+    // words at Palette_Buffer+$30 and Palette_Buffer+$34.
+    if header.is_none_or(|header| header.background_theme != 9) {
+        return;
+    }
+    if palette_buffer.len() <= 0x1A {
+        return;
+    }
+    palette_buffer.swap(0x18, 0x1A);
+}
+
 impl NativeRuntime {
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
         let level_id = self.current_level;
