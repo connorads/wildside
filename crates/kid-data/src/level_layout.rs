@@ -69,6 +69,26 @@ fn mark_background_neighbour_sub_12792(
     *hi_byte |= 0x01;
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn prepare_background_layout_cell_sub_127A8(
+    level_layout: &mut [u8],
+    terrain_layout: &[u8],
+    layout_word_offset: u16,
+) {
+    // ASM sub_127A8 (kid.asm:25092): write $20 to the level-layout high byte,
+    // then copy the terrain byte from the matching halfword index.
+    let layout_word_offset = usize::from(layout_word_offset);
+    let Some(cell) = level_layout.get_mut(layout_word_offset..layout_word_offset + 2) else {
+        return;
+    };
+    let Some(&terrain_byte) = terrain_layout.get(layout_word_offset / 2) else {
+        return;
+    };
+    cell[0] = 0x20;
+    cell[1] = terrain_byte;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,6 +157,20 @@ mod tests {
             cell_hi(&layout, 4, 0, 2),
             0x00,
             "class $50 at column 0 must skip the missing left neighbour"
+        );
+    }
+
+    #[test]
+    fn sub_127a8_marks_layout_cell_and_copies_terrain_byte() {
+        let mut layout = vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66];
+        let terrain_layout = [0x90, 0x91, 0x92];
+
+        prepare_background_layout_cell_sub_127A8(&mut layout, &terrain_layout, 2);
+
+        assert_eq!(
+            layout,
+            vec![0x11, 0x22, 0x20, 0x91, 0x55, 0x66],
+            "ASM sub_127A8 should write $20 to the high byte and copy the terrain byte from the matching cell index"
         );
     }
 }
