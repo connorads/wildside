@@ -117,6 +117,16 @@ pub struct NativeRuntime {
     options_controls_scheme: u8,
     /// ASM OptionScreen_Input `Option_SpeedButton`: false = normal action, true = fast.
     options_speed_button_fast: bool,
+    /// ASM sub_1CC88 (kid.asm:31808): option-menu worker byte toggled by
+    /// `not.b ($FFFFFB5C).w` before applying the symmetric `$FFFFFB5E` offset.
+    options_menu_panel_toggle_byte: u8,
+    /// ASM loc_1CB2C / sub_1CC88: left option-menu worker word at `$24(a0)`.
+    options_menu_left_panel_x: i16,
+    /// ASM loc_1CB2C / sub_1CC88: right option-menu worker word at `$24(a1)`.
+    options_menu_right_panel_x: i16,
+    /// ASM loc_1CB2C / sub_1CC88: shared signed offset seeded from
+    /// `($FFFFFB5E).w`.
+    options_menu_panel_delta: i16,
     level_timer: LevelTimer,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
@@ -401,6 +411,10 @@ impl NativeRuntime {
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,
             options_speed_button_fast: false,
+            options_menu_panel_toggle_byte: 0,
+            options_menu_left_panel_x: 0x0030,
+            options_menu_right_panel_x: 0x0110,
+            options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
             y_look_offset: 0,
             level_damage_taken: false,

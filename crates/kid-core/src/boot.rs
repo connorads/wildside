@@ -270,6 +270,32 @@ pub(crate) fn title_text_word_writes_sub_1B7B6() -> Vec<TitleTextWordWritesSub1B
         .collect()
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn step_option_menu_panels_sub_1CC88(
+    toggle_byte: u8,
+    panel_delta: i16,
+    left_panel_x: i16,
+    right_panel_x: i16,
+) -> (u8, i16, i16) {
+    // ASM sub_1CC88 (kid.asm:31808): `not.b ($FFFFFB5C).w`, then if the byte
+    // is non-zero add/subtract `($FFFFFB5E).w` across the two option-menu
+    // workers; otherwise undo that same offset on the following frame.
+    let toggle_byte = !toggle_byte;
+    if toggle_byte != 0 {
+        (
+            toggle_byte,
+            left_panel_x.wrapping_add(panel_delta),
+            right_panel_x.wrapping_sub(panel_delta),
+        )
+    } else {
+        (
+            toggle_byte,
+            left_panel_x.wrapping_sub(panel_delta),
+            right_panel_x.wrapping_add(panel_delta),
+        )
+    }
+}
+
 impl NativeRuntime {
     fn activate_intro_sequence_3_roster(&mut self) {
         self.active_intro_sequence_3_roster_index = self.next_intro_sequence_3_roster_index;
@@ -1472,6 +1498,16 @@ impl NativeRuntime {
                 let b_pressed = input.b && !self.prior_input.b;
                 let left_pressed = input.left && !self.prior_input.left;
                 let right_pressed = input.right && !self.prior_input.right;
+                (
+                    self.options_menu_panel_toggle_byte,
+                    self.options_menu_left_panel_x,
+                    self.options_menu_right_panel_x,
+                ) = step_option_menu_panels_sub_1CC88(
+                    self.options_menu_panel_toggle_byte,
+                    self.options_menu_panel_delta,
+                    self.options_menu_left_panel_x,
+                    self.options_menu_right_panel_x,
+                );
                 // ASM OptionScreen_Input: 4 items:
                 // 0 = 2 PLAYERS (one/two controllers), 1 = CONTROLS (0..5),
                 // 2 = SPEED BUTTON (normal/fast), 3 = EXIT.

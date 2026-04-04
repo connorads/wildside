@@ -18444,6 +18444,40 @@ fn options_menu_left_and_right_toggle_paths_play_sub_1bc26() {
 }
 
 #[test]
+fn options_menu_panel_step_sub_1cc88_alternates_the_worker_offsets_each_frame() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+
+    runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        runtime.options_menu_panel_toggle_byte, 0xFF,
+        "ASM sub_1CC88 should flip `($FFFFFB5C).w` from 0 to $FF on the first options-menu frame",
+    );
+    assert_eq!(
+        runtime.options_menu_left_panel_x, 0x0148,
+        "ASM sub_1CC88 should add `($FFFFFB5E).w` to the left worker's `$24(a0)` word when the toggled byte is non-zero",
+    );
+    assert_eq!(
+        runtime.options_menu_right_panel_x, -0x0008,
+        "ASM sub_1CC88 should subtract the same shared delta from the right worker on that first frame",
+    );
+
+    runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        runtime.options_menu_panel_toggle_byte, 0x00,
+        "ASM sub_1CC88 should flip `($FFFFFB5C).w` back to 0 on the following frame",
+    );
+    assert_eq!(
+        runtime.options_menu_left_panel_x, 0x0030,
+        "ASM sub_1CC88 should restore the left worker offset on the zero-byte branch",
+    );
+    assert_eq!(
+        runtime.options_menu_right_panel_x, 0x0110,
+        "ASM sub_1CC88 should restore the right worker offset on the zero-byte branch",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
