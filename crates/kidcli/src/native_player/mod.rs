@@ -289,7 +289,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
     let mut recorded_audio = Vec::new();
-    let mut final_frame_rgb = None;
+    let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
+
+    if options.record_to.is_some() {
+        eprintln!("Recording enabled: press F10 to save the current bundle and exit.");
+    }
 
     let scene = build_scene(
         &trace,
@@ -311,6 +315,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         let frame_started = Instant::now();
         let mut toggle_fullscreen = false;
         let mut reset_runtime = false;
+        let mut dump_recording_and_exit = false;
 
         for event in events.poll_iter() {
             match event {
@@ -341,6 +346,15 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     repeat: false,
                     ..
                 } => debug_overlay_visible = !debug_overlay_visible,
+                Event::KeyDown {
+                    keycode: Some(Keycode::F10),
+                    repeat: false,
+                    ..
+                } => {
+                    if options.record_to.is_some() {
+                        dump_recording_and_exit = true;
+                    }
+                }
                 Event::KeyDown {
                     keycode: Some(Keycode::R),
                     repeat: false,
@@ -382,6 +396,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                 }
                 _ => {}
             }
+        }
+
+        if dump_recording_and_exit {
+            break 'running;
         }
 
         if toggle_fullscreen {
@@ -568,40 +586,67 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         }
     }
 
-    if let Some(record_to) = &options.record_to {
-        if recorded_script.is_empty() {
-            bail!("recording captured no stepped frames");
-        }
-        let slug = record_to
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or_else(|| {
-                anyhow!(
-                    "recording path has no valid file name: {}",
-                    record_to.display()
-                )
-            })?;
-        let recording = build_recording(
-            manifest,
-            slug,
-            recording_start_from_options(&options),
-            recorded_script,
-            recorded_trace,
-        )?;
-        let artifacts = RecordingBundleArtifacts {
-            user_notes: options.record_notes.clone(),
-            final_frame_rgb,
-            audio_samples: Some(recorded_audio),
-            audio_channels: u16::from(audio_channels),
-        };
-        save_recording_with_artifacts(record_to, &recording, &artifacts)?;
-        println!(
-            "recording saved to {}. verify with: cargo run -p kidcli -- verify-recording --slug {}",
-            record_to.display(),
-            slug
-        );
+    save_native_recording_bundle(
+        manifest,
+        &options,
+        recorded_script,
+        recorded_trace,
+        recorded_audio,
+        final_frame_rgb,
+        trace,
+        audio_channels,
+    )?;
+
+    Ok(())
+}
+
+fn save_native_recording_bundle(
+    manifest: &AssetManifest,
+    options: &NativePlayOptions,
+    mut recorded_script: Vec<u8>,
+    mut recorded_trace: Vec<NativeTraceFrame>,
+    recorded_audio: Vec<f32>,
+    final_frame_rgb: Option<Vec<u8>>,
+    current_trace: NativeTraceFrame,
+    audio_channels: u8,
+) -> Result<()> {
+    let Some(record_to) = &options.record_to else {
+        return Ok(());
+    };
+
+    if recorded_trace.is_empty() {
+        recorded_script.push(0);
+        recorded_trace.push(current_trace);
     }
 
+    let slug = record_to
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            anyhow!(
+                "recording path has no valid file name: {}",
+                record_to.display()
+            )
+        })?;
+    let recording = build_recording(
+        manifest,
+        slug,
+        recording_start_from_options(options),
+        recorded_script,
+        recorded_trace,
+    )?;
+    let artifacts = RecordingBundleArtifacts {
+        user_notes: options.record_notes.clone(),
+        final_frame_rgb,
+        audio_samples: Some(recorded_audio),
+        audio_channels: u16::from(audio_channels),
+    };
+    save_recording_with_artifacts(record_to, &recording, &artifacts)?;
+    println!(
+        "recording saved to {}. verify with: cargo run -p kidcli -- verify-recording --slug {}",
+        record_to.display(),
+        slug
+    );
     Ok(())
 }
 
@@ -3189,6 +3234,47 @@ mod tests {
         assert_eq!(trace.current_level.0, 0x00);
         assert_eq!(trace.game_mode, GameMode::InGame);
         assert!(trace.kid_y_pos.is_some());
+    }
+
+    #[test]
+    fn save_native_recording_bundle_persists_current_trace_when_no_frames_were_stepped() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let record_dir = fixture._root.path().join("recordings").join("freeze-repro");
+        let trace = sample_trace(GameMode::LevelTransition);
+        let final_frame = vec![0x22; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        save_native_recording_bundle(
+            &fixture.manifest,
+            &NativePlayOptions {
+                fullscreen: false,
+                scale: None,
+                debug_overlay: false,
+                warp_level: None,
+                settled: false,
+                record_to: Some(record_dir.clone()),
+                record_notes: Some(String::from("stuck on level card")),
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Some(final_frame),
+            trace.clone(),
+            1,
+        )
+        .expect("save freeze repro");
+
+        let manifest_text =
+            fs::read_to_string(record_dir.join("manifest.json")).expect("manifest text");
+        assert!(manifest_text.contains("\"slug\": \"freeze-repro\""));
+
+        let trace_text = fs::read_to_string(record_dir.join("trace.json")).expect("trace text");
+        assert!(trace_text.contains("\"game_mode\": \"LevelTransition\""));
+        assert!(trace_text.contains("\"frame_index\": 720"));
+
+        let scenario_text =
+            fs::read_to_string(record_dir.join("scenario.json")).expect("scenario text");
+        assert!(scenario_text.contains("\"frame_count\": 1"));
+        assert!(scenario_text.contains("\"script\": [\n    0\n  ]"));
     }
 
     #[test]

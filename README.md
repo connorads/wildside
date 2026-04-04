@@ -30,7 +30,7 @@ Start with `kidcli project-status` or `mise run project-status`.
 - `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
 - `kidcli compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `kid-md`.
 - `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
-- `kidcli play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace, and now writes ROM/build provenance plus record/verify commands into the bundle so the slug can travel as a bug artefact.
+- `kidcli play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace, and now writes ROM/build provenance plus record/verify commands into the bundle so the slug can travel as a bug artefact. While recording, press `F10` to dump the current bundle and exit immediately.
 - `kidcli play-native --record <slug> --record-notes <path>` copies text notes into the bundle and now also saves `transcript.txt`, `final-frame.png`, plus `audio.wav` so copied repros carry immediate textual, visual, and audio context before verification.
 - `kidcli verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
 - `kidcli verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
@@ -162,6 +162,14 @@ cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record l
 cargo run -p kidcli -- verify-recording --slug level1-tree-break
 cargo run -p kidcli -- verify-recording --bundle /tmp/level1-tree-break
 ```
+
+For a freeze repro on the default boot path, run:
+
+```bash
+cargo run --release -p kidcli -- play-native --record level1-load-freeze
+```
+
+Reproduce the stall, then press `F10` to save the current bundle and exit immediately.
 
 Useful launch overrides:
 

@@ -322,7 +322,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
     commands.push(text(
         20,
         174,
-        "R restart level  Tab debug overlay  F11 fullscreen  Esc quit",
+        "R restart level  F10 dump record  Tab debug  F11 fullscreen  Esc quit",
         [140, 140, 140],
         1,
     ));
