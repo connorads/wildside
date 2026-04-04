@@ -20155,6 +20155,27 @@ fn boss_head_movement_wrapper_sub_39a7c_uses_sub_399ee_and_runs_sub_3a292() {
 }
 
 #[test]
+fn boss_head_movement_step_sub_39a86_rewinds_negative_sentinel_entries_to_unk_39ab2() {
+    let sentinel_only_script = [(-1, 0, 0)];
+
+    let result = boss_head_movement_step_sub_39A86(1, 0, &sentinel_only_script);
+
+    assert_eq!(
+        result.next_delay_counter, 0x0032,
+        "ASM loc_39A8C should treat the negative delay as the sentinel and rewind `a2` to `unk_39AB2`",
+    );
+    assert_eq!(
+        result.next_script_index, 1,
+        "ASM sub_39A86 should resume after the first real Bagel Brothers head script entry",
+    );
+    assert_eq!(
+        (result.next_x_velocity, result.next_y_velocity),
+        (Some(0), Some(0)),
+        "ASM loc_39A98 should load the first `(0, 0)` velocity pair from `unk_39AB2` after the rewind",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
