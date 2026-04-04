@@ -252,6 +252,13 @@ pub struct TitleIntroLoadPlanSub1B850 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TitleIntroGlyphWriteSub1C7F6 {
+    pub vram_word_address: u16,
+    pub vdp_control_longword: u32,
+    pub tile_word: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SymbolicEnigmaTilemapLoadSub1BF24 {
     pub vram_word_address: u16,
     pub asset_label: &'static str,
@@ -1544,6 +1551,32 @@ pub fn title_character_palette_load_sub_1C512(
                 word_count: 0x000E,
             }),
         },
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn title_intro_glyph_write_sub_1C7F6(
+    base_vram_word_address: u16,
+    base_tile_word: u16,
+    column: u16,
+    row: u16,
+    glyph_index: u16,
+) -> TitleIntroGlyphWriteSub1C7F6 {
+    // ASM sub_1C7F6 (kid.asm:31455): build the text-plane VRAM word address as
+    // `base + row*$80 + column*2`, convert that word address into the VDP
+    // control longword, then add the text header's tile base to the glyph
+    // index before writing the tile word.
+    let vram_word_address = base_vram_word_address
+        .wrapping_add(row << 7)
+        .wrapping_add(column)
+        .wrapping_add(column);
+    let high_word = (vram_word_address & 0x3FFF) | 0x4000;
+    let low_word = vram_word_address.rotate_left(2) & 0x0003;
+
+    TitleIntroGlyphWriteSub1C7F6 {
+        vram_word_address,
+        vdp_control_longword: (u32::from(high_word) << 16) | u32::from(low_word),
+        tile_word: base_tile_word.wrapping_add(glyph_index),
     }
 }
 
@@ -4138,6 +4171,32 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x000E,
             }),
             "ASM sub_1C512 switches to `Pal_1C3D4` for any non-zero region byte other than 1",
+        );
+    }
+
+    #[test]
+    fn title_intro_glyph_write_sub_1c7f6_encodes_the_first_intro_text_glyph() {
+        assert_eq!(
+            title_intro_glyph_write_sub_1C7F6(0x0000, 0x67D3, 2, 8, u16::from(b'T' - b'A')),
+            TitleIntroGlyphWriteSub1C7F6 {
+                vram_word_address: 0x0404,
+                vdp_control_longword: 0x4404_0000,
+                tile_word: 0x67E6,
+            },
+            "ASM sub_1C7F6 should map IntroText1's first glyph to VRAM word $0404 and tile word $67E6",
+        );
+    }
+
+    #[test]
+    fn title_intro_glyph_write_sub_1c7f6_preserves_the_low_vdp_address_bits() {
+        assert_eq!(
+            title_intro_glyph_write_sub_1C7F6(0xE000, 0xC7D3, 7, 3, u16::from(b'I' - b'A')),
+            TitleIntroGlyphWriteSub1C7F6 {
+                vram_word_address: 0xE18E,
+                vdp_control_longword: 0x618E_0003,
+                tile_word: 0xC7DB,
+            },
+            "ASM sub_1C7F6 should preserve the rotated low two VRAM address bits in the VDP control longword",
         );
     }
 
