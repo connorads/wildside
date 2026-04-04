@@ -3537,7 +3537,7 @@ fn read_inline_value_sub_13588(
     // ASM sub_13588 (kid.asm:25973): start from the caller's base tile word,
     // fold in the enabled high-flag bits from d4, then append the packet bits.
     let flags = read_enigma_flags(bits, flag_mask)?;
-    let packet_bits = bits.read_bits(packet_length)?;
+    let packet_bits = bits.read_bits_sub_13622(packet_length)?;
     Ok(base_tile_word.wrapping_add(flags).wrapping_add(packet_bits))
 }
 
@@ -3643,15 +3643,6 @@ impl<'a> EnigmaBitReader<'a> {
         Ok(())
     }
 
-    fn read_bit(&mut self) -> Result<u8> {
-        if self.bits_remaining_d6 == 0 {
-            self.refill_word_sub_13618()?;
-        }
-        self.bits_remaining_d6 -= 1;
-        let shift = usize::from(self.bits_remaining_d6);
-        Ok(((self.current_word_d5 >> shift) & 1) as u8)
-    }
-
     fn read_prefix_eni_dec(&mut self) -> Result<(usize, usize)> {
         // ASM EniDec loc_134EA (kid.asm:25850): inspect the next 7 bits,
         // downgrade codes below `$40` to six consumed bits, then dispatch via
@@ -3726,14 +3717,6 @@ impl<'a> EnigmaBitReader<'a> {
         let next_byte = read_input_byte(self.bytes, &mut self.input_position)?;
         self.current_word_d5 |= u16::from(next_byte);
         Ok(())
-    }
-
-    fn read_bits(&mut self, count: usize) -> Result<u16> {
-        let mut value = 0_u16;
-        for _ in 0..count {
-            value = (value << 1) | u16::from(self.read_bit()?);
-        }
-        Ok(value)
     }
 }
 
@@ -4892,7 +4875,7 @@ AddrTbl_LevelNames:   ;1A842
 
     #[test]
     fn sub_13588_combines_enabled_flag_bits_with_packet_bits() {
-        let mut bits = EnigmaBitReader::new(&[0xAC, 0x00]);
+        let mut bits = EnigmaBitReader::new(&[0xAC, 0x00, 0x00]);
         bits.refill_word_sub_13618()
             .expect("ASM sub_13618 should seed d5 before sub_13588 consumes flags and packet bits");
 
@@ -4900,6 +4883,32 @@ AddrTbl_LevelNames:   ;1A842
             read_inline_value_sub_13588(&mut bits, 0x0040, 0b1_0101, 5)
                 .expect("ASM sub_13588 should merge flag bits and packet bits into the tile word"),
             0x884C
+        );
+    }
+
+    #[test]
+    fn sub_13588_preserves_prefix_readability_after_a_seven_bit_packet() {
+        let mut bits = EnigmaBitReader {
+            bytes: &[0xE0, 0x00],
+            input_position: 0,
+            current_word_d5: 0xAA80,
+            bits_remaining_d6: 9,
+        };
+
+        assert_eq!(
+            read_inline_value_sub_13588(&mut bits, 0, 0, 7)
+                .expect("ASM sub_13588 should read the full packet via the rolling refill helper"),
+            0x0020
+        );
+        assert!(
+            bits.bits_remaining_d6 >= 9,
+            "rolling refill should leave enough buffered bits for the next Enigma prefix"
+        );
+        assert_eq!(bits.input_position, 1);
+        assert_eq!(
+            bits.read_prefix_eni_dec()
+                .expect("next Enigma prefix should still be readable after a 7-bit inline packet"),
+            (1, 0x0E)
         );
     }
 
