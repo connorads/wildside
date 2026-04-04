@@ -13054,6 +13054,26 @@ fn ufo_beam_fires_when_player_below() {
     );
 }
 
+#[test]
+fn enemy_art_slot_assignment_sub_36e84_matches_first_second_and_fallback_slots() {
+    use enemies::enemy_art_slot_assignment_sub_36E84;
+
+    let first = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0022);
+    assert_eq!(first.slot_index, 0);
+    assert_eq!(first.palette_line, 1);
+    assert_eq!(first.vram_tile, 0x02FB);
+
+    let second = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x001C);
+    assert_eq!(second.slot_index, 1);
+    assert_eq!(second.palette_line, 2);
+    assert_eq!(second.vram_tile, 0x0409);
+
+    let fallback = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0007);
+    assert_eq!(fallback.slot_index, 2);
+    assert_eq!(fallback.palette_line, 2);
+    assert_eq!(fallback.vram_tile, 0x0517);
+}
+
 // --- UFO and Tornado flyer tests ---
 
 #[test]
