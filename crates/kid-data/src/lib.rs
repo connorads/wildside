@@ -1104,6 +1104,16 @@ pub fn load_juggernaut_skull_and_star_art_sub_129CE(
     ])
 }
 
+#[allow(non_snake_case)]
+pub fn load_hitpoint_display_art_sub_12C24(manifest: &AssetManifest) -> Result<IngameVramUpload> {
+    // ASM sub_12C24 (kid.asm:25409): upload Hitpoint_display art to VRAM
+    // $45A0.
+    Ok(IngameVramUpload {
+        vram_word_address: 0x45A0,
+        asset: load_ingame_asset(manifest, "artunc/Hitpoint_display.bin")?,
+    })
+}
+
 fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLevelAssets>> {
     let mut results = Vec::new();
     for level in &manifest.levels {
@@ -2206,6 +2216,14 @@ AddrTbl_LevelNames:   ;1A842
         .expect("star");
     }
 
+    fn write_sub_12c24_test_asset(source_root: &Path) {
+        fs::write(
+            source_root.join("ingame/artunc/Hitpoint_display.bin"),
+            [0x44; 32 * 4],
+        )
+        .expect("hitpoint display");
+    }
+
     #[test]
     fn parses_level_names_and_titles() {
         let parsed =
@@ -2761,6 +2779,23 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(uploads[0].asset.bytes, vec![0x11; 32 * 4]);
         assert_eq!(uploads[1].asset.bytes, vec![0x22; 32 * 4]);
         assert_eq!(uploads[2].asset.bytes, vec![0x33; 32 * 4]);
+    }
+
+    #[test]
+    fn load_hitpoint_display_art_sub_12c24_reads_the_expected_ingame_asset() {
+        let source = TempDir::new().expect("temp dir");
+        let output = TempDir::new().expect("temp dir");
+        write_default_test_bundle_source(source.path());
+        write_sub_12c24_test_asset(source.path());
+        let manifest = export_split_bundle(source.path(), output.path(), "abc123", "deadbeef")
+            .expect("bundle should export");
+
+        let upload = load_hitpoint_display_art_sub_12C24(&manifest)
+            .expect("ASM sub_12C24 asset should load");
+
+        assert_eq!(upload.vram_word_address, 0x45A0);
+        assert_eq!(upload.asset.relative_path, "artunc/Hitpoint_display.bin");
+        assert_eq!(upload.asset.bytes, vec![0x44; 32 * 4]);
     }
 
     #[test]
