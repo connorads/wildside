@@ -28,6 +28,7 @@ const PRESERVED_BUNDLE_DIRECTORIES: &[&str] = &["level-layout"];
 pub const GENERATED_BUNDLE_VERSION: u32 = 9;
 pub const DECODED_LEVEL_ASSET_VERSION: u32 = 3;
 const BACKGROUND_PREVIEW_WIDTH_TILES: usize = 64;
+const OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE: usize = 0x1180;
 #[cfg_attr(not(test), allow(dead_code))]
 const ENIGMA_BIT_MASKS: [u16; 16] = [
     0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF,
@@ -356,6 +357,14 @@ pub struct LongwordVramUploadSub1B41C {
 pub struct LevelLayoutXorVramUploadSub1C180 {
     pub vram_word_address: u16,
     pub longwords: [u32; 704],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OptionMenuTileSplitUploadSub1CCAE {
+    pub upper_vram_word_address: u16,
+    pub upper_words: Vec<u16>,
+    pub lower_vram_word_address: u16,
+    pub lower_words: Vec<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1633,6 +1642,47 @@ pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
         palette_label: "Pal_1C97C",
         word_count: 0x0040,
     }
+}
+
+#[allow(non_snake_case)]
+pub fn option_menu_tile_split_upload_sub_1CCAE(
+    source_words: &[u16],
+) -> Result<OptionMenuTileSplitUploadSub1CCAE> {
+    // ASM sub_1CCAE + sub_1CD20 + sub_1CD32 (kid.asm:31831-31899): read
+    // `$1180` words from VRAM `$5580`, first split each 4-word chunk into
+    // low-nibble words (`& $0F0F`) followed by high-nibble words (`& $F0F0`)
+    // and upload that to VRAM `$7880`, then repeat the read with the opposite
+    // high-first / low-second ordering and upload it back to VRAM `$5580`.
+    let source_words = source_words
+        .get(..OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE)
+        .ok_or_else(|| {
+            anyhow!(
+                "sub_1CCAE needs {OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE:#06X} words but only received {:#06X}",
+                source_words.len()
+            )
+        })?;
+
+    let mut upper_words = Vec::with_capacity(OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE);
+    let mut lower_words = Vec::with_capacity(OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE);
+
+    for chunk in source_words.chunks_exact(4) {
+        upper_words.push(chunk[0] & 0x0F0F);
+        upper_words.push(chunk[1] & 0x0F0F);
+        upper_words.push(chunk[2] & 0xF0F0);
+        upper_words.push(chunk[3] & 0xF0F0);
+
+        lower_words.push(chunk[0] & 0xF0F0);
+        lower_words.push(chunk[1] & 0xF0F0);
+        lower_words.push(chunk[2] & 0x0F0F);
+        lower_words.push(chunk[3] & 0x0F0F);
+    }
+
+    Ok(OptionMenuTileSplitUploadSub1CCAE {
+        upper_vram_word_address: 0x7880,
+        upper_words,
+        lower_vram_word_address: 0x5580,
+        lower_words,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -4302,6 +4352,60 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x0040,
             },
             "ASM sub_1C896 should copy all `$40` words of `Pal_1C97C` into `Palette_Buffer` for the options menu",
+        );
+    }
+
+    #[test]
+    fn option_menu_tile_split_upload_sub_1ccae_splits_each_four_word_chunk_into_low_then_high_nibbles()
+     {
+        let mut source_words = vec![0u16; OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE];
+        source_words[..8].copy_from_slice(&[
+            0x1234, 0xABCD, 0x0F0F, 0xF0F0, 0x2468, 0x1357, 0xAAAA, 0x5555,
+        ]);
+
+        let upload = option_menu_tile_split_upload_sub_1CCAE(&source_words)
+            .expect("ASM sub_1CCAE should accept the full `$1180`-word VRAM source span");
+
+        assert_eq!(upload.upper_vram_word_address, 0x7880);
+        assert_eq!(upload.lower_vram_word_address, 0x5580);
+        assert_eq!(
+            &upload.upper_words[..8],
+            &[
+                0x0204, 0x0B0D, 0x0000, 0xF0F0, 0x0408, 0x0307, 0xA0A0, 0x5050
+            ],
+            "ASM sub_1CCAE/sub_1CD20/sub_1CD32 should emit low-low-high-high masked words into the first VRAM upload",
+        );
+        assert_eq!(
+            &upload.lower_words[..8],
+            &[
+                0x1030, 0xA0C0, 0x0F0F, 0x0000, 0x2060, 0x1050, 0x0A0A, 0x0505
+            ],
+            "ASM sub_1CCAE should emit the inverse high-high-low-low ordering into the second VRAM upload",
+        );
+        assert_eq!(
+            upload.upper_words.len(),
+            OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE,
+            "sub_1CCAE should preserve the full `$1180`-word span in the first upload",
+        );
+        assert_eq!(
+            upload.lower_words.len(),
+            OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE,
+            "sub_1CCAE should preserve the full `$1180`-word span in the second upload",
+        );
+    }
+
+    #[test]
+    fn option_menu_tile_split_upload_sub_1ccae_rejects_short_vram_sources() {
+        let error = option_menu_tile_split_upload_sub_1CCAE(&vec![
+            0;
+            OPTION_MENU_TILE_SPLIT_WORD_COUNT_SUB_1CCAE
+                - 1
+        ])
+        .expect_err("ASM sub_1CCAE should require the full `$1180`-word VRAM source span");
+
+        assert!(
+            error.to_string().contains("sub_1CCAE needs 0x1180 words"),
+            "the error should describe the exact ROM-sized VRAM source requirement",
         );
     }
 
