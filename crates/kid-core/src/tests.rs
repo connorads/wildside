@@ -1,8 +1,9 @@
 use super::*;
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
-    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
-    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
+    PauseMenuSpriteEntrySub6874, end_sequence_burst_sprite_init_sub_1D86C,
+    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
+    end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
     init_hud_animation_frames_sub_44B0, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
     step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
@@ -55,6 +56,47 @@ fn expected_level0_respawn_bootstrap_pose() -> (u32, u32) {
         PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP,
         PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP,
     )
+}
+
+#[test]
+fn sub_6874_hides_only_sprites_whose_masked_tiles_overlap_pause_menu_vram() {
+    let mut sprites = [
+        PauseMenuSpriteEntrySub6874 {
+            y_pos: 0x0080,
+            vram_tile_word: 0x0675,
+        },
+        PauseMenuSpriteEntrySub6874 {
+            y_pos: 0x0082,
+            vram_tile_word: 0x0676,
+        },
+        PauseMenuSpriteEntrySub6874 {
+            y_pos: 0x0084,
+            vram_tile_word: 0x8800 | 0x068E,
+        },
+        PauseMenuSpriteEntrySub6874 {
+            y_pos: 0x0086,
+            vram_tile_word: 0x068F,
+        },
+    ];
+
+    hide_pause_menu_overwritten_sprites_sub_6874(&mut sprites);
+
+    assert_eq!(
+        sprites[0].y_pos, 0x0080,
+        "ASM sub_6874 should leave sprites below tile $676 visible",
+    );
+    assert_eq!(
+        sprites[1].y_pos, 0x0000,
+        "ASM sub_6874 should hide sprites starting exactly at tile $676",
+    );
+    assert_eq!(
+        sprites[2].y_pos, 0x0000,
+        "ASM sub_6874 should mask the tile word with `$7FF` before comparing against the `$676..=$68E` pause-menu range",
+    );
+    assert_eq!(
+        sprites[3].y_pos, 0x0086,
+        "ASM sub_6874 should leave sprites above tile $68E visible",
+    );
 }
 
 fn imported_early_start_boot_script() -> Vec<u8> {

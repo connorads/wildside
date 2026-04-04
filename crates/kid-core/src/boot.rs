@@ -285,6 +285,29 @@ pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PauseMenuSpriteEntrySub6874 {
+    pub(crate) y_pos: u16,
+    pub(crate) vram_tile_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
+    sprites: &mut [PauseMenuSpriteEntrySub6874],
+) {
+    // ASM sub_6874 / loc_68AC (kid.asm:6575): when the pause menu overwrites
+    // VRAM tiles `$676..=$68E`, scan the `$51` sprite entries and clear the
+    // Y word for any sprite whose masked tile index (`tile_word & $7FF`)
+    // falls inside that inclusive range.
+    for sprite in sprites {
+        let masked_tile = sprite.vram_tile_word & 0x07FF;
+        if (0x0676..=0x068E).contains(&masked_tile) {
+            sprite.y_pos = 0;
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleTextBurstAnimationFrameSub1B652 {
     pub(crate) duration_frames: u16,
     pub(crate) sprite_label: Option<&'static str>,
