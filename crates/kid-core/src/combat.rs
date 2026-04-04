@@ -178,6 +178,40 @@ pub(crate) struct BossEyePopEffectFinishSub3729E {
     pub(crate) delete_current_object: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeAttackInitSub37332 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_word_y_adjust: u16,
+    pub(crate) initial_x_velocity: i32,
+    pub(crate) initial_y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeAttackStepSub37332 {
+    pub(crate) next_y_velocity: i32,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) delete_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeAttackFrameInputsSub37332 {
+    pub(crate) effect_x: u16,
+    pub(crate) effect_y: u16,
+    pub(crate) kid_x: u16,
+    pub(crate) kid_y: u16,
+    pub(crate) diamond_power_active: bool,
+    pub(crate) v_int_counter_fff809: u8,
+    pub(crate) level_height_pixels: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_init_sub_370D2(
@@ -304,6 +338,105 @@ pub(crate) fn boss_eye_pop_effect_finish_sub_3729E() -> BossEyePopEffectFinishSu
         hibernate_until_anim_finished: true,
         active_eye_delta: -1,
         delete_current_object: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_attack_init_sub_37332(
+    x_pos: u16,
+    y_pos: u16,
+    kid_x: u16,
+) -> BossEyeAttackInitSub37332 {
+    // ASM sub_37332 (kid.asm:39199): allocate gfx slot `$01010002`, seed the
+    // boss-eye projectile sprite, set `y_vel=-4`, and launch left with
+    // `$FFFF8001` or right with `$00007FFF` based on Kid's X position.
+    let initial_x_velocity = if x_pos < kid_x {
+        -0x0000_7FFF
+    } else {
+        0x0000_7FFF
+    };
+
+    BossEyeAttackInitSub37332 {
+        gfx_slot_base: 0x0101_0002,
+        priority: 0,
+        object_meta: 0x0021,
+        has_kid_collision: true,
+        display_enabled: true,
+        is_moved: true,
+        sprite_mapping_label: "LnkTo_unk_C8488-Data_Index",
+        x_pos,
+        y_pos,
+        sprite_word_y_adjust: 2,
+        initial_x_velocity,
+        initial_y_velocity: -4,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_attack_sprite_sub_37332(
+    diamond_power_active: bool,
+    v_int_counter_fff809: u8,
+    effect_x: u16,
+    effect_y: u16,
+    kid_x: u16,
+    kid_y: u16,
+) -> &'static str {
+    // ASM sub_37AF0 via sub_37332 (kid.asm:40023): diamond power overrides the
+    // projectile sprite to `$E20/$E30`; otherwise choose one of eight compass
+    // mappings around the projectile.
+    if diamond_power_active {
+        return if v_int_counter_fff809 & 8 != 0 {
+            "$0E20"
+        } else {
+            "$0E30"
+        };
+    }
+
+    if kid_y > effect_y.saturating_add(4) {
+        if kid_x < effect_x.saturating_sub(4) {
+            "LnkTo_unk_C84A0-Data_Index"
+        } else if kid_x > effect_x.saturating_add(4) {
+            "LnkTo_unk_C84B0-Data_Index"
+        } else {
+            "LnkTo_unk_C84A8-Data_Index"
+        }
+    } else if kid_y < effect_y.saturating_sub(4) {
+        if kid_x < effect_x.saturating_sub(4) {
+            "LnkTo_unk_C8490-Data_Index"
+        } else if kid_x > effect_x.saturating_add(4) {
+            "LnkTo_unk_C84C0-Data_Index"
+        } else {
+            "LnkTo_unk_C8488-Data_Index"
+        }
+    } else if kid_x < effect_x.saturating_sub(8) {
+        "LnkTo_unk_C8498-Data_Index"
+    } else {
+        "LnkTo_unk_C84B8-Data_Index"
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_attack_step_sub_37332(
+    y_velocity: i32,
+    inputs: BossEyeAttackFrameInputsSub37332,
+) -> BossEyeAttackStepSub37332 {
+    // ASM loc_3739C..loc_373BE (kid.asm:39227): after each hibernate add
+    // `$BB8` gravity, refresh the sprite mapping via sub_37AF0, and delete the
+    // projectile once `y_pos(a3)` is strictly past the level height.
+    BossEyeAttackStepSub37332 {
+        next_y_velocity: y_velocity.saturating_add(0x0000_0BB8),
+        sprite_mapping: boss_eye_attack_sprite_sub_37332(
+            inputs.diamond_power_active,
+            inputs.v_int_counter_fff809,
+            inputs.effect_x,
+            inputs.effect_y,
+            inputs.kid_x,
+            inputs.kid_y,
+        ),
+        delete_current_object: inputs.effect_y > inputs.level_height_pixels,
     }
 }
 

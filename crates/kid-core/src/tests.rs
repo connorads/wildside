@@ -19557,6 +19557,125 @@ fn boss_eye_pop_effect_finish_sub_3729e_plays_the_final_anim_and_decrements_the_
 }
 
 #[test]
+fn boss_eye_attack_init_sub_37332_seeds_the_boss_projectile_and_launch_velocity() {
+    let left = boss_eye_attack_init_sub_37332(0x0044, 0x0046, 0x0060);
+    let right = boss_eye_attack_init_sub_37332(0x0060, 0x0046, 0x0044);
+
+    assert_eq!(
+        left.gfx_slot_base, 0x0101_0002,
+        "ASM sub_37332 should allocate gfx slot `$01010002` for the boss eye projectile",
+    );
+    assert_eq!(
+        left.object_meta, 0x0021,
+        "ASM sub_37332 should seed `object_meta(a3)` with `$21` before `loc_32146`",
+    );
+    assert!(
+        left.has_kid_collision && left.display_enabled && left.is_moved,
+        "ASM sub_37332 should set `has_kid_collision(a3)`, `$13(a3)`, and `is_moved(a3)` on the projectile",
+    );
+    assert_eq!(
+        left.sprite_mapping_label, "LnkTo_unk_C8488-Data_Index",
+        "ASM sub_37332 should start from the first boss-eye projectile sprite mapping",
+    );
+    assert_eq!(
+        (left.x_pos, left.y_pos, left.sprite_word_y_adjust),
+        (0x0044, 0x0046, 2),
+        "ASM sub_37332 should copy `$44/$46(a5)` into the projectile and add 2 to `$A(a3)`",
+    );
+    assert_eq!(
+        left.initial_y_velocity, -4,
+        "ASM sub_37332 should seed `y_vel(a3)` with `$FFFC` before the first frame",
+    );
+    assert_eq!(
+        left.initial_x_velocity, -0x0000_7FFF,
+        "ASM loc_37394 should launch left with `$FFFF8001` when Kid is to the right",
+    );
+    assert_eq!(
+        right.initial_x_velocity, 0x0000_7FFF,
+        "ASM sub_37332 should launch right with `$7FFF` when Kid is at or left of the projectile",
+    );
+}
+
+#[test]
+fn boss_eye_attack_sprite_sub_37332_matches_sub_37af0_direction_buckets_and_diamond_override() {
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x0040, 0x0040, 0x0030),
+        "LnkTo_unk_C8488-Data_Index",
+        "ASM sub_37AF0 should choose mapping index 0 when Kid is above the projectile within the centred X bucket",
+    );
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x0040, 0x0030, 0x0040),
+        "LnkTo_unk_C8498-Data_Index",
+        "ASM sub_37AF0 should choose mapping index 2 when Kid is in the middle Y band and left of `x_pos-8`",
+    );
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x0040, 0x0050, 0x0040),
+        "LnkTo_unk_C84B8-Data_Index",
+        "ASM sub_37AF0 should choose mapping index 6 for the remaining middle-band bucket",
+    );
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
+        "LnkTo_unk_C84B0-Data_Index",
+        "ASM sub_37AF0 should choose mapping index 5 when Kid is below and right of the projectile",
+    );
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(true, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
+        "$0E30",
+        "ASM sub_37AF0 should override the directional sprite with `$E30` when diamond power is active and bit 3 is clear",
+    );
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(true, 0x08, 0x0040, 0x0040, 0x0050, 0x0050),
+        "$0E20",
+        "ASM sub_37AF0 should override the directional sprite with `$E20` when diamond power is active and bit 3 is set",
+    );
+}
+
+#[test]
+fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_below_floor() {
+    let airborne = boss_eye_attack_step_sub_37332(
+        0,
+        BossEyeAttackFrameInputsSub37332 {
+            effect_x: 0x0040,
+            effect_y: 0x0040,
+            kid_x: 0x0050,
+            kid_y: 0x0050,
+            diamond_power_active: false,
+            v_int_counter_fff809: 0,
+            level_height_pixels: 0x0050,
+        },
+    );
+    assert_eq!(
+        airborne.next_y_velocity, 0x0000_0BB8,
+        "ASM loc_3739C should add `$BB8` to `y_vel(a3)` after each hibernated frame",
+    );
+    assert_eq!(
+        airborne.sprite_mapping, "LnkTo_unk_C84B0-Data_Index",
+        "ASM loc_3739C should refresh `addroffset_sprite(a3)` from sub_37AF0 on every frame",
+    );
+    assert!(
+        !airborne.delete_current_object,
+        "ASM loc_373BE should keep the projectile alive while `y_pos(a3)` is within the level height",
+    );
+
+    let below_floor = boss_eye_attack_step_sub_37332(
+        0,
+        BossEyeAttackFrameInputsSub37332 {
+            effect_x: 0x0040,
+            effect_y: 0x0051,
+            kid_x: 0x0050,
+            kid_y: 0x0050,
+            diamond_power_active: false,
+            v_int_counter_fff809: 0,
+            level_height_pixels: 0x0050,
+        },
+    );
+    assert!(
+        below_floor.delete_current_object,
+        "ASM loc_373BE should delete the projectile once `y_pos(a3)` is strictly greater than `Level_height_pixels`",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
