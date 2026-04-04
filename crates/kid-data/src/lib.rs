@@ -438,6 +438,12 @@ pub struct VramZeroFillSub1DA72 {
     pub words: [u16; 16],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LevelLayoutCellCoordsSub1F8E {
+    pub row_index: u16,
+    pub column_index: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EndSequenceGlyphUploadSub1D080 {
     pub vram_byte_address: u16,
@@ -2031,6 +2037,28 @@ pub fn vram_zero_fill_sub_1DA72() -> VramZeroFillSub1DA72 {
         vram_byte_address: 0x1280,
         vdp_control_longword: vdp_write_control_longword(0x1280),
         words: [0; 16],
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn level_layout_address_to_cell_sub_1F8E(
+    level_layout_address: u16,
+    level_layout_base_address: u16,
+    level_width_tiles: u16,
+) -> LevelLayoutCellCoordsSub1F8E {
+    // ASM sub_1F8E (kid.asm:3769): subtract `Level_Layout` from the caller's
+    // row-stride address, divide that byte offset by `Level_width_tiles`, keep
+    // the quotient as the row index, then halve the remainder to recover the
+    // 2-byte cell column.
+    assert_ne!(
+        level_width_tiles, 0,
+        "sub_1F8E expects a non-zero Level_width_tiles row stride",
+    );
+
+    let byte_offset = level_layout_address.wrapping_sub(level_layout_base_address);
+    LevelLayoutCellCoordsSub1F8E {
+        row_index: byte_offset / level_width_tiles,
+        column_index: (byte_offset % level_width_tiles) >> 1,
     }
 }
 
@@ -5120,6 +5148,31 @@ AddrTbl_LevelNames:   ;1A842
         assert!(
             fill.words.iter().all(|&word| word == 0),
             "ASM sub_1DA72 should clear all 16 VDP data words to zero",
+        );
+    }
+
+    #[test]
+    fn level_layout_address_to_cell_sub_1f8e_splits_row_and_column_from_the_stride_address() {
+        let coords = level_layout_address_to_cell_sub_1F8E(0xA77C, 0xA652, 0x0040);
+
+        assert_eq!(
+            coords,
+            LevelLayoutCellCoordsSub1F8E {
+                row_index: 4,
+                column_index: 21,
+            },
+            "ASM sub_1F8E should keep the `divu` quotient as the row index and halve the remainder into the 2-byte cell column",
+        );
+    }
+
+    #[test]
+    fn level_layout_address_to_cell_sub_1f8e_preserves_the_low_address_remainder_before_halving() {
+        let coords = level_layout_address_to_cell_sub_1F8E(0xA699, 0xA652, 0x0040);
+
+        assert_eq!(coords.row_index, 1);
+        assert_eq!(
+            coords.column_index, 3,
+            "ASM sub_1F8E should drop only the low byte-address bit via `lsr.w #1,d5` after the divide remainder is swapped down",
         );
     }
 
