@@ -309,6 +309,12 @@ pub struct LongwordVramUploadSub1B41C {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LevelLayoutXorVramUploadSub1C180 {
+    pub vram_word_address: u16,
+    pub longwords: [u32; 704],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1631,6 +1637,53 @@ pub fn intro_sequence_5_blank_panel_load_plan_sub_1C112(
             height_words: 10,
         },
     }
+}
+
+#[allow(non_snake_case)]
+pub fn level_layout_xor_vram_upload_sub_1C180(
+    level_layout: &[u8],
+    shadow_layout: &[u8],
+) -> Result<LevelLayoutXorVramUploadSub1C180> {
+    // ASM sub_1C180 (kid.asm:30995): stream `$2C0` longwords to VRAM `$1780`,
+    // each word pair being `Level_Layout xor $FFFFB152` in big-endian longword
+    // order.
+    const LONGWORD_COUNT: usize = 0x02C0;
+    const BYTE_COUNT: usize = LONGWORD_COUNT * 4;
+
+    let level_layout = level_layout.get(..BYTE_COUNT).ok_or_else(|| {
+        anyhow!(
+            "sub_1C180 needs {BYTE_COUNT:#06X} bytes of Level_Layout but only received {:#06X}",
+            level_layout.len()
+        )
+    })?;
+    let shadow_layout = shadow_layout.get(..BYTE_COUNT).ok_or_else(|| {
+        anyhow!(
+            "sub_1C180 needs {BYTE_COUNT:#06X} bytes of shadow layout but only received {:#06X}",
+            shadow_layout.len()
+        )
+    })?;
+
+    let longwords = core::array::from_fn(|index| {
+        let offset = index * 4;
+        let level_longword = u32::from_be_bytes([
+            level_layout[offset],
+            level_layout[offset + 1],
+            level_layout[offset + 2],
+            level_layout[offset + 3],
+        ]);
+        let shadow_longword = u32::from_be_bytes([
+            shadow_layout[offset],
+            shadow_layout[offset + 1],
+            shadow_layout[offset + 2],
+            shadow_layout[offset + 3],
+        ]);
+        level_longword ^ shadow_longword
+    });
+
+    Ok(LevelLayoutXorVramUploadSub1C180 {
+        vram_word_address: 0x1780,
+        longwords,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -4055,6 +4108,48 @@ AddrTbl_LevelNames:   ;1A842
                 height_words: 10,
             },
             "ASM sub_1C112 should reuse loc_1C104's shared 10x10 sub_1C5D0 blit at the caller's plane cell",
+        );
+    }
+
+    #[test]
+    fn level_layout_xor_vram_upload_sub_1c180_xors_2c0_big_endian_longwords() {
+        let level_layout = (0..(704 * 4))
+            .map(|value| u8::try_from(value & 0xFF).expect("fixture byte should fit in u8"))
+            .collect::<Vec<_>>();
+        let shadow_layout = (0..(704 * 4))
+            .map(|value| {
+                let masked = (value * 3) & 0xFF;
+                u8::try_from(masked).expect("fixture byte should fit in u8")
+            })
+            .collect::<Vec<_>>();
+
+        let upload = level_layout_xor_vram_upload_sub_1C180(&level_layout, &shadow_layout)
+            .expect("ASM sub_1C180 should accept the full `$2C0`-longword layout span");
+
+        assert_eq!(upload.vram_word_address, 0x1780);
+        assert_eq!(
+            upload.longwords.len(),
+            704,
+            "ASM sub_1C180 should emit one XORed longword for each of the `$2C0` streamed writes",
+        );
+        assert_eq!(
+            upload.longwords[0], 0x0002_040A,
+            "ASM sub_1C180 should treat both RAM sources as big-endian longwords before XORing them",
+        );
+        assert_eq!(upload.longwords[1], 0x080A_1412);
+        assert_eq!(upload.longwords[703], 0x080A_0402);
+    }
+
+    #[test]
+    fn level_layout_xor_vram_upload_sub_1c180_rejects_short_layout_inputs() {
+        let error = level_layout_xor_vram_upload_sub_1C180(&vec![0; 0x0AFF], &vec![0; 0x0B00])
+            .expect_err("ASM sub_1C180 should require the full `$2C0`-longword Level_Layout span");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1C180 needs 0x0B00 bytes of Level_Layout"),
+            "the error should describe the required ROM-sized Level_Layout byte span",
         );
     }
 
