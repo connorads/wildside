@@ -232,6 +232,16 @@ pub(crate) struct BossEyeCounterOrbitPlacementSub39420 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadProjectileSpawnSub397E4 {
+    pub(crate) callback_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) x_direction: u8,
+    pub(crate) velocity_word_48: i16,
+    pub(crate) animation_script_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -688,6 +698,40 @@ pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
         y_pos: parent_y.wrapping_sub(0x0025),
         next_sprite_word_y_adjust,
         rerank_gfx_object,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_projectile_spawn_sub_397E4(
+    parent_x: u16,
+    parent_y: u16,
+    parent_x_direction: u8,
+    variant_d1: u16,
+) -> BossHeadProjectileSpawnSub397E4 {
+    // ASM sub_397E4 (kid.asm:42436): allocate a fresh object slot, choose
+    // `loc_3A0D2` vs `loc_3A1EA` from `d1`, copy the parent's `$1E/$49`,
+    // then spawn the child 24px to the facing side with `$48(a0)=±3` before
+    // starting `stru_39FD8`.
+    let callback_label = if variant_d1 == 0 {
+        "loc_3A0D2"
+    } else {
+        "loc_3A1EA"
+    };
+
+    let (x_pos, velocity_word_48) = if parent_x_direction == 0 {
+        (parent_x.wrapping_sub(0x0018), -3)
+    } else {
+        (parent_x.wrapping_add(0x0018), 3)
+    };
+
+    BossHeadProjectileSpawnSub397E4 {
+        callback_label,
+        x_pos,
+        y_pos: parent_y,
+        x_direction: parent_x_direction,
+        velocity_word_48,
+        animation_script_label: "stru_39FD8",
     }
 }
 

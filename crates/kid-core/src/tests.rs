@@ -19872,6 +19872,49 @@ fn boss_eye_counter_orbit_placement_sub_39420_increments_order_after_nonzero_fra
 }
 
 #[test]
+fn boss_head_projectile_spawn_sub_397e4_uses_loc_3a0d2_and_spawns_24px_left_for_clear_x_direction()
+{
+    let result = boss_head_projectile_spawn_sub_397E4(0x0200, 0x0100, 0, 0);
+
+    assert_eq!(
+        result.callback_label, "loc_3A0D2",
+        "ASM sub_397E4 should keep `4(a0)` on `loc_3A0D2` when `d1` is zero",
+    );
+    assert_eq!(
+        (result.x_pos, result.y_pos, result.x_direction),
+        (0x01E8, 0x0100, 0),
+        "ASM loc_3980A should copy the parent's `$46/$49` and subtract `$18` from X when `x_direction(a3)` is clear",
+    );
+    assert_eq!(
+        result.velocity_word_48, -3,
+        "ASM loc_3980A should write `$FFFD` to `$48(a0)` for the left-facing spawn path",
+    );
+    assert_eq!(
+        result.animation_script_label, "stru_39FD8",
+        "ASM loc_39836 should start the child on `stru_39FD8` before returning",
+    );
+}
+
+#[test]
+fn boss_head_projectile_spawn_sub_397e4_uses_loc_3a1ea_and_spawns_24px_right_for_set_x_direction() {
+    let result = boss_head_projectile_spawn_sub_397E4(0x0200, 0x0100, 0xFF, 1);
+
+    assert_eq!(
+        result.callback_label, "loc_3A1EA",
+        "ASM loc_397FA should switch `4(a0)` to `loc_3A1EA` when `d1` is nonzero",
+    );
+    assert_eq!(
+        (result.x_pos, result.y_pos, result.x_direction),
+        (0x0218, 0x0100, 0xFF),
+        "ASM loc_3982C should add `$18` to X and preserve `$49(a0)` when `x_direction(a3)` is set",
+    );
+    assert_eq!(
+        result.velocity_word_48, 3,
+        "ASM loc_3982C should write `3` to `$48(a0)` for the right-facing spawn path",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
