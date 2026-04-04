@@ -389,6 +389,14 @@ pub struct PlaneLineUploadSub1CDA8 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FilledPlaneLineUploadSub1CDFA {
+    pub row_index: u16,
+    pub vram_byte_address: u16,
+    pub vdp_control_longword: u32,
+    pub words: [u16; 28],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1802,6 +1810,24 @@ pub fn plane_line_upload_sub_1CDA8(
         vdp_control_longword: vdp_write_control_longword(vram_byte_address),
         words: core::array::from_fn(|index| source_words[index]),
     })
+}
+
+#[allow(non_snake_case)]
+pub fn filled_plane_line_upload_sub_1CDFA(row_index: u16) -> FilledPlaneLineUploadSub1CDFA {
+    // ASM sub_1CDFA (kid.asm:31999): build a VRAM write command for
+    // `d0*$80 - $2000 + $000C`, then stamp exactly 28 `$94` fill words.
+    const WORDS_PER_LINE: usize = 28;
+
+    let vram_byte_address = row_index
+        .wrapping_mul(0x0080)
+        .wrapping_sub(0x2000)
+        .wrapping_add(0x000C);
+    FilledPlaneLineUploadSub1CDFA {
+        row_index,
+        vram_byte_address,
+        vdp_control_longword: vdp_write_control_longword(vram_byte_address),
+        words: [0x0094; WORDS_PER_LINE],
+    }
 }
 
 #[allow(non_snake_case)]
@@ -4638,6 +4664,19 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1CDA8 needs row 27 words [0x0870..0x0898)"),
             "the error should describe the exact row slice requested by the ASM stride math",
+        );
+    }
+
+    #[test]
+    fn filled_plane_line_upload_sub_1cdfa_targets_row_offsets_from_minus_2000_plus_c() {
+        let upload = filled_plane_line_upload_sub_1CDFA(9);
+
+        assert_eq!(upload.row_index, 9);
+        assert_eq!(upload.vram_byte_address, 0xE48C);
+        assert_eq!(upload.vdp_control_longword, 0x648C_0003);
+        assert_eq!(
+            upload.words, [0x0094; 28],
+            "ASM sub_1CDFA should stamp exactly 28 `$94` fill words into the target row",
         );
     }
 
