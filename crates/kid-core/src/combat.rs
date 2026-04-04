@@ -242,6 +242,14 @@ pub(crate) struct BossHeadProjectileSpawnSub397E4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadMovementStepSub39846 {
+    pub(crate) next_delay_counter: u16,
+    pub(crate) next_script_index: usize,
+    pub(crate) next_x_velocity: Option<i32>,
+    pub(crate) next_y_velocity: Option<i32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -732,6 +740,48 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
         x_direction: parent_x_direction,
         velocity_word_48,
         animation_script_label: "stru_39FD8",
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_movement_step_sub_39846(
+    delay_counter_d0: u16,
+    current_script_index: usize,
+    current_script: &[(i16, i16, i16)],
+    reset_script: &[(i16, i16, i16)],
+) -> BossHeadMovementStepSub39846 {
+    // ASM sub_39846 (kid.asm:42476): count `d0` down every frame, and only
+    // when it reaches zero pull the next `(delay, x, y)` triple from `(a2)+`.
+    // A negative delay sentinel rewinds `a2` to `unk_39872`, after which the
+    // X/Y words are converted to FP16.16 via `swap; asr.l #1`.
+    let decremented_delay = delay_counter_d0.wrapping_sub(1);
+    if decremented_delay != 0 {
+        return BossHeadMovementStepSub39846 {
+            next_delay_counter: decremented_delay,
+            next_script_index: current_script_index,
+            next_x_velocity: None,
+            next_y_velocity: None,
+        };
+    }
+
+    let mut script = current_script;
+    let mut script_index = current_script_index;
+    loop {
+        let (next_delay, x_word, y_word) = script[script_index];
+        if next_delay < 0 {
+            script = reset_script;
+            script_index = 0;
+            continue;
+        }
+
+        let to_fp16_16 = |word: i16| i32::from(word) << 15;
+        return BossHeadMovementStepSub39846 {
+            next_delay_counter: next_delay as u16,
+            next_script_index: script_index + 1,
+            next_x_velocity: Some(to_fp16_16(x_word)),
+            next_y_velocity: Some(to_fp16_16(y_word)),
+        };
     }
 }
 

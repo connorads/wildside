@@ -19915,6 +19915,70 @@ fn boss_head_projectile_spawn_sub_397e4_uses_loc_3a1ea_and_spawns_24px_right_for
 }
 
 #[test]
+fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
+    let script = [(0x0168, 0, -1), (-1, 0, 0)];
+
+    let result = boss_head_movement_step_sub_39846(2, 0, &script, &script);
+
+    assert_eq!(
+        result.next_delay_counter, 1,
+        "ASM sub_39846 should return immediately after `subq.w #1,d0` when the decremented delay is still nonzero",
+    );
+    assert_eq!(
+        result.next_script_index, 0,
+        "ASM sub_39846 should not advance `(a2)+` until the delay reaches zero",
+    );
+    assert_eq!(
+        (result.next_x_velocity, result.next_y_velocity),
+        (None, None),
+        "ASM sub_39846 should leave `x_vel/y_vel(a3)` untouched on countdown-only frames",
+    );
+}
+
+#[test]
+fn boss_head_movement_step_sub_39846_loads_the_next_velocity_pair_when_delay_elapses() {
+    let script = [(0x0168, 0, -1), (-1, 0, 0)];
+
+    let result = boss_head_movement_step_sub_39846(1, 0, &script, &script);
+
+    assert_eq!(
+        result.next_delay_counter, 0x0168,
+        "ASM loc_3984C should load the next delay word from `(a2)+` once `d0` reaches zero",
+    );
+    assert_eq!(
+        result.next_script_index, 1,
+        "ASM loc_39858 should advance `(a2)+` past the consumed `(delay, x, y)` triple",
+    );
+    assert_eq!(
+        (result.next_x_velocity, result.next_y_velocity),
+        (Some(0), Some(-0x0000_8000)),
+        "ASM loc_39858 should convert the signed X/Y words into FP16.16 velocities via `swap; asr.l #1`",
+    );
+}
+
+#[test]
+fn boss_head_movement_step_sub_39846_rewinds_negative_sentinel_entries_to_unk_39872() {
+    let reset_script = [(0x0168, 2, 0), (-1, 0, 0)];
+    let sentinel_only_script = [(-1, 0, 0)];
+
+    let result = boss_head_movement_step_sub_39846(1, 0, &sentinel_only_script, &reset_script);
+
+    assert_eq!(
+        result.next_delay_counter, 0x0168,
+        "ASM loc_3984C should treat a negative delay word as the sentinel and restart from `unk_39872`",
+    );
+    assert_eq!(
+        result.next_script_index, 1,
+        "ASM loc_3984C should resume after the first real entry in the reset script",
+    );
+    assert_eq!(
+        (result.next_x_velocity, result.next_y_velocity),
+        (Some(0x0001_0000), Some(0)),
+        "ASM loc_39858 should apply the restarted script entry after rewinding `a2` to `unk_39872`",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
