@@ -2310,6 +2310,16 @@ pub(crate) fn enemy_should_remain_active(
             FLYER_RETENTION_X_PADDING,
             FLYER_RETENTION_Y_PADDING,
         ),
+        EnemyArchetype::Collectible if matches!(enemy.family, EnemyFamily::Diamond) => {
+            shared_enemy_should_remain_active_sub_3C3CE(
+                enemy.x_pos,
+                enemy.y_pos,
+                level_bounds,
+                active_enemy_count.saturating_add(3) as u16,
+                camera_x_px,
+                camera_y_px,
+            )
+        }
         EnemyArchetype::Pacer
             if matches!(enemy.family, EnemyFamily::DragonWalking | EnemyFamily::Lion) =>
         {
@@ -2319,6 +2329,26 @@ pub(crate) fn enemy_should_remain_active(
                 camera_y_px,
                 level_bounds,
                 active_enemy_count,
+            )
+        }
+        EnemyArchetype::Pacer
+            if matches!(
+                enemy.family,
+                EnemyFamily::Crab
+                    | EnemyFamily::Driller
+                    | EnemyFamily::FireDemon
+                    | EnemyFamily::Robot
+                    | EnemyFamily::SpinningTwins
+                    | EnemyFamily::Tank
+            ) =>
+        {
+            shared_enemy_should_remain_active_sub_3C3CE(
+                enemy.x_pos,
+                enemy.y_pos,
+                level_bounds,
+                active_enemy_count.saturating_add(3) as u16,
+                camera_x_px,
+                camera_y_px,
             )
         }
         EnemyArchetype::Hopper if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) => {
@@ -2332,6 +2362,47 @@ pub(crate) fn enemy_should_remain_active(
         }
         _ => window.contains(u32::from(object.x), u32::from(object.y)),
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
+    x_pos: u32,
+    y_pos: u32,
+    level_bounds: physics::LevelBounds,
+    number_objects: u16,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) -> bool {
+    // ASM sub_3C3CE (kid.asm:43901-43955): the shared Diamond/FireDemon/
+    // walker retention path first rejects live positions outside
+    // [-$20, level+$20] on both axes before applying the camera-relative
+    // medium-load or heavy-load culling boxes.
+    let x_pos = (x_pos as i32) >> 16;
+    let y_pos = (y_pos as i32) >> 16;
+    let level_x_max = i32::from(level_bounds.width_pixels) + 0x20;
+    let level_y_max = i32::from(level_bounds.height_pixels) + 0x20;
+    if x_pos <= -0x20 || y_pos <= -0x20 || x_pos > level_x_max || y_pos > level_y_max {
+        return false;
+    }
+    if number_objects <= 0x000A {
+        return true;
+    }
+
+    let relative_x = x_pos - camera_x_px as i32;
+    let relative_y = y_pos - camera_y_px as i32;
+    let (left_margin, right_margin, top_margin, bottom_margin) = if number_objects <= 0x0014 {
+        // ASM loc_3C43A: medium load uses [-$1A4,+$2E4]x[-$1A4,+$284].
+        (0x1A4, 0x2E4, 0x1A4, 0x284)
+    } else {
+        // ASM sub_3C3CE fallthrough: heavy load tightens to
+        // [-$104,+$244]x[-$104,+$1E4].
+        (0x104, 0x244, 0x104, 0x1E4)
+    };
+    relative_x >= -left_margin
+        && relative_x <= right_margin
+        && relative_y >= -top_margin
+        && relative_y <= bottom_margin
 }
 
 fn large_pacer_should_remain_active(

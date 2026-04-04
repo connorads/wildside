@@ -6868,6 +6868,104 @@ fn lion_sub_3e8ba_keeps_live_object_active_after_spawn_point_scrolls_offscreen()
 }
 
 #[test]
+fn shared_enemy_should_remain_active_sub_3c3ce_keeps_medium_load_enemy_inside_wide_box() {
+    let retained = shared_enemy_should_remain_active_sub_3C3CE(
+        0x020B_0000,
+        0x01C0_0000,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
+        0x000F,
+        715,
+        OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+    );
+
+    assert!(
+        retained,
+        "ASM sub_3C3CE should keep live shared enemies inside the medium-load x=[-$1A4,+$2E4], y=[-$1A4,+$284] retention box",
+    );
+}
+
+#[test]
+fn shared_enemy_should_remain_active_sub_3c3ce_drops_heavy_load_enemy_outside_tight_box() {
+    let retained = shared_enemy_should_remain_active_sub_3C3CE(
+        900u32 << 16,
+        0x01C0_0000,
+        physics::LevelBounds {
+            width_pixels: 4096,
+            height_pixels: 512,
+        },
+        0x0015,
+        120,
+        256,
+    );
+
+    assert!(
+        !retained,
+        "ASM sub_3C3CE should reject live shared enemies once heavy load tightens the camera-relative box to x=[-$104,+$244], y=[-$104,+$1E4]",
+    );
+}
+
+#[test]
+fn diamond_sub_3c3ce_keeps_live_object_active_after_spawn_point_scrolls_offscreen() {
+    let layout = EnemyLayout {
+        axis_uses_y_position: false,
+        unknown_prefix: 0,
+        enemy_type_slots: vec![],
+        unknown_word: 0,
+        header_byte: 0,
+        object_count: 1,
+        objects: vec![kid_data::EnemyLayoutObject {
+            object_type: 0x01,
+            flags: 0xFF,
+            hit_points_plus_one: 0,
+            x: 336,
+            y: 432,
+        }],
+        segments: vec![],
+    };
+    let enemy = ActiveEnemy {
+        x_pos: 0x020B_0000,
+        y_pos: 0x01C0_0000,
+        family: EnemyFamily::Diamond,
+        on_ground: true,
+        hit_points: 1,
+        ..test_enemy(EnemyFamily::Diamond, 0, 0, 1)
+    };
+    let camera = CameraState {
+        x_pos: 715u32 << 16,
+        y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
+    };
+    let window = ActivationWindow::from_camera(camera);
+    let view = enemy_layout_view(&layout, 715, OPENING_GROUNDED_CAMERA_Y_FP >> 16);
+    let level_bounds = physics::LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+
+    assert!(
+        !window.contains(
+            u32::from(layout.objects[0].x),
+            u32::from(layout.objects[0].y),
+        ),
+        "spawn point should be outside the activation window"
+    );
+    assert!(
+        enemy_should_remain_active(
+            &enemy,
+            &view,
+            window,
+            715,
+            OPENING_GROUNDED_CAMERA_Y_FP >> 16,
+            level_bounds,
+            12,
+        ),
+        "Diamond should keep its live position through sub_3C3CE even after the layout anchor leaves view",
+    );
+}
+
+#[test]
 fn mini_hopping_skull_sub_3f29a_keeps_live_object_active_after_spawn_point_scrolls_offscreen() {
     // ASM Mini_Hopping_Skull.asm sub_3F29A keeps the live skull loaded from
     // its current position with 11..20 active objects while it stays inside
