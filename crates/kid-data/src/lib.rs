@@ -1501,6 +1501,17 @@ pub fn title_intro_palette_load_sub_1C4EA() -> SymbolicPaletteBuffer2Load {
 }
 
 #[allow(non_snake_case)]
+pub fn title_intro_palette_load_sub_1C4FE() -> SymbolicPaletteBuffer2Load {
+    // ASM sub_1C4FE (kid.asm:31242): copy 0x23 words from `Pal_1C2F0` into
+    // Palette_Buffer_2 starting at word offset 0.
+    SymbolicPaletteBuffer2Load {
+        destination_word_offset: 0x0000,
+        palette_label: "Pal_1C2F0",
+        word_count: 0x0023,
+    }
+}
+
+#[allow(non_snake_case)]
 pub fn title_screen_character_load_plan_sub_1BF24(
     frame_index: u16,
     region_byte: u8,
@@ -4036,6 +4047,19 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x0033,
             },
             "ASM sub_1C4EA should seed Palette_Buffer_2 from `Pal_1C28A` for the Intro 1 Wild Side palette",
+        );
+    }
+
+    #[test]
+    fn title_intro_palette_load_sub_1c4fe_copies_intro2_sky_into_palette_buffer_2() {
+        assert_eq!(
+            title_intro_palette_load_sub_1C4FE(),
+            SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0000,
+                palette_label: "Pal_1C2F0",
+                word_count: 0x0023,
+            },
+            "ASM sub_1C4FE should seed Palette_Buffer_2 from `Pal_1C2F0` for the Intro 2 Sky palette",
         );
     }
 
