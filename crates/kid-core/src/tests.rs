@@ -19358,6 +19358,99 @@ fn enemy_death_burst_homing_step_sub_37002_tracks_kid_with_signed_axis_accel() {
 }
 
 #[test]
+fn boss_death_burst_init_sub_370d2_seeds_fall_homing_and_animation_constants() {
+    let init = boss_death_burst_init_sub_370D2(0x0044, 0x0046);
+
+    assert_eq!(
+        init.sound_effect_label, "sfx_Voice_die",
+        "ASM sub_370D2 should play `sfx_Voice_die` before allocating the boss death burst sprite",
+    );
+    assert_eq!(
+        init.gfx_slot_base, 0x0101_0002,
+        "ASM sub_370D2 should reuse gfx slot `$01010002` for the boss death burst sprite",
+    );
+    assert_eq!(
+        (init.x_pos, init.y_pos, init.sprite_word_y_adjust),
+        (0x0044, 0x0046, 3),
+        "ASM sub_370D2 should copy `$44/$46(a5)` into the sprite and then add 3 to `$A(a3)`",
+    );
+    assert_eq!(
+        init.chase_frames, 0x0078,
+        "ASM sub_370D2 should seed the grounded homing loop timer with `#$78`",
+    );
+    assert_eq!(
+        init.landing_gravity, 0x0000_2710,
+        "ASM loc_3712E should add `$2710` to `y_vel(a3)` on each airborne frame before landing",
+    );
+    assert_eq!(
+        init.homing_accel, 0x0000_07D0,
+        "ASM loc_3716C..loc_371B4 should accelerate the grounded burst toward Kid by `$7D0` per axis",
+    );
+    assert_eq!(
+        (
+            init.entry_animation_label,
+            init.collision_animation_label,
+            init.timeout_animation_label,
+        ),
+        ("stru_37BD8", "stru_37BC6", "stru_37C0E"),
+        "ASM sub_370D2 should enter with `stru_37BD8`, switch to `stru_37BC6` on collision delete, and to `stru_37C0E` on timeout",
+    );
+    assert_eq!(
+        init.delete_collision_types,
+        [0x001C, 0x002C, -1],
+        "ASM sub_370D2 should share sub_37002's collision-delete set",
+    );
+}
+
+#[test]
+fn boss_death_burst_fall_and_homing_sub_370d2_use_grounded_checks_and_slower_accel() {
+    assert_eq!(
+        boss_death_burst_fall_step_sub_370D2(0),
+        0x0000_2710,
+        "ASM loc_3712E should apply `$2710` gravity before testing the grounded byte",
+    );
+
+    let left_and_up = boss_death_burst_homing_step_sub_370D2(0x0040, 0x0080, 0x0060, 0x0040);
+    assert_eq!(
+        left_and_up.x_direction, 0xFF,
+        "ASM loc_3716C should set `x_direction(a3)=$FF` when the burst sprite is at or left of Kid",
+    );
+    assert_eq!(
+        (left_and_up.x_velocity_delta, left_and_up.y_velocity_delta),
+        (0x0000_07D0, -0x0000_07D0),
+        "ASM loc_3716C..loc_371AC should use the slower `$7D0` accel on both axes after landing",
+    );
+
+    let right_and_down = boss_death_burst_homing_step_sub_370D2(0x0080, 0x0040, 0x0060, 0x0080);
+    assert_eq!(
+        right_and_down.x_direction, 0,
+        "ASM loc_37192 should clear `x_direction(a3)` when the burst sprite is right of Kid",
+    );
+    assert_eq!(
+        (
+            right_and_down.x_velocity_delta,
+            right_and_down.y_velocity_delta
+        ),
+        (-0x0000_07D0, 0x0000_07D0),
+        "ASM loc_37192..loc_371B4 should keep steering back toward Kid after landing",
+    );
+}
+
+#[test]
+fn boss_death_timeout_sound_sub_370d2_selects_the_rng_gated_finish_jingle() {
+    assert_eq!(
+        boss_death_timeout_sound_sub_370D2(0x00),
+        "sfx_Boss_dies",
+        "ASM loc_371F4 should choose `sfx_Boss_dies` when bit 0 of `$FFFFF809` is clear",
+    );
+    assert_eq!(
+        boss_death_timeout_sound_sub_370D2(0x01),
+        "sfx_Plethora_x",
+        "ASM loc_371D4 should take the odd-bit branch and queue `sfx_Plethora_x` even though the ROM notes 'NO SOUND!'",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);

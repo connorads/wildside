@@ -116,6 +116,117 @@ pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstInitSub370D2 {
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) x_direction: u8,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_word_y_adjust: u16,
+    pub(crate) chase_frames: u16,
+    pub(crate) landing_gravity: i32,
+    pub(crate) homing_accel: i32,
+    pub(crate) entry_animation_label: &'static str,
+    pub(crate) collision_animation_label: &'static str,
+    pub(crate) timeout_animation_label: &'static str,
+    pub(crate) delete_collision_types: [i16; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstHomingStepSub370D2 {
+    pub(crate) x_direction: u8,
+    pub(crate) x_velocity_delta: i32,
+    pub(crate) y_velocity_delta: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_init_sub_370D2(
+    x_pos: u16,
+    y_pos: u16,
+) -> BossDeathBurstInitSub370D2 {
+    // ASM sub_370D2 (kid.asm:38972): play `sfx_Voice_die`, allocate the same
+    // burst sprite slot as sub_37002, start animation `stru_37BD8`, then fall
+    // with `$2710` gravity until grounded before entering the slower homing
+    // loop.
+    BossDeathBurstInitSub370D2 {
+        sound_effect_label: "sfx_Voice_die",
+        gfx_slot_base: 0x0101_0002,
+        priority: 0,
+        object_meta: 0x0020,
+        display_enabled: true,
+        is_moved: true,
+        x_direction: 0,
+        sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        x_pos,
+        y_pos,
+        sprite_word_y_adjust: 3,
+        chase_frames: 0x0078,
+        landing_gravity: 0x0000_2710,
+        homing_accel: 0x0000_07D0,
+        entry_animation_label: "stru_37BD8",
+        collision_animation_label: "stru_37BC6",
+        timeout_animation_label: "stru_37C0E",
+        delete_collision_types: [0x001C, 0x002C, -1],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_fall_step_sub_370D2(y_velocity: i32) -> i32 {
+    // ASM loc_3712E (kid.asm:38995): after each hibernate, add `$2710` to
+    // `y_vel(a3)` until the grounded byte `$18(a3)` becomes non-zero.
+    y_velocity.saturating_add(0x0000_2710)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_homing_step_sub_370D2(
+    effect_x: u16,
+    effect_y: u16,
+    kid_x: u16,
+    kid_y: u16,
+) -> BossDeathBurstHomingStepSub370D2 {
+    // ASM loc_3716C..loc_371B4 (kid.asm:39017): same chase logic as sub_37002
+    // but with the slower `$7D0` per-axis acceleration.
+    let homing_accel = 0x0000_07D0;
+    let (x_direction, x_velocity_delta) = if effect_x > kid_x {
+        (0, -homing_accel)
+    } else {
+        (0xFF, homing_accel)
+    };
+    let y_velocity_delta = if effect_y > kid_y {
+        -homing_accel
+    } else {
+        homing_accel
+    };
+
+    BossDeathBurstHomingStepSub370D2 {
+        x_direction,
+        x_velocity_delta,
+        y_velocity_delta,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'static str {
+    // ASM loc_371D4..loc_37200 (kid.asm:39060): choose the timeout sound from
+    // bit 0 of `$FFFFF809`. The odd branch queues `sfx_Plethora_x` but the ROM
+    // comment notes "NO SOUND!".
+    if v_int_counter_fff809 & 1 != 0 {
+        "sfx_Plethora_x"
+    } else {
+        "sfx_Boss_dies"
+    }
+}
+
 impl NativeRuntime {
     // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
     // the contact frame, so the queued native award needs to survive 33 frame
