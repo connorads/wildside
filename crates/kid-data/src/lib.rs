@@ -171,6 +171,18 @@ impl TitleScreenRegionVariantSub1B2A4 {
     }
 }
 
+#[allow(non_snake_case)]
+pub fn advance_title_screen_region_byte_sub_1C278(region_byte: u8) -> u8 {
+    // ASM sub_1C278 (kid.asm:31143): increment ($FFFFFC82).w as a byte and
+    // wrap the title-screen region selector back to zero once it reaches 3.
+    let next_region_byte = region_byte.wrapping_add(1);
+    if next_region_byte == 3 {
+        0
+    } else {
+        next_region_byte
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SymbolicVramAssetLoadSub1B2A4 {
     pub vram_word_address: u16,
@@ -3993,6 +4005,25 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x0013,
             },
             "ASM loc_1C4B2 should switch to Pal_1C48C once ($FFFFFC82).w is non-zero and not 1",
+        );
+    }
+
+    #[test]
+    fn title_screen_region_byte_sub_1c278_cycles_between_the_three_title_variants() {
+        assert_eq!(
+            advance_title_screen_region_byte_sub_1C278(0),
+            1,
+            "ASM sub_1C278 should advance the default title variant to region byte 1",
+        );
+        assert_eq!(
+            advance_title_screen_region_byte_sub_1C278(1),
+            2,
+            "ASM sub_1C278 should advance the second title variant to region byte 2",
+        );
+        assert_eq!(
+            advance_title_screen_region_byte_sub_1C278(2),
+            0,
+            "ASM sub_1C278 should clear ($FFFFFC82).w once the byte reaches 3",
         );
     }
 
