@@ -19676,6 +19676,33 @@ fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_b
 }
 
 #[test]
+fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
+    let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
+
+    assert_eq!(
+        init.gfx_slot_base, 0x0101_0002,
+        "ASM sub_3764A should allocate gfx slot `$01010002` for the first HeadyMetal anchor sprite",
+    );
+    assert_eq!(
+        init.object_meta, 0x0020,
+        "ASM sub_3764A should seed `object_meta(a1)` with `$20` before `loc_32146`",
+    );
+    assert!(
+        init.display_enabled && init.is_moved,
+        "ASM sub_3764A should set `$13(a1)` and `$14(a1)` on the spawned HeadyMetal sprite",
+    );
+    assert_eq!(
+        init.x_direction, 0,
+        "ASM sub_3764A should clear `x_direction(a1)` before the shared sprite setup runs",
+    );
+    assert_eq!(
+        (init.x_pos, init.y_pos),
+        (0x0044, 0x0046),
+        "ASM sub_3764A should copy `4(a0)` and `6(a0)` into `$1A/$1E(a1)` with no extra offset",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
