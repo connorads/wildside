@@ -199,6 +199,12 @@ pub struct TitleScreenLoadPlanSub1B2A4 {
     pub palette_loads: Vec<SymbolicPaletteLoadSub1B2A4>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LongwordVramUploadSub1B41C {
+    pub vram_word_address: u16,
+    pub longwords: [u32; 32],
+}
+
 const TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4: [u16; 32] = [
     0x1111, 0x1010, 0x0010, 0x0011, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0010, 0x0000, 0x0000,
     0x0000, 0x0000, 0x0000, 0x0000, 0x0010, 0x0000, 0x0110, 0x0000, 0x1010, 0x0000, 0x0010, 0x0000,
@@ -1290,6 +1296,40 @@ pub fn title_screen_load_plan_sub_1B2A4(region_byte: u8) -> TitleScreenLoadPlanS
         tile_patch_words: TITLE_SCREEN_TILE_PATCH_WORDS_SUB_1B2A4,
         palette_loads,
     }
+}
+
+#[allow(non_snake_case)]
+pub fn thunder_animation_frame_upload_sub_1B41C(
+    frame_index: u16,
+    art: &[u8],
+) -> Result<LongwordVramUploadSub1B41C> {
+    // ASM sub_1B41C (kid.asm:29644-29656) multiplies d0 by $80, adds that
+    // byte offset to `ArtUnc_2A4D6`, then writes 32 big-endian longwords to
+    // VRAM word address $17A0.
+    let start = usize::from(frame_index) << 7;
+    let end = start
+        .checked_add(32 * 4)
+        .context("sub_1B41C frame slice overflow")?;
+    let bytes = art.get(start..end).ok_or_else(|| {
+        anyhow!(
+            "sub_1B41C frame {} needs bytes [{start:#06X}..{end:#06X}) but art is only {} bytes",
+            frame_index,
+            art.len()
+        )
+    })?;
+    let longwords = core::array::from_fn(|index| {
+        let offset = index * 4;
+        u32::from_be_bytes([
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+        ])
+    });
+    Ok(LongwordVramUploadSub1B41C {
+        vram_word_address: 0x17A0,
+        longwords,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -3443,6 +3483,36 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x0013,
             },
             "ASM loc_1C4B2 should switch to Pal_1C48C once ($FFFFFC82).w is non-zero and not 1",
+        );
+    }
+
+    #[test]
+    fn thunder_animation_frame_upload_sub_1b41c_reads_32_longwords_from_the_selected_frame() {
+        let art = (0u16..256)
+            .map(|value| u8::try_from(value).expect("fixture byte should fit in u8"))
+            .collect::<Vec<_>>();
+
+        let upload = thunder_animation_frame_upload_sub_1B41C(1, &art).expect("frame 1 should fit");
+
+        assert_eq!(upload.vram_word_address, 0x17A0);
+        assert_eq!(
+            upload.longwords[0], 0x8081_8283,
+            "ASM sub_1B41C should advance by $80 bytes per frame before the first move.l",
+        );
+        assert_eq!(upload.longwords[1], 0x8485_8687);
+        assert_eq!(upload.longwords[31], 0xFCFD_FEFF);
+    }
+
+    #[test]
+    fn thunder_animation_frame_upload_sub_1b41c_rejects_truncated_art() {
+        let error = thunder_animation_frame_upload_sub_1B41C(2, &[0; 128])
+            .expect_err("frame 2 should require a third $80-byte frame");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1B41C frame 2 needs bytes [0x0100..0x0180)"),
+            "the error should describe the exact ASM byte window that was out of range",
         );
     }
 
