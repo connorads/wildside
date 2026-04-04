@@ -301,6 +301,12 @@ pub(crate) struct BossEyeAttackFrameInputsSub37332 {
     pub(crate) level_height_pixels: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalPaletteCycleSub379E8 {
+    pub(crate) next_phase_counter: u16,
+    pub(crate) palette_word: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_init_sub_370D2(
@@ -657,6 +663,26 @@ pub(crate) fn heady_metal_scatter_step_sub_378A2(
     velocities.slot_fbae_x_velocity += d7_velocity_delta;
     velocities.slot_fbb2_x_velocity += d6_x_velocity_delta;
     velocities
+}
+
+const HEADY_METAL_PALETTE_WAVE_SUB_379E8: [u16; 32] = [
+    0x0200, 0x0200, 0x0202, 0x0202, 0x0204, 0x0204, 0x0206, 0x0206, 0x0208, 0x0208, 0x020A, 0x020A,
+    0x020C, 0x020C, 0x020E, 0x020E, 0x020E, 0x020E, 0x020C, 0x020C, 0x020A, 0x020A, 0x0208, 0x0208,
+    0x0206, 0x0206, 0x0204, 0x0204, 0x0202, 0x0202, 0x0200, 0x0200,
+];
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_palette_cycle_sub_379E8(
+    phase_counter: u16,
+) -> HeadyMetalPaletteCycleSub379E8 {
+    // ASM sub_379E8 (kid.asm:39865): increment `d2`, wrap it to five bits, and
+    // copy `unk_379A8[d2]` into `Palette_Buffer+$5E`.
+    let next_phase_counter = phase_counter.wrapping_add(1) & 0x001F;
+    HeadyMetalPaletteCycleSub379E8 {
+        next_phase_counter,
+        palette_word: HEADY_METAL_PALETTE_WAVE_SUB_379E8[usize::from(next_phase_counter)],
+    }
 }
 
 const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [

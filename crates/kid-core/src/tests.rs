@@ -19905,6 +19905,29 @@ fn heady_metal_scatter_step_sub_378a2_applies_the_alternate_five_piece_velocity_
 }
 
 #[test]
+fn heady_metal_palette_cycle_sub_379e8_wraps_the_phase_and_selects_the_palette_word() {
+    let wrapped = heady_metal_palette_cycle_sub_379E8(0x001F);
+    let rising = heady_metal_palette_cycle_sub_379E8(0x0009);
+
+    assert_eq!(
+        wrapped,
+        HeadyMetalPaletteCycleSub379E8 {
+            next_phase_counter: 0,
+            palette_word: 0x0200,
+        },
+        "ASM sub_379E8 should wrap `d2` to 5 bits before loading `unk_379A8` into `Palette_Buffer+$5E`",
+    );
+    assert_eq!(
+        rising,
+        HeadyMetalPaletteCycleSub379E8 {
+            next_phase_counter: 10,
+            palette_word: 0x020A,
+        },
+        "ASM sub_379E8 should advance to the next `unk_379A8` entry before writing the palette word",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collision_type_2c() {
     let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 0xFFFF, 0, 0, {
         let mut pieces = [None; 13];
