@@ -259,6 +259,18 @@ pub struct TitleIntroGlyphWriteSub1C7F6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PaletteWordOverlaySub1C820 {
+    pub destination_word_offset: u16,
+    pub words: [u16; 5],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndingSequencePaletteLoadSub1C820 {
+    pub base_loads: [SymbolicPaletteBuffer2Load; 2],
+    pub variant_overlay: Option<PaletteWordOverlaySub1C820>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SymbolicEnigmaTilemapLoadSub1BF24 {
     pub vram_word_address: u16,
     pub asset_label: &'static str,
@@ -1577,6 +1589,38 @@ pub fn title_intro_glyph_write_sub_1C7F6(
         vram_word_address,
         vdp_control_longword: (u32::from(high_word) << 16) | u32::from(low_word),
         tile_word: base_tile_word.wrapping_add(glyph_index),
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn ending_sequence_palette_load_sub_1C820(
+    region_variant: u16,
+) -> EndingSequencePaletteLoadSub1C820 {
+    // ASM sub_1C820 (kid.asm:31478): copy the first $10 words from `Pal_1C8AA`
+    // into Palette_Buffer, optionally overwrite words $09..$0D with the hard-
+    // coded region variant when d1 is non-zero, then continue copying the
+    // remaining $30 words into Palette_Buffer+$20.
+    EndingSequencePaletteLoadSub1C820 {
+        base_loads: [
+            SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0000,
+                palette_label: "Pal_1C8AA",
+                word_count: 0x0010,
+            },
+            SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0010,
+                palette_label: "Pal_1C8AA",
+                word_count: 0x0030,
+            },
+        ],
+        variant_overlay: if region_variant == 0 {
+            None
+        } else {
+            Some(PaletteWordOverlaySub1C820 {
+                destination_word_offset: 0x0009,
+                words: [0x0040, 0x00A0, 0xE004, 0x00EE, 0x0EEE],
+            })
+        },
     }
 }
 
@@ -4197,6 +4241,43 @@ AddrTbl_LevelNames:   ;1A842
                 tile_word: 0xC7DB,
             },
             "ASM sub_1C7F6 should preserve the rotated low two VRAM address bits in the VDP control longword",
+        );
+    }
+
+    #[test]
+    fn ending_sequence_palette_load_sub_1c820_copies_the_full_base_palette_without_region_overlay()
+    {
+        assert_eq!(
+            ending_sequence_palette_load_sub_1C820(0),
+            EndingSequencePaletteLoadSub1C820 {
+                base_loads: [
+                    SymbolicPaletteBuffer2Load {
+                        destination_word_offset: 0x0000,
+                        palette_label: "Pal_1C8AA",
+                        word_count: 0x0010,
+                    },
+                    SymbolicPaletteBuffer2Load {
+                        destination_word_offset: 0x0010,
+                        palette_label: "Pal_1C8AA",
+                        word_count: 0x0030,
+                    },
+                ],
+                variant_overlay: None,
+            },
+            "ASM sub_1C820 should copy `Pal_1C8AA` into Palette_Buffer in a $10-word block followed by a $30-word block when d1 is zero",
+        );
+    }
+
+    #[test]
+    fn ending_sequence_palette_load_sub_1c820_overlays_the_region_variant_words_when_d1_is_non_zero()
+     {
+        assert_eq!(
+            ending_sequence_palette_load_sub_1C820(1).variant_overlay,
+            Some(PaletteWordOverlaySub1C820 {
+                destination_word_offset: 0x0009,
+                words: [0x0040, 0x00A0, 0xE004, 0x00EE, 0x0EEE],
+            }),
+            "ASM sub_1C820 should rewind Palette_Buffer by seven words and stamp the five hard-coded variant colours when d1 is non-zero",
         );
     }
 
