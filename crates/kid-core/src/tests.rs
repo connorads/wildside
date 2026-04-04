@@ -19762,6 +19762,59 @@ fn boss_eye_detach_step_sub_393b2_plays_the_pop_sound_and_raises_sprite_order() 
 }
 
 #[test]
+fn boss_eye_orbit_placement_sub_393c8_uses_the_right_side_table_and_leaves_order_unchanged_when_frame_matches()
+ {
+    let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE2, 0, 3, 3, 0x0010);
+
+    assert_eq!(
+        (result.x_pos, result.y_pos),
+        (0x01EC, 0x00DB),
+        "ASM sub_393C8 should use `word_39416` when `d2` is clear and subtract `$25` from the parent Y position",
+    );
+    assert_eq!(
+        result.next_sprite_word_y_adjust, 0x0010,
+        "ASM sub_393C8 should leave `$A(a3)` untouched when `d0` already matches `$16(a2)`",
+    );
+    assert!(
+        !result.rerank_gfx_object,
+        "ASM sub_393C8 should skip sub_FF6 when the parent frame byte has not changed",
+    );
+}
+
+#[test]
+fn boss_eye_orbit_placement_sub_393c8_uses_the_left_table_and_increments_order_after_zero_frame() {
+    let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE4, 1, 0, 2, 0x0010);
+
+    assert_eq!(
+        (result.x_pos, result.y_pos),
+        (0x020D, 0x00DB),
+        "ASM sub_393C8 should use `word_3940C` when `d2` is set before adding the parent X position",
+    );
+    assert_eq!(
+        result.next_sprite_word_y_adjust, 0x0011,
+        "ASM loc_39402 should add 1 to `$A(a3)` when the previous frame byte in `d0` was zero",
+    );
+    assert!(
+        result.rerank_gfx_object,
+        "ASM loc_39406 should call sub_FF6 after the zero-to-nonzero frame transition changes `$A(a3)`",
+    );
+}
+
+#[test]
+fn boss_eye_orbit_placement_sub_393c8_decrements_order_after_nonzero_frame_change() {
+    let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE8, 0, 1, 4, 0x0010);
+
+    assert_eq!(
+        result.next_sprite_word_y_adjust, 0x000F,
+        "ASM sub_393C8 should subtract 1 from `$A(a3)` when `d0` was nonzero and `$16(a2)` changes",
+    );
+    assert!(
+        result.rerank_gfx_object,
+        "ASM sub_393C8 should rerun sub_FF6 after the nonzero frame change updates `$A(a3)`",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
