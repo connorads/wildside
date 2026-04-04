@@ -12,6 +12,67 @@ pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleTextBurstAnimationFrameSub1B652 {
+    pub(crate) duration_frames: u16,
+    pub(crate) sprite_label: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextBurstSpriteSub1B652 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) palette_line: u8,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) vram_tile: u16,
+    pub(crate) is_moved: bool,
+    pub(crate) priority_flag: bool,
+    pub(crate) animation_frames: [TitleTextBurstAnimationFrameSub1B652; 5],
+    pub(crate) animation_command: u8,
+    pub(crate) animation_rewind_distance: u8,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B652 {
+    // ASM sub_1B652 (kid.asm:29882): allocate the fixed `$2010000` gfx slot,
+    // seed the title-text burst sprite at `(x,y)=(#$2E,#$40)`, then hand
+    // Init_Animation the five-step `stru_1B68A` script.
+    TitleTextBurstSpriteSub1B652 {
+        gfx_slot_base: 0x0201_0000,
+        palette_line: 2,
+        x_pos: 0x002E,
+        y_pos: 0x0040,
+        vram_tile: 0x054C,
+        is_moved: true,
+        priority_flag: true,
+        animation_frames: [
+            TitleTextBurstAnimationFrameSub1B652 {
+                duration_frames: 4,
+                sprite_label: Some("unk_E11B6"),
+            },
+            TitleTextBurstAnimationFrameSub1B652 {
+                duration_frames: 4,
+                sprite_label: Some("unk_E11BE"),
+            },
+            TitleTextBurstAnimationFrameSub1B652 {
+                duration_frames: 100,
+                sprite_label: None,
+            },
+            TitleTextBurstAnimationFrameSub1B652 {
+                duration_frames: 4,
+                sprite_label: Some("unk_E11A6"),
+            },
+            TitleTextBurstAnimationFrameSub1B652 {
+                duration_frames: 4,
+                sprite_label: Some("unk_E11AE"),
+            },
+        ],
+        animation_command: 2,
+        animation_rewind_distance: 0x15,
+    }
+}
+
 impl NativeRuntime {
     fn activate_intro_sequence_3_roster(&mut self) {
         self.active_intro_sequence_3_roster_index = self.next_intro_sequence_3_roster_index;
@@ -1629,5 +1690,66 @@ impl NativeRuntime {
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sub_1b652_seeds_the_fixed_title_text_burst_sprite() {
+        let sprite = title_text_burst_sprite_sub_1B652();
+
+        assert_eq!(sprite.gfx_slot_base, 0x0201_0000);
+        assert_eq!(sprite.palette_line, 2);
+        assert_eq!(sprite.x_pos, 0x002E);
+        assert_eq!(sprite.y_pos, 0x0040);
+        assert_eq!(
+            sprite.vram_tile, 0x054C,
+            "ASM sub_1B652 writes `move.w #$54C,vram_tile(a3)` before starting the burst animation"
+        );
+        assert!(sprite.is_moved);
+        assert!(
+            sprite.priority_flag,
+            "ASM sub_1B652 sets both `is_moved(a3)` and `$13(a3)` on the allocated sprite"
+        );
+    }
+
+    #[test]
+    fn sub_1b652_uses_the_five_step_stru_1b68a_animation_script() {
+        let sprite = title_text_burst_sprite_sub_1B652();
+
+        assert_eq!(
+            sprite.animation_frames,
+            [
+                TitleTextBurstAnimationFrameSub1B652 {
+                    duration_frames: 4,
+                    sprite_label: Some("unk_E11B6"),
+                },
+                TitleTextBurstAnimationFrameSub1B652 {
+                    duration_frames: 4,
+                    sprite_label: Some("unk_E11BE"),
+                },
+                TitleTextBurstAnimationFrameSub1B652 {
+                    duration_frames: 100,
+                    sprite_label: None,
+                },
+                TitleTextBurstAnimationFrameSub1B652 {
+                    duration_frames: 4,
+                    sprite_label: Some("unk_E11A6"),
+                },
+                TitleTextBurstAnimationFrameSub1B652 {
+                    duration_frames: 4,
+                    sprite_label: Some("unk_E11AE"),
+                },
+            ],
+            "ASM stru_1B68A cycles through the two opening frames, a 100-frame blank hold, then the two closing frames"
+        );
+        assert_eq!(sprite.animation_command, 2);
+        assert_eq!(
+            sprite.animation_rewind_distance, 0x15,
+            "ASM stru_1B68A ends with `dc.b 2, $15` after the five `anim_frame` entries"
+        );
     }
 }
