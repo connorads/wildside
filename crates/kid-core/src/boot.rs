@@ -32,6 +32,19 @@ pub(crate) struct TitleTextBurstSpriteSub1B652 {
     pub(crate) animation_rewind_distance: u8,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
+    pub(crate) vram_word_address: u16,
+    pub(crate) filler_word: Option<u16>,
+    pub(crate) words: Vec<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextChameleonFrameUploadSub1B71A {
+    pub(crate) tilemap_label: &'static str,
+    pub(crate) rows: Vec<TitleTextChameleonRowWriteSub1B71A>,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B652 {
@@ -71,6 +84,80 @@ pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B65
         animation_command: 2,
         animation_rewind_distance: 0x15,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
+    decoded_words: &[u16],
+    d2: i16,
+    d3: u16,
+) -> Option<TitleTextChameleonFrameUploadSub1B71A> {
+    // ASM sub_1B71A (kid.asm:29957): pick one of four Enigma tilemaps from
+    // `off_1B70A` via `d3 & $C`, clip the 7x29 decoded strip against the
+    // reveal index `d2`, cap the first row to 21 words, and optionally emit a
+    // `$00BC` filler word one cell to the left when the reveal still starts in
+    // blank space.
+    if d2 >= 0x22 {
+        return None;
+    }
+
+    const ROW_COUNT: usize = 7;
+    const SOURCE_ROW_WORDS: usize = 29;
+    const TOP_ROW_MAX_WORDS: usize = 21;
+    let required_words = ROW_COUNT * SOURCE_ROW_WORDS;
+    if decoded_words.len() < required_words {
+        return None;
+    }
+
+    let tilemap_label = match d3 & 0x000C {
+        0x0000 => "unk_2E706",
+        0x0004 => "unk_2E728",
+        0x0008 => "unk_2E77A",
+        _ => "unk_2E728",
+    };
+
+    let reveal = d2.max(0);
+    let mut horizontal_offset = 5_i16 - reveal;
+    let mut source_start_word = 0_usize;
+    let mut row_word_count = SOURCE_ROW_WORDS;
+    if horizontal_offset < 0 {
+        let clipped_words = usize::try_from(-horizontal_offset).ok()?;
+        source_start_word = clipped_words;
+        row_word_count = row_word_count.saturating_sub(clipped_words);
+        horizontal_offset = 0;
+    }
+    if row_word_count == 0 {
+        return Some(TitleTextChameleonFrameUploadSub1B71A {
+            tilemap_label,
+            rows: Vec::new(),
+        });
+    }
+
+    let horizontal_offset_words = u16::try_from(horizontal_offset).ok()?;
+    let mut rows = Vec::with_capacity(ROW_COUNT);
+    for row_index in 0..ROW_COUNT {
+        let row_start = row_index * SOURCE_ROW_WORDS + source_start_word;
+        let top_row_limit = if row_index == 0 {
+            row_word_count.min(TOP_ROW_MAX_WORDS)
+        } else {
+            row_word_count
+        };
+        let words = decoded_words[row_start..row_start + top_row_limit].to_vec();
+        let row_base = 0x0480_u16
+            .checked_add(horizontal_offset_words.saturating_mul(2))?
+            .checked_add(u16::try_from(row_index).ok()?.saturating_mul(64))?;
+        rows.push(TitleTextChameleonRowWriteSub1B71A {
+            vram_word_address: row_base,
+            filler_word: (horizontal_offset_words != 0).then_some(0x00BC),
+            words,
+        });
+    }
+
+    Some(TitleTextChameleonFrameUploadSub1B71A {
+        tilemap_label,
+        rows,
+    })
 }
 
 impl NativeRuntime {
@@ -1750,6 +1837,80 @@ mod tests {
         assert_eq!(
             sprite.animation_rewind_distance, 0x15,
             "ASM stru_1B68A ends with `dc.b 2, $15` after the five `anim_frame` entries"
+        );
+    }
+
+    #[test]
+    fn sub_1b71a_uses_d3_bits_2_and_3_to_rotate_the_tilemap_source() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let first = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0, 0x0000)
+            .expect("ASM sub_1B71A should upload when d2 is below $22");
+        let second = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0, 0x0004)
+            .expect("second table entry should stay valid");
+        let third = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0, 0x0008)
+            .expect("third table entry should stay valid");
+        let fourth = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0, 0x000C)
+            .expect("fourth table entry should stay valid");
+
+        assert_eq!(first.tilemap_label, "unk_2E706");
+        assert_eq!(second.tilemap_label, "unk_2E728");
+        assert_eq!(third.tilemap_label, "unk_2E77A");
+        assert_eq!(
+            fourth.tilemap_label, "unk_2E728",
+            "ASM off_1B70A points both the second and fourth entries at unk_2E728"
+        );
+    }
+
+    #[test]
+    fn sub_1b71a_caps_the_first_row_and_emits_the_left_filler_during_the_early_reveal() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0, 0x0000)
+            .expect("ASM sub_1B71A should build a clipped upload for early reveal frames");
+
+        assert_eq!(upload.rows.len(), 7);
+        assert_eq!(upload.rows[0].vram_word_address, 0x048A);
+        assert_eq!(
+            upload.rows[0].filler_word,
+            Some(0x00BC),
+            "ASM loc_1B780 writes tile $00BC one word to the left while d4 is still positive"
+        );
+        assert_eq!(upload.rows[0].words.len(), 21);
+        assert_eq!(upload.rows[0].words[0], 0);
+        assert_eq!(upload.rows[0].words[20], 20);
+        assert_eq!(upload.rows[1].words.len(), 29);
+        assert_eq!(upload.rows[1].words[0], 29);
+    }
+
+    #[test]
+    fn sub_1b71a_clips_from_the_left_once_d2_has_passed_the_initial_window() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 8, 0x0008)
+            .expect("ASM sub_1B71A should keep uploading after d2 passes the blank lead-in");
+
+        assert_eq!(upload.tilemap_label, "unk_2E77A");
+        assert_eq!(upload.rows[0].vram_word_address, 0x0480);
+        assert_eq!(upload.rows[0].filler_word, None);
+        assert_eq!(
+            upload.rows[0].words.len(),
+            21,
+            "after clipping three words from the source row, the first row still caps at 21 words"
+        );
+        assert_eq!(upload.rows[0].words[0], 3);
+        assert_eq!(upload.rows[0].words[20], 23);
+        assert_eq!(upload.rows[1].words.len(), 26);
+        assert_eq!(upload.rows[1].words[0], 32);
+    }
+
+    #[test]
+    fn sub_1b71a_returns_none_once_d2_reaches_the_terminal_guard() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        assert!(
+            title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0x22, 0).is_none(),
+            "ASM sub_1B71A returns immediately once `cmpi.w #$22,d2` succeeds"
         );
     }
 }
