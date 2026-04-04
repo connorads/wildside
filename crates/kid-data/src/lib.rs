@@ -260,6 +260,16 @@ pub struct TitleIntroGlyphWriteSub1C7F6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecompressToVramSetupSub142CC {
+    pub vram_word_address: u16,
+    pub vdp_control_longword: u32,
+    pub input_stream_offset: usize,
+    pub command_stream_offset: usize,
+    pub bit_reader_word: u16,
+    pub bit_index: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PaletteWordOverlaySub1C820 {
     pub destination_word_offset: u16,
     pub words: [u16; 5],
@@ -1767,6 +1777,33 @@ pub fn title_intro_glyph_write_sub_1C7F6(
         vdp_control_longword: (u32::from(high_word) << 16) | u32::from(low_word),
         tile_word: base_tile_word.wrapping_add(glyph_index),
     }
+}
+
+#[allow(non_snake_case)]
+pub fn decompress_to_vram_setup_sub_142CC(
+    compressed_bytes: &[u8],
+    vram_word_address: u16,
+) -> Result<DecompressToVramSetupSub142CC> {
+    // ASM sub_142CC (kid.asm:27121): convert the caller's VRAM word address
+    // into a VDP write-control longword, then read the next big-endian offset
+    // and advance `a1` past the two-byte header plus that offset while `a0`
+    // keeps pointing at the payload stream that starts immediately after the
+    // header. The bit reader and decompression buffer cursors are zeroed here.
+    let offset_bytes = compressed_bytes
+        .get(..2)
+        .context("sub_142CC needs the two-byte command-stream offset header")?;
+    let command_stream_delta = usize::from(u16::from_be_bytes([offset_bytes[0], offset_bytes[1]]));
+    let high_word = (vram_word_address & 0x3FFF) | 0x4000;
+    let low_word = vram_word_address.rotate_left(2) & 0x0003;
+
+    Ok(DecompressToVramSetupSub142CC {
+        vram_word_address,
+        vdp_control_longword: (u32::from(high_word) << 16) | u32::from(low_word),
+        input_stream_offset: 2,
+        command_stream_offset: 2 + command_stream_delta,
+        bit_reader_word: 0,
+        bit_index: 0,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -5634,6 +5671,39 @@ AddrTbl_LevelNames:   ;1A842
                 tile_word: 0xC7DB,
             },
             "ASM sub_1C7F6 should preserve the rotated low two VRAM address bits in the VDP control longword",
+        );
+    }
+
+    #[test]
+    fn decompress_to_vram_setup_sub_142cc_keeps_the_payload_and_command_stream_split() {
+        let setup =
+            decompress_to_vram_setup_sub_142CC(&[0x00, 0x06, 0xAA, 0xBB, 0xCC, 0xDD], 0xE18E)
+                .expect("ASM sub_142CC should accept the two-byte command-stream offset header");
+
+        assert_eq!(
+            setup,
+            DecompressToVramSetupSub142CC {
+                vram_word_address: 0xE18E,
+                vdp_control_longword: 0x618E_0003,
+                input_stream_offset: 2,
+                command_stream_offset: 8,
+                bit_reader_word: 0,
+                bit_index: 0,
+            },
+            "ASM sub_142CC should leave `a0` on the payload bytes, move `a1` by the big-endian offset beyond the two-byte header, and zero the bit-reader state",
+        );
+    }
+
+    #[test]
+    fn decompress_to_vram_setup_sub_142cc_rejects_missing_offset_header() {
+        let error = decompress_to_vram_setup_sub_142CC(&[0x34], 0x4000)
+            .expect_err("ASM sub_142CC needs both bytes of the command-stream offset");
+
+        assert!(
+            error
+                .to_string()
+                .contains("two-byte command-stream offset header"),
+            "the failure should explain that sub_142CC cannot split payload/command streams without the two-byte header",
         );
     }
 
