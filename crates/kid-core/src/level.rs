@@ -13,6 +13,30 @@ pub(crate) struct FgPlaneCustomWriteSub1596 {
     pub(crate) data_longword: u32,
 }
 
+pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
+pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ScratchQueueSub28FC {
+    pub(crate) slots: [[u8; SUB_28FC_SLOT_STRIDE_BYTES]; SUB_28FC_SLOT_COUNT],
+    pub(crate) next_slot: usize,
+    pub(crate) slots_remaining: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
+    // ASM sub_28FC (kid.asm:4854): clear the `$FFFFF01E` work area as
+    // 6 adjacent `$52`-byte slots, rewind the cursor to slot 0, and reload
+    // the slot counter to `#6`.
+    ScratchQueueSub28FC {
+        slots: [[0; SUB_28FC_SLOT_STRIDE_BYTES]; SUB_28FC_SLOT_COUNT],
+        next_slot: 0,
+        slots_remaining: SUB_28FC_SLOT_COUNT as u16,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn swap_forest_background_palette_entries_sub_129AE(

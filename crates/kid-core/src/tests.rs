@@ -9,7 +9,8 @@ use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
     apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
     build_palette_fade_curve_sub_14C0, drain_fg_update_queue_custom_sub_1596,
-    fade_palette_span_sub_1C85E, swap_forest_background_palette_entries_sub_129AE,
+    fade_palette_span_sub_1C85E, initialise_scratch_queue_sub_28FC,
+    swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -123,6 +124,32 @@ fn rom_random_state_matches_get_randomnumber_word_seeded_sequence() {
     let expected = [0x81C0, 0x9203, 0x97A3, 0x1C09];
     let actual = expected.map(|_| rng.next_word());
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn initialise_scratch_queue_sub_28fc_clears_all_slots_and_rewinds_the_cursor() {
+    let queue = initialise_scratch_queue_sub_28FC();
+
+    assert_eq!(
+        queue.slots.len(),
+        6,
+        "ASM sub_28FC should seed six `$52`-byte scratch slots at `$FFFFF01E`",
+    );
+    assert!(
+        queue
+            .slots
+            .iter()
+            .all(|slot| slot.iter().all(|&byte| byte == 0)),
+        "ASM sub_28FC should clear every byte in the scratch queue before later workers write into it",
+    );
+    assert_eq!(
+        queue.next_slot, 0,
+        "ASM sub_28FC should rewind `$FFFFFA9C` to the first scratch slot",
+    );
+    assert_eq!(
+        queue.slots_remaining, 6,
+        "ASM sub_28FC should reload `$FFFFFAA0` with six available scratch slots",
+    );
 }
 
 #[test]
