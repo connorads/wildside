@@ -239,6 +239,12 @@ pub struct SymbolicPaletteBuffer2Load {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TitleCharacterPaletteLoadSub1C512 {
+    pub base_load: SymbolicPaletteBuffer2Load,
+    pub variant_overlay: Option<SymbolicPaletteBuffer2Load>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleIntroLoadPlanSub1B850 {
     pub art_uploads: [SymbolicVramAssetLoadSub1B850; 5],
     pub tilemap_load: SymbolicEnigmaTilemapLoadSub1B850,
@@ -1508,6 +1514,36 @@ pub fn title_intro_palette_load_sub_1C4FE() -> SymbolicPaletteBuffer2Load {
         destination_word_offset: 0x0000,
         palette_label: "Pal_1C2F0",
         word_count: 0x0023,
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn title_character_palette_load_sub_1C512(
+    region_byte: u8,
+) -> TitleCharacterPaletteLoadSub1C512 {
+    // ASM sub_1C512 (kid.asm:31257): copy 0x40 words from `Pal_1C346` into
+    // Palette_Buffer_2, then if ($FFFFFC82).w is non-zero overlay 0xE words at
+    // byte offset `$62` (word offset `$31`) from `Pal_1C3C6` when the byte is
+    // 1 or `Pal_1C3D4` for any other non-zero variant.
+    TitleCharacterPaletteLoadSub1C512 {
+        base_load: SymbolicPaletteBuffer2Load {
+            destination_word_offset: 0x0000,
+            palette_label: "Pal_1C346",
+            word_count: 0x0040,
+        },
+        variant_overlay: match region_byte {
+            0 => None,
+            1 => Some(SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0031,
+                palette_label: "Pal_1C3C6",
+                word_count: 0x000E,
+            }),
+            _ => Some(SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0031,
+                palette_label: "Pal_1C3D4",
+                word_count: 0x000E,
+            }),
+        },
     }
 }
 
@@ -4060,6 +4096,48 @@ AddrTbl_LevelNames:   ;1A842
                 word_count: 0x0023,
             },
             "ASM sub_1C4FE should seed Palette_Buffer_2 from `Pal_1C2F0` for the Intro 2 Sky palette",
+        );
+    }
+
+    #[test]
+    fn title_character_palette_load_sub_1c512_copies_the_base_character_palette() {
+        assert_eq!(
+            title_character_palette_load_sub_1C512(0),
+            TitleCharacterPaletteLoadSub1C512 {
+                base_load: SymbolicPaletteBuffer2Load {
+                    destination_word_offset: 0x0000,
+                    palette_label: "Pal_1C346",
+                    word_count: 0x0040,
+                },
+                variant_overlay: None,
+            },
+            "ASM sub_1C512 should always seed Palette_Buffer_2 from `Pal_1C346` before any region-specific overlay",
+        );
+    }
+
+    #[test]
+    fn title_character_palette_load_sub_1c512_uses_pal_1c3c6_for_region_byte_1() {
+        assert_eq!(
+            title_character_palette_load_sub_1C512(1).variant_overlay,
+            Some(SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0031,
+                palette_label: "Pal_1C3C6",
+                word_count: 0x000E,
+            }),
+            "ASM sub_1C512 overlays `Pal_1C3C6` at Palette_Buffer_2+$62 when ($FFFFFC82).w equals 1",
+        );
+    }
+
+    #[test]
+    fn title_character_palette_load_sub_1c512_uses_pal_1c3d4_for_non_zero_non_one_region_bytes() {
+        assert_eq!(
+            title_character_palette_load_sub_1C512(2).variant_overlay,
+            Some(SymbolicPaletteBuffer2Load {
+                destination_word_offset: 0x0031,
+                palette_label: "Pal_1C3D4",
+                word_count: 0x000E,
+            }),
+            "ASM sub_1C512 switches to `Pal_1C3D4` for any non-zero region byte other than 1",
         );
     }
 
