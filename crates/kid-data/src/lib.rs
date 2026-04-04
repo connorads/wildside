@@ -381,6 +381,14 @@ pub struct DecompressionBufferRowsUploadSub1CD88 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlaneLineUploadSub1CDA8 {
+    pub source_word_offset: usize,
+    pub vram_byte_address: u16,
+    pub vdp_control_longword: u32,
+    pub words: [u16; 40],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1752,6 +1760,48 @@ pub fn decompression_buffer_rows_upload_sub_1CD88(
     });
 
     Ok(DecompressionBufferRowsUploadSub1CD88 { rows })
+}
+
+fn vdp_write_control_longword(vram_byte_address: u16) -> u32 {
+    let high_word = (vram_byte_address & 0x3FFF) | 0x4000;
+    let low_word = vram_byte_address.rotate_left(2) & 0x0003;
+    (u32::from(high_word) << 16) | u32::from(low_word)
+}
+
+#[allow(non_snake_case)]
+pub fn plane_line_upload_sub_1CDA8(
+    decoded_words: &[u16],
+    source_row_index: u16,
+    plane_row_index: u16,
+    plane_base_vram_byte_address: u16,
+) -> Result<PlaneLineUploadSub1CDA8> {
+    // ASM sub_1CDA8 (kid.asm:31954): use `d0*$50` as the source row stride
+    // inside `Decompression_Buffer`, build a VRAM write command for
+    // `($FFFFFB60).w + d1*$80`, then write exactly 40 words from that source
+    // row.
+    const SOURCE_ROW_STRIDE_WORDS: usize = 0x50;
+    const WORDS_PER_LINE: usize = 40;
+
+    let source_word_offset = usize::from(source_row_index) * SOURCE_ROW_STRIDE_WORDS;
+    let source_words = decoded_words
+        .get(source_word_offset..source_word_offset + WORDS_PER_LINE)
+        .ok_or_else(|| {
+            anyhow!(
+                "sub_1CDA8 needs row {} words [{:#06X}..{:#06X}) but only received {:#06X}",
+                source_row_index,
+                source_word_offset,
+                source_word_offset + WORDS_PER_LINE,
+                decoded_words.len()
+            )
+        })?;
+
+    let vram_byte_address = plane_base_vram_byte_address.wrapping_add(plane_row_index << 7);
+    Ok(PlaneLineUploadSub1CDA8 {
+        source_word_offset,
+        vram_byte_address,
+        vdp_control_longword: vdp_write_control_longword(vram_byte_address),
+        words: core::array::from_fn(|index| source_words[index]),
+    })
 }
 
 #[allow(non_snake_case)]
@@ -4556,6 +4606,38 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1CD88 needs 0x0460 decoded words"),
             "the error should describe the exact decoded-word requirement",
+        );
+    }
+
+    #[test]
+    fn plane_line_upload_sub_1cda8_uses_a_50_word_source_stride_and_80_byte_vram_row_stride() {
+        let decoded_words = (0u16..0x1000).collect::<Vec<_>>();
+
+        let upload = plane_line_upload_sub_1CDA8(&decoded_words, 0x001B, 0x001F, 0xE000)
+            .expect("ASM sub_1CDA8 should accept the requested source row");
+
+        assert_eq!(upload.source_word_offset, 0x0870);
+        assert_eq!(upload.vram_byte_address, 0xEF80);
+        assert_eq!(upload.vdp_control_longword, 0x6F80_0003);
+        assert_eq!(upload.words[0], 0x0870);
+        assert_eq!(upload.words[39], 0x0897);
+        assert_eq!(
+            upload.words.len(),
+            40,
+            "ASM sub_1CDA8 should stream exactly one 40-word plane row from the decoded buffer",
+        );
+    }
+
+    #[test]
+    fn plane_line_upload_sub_1cda8_rejects_source_rows_without_40_words_available() {
+        let error = plane_line_upload_sub_1CDA8(&vec![0; 0x0870 + 39], 0x001B, 0x001F, 0xE000)
+            .expect_err("ASM sub_1CDA8 should require 40 source words for the requested row");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1CDA8 needs row 27 words [0x0870..0x0898)"),
+            "the error should describe the exact row slice requested by the ASM stride math",
         );
     }
 
