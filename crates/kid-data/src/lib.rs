@@ -415,6 +415,19 @@ pub struct EndSequenceTextRenderPlanSub1D080 {
     pub frames_per_glyph: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SymbolicRamAssetDecodeSub1D0EC {
+    pub vram_word_address: u16,
+    pub asset_label: &'static str,
+    pub remap_bytes: [u8; 16],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EndSequenceHoloBackgroundLoadPlanSub1D0EC {
+    pub art_decode: SymbolicRamAssetDecodeSub1D0EC,
+    pub tilemap_load: SymbolicEnigmaTilemapLoadSub1B2A4,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
@@ -1901,6 +1914,28 @@ pub fn end_sequence_text_render_plan_sub_1D080(
         glyph_uploads,
         frames_per_glyph: 3,
     })
+}
+
+#[allow(non_snake_case)]
+pub fn end_sequence_holo_background_load_plan_sub_1D0EC()
+-> EndSequenceHoloBackgroundLoadPlanSub1D0EC {
+    // ASM sub_1D0EC (kid.asm:32496): decompress `ArtComp_C65A_HoloBG` to RAM
+    // at base tile `$1780` using the fixed `unk_1D118` remap bytes, then
+    // decode the paired Enigma tilemap `MapEni_CC0E` to VRAM word `$80BC`.
+    EndSequenceHoloBackgroundLoadPlanSub1D0EC {
+        art_decode: SymbolicRamAssetDecodeSub1D0EC {
+            vram_word_address: 0x1780,
+            asset_label: "ArtComp_C65A_HoloBG",
+            remap_bytes: [
+                0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+                0x0E, 0x0F,
+            ],
+        },
+        tilemap_load: SymbolicEnigmaTilemapLoadSub1B2A4 {
+            vram_word_address: 0x80BC,
+            asset_label: "MapEni_CC0E",
+        },
+    }
 }
 
 #[allow(non_snake_case)]
@@ -4818,6 +4853,32 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1D080 needs an x coordinate byte"),
             "the error should describe the missing leading coordinate byte",
+        );
+    }
+
+    #[test]
+    fn end_sequence_holo_background_load_plan_sub_1d0ec_uses_the_holobg_art_and_tilemap_pair() {
+        let plan = end_sequence_holo_background_load_plan_sub_1D0EC();
+
+        assert_eq!(
+            plan.art_decode,
+            SymbolicRamAssetDecodeSub1D0EC {
+                vram_word_address: 0x1780,
+                asset_label: "ArtComp_C65A_HoloBG",
+                remap_bytes: [
+                    0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+                    0x0D, 0x0E, 0x0F,
+                ],
+            },
+            "ASM sub_1D0EC should decode `ArtComp_C65A_HoloBG` to RAM with the fixed `unk_1D118` remap bytes before the ending sequence uses it",
+        );
+        assert_eq!(
+            plan.tilemap_load,
+            SymbolicEnigmaTilemapLoadSub1B2A4 {
+                vram_word_address: 0x80BC,
+                asset_label: "MapEni_CC0E",
+            },
+            "ASM sub_1D0EC should then decode `MapEni_CC0E` from the same HoloBG blob to VRAM word `$80BC` via `off_718A`",
         );
     }
 
