@@ -403,6 +403,19 @@ pub struct EndSequencePlaneClearPlanSub1CDE0 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndSequenceGlyphUploadSub1D080 {
+    pub vram_byte_address: u16,
+    pub vdp_control_longword: u32,
+    pub glyph_tile_word: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndSequenceTextRenderPlanSub1D080 {
+    pub glyph_uploads: Vec<EndSequenceGlyphUploadSub1D080>,
+    pub frames_per_glyph: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1846,6 +1859,48 @@ pub fn end_sequence_plane_clear_plan_sub_1CDE0() -> EndSequencePlaneClearPlanSub
             filled_plane_line_upload_sub_1CDFA(9 + index as u16)
         }),
     }
+}
+
+#[allow(non_snake_case)]
+pub fn end_sequence_text_render_plan_sub_1D080(
+    text_bytes: &[u8],
+) -> Result<EndSequenceTextRenderPlanSub1D080> {
+    // ASM sub_1D080 (kid.asm:32448): read `(x,y)` from `a4`, convert them to a
+    // VRAM byte address at `((y+9)*$80 + x*2) - $2000`, then for each
+    // non-zero ASCII letter write one glyph tile word and present three
+    // display-refresh frames before advancing the destination by one plane row.
+    let (&x, rest) = text_bytes
+        .split_first()
+        .context("sub_1D080 needs an x coordinate byte before the glyph stream")?;
+    let (&y, glyph_bytes) = rest
+        .split_first()
+        .context("sub_1D080 needs a y coordinate byte before the glyph stream")?;
+
+    let base_vram_byte_address = u16::from(y)
+        .wrapping_add(9)
+        .wrapping_mul(0x0080)
+        .wrapping_add(u16::from(x).wrapping_mul(2))
+        .wrapping_sub(0x2000);
+
+    let glyph_uploads = glyph_bytes
+        .iter()
+        .copied()
+        .take_while(|&byte| byte != 0)
+        .enumerate()
+        .map(|(index, glyph)| {
+            let vram_byte_address = base_vram_byte_address.wrapping_add((index as u16) * 0x0080);
+            EndSequenceGlyphUploadSub1D080 {
+                vram_byte_address,
+                vdp_control_longword: vdp_write_control_longword(vram_byte_address),
+                glyph_tile_word: u16::from(glyph).wrapping_sub(0x41).wrapping_sub(0x1B24),
+            }
+        })
+        .collect();
+
+    Ok(EndSequenceTextRenderPlanSub1D080 {
+        glyph_uploads,
+        frames_per_glyph: 3,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -4727,6 +4782,42 @@ AddrTbl_LevelNames:   ;1A842
             plan.line_uploads
                 .windows(2)
                 .all(|pair| pair[1].row_index == pair[0].row_index + 1)
+        );
+    }
+
+    #[test]
+    fn end_sequence_text_render_plan_sub_1d080_maps_letters_to_vertical_plane_rows() {
+        let plan = end_sequence_text_render_plan_sub_1D080(&[5, 7, b'A', b'Z', 0])
+            .expect("ASM sub_1D080 should accept `(x,y)` plus a NUL-terminated glyph stream");
+
+        assert_eq!(
+            plan.frames_per_glyph, 3,
+            "ASM sub_1D080 should present three frames after each glyph via `dbf d6`",
+        );
+        assert_eq!(plan.glyph_uploads.len(), 2);
+        assert_eq!(plan.glyph_uploads[0].vram_byte_address, 0xE80A);
+        assert_eq!(plan.glyph_uploads[0].vdp_control_longword, 0x680A_0003);
+        assert_eq!(
+            plan.glyph_uploads[0].glyph_tile_word, 0xE4DC,
+            "ASM sub_1D080 should map ASCII `A` to tile word `$E4DC` via `subi.w #$41` / `addi.w #-$1B24`",
+        );
+        assert_eq!(
+            plan.glyph_uploads[1].vram_byte_address, 0xE88A,
+            "ASM sub_1D080 should advance one plane row (`+$80` bytes) per glyph",
+        );
+        assert_eq!(plan.glyph_uploads[1].glyph_tile_word, 0xE4F5);
+    }
+
+    #[test]
+    fn end_sequence_text_render_plan_sub_1d080_rejects_missing_coordinates() {
+        let error = end_sequence_text_render_plan_sub_1D080(&[])
+            .expect_err("ASM sub_1D080 should require the leading x/y coordinate bytes");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1D080 needs an x coordinate byte"),
+            "the error should describe the missing leading coordinate byte",
         );
     }
 
