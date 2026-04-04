@@ -1527,28 +1527,19 @@ impl NativeRuntime {
             BootState::OptionsMenu { .. } | BootState::SoundTest { .. } => GameMode::OptionsMenu,
             BootState::LevelSkipHold => GameMode::LevelTransition,
             BootState::StartingLevel { .. } => {
-                if matches!(
-                    self.boot_state,
-                    BootState::StartingLevel {
-                        uses_load_ingame_bootstrap: true,
-                        load_ingame_bootstrap_started: false,
-                        ..
-                    }
-                ) {
-                    // ASM Obj_TitleMenu `Title_InputLoop` writes
-                    // `Game_Mode=$0008` before jumping to `loc_6E2`, and the
-                    // early title-start lineage keeps that mode-$0008 shell
-                    // until loc_1AE2E consumes the later Start edge.
-                    GameMode::LevelTransition
-                } else if self.early_start_load_ingame_elapsed_frames().is_some() {
+                if self.early_start_load_ingame_elapsed_frames().is_some() {
                     // ASM loc_1AE2E writes `Game_Mode=$000C` before it jumps to
                     // loc_6E2, so the hidden Load_InGame bootstrap already
                     // traces as gameplay even while Kid/camera remain blank.
                     GameMode::InGame
-                } else if self.starting_level_title_workers.is_empty() {
-                    GameMode::LevelTransition
                 } else {
-                    GameMode::InGame
+                    // ASM Load_TitleCard / Obj_TitleMenu `Title_InputLoop`
+                    // keep the regular title-card lineage in `Game_Mode=$0008`
+                    // for the whole hidden bootstrap window. Oracle-backed
+                    // boot-title-start checkpoints still report mode `$0008`
+                    // at frames 520 and 719 even though the title workers are
+                    // already visible.
+                    GameMode::LevelTransition
                 }
             }
             BootState::InGame => GameMode::InGame,
@@ -1991,6 +1982,32 @@ impl NativeRuntime {
                 (total_worker_count.saturating_add(1), 0)
             } else if elapsed_frames >= EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME {
                 (2, 0)
+            } else {
+                (0, 0)
+            };
+        }
+        if let BootState::StartingLevel { elapsed_frames, .. } = self.boot_state
+            && !self.starting_level_title_workers.is_empty()
+        {
+            let total_worker_count = self.starting_level_title_workers.len() as u16;
+            // ASM Load_TitleCard allocates the hidden title-card workers up
+            // front, but the trace only exposes their gfx payload once
+            // loc_1AC70 starts the visible shell. Keep the regular bootstrap
+            // on the same 14/13 -> 15/14 count progression the oracle shows
+            // at frames 504/505 and later checkpoints 520/719.
+            return if elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            {
+                (total_worker_count.saturating_add(1), total_worker_count)
+            } else if elapsed_frames == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            {
+                (
+                    total_worker_count.saturating_add(1),
+                    total_worker_count.saturating_sub(1),
+                )
+            } else if elapsed_frames + 1
+                == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            {
+                (total_worker_count.saturating_add(1), 0)
             } else {
                 (0, 0)
             };

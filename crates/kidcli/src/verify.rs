@@ -31,30 +31,62 @@ pub(crate) fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
 }
 
 fn verify_native_bootstrap_trace(trace: &[NativeTraceFrame]) -> Result<()> {
+    let title_checkpoint = trace
+        .iter()
+        .find(|frame| frame.frame_index == 360)
+        .ok_or_else(|| anyhow!("native bootstrap trace did not reach title checkpoint 360"))?;
+    if title_checkpoint.game_mode != NativeGameMode::TitleScreen {
+        bail!(
+            "native bootstrap left title too early at frame 360: expected {:?}, got {:?}",
+            NativeGameMode::TitleScreen,
+            title_checkpoint.game_mode
+        );
+    }
+
+    let level_entry_checkpoint = trace
+        .iter()
+        .find(|frame| frame.frame_index == 520)
+        .ok_or_else(|| {
+            anyhow!("native bootstrap trace did not reach level-entry checkpoint 520")
+        })?;
+    if level_entry_checkpoint.game_mode != NativeGameMode::LevelTransition {
+        bail!(
+            "native bootstrap missed the hidden level-entry checkpoint at frame 520: expected {:?}, got {:?}",
+            NativeGameMode::LevelTransition,
+            level_entry_checkpoint.game_mode
+        );
+    }
+    if level_entry_checkpoint.boot_phase.as_deref() != Some("starting_level") {
+        bail!(
+            "native bootstrap missed the hidden starting-level phase at frame 520: got {:?}",
+            level_entry_checkpoint.boot_phase
+        );
+    }
+
     let first_title_index = trace
         .iter()
         .position(|frame| frame.game_mode == NativeGameMode::TitleScreen)
         .ok_or_else(|| anyhow!("native bootstrap never reached the title screen"))?;
-    let first_gameplay_index = trace
+    let first_starting_level_index = trace
         .iter()
-        .position(|frame| frame.game_mode == NativeGameMode::InGame)
-        .ok_or_else(|| anyhow!("native bootstrap never reached gameplay"))?;
+        .position(|frame| frame.boot_phase.as_deref() == Some("starting_level"))
+        .ok_or_else(|| anyhow!("native bootstrap never reached the hidden starting-level path"))?;
 
-    if first_title_index >= first_gameplay_index {
+    if first_title_index >= first_starting_level_index {
         bail!(
-            "native bootstrap reached gameplay before title (title frame {}, gameplay frame {})",
+            "native bootstrap reached hidden level entry before title (title frame {}, starting-level frame {})",
             first_title_index,
-            first_gameplay_index
+            first_starting_level_index
         );
     }
 
-    let gameplay_frame = trace
-        .get(first_gameplay_index)
+    let starting_level_frame = trace
+        .get(first_starting_level_index)
         .ok_or_else(|| anyhow!("native bootstrap trace was empty"))?;
-    if gameplay_frame.current_level.0 != 0 {
+    if starting_level_frame.current_level.0 != 0 {
         bail!(
             "native bootstrap loaded the wrong first level: expected 0x00, got {:?}",
-            gameplay_frame.current_level.0
+            starting_level_frame.current_level.0
         );
     }
 

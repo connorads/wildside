@@ -613,6 +613,16 @@ impl NativeRuntime {
         intro_sequence_1_uses_early_title_restore: bool,
     ) {
         self.enter_title_screen();
+        if self.frame_index < BOOT_TO_LEVEL_START_FRAMES[5] {
+            // ASM cold-boot intro skips expose the title shell before the
+            // interactive menu becomes live. Keep the first actionable menu
+            // Start on frame 360 so the earlier intro-skip Start taps stay
+            // inert and the frame-360 press still lands on the standard title
+            // pose instead of an already-active menu cursor.
+            self.title_menu_arm_frame = self
+                .title_menu_arm_frame
+                .max(BOOT_TO_LEVEL_START_FRAMES[5].saturating_sub(1));
+        }
         // ASM sub_1C246 writes `Game_Mode=$2C` immediately, but the later
         // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs the local
         // settle window before the standard title pose appears.
