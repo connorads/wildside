@@ -150,6 +150,166 @@ pub(crate) fn dispatch_level_special_effects_sub_6034(
     None
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum WeatherPaletteOpSub6048 {
+    CopyPaletteBufferToBuffer2,
+    CopyPaletteBufferToBuffer3,
+    WritePaletteBuffer { start_word: u8, words: Vec<u16> },
+    WritePaletteBuffer3 { start_word: u8, words: Vec<u16> },
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WeatherSpecialEffectsStepSub6048 {
+    pub(crate) frame_counter: u16,
+    pub(crate) level_special_effects: u16,
+    pub(crate) foreground_theme_is_mountain: bool,
+    pub(crate) background_theme_is_mountain: bool,
+    pub(crate) fade_countdown: u16,
+    pub(crate) fade_progress_latch: u16,
+    pub(crate) palette_animation_speed: u8,
+    pub(crate) pending_palette_mask_0: i16,
+    pub(crate) weather_mode_byte: u8,
+    pub(crate) thunder_timer: i16,
+    pub(crate) hail_period_timer: u16,
+    pub(crate) hail_active: bool,
+    pub(crate) snow_spawn_cooldown: u8,
+    pub(crate) snow_slot_count: u8,
+    pub(crate) play_thunder_sound: bool,
+    pub(crate) call_snow_worker: bool,
+    pub(crate) palette_ops: Vec<WeatherPaletteOpSub6048>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn step_level_special_effects_sub_6048(
+    mut state: WeatherSpecialEffectsStepSub6048,
+    saved_storm_palette: [u16; 7],
+    mountain_storm_foreground_palette: [u16; 15],
+    thunder_flash_palette: [u16; 7],
+    thunder_calm_palette: [u16; 7],
+    random_byte: u8,
+) -> WeatherSpecialEffectsStepSub6048 {
+    // ASM sub_6048 (kid.asm:6050): drive storm palette fades, Mountain
+    // thunder flashes, and the later snow/hail cadence before setting
+    // `($FFFFFAD6).w=4`.
+    state.fade_progress_latch = state.fade_countdown;
+    state.play_thunder_sound = false;
+    state.call_snow_worker = false;
+    state.palette_ops.clear();
+
+    if state.frame_counter <= 0x04B0 {
+        state.weather_mode_byte = 4;
+        return state;
+    }
+
+    if state.fade_countdown != 0 {
+        state.palette_animation_speed = 0x7F;
+        state.pending_palette_mask_0 = 0x0080;
+        state
+            .palette_ops
+            .push(WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2);
+        state
+            .palette_ops
+            .push(WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3);
+
+        if state.foreground_theme_is_mountain {
+            state.pending_palette_mask_0 = -1;
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 0,
+                    words: vec![saved_storm_palette[0]],
+                });
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 0x19,
+                    words: saved_storm_palette[1..].to_vec(),
+                });
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 1,
+                    words: mountain_storm_foreground_palette.to_vec(),
+                });
+        } else {
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 0x19,
+                    words: saved_storm_palette.to_vec(),
+                });
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 0,
+                    words: vec![0],
+                });
+        }
+
+        state.fade_countdown = state.fade_countdown.wrapping_sub(4);
+        state.weather_mode_byte = 4;
+        return state;
+    }
+
+    if state.level_special_effects <= 3
+        && state.background_theme_is_mountain
+        && state.frame_counter > 0x05DC
+    {
+        state.thunder_timer = state.thunder_timer.wrapping_sub(1);
+        if state.thunder_timer == 0 {
+            state.play_thunder_sound = true;
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer {
+                    start_word: 0,
+                    words: vec![thunder_flash_palette[0]],
+                });
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer {
+                    start_word: 0x19,
+                    words: thunder_flash_palette[1..].to_vec(),
+                });
+        } else if state.thunder_timer == -27 {
+            state.thunder_timer = 0x00F7 - i16::from(random_byte & 0xF5);
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer {
+                    start_word: 0,
+                    words: vec![thunder_calm_palette[0]],
+                });
+            state
+                .palette_ops
+                .push(WeatherPaletteOpSub6048::WritePaletteBuffer {
+                    start_word: 0x19,
+                    words: thunder_calm_palette[1..].to_vec(),
+                });
+        }
+    }
+
+    if state.frame_counter > 0x0834
+        && state.level_special_effects == 3
+        && state.frame_counter > 0x0873
+    {
+        state.hail_period_timer = state.hail_period_timer.wrapping_sub(1);
+        if state.hail_period_timer == 0 {
+            state.hail_period_timer = if state.hail_active { 0x0258 } else { 0x04B0 };
+            state.hail_active = !state.hail_active;
+        }
+
+        if !state.hail_active && state.snow_slot_count != 5 {
+            state.snow_spawn_cooldown = 2;
+        }
+        state.call_snow_worker = true;
+    }
+
+    state.weather_mode_byte = 4;
+    state
+}
+
 #[derive(Clone, Copy)]
 struct LavaFireballSegment {
     frames: u8,

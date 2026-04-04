@@ -22,8 +22,9 @@ use crate::projectiles::{
 };
 use crate::weather::{
     LevelSpecialEffectsRoutineSub6034, MurderWallWarningInputSub5E02,
-    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
-    compile_murder_wall_warning_sprites_sub_5E02, dispatch_level_special_effects_sub_6034,
+    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02, WeatherPaletteOpSub6048,
+    WeatherSpecialEffectsStepSub6048, compile_murder_wall_warning_sprites_sub_5E02,
+    dispatch_level_special_effects_sub_6034, step_level_special_effects_sub_6048,
 };
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
@@ -16442,6 +16443,346 @@ fn sub_6034_dispatches_storm_and_storm_hail_to_sub_6048() {
         dispatch_level_special_effects_sub_6034(3),
         Some(LevelSpecialEffectsRoutineSub6034::WeatherSub6048),
         "ASM sub_6034 should also dispatch the storm+hail slot to sub_6048 because both jump-table entries point there"
+    );
+}
+
+#[test]
+fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x04B0,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0x20,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: true,
+            call_snow_worker: true,
+            palette_ops: vec![WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2],
+        },
+        [0; 7],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert_eq!(
+        stepped.weather_mode_byte, 4,
+        "ASM sub_6048 should set `($FFFFFAD6).w=4` and return while `Frame_Counter <= $4B0`"
+    );
+    assert_eq!(
+        stepped.fade_progress_latch, 0x20,
+        "ASM sub_6048 should still mirror `($FFFFFADA).w` into `($FFFFF876).w` before the early return"
+    );
+    assert!(
+        stepped.palette_ops.is_empty(),
+        "ASM sub_6048 should not enqueue any palette work before the 20-second storm threshold"
+    );
+}
+
+#[test]
+fn sub_6048_non_mountain_fade_copies_buffers_and_loads_storm_background() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x04B1,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0x10,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert_eq!(
+        stepped.palette_animation_speed, 0x7F,
+        "ASM sub_6048 should write `$7F` to `($FFFFF88B).w` while the storm fade countdown is active"
+    );
+    assert_eq!(
+        stepped.pending_palette_mask_0, 0x0080,
+        "ASM sub_6048 should seed `($FFFFF888).w` with low-byte `$80` for non-Mountain storm fades"
+    );
+    assert_eq!(
+        stepped.fade_countdown, 0x000C,
+        "ASM sub_6048 should subtract 4 from `($FFFFFADA).w` after loading the storm palette"
+    );
+    assert_eq!(
+        stepped.palette_ops,
+        vec![
+            WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2,
+            WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3,
+            WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                start_word: 0x19,
+                words: vec![0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777],
+            },
+            WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                start_word: 0,
+                words: vec![0],
+            },
+        ],
+        "ASM sub_6048 should copy Palette_Buffer into both work buffers, stamp the seven-word storm palette at `Palette_Buffer_3+$32`, and clear the background colour word"
+    );
+}
+
+#[test]
+fn sub_6048_mountain_fade_overlays_storm_background_and_foreground() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x04B1,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: true,
+            background_theme_is_mountain: true,
+            fade_countdown: 4,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [1, 2, 3, 4, 5, 6, 7],
+        [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert_eq!(
+        stepped.pending_palette_mask_0, -1,
+        "ASM sub_6048 should promote `($FFFFF888).w` to `$FFFF` for the Mountain foreground storm overlay"
+    );
+    assert_eq!(
+        stepped.palette_ops,
+        vec![
+            WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2,
+            WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3,
+            WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                start_word: 0,
+                words: vec![1],
+            },
+            WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                start_word: 0x19,
+                words: vec![2, 3, 4, 5, 6, 7],
+            },
+            WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                start_word: 1,
+                words: vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+            },
+        ],
+        "ASM sub_6048 should route the first Mountain storm word to `Palette_Buffer_3[0]`, the next six words to `$32`, then overlay the 15-word Mountain foreground palette at `Palette_Buffer_3+2`"
+    );
+}
+
+#[test]
+fn sub_6048_thunder_timer_zero_plays_sound_and_loads_flash_palette() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x05DD,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: true,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 1,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 7],
+        [0; 15],
+        [0xAAA, 0xAAB, 0xAAC, 0xAAD, 0xAAE, 0xAAF, 0xAB0],
+        [0; 7],
+        0,
+    );
+
+    assert!(
+        stepped.play_thunder_sound,
+        "ASM sub_6048 should call `j_PlaySound` with `sfx_Thunderstorm` when `($FFFFFADC).w` decrements to zero"
+    );
+    assert_eq!(stepped.thunder_timer, 0);
+    assert_eq!(
+        stepped.palette_ops,
+        vec![
+            WeatherPaletteOpSub6048::WritePaletteBuffer {
+                start_word: 0,
+                words: vec![0xAAA],
+            },
+            WeatherPaletteOpSub6048::WritePaletteBuffer {
+                start_word: 0x19,
+                words: vec![0xAAB, 0xAAC, 0xAAD, 0xAAE, 0xAAF, 0xAB0],
+            },
+        ],
+        "ASM sub_6048 should load the thunder-flash palette into Palette_Buffer word 0 and words `$19..$1E` when the Mountain thunder timer hits zero"
+    );
+}
+
+#[test]
+fn sub_6048_negative_thunder_timer_reseeds_and_loads_calm_palette() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x05DD,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: true,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: -26,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 7],
+        [0; 15],
+        [0; 7],
+        [0x0B1, 0x0B2, 0x0B3, 0x0B4, 0x0B5, 0x0B6, 0x0B7],
+        0x3C,
+    );
+
+    assert_eq!(
+        stepped.thunder_timer, 0x00C3,
+        "ASM sub_6048 should reset `($FFFFFADC).w` to `$F7-(rand&$F5)` when the signed countdown reaches `$FFE5`"
+    );
+    assert_eq!(
+        stepped.palette_ops,
+        vec![
+            WeatherPaletteOpSub6048::WritePaletteBuffer {
+                start_word: 0,
+                words: vec![0x0B1],
+            },
+            WeatherPaletteOpSub6048::WritePaletteBuffer {
+                start_word: 0x19,
+                words: vec![0x0B2, 0x0B3, 0x0B4, 0x0B5, 0x0B6, 0x0B7],
+            },
+        ],
+        "ASM sub_6048 should restore the calm Mountain storm palette when the negative thunder countdown reaches the reseed sentinel"
+    );
+}
+
+#[test]
+fn sub_6048_snow_cycle_toggles_to_active_and_calls_sub_61ca() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x0874,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 1,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 2,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 7],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert!(stepped.hail_active);
+    assert_eq!(
+        stepped.hail_period_timer, 0x04B0,
+        "ASM sub_6048 should extend the inactive->active snow period to `$4B0` frames"
+    );
+    assert!(
+        stepped.call_snow_worker,
+        "ASM sub_6048 should always fall through to `bsr.w sub_61CA` once the 35-second snow logic is active"
+    );
+    assert_eq!(
+        stepped.snow_spawn_cooldown, 9,
+        "ASM sub_6048 should not force `($FFFFFB3C).w=2` after toggling into the active snow period"
+    );
+}
+
+#[test]
+fn sub_6048_snow_cycle_toggles_inactive_and_requests_spawn_when_slots_available() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x0874,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 1,
+            hail_active: true,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 4,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 7],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert!(!stepped.hail_active);
+    assert_eq!(
+        stepped.hail_period_timer, 0x0258,
+        "ASM sub_6048 should reset the active->inactive snow period to `$258` frames"
+    );
+    assert_eq!(
+        stepped.snow_spawn_cooldown, 2,
+        "ASM sub_6048 should write `2` to `($FFFFFB3C).w` when snow is inactive and fewer than five slots are live"
     );
 }
 
