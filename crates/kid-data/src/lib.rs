@@ -1625,6 +1625,17 @@ pub fn ending_sequence_palette_load_sub_1C820(
 }
 
 #[allow(non_snake_case)]
+pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
+    // ASM sub_1C896 (kid.asm:31542): copy 0x40 words from `Pal_1C97C`
+    // straight into `Palette_Buffer` starting at word offset 0.
+    SymbolicPaletteLoadSub1B2A4 {
+        destination_word_offset: 0x0000,
+        palette_label: "Pal_1C97C",
+        word_count: 0x0040,
+    }
+}
+
+#[allow(non_snake_case)]
 pub fn title_screen_character_load_plan_sub_1BF24(
     frame_index: u16,
     region_byte: u8,
@@ -4278,6 +4289,19 @@ AddrTbl_LevelNames:   ;1A842
                 words: [0x0040, 0x00A0, 0xE004, 0x00EE, 0x0EEE],
             }),
             "ASM sub_1C820 should rewind Palette_Buffer by seven words and stamp the five hard-coded variant colours when d1 is non-zero",
+        );
+    }
+
+    #[test]
+    fn option_menu_palette_load_sub_1c896_copies_the_full_options_palette() {
+        assert_eq!(
+            option_menu_palette_load_sub_1C896(),
+            SymbolicPaletteLoadSub1B2A4 {
+                destination_word_offset: 0x0000,
+                palette_label: "Pal_1C97C",
+                word_count: 0x0040,
+            },
+            "ASM sub_1C896 should copy all `$40` words of `Pal_1C97C` into `Palette_Buffer` for the options menu",
         );
     }
 
