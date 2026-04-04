@@ -1392,7 +1392,7 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
     let flag_mask = data[1];
     let mut incrementing_value = read_u16_be(data, 2);
     let common_value = read_u16_be(data, 4);
-    let mut bits = BitReader::new(&data[6..]);
+    let mut bits = EnigmaBitReader::new(&data[6..]);
     let mut output = Vec::new();
 
     loop {
@@ -1441,7 +1441,7 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
     Ok(output)
 }
 
-fn read_enigma_flags(bits: &mut BitReader<'_>, flag_mask: u8) -> Result<u16> {
+fn read_enigma_flags(bits: &mut EnigmaBitReader<'_>, flag_mask: u8) -> Result<u16> {
     let mut flags = 0_u16;
     for (mask_bit, flag) in [
         (4_u8, 1_u16 << 15),
@@ -1505,6 +1505,51 @@ impl<'a> BitReader<'a> {
         let shift = 7 - (self.bit_index % 8);
         self.bit_index += 1;
         Ok((byte >> shift) & 1)
+    }
+
+    fn read_bits(&mut self, count: usize) -> Result<u16> {
+        let mut value = 0_u16;
+        for _ in 0..count {
+            value = (value << 1) | u16::from(self.read_bit()?);
+        }
+        Ok(value)
+    }
+}
+
+struct EnigmaBitReader<'a> {
+    bytes: &'a [u8],
+    input_position: usize,
+    current_word_d5: u16,
+    bits_remaining_d6: u16,
+}
+
+impl<'a> EnigmaBitReader<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self {
+            bytes,
+            input_position: 0,
+            current_word_d5: 0,
+            bits_remaining_d6: 0,
+        }
+    }
+
+    fn refill_word_sub_13618(&mut self) -> Result<()> {
+        // ASM sub_13618 (kid.asm:26062): load the next 16-bit big-endian word
+        // into d5 and reset d6 to 16 buffered bits.
+        let high_byte = read_input_byte(self.bytes, &mut self.input_position)?;
+        let low_byte = read_input_byte(self.bytes, &mut self.input_position)?;
+        self.current_word_d5 = (u16::from(high_byte) << 8) | u16::from(low_byte);
+        self.bits_remaining_d6 = 16;
+        Ok(())
+    }
+
+    fn read_bit(&mut self) -> Result<u8> {
+        if self.bits_remaining_d6 == 0 {
+            self.refill_word_sub_13618()?;
+        }
+        self.bits_remaining_d6 -= 1;
+        let shift = usize::from(self.bits_remaining_d6);
+        Ok(((self.current_word_d5 >> shift) & 1) as u8)
     }
 
     fn read_bits(&mut self, count: usize) -> Result<u16> {
@@ -2503,6 +2548,17 @@ AddrTbl_LevelNames:   ;1A842
     fn saxman_fixture_decodes_to_expected_bytes() {
         let decoded = decode_saxman(SAXMAN_FIXTURE).expect("fixture should decode");
         assert_eq!(decoded, b"ABCD");
+    }
+
+    #[test]
+    fn sub_13618_refill_word_loads_big_endian_word_and_resets_bit_count() {
+        let mut bits = EnigmaBitReader::new(&[0x12, 0x34, 0x56, 0x78]);
+        bits.refill_word_sub_13618()
+            .expect("ASM sub_13618 should load the next buffered word");
+
+        assert_eq!(bits.current_word_d5, 0x1234);
+        assert_eq!(bits.bits_remaining_d6, 16);
+        assert_eq!(bits.input_position, 2);
     }
 
     #[test]
