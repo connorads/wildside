@@ -1600,6 +1600,9 @@ impl<'a> EnigmaBitReader<'a> {
 
     #[cfg_attr(not(test), allow(dead_code))]
     fn peek_bits_sub_1363c(&self, bit_count: u16) -> Result<u16> {
+        // ASM sub_1363C (kid.asm:26091): keep d6 intact, right-shift the
+        // buffered word by (d6-d0), then mask the low d0 bits with the ROM's
+        // 1/3/7/.../$FFFF lookup table.
         if bit_count == 0 || bit_count > self.bits_remaining_d6 {
             bail!("Enigma short read exceeded buffered bits");
         }
@@ -2651,6 +2654,25 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(bits.current_word_d5, 0xEF12);
         assert_eq!(bits.bits_remaining_d6, 16);
         assert_eq!(bits.input_position, 4);
+    }
+
+    #[test]
+    fn sub_1363c_peeks_the_low_masked_bits_without_consuming_buffer_state() {
+        let bits = EnigmaBitReader {
+            bytes: &[],
+            input_position: 0,
+            current_word_d5: 0b1101_0110_1011_0011,
+            bits_remaining_d6: 11,
+        };
+
+        assert_eq!(
+            bits.peek_bits_sub_1363c(5)
+                .expect("ASM sub_1363C should shift by d6-d0 and mask the low d0 bits"),
+            0b1_1010
+        );
+        assert_eq!(bits.current_word_d5, 0b1101_0110_1011_0011);
+        assert_eq!(bits.bits_remaining_d6, 11);
+        assert_eq!(bits.input_position, 0);
     }
 
     #[test]
