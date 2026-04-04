@@ -224,6 +224,14 @@ pub(crate) struct BossEyeOrbitPlacementSub393C8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeCounterOrbitPlacementSub39420 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) next_sprite_word_y_adjust: u16,
+    pub(crate) rerank_gfx_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -602,6 +610,8 @@ pub(crate) fn boss_eye_detach_step_sub_393B2(
 
 const BOSS_EYE_ORBIT_X_OFFSETS_LEFT_SUB_393C8: [i16; 5] = [-12, 0, 13, 13, 13];
 const BOSS_EYE_ORBIT_X_OFFSETS_RIGHT_SUB_393C8: [i16; 5] = [-12, -20, -24, -24, -24];
+const BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_LEFT_SUB_39420: [i16; 5] = [12, 20, 24, 24, 24];
+const BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_RIGHT_SUB_39420: [i16; 5] = [12, 0, -13, -13, -13];
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -635,6 +645,45 @@ pub(crate) fn boss_eye_orbit_placement_sub_393C8(
         };
 
     BossEyeOrbitPlacementSub393C8 {
+        x_pos: parent_x.wrapping_add_signed(x_offset),
+        y_pos: parent_y.wrapping_sub(0x0025),
+        next_sprite_word_y_adjust,
+        rerank_gfx_object,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
+    parent_x: u16,
+    parent_y: u16,
+    parent_phase_word_22: u16,
+    side_flag_d2: u8,
+    previous_parent_frame_d0: u8,
+    current_parent_frame_16: u8,
+    sprite_word_y_adjust: u16,
+) -> BossEyeCounterOrbitPlacementSub39420 {
+    // ASM sub_39420 (kid.asm:42008): use the mirrored five-entry X-offset
+    // tables rooted at `word_39464/word_3946E`, keep the child at `$1E(a2)-$25`,
+    // then nudge `$A(a3)` by `-1/+1` and rerun sub_FF6 when the parent's `$16(a2)`
+    // frame byte changed since the previous `d0`.
+    let phase_index = usize::from(parent_phase_word_22.saturating_sub(0x0EE0) >> 1);
+    let x_offset = if side_flag_d2 == 0 {
+        BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_RIGHT_SUB_39420[phase_index]
+    } else {
+        BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_LEFT_SUB_39420[phase_index]
+    };
+
+    let (next_sprite_word_y_adjust, rerank_gfx_object) =
+        if previous_parent_frame_d0 == current_parent_frame_16 {
+            (sprite_word_y_adjust, false)
+        } else if previous_parent_frame_d0 == 0 {
+            (sprite_word_y_adjust.wrapping_sub(1), true)
+        } else {
+            (sprite_word_y_adjust.wrapping_add(1), true)
+        };
+
+    BossEyeCounterOrbitPlacementSub39420 {
         x_pos: parent_x.wrapping_add_signed(x_offset),
         y_pos: parent_y.wrapping_sub(0x0025),
         next_sprite_word_y_adjust,
