@@ -64,6 +64,16 @@ pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsG
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn hide_end_sequence_credits_glyphs_sub_1D7E6(display_enabled: &mut [bool; 6]) {
+    // ASM sub_1D7E6 (kid.asm:33029): load the six credits glyph worker slots
+    // from `$FFFFFB72`, then clear each worker's display-enable byte `$13(a3)`.
+    for visible in display_enabled.iter_mut() {
+        *visible = false;
+    }
+}
+
 impl PlayerState {
     pub(crate) fn intro_sequence_3_roster_count() -> usize {
         INTRO_SEQUENCE_3_ROSTERS.len()

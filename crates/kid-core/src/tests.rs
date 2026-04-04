@@ -7193,6 +7193,18 @@ fn end_sequence_credits_glyph_init_sub_1d786_uses_the_expected_gfx_object_defaul
 }
 
 #[test]
+fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
+    let mut display_enabled = [true, false, true, true, false, true];
+
+    hide_end_sequence_credits_glyphs_sub_1D7E6(&mut display_enabled);
+
+    assert_eq!(
+        display_enabled, [false; 6],
+        "ASM sub_1D7E6 should clear `$13(a3)` for all six credits glyph workers loaded from `$FFFFFB72`",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_special_motion_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
