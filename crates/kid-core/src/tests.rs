@@ -6094,6 +6094,66 @@ fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
     );
 }
 
+#[test]
+fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
+    let result = helmets::diamond_power_object_remove_sub_3F5E8(
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: vec![0xF2AC, 0xF2F8, 0xF344],
+            free_slots: vec![0xF390, 0xF3DC],
+            last_active_slot: Some(0xF344),
+            diamond_power_active: true,
+            five_way_shot_ready: true,
+            samurai_haze_active: true,
+            kid_is_invulnerable: true,
+        },
+        0xF2F8,
+    );
+
+    assert_eq!(
+        result,
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: vec![0xF2AC, 0xF344],
+            free_slots: vec![0xF2F8, 0xF390, 0xF3DC],
+            last_active_slot: Some(0xF344),
+            diamond_power_active: true,
+            five_way_shot_ready: true,
+            samurai_haze_active: true,
+            kid_is_invulnerable: true,
+        },
+        "ASM sub_3F5E8 should unlink the removed slot, prepend it to `Addr_NextFreeDPObjectSlot`, and keep the three global flags set while `Addr_FirstDPObjectSlot` stays non-null"
+    );
+}
+
+#[test]
+fn diamond_power_object_remove_sub_3f5e8_clears_shared_flags_when_the_last_slot_is_removed() {
+    let result = helmets::diamond_power_object_remove_sub_3F5E8(
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: vec![0xF2AC],
+            free_slots: vec![0xF2F8],
+            last_active_slot: Some(0xF2AC),
+            diamond_power_active: true,
+            five_way_shot_ready: true,
+            samurai_haze_active: true,
+            kid_is_invulnerable: true,
+        },
+        0xF2AC,
+    );
+
+    assert_eq!(
+        result,
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: Vec::new(),
+            free_slots: vec![0xF2AC, 0xF2F8],
+            last_active_slot: None,
+            diamond_power_active: false,
+            five_way_shot_ready: false,
+            samurai_haze_active: false,
+            kid_is_invulnerable: false,
+        },
+        "ASM sub_3F5E8 loc_3F62E should clear `FiveWayShotReady`, `SamuraiHazeActive`, and `KidIsInvulnerable` only after the last active diamond-power slot is removed"
+    );
+}
+
 // -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------

@@ -72,6 +72,50 @@ pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
+    pub(crate) active_slots: Vec<u16>,
+    pub(crate) free_slots: Vec<u16>,
+    pub(crate) last_active_slot: Option<u16>,
+    pub(crate) diamond_power_active: bool,
+    pub(crate) five_way_shot_ready: bool,
+    pub(crate) samurai_haze_active: bool,
+    pub(crate) kid_is_invulnerable: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_remove_sub_3F5E8(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+    remove_slot: u16,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F5E8 walks the active linked list from the sentinel at
+    // `$FFFFF5A0`, unlinks `a0`, then prepends it to the free list.
+    let remove_index = lists
+        .active_slots
+        .iter()
+        .position(|&slot| slot == remove_slot)
+        .expect("ASM sub_3F5E8 expects a live diamond-power slot");
+    lists.active_slots.remove(remove_index);
+    lists.free_slots.insert(0, remove_slot);
+
+    if lists.last_active_slot == Some(remove_slot) {
+        lists.last_active_slot = lists.active_slots.last().copied();
+    }
+
+    // ASM `tst.l (Addr_FirstDPObjectSlot).w; sne (Diamond_power_active).w`.
+    // If no active slots remain, it also clears the three shared flags.
+    lists.diamond_power_active = !lists.active_slots.is_empty();
+    if !lists.diamond_power_active {
+        lists.five_way_shot_ready = false;
+        lists.samurai_haze_active = false;
+        lists.kid_is_invulnerable = false;
+    }
+
+    lists
+}
+
 impl NativeRuntime {
     pub(crate) fn step_skycutter_flipboard(
         &mut self,
