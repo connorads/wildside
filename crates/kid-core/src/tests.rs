@@ -1,7 +1,8 @@
 use super::*;
 use crate::boot::{
     end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
-    end_sequence_display_refresh_sub_1D830, sega_screen_tile_strip_sub_12E3C,
+    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
+    sega_screen_tile_strip_sub_12E3C,
 };
 use crate::combat::*;
 use crate::level::{
@@ -18625,6 +18626,59 @@ fn end_sequence_burst_sprite_init_sub_1d86c_uses_masked_rng_offsets_and_preserve
         end_sequence_burst_sprite_init_sub_1D86C(0x81, 0x44, 0x05, 0x01),
         init,
         "ASM sub_1D86C's `bclr #7,d5` means bit 7 of `V_Int_counter` must not affect the spawned offsets",
+    );
+}
+
+#[test]
+fn end_sequence_falling_sprite_init_sub_1d8b4_keeps_full_v_int_delay_and_121_frame_fall() {
+    let init = end_sequence_falling_sprite_init_sub_1D8B4(0x00AF, 0x0064, 0x1268, 0x33, 0x85);
+
+    assert_eq!(
+        init.gfx_slot_base, 0x0100_0000,
+        "ASM sub_1D8B4 should load the fixed gfx-object slot `$1000000` before seeding the falling sprite",
+    );
+    assert!(
+        init.display_enabled,
+        "ASM sub_1D8B4 should set `$13(a3)` so the falling sprite starts visible",
+    );
+    assert_eq!(
+        init.palette_line, 2,
+        "ASM sub_1D8B4 should write palette line 2 before the sprite starts falling",
+    );
+    assert_eq!(
+        init.vram_tile, 0x03DD,
+        "ASM sub_1D8B4 should seed vram tile `$3DD` for the falling sprite",
+    );
+    assert_eq!(
+        (init.x_pos, init.y_pos, init.sprite_mapping),
+        (0x00AF, 0x0064, 0x1268),
+        "ASM sub_1D8B4 should copy the caller's `$44/$46/$48` words directly into the spawned gfx object",
+    );
+    assert_eq!(
+        init.initial_hibernate_frames, 0x005B,
+        "ASM sub_1D8B4 should XOR the full `V_Int_counter` byte into the random delay before `lsr.w #1`",
+    );
+    assert_eq!(
+        init.fall_frames, 0x0079,
+        "ASM loc_1D8FA should run for `#$78+1` hibernated frames before deleting the current object",
+    );
+    assert_eq!(
+        init.first_frame_y_delta_fp, 0,
+        "ASM loc_1D8FA adds `d1` before the first `$800` increment, so the first falling frame should not move yet",
+    );
+    assert_eq!(
+        init.last_frame_y_delta_fp, 0x03C000,
+        "ASM loc_1D8FA's last per-frame Y add should use the 120th `$800` step",
+    );
+    assert_eq!(
+        init.total_y_delta_fp, 0xE2E000,
+        "ASM loc_1D8FA should accumulate the full 121-frame arithmetic series of `$800` Y deltas",
+    );
+    assert_ne!(
+        end_sequence_falling_sprite_init_sub_1D8B4(0x00AF, 0x0064, 0x1268, 0x33, 0x05)
+            .initial_hibernate_frames,
+        init.initial_hibernate_frames,
+        "ASM sub_1D8B4 uses the full `V_Int_counter` byte here, so bit 7 must affect the initial hibernate delay",
     );
 }
 

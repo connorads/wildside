@@ -73,6 +73,22 @@ pub(crate) struct EndSequenceBurstSpriteInitSub1D86C {
     pub(crate) priority: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceFallingSpriteInitSub1D8B4 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) display_enabled: bool,
+    pub(crate) palette_line: u8,
+    pub(crate) vram_tile: u16,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_mapping: u16,
+    pub(crate) initial_hibernate_frames: u16,
+    pub(crate) fall_frames: u16,
+    pub(crate) first_frame_y_delta_fp: u32,
+    pub(crate) last_frame_y_delta_fp: u32,
+    pub(crate) total_y_delta_fp: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -377,6 +393,42 @@ pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(
         x_pos: 0x00A0_i16.wrapping_add(x_offset),
         y_pos: 0x0070_i16.wrapping_add(y_offset),
         priority,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_falling_sprite_init_sub_1D8B4(
+    x_pos: u16,
+    y_pos: u16,
+    sprite_mapping: u16,
+    random_delay_byte: u8,
+    v_int_counter: u8,
+) -> EndSequenceFallingSpriteInitSub1D8B4 {
+    // ASM sub_1D8B4 (kid.asm:33134): load gfx slot `$1000000`, set `$13(a3)`,
+    // palette line 2, tile `$3DD`, and copy the caller's `$44/$46/$48` words
+    // into x/y/sprite fields. The front delay uses the full `V_Int_counter`
+    // byte (`eor.b d0,d7`; `lsr.w #1,d7`), then `loc_1D8FA` hibernates and
+    // adds an accelerating `d1 += $800` fall for `#$78+1` frames.
+    let initial_hibernate_frames = u16::from(random_delay_byte ^ v_int_counter) >> 1;
+    let fall_frames = 0x0079;
+    let last_frame_y_delta_fp = u32::from(fall_frames - 1) * 0x0800;
+    let total_y_delta_fp = (0..u32::from(fall_frames))
+        .map(|frame| frame * 0x0800)
+        .sum();
+    EndSequenceFallingSpriteInitSub1D8B4 {
+        gfx_slot_base: 0x0100_0000,
+        display_enabled: true,
+        palette_line: 2,
+        vram_tile: 0x03DD,
+        x_pos,
+        y_pos,
+        sprite_mapping,
+        initial_hibernate_frames,
+        fall_frames,
+        first_frame_y_delta_fp: 0,
+        last_frame_y_delta_fp,
+        total_y_delta_fp,
     }
 }
 
