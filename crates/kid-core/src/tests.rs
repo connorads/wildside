@@ -7205,6 +7205,36 @@ fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
 }
 
 #[test]
+fn fade_end_sequence_palette_sub_1d800_applies_eight_fade_passes_and_32_refresh_hibernations() {
+    let mut palette_buffer = [0u16; 0x40];
+    palette_buffer[0x30] = 0x0EEE;
+    palette_buffer[0x31] = 0x0ACE;
+    palette_buffer[0x3F] = 0x0246;
+    let mut refresh_and_hibernate_calls = 0usize;
+
+    fade_end_sequence_palette_sub_1D800(&mut palette_buffer, || {
+        refresh_and_hibernate_calls += 1;
+    });
+
+    assert_eq!(
+        palette_buffer[0x30], 0x0000,
+        "ASM sub_1D800 should darken Palette_Buffer+$60 through eight sub_1C85E passes until bright credits colours reach black",
+    );
+    assert_eq!(
+        palette_buffer[0x31], 0x0000,
+        "ASM sub_1D800 should keep reapplying the same fade span to every word in the credits palette block",
+    );
+    assert_eq!(
+        palette_buffer[0x3F], 0x0000,
+        "ASM sub_1D800 should include the tail word of the `$60` byte-offset palette span in each fade pass",
+    );
+    assert_eq!(
+        refresh_and_hibernate_calls, 32,
+        "ASM sub_1D800 should run the `sub_1D830 -> Hibernate_Object_1Frame` pair four times per fade pass for eight passes total",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_special_motion_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;

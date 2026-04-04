@@ -1,4 +1,5 @@
 use super::*;
+use crate::level::fade_palette_span_sub_1C85E;
 use std::collections::BTreeMap;
 
 const INTRO_SEQUENCE_3_ROSTER_DESCRIPTOR_POSITIONS: [(u16, u16); 14] = [
@@ -71,6 +72,26 @@ pub(crate) fn hide_end_sequence_credits_glyphs_sub_1D7E6(display_enabled: &mut [
     // from `$FFFFFB72`, then clear each worker's display-enable byte `$13(a3)`.
     for visible in display_enabled.iter_mut() {
         *visible = false;
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn fade_end_sequence_palette_sub_1D800<F>(
+    palette_buffer: &mut [u16],
+    mut refresh_and_hibernate: F,
+) where
+    F: FnMut(),
+{
+    // ASM sub_1D800 (kid.asm:33046): spill the return address and
+    // `d0-d1/d7/a4` into the ending scratch area, darken Palette_Buffer+$60
+    // via sub_1C85E eight times, and after each fade pass run the
+    // `sub_1D830 -> Hibernate_Object_1Frame` pair for four iterations.
+    for _ in 0..8 {
+        fade_palette_span_sub_1C85E(palette_buffer, 0x0060);
+        for _ in 0..4 {
+            refresh_and_hibernate();
+        }
     }
 }
 
