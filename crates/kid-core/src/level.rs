@@ -76,6 +76,84 @@ pub(crate) fn blend_selected_palette_entries_sub_1536(
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn build_palette_fade_curve_sub_14C0(fade_progress: u16) -> [u8; 15] {
+    // ASM sub_14C0 / loc_14CE / loc_14EE (kid.asm:2583): build the 15-byte
+    // signed fade curve in $FFFFF878 from the shared fade progress word at
+    // $FFFFF876 before dispatching sub_1536 over the pending palette halves.
+    let mut d0 = 0x0000_0100_u32.wrapping_sub(u32::from(fade_progress));
+    d0 = d0.rotate_right(4);
+    d0 = d0.rotate_left(16);
+    let d1 = d0.rotate_right(3);
+    d0 = d0.wrapping_add(0x0000_8000);
+
+    core::array::from_fn(|_| {
+        d0 = d0.wrapping_sub(d1);
+        (d0.rotate_left(16) & 0xFF) as u8
+    })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn apply_pending_palette_fade_sub_14C0(
+    fade_progress: u16,
+    pending_palette_0_mask: &mut u32,
+    pending_palette_1_mask: &mut u32,
+    palette_buffer_2: &[u16],
+    palette_buffer_3: &[u16],
+    palette_buffer: &mut [u16],
+) {
+    // ASM sub_14C0 (kid.asm:2583): return immediately when both pending masks
+    // are zero; otherwise build the shared 15-byte fade curve and run sub_1536
+    // over palette words $00..$1F then $20..$3F, clearing each mask after use.
+    if *pending_palette_0_mask == 0 && *pending_palette_1_mask == 0 {
+        return;
+    }
+
+    let fade_curve = build_palette_fade_curve_sub_14C0(fade_progress);
+
+    if *pending_palette_0_mask != 0 {
+        let pending_mask = *pending_palette_0_mask;
+        *pending_palette_0_mask = 0;
+        let palette_0_len = palette_buffer.len().min(0x20);
+        blend_selected_palette_entries_sub_1536(
+            &palette_buffer_2[..palette_buffer_2.len().min(0x20)],
+            &palette_buffer_3[..palette_buffer_3.len().min(0x20)],
+            &mut palette_buffer[..palette_0_len],
+            pending_mask,
+            &fade_curve,
+        );
+    }
+
+    if *pending_palette_1_mask == 0 {
+        return;
+    }
+
+    let Some(palette_buffer_2) = palette_buffer_2.get(0x20..) else {
+        *pending_palette_1_mask = 0;
+        return;
+    };
+    let Some(palette_buffer_3) = palette_buffer_3.get(0x20..) else {
+        *pending_palette_1_mask = 0;
+        return;
+    };
+    let Some(palette_buffer) = palette_buffer.get_mut(0x20..) else {
+        *pending_palette_1_mask = 0;
+        return;
+    };
+    let pending_mask = *pending_palette_1_mask;
+    *pending_palette_1_mask = 0;
+    let palette_1_len = palette_buffer.len().min(0x20);
+    blend_selected_palette_entries_sub_1536(
+        &palette_buffer_2[..palette_buffer_2.len().min(0x20)],
+        &palette_buffer_3[..palette_buffer_3.len().min(0x20)],
+        &mut palette_buffer[..palette_1_len],
+        pending_mask,
+        &fade_curve,
+    );
+}
+
 impl NativeRuntime {
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
         let level_id = self.current_level;

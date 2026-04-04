@@ -2,7 +2,8 @@ use super::*;
 use crate::boot::sega_screen_tile_strip_sub_12E3C;
 use crate::combat::*;
 use crate::level::{
-    blend_selected_palette_entries_sub_1536, swap_forest_background_palette_entries_sub_129AE,
+    apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use kid_data::{
@@ -296,6 +297,63 @@ fn sub_1536_masks_each_word_from_bit_31_downward() {
     assert_eq!(
         palette_buffer[1], 0x0246,
         "ASM sub_1536 decrements the tested bit each iteration, so bit 30 should control the second palette word even when the selected fade-curve slot contributes zero"
+    );
+}
+
+#[test]
+fn sub_14c0_builds_the_signed_15_byte_fade_curve_from_progress() {
+    let fade_curve = build_palette_fade_curve_sub_14C0(0x0080);
+
+    assert_eq!(
+        fade_curve,
+        [
+            0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, 0xFF, 0xFE, 0xFD, 0xFC, 0xFB, 0xFA,
+            0xF9,
+        ],
+        "ASM sub_14C0 should build the same signed fade curve bytes that loc_14EE stores to $FFFFF878 when fade progress is $80"
+    );
+}
+
+#[test]
+fn sub_14c0_dispatches_both_palette_halves_and_clears_pending_masks() {
+    let mut palette_buffer_2 = [0u16; 0x40];
+    let mut palette_buffer_3 = [0u16; 0x40];
+    let mut palette_buffer = [0x0EEE; 0x40];
+    palette_buffer_2[0] = 0x0ACE;
+    palette_buffer_3[0] = 0x0246;
+    palette_buffer_2[0x20] = 0x0246;
+    palette_buffer_3[0x20] = 0x0ACE;
+    let mut pending_palette_0_mask = 0x8000_0000;
+    let mut pending_palette_1_mask = 0x8000_0000;
+
+    apply_pending_palette_fade_sub_14C0(
+        0x0080,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+
+    assert_eq!(
+        palette_buffer[0], 0x068A,
+        "ASM sub_14C0 should dispatch sub_1536 over Palette_Buffer words $00..$1F when $FFFFF888 is non-zero"
+    );
+    assert_eq!(
+        palette_buffer[0x20], 0x068A,
+        "ASM sub_14C0 should then dispatch sub_1536 over Palette_Buffer+$40 when $FFFFF88C is non-zero"
+    );
+    assert_eq!(
+        pending_palette_0_mask, 0,
+        "ASM sub_14C0 clears $FFFFF888 after blending the first palette half"
+    );
+    assert_eq!(
+        pending_palette_1_mask, 0,
+        "ASM sub_14C0 clears $FFFFF88C after blending the second palette half"
+    );
+    assert_eq!(
+        palette_buffer[1], 0x0EEE,
+        "ASM sub_14C0 must not touch other palette words when their pending bits are clear"
     );
 }
 
