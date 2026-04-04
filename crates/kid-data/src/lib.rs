@@ -398,6 +398,12 @@ pub struct BackgroundRowUploadSub303BA {
     pub lower_longwords: Vec<u32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BackgroundScrollUpdateSub304B4 {
+    pub background_buffer_column: u16,
+    pub vram_word_offset: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OptionMenuTileSplitUploadSub1CCAE {
     pub upper_vram_word_address: u16,
@@ -2529,6 +2535,42 @@ pub fn background_row_upload_sub_303BA(
         upper_longwords: longwords_from_bytes_sub_303BA(source_upper, row_byte_offset, 16)?,
         lower_longwords: longwords_from_bytes_sub_303BA(source_lower, row_byte_offset, 16)?,
     }))
+}
+
+#[allow(non_snake_case)]
+pub fn background_scroll_update_sub_304B4(
+    current_scroll_pixels: i16,
+    background_width: u16,
+    moved_left: bool,
+) -> Result<BackgroundScrollUpdateSub304B4> {
+    // ASM sub_304B4 (kid.asm:34134): convert the new layer scroll position at
+    // `4(a0)` into a wrapped background-buffer column and a VDP word offset.
+    // Leftward movement uses `current>>3`; rightward movement uses
+    // `(current>>3)+#$28` so the newly exposed column comes from the far edge
+    // of the 40-cell viewport. The buffer column then wraps by repeatedly
+    // subtracting `Background_width`, while the VDP word offset keeps the
+    // pre-wrap value masked to 64 columns.
+    ensure!(
+        background_width != 0,
+        "sub_304B4 needs a non-zero Background_width"
+    );
+
+    let mut unwrapped_column = current_scroll_pixels >> 3;
+    if !moved_left {
+        unwrapped_column = unwrapped_column.wrapping_add(0x0028);
+    }
+
+    let mut wrapped_column = unwrapped_column;
+    let background_width_i16 = i16::try_from(background_width)
+        .context("sub_304B4 Background_width should fit into i16")?;
+    while wrapped_column >= background_width_i16 {
+        wrapped_column = wrapped_column.wrapping_sub(background_width_i16);
+    }
+
+    Ok(BackgroundScrollUpdateSub304B4 {
+        background_buffer_column: wrapped_column as u16,
+        vram_word_offset: (((unwrapped_column as u16) & 0x003F) << 1),
+    })
 }
 
 #[allow(non_snake_case)]
@@ -6411,5 +6453,35 @@ PlatformScript_361C:   ; relative offset: 001A
             "ASM sub_303BA should switch Desert themes to `2(a0,d0.w)` and selectors `>=#$1C` to `$FFFF8EB2 + row*64`",
         );
         assert_eq!(upload.lower_longwords, layer_1_pattern);
+    }
+
+    #[test]
+    fn background_scroll_update_sub_304b4_uses_the_visible_left_edge_when_scrolling_left() {
+        let update = background_scroll_update_sub_304B4(16, 40, true)
+            .expect("ASM sub_304B4 should accept a valid leftward scroll update");
+
+        assert_eq!(
+            update,
+            BackgroundScrollUpdateSub304B4 {
+                background_buffer_column: 2,
+                vram_word_offset: 4,
+            },
+            "ASM sub_304B4 should use `current>>3` directly when the previous tile column was greater than the new one",
+        );
+    }
+
+    #[test]
+    fn background_scroll_update_sub_304b4_adds_the_40_cell_viewport_when_scrolling_right() {
+        let update = background_scroll_update_sub_304B4(16, 40, false)
+            .expect("ASM sub_304B4 should accept a valid rightward scroll update");
+
+        assert_eq!(
+            update,
+            BackgroundScrollUpdateSub304B4 {
+                background_buffer_column: 2,
+                vram_word_offset: 84,
+            },
+            "ASM sub_304B4 should add `#$28` before wrapping so the upload targets the newly exposed far column while keeping the pre-wrap VDP offset",
+        );
     }
 }
