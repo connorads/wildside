@@ -54,6 +54,20 @@ fn imported_early_start_boot_script() -> Vec<u8> {
     script
 }
 
+fn collision_rect_sub_1f52(
+    left_px: i16,
+    right_px: i16,
+    top_px: i16,
+    bottom_px: i16,
+) -> CollisionRectSub1F52 {
+    CollisionRectSub1F52 {
+        left_px,
+        right_px,
+        top_px,
+        bottom_px,
+    }
+}
+
 #[test]
 fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
     // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
@@ -71,6 +85,52 @@ fn rom_random_state_matches_get_randomnumber_word_seeded_sequence() {
     let expected = [0x81C0, 0x9203, 0x97A3, 0x1C09];
     let actual = expected.map(|_| rng.next_word());
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn support_overlap_detected_sub_1f52_accepts_inclusive_edge_contacts() {
+    let overlapped = support_overlap_detected_sub_1F52(
+        collision_rect_sub_1f52(100, 120, 40, 80),
+        &[collision_rect_sub_1f52(120, 136, 55, 70)],
+    );
+
+    assert!(
+        overlapped,
+        "ASM sub_1F52 should treat `object_left == Kid_hitbox_right` as overlapping because the scan only skips on signed `bgt` / `blt` misses",
+    );
+}
+
+#[test]
+fn support_overlap_detected_sub_1f52_skips_earlier_misses_until_a_later_hit() {
+    let overlapped = support_overlap_detected_sub_1F52(
+        collision_rect_sub_1f52(100, 120, 40, 80),
+        &[
+            collision_rect_sub_1f52(121, 135, 50, 70),
+            collision_rect_sub_1f52(90, 110, 81, 95),
+            collision_rect_sub_1f52(95, 105, 60, 70),
+        ],
+    );
+
+    assert!(
+        overlapped,
+        "ASM sub_1F52 should keep scanning 8-byte entries until it finds the first inclusive overlap",
+    );
+}
+
+#[test]
+fn support_overlap_detected_sub_1f52_stops_at_the_zero_left_edge_terminator() {
+    let overlapped = support_overlap_detected_sub_1F52(
+        collision_rect_sub_1f52(100, 120, 40, 80),
+        &[
+            collision_rect_sub_1f52(0, 0, 0, 0),
+            collision_rect_sub_1f52(95, 105, 60, 70),
+        ],
+    );
+
+    assert!(
+        !overlapped,
+        "ASM sub_1F52 should stop immediately when the entry's first word is zero, even if later RAM slots would overlap",
+    );
 }
 
 fn manifest() -> AssetManifest {

@@ -818,6 +818,41 @@ pub(crate) struct EnemyContactBounds {
     pub(crate) bottom_px: i64,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CollisionRectSub1F52 {
+    pub(crate) left_px: i16,
+    pub(crate) right_px: i16,
+    pub(crate) top_px: i16,
+    pub(crate) bottom_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn support_overlap_detected_sub_1F52(
+    kid_hitbox: CollisionRectSub1F52,
+    overlap_candidates: &[CollisionRectSub1F52],
+) -> bool {
+    // ASM sub_1F52 (kid.asm:3740): walk the `$FFFFF20A` rectangle list in
+    // 8-byte steps until a zero left-edge word terminates the scan. Treat the
+    // four comparisons as inclusive signed bounds; any overlap marks Kid as
+    // `colid_kidbelow`.
+    for candidate in overlap_candidates {
+        if candidate.left_px == 0 {
+            return false;
+        }
+        if candidate.left_px > kid_hitbox.right_px
+            || candidate.right_px < kid_hitbox.left_px
+            || candidate.top_px > kid_hitbox.bottom_px
+            || candidate.bottom_px < kid_hitbox.top_px
+        {
+            continue;
+        }
+        return true;
+    }
+    false
+}
+
 pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     match enemy.kind {
         NativeObjectKind::Enemy { object_type: 0x0D } => dragon_walking_contact_bounds(enemy),
