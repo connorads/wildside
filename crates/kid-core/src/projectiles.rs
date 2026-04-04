@@ -1,6 +1,31 @@
 use super::*;
 use crate::enemies::{archer_adjust_angle, archer_angle_to_player, arrow_velocity_from_angle};
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidProjectileCollisionPassSub1D76 {
+    pub(crate) object_list_head_address: u32,
+    pub(crate) collision_mode: u8,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_collision_passes_sub_1D76() -> [KidProjectileCollisionPassSub1D76; 2] {
+    // ASM sub_1D76 (kid.asm:3537): dispatch Kid projectile collision through
+    // sub_1D84 twice, first with list head `$FFFFF862` and `d7=0`, then with
+    // list head `$FFFFF5A0` and `d7=1` before falling through into sub_1D84.
+    [
+        KidProjectileCollisionPassSub1D76 {
+            object_list_head_address: 0x00FF_F862,
+            collision_mode: 0,
+        },
+        KidProjectileCollisionPassSub1D76 {
+            object_list_head_address: 0x00FF_F5A0,
+            collision_mode: 1,
+        },
+    ]
+}
+
 impl NativeRuntime {
     fn release_lion_projectile_owners(&mut self, owners: Vec<EnemyProjectileOwner>) {
         for owner in owners {

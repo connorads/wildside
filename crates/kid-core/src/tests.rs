@@ -8,6 +8,9 @@ use crate::level::{
     fade_palette_span_sub_1C85E, swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
+use crate::projectiles::{
+    KidProjectileCollisionPassSub1D76, kid_projectile_collision_passes_sub_1D76,
+};
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
     PlatformLayout, PlatformPlacement, PlatformScriptRef,
@@ -27994,6 +27997,26 @@ fn projectile_friendly_does_not_hit_player() {
         rt.projectiles.len(),
         1,
         "friendly projectile should survive"
+    );
+}
+
+#[test]
+fn kid_projectile_collision_passes_sub_1d76_dispatches_the_two_rom_list_heads() {
+    let passes = kid_projectile_collision_passes_sub_1D76();
+
+    assert_eq!(
+        passes,
+        [
+            KidProjectileCollisionPassSub1D76 {
+                object_list_head_address: 0x00FF_F862,
+                collision_mode: 0,
+            },
+            KidProjectileCollisionPassSub1D76 {
+                object_list_head_address: 0x00FF_F5A0,
+                collision_mode: 1,
+            },
+        ],
+        "ASM sub_1D76 should call sub_1D84 twice: once for `$FFFFF862` with `d7=0`, then for `$FFFFF5A0` with `d7=1`",
     );
 }
 
