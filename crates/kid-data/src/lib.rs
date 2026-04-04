@@ -1212,6 +1212,18 @@ fn compose_indoor_rubber_block_art_sub_144DA(
         .collect()
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn vram_read_control_word_sub_14582(vram_word_address: u16) -> u32 {
+    // ASM sub_14582 (kid.asm:27442): convert the caller's VRAM word address
+    // into a VDP VRAM-read control word, carrying the original address bits
+    // 14-15 into the low control word after the longword rotate and clearing
+    // the command bits to the VRAM-read form.
+    let control_low = (vram_word_address >> 14) & 0x0003;
+    let control_high = u32::from(vram_word_address & 0x3FFF) << 16;
+    control_high | u32::from(control_low)
+}
+
 fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLevelAssets>> {
     let mut results = Vec::new();
     for level in &manifest.levels {
@@ -2946,6 +2958,20 @@ AddrTbl_LevelNames:   ;1A842
             composed,
             vec![0xF2, 0x3F, 0xA5, 0x89],
             "ASM sub_144DA should preserve non-zero indoor base nibbles and only fill the empty nibbles from the rubber overlay art"
+        );
+    }
+
+    #[test]
+    fn sub_14582_builds_vram_read_control_word() {
+        assert_eq!(
+            vram_read_control_word_sub_14582(0x026E),
+            0x026E_0000,
+            "ASM sub_14582 should emit the VRAM-read control word for word address $026E"
+        );
+        assert_eq!(
+            vram_read_control_word_sub_14582(0x5F60),
+            0x1F60_0001,
+            "ASM sub_14582 should mask the VRAM word address to 14 bits and carry the original high address bits into the low control word"
         );
     }
 
