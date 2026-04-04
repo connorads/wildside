@@ -749,6 +749,18 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            // Native level entry depends on generated `level-layout` dumps for
+            // floor snap/collision. Preflight the early boot path here so
+            // manual play does not open into a misleading loading-screen stall.
+            if let Some(level_id) = warp_level {
+                ensure_level_layouts(&rom_path, &manifest, &[level_id])?;
+            } else {
+                ensure_gameplay_level_layouts(
+                    &rom_path,
+                    &manifest,
+                    GameplayScenario::ProgressTwoTransitions,
+                )?;
+            }
             let record_to = record
                 .as_deref()
                 .map(validate_recording_slug)
@@ -2182,9 +2194,9 @@ mod tests {
         audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
         capture_native_gameplay_scenario, compare_native_gameplay_with,
         compare_native_states_against_oracle, ensure_gameplay_level_layouts_with,
-        find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
-        parse_button_mask, parse_input_spec, prepare_generated_assets_with,
-        selected_reference_repos,
+        ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
+        native_trace_to_oracle_state, parse_button_mask, parse_input_spec,
+        prepare_generated_assets_with, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -3015,6 +3027,57 @@ AddrTbl_LevelNames:
         assert!(dumped_levels.borrow().is_empty());
         assert!(!layout_dir.join("09.bin").exists());
         assert!(!layout_dir.join("09.json").exists());
+    }
+
+    #[test]
+    fn ensure_level_layouts_only_dumps_requested_missing_levels() {
+        let bundle_root = TempDir::new().expect("bundle root");
+        let layout_dir = bundle_root.path().join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir");
+        fs::write(layout_dir.join("00.bin"), [0x60, 0x00]).expect("existing layout");
+        fs::write(
+            layout_dir.join("00.json"),
+            br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+        )
+        .expect("existing layout metadata");
+
+        let manifest = AssetManifest {
+            generated_bundle_version: 8,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("deadbeef"),
+            source_root: bundle_root.path().to_path_buf(),
+            output_root: bundle_root.path().to_path_buf(),
+            map_order: vec![],
+            levels: vec![],
+            constants: vec![],
+            ram_variables: vec![],
+            enemy_sources: vec![],
+            theme_assets: vec![],
+            scene_assets: vec![],
+            animation_assets: vec![],
+            sound_assets: vec![],
+            ingame_assets: vec![],
+            decoded_levels: vec![],
+        };
+
+        let dumped_levels = RefCell::new(Vec::new());
+        ensure_level_layouts_with(b"rom", &manifest, &[0x00, 0x02], |_, level_id, out_dir| {
+            dumped_levels.borrow_mut().push(level_id);
+            fs::write(out_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                .expect("dumped layout");
+            fs::write(
+                out_dir.join(format!("{level_id:02X}.json")),
+                br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+            )
+            .expect("dumped layout metadata");
+            Ok(())
+        })
+        .expect("missing requested layouts should be dumped");
+
+        assert_eq!(*dumped_levels.borrow(), vec![0x02]);
+        assert!(layout_dir.join("02.bin").is_file());
+        assert!(layout_dir.join("02.json").is_file());
+        assert!(!layout_dir.join("01.bin").exists());
     }
 
     #[test]

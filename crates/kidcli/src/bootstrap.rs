@@ -196,6 +196,16 @@ pub(crate) fn ensure_gameplay_level_layouts(
     ensure_gameplay_level_layouts_with(&rom_bytes, manifest, scenario, super::dump_level_layout)
 }
 
+pub(crate) fn ensure_level_layouts(
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    level_ids: &[u8],
+) -> Result<()> {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    ensure_level_layouts_with(&rom_bytes, manifest, level_ids, super::dump_level_layout)
+}
+
 pub(crate) fn ensure_gameplay_level_layouts_with<FDump>(
     rom_bytes: &[u8],
     manifest: &AssetManifest,
@@ -226,6 +236,35 @@ where
             // on an oracle-only extraction failure.
             continue;
         }
+        dump_level_layout_fn(rom_bytes, level_id, &layout_dir)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn ensure_level_layouts_with<FDump>(
+    rom_bytes: &[u8],
+    manifest: &AssetManifest,
+    level_ids: &[u8],
+    dump_level_layout_fn: FDump,
+) -> Result<()>
+where
+    FDump: Fn(&[u8], u8, &Path) -> Result<()>,
+{
+    let layout_dir = manifest.output_root.join("level-layout");
+    let missing_levels = level_ids
+        .iter()
+        .copied()
+        .filter(|level_id| {
+            let data_path = layout_dir.join(format!("{level_id:02X}.bin"));
+            let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+            !(data_path.is_file() && metadata_path.is_file())
+        })
+        .collect::<Vec<_>>();
+    if missing_levels.is_empty() {
+        return Ok(());
+    }
+
+    for level_id in missing_levels {
         dump_level_layout_fn(rom_bytes, level_id, &layout_dir)?;
     }
     Ok(())

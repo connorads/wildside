@@ -24,6 +24,17 @@ run = "cargo run --release -p kidcli -- play"
 [tasks.play-native]
 run = "cargo run --release -p kidcli -- play-native"
 
+[tasks.bootstrap-native]
+run = """
+sh -ec '
+cargo run -p kidcli -- extract-assets
+for level in 00 01 02; do
+  cargo run -p kidcli -- dump-level-layout --level "$level"
+done
+'
+"""
+description = "Prepare native-play assets plus early gameplay level-layout dumps for levels 00-02"
+
 [tasks.probe-cpu]
 run = "cargo run -p kidcli -- probe-cpu"
 

@@ -15,6 +15,7 @@ Start with `kidcli project-status` or `mise run project-status`.
 
 - `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
 - `kidcli play-native` starts the native runtime in a release build. By default it runs the native boot/title/game flow; use `--warp-level <hex> --settled` for a direct settled level playtest.
+- `mise run bootstrap-native` is the canonical native-play setup command. It exports the generated asset bundle and dumps the early gameplay `level-layout` grids for levels `00-02`.
 - `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
 - `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
 - `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
@@ -24,6 +25,7 @@ Start with `kidcli project-status` or `mise run project-status`.
 - `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
 - `kidcli oracle-setup` clones pinned external oracle repos under `.cache/oracles/`, builds a cache-local `jgenesis` helper, and clones `BlastEm` for optional manual debugger use.
 - `kidcli extract-assets` runs the upstream split flow for the local ROM and exports a typed generated asset bundle under `.cache/generated/<rom-sha1>/`, including parsed level and enemy metadata in the manifest for native-runtime use.
+- `kidcli dump-level-layout --level <hex>` dumps the generated collision grid used by the native runtime into `.cache/generated/<rom-sha1>/level-layout/`.
 - `kidcli probe-native --scenario ...` runs the native source-port bootstrap path against an existing scripted scenario and prints semantic checkpoints, including active roster state.
 - `kidcli inspect-level --level ...` loads a typed level bundle from the generated cache and prints parsed level header metadata, bgscroll profile summary, platform layout summary, enemy layout summary, and the concrete resource files and byte sizes for that level.
 - `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
@@ -75,6 +77,7 @@ Start with `kidcli project-status` or `mise run project-status`.
 
 ```bash
 mise trust .mise.toml
+mise run bootstrap-native
 mise run project-status
 mise run play
 mise run play-native
@@ -95,6 +98,7 @@ cargo run -p kidcli -- verify-recording --bundle /tmp/level1-tree-break
 mise run verify-audio-driver
 mise run oracle-setup
 mise run extract-assets
+mise run dump-level-layout 00
 mise run probe-native
 mise run inspect-level
 mise run inspect-enemy
@@ -123,6 +127,7 @@ Verification tasks intentionally fail on Rust warnings. Use `mise run verify-*`,
 `mise run test`, `mise run verify-slice-fast`, `mise run verify-slice-full`,
 `mise run verify-1p-playable`, `mise run release-gate`, and the sweep tasks when you want a clean warning-free gate;
 use `mise run play` or `mise run play-native` for manual work without that strictness.
+For first-time native setup, prefer `mise run bootstrap-native` over `mise run extract-assets`.
 
 For the source-port research map and local reference layout, start with `CLAUDE.md`, `docs/source-port/reference-index.md`, and `docs/source-port/level-1-full-traversal.md`.
 
@@ -250,7 +255,7 @@ The new generated source-port bundle is written under `.cache/generated/<rom-sha
 
 The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
-`play-native` is the native source-port runtime. By default it uses the native boot/title/game flow. For direct manual bug work on a specific level, use `--warp-level <hex> --settled`. Use `--debug-overlay` or `Tab` if you want the trace overlay while testing.
+`play-native` is the native source-port runtime. By default it uses the native boot/title/game flow, auto-dumping missing early gameplay `level-layout` grids for levels `00-02` before launch. For direct manual bug work on a specific level, use `--warp-level <hex> --settled`. Use `--debug-overlay` or `Tab` if you want the trace overlay while testing.
 
 The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
