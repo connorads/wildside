@@ -333,6 +333,22 @@ pub(crate) fn end_sequence_display_refresh_sub_1D830(
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_camera_shake_sub_1D846(
+    random_x_byte: u8,
+    random_y_byte: u8,
+    v_int_counter: u8,
+) -> (i16, i16) {
+    // ASM sub_1D846 (kid.asm:33087): fetch two random bytes, XOR both with
+    // `V_Int_counter` after `bclr #7,d5`, sign-extend each byte to a word,
+    // arithmetic-shift right by 5, then store the results in Camera_X/Y_pos.
+    let masked_v_int = v_int_counter & 0x7F;
+    let camera_x_pos = i16::from((random_x_byte ^ masked_v_int) as i8) >> 5;
+    let camera_y_pos = i16::from((random_y_byte ^ masked_v_int) as i8) >> 5;
+    (camera_x_pos, camera_y_pos)
+}
+
 impl NativeRuntime {
     fn activate_intro_sequence_3_roster(&mut self) {
         self.active_intro_sequence_3_roster_index = self.next_intro_sequence_3_roster_index;

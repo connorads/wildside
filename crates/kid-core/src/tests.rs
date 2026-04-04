@@ -1,5 +1,8 @@
 use super::*;
-use crate::boot::{end_sequence_display_refresh_sub_1D830, sega_screen_tile_strip_sub_12E3C};
+use crate::boot::{
+    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
+    sega_screen_tile_strip_sub_12E3C,
+};
 use crate::combat::*;
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
@@ -18576,6 +18579,25 @@ fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_pane
     assert_eq!(
         refresh.right_panel_x, -0x0008,
         "ASM sub_1D830 should preserve sub_1CC88's right worker offset update after refreshing the display",
+    );
+}
+
+#[test]
+fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
+    let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
+
+    assert_eq!(
+        camera_x_pos, -4,
+        "ASM sub_1D846 should clear bit 7 of `V_Int_counter`, XOR the first RNG byte, then `asr.w #5` the signed result into Camera_X_pos",
+    );
+    assert_eq!(
+        camera_y_pos, 0,
+        "ASM sub_1D846 should reuse the same masked `V_Int_counter` byte for the second RNG byte before writing Camera_Y_pos",
+    );
+    assert_eq!(
+        end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x05),
+        (camera_x_pos, camera_y_pos),
+        "ASM sub_1D846's `bclr #7,d5` means the top bit of `V_Int_counter` must not affect either camera offset",
     );
 }
 
