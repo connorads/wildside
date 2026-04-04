@@ -20008,6 +20008,27 @@ fn boss_head_movement_wrapper_sub_398bc_rewinds_negative_sentinel_entries_to_unk
 }
 
 #[test]
+fn boss_head_movement_step_sub_398c4_rewinds_negative_sentinel_entries_to_unk_398f0() {
+    let sentinel_only_script = [(-1, 0, 0)];
+
+    let result = boss_head_movement_step_sub_398C4(1, 0, &sentinel_only_script);
+
+    assert_eq!(
+        result.next_delay_counter, 0x0096,
+        "ASM loc_398CA should treat the negative delay as the sentinel and rewind `a2` to `unk_398F0`",
+    );
+    assert_eq!(
+        result.next_script_index, 1,
+        "ASM sub_398C4 should resume after the first real Boomerang head-1 script entry",
+    );
+    assert_eq!(
+        (result.next_x_velocity, result.next_y_velocity),
+        (Some(0), Some(0)),
+        "ASM loc_398D6 should load the first `(0, 0)` velocity pair from `unk_398F0` after the rewind",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
