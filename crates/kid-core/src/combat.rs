@@ -209,6 +209,13 @@ pub(crate) struct BossEyeSpriteRefreshSlotSub37ABC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeDetachStepSub393B2 {
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) next_sprite_word_y_adjust: u16,
+    pub(crate) rerank_gfx_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -568,6 +575,21 @@ pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
     }
 
     slots
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_detach_step_sub_393B2(
+    sprite_word_y_adjust: u16,
+) -> BossEyeDetachStepSub393B2 {
+    // ASM sub_393B2 (kid.asm:41947): preserve `d0`, play
+    // `sfx_Boss_eye_pops`, add 4 to `$A(a3)`, then run sub_FF6 so the gfx
+    // object list is re-sorted around the new sprite-word Y offset.
+    BossEyeDetachStepSub393B2 {
+        sound_effect_label: "sfx_Boss_eye_pops",
+        next_sprite_word_y_adjust: sprite_word_y_adjust.wrapping_add(4),
+        rerank_gfx_object: true,
+    }
 }
 
 #[allow(non_snake_case)]

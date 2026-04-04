@@ -19744,6 +19744,24 @@ fn boss_eye_refresh_attack_sprites_sub_37abc_updates_each_live_slot_and_skips_nu
 }
 
 #[test]
+fn boss_eye_detach_step_sub_393b2_plays_the_pop_sound_and_raises_sprite_order() {
+    let result = boss_eye_detach_step_sub_393B2(0x0012);
+
+    assert_eq!(
+        result.sound_effect_label, "sfx_Boss_eye_pops",
+        "ASM sub_393B2 should queue `sfx_Boss_eye_pops` before detaching the worker",
+    );
+    assert_eq!(
+        result.next_sprite_word_y_adjust, 0x0016,
+        "ASM sub_393B2 should add 4 to `$A(a3)` before the worker starts falling",
+    );
+    assert!(
+        result.rerank_gfx_object,
+        "ASM sub_393B2 should call sub_FF6 after changing `$A(a3)` so the gfx-object list is resorted",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
