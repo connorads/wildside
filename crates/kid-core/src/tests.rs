@@ -19928,6 +19928,30 @@ fn heady_metal_palette_cycle_sub_379e8_wraps_the_phase_and_selects_the_palette_w
 }
 
 #[test]
+fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buckets() {
+    assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(true, 0x08, 0x0040, 0x0040, 0x0050, 0x0050),
+        "LnkTo_unk_C8488-Data_Index",
+        "ASM sub_37A22 should force `LnkTo_unk_C8488-Data_Index` when diamond power is active and bit 3 is set",
+    );
+    assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(true, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
+        "LnkTo_unk_C84A8-Data_Index",
+        "ASM sub_37A22 should force `LnkTo_unk_C84A8-Data_Index` when diamond power is active and bit 3 is clear",
+    );
+    assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0040, 0x0030),
+        "LnkTo_unk_C8488-Data_Index",
+        "ASM sub_37A22 should choose the upward-facing mapping when Kid is more than 4px above the worker",
+    );
+    assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
+        "LnkTo_unk_C84B0-Data_Index",
+        "ASM sub_37A22 should choose the down-right mapping when Kid is below and right of the worker",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collision_type_2c() {
     let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 0xFFFF, 0, 0, {
         let mut pieces = [None; 13];

@@ -685,6 +685,50 @@ pub(crate) fn heady_metal_palette_cycle_sub_379E8(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_piece_sprite_sub_37A22(
+    diamond_power_active: bool,
+    v_int_counter_fff809: u8,
+    effect_x: u16,
+    effect_y: u16,
+    kid_x: u16,
+    kid_y: u16,
+) -> &'static str {
+    // ASM sub_37A22 (kid.asm:39896): diamond power forces the top/centre
+    // HeadyMetal mappings; otherwise pick one of the first eight entries from
+    // `off_37A02` using the same directional buckets as sub_37AF0.
+    if diamond_power_active {
+        return if v_int_counter_fff809 & 8 != 0 {
+            "LnkTo_unk_C8488-Data_Index"
+        } else {
+            "LnkTo_unk_C84A8-Data_Index"
+        };
+    }
+
+    if kid_y > effect_y.saturating_add(4) {
+        if kid_x < effect_x.saturating_sub(4) {
+            "LnkTo_unk_C84A0-Data_Index"
+        } else if kid_x > effect_x.saturating_add(4) {
+            "LnkTo_unk_C84B0-Data_Index"
+        } else {
+            "LnkTo_unk_C84A8-Data_Index"
+        }
+    } else if kid_y < effect_y.saturating_sub(4) {
+        if kid_x < effect_x.saturating_sub(4) {
+            "LnkTo_unk_C8490-Data_Index"
+        } else if kid_x > effect_x.saturating_add(4) {
+            "LnkTo_unk_C84C0-Data_Index"
+        } else {
+            "LnkTo_unk_C8488-Data_Index"
+        }
+    } else if kid_x < effect_x.saturating_sub(8) {
+        "LnkTo_unk_C8498-Data_Index"
+    } else {
+        "LnkTo_unk_C84B8-Data_Index"
+    }
+}
+
 const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [
     0, 7, 2, 10, 4, 3, 8, 5, 9, 12, 6, 11, 1, 12, 2, 7, 4, 9, 6, 3, 10, 5, 8, 11, 1, 2, 1, 7, 4, 9,
     6, 3, 10, 5, 8, 11, 12,
