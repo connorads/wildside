@@ -964,6 +964,7 @@ pub(crate) fn activate_enemies(
         camera_y_px,
         level_bounds,
         player_x,
+        0,
         killed,
         &mut rng,
     );
@@ -978,6 +979,7 @@ pub(crate) fn activate_enemies_with_rng(
     camera_y_px: u32,
     level_bounds: physics::LevelBounds,
     player_x: u32,
+    blank_top_rows: u16,
     killed: &std::collections::HashSet<(usize, usize)>,
     rng: &mut RomRandomState,
 ) {
@@ -1020,7 +1022,7 @@ pub(crate) fn activate_enemies_with_rng(
         // enemy_level(a3). Dragon Flying is the exception: it reuses the same
         // layout word as a script variant selector instead of HP scaling.
         let enemy_level = object.hit_points_plus_one as u8;
-        let spawn_y = spawn_y_pos(family, object_y);
+        let spawn_y = spawn_y_pos_sub_36FF4(family, object_y, blank_top_rows);
         // Dragon Flying: variant from layout, anchor Y from spawn position (ASM $44(a5)).
         let dragon_variant = if matches!(family, EnemyFamily::Dragon) {
             object.hit_points_plus_one as u8
@@ -4804,7 +4806,27 @@ pub(crate) fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn spawn_y_pos(family: EnemyFamily, object_y: u32) -> u32 {
+    spawn_y_pos_sub_36FF4(family, object_y, 0)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows: u16) -> u32 {
+    // ASM sub_36FF4 (kid.asm:38882): load `Number_blank_top_rows`, shift left
+    // by 4, and add that pixel offset to `y_pos(a3)`.
+    u32::from(blank_top_rows) << 4
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spawn_y_pos_sub_36FF4(
+    family: EnemyFamily,
+    object_y: u32,
+    blank_top_rows: u16,
+) -> u32 {
+    let object_y = object_y.saturating_add(enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows));
     match family {
         EnemyFamily::Dragon => object_y.saturating_add(DRAGON_SPAWN_Y_OFFSET_PX) << 16,
         EnemyFamily::DragonWalking => {
@@ -5123,6 +5145,12 @@ impl NativeRuntime {
         let level_bounds = self.level_bounds(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
+        let blank_top_rows = self
+            .level_header(self.current_level)
+            .map(|header| {
+                terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+            })
+            .unwrap_or(0);
         if let Some(enemy_layout) = enemy_layout.as_ref() {
             if self.enemy_loading_enabled() {
                 activate_enemies_with_rng(
@@ -5133,6 +5161,7 @@ impl NativeRuntime {
                     camera_y_px,
                     level_bounds,
                     slice.player.x_pos,
+                    blank_top_rows,
                     &self.killed_enemies,
                     &mut self.rom_random,
                 );

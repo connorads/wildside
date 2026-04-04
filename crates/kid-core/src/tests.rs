@@ -11252,6 +11252,34 @@ fn big_hopping_skull_gravity_matches_asm() {
     assert_eq!(BIG_SKULL_GRAVITY, 0xFA0);
 }
 
+#[test]
+fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
+    assert_eq!(
+        enemies::enemy_spawn_y_adjustment_sub_36FF4(0),
+        0,
+        "ASM sub_36FF4 should not move enemy Y when Number_blank_top_rows is zero",
+    );
+    assert_eq!(
+        enemies::enemy_spawn_y_adjustment_sub_36FF4(6),
+        0x60,
+        "ASM sub_36FF4 should shift Number_blank_top_rows left by four to convert rows into 16px units",
+    );
+}
+
+#[test]
+fn enemy_spawn_y_pos_sub_36ff4_applies_blank_top_rows_before_family_offsets() {
+    assert_eq!(
+        enemies::spawn_y_pos_sub_36FF4(EnemyFamily::BigHoppingSkull, 0x00E0, 4),
+        0x0120_0000,
+        "ASM sub_36FF4 should add the blank-top-row pixel shift directly onto generic enemy spawn Y",
+    );
+    assert_eq!(
+        enemies::spawn_y_pos_sub_36FF4(EnemyFamily::DragonWalking, 0x00E0, 4),
+        0x0121_0000,
+        "ASM sub_36FF4 should run before Dragon Walking's extra +1px spawn offset",
+    );
+}
+
 // --- Sphere enemy ---
 
 #[test]
