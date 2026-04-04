@@ -202,6 +202,13 @@ pub(crate) struct BossEyeAttackStepSub37332 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeSpriteRefreshSlotSub37ABC {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_mapping: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -533,6 +540,34 @@ pub(crate) fn boss_eye_attack_step_sub_37332(
         ),
         delete_current_object: inputs.effect_y > inputs.level_height_pixels,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
+    mut slots: [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12],
+    diamond_power_active: bool,
+    v_int_counter_fff809: u8,
+    kid_x: u16,
+    kid_y: u16,
+) -> [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12] {
+    // ASM sub_37ABC (kid.asm:39991): walk the 12 longword worker pointers at
+    // `$FFFFFB7E`, skip null entries, and refresh `addroffset_sprite(a3)` by
+    // calling sub_37AF0 for each live boss-eye child.
+    for slot in &mut slots {
+        if let Some(worker) = slot.as_mut() {
+            worker.sprite_mapping = boss_eye_attack_sprite_sub_37332(
+                diamond_power_active,
+                v_int_counter_fff809,
+                worker.x_pos,
+                worker.y_pos,
+                kid_x,
+                kid_y,
+            );
+        }
+    }
+
+    slots
 }
 
 #[allow(non_snake_case)]

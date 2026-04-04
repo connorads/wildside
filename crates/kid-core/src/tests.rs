@@ -19676,6 +19676,74 @@ fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_b
 }
 
 #[test]
+fn boss_eye_refresh_attack_sprites_sub_37abc_updates_each_live_slot_and_skips_nulls() {
+    let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(
+        [
+            Some(BossEyeSpriteRefreshSlotSub37ABC {
+                x_pos: 0x0040,
+                y_pos: 0x0040,
+                sprite_mapping: "stale",
+            }),
+            None,
+            Some(BossEyeSpriteRefreshSlotSub37ABC {
+                x_pos: 0x0060,
+                y_pos: 0x0030,
+                sprite_mapping: "stale",
+            }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(BossEyeSpriteRefreshSlotSub37ABC {
+                x_pos: 0x0040,
+                y_pos: 0x0060,
+                sprite_mapping: "stale",
+            }),
+        ],
+        false,
+        0,
+        0x0050,
+        0x0050,
+    );
+
+    assert_eq!(
+        refreshed[0],
+        Some(BossEyeSpriteRefreshSlotSub37ABC {
+            x_pos: 0x0040,
+            y_pos: 0x0040,
+            sprite_mapping: "LnkTo_unk_C84B0-Data_Index",
+        }),
+        "ASM sub_37ABC should refresh the first live `$FFFFFB7E` worker with sub_37AF0's directional mapping",
+    );
+    assert_eq!(
+        refreshed[1], None,
+        "ASM sub_37ABC should skip null longwords in the fixed `$FFFFFB7E` worker table",
+    );
+    assert_eq!(
+        refreshed[2],
+        Some(BossEyeSpriteRefreshSlotSub37ABC {
+            x_pos: 0x0060,
+            y_pos: 0x0030,
+            sprite_mapping: "LnkTo_unk_C84A0-Data_Index",
+        }),
+        "ASM sub_37ABC should keep iterating through later live workers before the `dbf` terminates",
+    );
+    assert_eq!(
+        refreshed[11],
+        Some(BossEyeSpriteRefreshSlotSub37ABC {
+            x_pos: 0x0040,
+            y_pos: 0x0060,
+            sprite_mapping: "LnkTo_unk_C84C0-Data_Index",
+        }),
+        "ASM sub_37ABC should still refresh the twelfth worker loaded from the final loop iteration",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
