@@ -27,8 +27,8 @@ const INTRO_SEQUENCE_3_ROSTERS: [[u8; 8]; 4] = [
 const INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT: usize = 2;
 const LEVEL_ENTRY_TITLE_SLOT_2_INDEX: usize = 2;
 const LEVEL_ENTRY_TITLE_ANIMATION_FRAMES: usize = 64;
-pub(crate) const LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME: usize = 44;
-const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
+pub(crate) const LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME: usize = 43;
+pub(crate) const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
     LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1;
 // ASM Load_TitleCard allocates loc_1AB26/loc_1AE2E immediately, but oracle
 // boot traces do not let the queued Start edge reach visible gameplay until
@@ -222,6 +222,7 @@ impl NativeRuntime {
         else {
             return;
         };
+
         let visible_glyph_count = title_card
             .script_bytes
             .iter()
@@ -247,13 +248,23 @@ impl NativeRuntime {
                     let Some(destination) = current_destination.clone() else {
                         break;
                     };
+                    let gfx_slot_index = level_entry_title_letter_gfx_slot_index(
+                        visible_glyph_index,
+                        visible_glyph_count,
+                    );
                     let target_x_pos = u32::from(destination.x) << 16;
                     let target_y_pos =
                         u32::from(level_entry_title_target_y(glyph, destination.y)) << 16;
                     self.starting_level_title_workers
                         .push(LevelEntryTitleWorker {
-                            // Reindexed after build; see below.
-                            gfx_slot_index: visible_glyph_index,
+                            // ASM loc_1AB26 allocates title objects in script
+                            // order, but `Allocate_ObjectSlot` reverse-inserts
+                            // equal-priority workers before the next
+                            // `Execute_Objects` pass. Oracle slot probes still
+                            // read fixed gfx RAM slots directly, so keep the
+                            // traced slot id separate from the later first-pass
+                            // execution order used for RNG seeding.
+                            gfx_slot_index,
                             activation_frame: LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
                             glyph,
                             target_x_pos,
@@ -268,15 +279,6 @@ impl NativeRuntime {
                     visible_glyph_index += 1;
                 }
             }
-        }
-        for (creation_index, worker) in self.starting_level_title_workers.iter_mut().enumerate() {
-            // ASM loc_1AB26 allocates the letter workers in script order, but
-            // the equal-priority gfx list exposes them in reverse allocation
-            // order. Oracle slot 0 is therefore the last visible letter and
-            // slot 12 is the first.
-            worker.gfx_slot_index = visible_glyph_count
-                .saturating_sub(1)
-                .saturating_sub(creation_index);
         }
 
         if let Some(destination) = title_card.level_number_destination {
@@ -311,28 +313,18 @@ impl NativeRuntime {
         let workers = &mut self.starting_level_title_workers;
         let rom_random = &mut self.rom_random;
         let title_rng = &mut self.starting_level_title_rng;
-        if title_rng.is_none() && !workers.is_empty() {
-            *title_rng = Some(rom_random.clone());
-        }
-        for worker in workers {
-            let activation_frame = if matches!(
-                self.boot_state,
-                BootState::StartingLevel {
-                    uses_load_ingame_bootstrap: true,
-                    load_ingame_bootstrap_started: false,
-                    ..
-                }
-            ) {
-                EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
-            } else {
-                worker.activation_frame
-            };
-            if worker.motion.is_some() {
-                continue;
-            }
-            if uses_early_start_title_seed_rng && activation_frame > elapsed_frames {
-                continue;
-            }
+        let seed_indices = (0..workers.len())
+            .filter(|&index| {
+                let worker = &workers[index];
+                worker.motion.is_none()
+                    && level_entry_title_effective_activation_frame(
+                        worker,
+                        uses_early_start_title_seed_rng,
+                    ) == elapsed_frames
+            })
+            .collect::<Vec<_>>();
+        for index in seed_indices.into_iter().rev() {
+            let worker = &mut workers[index];
             let (start_x_pos, start_y_pos) =
                 if uses_early_start_title_seed_rng || title_rng.is_some() {
                     let rng = title_rng
@@ -366,32 +358,22 @@ impl NativeRuntime {
                         ..
                     }
                 ) {
-                    EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                    level_entry_title_effective_activation_frame(worker, true)
                 } else {
-                    worker.activation_frame
+                    level_entry_title_effective_activation_frame(worker, false)
                 };
                 if elapsed_frames < activation_frame {
                     return None;
                 }
                 worker.motion.as_ref().map(|_| {
                     // ASM loc_1AC70 -> loc_1AD2A seeds the start pose on first
-                    // execution, then keeps gliding through the hidden
-                    // bootstrap before the sprite first becomes visible.
-                    // Oracle frame 504 is therefore the first visible slot-2
-                    // shell, not the first motion step.
-                    let motion_elapsed_frames = if matches!(
-                        self.boot_state,
-                        BootState::StartingLevel {
-                            uses_load_ingame_bootstrap: true,
-                            load_ingame_bootstrap_started: false,
-                            ..
-                        }
-                    ) {
-                        elapsed_frames.saturating_sub(activation_frame)
-                    } else {
-                        elapsed_frames
-                    };
-                    PlayerState::from_level_entry_title_worker(worker, motion_elapsed_frames)
+                    // execution, then hibernates for one frame before the
+                    // first glide step. Oracle frame 504 is that first visible
+                    // shell for slot 2, while the early title-start lineage
+                    // exposes the same seeded pose on frame 172 after the
+                    // shorter pre-Start mode-$0008 setup.
+                    let visible_elapsed_frames = elapsed_frames.saturating_sub(activation_frame);
+                    PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames)
                 })
             })
     }
@@ -414,7 +396,8 @@ impl NativeRuntime {
             // there.
             return Vec::new();
         }
-        self.starting_level_title_workers
+        let mut objects = self
+            .starting_level_title_workers
             .iter()
             .filter(|worker| {
                 let activation_frame = if matches!(
@@ -425,9 +408,9 @@ impl NativeRuntime {
                         ..
                     }
                 ) {
-                    EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                    level_entry_title_effective_activation_frame(worker, true)
                 } else {
-                    worker.activation_frame
+                    level_entry_title_effective_activation_frame(worker, false)
                 };
                 worker.motion.is_some() && elapsed_frames >= activation_frame
             })
@@ -440,24 +423,13 @@ impl NativeRuntime {
                         ..
                     }
                 ) {
-                    EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                    level_entry_title_effective_activation_frame(worker, true)
                 } else {
-                    worker.activation_frame
+                    level_entry_title_effective_activation_frame(worker, false)
                 };
-                let motion_elapsed_frames = if matches!(
-                    self.boot_state,
-                    BootState::StartingLevel {
-                        uses_load_ingame_bootstrap: true,
-                        load_ingame_bootstrap_started: false,
-                        ..
-                    }
-                ) {
-                    elapsed_frames.saturating_sub(activation_frame)
-                } else {
-                    elapsed_frames
-                };
+                let visible_elapsed_frames = elapsed_frames.saturating_sub(activation_frame);
                 let pose =
-                    PlayerState::from_level_entry_title_worker(worker, motion_elapsed_frames);
+                    PlayerState::from_level_entry_title_worker(worker, visible_elapsed_frames);
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Enemy { object_type: 0 },
                     x_pos: pose.x_pos,
@@ -482,7 +454,15 @@ impl NativeRuntime {
                     )]),
                 }
             })
-            .collect()
+            .collect::<Vec<_>>();
+        objects.sort_by_key(|object| {
+            object
+                .debug_fields
+                .get("gfx_slot_index")
+                .and_then(|slot| slot.parse::<usize>().ok())
+                .unwrap_or(usize::MAX)
+        });
+        objects
     }
 }
 
@@ -501,6 +481,29 @@ fn level_entry_title_advance_x(glyph: u8) -> u16 {
         0x1D | 0x1E => 0x18,
         0x08 | 0x22 => 0x08,
         _ => 0x10,
+    }
+}
+
+fn level_entry_title_letter_gfx_slot_index(
+    visible_glyph_index: usize,
+    visible_glyph_count: usize,
+) -> usize {
+    visible_glyph_count
+        .saturating_sub(visible_glyph_index)
+        .saturating_sub(1)
+}
+
+fn level_entry_title_effective_activation_frame(
+    worker: &LevelEntryTitleWorker,
+    uses_early_start_bootstrap: bool,
+) -> usize {
+    if uses_early_start_bootstrap {
+        EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            + worker
+                .activation_frame
+                .saturating_sub(LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME)
+    } else {
+        worker.activation_frame
     }
 }
 

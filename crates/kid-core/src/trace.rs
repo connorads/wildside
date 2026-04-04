@@ -711,7 +711,8 @@ impl NativeRuntime {
             start_press_count: self.start_press_count,
             boot_phase,
             boot_phase_elapsed,
-            title_screen_ready: self.title_screen_ready(),
+            title_screen_ready: !matches!(self.boot_state, BootState::StartingLevel { .. })
+                && self.title_screen_ready(),
             current_player: self.current_player_index,
             current_level: self.current_level,
             player_1_level_id: self.current_level,
@@ -1990,11 +1991,15 @@ impl NativeRuntime {
             && !self.starting_level_title_workers.is_empty()
         {
             let total_worker_count = self.starting_level_title_workers.len() as u16;
-            // ASM Load_TitleCard allocates the hidden title-card workers up
-            // front, but the trace only exposes their gfx payload once
-            // loc_1AC70 starts the visible shell. Keep the regular bootstrap
-            // on the same 14/13 -> 15/14 count progression the oracle shows
-            // at frames 504/505 and later checkpoints 520/719.
+            // ASM Load_TitleCard / loc_1AB26 / loc_1AD48 / loc_1AE2E
+            // (kid.asm:28588-29063) keep the cold-boot mode-$0008 lineage on
+            // the carried 4-object title shell, then briefly clear object RAM
+            // before rebuilding a hidden 2-object gate, a hidden 13-object
+            // letter batch, and finally the full 15-object title-card shell.
+            // Oracle WRAM watches for the cold-boot Level 1 route show:
+            // carry through local frame 33, blank on 34..37, 2 hidden objects
+            // on 38..40, 13 hidden objects on 41, 15 hidden / 0 gfx on 42,
+            // 15 hidden / 13 gfx on 43, then 15 / 14 from 44 onward.
             return if elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
             {
                 (total_worker_count.saturating_add(1), total_worker_count)
@@ -2008,8 +2013,20 @@ impl NativeRuntime {
                 == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
             {
                 (total_worker_count.saturating_add(1), 0)
-            } else {
+            } else if elapsed_frames + 2
+                == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            {
+                (total_worker_count.saturating_sub(1), 0)
+            } else if elapsed_frames + 5
+                >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            {
+                (2, 0)
+            } else if elapsed_frames + 9
+                >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+            {
                 (0, 0)
+            } else {
+                (4, 4)
             };
         }
         if matches!(
@@ -2023,8 +2040,8 @@ impl NativeRuntime {
             if self.title_menu_active && !self.title_menu_cursor_pending {
                 return (4, 3);
             }
-            if !self.title_screen_ready() {
-                return (4, 2);
+            if let Some(counts) = self.hidden_title_screen_object_counts() {
+                return counts;
             }
         }
         if !matches!(

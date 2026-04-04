@@ -679,8 +679,9 @@ impl NativeRuntime {
         // still needs the worker shell until the later Start edge flips into
         // loc_6E2 -> Load_InGame.
         self.rebuild_starting_level_title_workers();
-        self.starting_level_title_rng =
-            (!self.starting_level_title_workers.is_empty()).then(|| self.rom_random.clone());
+        self.starting_level_title_rng = (uses_load_ingame_bootstrap
+            && !self.starting_level_title_workers.is_empty())
+        .then(|| self.rom_random.clone());
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).

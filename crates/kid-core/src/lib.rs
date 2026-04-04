@@ -145,6 +145,9 @@ pub struct NativeRuntime {
     title_idle_frames: u16,
     /// Title screen local elapsed frames, used for diagnostics and demo timing.
     title_screen_elapsed_frames: usize,
+    /// Cold-boot intro-return title rebuild uses Obj_TitleMenu's hidden shell
+    /// staging before the later title pose becomes ready.
+    title_screen_uses_intro_return_hidden_shell: bool,
     /// First global boot frame where the title pose becomes visible in trace output.
     title_screen_ready_frame: usize,
     /// Last global boot frame of the initial title attract lock.
@@ -423,6 +426,7 @@ impl NativeRuntime {
             clocks_collected: 0,
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
+            title_screen_uses_intro_return_hidden_shell: false,
             title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
             title_menu_arm_frame: 0,
             title_menu_active: false,
@@ -566,7 +570,68 @@ impl NativeRuntime {
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
         self.handle_start_press(input, start_pressed);
+        let frame_started_in_sega_screen = matches!(self.boot_state, BootState::SegaScreen { .. });
+        let frame_started_in_title_screen =
+            matches!(self.boot_state, BootState::TitleScreen { .. });
+        let frame_started_in_level_entry =
+            matches!(self.boot_state, BootState::StartingLevel { .. });
         self.step_boot_state(input, start_pressed);
+        if frame_started_in_sega_screen
+            && matches!(self.boot_state, BootState::IntroSequence { .. })
+        {
+            // ASM Sega/logo boot still runs through Mode_Standard on the frame
+            // that flips into `Game_Mode=$0004`, so Execute_Objects burns one
+            // `Get_RandomNumber_long` before IntroSequence1 becomes visible on
+            // the traced frame.
+            let _ = self.rom_random.next_long();
+        }
+        if frame_started_in_title_screen && self.title_screen_rng_long_burn_active() {
+            // ASM TitleScreen still runs through Mode_Standard
+            // (kid.asm:854-894), but oracle keeps `RNG_Offset` frozen through
+            // the hidden title rebuild window after the early `$002C`
+            // hand-off. Only burn `Get_RandomNumber_long` outside that
+            // oracle-backed freeze range.
+            let _ = self.rom_random.next_long();
+        }
+        if frame_started_in_level_entry
+            && let BootState::StartingLevel {
+                elapsed_frames,
+                uses_load_ingame_bootstrap,
+                ..
+            } = self.boot_state
+        {
+            let cold_boot_titlecard_long_burn =
+                    // Oracle `Game_Mode=$0008` WRAM probes show one immediate
+                    // `Execute_Objects -> Get_RandomNumber_long` burn on the
+                    // first traced mode-$0008 frame after the title-select
+                    // hand-off, before the longer hidden carry window goes
+                    // RNG-idle again.
+                    elapsed_frames == 1
+                    ||
+                    // Oracle WRAM watches keep the cold-boot mode-$0008 shell
+                    // RNG-idle through the hidden carry window, then expose a
+                    // single pre-visible `Execute_Objects` burn on the frame
+                    // immediately before the loc_1AB26 / loc_1AD48 seed
+                    // batches wake.
+                    elapsed_frames
+                        == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                            .saturating_sub(4)
+                        // The burn resumes on the first visible frame when
+                        // Execute_Objects first runs the loc_1AB26/loc_1AD48
+                        // workers, and continues every frame after.
+                        || elapsed_frames
+                            >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
+            if uses_load_ingame_bootstrap || cold_boot_titlecard_long_burn {
+                // ASM loc_6E2 -> Load_TitleCard keeps the cold-boot
+                // mode-$0008 title-card shell dormant through an early
+                // hidden pre-roll. The burn resumes once the
+                // loc_1AB26/loc_1AD48 workers are live within
+                // Execute_Objects — frame 43 (letter batch) and 44
+                // (deferred number) both burn, matching oracle delta of
+                // 38 bytes (4 long + 34 worker bytes).
+                let _ = self.rom_random.next_long();
+            }
+        }
         if let BootState::StartingLevel {
             elapsed_frames,
             uses_load_ingame_bootstrap,
@@ -574,9 +639,6 @@ impl NativeRuntime {
             ..
         } = self.boot_state
         {
-            // ASM Execute_Objects (kid.asm:1636-1661) begins each mode-$0008
-            // frame with `Get_RandomNumber_long` before object iteration.
-            let _ = self.rom_random.next_long();
             if uses_load_ingame_bootstrap
                 && !load_ingame_bootstrap_started
                 // ASM Obj_TitleMenu Title_InputLoop/loc_1BB52 still owns the

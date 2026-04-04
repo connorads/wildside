@@ -391,6 +391,7 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
     pub(crate) dragon_script_variant: u8,
     /// Dragon Flying: current command index within the script.
+    /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
     pub(crate) dragon_script_cmd: u8,
     /// Dragon Flying: anchor Y position (FP16.16) — initial spawn Y to return to.
     pub(crate) dragon_anchor_y: u32,
@@ -981,7 +982,7 @@ pub(crate) fn activate_enemies_with_rng(
     player_x: u32,
     blank_top_rows: u16,
     killed: &std::collections::HashSet<(usize, usize)>,
-    rng: &mut RomRandomState,
+    _rng: &mut RomRandomState,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
@@ -1125,7 +1126,9 @@ pub(crate) fn activate_enemies_with_rng(
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
             };
             if matches!(family, EnemyFamily::Tornado) {
-                reload_tornado_pattern_with_rng(&mut enemy, rng);
+                // ASM Tornado.asm seeds a movement pattern before entering the
+                // per-frame loop, so activate the first script entry here.
+                reload_tornado_pattern_script(&mut enemy);
             }
             active.push(enemy);
         }
@@ -1484,115 +1487,106 @@ pub(crate) struct TornadoPattern {
     pub(crate) y_acceleration: i32,
 }
 
-// ASM UFO.asm unk_35344: 16 entries of {target_x_vel, target_y_vel, x_accel, y_accel}.
-pub(crate) const TORNADO_PATTERNS: [TornadoPattern; 16] = [
-    TornadoPattern {
-        target_x_velocity: 0x0000_0000,
-        target_y_velocity: -0x0002_0000,
-        x_acceleration: 0x0000_0000,
-        y_acceleration: -0x0000_1000,
-    },
-    TornadoPattern {
-        target_x_velocity: 0x0001_0000,
-        target_y_velocity: -0x0002_0000,
-        x_acceleration: 0x0000_0800,
-        y_acceleration: -0x0000_1000,
-    },
+// ASM Tornado.asm `unk_35A0C`: 16-entry motion script, followed by a `$00000001`
+// sentinel that wraps back to entry 0 in `loc_359F2`.
+pub(crate) const TORNADO_PATTERN_SCRIPT: [TornadoPattern; 16] = [
     TornadoPattern {
         target_x_velocity: 0x0001_8000,
         target_y_velocity: -0x0001_8000,
-        x_acceleration: 0x0000_0C00,
-        y_acceleration: -0x0000_0C00,
-    },
-    TornadoPattern {
-        target_x_velocity: 0x0002_0000,
-        target_y_velocity: -0x0001_0000,
-        x_acceleration: 0x0000_1000,
-        y_acceleration: -0x0000_0800,
-    },
-    TornadoPattern {
-        target_x_velocity: 0x0002_0000,
-        target_y_velocity: 0x0000_0000,
-        x_acceleration: 0x0000_1000,
-        y_acceleration: 0x0000_0000,
-    },
-    TornadoPattern {
-        target_x_velocity: 0x0002_0000,
-        target_y_velocity: 0x0001_0000,
-        x_acceleration: 0x0000_1000,
-        y_acceleration: 0x0000_0800,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: -0x0000_1800,
     },
     TornadoPattern {
         target_x_velocity: 0x0001_8000,
         target_y_velocity: 0x0001_8000,
-        x_acceleration: 0x0000_0C00,
-        y_acceleration: 0x0000_0C00,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: 0x0000_1800,
     },
     TornadoPattern {
-        target_x_velocity: 0x0001_0000,
-        target_y_velocity: 0x0002_0000,
-        x_acceleration: 0x0000_0800,
-        y_acceleration: 0x0000_1000,
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: -0x0000_1800,
     },
     TornadoPattern {
-        target_x_velocity: 0x0000_0000,
-        target_y_velocity: 0x0002_0000,
-        x_acceleration: 0x0000_0000,
-        y_acceleration: 0x0000_1000,
-    },
-    TornadoPattern {
-        target_x_velocity: -0x0001_0000,
-        target_y_velocity: 0x0002_0000,
-        x_acceleration: -0x0000_0800,
-        y_acceleration: 0x0000_1000,
-    },
-    TornadoPattern {
-        target_x_velocity: -0x0001_8000,
+        target_x_velocity: 0x0001_8000,
         target_y_velocity: 0x0001_8000,
-        x_acceleration: -0x0000_0C00,
-        y_acceleration: 0x0000_0C00,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: 0x0000_1800,
     },
     TornadoPattern {
-        target_x_velocity: -0x0002_0000,
-        target_y_velocity: 0x0001_0000,
-        x_acceleration: -0x0000_1000,
-        y_acceleration: 0x0000_0800,
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: -0x0000_1800,
     },
     TornadoPattern {
-        target_x_velocity: -0x0002_0000,
-        target_y_velocity: 0x0000_0000,
-        x_acceleration: -0x0000_1000,
-        y_acceleration: 0x0000_0000,
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: 0x0000_1800,
     },
     TornadoPattern {
-        target_x_velocity: -0x0002_0000,
-        target_y_velocity: -0x0001_0000,
-        x_acceleration: -0x0000_1000,
-        y_acceleration: -0x0000_0800,
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: -0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: 0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: 0x0000_1800,
+        y_acceleration: 0x0000_1800,
     },
     TornadoPattern {
         target_x_velocity: -0x0001_8000,
         target_y_velocity: -0x0001_8000,
-        x_acceleration: -0x0000_0C00,
-        y_acceleration: -0x0000_0C00,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: -0x0000_1800,
     },
     TornadoPattern {
-        target_x_velocity: -0x0001_0000,
-        target_y_velocity: -0x0002_0000,
-        x_acceleration: -0x0000_0800,
-        y_acceleration: -0x0000_1000,
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: 0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: -0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: 0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: -0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: 0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: -0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: -0x0000_1800,
+    },
+    TornadoPattern {
+        target_x_velocity: -0x0001_8000,
+        target_y_velocity: 0x0001_8000,
+        x_acceleration: -0x0000_1800,
+        y_acceleration: 0x0000_1800,
     },
 ];
-
-pub(crate) fn tornado_pattern_index_with_rng(
-    enemy: &ActiveEnemy,
-    rng: &mut RomRandomState,
-) -> usize {
-    // ASM UFO.asm loc_35326: `Get_RandomNumber_byte`; `eor.b x_pos(a3),d7`; `andi #$F`.
-    let random_byte = rng.next_byte();
-    let x_low_byte = ((enemy.x_pos >> 16) & 0xFF) as u8;
-    usize::from((random_byte ^ x_low_byte) & 0x0F)
-}
 
 fn acceleration_for_target(
     current_velocity: i32,
@@ -1628,12 +1622,12 @@ fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, accelera
     }
 }
 
-pub(crate) fn reload_tornado_pattern_with_rng(enemy: &mut ActiveEnemy, rng: &mut RomRandomState) {
-    // ASM UFO.asm loc_35326 -> loc_35444: choose a table row, then derive the
-    // signed per-axis acceleration that drives Enemy_HandleAcceleration.
-    // ASM UFO.asm loc_34E10 then doubles both acceleration (`$4E(a5)`) and
-    // desired speed (`$4F(a5)`) for higher Tornado/UFO layout tiers.
-    let pattern = TORNADO_PATTERNS[tornado_pattern_index_with_rng(enemy, rng)];
+pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
+    // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
+    // motion script and wrap when the following longword sentinel equals 1.
+    let index = usize::from(enemy.dragon_script_cmd) % TORNADO_PATTERN_SCRIPT.len();
+    let pattern = TORNADO_PATTERN_SCRIPT[index];
+    enemy.dragon_script_cmd = ((index + 1) % TORNADO_PATTERN_SCRIPT.len()) as u8;
     let target_x_velocity = if enemy.flight_double_terminal_speed {
         pattern.target_x_velocity.saturating_mul(2)
     } else {
@@ -1676,7 +1670,7 @@ pub(crate) fn step_tornado(enemy: &mut ActiveEnemy, block_grid: Option<&terrain:
 pub(crate) fn step_tornado_with_rng(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
-    rng: &mut RomRandomState,
+    _rng: &mut RomRandomState,
 ) {
     // ASM UFO.asm Enemy_HandleAcceleration: move toward desired axis speeds.
     enemy.x_velocity = apply_acceleration_axis(
@@ -1694,11 +1688,12 @@ pub(crate) fn step_tornado_with_rng(
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-    // ASM UFO.asm loc_35326 + unk_3588C: reload a new pattern on each sub-cycle.
+    // ASM Tornado.asm loc_359F2 / unk_3588C: reload the next script entry on
+    // each sub-cycle and reset the per-level countdown.
     if enemy.wait_timer == 0 {
         let level = usize::from(enemy.enemy_level).min(2);
         enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
-        reload_tornado_pattern_with_rng(enemy, rng);
+        reload_tornado_pattern_script(enemy);
     } else {
         enemy.wait_timer -= 1;
     }

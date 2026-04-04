@@ -19,9 +19,6 @@ pub(crate) const INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES: usize = 185;
 /// `$280` DBF window. Keep the oracle-backed 686-frame hold here until the
 /// exact pre-`loc_1BB02` gate is traced from the ROM.
 pub(crate) const INTRO_SEQUENCE_6_TITLE_IDLE_FRAMES: u16 = 0x02AE;
-// The native playtest host should open on the first fully settled Level 1 frame,
-// after gravity settling places the kid on the floor.
-pub(crate) const PLAYTEST_LEVEL_SETTLE_FRAMES: usize = 349;
 pub(crate) const OPENING_GROUNDED_CAMERA_Y_FP: u32 = 0x0073_0000;
 // The opening Dragon hit lands earlier under the walk-only gameplay script than
 // under the run-held trace used by the focused timing regression.

@@ -42,18 +42,15 @@ impl NativeRuntime {
     }
 
     pub fn enter_level_playtest(&mut self, level_id: LevelId) -> NativeTraceFrame {
-        self.begin_level_entry(level_id);
-        let max_bootstrap_frames = TITLE_TO_LEVEL_FRAMES + PLAYTEST_LEVEL_SETTLE_FRAMES + 2;
-        for _ in 0..max_bootstrap_frames {
-            let trace = self.trace_frame();
-            if trace.game_mode == GameMode::InGame
-                && trace.kid_on_ground == Some(true)
-                && trace.kid_y_pos == Some(OPENING_GROUNDED_KID_Y_POS)
-            {
-                return trace;
-            }
-            self.step_frame(FrameInput::default());
-        }
+        self.warp_to_level(level_id);
+        self.opening_slice = Some(if self.block_grid().is_some() {
+            self.level_respawn_slice_with_floor_snap(level_id)
+        } else {
+            self.level_respawn_slice(level_id)
+        });
+        self.player_lifecycle = PlayerLifecycle::Alive;
+        self.progression.invulnerable_frames = 0;
+        self.refresh_active_roster();
         self.trace_frame()
     }
 }

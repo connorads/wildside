@@ -558,6 +558,7 @@ impl NativeRuntime {
         self.boot_state = BootState::TitleScreen { cursor: 0 };
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
+        self.title_screen_uses_intro_return_hidden_shell = false;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
             self.frame_index
                 .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES)
@@ -613,16 +614,7 @@ impl NativeRuntime {
         intro_sequence_1_uses_early_title_restore: bool,
     ) {
         self.enter_title_screen();
-        if self.frame_index < BOOT_TO_LEVEL_START_FRAMES[5] {
-            // ASM cold-boot intro skips expose the title shell before the
-            // interactive menu becomes live. Keep the first actionable menu
-            // Start on frame 360 so the earlier intro-skip Start taps stay
-            // inert and the frame-360 press still lands on the standard title
-            // pose instead of an already-active menu cursor.
-            self.title_menu_arm_frame = self
-                .title_menu_arm_frame
-                .max(BOOT_TO_LEVEL_START_FRAMES[5].saturating_sub(1));
-        }
+        self.title_screen_uses_intro_return_hidden_shell = true;
         // ASM sub_1C246 writes `Game_Mode=$2C` immediately, but the later
         // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs the local
         // settle window before the standard title pose appears.
@@ -676,6 +668,41 @@ impl NativeRuntime {
 
     pub(crate) fn title_screen_ready(&self) -> bool {
         self.frame_index >= self.title_screen_ready_frame
+    }
+
+    pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
+        // ASM `sub_1C246` can hand native into `Game_Mode=$002C` before the
+        // oracle-visible title shell actually reaches `Obj_TitleMenu`.
+        // Oracle WRAM probes for the cold-boot start-to-level route still see
+        // one final pre-freeze long burn on native-local title frame 59, then
+        // keep `RNG_Offset` frozen from frame 60 through 115 before the later
+        // hidden title rebuild resumes the per-frame
+        // `Execute_Objects -> Get_RandomNumber_long` cadence.
+        !(60..=115).contains(&self.title_screen_elapsed_frames)
+    }
+
+    pub(crate) fn hidden_title_screen_object_counts(&self) -> Option<(u16, u16)> {
+        if !matches!(self.boot_state, BootState::TitleScreen { .. })
+            || self.title_screen_ready()
+            || !self.title_screen_uses_intro_return_hidden_shell
+        {
+            return None;
+        }
+
+        // ASM `sub_1C246 -> Load_TitleScreen -> Obj_TitleMenu` rebuilds the
+        // hidden title shell in stages on the cold-boot intro-return lineage.
+        // Oracle gameplay windows for the early-title Start route show the
+        // carried 2/1 shell on local frames 0..26, a blank rebuild window on
+        // 27..46, then the 3/0, 5/1, 5/2, and steady 4/2 shell before
+        // `loc_1BB52` exposes the menu cursor on local frame 58.
+        Some(match self.title_screen_elapsed_frames {
+            0..=26 => (2, 1),
+            27..=46 => (0, 0),
+            47 => (3, 0),
+            48 => (5, 1),
+            49 => (5, 2),
+            _ => (4, 2),
+        })
     }
 
     pub(crate) fn demo_startup_frame(&self) -> Option<u16> {
