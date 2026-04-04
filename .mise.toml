@@ -115,7 +115,7 @@ run = "cargo run -p kidcli -- extract-assets"
 run = "cargo run -p kidcli -- reference-build"
 
 [tasks.dump-level-layout]
-run = "cargo run -p kidcli -- dump-level-layout --level ${1:-00}"
+run = "sh -c 'cargo run -p kidcli -- dump-level-layout --level \"${1:-00}\"' --"
 
 [tasks.sweep]
 run = "scripts/strict-rust.sh cargo run --release -p kidcli -- sweep"
