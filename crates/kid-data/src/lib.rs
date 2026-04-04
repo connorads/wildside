@@ -3536,8 +3536,8 @@ fn read_inline_value_sub_13588(
 ) -> Result<u16> {
     // ASM sub_13588 (kid.asm:25973): start from the caller's base tile word,
     // fold in the enabled high-flag bits from d4, then append the packet bits.
-    // This is not a thin wrapper over sub_13622: loc_13602/loc_13614 either
-    // tail into loc_13650 or reload d5/d6 directly from the next 16-bit word.
+    // loc_13602/loc_13614 either tail into loc_13650 or reload d5/d6 directly
+    // from the next 16-bit word; this packet path is not a plain sub_13622 call.
     let flags = read_enigma_flags(bits, flag_mask)?;
     let packet_bits = bits.read_inline_packet_sub_13588(packet_length)?;
     Ok(base_tile_word.wrapping_add(flags).wrapping_add(packet_bits))
@@ -3552,7 +3552,10 @@ fn read_enigma_flags(bits: &mut EnigmaBitReader<'_>, flag_mask: u8) -> Result<u1
         (1_u8, 1_u16 << 12),
         (0_u8, 1_u16 << 11),
     ] {
-        if flag_mask & (1 << mask_bit) != 0 && bits.read_short_bits_sub_1364c(1)? == 1 {
+        // ASM sub_13588 loc_13588-loc_135D2 (kid.asm:25973-26016): enabled
+        // flag bits consume buffered bits via `subq.w #1,d6` + `btst d6,d5`
+        // and do not tail into loc_13650.
+        if flag_mask & (1 << mask_bit) != 0 && bits.read_raw_flag_bit_sub_13588()? == 1 {
             flags |= flag;
         }
     }
@@ -3659,16 +3662,25 @@ impl<'a> EnigmaBitReader<'a> {
         } else {
             (usize::from(prefix >> 4), usize::from(prefix & 0x0F), 7)
         };
-        self.consume_bits_loc_13650(consumed_bits)?;
+        if command == 7 && count == 0x0F {
+            self.consume_bits_loc_13650_allow_terminator_eof(consumed_bits)?;
+        } else {
+            self.consume_bits_loc_13650(consumed_bits)?;
+        }
         Ok((command, count))
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
+    fn read_raw_flag_bit_sub_13588(&mut self) -> Result<u8> {
+        if self.bits_remaining_d6 == 0 {
+            bail!("Enigma flag read exceeded buffered bits");
+        }
+        self.bits_remaining_d6 -= 1;
+        Ok(((self.current_word_d5 >> self.bits_remaining_d6) & 1) as u8)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
     fn read_inline_packet_sub_13588(&mut self, bit_count: usize) -> Result<u16> {
-        // ASM sub_13588 loc_135D2/loc_13602/loc_13614 (kid.asm:26016-26056):
-        // inline packets consume from the existing buffered word when possible,
-        // but equality or underflow reseeds d5/d6 from the next 16-bit word
-        // instead of delegating to sub_13622's rolling refill helper.
         if bit_count == 0 || bit_count > 16 {
             bail!("Enigma inline packets must be between 1 and 16 bits");
         }
@@ -3755,6 +3767,22 @@ impl<'a> EnigmaBitReader<'a> {
     fn consume_bits_loc_13650(&mut self, bit_count: u16) -> Result<()> {
         self.bits_remaining_d6 -= bit_count;
         if self.bits_remaining_d6 >= 9 {
+            return Ok(());
+        }
+
+        self.bits_remaining_d6 += 8;
+        self.current_word_d5 = (self.current_word_d5 << 8) & 0xFF00;
+        let next_byte = read_input_byte(self.bytes, &mut self.input_position)?;
+        self.current_word_d5 |= u16::from(next_byte);
+        Ok(())
+    }
+
+    fn consume_bits_loc_13650_allow_terminator_eof(&mut self, bit_count: u16) -> Result<()> {
+        self.bits_remaining_d6 -= bit_count;
+        if self.bits_remaining_d6 >= 9 {
+            return Ok(());
+        }
+        if self.bytes.get(self.input_position).is_none() {
             return Ok(());
         }
 
@@ -4945,6 +4973,28 @@ AddrTbl_LevelNames:   ;1A842
     }
 
     #[test]
+    fn sub_13588_flag_reads_do_not_trigger_loc_13650_refill() {
+        let mut bits = EnigmaBitReader {
+            bytes: &[0xE0],
+            input_position: 0,
+            current_word_d5: 0x0005,
+            bits_remaining_d6: 3,
+        };
+
+        assert_eq!(
+            read_enigma_flags(&mut bits, 0b1_1100)
+                .expect("ASM sub_13588 should read enabled flag bits directly from d5"),
+            0xA000
+        );
+        assert_eq!(bits.bits_remaining_d6, 0);
+        assert_eq!(bits.input_position, 0);
+        assert_eq!(
+            bits.read_prefix_eni_dec().unwrap_err().to_string(),
+            "Enigma short read exceeded buffered bits"
+        );
+    }
+
+    #[test]
     fn sub_13588_preserves_prefix_readability_after_a_seven_bit_packet() {
         let mut bits = EnigmaBitReader {
             bytes: &[0xE0, 0x00],
@@ -4988,6 +5038,25 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(bits.current_word_d5, 0xCAFE);
         assert_eq!(bits.bits_remaining_d6, 13);
         assert_eq!(bits.input_position, 2);
+    }
+
+    #[test]
+    fn terminator_prefix_allows_eof_without_a_refill_byte() {
+        let mut bits = EnigmaBitReader {
+            bytes: &[],
+            input_position: 0,
+            current_word_d5: 0x3F80,
+            bits_remaining_d6: 14,
+        };
+
+        assert_eq!(
+            bits.read_prefix_eni_dec().expect(
+                "ASM EniDec terminator should not require a byte past EOF in extracted assets"
+            ),
+            (7, 0x0F)
+        );
+        assert_eq!(bits.input_position, 0);
+        assert_eq!(bits.bits_remaining_d6, 7);
     }
 
     #[test]
