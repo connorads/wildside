@@ -238,6 +238,12 @@ pub(crate) struct HeadyMetalSpriteInitSub376B6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalSpriteVelocitySub376EC {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyeAttackFrameInputsSub37332 {
     pub(crate) effect_x: u16,
     pub(crate) effect_y: u16,
@@ -550,6 +556,25 @@ pub(crate) fn heady_metal_sprite_init_sub_376B6(
         x_pos,
         y_pos,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
+    mut slots: [Option<HeadyMetalSpriteVelocitySub376EC>; 17],
+    x_velocity: i32,
+    y_velocity: i32,
+) -> [Option<HeadyMetalSpriteVelocitySub376EC>; 17] {
+    // ASM sub_376EC (kid.asm:39483): walk the 17 longword worker pointers at
+    // `$FFFFFB72`, skip null entries, and copy `d6/d7` into `x_vel/y_vel(a3)`.
+    for slot in &mut slots {
+        if let Some(worker) = slot.as_mut() {
+            worker.x_velocity = x_velocity;
+            worker.y_velocity = y_velocity;
+        }
+    }
+
+    slots
 }
 
 impl NativeRuntime {

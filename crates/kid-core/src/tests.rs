@@ -19757,6 +19757,72 @@ fn heady_metal_sprite_init_sub_376b6_seeds_the_side_orb_sprite() {
 }
 
 #[test]
+fn heady_metal_apply_piece_velocities_sub_376ec_updates_each_live_worker_slot() {
+    let slots = [
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: 1,
+            y_velocity: 2,
+        }),
+        None,
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: 3,
+            y_velocity: 4,
+        }),
+        None,
+        None,
+        None,
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: -5,
+            y_velocity: 6,
+        }),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: 7,
+            y_velocity: -8,
+        }),
+    ];
+
+    let updated = heady_metal_apply_piece_velocities_sub_376EC(slots, -0x0001_86A0, 0x0001_86A0);
+
+    assert_eq!(
+        updated[0],
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: -0x0001_86A0,
+            y_velocity: 0x0001_86A0,
+        }),
+        "ASM sub_376EC should write `d6/d7` into the first live worker loaded from `$FFFFFB72`",
+    );
+    assert_eq!(
+        updated[1], None,
+        "ASM sub_376EC should skip empty worker slots instead of materialising new objects",
+    );
+    assert_eq!(
+        updated[6],
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: -0x0001_86A0,
+            y_velocity: 0x0001_86A0,
+        }),
+        "ASM sub_376EC should keep iterating through all `#$10+1` worker entries",
+    );
+    assert_eq!(
+        updated[16],
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: -0x0001_86A0,
+            y_velocity: 0x0001_86A0,
+        }),
+        "ASM sub_376EC should still update the final worker entry before the terminating `dbf` falls through",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
