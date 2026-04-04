@@ -632,9 +632,18 @@ impl NativeRuntime {
                 .level_record(level_id)
                 .and_then(|level| level.title_card.as_ref())
                 .is_some();
+        let starts_on_first_mode_8_frame = matches!(
+            self.boot_state,
+            BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
+        ) && self.title_screen_ready()
+            && !uses_load_ingame_bootstrap;
         self.boot_state = BootState::StartingLevel {
             start_latched: !uses_load_ingame_bootstrap,
-            elapsed_frames: 0,
+            // ASM Obj_TitleMenu `Title_InputLoop` writes `Game_Mode=$0008`
+            // before it jumps to `loc_6E2`, so the cold-boot title-card
+            // lineage should treat that visible hand-off frame as local
+            // mode-$0008 frame 1 rather than inserting an extra zero frame.
+            elapsed_frames: usize::from(starts_on_first_mode_8_frame),
             uses_load_ingame_bootstrap,
             load_ingame_bootstrap_started: false,
         };

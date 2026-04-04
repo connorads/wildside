@@ -22,6 +22,17 @@ impl NativeRuntime {
             }
         }
 
+        // The boot-title oracle now keeps the Level 1 title-card shell hidden
+        // through frame 719, so a fixed 720-frame bootstrap no longer implies
+        // that live gameplay has started. Continue idling until the hidden
+        // hand-off actually reaches `InGame`, keeping the helper independent
+        // of the exact title-card settle length.
+        let mut extra_bootstrap_frames = 0usize;
+        while !matches!(self.boot_state, BootState::InGame) && extra_bootstrap_frames < 720 {
+            self.step_frame(idle);
+            extra_bootstrap_frames += 1;
+        }
+
         // Jump directly to target level using internal skip mechanism.
         if self.current_level != target {
             self.pending_level_skip = Some(target);

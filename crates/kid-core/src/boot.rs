@@ -566,12 +566,16 @@ impl NativeRuntime {
         } else {
             self.frame_index
         };
-        self.title_menu_arm_frame = self
-            .frame_index
-            .saturating_add(TITLE_ATTRACT_LOCK_FRAMES.saturating_sub(1));
+        self.title_menu_arm_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
+            TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME
+        } else {
+            self.frame_index
+                .saturating_add(TITLE_TO_LEVEL_FRAMES.saturating_sub(1))
+        };
         self.title_menu_active = false;
         self.title_menu_cursor_pending = false;
         self.title_menu_selection_pending = None;
+        self.title_menu_selection_delay_frames = 0;
         self.demo_buffered_input = None;
         self.pending_demo_title_return = 0;
         self.demo_title_return_after_frame = false;
@@ -1626,8 +1630,16 @@ impl NativeRuntime {
                 let up_pressed = input.up && !self.prior_input.up;
                 let down_pressed = input.down && !self.prior_input.down;
 
+                if self.title_menu_selection_pending.is_some()
+                    && self.title_menu_selection_delay_frames > 0
+                {
+                    self.title_menu_selection_delay_frames -= 1;
+                    self.title_screen_elapsed_frames += 1;
+                    return;
+                }
                 if let Some(selection) = self.title_menu_selection_pending.take() {
                     self.title_idle_frames = 0;
+                    self.title_menu_selection_delay_frames = 0;
                     match selection {
                         0 => {
                             self.two_player = false;
@@ -1665,6 +1677,7 @@ impl NativeRuntime {
                 } else if start_pressed {
                     self.title_idle_frames = 0;
                     self.title_menu_selection_pending = Some(*cursor);
+                    self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
                     *cursor -= 1;
@@ -1717,8 +1730,16 @@ impl NativeRuntime {
                 let up_pressed = input.up && !self.prior_input.up;
                 let down_pressed = input.down && !self.prior_input.down;
 
+                if self.title_menu_selection_pending.is_some()
+                    && self.title_menu_selection_delay_frames > 0
+                {
+                    self.title_menu_selection_delay_frames -= 1;
+                    self.title_screen_elapsed_frames += 1;
+                    return;
+                }
                 if let Some(selection) = self.title_menu_selection_pending.take() {
                     self.title_idle_frames = 0;
+                    self.title_menu_selection_delay_frames = 0;
                     match selection {
                         0 => {
                             self.two_player = false;
@@ -1756,6 +1777,7 @@ impl NativeRuntime {
                 } else if start_pressed {
                     self.title_idle_frames = 0;
                     self.title_menu_selection_pending = Some(*cursor);
+                    self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
                     *cursor -= 1;

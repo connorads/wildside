@@ -161,6 +161,10 @@ pub struct NativeRuntime {
     /// Pending title-menu selection (0=1P, 1=2P, 2=options) applied on the
     /// following frame to match Obj_TitleMenu's deferred hand-off.
     title_menu_selection_pending: Option<u8>,
+    /// ASM Obj_TitleMenu `Title_InputLoop` hibernates once before the Start
+    /// edge flips into `Game_Mode=$0008`, so visible level entry lands one
+    /// traced frame after the pending selection wakes.
+    title_menu_selection_delay_frames: usize,
     /// Demo playback reads inputs after game logic (ASM ReadJoypad path), so
     /// the byte fetched this frame becomes the controller state for the next
     /// frame.
@@ -432,6 +436,7 @@ impl NativeRuntime {
             title_menu_active: false,
             title_menu_cursor_pending: false,
             title_menu_selection_pending: None,
+            title_menu_selection_delay_frames: 0,
             demo_buffered_input: None,
             pending_demo_title_return: 0,
             demo_title_return_after_frame: false,
@@ -601,13 +606,6 @@ impl NativeRuntime {
             } = self.boot_state
         {
             let cold_boot_titlecard_long_burn =
-                    // Oracle `Game_Mode=$0008` WRAM probes show one immediate
-                    // `Execute_Objects -> Get_RandomNumber_long` burn on the
-                    // first traced mode-$0008 frame after the title-select
-                    // hand-off, before the longer hidden carry window goes
-                    // RNG-idle again.
-                    elapsed_frames == 1
-                    ||
                     // Oracle WRAM watches keep the cold-boot mode-$0008 shell
                     // RNG-idle through the hidden carry window, then expose a
                     // single pre-visible `Execute_Objects` burn on the frame
