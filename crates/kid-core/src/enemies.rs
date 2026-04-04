@@ -5304,6 +5304,145 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
     }
 }
 
+pub(crate) const ROCK_TANK_SHOOTING_MAPPING_SUB_3C4F8: u16 = 0x7F10;
+pub(crate) const ROBOT_IDLE_MAPPING_SUB_3C4F8: u16 = 0x82F0;
+pub(crate) const ROBOT_ATTACK_MAPPING_A_SUB_3C4F8: u16 = 0x8338;
+pub(crate) const ROBOT_ATTACK_MAPPING_B_SUB_3C4F8: u16 = 0x8340;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SharedEnemyRobotHelperKindSub3C4F8 {
+    RockTankShooting,
+    Robot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SharedEnemyRobotHelperInputSub3C4F8 {
+    pub(crate) helper_kind: SharedEnemyRobotHelperKindSub3C4F8,
+    pub(crate) parent_mapping: u16,
+    pub(crate) parent_state_word_32: u16,
+    pub(crate) child_state_word_40: u16,
+    pub(crate) child_counter_word_4e: u16,
+    pub(crate) child_timer_word_54: u16,
+    pub(crate) parent_x_pos: u16,
+    pub(crate) kid_x_pos: u16,
+    pub(crate) parent_x_direction: u8,
+    pub(crate) parent_flag_15: bool,
+    pub(crate) random_word: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SharedEnemyRobotHelperResultSub3C4F8 {
+    pub(crate) spawned_loc_3_b730_worker: bool,
+    pub(crate) next_parent_mapping: u16,
+    pub(crate) next_parent_x_direction: u8,
+    pub(crate) next_parent_flag_15: bool,
+    pub(crate) next_child_counter_word_4e: u16,
+    pub(crate) next_child_timer_word_54: u16,
+    pub(crate) initialised_parent_animation_stru_3_a716: bool,
+    pub(crate) branch_to_robot_shoot: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
+    input: SharedEnemyRobotHelperInputSub3C4F8,
+) -> SharedEnemyRobotHelperResultSub3C4F8 {
+    let mut result = SharedEnemyRobotHelperResultSub3C4F8 {
+        spawned_loc_3_b730_worker: false,
+        next_parent_mapping: input.parent_mapping,
+        next_parent_x_direction: input.parent_x_direction,
+        next_parent_flag_15: input.parent_flag_15,
+        next_child_counter_word_4e: input.child_counter_word_4e,
+        next_child_timer_word_54: input.child_timer_word_54,
+        initialised_parent_animation_stru_3_a716: false,
+        branch_to_robot_shoot: false,
+    };
+
+    match input.helper_kind {
+        SharedEnemyRobotHelperKindSub3C4F8::RockTankShooting => {
+            // ASM sub_3C4F8 loc_3C50E only allocates `loc_3B730` when the
+            // RockTank parent still uses `LnkTo_unk_C7F10` and `$32(a4)=5`.
+            if input.parent_mapping == ROCK_TANK_SHOOTING_MAPPING_SUB_3C4F8
+                && input.parent_state_word_32 == 5
+            {
+                result.spawned_loc_3_b730_worker = true;
+            }
+            result
+        }
+        SharedEnemyRobotHelperKindSub3C4F8::Robot => {
+            if input.child_counter_word_4e == 0 {
+                // ASM loc_3C538 only runs the Robot helper from the idle
+                // parent shell `LnkTo_unk_C82F0` with `$32(a4)=9`.
+                if input.parent_mapping != ROBOT_IDLE_MAPPING_SUB_3C4F8
+                    || input.parent_state_word_32 != 9
+                {
+                    return result;
+                }
+                if input.child_state_word_40 != 2 && input.random_word > 0x000A {
+                    return result;
+                }
+                if input.child_state_word_40 < 1 {
+                    result.branch_to_robot_shoot = true;
+                    return result;
+                }
+
+                // ASM loc_3C56A/loc_3C58E points the helper at Kid: if the
+                // current facing already matches Kid's side, branch straight to
+                // `Enemy03_Robot_Shoot`; otherwise queue the turn sequence.
+                let kid_is_to_right = input.parent_x_pos < input.kid_x_pos;
+                let parent_faces_right = input.parent_x_direction != 0;
+                let facing_matches_kid = if kid_is_to_right {
+                    parent_faces_right
+                } else {
+                    !parent_faces_right
+                };
+                if facing_matches_kid {
+                    result.branch_to_robot_shoot = true;
+                    return result;
+                }
+
+                result.next_child_counter_word_4e |= 0xFF00;
+                result.next_parent_flag_15 = false;
+                result.next_child_timer_word_54 = 9;
+                result.next_parent_mapping = ROBOT_ATTACK_MAPPING_A_SUB_3C4F8;
+            }
+
+            // ASM loc_3C5A2 decrements `$54(a5)` before inspecting the low byte
+            // of `$4E(a5)`. The helper therefore burns one frame immediately
+            // when loc_3C5FC falls through into the countdown path.
+            if result.next_child_timer_word_54 > 0 {
+                result.next_child_timer_word_54 -= 1;
+            }
+            if result.next_child_timer_word_54 != 0 {
+                return result;
+            }
+
+            let phase = (result.next_child_counter_word_4e & 0x00FF).wrapping_add(1);
+            if phase > 2 {
+                result.next_parent_flag_15 = true;
+                result.next_child_counter_word_4e = 0;
+                result.initialised_parent_animation_stru_3_a716 = true;
+                return result;
+            }
+
+            if phase == 2 {
+                result.next_parent_x_direction ^= 0xFF;
+            }
+            result.next_child_counter_word_4e |= phase;
+            result.next_parent_mapping = match phase {
+                1 => ROBOT_ATTACK_MAPPING_B_SUB_3C4F8,
+                2 => ROBOT_ATTACK_MAPPING_A_SUB_3C4F8,
+                _ => unreachable!(),
+            };
+            result.next_child_timer_word_54 = 9;
+            result
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn enemy_art_slot_assignment_sub_36E84(

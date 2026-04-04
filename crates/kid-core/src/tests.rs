@@ -30940,6 +30940,89 @@ fn shared_enemy_drive_sound_sub_3c352_ignores_non_transition_frames() {
 }
 
 #[test]
+fn shared_enemy_robot_helper_sub_3c4f8_spawns_loc_3b730_for_the_firing_rock_tank_parent() {
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::RockTankShooting,
+        parent_mapping: ROCK_TANK_SHOOTING_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 5,
+        child_state_word_40: 0,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0,
+        kid_x_pos: 0,
+        parent_x_direction: 0,
+        parent_flag_15: true,
+        random_word: 0,
+    });
+
+    assert!(
+        result.spawned_loc_3_b730_worker,
+        "ASM sub_3C4F8 loc_3C50E should allocate `loc_3B730` only when the RockTank parent keeps `LnkTo_unk_C7F10` with `$32(a4)=5`"
+    );
+}
+
+#[test]
+fn shared_enemy_robot_helper_sub_3c4f8_arms_the_robot_turn_sequence_when_kid_is_behind_it() {
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 2,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0x0120,
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0,
+        parent_flag_15: true,
+        random_word: 0x1234,
+    });
+
+    assert_eq!(
+        (
+            result.next_parent_mapping,
+            result.next_parent_flag_15,
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54,
+            result.branch_to_robot_shoot,
+        ),
+        (ROBOT_ATTACK_MAPPING_A_SUB_3C4F8, false, 0xFF00, 8, false,),
+        "ASM sub_3C4F8 loc_3C5FC -> loc_3C5A2 should clear `$15(a4)`, seed `$4E(a5)` with `st`, write `LnkTo_unk_C8338`, and immediately burn one of the 9 helper frames"
+    );
+}
+
+#[test]
+fn shared_enemy_robot_helper_sub_3c4f8_branches_to_robot_shoot_when_kid_is_already_in_front() {
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 1,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0x0100,
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0xFF,
+        parent_flag_15: true,
+        random_word: 0x000A,
+    });
+
+    assert!(
+        result.branch_to_robot_shoot,
+        "ASM sub_3C4F8 loc_3C56A should fall through to `Enemy03_Robot_Shoot` when the parent already faces Kid"
+    );
+    assert_eq!(
+        (
+            result.next_parent_mapping,
+            result.next_parent_flag_15,
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54,
+        ),
+        (ROBOT_IDLE_MAPPING_SUB_3C4F8, true, 0, 0),
+        "ASM sub_3C4F8 should leave the helper state untouched on the direct shoot path"
+    );
+}
+
+#[test]
 fn homing_y_target_offset_is_16px_above_player() {
     // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
     // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
