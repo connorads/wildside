@@ -19864,6 +19864,47 @@ fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pa
 }
 
 #[test]
+fn heady_metal_scatter_step_sub_378a2_applies_the_alternate_five_piece_velocity_pattern() {
+    let updated = heady_metal_scatter_step_sub_378A2(
+        HeadyMetalScatterVelocities {
+            slot_fb72_x_velocity: 0x10,
+            slot_fb76_x_velocity: 0x20,
+            slot_fb7a_y_velocity: 0x30,
+            slot_fbae_x_velocity: 0x40,
+            slot_fbb2_x_velocity: 0x50,
+        },
+        -0x0001_86A0,
+        0x0001_86A0,
+    );
+
+    assert_eq!(
+        updated.slot_fb72_x_velocity,
+        0x10 + 0x0001_86A0,
+        "ASM sub_378A2 should add `d7` to `$FFFFFB72`'s `x_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fb76_x_velocity,
+        0x20 - 0x0001_86A0,
+        "ASM sub_378A2 should add `d6` to `$FFFFFB76`'s `x_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fb7a_y_velocity,
+        0x30 - 0x0001_86A0,
+        "ASM sub_378A2 should add `d6` to `$FFFFFB7A`'s `y_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fbae_x_velocity,
+        0x40 + 0x0001_86A0,
+        "ASM sub_378A2 should add `d7` to `$FFFFFBAE`'s `x_vel(a3)`",
+    );
+    assert_eq!(
+        updated.slot_fbb2_x_velocity,
+        0x50 - 0x0001_86A0,
+        "ASM sub_378A2 should add `d6` to `$FFFFFBB2`'s `x_vel(a3)`",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collision_type_2c() {
     let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 0xFFFF, 0, 0, {
         let mut pieces = [None; 13];

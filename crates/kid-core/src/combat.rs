@@ -642,6 +642,23 @@ pub(crate) fn heady_metal_scatter_step_sub_3787C(
     velocities
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_scatter_step_sub_378A2(
+    mut velocities: HeadyMetalScatterVelocities,
+    d6_x_velocity_delta: i32,
+    d7_velocity_delta: i32,
+) -> HeadyMetalScatterVelocities {
+    // ASM sub_378A2 (kid.asm:39658): apply the alternate breakup pattern to
+    // the same five HeadyMetal worker slots at `$FFFFFB72/$76/$7A/$BAE/$BB2`.
+    velocities.slot_fb72_x_velocity += d7_velocity_delta;
+    velocities.slot_fb76_x_velocity += d6_x_velocity_delta;
+    velocities.slot_fb7a_y_velocity += d6_x_velocity_delta;
+    velocities.slot_fbae_x_velocity += d7_velocity_delta;
+    velocities.slot_fbb2_x_velocity += d6_x_velocity_delta;
+    velocities
+}
+
 const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [
     0, 7, 2, 10, 4, 3, 8, 5, 9, 12, 6, 11, 1, 12, 2, 7, 4, 9, 6, 3, 10, 5, 8, 11, 1, 2, 1, 7, 4, 9,
     6, 3, 10, 5, 8, 11, 12,
