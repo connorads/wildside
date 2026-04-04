@@ -825,6 +825,24 @@ const BOOMERANG_BOSS_HEAD_1_MOVEMENT_SUB_398F0: [(i16, i16, i16); 16] = [
     (0x012C, 0, 2),
 ];
 
+const BOOMERANG_BOSS_HEAD_2_MOVEMENT_SUB_39988: [(i16, i16, i16); 15] = [
+    (0x012C, 0, -1),
+    (0x0064, -1, 0),
+    (0x0064, 1, 0),
+    (0x012C, 0, -1),
+    (0x0064, 1, 0),
+    (0x0064, -1, 0),
+    (0x0096, 0, 1),
+    (0x0064, -1, 0),
+    (0x0064, 1, 0),
+    (0x0096, 0, 1),
+    (0x0064, 1, 0),
+    (0x0064, -1, 0),
+    (0x012C, 0, 1),
+    (0x012C, 0, -2),
+    (0x012C, 0, 2),
+];
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_398BC(
@@ -882,6 +900,24 @@ pub(crate) fn boss_head_movement_wrapper_sub_39952(
         ),
         runs_shared_collision_helper_sub_3_a292: true,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_movement_step_sub_3995C(
+    delay_counter_d0: u16,
+    current_script_index: usize,
+    current_script: &[(i16, i16, i16)],
+) -> BossHeadMovementStepSub39846 {
+    // ASM sub_3995C (kid.asm:42592): same countdown/script loader as
+    // `sub_39846`, but a negative sentinel always rewinds to
+    // `unk_39988` (Boomerang boss head 2's fixed loop table).
+    boss_head_movement_step_sub_39846(
+        delay_counter_d0,
+        current_script_index,
+        current_script,
+        &BOOMERANG_BOSS_HEAD_2_MOVEMENT_SUB_39988,
+    )
 }
 
 #[allow(non_snake_case)]
