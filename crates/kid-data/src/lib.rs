@@ -1593,6 +1593,9 @@ impl<'a> EnigmaBitReader<'a> {
 
     #[cfg_attr(not(test), allow(dead_code))]
     fn read_short_bits_sub_1364c(&mut self, bit_count: u16) -> Result<u16> {
+        // ASM sub_1364C (kid.asm:26105): tail-call sub_1363C to fetch the
+        // short value, then shift d0 into a byte count for loc_13650's
+        // rolling buffer consumption/refill logic.
         let value = self.peek_bits_sub_1363c(bit_count)?;
         self.consume_bits_loc_13650(bit_count)?;
         Ok(value)
@@ -2673,6 +2676,25 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(bits.current_word_d5, 0b1101_0110_1011_0011);
         assert_eq!(bits.bits_remaining_d6, 11);
         assert_eq!(bits.input_position, 0);
+    }
+
+    #[test]
+    fn sub_1364c_reads_short_values_and_rolls_the_buffer_forward() {
+        let mut bits = EnigmaBitReader {
+            bytes: &[0xAB, 0xCD, 0xEF, 0x12],
+            input_position: 3,
+            current_word_d5: 0xCDEF,
+            bits_remaining_d6: 12,
+        };
+
+        assert_eq!(
+            bits.read_short_bits_sub_1364c(4)
+                .expect("ASM sub_1364C should consume the short value and refill via loc_13650"),
+            0x000D
+        );
+        assert_eq!(bits.current_word_d5, 0xEF12);
+        assert_eq!(bits.bits_remaining_d6, 16);
+        assert_eq!(bits.input_position, 4);
     }
 
     #[test]
