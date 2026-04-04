@@ -2936,6 +2936,20 @@ AddrTbl_LevelNames:   ;1A842
     }
 
     #[test]
+    fn sub_144da_prefers_non_zero_base_nibbles() {
+        let composed = compose_indoor_rubber_block_art_sub_144DA(
+            &[0xF0, 0x0F, 0xA5, 0x00],
+            &[0x12, 0x34, 0x67, 0x89],
+        );
+
+        assert_eq!(
+            composed,
+            vec![0xF2, 0x3F, 0xA5, 0x89],
+            "ASM sub_144DA should preserve non-zero indoor base nibbles and only fill the empty nibbles from the rubber overlay art"
+        );
+    }
+
+    #[test]
     fn export_split_bundle_writes_decoded_level_entries() {
         let source = TempDir::new().expect("temp dir");
         let output = TempDir::new().expect("temp dir");
