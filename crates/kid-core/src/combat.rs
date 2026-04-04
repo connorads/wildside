@@ -969,6 +969,60 @@ const BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39C2E: [(i16, i16, i16); 47] = [
     (0x0064, 0, 1),
 ];
 
+const BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80: [(i16, i16, i16); 51] = [
+    (0x001E, 0, -1),
+    (0x0384, -1, 0),
+    (0x0032, 0, 0),
+    (0x001E, 0, 1),
+    (0x012C, 3, 0),
+    (0x0032, 0, 0),
+    (0x0384, -1, 0),
+    (0x0032, 0, 0),
+    (0x00C8, 0, -1),
+    (0x012C, 3, 0),
+    (0x00C8, 0, 1),
+    (0x0096, 0, 0),
+    (0x0384, -1, 0),
+    (0x0096, 0, 0),
+    (0x0064, 0, -1),
+    (0x012C, 3, 0),
+    (0x0064, 0, 1),
+    (0x012C, -3, 0),
+    (0x00C8, 0, -1),
+    (0x00E1, 4, 0),
+    (0x00B4, -5, 0),
+    (0x0096, 6, 0),
+    (0x00C8, 0, 1),
+    (0x0032, 0, 0),
+    (0x001E, 0, -1),
+    (0x012C, -3, 0),
+    (0x0032, 0, 0),
+    (0x001E, 0, 1),
+    (0x012C, 3, 0),
+    (0x0096, 0, 0),
+    (0x0384, -1, 0),
+    (0x0096, 0, 0),
+    (0x0064, 0, -1),
+    (0x012C, 3, 0),
+    (0x0064, 0, 1),
+    (0x0032, 0, 0),
+    (0x00E1, -4, 0),
+    (0x00C8, 0, -1),
+    (0x0384, 1, 0),
+    (0x01C2, -2, 0),
+    (0x0032, 0, 0),
+    (0x00B4, 5, 0),
+    (0x00E1, -4, 0),
+    (0x0384, 1, 0),
+    (0x00C8, 0, 1),
+    (0x0064, 0, 0),
+    (0x00E1, -4, 0),
+    (0x0064, 0, 0),
+    (0x0064, 0, -1),
+    (0x00E1, 4, 0),
+    (0x0064, 0, 1),
+];
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_398BC(
@@ -1178,6 +1232,24 @@ pub(crate) fn boss_head_movement_wrapper_sub_39D4A(
         ),
         runs_shared_collision_helper_sub_3_a292: true,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_movement_step_sub_39D54(
+    delay_counter_d0: u16,
+    current_script_index: usize,
+    current_script: &[(i16, i16, i16)],
+) -> BossHeadMovementStepSub39846 {
+    // ASM sub_39D54 (kid.asm:42900): same countdown/script loader as
+    // `sub_39846`, but a negative sentinel always rewinds to
+    // `unk_39D80` (Bagel Brothers head movement variant).
+    boss_head_movement_step_sub_39846(
+        delay_counter_d0,
+        current_script_index,
+        current_script,
+        &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80,
+    )
 }
 
 #[allow(non_snake_case)]
