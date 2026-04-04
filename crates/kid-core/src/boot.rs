@@ -1035,6 +1035,7 @@ impl NativeRuntime {
         let intro_sequence_5_frames_override =
             self.demo_auto_timeout_intro_sequence_5_frames_override;
         let mut activate_intro_sequence_3_roster = false;
+        let mut play_navigate_jingle = false;
         match &mut self.boot_state {
             BootState::SegaScreen { elapsed } => {
                 *elapsed += 1;
@@ -1281,9 +1282,11 @@ impl NativeRuntime {
                 } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
                     *cursor -= 1;
+                    play_navigate_jingle = true;
                 } else if down_pressed && *cursor < 2 {
                     self.title_idle_frames = 0;
                     *cursor += 1;
+                    play_navigate_jingle = true;
                 } else {
                     let mut title_idle_frames = demo::TITLE_IDLE_FRAMES;
                     if !*carry_timeout_restart_hidden_camera_wrap {
@@ -1370,9 +1373,11 @@ impl NativeRuntime {
                 } else if up_pressed && *cursor > 0 {
                     self.title_idle_frames = 0;
                     *cursor -= 1;
+                    play_navigate_jingle = true;
                 } else if down_pressed && *cursor < 2 {
                     self.title_idle_frames = 0;
                     *cursor += 1;
+                    play_navigate_jingle = true;
                 } else {
                     self.title_idle_frames += 1;
                     if self.title_idle_frames >= demo::TITLE_IDLE_FRAMES {
@@ -1411,21 +1416,25 @@ impl NativeRuntime {
                         // with either left or right.
                         self.options_two_player_two_controllers =
                             !self.options_two_player_two_controllers;
+                        play_navigate_jingle = true;
                     }
                     1 if left_pressed => {
                         // ASM Option_Controls_Left decrements within 0..=5.
                         self.options_controls_scheme =
                             self.options_controls_scheme.saturating_sub(1);
+                        play_navigate_jingle = true;
                     }
                     1 if right_pressed => {
                         // ASM Option_Controls_Right increments within 0..=5.
                         self.options_controls_scheme =
                             self.options_controls_scheme.saturating_add(1).min(5);
+                        play_navigate_jingle = true;
                     }
                     2 if left_pressed || right_pressed => {
                         // ASM Option_SpeedButton toggles the fast-action flag
                         // with either left or right.
                         self.options_speed_button_fast = !self.options_speed_button_fast;
+                        play_navigate_jingle = true;
                     }
                     _ => {}
                 }
@@ -1548,6 +1557,9 @@ impl NativeRuntime {
                     self.player_slots = [PlayerSlot::default(), PlayerSlot::default()];
                 }
             }
+        }
+        if play_navigate_jingle {
+            let _ = self.play_navigate_jingle_sub_1BC26(0);
         }
         if activate_intro_sequence_3_roster {
             self.activate_intro_sequence_3_roster();

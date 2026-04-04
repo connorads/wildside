@@ -5,6 +5,8 @@ pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
+    #[cfg_attr(not(test), allow(dead_code))]
+    NavigateJingle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -394,6 +396,16 @@ impl NativeRuntime {
         // `sfx_Thunderstorm`, then restores d0 before returning.
         self.played_sound_effects
             .push(QueuedSoundEffect::Thunderstorm);
+        d0
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(non_snake_case)]
+    pub(crate) fn play_navigate_jingle_sub_1BC26(&mut self, d0: u16) -> u16 {
+        // ASM sub_1BC26 (kid.asm:30506-30512) saves d0 on the stack, plays
+        // `sfx_Navigate_jingle`, then restores d0 before returning.
+        self.played_sound_effects
+            .push(QueuedSoundEffect::NavigateJingle);
         d0
     }
 

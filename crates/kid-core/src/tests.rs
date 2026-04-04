@@ -6495,6 +6495,23 @@ fn sub_1b36c_plays_thunderstorm_without_clobbering_d0() {
 }
 
 #[test]
+fn sub_1bc26_plays_the_navigation_jingle_without_clobbering_d0() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    let preserved = runtime.play_navigate_jingle_sub_1BC26(0x0280);
+
+    assert_eq!(
+        preserved, 0x0280,
+        "ASM sub_1BC26 should restore d0 after playing sfx_Navigate_jingle",
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "sub_1BC26 should emit the title/options navigation jingle exactly once",
+    );
+}
+
+#[test]
 fn mini_hopping_skull_sub_3f3a6_snaps_x_to_slopedown_surface() {
     // ASM Mini_Hopping_Skull.asm sub_3F3A6 starts from the cell to the right,
     // walks left to the first `$5000` slope-down cell on the current row, then
@@ -18332,6 +18349,69 @@ fn options_menu_tracks_controls_speed_and_exit_like_the_rom() {
         runtime.boot_state,
         BootState::TitleScreen { cursor: 0 },
         "B should also exit options back to title"
+    );
+}
+
+#[test]
+fn title_menu_up_navigation_plays_sub_1bc26_only_when_the_cursor_moves() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::TitleScreen { cursor: 1 };
+    runtime.title_menu_active = true;
+    runtime.title_menu_arm_frame = 0;
+
+    runtime.step_frame(FrameInput {
+        up: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 0 },
+        "ASM Obj_TitleMenu loc_1BBDE should move the cursor from row 1 to row 0 on Up",
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM Obj_TitleMenu loc_1BBDE should call sub_1BC26 when Up actually moves the cursor",
+    );
+
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        up: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM Obj_TitleMenu should stay silent when Up hits the top row guard",
+    );
+}
+
+#[test]
+fn options_menu_left_and_right_toggle_paths_play_sub_1bc26() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM Option_2PInput should call sub_1BC26 before toggling the 2-player controller mode",
+    );
+
+    runtime.played_sound_effects.clear();
+    runtime.prior_input = FrameInput::default();
+    runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM Option_Controls_Right should call sub_1BC26 before incrementing the controls option",
     );
 }
 
