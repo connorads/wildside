@@ -7164,6 +7164,32 @@ fn trace_frame_reports_kid_ground_probe() {
 }
 
 #[test]
+fn end_sequence_credits_glyph_init_sub_1d786_uses_the_expected_gfx_object_defaults() {
+    let init = end_sequence_credits_glyph_init_sub_1D786();
+
+    assert_eq!(
+        init.raw_allocation_spec, 0x0300_0002,
+        "ASM sub_1D786 should allocate the credits glyph worker with raw gfx-object spec `$03000002`",
+    );
+    assert!(
+        !init.display_enabled,
+        "ASM sub_1D786 should clear `$13(a1)` so the worker starts hidden until sub_1D7A8 enables it",
+    );
+    assert_eq!(
+        init.tile_word, 0x0509,
+        "ASM sub_1D786 should seed tile word `$0509` before the credits script rewrites positions and mappings",
+    );
+    assert_eq!(
+        init.priority, 2,
+        "ASM sub_1D786 should set the credits glyph worker priority byte to 2",
+    );
+    assert_eq!(
+        init.palette_line, 1,
+        "ASM sub_1D786 should set palette line 1 on the credits glyph worker",
+    );
+}
+
+#[test]
 fn trace_frame_reports_kid_special_motion_probe() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;

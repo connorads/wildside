@@ -39,6 +39,31 @@ const TITLE_CARD_WIDTH_TILES: [u8; 11] = [
     0, 0x0E, 0x11, 0x12, 0x10, 0x13, 0x10, 0x11, 0x12, 0x0F, 0x13,
 ];
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {
+    pub(crate) raw_allocation_spec: u32,
+    pub(crate) display_enabled: bool,
+    pub(crate) tile_word: u16,
+    pub(crate) priority: u8,
+    pub(crate) palette_line: u8,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsGlyphInitSub1D786 {
+    // ASM sub_1D786 (kid.asm:32983): allocate the credits glyph worker with
+    // raw gfx-object spec `$03000002`, clear display flag `$13(a1)`, then set
+    // tile word `$0509`, priority 2, and palette line 1.
+    EndSequenceCreditsGlyphInitSub1D786 {
+        raw_allocation_spec: 0x0300_0002,
+        display_enabled: false,
+        tile_word: 0x0509,
+        priority: 2,
+        palette_line: 1,
+    }
+}
+
 impl PlayerState {
     pub(crate) fn intro_sequence_3_roster_count() -> usize {
         INTRO_SEQUENCE_3_ROSTERS.len()
