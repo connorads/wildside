@@ -1148,6 +1148,22 @@ pub fn vertical_collision_scan_down_sub_36C6A(
     vertical_collision_scan_row(grid, center_x_px, half_width, row)
 }
 
+/// Mirror Robot/Driller/Tank upward row scan `sub_36CB8`.
+#[allow(non_snake_case)]
+pub fn vertical_collision_scan_up_sub_36CB8(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+    height: i32,
+) -> bool {
+    // ASM sub_36CB8 (kid.asm:38551): derive the row immediately above the top
+    // edge `y_pos(a3)-height`, exit early if it is negative, then OR the
+    // current width span and keep only bit `$4000`.
+    let row = pixel_to_cell(foot_y_px - height) - 1;
+    vertical_collision_scan_row(grid, center_x_px, half_width, row)
+}
+
 /// Check for a ceiling above the player's hitbox.
 ///
 /// Probes both horizontal edges at the top of the hitbox.
@@ -1303,6 +1319,44 @@ mod tests {
         assert!(
             vertical_collision_scan_down_sub_36C6A(&grid, 40, 32, 16),
             "ASM sub_36C6A should detect any bit-$4000 cell anywhere across the current horizontal span"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_up_sub_36cb8_reads_the_row_above_the_top_edge() {
+        let data = vec![0u8; 4 * 5 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 4, 5);
+        grid.set_cell_at(1, 1, Cell::from_be_bytes(0x60, 0x01));
+
+        assert!(
+            vertical_collision_scan_up_sub_36CB8(&grid, 24, 48, 8, 16),
+            "ASM sub_36CB8 should probe row ((y-height)>>4)-1, which lands on row 1 here"
+        );
+        assert!(
+            !vertical_collision_scan_up_sub_36CB8(&grid, 24, 32, 8, 16),
+            "ASM sub_36CB8 should return immediately when the derived row is negative"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_up_sub_36cb8_rejects_rows_at_or_beyond_level_height() {
+        let grid = make_test_grid();
+
+        assert!(
+            !vertical_collision_scan_up_sub_36CB8(&grid, 24, 80, 8, 16),
+            "ASM sub_36CB8 should clear d6 once the derived row reaches Level_height_blocks"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_up_sub_36cb8_ors_the_full_width_span() {
+        let data = vec![0u8; 5 * 5 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 5, 5);
+        grid.set_cell_at(3, 1, Cell::from_be_bytes(0x70, 0x01));
+
+        assert!(
+            vertical_collision_scan_up_sub_36CB8(&grid, 40, 48, 16, 16),
+            "ASM sub_36CB8 should detect any bit-$4000 cell anywhere across the current horizontal span"
         );
     }
 
