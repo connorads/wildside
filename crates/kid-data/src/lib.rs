@@ -368,6 +368,14 @@ pub struct OptionMenuTileSplitUploadSub1CCAE {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClearBit15VramUploadSub1CD44 {
+    pub read_vram_byte_address: u16,
+    pub write_vram_byte_address: u16,
+    pub masked_words: Vec<u16>,
+    pub delay_loop_iterations: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1682,6 +1690,30 @@ pub fn option_menu_tile_split_upload_sub_1CCAE(
         upper_words,
         lower_vram_word_address: 0x5580,
         lower_words,
+    })
+}
+
+#[allow(non_snake_case)]
+pub fn clear_bit15_vram_upload_sub_1CD44(
+    source_words: &[u16],
+) -> Result<ClearBit15VramUploadSub1CD44> {
+    // ASM sub_1CD44 (kid.asm:31902): read `$800` words from VRAM address 0,
+    // clear bit 15 on each word via `bclr #$F,d6`, write the masked span back
+    // to VRAM address 0, then spin for `$101` `dbf` iterations.
+    const WORD_COUNT: usize = 0x0800;
+
+    let source_words = source_words.get(..WORD_COUNT).ok_or_else(|| {
+        anyhow!(
+            "sub_1CD44 needs {WORD_COUNT:#06X} source words but only received {:#06X}",
+            source_words.len()
+        )
+    })?;
+
+    Ok(ClearBit15VramUploadSub1CD44 {
+        read_vram_byte_address: 0x0000,
+        write_vram_byte_address: 0x0000,
+        masked_words: source_words.iter().map(|word| word & 0x7FFF).collect(),
+        delay_loop_iterations: 0x0101,
     })
 }
 
@@ -4405,6 +4437,42 @@ AddrTbl_LevelNames:   ;1A842
 
         assert!(
             error.to_string().contains("sub_1CCAE needs 0x1180 words"),
+            "the error should describe the exact ROM-sized VRAM source requirement",
+        );
+    }
+
+    #[test]
+    fn clear_bit15_vram_upload_sub_1cd44_masks_an_800_word_vram_span_and_rewrites_it_to_zero() {
+        let mut source_words = vec![0u16; 0x0800];
+        source_words[..4].copy_from_slice(&[0x8001, 0xFFFF, 0x7FFF, 0x1234]);
+
+        let upload = clear_bit15_vram_upload_sub_1CD44(&source_words)
+            .expect("ASM sub_1CD44 should accept the full `$800`-word VRAM span");
+
+        assert_eq!(upload.read_vram_byte_address, 0x0000);
+        assert_eq!(upload.write_vram_byte_address, 0x0000);
+        assert_eq!(upload.delay_loop_iterations, 0x0101);
+        assert_eq!(
+            &upload.masked_words[..4],
+            &[0x0001, 0x7FFF, 0x7FFF, 0x1234],
+            "ASM sub_1CD44 should clear only bit 15 via `bclr #$F,d6` before writing back to VRAM 0",
+        );
+        assert_eq!(
+            upload.masked_words.len(),
+            0x0800,
+            "ASM sub_1CD44 should preserve the full `$800`-word VRAM transfer span",
+        );
+    }
+
+    #[test]
+    fn clear_bit15_vram_upload_sub_1cd44_rejects_short_vram_spans() {
+        let error = clear_bit15_vram_upload_sub_1CD44(&vec![0; 0x07FF])
+            .expect_err("ASM sub_1CD44 should require the full `$800`-word VRAM span");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1CD44 needs 0x0800 source words"),
             "the error should describe the exact ROM-sized VRAM source requirement",
         );
     }
