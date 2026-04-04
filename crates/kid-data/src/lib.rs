@@ -402,6 +402,15 @@ pub struct EndSequencePlaneClearPlanSub1CDE0 {
     pub line_uploads: [FilledPlaneLineUploadSub1CDFA; 20],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaneLineUploadSub1D990 {
+    pub row_index: u16,
+    pub source_word_offset: usize,
+    pub vram_byte_address: u16,
+    pub vdp_control_longword: u32,
+    pub words: [u16; 14],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EndSequenceGlyphUploadSub1D080 {
     pub vram_byte_address: u16,
@@ -1872,6 +1881,51 @@ pub fn end_sequence_plane_clear_plan_sub_1CDE0() -> EndSequencePlaneClearPlanSub
             filled_plane_line_upload_sub_1CDFA(9 + index as u16)
         }),
     }
+}
+
+#[allow(non_snake_case)]
+pub fn title_panel_line_upload_sub_1D990(
+    decoded_words: &[u16],
+    row_index: u16,
+    panel_flag_fb5c: u8,
+) -> Result<PlaneLineUploadSub1D990> {
+    // ASM sub_1D990 (kid.asm:33250): use `d7*$1C` as the source row stride
+    // inside `Decompression_Buffer`, build a VRAM write command for
+    // `((d7+7)*$80 + $1A)`, subtract `$2000` when `($FFFFFB5C).w` is non-zero,
+    // then stream exactly 14 words from that row.
+    const SOURCE_WORD_STRIDE: usize = 0x1C;
+    const WORD_COUNT: usize = 14;
+
+    let source_word_offset = usize::from(row_index) * SOURCE_WORD_STRIDE;
+    let source_words = decoded_words
+        .get(source_word_offset..source_word_offset + WORD_COUNT)
+        .ok_or_else(|| {
+            anyhow!(
+                "sub_1D990 needs row {} words [{:#06X}..{:#06X}) but only received {:#06X}",
+                row_index,
+                source_word_offset,
+                source_word_offset + WORD_COUNT,
+                decoded_words.len()
+            )
+        })?;
+
+    let base_vram_byte_address = row_index
+        .wrapping_add(7)
+        .wrapping_mul(0x0080)
+        .wrapping_add(0x001A);
+    let vram_byte_address = if panel_flag_fb5c != 0 {
+        base_vram_byte_address.wrapping_sub(0x2000)
+    } else {
+        base_vram_byte_address
+    };
+
+    Ok(PlaneLineUploadSub1D990 {
+        row_index,
+        source_word_offset,
+        vram_byte_address,
+        vdp_control_longword: vdp_write_control_longword(vram_byte_address),
+        words: core::array::from_fn(|index| source_words[index]),
+    })
 }
 
 #[allow(non_snake_case)]
@@ -4817,6 +4871,55 @@ AddrTbl_LevelNames:   ;1A842
             plan.line_uploads
                 .windows(2)
                 .all(|pair| pair[1].row_index == pair[0].row_index + 1)
+        );
+    }
+
+    #[test]
+    fn title_panel_line_upload_sub_1d990_uses_a_1c_word_source_stride_and_1a_byte_row_base() {
+        let decoded_words = (0u16..0x0400).collect::<Vec<_>>();
+
+        let upload = title_panel_line_upload_sub_1D990(&decoded_words, 0x000D, 0x00)
+            .expect("ASM sub_1D990 should accept a decoded span covering row 13");
+
+        assert_eq!(upload.row_index, 0x000D);
+        assert_eq!(upload.source_word_offset, 0x016C);
+        assert_eq!(upload.vram_byte_address, 0x0A1A);
+        assert_eq!(upload.vdp_control_longword, 0x4A1A_0000);
+        assert_eq!(upload.words[0], 0x016C);
+        assert_eq!(upload.words[13], 0x0179);
+        assert_eq!(
+            upload.words.len(),
+            14,
+            "ASM sub_1D990 should stream exactly 14 words from the selected `Decompression_Buffer` row",
+        );
+    }
+
+    #[test]
+    fn title_panel_line_upload_sub_1d990_subtracts_2000_from_the_vram_bank_when_fb5c_is_set() {
+        let decoded_words = (0u16..0x0400).collect::<Vec<_>>();
+
+        let upload = title_panel_line_upload_sub_1D990(&decoded_words, 0x000D, 0xFF).expect(
+            "ASM sub_1D990 should accept the same decoded row when `($FFFFFB5C).w` is non-zero",
+        );
+
+        assert_eq!(upload.vram_byte_address, 0xEA1A);
+        assert_eq!(upload.vdp_control_longword, 0x6A1A_0003);
+        assert_eq!(
+            upload.words[0], 0x016C,
+            "ASM sub_1D990 should keep the source row unchanged when only the destination VRAM bank flips",
+        );
+    }
+
+    #[test]
+    fn title_panel_line_upload_sub_1d990_rejects_short_decoded_rows() {
+        let error = title_panel_line_upload_sub_1D990(&vec![0; 0x016C + 13], 0x000D, 0x00)
+            .expect_err("ASM sub_1D990 should require the full 14-word row slice");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_1D990 needs row 13 words [0x016C..0x017A)"),
+            "the error should describe the exact decoded row range requested by the ASM stride math",
         );
     }
 
