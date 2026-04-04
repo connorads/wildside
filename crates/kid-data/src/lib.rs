@@ -392,6 +392,13 @@ pub struct LevelPlaneScrollUpdateInputsSub30194<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackgroundRowUploadSub303BA {
+    pub vram_word_address: u16,
+    pub upper_longwords: Vec<u32>,
+    pub lower_longwords: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OptionMenuTileSplitUploadSub1CCAE {
     pub upper_vram_word_address: u16,
     pub upper_words: Vec<u16>,
@@ -2433,6 +2440,95 @@ fn plane_row_word_address_sub_30194(tile_row: u16, tile_pair_column: u16) -> u16
 
 fn plane_column_word_address_sub_30194(tile_row_even: u16, tile_column: u16) -> u16 {
     ((tile_row_even & 0x001F) << 6).wrapping_add(tile_column & 0x003F)
+}
+
+#[allow(non_snake_case)]
+fn longwords_from_bytes_sub_303BA(
+    bytes: &[u8],
+    byte_offset: usize,
+    count: usize,
+) -> Result<Vec<u32>> {
+    let byte_len = count
+        .checked_mul(4)
+        .context("sub_303BA longword count overflowed")?;
+    let end = byte_offset
+        .checked_add(byte_len)
+        .context("sub_303BA byte range overflowed")?;
+    let slice = bytes
+        .get(byte_offset..end)
+        .context("sub_303BA source bytes are too short for the selected background row")?;
+
+    Ok(slice
+        .chunks_exact(4)
+        .map(|chunk| u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect())
+}
+
+#[allow(non_snake_case)]
+pub fn background_row_upload_sub_303BA(
+    camera_y_pos: i16,
+    previous_camera_chunk: i16,
+    map_header_background_rows: &[u8],
+    background_is_desert: bool,
+    background_layer_0: &[u8],
+    background_layer_1: &[u8],
+) -> Result<Option<BackgroundRowUploadSub303BA>> {
+    // ASM sub_303BA (kid.asm:34007): when `Camera_Y_pos>>5` changes, stream
+    // one 32px background row to VRAM. Downward movement uploads row
+    // `current+#$1C`; upward movement uploads `current`. Non-Desert themes read
+    // row selectors from `1(a0,d0.w)`, Desert adds one extra byte of bias, and
+    // row selectors `<#$1C` stream 16 longwords from `$FFFF87B2+row*64` then
+    // another 16 from `+$700`, while selectors `>=#$1C` stream both halves from
+    // `$FFFF8EB2+row*64`.
+    let current_camera_chunk = camera_y_pos >> 5;
+    if current_camera_chunk == previous_camera_chunk {
+        return Ok(None);
+    }
+
+    ensure!(
+        current_camera_chunk >= 0,
+        "sub_303BA expects a non-negative camera row chunk"
+    );
+
+    let streamed_chunk = if current_camera_chunk > previous_camera_chunk {
+        current_camera_chunk.wrapping_add(0x001C)
+    } else {
+        current_camera_chunk
+    };
+    ensure!(
+        streamed_chunk >= 0,
+        "sub_303BA expects a non-negative streamed row chunk"
+    );
+
+    let row_selector_index = usize::try_from(streamed_chunk)
+        .context("sub_303BA streamed row chunk should fit into usize")?
+        .checked_add(1 + usize::from(background_is_desert))
+        .context("sub_303BA row-selector index overflowed")?;
+    let row_selector = usize::from(
+        *map_header_background_rows
+            .get(row_selector_index)
+            .context("sub_303BA row-selector table is missing the streamed chunk")?,
+    );
+    let row_byte_offset = row_selector
+        .checked_mul(64)
+        .context("sub_303BA row byte offset overflowed")?;
+
+    let (source_upper, source_lower) = if row_selector < 0x001C {
+        (
+            background_layer_0,
+            background_layer_0
+                .get(0x0700..)
+                .context("sub_303BA layer-0 background bytes are missing the +$700 second half")?,
+        )
+    } else {
+        (background_layer_1, background_layer_1)
+    };
+
+    Ok(Some(BackgroundRowUploadSub303BA {
+        vram_word_address: (((streamed_chunk as u16) & 0x001F) << 7) | 0x6000,
+        upper_longwords: longwords_from_bytes_sub_303BA(source_upper, row_byte_offset, 16)?,
+        lower_longwords: longwords_from_bytes_sub_303BA(source_lower, row_byte_offset, 16)?,
+    }))
 }
 
 #[allow(non_snake_case)]
@@ -6237,5 +6333,83 @@ PlatformScript_361C:   ; relative offset: 001A
             vec![0x5018, 0x501A],
             "ASM sub_30194 should wrap the fifteenth row write back to the top of the plane while continuing to read the next source row from Block_Mappings",
         );
+    }
+
+    #[allow(non_snake_case)]
+    fn be_bytes_from_longwords_sub_303BA(longwords: &[u32]) -> Vec<u8> {
+        longwords
+            .iter()
+            .flat_map(|longword| longword.to_be_bytes())
+            .collect()
+    }
+
+    #[test]
+    fn background_row_upload_sub_303ba_streams_the_forward_row_from_layer_0_then_plus_700() {
+        let mut map_header_background_rows = vec![0u8; 0x30];
+        map_header_background_rows[0x001E] = 5;
+
+        let mut background_layer_0 = vec![0u8; 0x0900];
+        let upper_pattern = (0..16)
+            .map(|index| 0x1000_0000_u32 + index)
+            .collect::<Vec<_>>();
+        let lower_pattern = (0..16)
+            .map(|index| 0x2000_0000_u32 + index)
+            .collect::<Vec<_>>();
+        background_layer_0[5 * 64..5 * 64 + 64]
+            .copy_from_slice(&be_bytes_from_longwords_sub_303BA(&upper_pattern));
+        background_layer_0[0x0700 + 5 * 64..0x0700 + 5 * 64 + 64]
+            .copy_from_slice(&be_bytes_from_longwords_sub_303BA(&lower_pattern));
+
+        let upload = background_row_upload_sub_303BA(
+            0x0020,
+            0,
+            &map_header_background_rows,
+            false,
+            &background_layer_0,
+            &[],
+        )
+        .expect("ASM sub_303BA should accept a valid non-Desert row selector and layer-0 buffer")
+        .expect("ASM sub_303BA should emit an upload when the camera row changes");
+
+        assert_eq!(upload.vram_word_address, 0x6E80);
+        assert_eq!(
+            upload.upper_longwords, upper_pattern,
+            "ASM sub_303BA should read the first 16 longwords from `$FFFF87B2 + row*64` for selectors `<#$1C`",
+        );
+        assert_eq!(
+            upload.lower_longwords, lower_pattern,
+            "ASM sub_303BA should read the second 16 longwords from `$FFFF87B2 + $700 + row*64` for selectors `<#$1C`",
+        );
+    }
+
+    #[test]
+    fn background_row_upload_sub_303ba_uses_the_desert_bias_and_layer_1_for_high_rows() {
+        let mut map_header_background_rows = vec![0u8; 4];
+        map_header_background_rows[2] = 0x1C;
+
+        let mut background_layer_1 = vec![0u8; 0x0800];
+        let layer_1_pattern = (0..16)
+            .map(|index| 0x3000_0000_u32 + index)
+            .collect::<Vec<_>>();
+        background_layer_1[0x1C * 64..0x1C * 64 + 64]
+            .copy_from_slice(&be_bytes_from_longwords_sub_303BA(&layer_1_pattern));
+
+        let upload = background_row_upload_sub_303BA(
+            0,
+            1,
+            &map_header_background_rows,
+            true,
+            &[],
+            &background_layer_1,
+        )
+        .expect("ASM sub_303BA should accept a valid Desert row selector and layer-1 buffer")
+        .expect("ASM sub_303BA should emit an upload when the camera row changes");
+
+        assert_eq!(upload.vram_word_address, 0x6000);
+        assert_eq!(
+            upload.upper_longwords, layer_1_pattern,
+            "ASM sub_303BA should switch Desert themes to `2(a0,d0.w)` and selectors `>=#$1C` to `$FFFF8EB2 + row*64`",
+        );
+        assert_eq!(upload.lower_longwords, layer_1_pattern);
     }
 }
