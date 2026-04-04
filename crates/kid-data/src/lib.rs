@@ -425,6 +425,12 @@ pub struct TitlePanelLoadPlanSub1D944 {
     pub line_uploads: [PlaneLineUploadSub1D990; 14],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VdpDataFillSub1DA62 {
+    pub word_count: u16,
+    pub fill_word: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EndSequenceGlyphUploadSub1D080 {
     pub vram_byte_address: u16,
@@ -1998,6 +2004,16 @@ pub fn title_panel_load_plan_sub_1D944(
                 .expect("sub_1D944 should already have validated the decoded row span")
         }),
     })
+}
+
+#[allow(non_snake_case)]
+pub fn vdp_data_fill_sub_1DA62() -> VdpDataFillSub1DA62 {
+    // ASM sub_1DA62 (kid.asm:33336): write the constant word `$94` to the VDP
+    // data port for `$7FF+1` iterations of the `dbf` loop.
+    VdpDataFillSub1DA62 {
+        word_count: 0x0800,
+        fill_word: 0x0094,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -5055,6 +5071,20 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1D944 selector 0x0007 is outside off_1D936's 7 entries"),
             "the error should describe the exact selector overflow against `off_1D936`",
+        );
+    }
+
+    #[test]
+    fn vdp_data_fill_sub_1da62_repeats_94_for_an_800_word_dbf_span() {
+        let fill = vdp_data_fill_sub_1DA62();
+
+        assert_eq!(
+            fill.word_count, 0x0800,
+            "ASM sub_1DA62 should run the `dbf d0` loop for `$7FF+1` VDP data writes",
+        );
+        assert_eq!(
+            fill.fill_word, 0x0094,
+            "ASM sub_1DA62 should write the constant word `$94` on every loop iteration",
         );
     }
 
