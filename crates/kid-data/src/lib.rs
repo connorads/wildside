@@ -397,6 +397,12 @@ pub struct FilledPlaneLineUploadSub1CDFA {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndSequencePlaneClearPlanSub1CDE0 {
+    pub display_refresh_count: u16,
+    pub line_uploads: [FilledPlaneLineUploadSub1CDFA; 20],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleTextChameleonTilemapUploadSub1B532 {
     pub clear_vram_word_address: u16,
     pub clear_longword_count: u16,
@@ -1827,6 +1833,18 @@ pub fn filled_plane_line_upload_sub_1CDFA(row_index: u16) -> FilledPlaneLineUplo
         vram_byte_address,
         vdp_control_longword: vdp_write_control_longword(vram_byte_address),
         words: [0x0094; WORDS_PER_LINE],
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn end_sequence_plane_clear_plan_sub_1CDE0() -> EndSequencePlaneClearPlanSub1CDE0 {
+    // ASM sub_1CDE0 (kid.asm:31981): refresh the display via sub_1DA24 ten
+    // times while filling rows 9 through 28 inclusive with sub_1CDFA.
+    EndSequencePlaneClearPlanSub1CDE0 {
+        display_refresh_count: 10,
+        line_uploads: core::array::from_fn(|index| {
+            filled_plane_line_upload_sub_1CDFA(9 + index as u16)
+        }),
     }
 }
 
@@ -4677,6 +4695,38 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(
             upload.words, [0x0094; 28],
             "ASM sub_1CDFA should stamp exactly 28 `$94` fill words into the target row",
+        );
+    }
+
+    #[test]
+    fn end_sequence_plane_clear_plan_sub_1cde0_covers_rows_9_through_28_in_pairs() {
+        let plan = end_sequence_plane_clear_plan_sub_1CDE0();
+
+        assert_eq!(
+            plan.display_refresh_count, 10,
+            "ASM sub_1CDE0 should call sub_1DA24 once per `dbf d1` iteration",
+        );
+        assert_eq!(
+            plan.line_uploads.len(),
+            20,
+            "ASM sub_1CDE0 should emit two sub_1CDFA row fills across ten loop iterations",
+        );
+        assert_eq!(
+            plan.line_uploads.first().map(|upload| upload.row_index),
+            Some(9)
+        );
+        assert_eq!(
+            plan.line_uploads.get(1).map(|upload| upload.row_index),
+            Some(10)
+        );
+        assert_eq!(
+            plan.line_uploads.last().map(|upload| upload.row_index),
+            Some(28)
+        );
+        assert!(
+            plan.line_uploads
+                .windows(2)
+                .all(|pair| pair[1].row_index == pair[0].row_index + 1)
         );
     }
 
