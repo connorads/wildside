@@ -1,5 +1,120 @@
 use super::*;
 
+/// ASM sub_40236 (kid.asm:45620): angle-to-sine/cosine lookup.
+/// Takes an 8-bit angle (0-255 representing 0-360° in 256 steps), returns (cos, sin) as
+/// 16-bit signed values in the range [-$3FFE, $3FFE] (table max is $3FFE).
+/// The ROM uses a 65-entry sine table for 0°-90° and mirrors/negates for other quadrants.
+/// Quadrant boundaries based on doubled angle comparisons:
+/// Q1: doubled < 128 (angle < 64) → 0° to ~90°
+/// Q2: 128 <= doubled < 256 (64 <= angle < 128) → ~90° to ~180°
+/// Q3: 256 <= doubled < 384 (128 <= angle < 192) → ~180° to ~270°
+/// Q4: doubled >= 384 (angle >= 192) → ~270° to ~360°
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn sin_cos_sub_40236(angle: u8) -> (i16, i16) {
+    let angle = angle as u16;
+    let doubled = angle.wrapping_mul(2);
+
+    let (cos, sin) = if doubled < 0x80 {
+        // Q1: angle in [0, 63], doubled in [0, 126]
+        // ASM: move.w d0,d1; subi.w #$80,d0; neg.w d0; read table for cos and sin
+        // cos offset = (128 - doubled) / 2, sin offset = doubled / 2
+        let cos_offset = (0x80 - doubled) >> 1;
+        let sin_offset = doubled >> 1;
+        let cos_idx = (cos_offset as usize).min(64);
+        let sin_idx = (sin_offset as usize).min(64);
+        (
+            SINE_TABLE_WORD_402B0[cos_idx] as i16,
+            SINE_TABLE_WORD_402B0[sin_idx] as i16,
+        )
+    } else if doubled < 0x100 {
+        // Q2: angle in [64, 127], doubled in [128, 254]
+        // ASM loc_4025A: subi.w #$100,d0; neg.w d0; move.w d0,d1; subi.w #$80,d0; neg.w d0
+        // Read cos from table then negate; read sin from table (no negation for sin in Q2)
+        let d0_wrapped = (doubled as i16).wrapping_sub(0x100);
+        let d0_neg = -d0_wrapped;
+        let d1 = d0_neg as u16;
+        let d0_sub = (d1 as i16).wrapping_sub(0x80);
+        let d0_final = (-d0_sub) as u16;
+        let cos_idx = ((d0_final >> 1) as usize).min(64);
+        let sin_idx = ((d1 >> 1) as usize).min(64);
+        (
+            -(SINE_TABLE_WORD_402B0[cos_idx] as i16),
+            SINE_TABLE_WORD_402B0[sin_idx] as i16,
+        )
+    } else if doubled < 0x180 {
+        // Q3: angle in [128, 191], doubled in [256, 382]
+        // ASM loc_40274 fallthrough: subi.w #$100,d0; move.w d0,d1; subi.w #$80,d0; neg.w d0
+        // Read cos from table then negate; read sin from table then negate
+        let d0_after_sub = doubled.wrapping_sub(0x100);
+        let d1 = d0_after_sub;
+        let d0_neg = (-(d1.wrapping_sub(0x80) as i16)) as u16;
+        let cos_idx = ((d0_neg >> 1) as usize).min(64);
+        let sin_idx = ((d1 >> 1) as usize).min(64);
+        (
+            -(SINE_TABLE_WORD_402B0[cos_idx] as i16),
+            -(SINE_TABLE_WORD_402B0[sin_idx] as i16),
+        )
+    } else {
+        // Q4: angle in [192, 255], doubled in [384, 510]
+        // ASM loc_40294: subi.w #$200,d0; neg.w d0; move.w d0,d1; subi.w #$80,d0; neg.w d0
+        // Read cos from table (no negation); read sin from table then negate
+        let d0_after_sub = doubled.wrapping_sub(0x200);
+        let d0_neg = (-(d0_after_sub as i16)) as u16;
+        let d1 = d0_neg;
+        let d0_final = (-(d1.wrapping_sub(0x80) as i16)) as u16;
+        let cos_idx = ((d0_final >> 1) as usize).min(64);
+        let sin_idx = ((d1 >> 1) as usize).min(64);
+        (
+            SINE_TABLE_WORD_402B0[cos_idx] as i16,
+            -(SINE_TABLE_WORD_402B0[sin_idx] as i16),
+        )
+    };
+
+    (cos, sin)
+}
+
+/// ASM sub_44B0 (kid.asm:5520): initialize HUD animation frame indices.
+/// Sets 5 consecutive RAM locations for coin/heart animation frame counters.
+/// $FFFFFA58=1, $FFFFFA5C=2, $FFFFFA5B=3, $FFFFFA59=4, $FFFFFA5A=5.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn init_hud_animation_frames_sub_44B0() -> HudAnimationFramesSub44B0 {
+    HudAnimationFramesSub44B0 {
+        coin_1_frame: 1,
+        coin_2_frame: 2,
+        coin_3_frame: 3,
+        heart_1_frame: 4,
+        heart_2_frame: 5,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudAnimationFramesSub44B0 {
+    pub(crate) coin_1_frame: u8,  // $FFFFFA58
+    pub(crate) coin_2_frame: u8,  // $FFFFFA5C
+    pub(crate) coin_3_frame: u8,  // $FFFFFA5B
+    pub(crate) heart_1_frame: u8, // $FFFFFA59
+    pub(crate) heart_2_frame: u8, // $FFFFFA5A
+}
+
+/// ASM sub_44D0 (kid.asm:5533): copy 32 longwords (128 bytes) from ROM to VDP.
+/// ASM: move.w #$1F,d6; dbf loop: move.l (a4)+,(a6)
+/// Used for uploading animation art to VDP RAM during HUD rendering.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_upload_32_longwords_sub_44D0(data: &[u8; 128]) -> [u32; 32] {
+    core::array::from_fn(|i| {
+        let offset = i * 4;
+        u32::from_be_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ])
+    })
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {

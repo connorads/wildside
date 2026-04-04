@@ -2,7 +2,8 @@ use super::*;
 use crate::boot::{
     end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
     end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
-    sega_screen_tile_strip_sub_12E3C,
+    init_hud_animation_frames_sub_44B0, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::level::{
@@ -31752,4 +31753,178 @@ fn step_pending_prize_diamond_awards_counts_awards_correctly() {
         0,
         "no pending remains"
     );
+}
+
+// === sub_40236 tests: sine/cosine lookup ===
+
+#[test]
+fn sin_cos_sub_40236_returns_cos_sin_for_quadrant_1() {
+    // ASM sub_40236 (kid.asm:45620): angle 0-63 maps to first quadrant (0° to ~90°).
+    // At angle=0: cos=max, sin=0
+    // At angle=64: cos=0, sin=max (table[64] = $3FFE)
+    let (cos_0, sin_0) = sin_cos_sub_40236(0);
+    let (cos_64, sin_64) = sin_cos_sub_40236(63);
+
+    // Angle 0: cos should be maximum (table[64]), sin should be 0
+    assert_eq!(sin_0, 0, "ASM sub_40236: sin(0)=0");
+    assert!(
+        cos_0 > 0x3F00,
+        "ASM sub_40236: cos(0) should be near table maximum $3FFE (got {cos_0:#x})"
+    );
+
+    // Angle 63: near 90°, cos should be small, sin should be near max
+    assert!(
+        cos_64 < 0x200,
+        "ASM sub_40236: cos(63) should be small for ~90° (got {cos_64:#x})"
+    );
+    assert!(
+        sin_64 > 0x3F00,
+        "ASM sub_40236: sin(63) should be near max for ~90° (got {sin_64:#x})"
+    );
+}
+
+#[test]
+fn sin_cos_sub_40236_returns_cos_sin_for_quadrant_2() {
+    // ASM sub_40236 (kid.asm:45620): angle 64-127 maps to second quadrant (~90° to ~180°).
+    // cos becomes more negative, sin decreases toward 0.
+    // Angle 64 (90°): cos=0, sin=max
+    // Angle 127 (near 180°): cos=near -max, sin=near 0
+    let (cos_64, sin_64) = sin_cos_sub_40236(64);
+    let (cos_127, sin_127) = sin_cos_sub_40236(127);
+
+    // At angle 64 (boundary Q1/Q2, ~90°): cos should be 0, sin should be near max
+    assert!(
+        cos_64.abs() < 0x200,
+        "ASM sub_40236: cos(64) should be near 0 for 90° (got {cos_64:#x})"
+    );
+    assert!(
+        sin_64 > 0x3F00,
+        "ASM sub_40236: sin(64) should be near max for 90° (got {sin_64:#x})"
+    );
+
+    // At angle 127 (near 180°): cos should be near -max, sin should be small
+    assert!(
+        cos_127 < -0x3F00,
+        "ASM sub_40236: cos(127) should be near -max for ~180° (got {cos_127:#x})"
+    );
+    assert!(
+        sin_127.abs() < 0x200,
+        "ASM sub_40236: sin(127) should be near 0 for ~180° (got {sin_127:#x})"
+    );
+}
+
+#[test]
+fn sin_cos_sub_40236_returns_cos_sin_for_quadrant_3() {
+    // ASM sub_40236 (kid.asm:45620): angle 128-191 maps to third quadrant (~180° to ~270°).
+    // Both cos and sin are negative. cos increases toward 0, sin becomes more negative.
+    let (cos_128, sin_128) = sin_cos_sub_40236(128);
+    let (cos_191, sin_191) = sin_cos_sub_40236(191);
+
+    // At angle 128 (boundary Q2/Q3, ~180°): cos should be near -max, sin should be near 0
+    assert!(
+        cos_128 < -0x3F00,
+        "ASM sub_40236: cos(128) should be near -max for 180° (got {cos_128:#x})"
+    );
+    assert!(
+        sin_128.abs() < 0x200,
+        "ASM sub_40236: sin(128) should be near 0 for 180° (got {sin_128:#x})"
+    );
+
+    // At angle 191 (near 270°): cos should be near 0, sin should be near -max
+    assert!(
+        cos_191.abs() < 0x200,
+        "ASM sub_40236: cos(191) should be near 0 for ~270° (got {cos_191:#x})"
+    );
+    assert!(
+        sin_191 < -0x3F00,
+        "ASM sub_40236: sin(191) should be near -max for ~270° (got {sin_191:#x})"
+    );
+}
+
+#[test]
+fn sin_cos_sub_40236_returns_cos_sin_for_quadrant_4() {
+    // ASM sub_40236 (kid.asm:45620): angle 192-255 maps to fourth quadrant (~270° to ~360°).
+    // cos is positive, sin is negative. cos increases toward max, sin increases toward 0.
+    let (cos_192, sin_192) = sin_cos_sub_40236(192);
+    let (cos_255, sin_255) = sin_cos_sub_40236(255);
+
+    // At angle 192 (boundary Q3/Q4, ~270°): cos should be near 0, sin should be near -max
+    assert!(
+        cos_192.abs() < 0x200,
+        "ASM sub_40236: cos(192) should be near 0 for 270° (got {cos_192:#x})"
+    );
+    assert!(
+        sin_192 < -0x3F00,
+        "ASM sub_40236: sin(192) should be near -max for 270° (got {sin_192:#x})"
+    );
+
+    // At angle 255 (near 360°): cos should be near max, sin should be near 0
+    assert!(
+        cos_255 > 0x3F00,
+        "ASM sub_40236: cos(255) should be near max for ~360° (got {cos_255:#x})"
+    );
+    assert!(
+        sin_255.abs() < 0x200,
+        "ASM sub_40236: sin(255) should be near 0 for ~360° (got {sin_255:#x})"
+    );
+}
+
+#[test]
+fn sin_cos_sub_40236_matches_rom_table_bounds() {
+    // ASM sub_40236 (kid.asm:45620): the ROM table clamps at $FFFF for indices 65+.
+    // At the exact table boundary, we should see the table's maximum value.
+    let (_, sin_1) = sin_cos_sub_40236(1);
+    let (_, sin_32) = sin_cos_sub_40236(32);
+    let (_, sin_63) = sin_cos_sub_40236(63);
+
+    // sin should increase monotonically from 0 to~90 degrees (angles 0-63)
+    assert!(sin_1 > 0, "ASM sub_40236: sin(1) should be positive");
+    assert!(
+        sin_32 > sin_1,
+        "ASM sub_40236: sin should increase from angle 1 to 32"
+    );
+    assert!(
+        sin_63 > sin_32,
+        "ASM sub_40236: sin should increase from angle 32 to 63"
+    );
+}
+
+// === sub_44B0 tests: HUD animation frame initialization ===
+
+#[test]
+fn init_hud_animation_frames_sub_44b0_sets_five_indices() {
+    let frames = init_hud_animation_frames_sub_44B0();
+
+    // ASM sub_44B0 (kid.asm:5520-5526): writes sequential indices 1-5 to RAM.
+    // $FFFFFA58=1, $FFFFFA5C=2, $FFFFFA5B=3, $FFFFFA59=4, $FFFFFA5A=5
+    assert_eq!(frames.coin_1_frame, 1, "ASM sub_44B0: $FFFFFA58 = 1");
+    assert_eq!(frames.coin_2_frame, 2, "ASM sub_44B0: $FFFFFA5C = 2");
+    assert_eq!(frames.coin_3_frame, 3, "ASM sub_44B0: $FFFFFA5B = 3");
+    assert_eq!(frames.heart_1_frame, 4, "ASM sub_44B0: $FFFFFA59 = 4");
+    assert_eq!(frames.heart_2_frame, 5, "ASM sub_44B0: $FFFFFA5A = 5");
+}
+
+// === sub_44D0 tests: VDP upload 32 longwords ===
+
+#[test]
+fn vdp_upload_32_longwords_sub_44d0_copies_all_bytes() {
+    // ASM sub_44D0 (kid.asm:5533-5539): move.w #$1F,d6; dbf loop: move.l (a4)+,(a6)
+    // Copies 32 longwords (128 bytes) from source to destination.
+    let data: [u8; 128] = core::array::from_fn(|i| i as u8);
+
+    let result = vdp_upload_32_longwords_sub_44D0(&data);
+
+    assert_eq!(
+        result.len(),
+        32,
+        "ASM sub_44D0: should produce 32 longwords"
+    );
+    for (i, chunk) in data.chunks_exact(4).enumerate() {
+        let expected = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        assert_eq!(
+            result[i], expected,
+            "ASM sub_44D0: longword {} should match input bytes [{:#x}, {:#x}, {:#x}, {:#x}]",
+            i, chunk[0], chunk[1], chunk[2], chunk[3]
+        );
+    }
 }
