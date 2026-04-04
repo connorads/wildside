@@ -5056,6 +5056,107 @@ pub(crate) struct EnemyArtSlotAssignmentSub36E84 {
     pub(crate) vram_tile: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SharedEnemyAttachmentChildSub3BF72 {
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+    pub(crate) x_velocity: i32,
+    pub(crate) x_direction: Option<u8>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SharedEnemyAttachmentLayoutSub3BF72 {
+    pub(crate) primary: SharedEnemyAttachmentChildSub3BF72,
+    pub(crate) secondary: Option<SharedEnemyAttachmentChildSub3BF72>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SharedEnemyAttachmentInputSub3BF72 {
+    pub(crate) family: EnemyFamily,
+    pub(crate) parent_x_pos: i16,
+    pub(crate) parent_y_pos: i16,
+    pub(crate) parent_x_direction: u8,
+    pub(crate) child_y_offset: i16,
+    pub(crate) robot_parent_state: u16,
+    pub(crate) robot_child_mapping: u16,
+    pub(crate) child_x_direction: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shared_enemy_attachment_sub_3BF72(
+    input: SharedEnemyAttachmentInputSub3BF72,
+) -> SharedEnemyAttachmentLayoutSub3BF72 {
+    let SharedEnemyAttachmentInputSub3BF72 {
+        family,
+        parent_x_pos,
+        parent_y_pos,
+        parent_x_direction,
+        child_y_offset,
+        robot_parent_state,
+        robot_child_mapping,
+        child_x_direction,
+    } = input;
+
+    if matches!(family, EnemyFamily::Driller) {
+        // ASM sub_3BF72 / loc_3BFD4 (kid.asm:43444-43483): Driller keeps a
+        // paired child layout centred on the parent, with asymmetric 23/24px
+        // X offsets and opposing `$8000` tread velocities.
+        let (primary_x, secondary_x) = if parent_x_direction == 0 {
+            (parent_x_pos - 0x18, parent_x_pos + 0x17)
+        } else {
+            (parent_x_pos - 0x17, parent_x_pos + 0x18)
+        };
+        return SharedEnemyAttachmentLayoutSub3BF72 {
+            primary: SharedEnemyAttachmentChildSub3BF72 {
+                x_pos: primary_x,
+                y_pos: parent_y_pos,
+                x_velocity: -0x8000,
+                x_direction: None,
+            },
+            secondary: Some(SharedEnemyAttachmentChildSub3BF72 {
+                x_pos: secondary_x,
+                y_pos: parent_y_pos,
+                x_velocity: 0x8000,
+                x_direction: None,
+            }),
+        };
+    }
+
+    // ASM sub_3BF72 (kid.asm:43425-43443): shared child sprite copies the
+    // parent's world position, then subtracts the child's `$46(a4)` Y offset.
+    let mut primary_x_pos = parent_x_pos;
+    let primary_y_pos = parent_y_pos - child_y_offset;
+    let mut primary_x_direction = parent_x_direction;
+
+    if matches!(family, EnemyFamily::Robot)
+        // ASM loc_3BFA8 only enters the offset-preserving Robot path once the
+        // child leaves the special `$800` mapping and `$40(a3)` is non-zero.
+        && robot_child_mapping != 0x0800
+        && robot_parent_state != 0
+        && child_x_direction != parent_x_direction
+    {
+        // ASM loc_3BFBE/loc_3BFCC preserves the old child flip while nudging
+        // the child ±4px so the arm does not pop when the parent turns.
+        primary_x_direction = child_x_direction;
+        if child_x_direction == 0 {
+            primary_x_pos += 4;
+        } else {
+            primary_x_pos -= 4;
+        }
+    }
+
+    SharedEnemyAttachmentLayoutSub3BF72 {
+        primary: SharedEnemyAttachmentChildSub3BF72 {
+            x_pos: primary_x_pos,
+            y_pos: primary_y_pos,
+            x_velocity: 0,
+            x_direction: Some(primary_x_direction),
+        },
+        secondary: None,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn enemy_art_slot_assignment_sub_36E84(

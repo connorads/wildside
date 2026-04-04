@@ -30704,6 +30704,95 @@ fn lion_projectile_sub_3e2ce_deletes_offscreen_shot_and_releases_owner_count() {
 }
 
 #[test]
+fn shared_enemy_attachment_sub_3bf72_copies_parent_pose_for_generic_children() {
+    let result = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Diamond,
+        parent_x_pos: 0x0120,
+        parent_y_pos: 0x0080,
+        parent_x_direction: 0xFF,
+        child_y_offset: 0x000C,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+
+    assert_eq!(
+        result.primary,
+        SharedEnemyAttachmentChildSub3BF72 {
+            x_pos: 0x0120,
+            y_pos: 0x0074,
+            x_velocity: 0,
+            x_direction: Some(0xFF),
+        },
+        "ASM sub_3BF72 should mirror the parent X, subtract the child `$46(a4)` Y offset, and copy `x_direction(a3)` for non-Robot children",
+    );
+    assert!(
+        result.secondary.is_none(),
+        "ASM sub_3BF72 only seeds the second linked sprite for Driller",
+    );
+}
+
+#[test]
+fn shared_enemy_attachment_sub_3bf72_robot_turn_preserves_child_flip_and_nudges_left() {
+    let result = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Robot,
+        parent_x_pos: 0x0100,
+        parent_y_pos: 0x0090,
+        parent_x_direction: 0,
+        child_y_offset: 0x0010,
+        robot_parent_state: 1,
+        robot_child_mapping: 0x0900,
+        child_x_direction: 0xFF,
+    });
+
+    assert_eq!(
+        result.primary,
+        SharedEnemyAttachmentChildSub3BF72 {
+            x_pos: 0x00FC,
+            y_pos: 0x0080,
+            x_velocity: 0,
+            x_direction: Some(0xFF),
+        },
+        "ASM loc_3BFA8 should preserve the old child flip and subtract 4px when the Robot turns away from a previously flipped child sprite",
+    );
+}
+
+#[test]
+fn shared_enemy_attachment_sub_3bf72_driller_spawns_the_paired_treads() {
+    let result = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Driller,
+        parent_x_pos: 0x0140,
+        parent_y_pos: 0x0070,
+        parent_x_direction: 0,
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+
+    assert_eq!(
+        result.primary,
+        SharedEnemyAttachmentChildSub3BF72 {
+            x_pos: 0x0128,
+            y_pos: 0x0070,
+            x_velocity: -0x8000,
+            x_direction: None,
+        },
+        "ASM loc_3BFD4 should place the primary Driller tread 24px left and seed `x_vel=-$8000` when `x_direction(a3)` is clear",
+    );
+    assert_eq!(
+        result.secondary,
+        Some(SharedEnemyAttachmentChildSub3BF72 {
+            x_pos: 0x0157,
+            y_pos: 0x0070,
+            x_velocity: 0x8000,
+            x_direction: None,
+        }),
+        "ASM loc_3BFD4 should place the paired Driller tread 23px right and seed `x_vel=$8000` from the same parent pose",
+    );
+}
+
+#[test]
 fn homing_y_target_offset_is_16px_above_player() {
     // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
     // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
