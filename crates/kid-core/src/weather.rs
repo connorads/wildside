@@ -1,5 +1,79 @@
 use super::*;
 
+#[derive(Clone, Copy)]
+struct LavaFireballSegment {
+    frames: u8,
+    delta_y: i16,
+    sprite_kind: LavaFireballSpriteKind,
+}
+
+#[derive(Clone, Copy)]
+enum LavaFireballSpriteKind {
+    TallRise,
+    MidRise,
+    MidBody,
+    MidFall,
+    TallFall,
+}
+
+const LAVA_FIREBALL_SCRIPT: [LavaFireballSegment; 11] = [
+    LavaFireballSegment {
+        frames: 0x0B,
+        delta_y: -4,
+        sprite_kind: LavaFireballSpriteKind::TallRise,
+    },
+    LavaFireballSegment {
+        frames: 0x0B,
+        delta_y: -3,
+        sprite_kind: LavaFireballSpriteKind::TallRise,
+    },
+    LavaFireballSegment {
+        frames: 0x0B,
+        delta_y: -3,
+        sprite_kind: LavaFireballSpriteKind::MidRise,
+    },
+    LavaFireballSegment {
+        frames: 0x0B,
+        delta_y: -2,
+        sprite_kind: LavaFireballSpriteKind::MidRise,
+    },
+    LavaFireballSegment {
+        frames: 0x09,
+        delta_y: -1,
+        sprite_kind: LavaFireballSpriteKind::MidBody,
+    },
+    LavaFireballSegment {
+        frames: 0x05,
+        delta_y: 0,
+        sprite_kind: LavaFireballSpriteKind::MidBody,
+    },
+    LavaFireballSegment {
+        frames: 0x05,
+        delta_y: 0,
+        sprite_kind: LavaFireballSpriteKind::MidBody,
+    },
+    LavaFireballSegment {
+        frames: 0x09,
+        delta_y: 1,
+        sprite_kind: LavaFireballSpriteKind::MidBody,
+    },
+    LavaFireballSegment {
+        frames: 0x0B,
+        delta_y: 2,
+        sprite_kind: LavaFireballSpriteKind::MidFall,
+    },
+    LavaFireballSegment {
+        frames: 0x0B,
+        delta_y: 2,
+        sprite_kind: LavaFireballSpriteKind::TallFall,
+    },
+    LavaFireballSegment {
+        frames: 0x15,
+        delta_y: 4,
+        sprite_kind: LavaFireballSpriteKind::TallFall,
+    },
+];
+
 fn kid_hitbox_bounds_px(slice: &OpeningSliceState) -> (i32, i32, i32, i32) {
     let x_px = (slice.player.x_pos >> 16) as i32;
     let foot_y_px = (slice.player.y_pos >> 16) as i32;
@@ -29,6 +103,60 @@ fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState
         && kid_left <= geyser_right
         && kid_top <= geyser_bottom
         && kid_bottom >= geyser_top
+}
+
+#[allow(non_snake_case)]
+fn lava_fireball_hits_kid_sub_14AB0(
+    fireball: &LavaFireball,
+    slice: &OpeningSliceState,
+    sprite_kind: LavaFireballSpriteKind,
+) -> bool {
+    let (kid_left, kid_right, kid_top, kid_bottom) = kid_hitbox_bounds_px(slice);
+    let fireball_left = i32::from(fireball.x_px) + 1;
+    let fireball_right = fireball_left + 6;
+    let baseline_y = i32::from(fireball.current_y_px);
+    // ASM sub_14AB0 uses d1 as the segment baseline and `$54(a5)` as the top
+    // sprite row written by sub_14BD8. The table-specific adjustments below
+    // mirror the five sprite-layout buckets (`unk_14664` .. `unk_14696`).
+    let (fireball_top, fireball_bottom) = match sprite_kind {
+        LavaFireballSpriteKind::TallRise => (baseline_y - 23, baseline_y - 8),
+        LavaFireballSpriteKind::MidRise => (baseline_y - 18, baseline_y - 1),
+        LavaFireballSpriteKind::MidBody => (baseline_y - 7, baseline_y - 1),
+        LavaFireballSpriteKind::MidFall => (baseline_y - 12, baseline_y - 1),
+        LavaFireballSpriteKind::TallFall => (baseline_y - 23, baseline_y + 6),
+    };
+
+    kid_right >= fireball_left
+        && kid_left <= fireball_right
+        && kid_top <= fireball_bottom
+        && kid_bottom >= fireball_top
+}
+
+fn advance_lava_fireball(fireball: &mut LavaFireball) {
+    if fireball.cooldown_timer > 0 {
+        fireball.cooldown_timer -= 1;
+        if fireball.cooldown_timer == 0 {
+            fireball.segment_index = 0;
+            fireball.segment_frame = 0;
+            fireball.current_y_px = fireball.base_y_px;
+        }
+        return;
+    }
+
+    let segment = LAVA_FIREBALL_SCRIPT[usize::from(fireball.segment_index)];
+    fireball.current_y_px = fireball.current_y_px.saturating_add_signed(segment.delta_y);
+    fireball.segment_frame = fireball.segment_frame.saturating_add(1);
+
+    if fireball.segment_frame >= segment.frames {
+        fireball.segment_frame = 0;
+        if usize::from(fireball.segment_index) + 1 == LAVA_FIREBALL_SCRIPT.len() {
+            fireball.segment_index = 0;
+            fireball.cooldown_timer = 0x3C;
+            fireball.current_y_px = fireball.base_y_px;
+        } else {
+            fireball.segment_index += 1;
+        }
+    }
 }
 
 impl NativeRuntime {
@@ -120,6 +248,7 @@ impl NativeRuntime {
         self.weather.hail_spawn_timer = 0;
         self.weather.hail_period_timer = 0;
         self.weather.lava_geysers.clear();
+        self.weather.lava_fireballs.clear();
         if self.weather.weather_type == 1 {
             self.init_lava_geysers(level_id);
         }
@@ -131,11 +260,7 @@ impl NativeRuntime {
         // Per-level geyser positions: (x_px, y_px, height_px)
         let positions: &[(u16, u16, u16)] = match level_id.0 {
             // Under Skull Mountain 2 (USM2)
-            0x06 => &[
-                (0x180, 0x312, 0x60),
-                (0x240, 0x312, 0x63),
-                (0x346, 0x312, 0x40),
-            ],
+            0x06 => &[(0x180, 0x312, 0x60), (0x240, 0x312, 0x63)],
             // Black Pit
             0x45 => &[
                 (0x290, 0x170, 0x20),
@@ -172,11 +297,24 @@ impl NativeRuntime {
                 current_height: 0,
             });
         }
+
+        if level_id.0 == 0x06 {
+            self.weather.lava_fireballs.push(LavaFireball {
+                x_px: 0x346,
+                base_y_px: 0x312,
+                current_y_px: 0x312,
+                segment_index: 0,
+                segment_frame: 0,
+                cooldown_timer: 0,
+            });
+        }
     }
 
     /// Step all active lava geysers through their eruption cycle.
     pub(crate) fn step_lava_geysers(&mut self, slice: &OpeningSliceState) {
-        if self.weather.weather_type != 1 || self.weather.lava_geysers.is_empty() {
+        if self.weather.weather_type != 1
+            || (self.weather.lava_geysers.is_empty() && self.weather.lava_fireballs.is_empty())
+        {
             return;
         }
 
@@ -226,6 +364,16 @@ impl NativeRuntime {
             if lava_geyser_hits_kid_sub_14A58(geyser, slice) {
                 should_damage = true;
             }
+        }
+
+        for fireball in &mut self.weather.lava_fireballs {
+            let segment = LAVA_FIREBALL_SCRIPT[usize::from(fireball.segment_index)];
+            if fireball.cooldown_timer == 0
+                && lava_fireball_hits_kid_sub_14AB0(fireball, slice, segment.sprite_kind)
+            {
+                should_damage = true;
+            }
+            advance_lava_fireball(fireball);
         }
 
         if should_damage && self.progression.invulnerable_frames == 0 {

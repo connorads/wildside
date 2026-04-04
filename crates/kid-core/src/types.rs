@@ -576,6 +576,8 @@ pub(crate) struct WeatherState {
     pub(crate) hail_period_timer: u16,
     /// Active lava geysers for lava weather levels.
     pub(crate) lava_geysers: Vec<LavaGeyser>,
+    /// Active small fireballs from the lava special-effect worker.
+    pub(crate) lava_fireballs: Vec<LavaFireball>,
 }
 
 /// Per-helmet ability state, reset on form change or death.
@@ -1199,6 +1201,23 @@ pub(crate) struct LavaGeyser {
     pub(crate) timer: u16,
     /// Current eruption column height in pixels (for collision/rendering).
     pub(crate) current_height: u16,
+}
+
+/// A scripted lava fireball emitted by the USM2 lava special-effect worker.
+#[derive(Debug, Clone)]
+pub(crate) struct LavaFireball {
+    /// Fixed X position (pixel coordinates).
+    pub(crate) x_px: u16,
+    /// Baseline Y position used by the ROM script.
+    pub(crate) base_y_px: u16,
+    /// Current script baseline Y position.
+    pub(crate) current_y_px: u16,
+    /// Current motion-script segment index.
+    pub(crate) segment_index: u8,
+    /// Frames spent in the current segment.
+    pub(crate) segment_frame: u8,
+    /// Frames until the next loop starts.
+    pub(crate) cooldown_timer: u16,
 }
 
 /// Per-player persistent state for 2P alternating mode.

@@ -354,6 +354,14 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
             timer: 5,
             current_height: 24,
         }],
+        lava_fireballs: vec![LavaFireball {
+            x_px: 64,
+            base_y_px: 96,
+            current_y_px: 92,
+            segment_index: 2,
+            segment_frame: 4,
+            cooldown_timer: 0,
+        }],
     };
     runtime.y_look_offset = 30;
     runtime.helmet.skycutter_on_board = true;
@@ -15525,15 +15533,79 @@ fn lava_geyser_no_damage_when_height_zero() {
     );
 }
 
+#[test]
+fn lava_fireball_sub_14ab0_uses_scripted_hitbox_window() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_fireballs.push(LavaFireball {
+        x_px: 100,
+        base_y_px: 200,
+        current_y_px: 200,
+        segment_index: 0,
+        segment_frame: 0,
+        cooldown_timer: 0,
+    });
+    runtime.progression.invulnerable_frames = 0;
+    runtime.opening_slice = None;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 111 << 16;
+    slice.player.y_pos = 190 << 16;
+
+    runtime.step_lava_geysers(&slice);
+
+    assert!(
+        runtime.just_received_damage,
+        "ASM sub_14AB0 should damage when Kid's hitbox clips the small fireball window from the tall-rise sprite layout"
+    );
+}
+
+#[test]
+fn lava_fireball_script_restarts_after_rom_cooldown() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_fireballs.push(LavaFireball {
+        x_px: 100,
+        base_y_px: 200,
+        current_y_px: 200,
+        segment_index: 0,
+        segment_frame: 0,
+        cooldown_timer: 0,
+    });
+
+    let slice = airborne_slice();
+    for _ in 0..115 {
+        runtime.step_lava_geysers(&slice);
+    }
+    let fireball = &runtime.weather.lava_fireballs[0];
+    assert_eq!(
+        fireball.cooldown_timer, 60,
+        "the scripted small fireball should enter the ROM's 60-frame disabled window after the last segment"
+    );
+
+    for _ in 0..60 {
+        runtime.step_lava_geysers(&slice);
+    }
+    let fireball = &runtime.weather.lava_fireballs[0];
+    assert_eq!(fireball.cooldown_timer, 0);
+    assert_eq!(fireball.segment_index, 0);
+    assert_eq!(fireball.segment_frame, 0);
+    assert_eq!(
+        fireball.current_y_px, fireball.base_y_px,
+        "after the cooldown the small fireball should restart from its baseline row"
+    );
+}
+
 // --- Lava geyser init ---
 
 #[test]
-fn init_lava_geysers_level_0x06_creates_3_geysers() {
+fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
     runtime.init_lava_geysers(LevelId(0x06));
 
-    assert_eq!(runtime.weather.lava_geysers.len(), 3);
+    assert_eq!(runtime.weather.lava_geysers.len(), 2);
+    assert_eq!(runtime.weather.lava_fireballs.len(), 1);
     // First geyser: x=0x180, y=0x312, h=0x60
     let g = &runtime.weather.lava_geysers[0];
     assert_eq!(g.x_px, 0x180);
@@ -15542,6 +15614,11 @@ fn init_lava_geysers_level_0x06_creates_3_geysers() {
     assert_eq!(g.height_px, 0x60 >> 4);
     // initial_delay = (h & 0xF) * 10 = (0x60 & 0xF) * 10 = 0
     assert_eq!(g.timer, 0);
+
+    let fireball = &runtime.weather.lava_fireballs[0];
+    assert_eq!(fireball.x_px, 0x346);
+    assert_eq!(fireball.base_y_px, 0x312);
+    assert_eq!(fireball.current_y_px, 0x312);
 }
 
 #[test]
@@ -15551,6 +15628,7 @@ fn init_lava_geysers_unknown_level_creates_none() {
     runtime.init_lava_geysers(LevelId(0x01));
 
     assert!(runtime.weather.lava_geysers.is_empty());
+    assert!(runtime.weather.lava_fireballs.is_empty());
 }
 
 #[test]
