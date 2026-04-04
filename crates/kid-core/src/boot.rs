@@ -42,6 +42,19 @@ pub(crate) struct TitleMenuPromptSpriteSub1C54A {
     pub(crate) vram_tile: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleMenuSlidingSpriteSub1C572 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority_flag: bool,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_label: &'static str,
+    pub(crate) vram_tile: u16,
+    pub(crate) x_velocity_per_frame: i16,
+    pub(crate) initial_hibernate_frames: u16,
+    pub(crate) moving_frames: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -124,6 +137,39 @@ pub(crate) fn title_menu_prompt_sprite_sub_1C54A() -> TitleMenuPromptSpriteSub1C
         sprite_label: "unk_E109E",
         vram_tile: 0x0140,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteSub1C572; 2] {
+    // ASM sub_1C572 (kid.asm:31303) seeds the left title sprite, then
+    // loc_1C58C seeds the mirrored right sprite. Both hibernate for `$3C`
+    // frames, slide 1 px/frame for `#$41+1` hibernated iterations, then loop
+    // forever on `Hibernate_Object_1Frame`.
+    [
+        TitleMenuSlidingSpriteSub1C572 {
+            gfx_slot_base: 0x0200_0004,
+            priority_flag: true,
+            x_pos: 0x003A,
+            y_pos: 0x00C8,
+            sprite_label: "unk_E10A6",
+            vram_tile: 0x0140,
+            x_velocity_per_frame: 1,
+            initial_hibernate_frames: 0x003C,
+            moving_frames: 0x0042,
+        },
+        TitleMenuSlidingSpriteSub1C572 {
+            gfx_slot_base: 0x0200_0004,
+            priority_flag: true,
+            x_pos: 0x00DE,
+            y_pos: 0x00C8,
+            sprite_label: "unk_E10AE",
+            vram_tile: 0x0140,
+            x_velocity_per_frame: -1,
+            initial_hibernate_frames: 0x003C,
+            moving_frames: 0x0042,
+        },
+    ]
 }
 
 #[allow(non_snake_case)]
@@ -1934,6 +1980,55 @@ mod tests {
         assert_eq!(
             sprite.vram_tile, 0x0140,
             "ASM sub_1C54A writes `move.w #$140,$24(a1)` for the prompt sprite tile base",
+        );
+    }
+
+    #[test]
+    fn sub_1c572_seeds_the_mirrored_title_menu_sliding_sprites() {
+        let [left, right] = title_menu_sliding_sprites_sub_1C572();
+
+        assert_eq!(left.gfx_slot_base, 0x0200_0004);
+        assert_eq!(left.x_pos, 0x003A);
+        assert_eq!(left.y_pos, 0x00C8);
+        assert_eq!(left.sprite_label, "unk_E10A6");
+        assert_eq!(left.vram_tile, 0x0140);
+        assert_eq!(left.x_velocity_per_frame, 1);
+        assert!(
+            left.priority_flag,
+            "ASM loc_1C5A4 sets `$13(a3)` for the left sliding title sprite",
+        );
+
+        assert_eq!(right.gfx_slot_base, 0x0200_0004);
+        assert_eq!(right.x_pos, 0x00DE);
+        assert_eq!(right.y_pos, 0x00C8);
+        assert_eq!(right.sprite_label, "unk_E10AE");
+        assert_eq!(right.vram_tile, 0x0140);
+        assert_eq!(right.x_velocity_per_frame, -1);
+        assert!(
+            right.priority_flag,
+            "ASM loc_1C5A4 sets `$13(a3)` for the right sliding title sprite after loc_1C58C",
+        );
+    }
+
+    #[test]
+    fn sub_1c572_hibernates_for_60_frames_then_moves_for_66_frames() {
+        let [left, right] = title_menu_sliding_sprites_sub_1C572();
+
+        assert_eq!(
+            left.initial_hibernate_frames, 0x003C,
+            "ASM sub_1C572 pushes `#$3C` before `j_Hibernate_Object` for the left sprite",
+        );
+        assert_eq!(
+            right.initial_hibernate_frames, 0x003C,
+            "ASM loc_1C58C shares the same 60-frame `Hibernate_Object` front delay",
+        );
+        assert_eq!(
+            left.moving_frames, 0x0042,
+            "ASM loc_1C5BE runs `dbf d1` from `#$41`, so the left sprite slides for 66 hibernated frames",
+        );
+        assert_eq!(
+            right.moving_frames, 0x0042,
+            "ASM loc_1C5BE also slides the right sprite for 66 hibernated frames before the infinite idle loop",
         );
     }
 
