@@ -214,6 +214,18 @@ pub(crate) struct HeadyMetalSpriteInitSub3764A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalSpriteInitSub37680 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) x_direction: u8,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyeAttackFrameInputsSub37332 {
     pub(crate) effect_x: u16,
     pub(crate) effect_y: u16,
@@ -478,6 +490,27 @@ pub(crate) fn heady_metal_sprite_init_sub_3764A(
         gfx_slot_base: 0x0101_0002,
         priority: 0,
         object_meta: 0x0020,
+        display_enabled: true,
+        is_moved: true,
+        x_direction: 0,
+        x_pos,
+        y_pos,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_sprite_init_sub_37680(
+    x_pos: u16,
+    y_pos: u16,
+) -> HeadyMetalSpriteInitSub37680 {
+    // ASM sub_37680 (kid.asm:39443): allocate gfx slot `$01000002`, copy the
+    // boss anchor position into `$1A/$1E(a1)`, clear `x_direction(a1)`, seed
+    // `object_meta(a1)` with `$21`, call `loc_32146`, then set `$13/$14(a1)`.
+    HeadyMetalSpriteInitSub37680 {
+        gfx_slot_base: 0x0100_0002,
+        priority: 0,
+        object_meta: 0x0021,
         display_enabled: true,
         is_moved: true,
         x_direction: 0,
