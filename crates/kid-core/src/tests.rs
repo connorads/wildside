@@ -15397,6 +15397,33 @@ fn lava_geyser_damages_player_inside_eruption_column() {
 }
 
 #[test]
+fn lava_geyser_sub_14a58_uses_kid_hitbox_not_feet_point() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.weather.weather_type = 1;
+    runtime.weather.lava_geysers.push(LavaGeyser {
+        x_px: 100,
+        y_px: 200,
+        height_px: 40,
+        phase: 1,
+        timer: 0,
+        current_height: 40,
+    });
+    runtime.progression.invulnerable_frames = 0;
+    runtime.opening_slice = None;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 113 << 16;
+    slice.player.y_pos = 195 << 16;
+
+    runtime.step_lava_geysers(&slice);
+
+    assert!(
+        runtime.just_received_damage,
+        "ASM sub_14A58 should damage when Kid's hitbox overlaps the geyser column even if the feet point is outside the native ±8px centre check"
+    );
+}
+
+#[test]
 fn lava_geyser_does_not_damage_player_outside_column() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.weather.weather_type = 1;

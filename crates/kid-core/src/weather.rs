@@ -1,5 +1,36 @@
 use super::*;
 
+fn kid_hitbox_bounds_px(slice: &OpeningSliceState) -> (i32, i32, i32, i32) {
+    let x_px = (slice.player.x_pos >> 16) as i32;
+    let foot_y_px = (slice.player.y_pos >> 16) as i32;
+    (
+        x_px - PLAYER_HALF_WIDTH,
+        x_px + PLAYER_HALF_WIDTH,
+        foot_y_px - PLAYER_HEIGHT,
+        foot_y_px,
+    )
+}
+
+#[allow(non_snake_case)]
+fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState) -> bool {
+    if geyser.current_height == 0 {
+        return false;
+    }
+
+    let (kid_left, kid_right, kid_top, kid_bottom) = kid_hitbox_bounds_px(slice);
+    let geyser_left = i32::from(geyser.x_px) + 3;
+    let geyser_right = geyser_left + 0x1A;
+    let geyser_bottom = i32::from(geyser.y_px);
+    // ASM sub_14A58 compares Kid against `$54(a5)+$10`, where `$54(a5)` tracks
+    // the current top sprite row built by the geyser worker.
+    let geyser_top = i32::from(geyser.y_px.saturating_sub(geyser.current_height)) + 0x10;
+
+    kid_right >= geyser_left
+        && kid_left <= geyser_right
+        && kid_top <= geyser_bottom
+        && kid_bottom >= geyser_top
+}
+
 impl NativeRuntime {
     pub(crate) fn step_murder_wall(&mut self) {
         let Some(wall) = self.murder_wall.as_mut() else {
@@ -149,8 +180,6 @@ impl NativeRuntime {
             return;
         }
 
-        let player_x = (slice.player.x_pos >> 16) as i32;
-        let player_y = (slice.player.y_pos >> 16) as i32;
         let mut should_damage = false;
 
         for geyser in &mut self.weather.lava_geysers {
@@ -194,18 +223,8 @@ impl NativeRuntime {
                 _ => {}
             }
 
-            // Collision: player overlaps eruption column (16px wide, current_height tall)
-            if geyser.current_height > 0 {
-                let gx = i32::from(geyser.x_px);
-                let gy_top = i32::from(geyser.y_px) - i32::from(geyser.current_height);
-                let gy_bottom = i32::from(geyser.y_px);
-                if player_x >= gx - 8
-                    && player_x <= gx + 8
-                    && player_y >= gy_top
-                    && player_y <= gy_bottom
-                {
-                    should_damage = true;
-                }
+            if lava_geyser_hits_kid_sub_14A58(geyser, slice) {
+                should_damage = true;
             }
         }
 
