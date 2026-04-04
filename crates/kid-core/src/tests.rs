@@ -1,5 +1,5 @@
 use super::*;
-use crate::boot::sega_screen_tile_strip_sub_12E3C;
+use crate::boot::{end_sequence_display_refresh_sub_1D830, sega_screen_tile_strip_sub_12E3C};
 use crate::combat::*;
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
@@ -18545,6 +18545,37 @@ fn options_menu_panel_step_sub_1cc88_alternates_the_worker_offsets_each_frame() 
     assert_eq!(
         runtime.options_menu_right_panel_x, 0x0110,
         "ASM sub_1CC88 should restore the right worker offset on the zero-byte branch",
+    );
+}
+
+#[test]
+fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_panel_step() {
+    let refresh =
+        end_sequence_display_refresh_sub_1D830(0x0123, 0x0045, 0x00, 0x0118, 0x0030, 0x0110);
+
+    assert_eq!(
+        refresh.camera_y_scroll, 0x0045,
+        "ASM sub_1D830 should forward Camera_Y_pos into sub_1DA24's VSRAM upload",
+    );
+    assert_eq!(
+        refresh.h_scroll_value, -0x0123,
+        "ASM sub_1D830 should use sub_1DA24's negated Camera_X_pos for each horizontal-scroll word pair",
+    );
+    assert_eq!(
+        refresh.h_scroll_word_pairs, 0x00E0,
+        "ASM sub_1DA24 should emit `$DF+1` horizontal-scroll word pairs across the plane refresh",
+    );
+    assert_eq!(
+        refresh.panel_toggle_byte, 0xFF,
+        "ASM sub_1D830 should still advance sub_1CC88 after the display refresh",
+    );
+    assert_eq!(
+        refresh.left_panel_x, 0x0148,
+        "ASM sub_1D830 should preserve sub_1CC88's left worker offset update after refreshing the display",
+    );
+    assert_eq!(
+        refresh.right_panel_x, -0x0008,
+        "ASM sub_1D830 should preserve sub_1CC88's right worker offset update after refreshing the display",
     );
 }
 

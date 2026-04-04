@@ -55,6 +55,16 @@ pub(crate) struct TitleMenuSlidingSpriteSub1C572 {
     pub(crate) moving_frames: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
+    pub(crate) camera_y_scroll: i16,
+    pub(crate) h_scroll_value: i16,
+    pub(crate) h_scroll_word_pairs: u16,
+    pub(crate) panel_toggle_byte: u8,
+    pub(crate) left_panel_x: i16,
+    pub(crate) right_panel_x: i16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -293,6 +303,33 @@ pub(crate) fn step_option_menu_panels_sub_1CC88(
             left_panel_x.wrapping_sub(panel_delta),
             right_panel_x.wrapping_add(panel_delta),
         )
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_display_refresh_sub_1D830(
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+    toggle_byte: u8,
+    panel_delta: i16,
+    left_panel_x: i16,
+    right_panel_x: i16,
+) -> EndSequenceDisplayRefreshSub1D830 {
+    // ASM sub_1D830 (kid.asm:33070): call sub_1DA24 to upload one display
+    // refresh from the live camera, then advance the options-panel worker via
+    // sub_1CC88. sub_1DA24 writes Camera_Y_pos into VSRAM, zeroes the second
+    // VSRAM slot, and repeats `-Camera_X_pos` across `$DF+1` horizontal-scroll
+    // word pairs before returning.
+    let (panel_toggle_byte, left_panel_x, right_panel_x) =
+        step_option_menu_panels_sub_1CC88(toggle_byte, panel_delta, left_panel_x, right_panel_x);
+    EndSequenceDisplayRefreshSub1D830 {
+        camera_y_scroll: camera_y_pos,
+        h_scroll_value: camera_x_pos.wrapping_neg(),
+        h_scroll_word_pairs: 0x00E0,
+        panel_toggle_byte,
+        left_panel_x,
+        right_panel_x,
     }
 }
 
