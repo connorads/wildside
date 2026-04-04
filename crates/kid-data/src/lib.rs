@@ -3421,60 +3421,74 @@ pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
     Ok(output)
 }
 
-pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
-    let header = parse_enigma_header_sub_142CC(data, 0)?;
+pub fn decode_enigma(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
+    let header = parse_enigma_header_eni_dec(data, base_tile_word)?;
     let mut incrementing_value = header.incrementing_value;
+    let common_value = header.common_value;
     let mut bits = EnigmaBitReader::new(header.bitstream);
+    bits.refill_word_sub_13618()?;
     let mut output = Vec::new();
 
     loop {
-        if bits.read_bit()? == 1 {
-            let mode = bits.read_bits(2)?;
-            match mode {
-                0..=2 => {
-                    let count = usize::from(bits.read_bits(4)?) + 1;
-                    let mut value = read_inline_value_sub_13588(
+        let (command, count) = bits.read_prefix_eni_dec()?;
+        match command {
+            0 | 1 => {
+                for _ in 0..=count {
+                    output.push(incrementing_value);
+                    incrementing_value = incrementing_value.wrapping_add(1);
+                }
+            }
+            2 | 3 => {
+                output.extend(std::iter::repeat_n(common_value, count + 1));
+            }
+            4 => {
+                let value = read_inline_value_sub_13588(
+                    &mut bits,
+                    base_tile_word,
+                    header.flag_mask,
+                    header.packet_length,
+                )?;
+                output.extend(std::iter::repeat_n(value, count + 1));
+            }
+            5 => {
+                let mut value = read_inline_value_sub_13588(
+                    &mut bits,
+                    base_tile_word,
+                    header.flag_mask,
+                    header.packet_length,
+                )?;
+                for _ in 0..=count {
+                    output.push(value);
+                    value = value.wrapping_add(1);
+                }
+            }
+            6 => {
+                let mut value = read_inline_value_sub_13588(
+                    &mut bits,
+                    base_tile_word,
+                    header.flag_mask,
+                    header.packet_length,
+                )?;
+                for _ in 0..=count {
+                    output.push(value);
+                    value = value.wrapping_sub(1);
+                }
+            }
+            7 => {
+                if count == 0x0F {
+                    break;
+                }
+                for _ in 0..=count {
+                    let value = read_inline_value_sub_13588(
                         &mut bits,
-                        0,
+                        base_tile_word,
                         header.flag_mask,
                         header.packet_length,
                     )?;
-                    for _ in 0..count {
-                        output.push(value);
-                        value = match mode {
-                            0 => value,
-                            1 => value.wrapping_add(1),
-                            2 => value.wrapping_sub(1),
-                            _ => unreachable!(),
-                        };
-                    }
+                    output.push(value);
                 }
-                3 => {
-                    let count = usize::from(bits.read_bits(4)?);
-                    if count == 0x0F {
-                        break;
-                    }
-                    for _ in 0..=count {
-                        let value = read_inline_value_sub_13588(
-                            &mut bits,
-                            0,
-                            header.flag_mask,
-                            header.packet_length,
-                        )?;
-                        output.push(value);
-                    }
-                }
-                _ => unreachable!(),
             }
-        } else if bits.read_bit()? == 0 {
-            let count = usize::from(bits.read_bits(4)?) + 1;
-            for _ in 0..count {
-                output.push(incrementing_value);
-                incrementing_value = incrementing_value.wrapping_add(1);
-            }
-        } else {
-            let count = usize::from(bits.read_bits(4)?) + 1;
-            output.extend(std::iter::repeat_n(header.common_value, count));
+            _ => unreachable!(),
         }
     }
 
@@ -3482,24 +3496,22 @@ pub fn decode_enigma(data: &[u8]) -> Result<Vec<u16>> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct EnigmaHeaderSub142CC<'a> {
+struct EnigmaHeaderEniDec<'a> {
     packet_length: usize,
     flag_mask: u8,
     incrementing_value: u16,
     common_value: u16,
-    vdp_control_word: u32,
     bitstream: &'a [u8],
 }
 
-#[allow(non_snake_case)]
-fn parse_enigma_header_sub_142CC<'a>(
+fn parse_enigma_header_eni_dec<'a>(
     data: &'a [u8],
-    vram_word_address: u16,
-) -> Result<EnigmaHeaderSub142CC<'a>> {
-    // ASM sub_142CC (kid.asm:27121): seed the VDP control word from the
-    // destination word address, then split the Enigma header into packet
-    // length, flag mask, incrementing seed, common value, and bitstream base.
-    if data.len() < 6 {
+    base_tile_word: u16,
+) -> Result<EnigmaHeaderEniDec<'a>> {
+    // ASM EniDec (kid.asm:25837): byte 0 is packet length, byte 1 selects the
+    // enabled high-flag bits for sub_13588, words 1/2 are base-tile-relative
+    // incrementing/common seeds, and the next word seeds d5 for loc_134EA.
+    if data.len() < 8 {
         bail!("Enigma payload is too short");
     }
     let packet_length = usize::from(data[0]);
@@ -3507,23 +3519,13 @@ fn parse_enigma_header_sub_142CC<'a>(
         bail!("Enigma packet length must be between 1 and 16 bits");
     }
 
-    Ok(EnigmaHeaderSub142CC {
+    Ok(EnigmaHeaderEniDec {
         packet_length,
-        flag_mask: data[1],
-        incrementing_value: read_u16_be(data, 2),
-        common_value: read_u16_be(data, 4),
-        vdp_control_word: enigma_vdp_control_word_sub_142CC(vram_word_address),
+        flag_mask: data[1] & 0x1F,
+        incrementing_value: read_u16_be(data, 2).wrapping_add(base_tile_word),
+        common_value: read_u16_be(data, 4).wrapping_add(base_tile_word),
         bitstream: &data[6..],
     })
-}
-
-#[allow(non_snake_case)]
-fn enigma_vdp_control_word_sub_142CC(vram_word_address: u16) -> u32 {
-    // ASM sub_142CC folds the low two VRAM address bits into the low control
-    // word and adds the standard VRAM-write base ($4000) to the upper word.
-    let control_low = vram_word_address.rotate_left(2) & 0x0003;
-    let control_high = (u32::from(vram_word_address & 0x3FFF) + 0x4000) << 16;
-    control_high | u32::from(control_low)
 }
 
 fn read_inline_value_sub_13588(
@@ -3548,7 +3550,7 @@ fn read_enigma_flags(bits: &mut EnigmaBitReader<'_>, flag_mask: u8) -> Result<u1
         (1_u8, 1_u16 << 12),
         (0_u8, 1_u16 << 11),
     ] {
-        if flag_mask & (1 << mask_bit) != 0 && bits.read_bit()? == 1 {
+        if flag_mask & (1 << mask_bit) != 0 && bits.read_short_bits_sub_1364c(1)? == 1 {
             flags |= flag;
         }
     }
@@ -3648,6 +3650,24 @@ impl<'a> EnigmaBitReader<'a> {
         self.bits_remaining_d6 -= 1;
         let shift = usize::from(self.bits_remaining_d6);
         Ok(((self.current_word_d5 >> shift) & 1) as u8)
+    }
+
+    fn read_prefix_eni_dec(&mut self) -> Result<(usize, usize)> {
+        // ASM EniDec loc_134EA (kid.asm:25850): inspect the next 7 bits,
+        // downgrade codes below `$40` to six consumed bits, then dispatch via
+        // `loc_13560(pc,d1.w)`.
+        let prefix = self.peek_bits_sub_1363c(7)?;
+        let (command, count, consumed_bits) = if prefix < 0x40 {
+            (
+                usize::from(prefix >> 4),
+                usize::from((prefix >> 1) & 0x0F),
+                6,
+            )
+        } else {
+            (usize::from(prefix >> 4), usize::from(prefix & 0x0F), 7)
+        };
+        self.consume_bits_loc_13650(consumed_bits)?;
+        Ok((command, count))
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -4234,7 +4254,11 @@ mod tests {
     use tempfile::TempDir;
 
     const SAXMAN_FIXTURE: &[u8] = &[0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
-    const ENIGMA_FIXTURE: &[u8] = &[0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE];
+    const ENIGMA_FIXTURE: &[u8] = &[
+        0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE, 0x00,
+    ];
+    const ENIGMA_COMMON_RUN_FIXTURE: &[u8] =
+        &[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7D, 0xFF, 0xE0, 0x00];
     const REAL_STYLE_BLOCK_FIXTURE: &[u8] = &[
         0x40, 0x76, 0x02, 0x08, 0xA0, 0x80, 0x38, 0x1F, 0x92, 0x08, 0x64, 0x82, 0x81, 0x40, 0x9E,
         0x58, 0x28, 0x96, 0x08, 0x86, 0x02, 0x99, 0x80, 0xA8, 0x68, 0x0B, 0x1C, 0x03, 0x07, 0x00,
@@ -4778,6 +4802,31 @@ AddrTbl_LevelNames:   ;1A842
     }
 
     #[test]
+    fn eni_dec_loc_134ea_reads_six_and_seven_bit_prefixes() {
+        let mut bits = EnigmaBitReader::new(&[0x7D, 0xFF, 0xE0, 0x00]);
+        bits.refill_word_sub_13618()
+            .expect("ASM sub_13618 should seed d5 before EniDec loc_134EA runs");
+
+        assert_eq!(
+            bits.read_prefix_eni_dec()
+                .expect("ASM EniDec loc_134EA should decode the first common-run prefix"),
+            (3, 0x0F)
+        );
+        assert_eq!(bits.bits_remaining_d6, 10);
+        assert_eq!(
+            bits.read_prefix_eni_dec()
+                .expect("ASM EniDec loc_134EA should decode the second common-run prefix"),
+            (3, 0x0F)
+        );
+        assert_eq!(bits.bits_remaining_d6, 12);
+        assert_eq!(
+            bits.read_prefix_eni_dec()
+                .expect("ASM EniDec loc_134EA should decode the 7-bit terminator prefix"),
+            (7, 0x0F)
+        );
+    }
+
+    #[test]
     fn sub_13c0_appends_a_static_sprite_entry_and_advances_the_tile_cursor() {
         let mut state = SpriteBuilderStateSub13C0 {
             number_sprites: 3,
@@ -4844,6 +4893,8 @@ AddrTbl_LevelNames:   ;1A842
     #[test]
     fn sub_13588_combines_enabled_flag_bits_with_packet_bits() {
         let mut bits = EnigmaBitReader::new(&[0xAC, 0x00]);
+        bits.refill_word_sub_13618()
+            .expect("ASM sub_13618 should seed d5 before sub_13588 consumes flags and packet bits");
 
         assert_eq!(
             read_inline_value_sub_13588(&mut bits, 0x0040, 0b1_0101, 5)
@@ -4853,28 +4904,36 @@ AddrTbl_LevelNames:   ;1A842
     }
 
     #[test]
-    fn sub_142cc_parses_enigma_header_and_vdp_command() {
-        let header = parse_enigma_header_sub_142CC(ENIGMA_FIXTURE, 0x5F60)
-            .expect("ASM sub_142CC should parse the Enigma header prefix");
+    fn eni_dec_parses_base_relative_header_fields() {
+        let header = parse_enigma_header_eni_dec(ENIGMA_FIXTURE, 0x5F60)
+            .expect("ASM EniDec should parse the Enigma header prefix");
 
         assert_eq!(header.packet_length, 5);
         assert_eq!(header.flag_mask, 0);
-        assert_eq!(header.incrementing_value, 0x0001);
-        assert_eq!(header.common_value, 0x000A);
-        assert_eq!(
-            header.vdp_control_word, 0x5F60_0001,
-            "ASM sub_142CC should build the same VDP control word as DecompressToVRAM for VRAM word address $5F60"
-        );
+        assert_eq!(header.incrementing_value, 0x5F61);
+        assert_eq!(header.common_value, 0x5F6A);
         assert_eq!(header.bitstream, &ENIGMA_FIXTURE[6..]);
     }
 
     #[test]
-    fn enigma_fixture_decodes_to_expected_tiles() {
-        let decoded = decode_enigma(ENIGMA_FIXTURE).expect("fixture should decode");
+    fn enigma_fixture_decodes_to_expected_tiles_with_base_tile_offset() {
+        let decoded = decode_enigma(ENIGMA_FIXTURE, 0x0040).expect("fixture should decode");
         assert_eq!(
             decoded,
-            vec![0x0001, 0x0002, 0x0003, 0x000A, 0x000A, 0x0010]
+            vec![0x0041, 0x0042, 0x0043, 0x004A, 0x004A, 0x0050]
         );
+    }
+
+    #[test]
+    fn enigma_common_run_fixture_decodes_to_a_full_plane_row() {
+        let decoded = decode_enigma(ENIGMA_COMMON_RUN_FIXTURE, 0).expect("fixture should decode");
+
+        assert_eq!(
+            decoded.len(),
+            32,
+            "ASM EniDec should honour two 16-word common-value runs before the terminator"
+        );
+        assert!(decoded.iter().all(|&word| word == 0));
     }
 
     #[test]

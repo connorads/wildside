@@ -422,7 +422,7 @@ fn load_layered_background_visuals(
                     asset.relative_path
                 )
             })?;
-        let decoded = decode_enigma(&encoded).with_context(|| {
+        let decoded = decode_enigma(&encoded, 0).with_context(|| {
             format!(
                 "failed to decode layered background plane {} for theme {theme_name}",
                 asset.relative_path

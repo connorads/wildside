@@ -27,7 +27,7 @@ pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
 mod tests {
-    use super::{BlockVisualKind, load_level_visuals};
+    use super::{BackgroundVisuals, BlockVisualKind, load_level_visuals};
     use kid_data::{
         AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
         DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
@@ -39,6 +39,7 @@ mod tests {
 
     const LEVEL_ID: u8 = 0x00;
     const CAVE_THEME_ID: u8 = 0x08;
+    const FOREST_THEME_ID: u8 = 0x09;
 
     #[test]
     fn load_level1_tile_sheet_and_palettes() {
@@ -235,6 +236,25 @@ mod tests {
         assert!(!visuals.level.foreground_layout_bytes.is_empty());
         assert!(!visuals.level.block_layout_bytes.is_empty());
         assert!(!visuals.level.background_layout_bytes.is_empty());
+    }
+
+    #[test]
+    fn load_level_visuals_decodes_layered_forest_background_planes() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture
+            .enable_layered_forest_background()
+            .expect("layered forest fixture");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.level.background_theme_id, FOREST_THEME_ID);
+        let BackgroundVisuals::Layered(background) = visuals.background else {
+            panic!("forest background should load through the layered renderer path");
+        };
+        assert_eq!(background.rows.len(), 1);
+        assert_eq!(background.rows[0].tiles.len(), 64);
+        assert_eq!(background.rows[0].tiles[0].tile_index, 0);
+        assert_eq!(background.rows[0].tiles[32].tile_index, 1);
     }
 
     struct TestBundle {
@@ -651,6 +671,53 @@ mod tests {
 
             Ok(Self { root, manifest })
         }
+
+        fn enable_layered_forest_background(&mut self) -> anyhow::Result<()> {
+            write_file(
+                self.root.path(),
+                "decoded/level/00/background.bin",
+                &[0x00, 0x00],
+            )?;
+            write_file(
+                self.root.path(),
+                "theme/artcomp_bg/forest.bin",
+                &direct_copy_saxman(&[0; 64]),
+            )?;
+            write_file(
+                self.root.path(),
+                "theme/palette_bg/forest.bin",
+                &(0..8)
+                    .map(|value| 0x0180_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                self.root.path(),
+                "theme/bg_chunks/forest_eni_00.bin",
+                &layered_background_enigma_plane(0),
+            )?;
+            write_file(
+                self.root.path(),
+                "theme/bg_chunks/forest_eni_01.bin",
+                &layered_background_enigma_plane(1),
+            )?;
+
+            self.manifest.levels[0]
+                .header_metadata
+                .as_mut()
+                .expect("level header")
+                .background_theme = FOREST_THEME_ID;
+            self.manifest.decoded_levels[0].background =
+                decoded_asset(self.root.path(), "decoded/level/00/background.bin");
+            self.manifest.theme_assets.extend([
+                asset_file(self.root.path(), "theme/artcomp_bg/forest.bin"),
+                asset_file(self.root.path(), "theme/palette_bg/forest.bin"),
+                asset_file(self.root.path(), "theme/bg_chunks/forest_eni_00.bin"),
+                asset_file(self.root.path(), "theme/bg_chunks/forest_eni_01.bin"),
+            ]);
+
+            Ok(())
+        }
     }
 
     fn write_file(root: &Path, relative_path: &str, bytes: &[u8]) -> anyhow::Result<()> {
@@ -710,6 +777,13 @@ mod tests {
         compressed.extend(bytes);
         compressed.extend([0x00, 0x00]);
         compressed
+    }
+
+    fn layered_background_enigma_plane(common_value: u16) -> Vec<u8> {
+        let [common_hi, common_lo] = common_value.to_be_bytes();
+        vec![
+            0x01, 0x00, 0x00, 0x00, common_hi, common_lo, 0x7D, 0xFF, 0xE0, 0x00,
+        ]
     }
 
     fn block_mapping_words() -> Vec<u16> {
