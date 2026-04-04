@@ -19451,6 +19451,24 @@ fn boss_death_timeout_sound_sub_370d2_selects_the_rng_gated_finish_jingle() {
 }
 
 #[test]
+fn boss_death_burst_finish_sub_3728c_plays_the_final_anim_then_deletes() {
+    let finish = boss_death_burst_finish_sub_3728C();
+
+    assert_eq!(
+        finish.animation_label, "stru_37BFC",
+        "ASM sub_3728C should switch the burst sprite to `stru_37BFC` before the final hibernate",
+    );
+    assert!(
+        finish.hibernate_until_anim_finished,
+        "ASM sub_3728C should call `Hibernate_UntilAnimFinished` before deleting the current object",
+    );
+    assert!(
+        finish.delete_current_object,
+        "ASM sub_3728C should delete the current object immediately after the finish animation ends",
+    );
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);

@@ -145,6 +145,13 @@ pub(crate) struct BossDeathBurstHomingStepSub370D2 {
     pub(crate) y_velocity_delta: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstFinishSub3728C {
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_anim_finished: bool,
+    pub(crate) delete_current_object: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_init_sub_370D2(
@@ -211,6 +218,18 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
         x_direction,
         x_velocity_delta,
         y_velocity_delta,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728C {
+    // ASM sub_3728C (kid.asm:39131): switch to `stru_37BFC`, hibernate until
+    // that animation ends, then delete the current object.
+    BossDeathBurstFinishSub3728C {
+        animation_label: "stru_37BFC",
+        hibernate_until_anim_finished: true,
+        delete_current_object: true,
     }
 }
 
