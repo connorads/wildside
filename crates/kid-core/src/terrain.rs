@@ -1106,6 +1106,48 @@ pub fn horizontal_collision_scan_left_sub_36BD6(
     horizontal_collision_scan(grid, center_x_px, foot_y_px, half_width, height, false)
 }
 
+fn vertical_collision_scan_row(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    half_width: i32,
+    row: i32,
+) -> bool {
+    if row < 0 {
+        return false;
+    }
+    if row >= i32::from(grid.height_cells) {
+        return false;
+    }
+
+    let mut left_col = pixel_to_cell(center_x_px - half_width);
+    let mut right_col = pixel_to_cell(center_x_px + half_width - 1);
+    if right_col < 0 || left_col >= i32::from(grid.width_cells) {
+        return false;
+    }
+    left_col = left_col.max(0);
+    right_col = right_col.min(i32::from(grid.width_cells).saturating_sub(1));
+    if right_col < left_col {
+        return false;
+    }
+
+    (left_col..=right_col).any(|col| sets_collision_bit_14(grid.cell_at(col as u16, row as u16)))
+}
+
+/// Mirror Robot/Driller/Tank downward row scan `sub_36C6A`.
+#[allow(non_snake_case)]
+pub fn vertical_collision_scan_down_sub_36C6A(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    half_width: i32,
+) -> bool {
+    // ASM sub_36C6A (kid.asm:38510): derive the row immediately below
+    // `y_pos(a3)-1`, reject any row at or beyond `Level_height_blocks`, then
+    // OR every cell under the current width span and keep only bit `$4000`.
+    let row = pixel_to_cell(foot_y_px - 1) + 1;
+    vertical_collision_scan_row(grid, center_x_px, half_width, row)
+}
+
 /// Check for a ceiling above the player's hitbox.
 ///
 /// Probes both horizontal edges at the top of the hitbox.
@@ -1222,6 +1264,46 @@ mod tests {
         // Starting from y=0, should find floor at row 2 = y=32
         let floor_y = find_floor_below(&grid, 8, 0);
         assert_eq!(floor_y, Some(32));
+    }
+
+    #[test]
+    fn vertical_collision_scan_down_sub_36c6a_reads_the_row_below_y_minus_one() {
+        let mut grid = make_test_grid();
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x60, 0x01));
+
+        assert!(
+            vertical_collision_scan_down_sub_36C6A(&grid, 24, 32, 8),
+            "ASM sub_36C6A should probe row ((y-1)>>4)+1, which lands on row 2 for foot y=32"
+        );
+        assert!(
+            !vertical_collision_scan_down_sub_36C6A(&grid, 24, 16, 8),
+            "ASM sub_36C6A should still probe row 1 while foot y remains in the 16..31 tile band"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_down_sub_36c6a_rejects_rows_at_or_beyond_level_height() {
+        let grid = make_test_grid();
+
+        assert!(
+            !vertical_collision_scan_down_sub_36C6A(&grid, 24, 48, 8),
+            "ASM sub_36C6A should clear d6 once the derived row reaches Level_height_blocks"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_down_sub_36c6a_ors_the_full_width_span() {
+        let mut data = vec![0u8; 5 * 4 * 2];
+        let solid = Cell::from_be_bytes(0x60, 0x01);
+        data[(2 * 5 + 0) * 2] = 0;
+        data[(2 * 5 + 0) * 2 + 1] = 0;
+        let mut grid = BlockGrid::from_level_layout(&data, 5, 4);
+        grid.set_cell_at(3, 2, solid);
+
+        assert!(
+            vertical_collision_scan_down_sub_36C6A(&grid, 40, 32, 16),
+            "ASM sub_36C6A should detect any bit-$4000 cell anywhere across the current horizontal span"
+        );
     }
 
     #[test]
