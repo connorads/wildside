@@ -24,6 +24,34 @@ pub(crate) struct ScratchQueueSub28FC {
     pub(crate) slots_remaining: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ScratchDebrisPieceSub292E {
+    pub(crate) y_velocity_px: i16,
+    pub(crate) x_velocity_px: i16,
+    pub(crate) y_pos_px: u16,
+    pub(crate) x_pos_px: u16,
+}
+
+const SUB_292E_PIECE_COUNT: usize = 5;
+const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
+const SUB_292E_SLOT_FLAG_OFFSET: usize = 1;
+const SUB_292E_SLOT_PIECES_OFFSET: usize = 2;
+const SUB_292E_PIECE_STRIDE_BYTES: usize = 0x10;
+const SUB_292E_Y_OFFSETS: [u16; SUB_292E_PIECE_COUNT] = [0, 8, 8, 0, 4];
+const SUB_292E_X_OFFSETS: [u16; SUB_292E_PIECE_COUNT] = [0, 0, 8, 8, 4];
+const SUB_292E_Y_VELOCITIES: [[i16; SUB_292E_PIECE_COUNT]; 4] = [
+    [-1, -1, 0, 1, 0],
+    [-1, -1, 0, 1, -1],
+    [-1, -1, 0, 1, 0],
+    [0, 0, 0, 0, 0],
+];
+const SUB_292E_X_VELOCITIES: [[i16; SUB_292E_PIECE_COUNT]; 4] = [
+    [-4, -3, -3, -4, -5],
+    [-2, 0, 0, -1, -2],
+    [-3, -3, -3, -3, -3],
+    [-5, -4, -3, -2, -1],
+];
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
@@ -35,6 +63,70 @@ pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
         next_slot: 0,
         slots_remaining: SUB_28FC_SLOT_COUNT as u16,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn spawn_block_debris_sub_292E(
+    queue: &mut ScratchQueueSub28FC,
+    x_pos_px: u16,
+    y_pos_px: u16,
+    direction: u16,
+) {
+    // ASM sub_292E (kid.asm:4881): mark the current `$52`-byte scratch slot
+    // active, clear byte 1, then seed five 16-byte debris records with fixed
+    // x/y offsets and direction-selected signed integer velocities. After the
+    // write, decrement `$FFFFFAA0`; if it hit zero, rewind to slot 0 and
+    // reload the six-slot counter, otherwise advance `$FFFFFA9C` by `$52`.
+    let slot_index = queue.next_slot;
+    let slot = &mut queue.slots[slot_index];
+    slot.fill(0);
+    slot[SUB_292E_SLOT_ACTIVE_OFFSET] = 0xFF;
+    slot[SUB_292E_SLOT_FLAG_OFFSET] = 0x00;
+
+    let direction_index = usize::from(direction.min(3));
+    for piece_index in 0..SUB_292E_PIECE_COUNT {
+        let base = SUB_292E_SLOT_PIECES_OFFSET + piece_index * SUB_292E_PIECE_STRIDE_BYTES;
+        let y_velocity_bytes = SUB_292E_Y_VELOCITIES[direction_index][piece_index].to_be_bytes();
+        let x_velocity_bytes = SUB_292E_X_VELOCITIES[direction_index][piece_index].to_be_bytes();
+        let y_pos_bytes = y_pos_px
+            .wrapping_add(SUB_292E_Y_OFFSETS[piece_index])
+            .to_be_bytes();
+        let x_pos_bytes = x_pos_px
+            .wrapping_add(SUB_292E_X_OFFSETS[piece_index])
+            .to_be_bytes();
+
+        slot[base..base + 2].copy_from_slice(&y_velocity_bytes);
+        slot[base + 4..base + 6].copy_from_slice(&y_pos_bytes);
+        slot[base + 8..base + 10].copy_from_slice(&x_velocity_bytes);
+        slot[base + 12..base + 14].copy_from_slice(&x_pos_bytes);
+    }
+
+    if queue.slots_remaining <= 1 {
+        queue.slots_remaining = SUB_28FC_SLOT_COUNT as u16;
+        queue.next_slot = 0;
+    } else {
+        queue.slots_remaining -= 1;
+        queue.next_slot = (slot_index + 1) % SUB_28FC_SLOT_COUNT;
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn scratch_debris_pieces_sub_292E(
+    queue: &ScratchQueueSub28FC,
+    slot_index: usize,
+) -> [ScratchDebrisPieceSub292E; SUB_292E_PIECE_COUNT] {
+    let slot = &queue.slots[slot_index];
+    core::array::from_fn(|piece_index| {
+        let base = SUB_292E_SLOT_PIECES_OFFSET + piece_index * SUB_292E_PIECE_STRIDE_BYTES;
+        ScratchDebrisPieceSub292E {
+            y_velocity_px: i16::from_be_bytes([slot[base], slot[base + 1]]),
+            y_pos_px: u16::from_be_bytes([slot[base + 4], slot[base + 5]]),
+            x_velocity_px: i16::from_be_bytes([slot[base + 8], slot[base + 9]]),
+            x_pos_px: u16::from_be_bytes([slot[base + 12], slot[base + 13]]),
+        }
+    })
 }
 
 #[allow(non_snake_case)]

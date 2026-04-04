@@ -6,10 +6,11 @@ use crate::boot::{
 };
 use crate::combat::*;
 use crate::level::{
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
-    apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, drain_fg_update_queue_custom_sub_1596,
-    fade_palette_span_sub_1C85E, initialise_scratch_queue_sub_28FC,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, SUB_28FC_SLOT_COUNT,
+    ScratchDebrisPieceSub292E, apply_pending_palette_fade_sub_14C0,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    drain_fg_update_queue_custom_sub_1596, fade_palette_span_sub_1C85E,
+    initialise_scratch_queue_sub_28FC, scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
     swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
@@ -149,6 +150,81 @@ fn initialise_scratch_queue_sub_28fc_clears_all_slots_and_rewinds_the_cursor() {
     assert_eq!(
         queue.slots_remaining, 6,
         "ASM sub_28FC should reload `$FFFFFAA0` with six available scratch slots",
+    );
+}
+
+#[test]
+fn spawn_block_debris_sub_292e_seeds_five_directional_debris_records() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
+
+    assert_eq!(
+        queue.slots[0][0], 0xFF,
+        "ASM sub_292E should mark the current `$52`-byte scratch slot active before filling its debris records",
+    );
+    assert_eq!(
+        queue.slots[0][1], 0x00,
+        "ASM sub_292E should clear byte 1 for the standard smash/ice debris variant",
+    );
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, 0),
+        [
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: -3,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: -3,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -3,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 1,
+                x_velocity_px: -3,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -3,
+                y_pos_px: 0x0084,
+                x_pos_px: 0x0124,
+            },
+        ],
+        "ASM sub_292E should write the shared 0/8/8/0/4 position offsets and direction-2 signed velocity tables into the five 16-byte debris records",
+    );
+}
+
+#[test]
+fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    for slot_index in 0..SUB_28FC_SLOT_COUNT {
+        spawn_block_debris_sub_292E(&mut queue, slot_index as u16, 0x0040, 3);
+    }
+
+    assert_eq!(
+        queue.next_slot, 0,
+        "ASM sub_292E should rewind `$FFFFFA9C` to slot 0 after consuming the sixth scratch slot",
+    );
+    assert_eq!(
+        queue.slots_remaining, 6,
+        "ASM sub_292E should reload `$FFFFFAA0` with six available slots once the queue wraps",
+    );
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, SUB_28FC_SLOT_COUNT - 1)[0].x_velocity_px,
+        -5,
+        "ASM sub_292E should keep using the selected direction table right up to the wrapping sixth slot",
     );
 }
 
