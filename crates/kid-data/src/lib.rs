@@ -1865,6 +1865,35 @@ pub fn damage_flash_palette_clear_sub_80BC() -> PaletteWordOverlaySub80BC {
 }
 
 #[allow(non_snake_case)]
+pub fn damage_flash_helmet_palette_load_sub_80D0(
+    helmet_id: u16,
+) -> Option<SymbolicPaletteLoadSub1B2A4> {
+    // ASM sub_80D0 (kid.asm:8833): index `off_80F2` by `Current_Helmet` and
+    // copy 12 words from the selected palette into Palette_Buffer+$62.
+    const PALETTES: [&str; 10] = [
+        "Pal_A1C72",
+        "Pal_A1CE4",
+        "Pal_A1E1C",
+        "Pal_A1DA4",
+        "Pal_A1DE0",
+        "Pal_A1E58",
+        "Pal_A1E94",
+        "Pal_A1D68",
+        "Pal_A1C8A",
+        "Pal_A1D26",
+    ];
+
+    PALETTES
+        .get(usize::from(helmet_id))
+        .copied()
+        .map(|palette_label| SymbolicPaletteLoadSub1B2A4 {
+            destination_word_offset: 0x0031,
+            palette_label,
+            word_count: 0x000C,
+        })
+}
+
+#[allow(non_snake_case)]
 pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
     // ASM sub_1C896 (kid.asm:31542): copy 0x40 words from `Pal_1C97C`
     // straight into `Palette_Buffer` starting at word offset 0.
@@ -5827,6 +5856,40 @@ AddrTbl_LevelNames:   ;1A842
                 words: [0x0FFF; 12],
             },
             "ASM sub_80BC should fill 12 words at Palette_Buffer+$62 with `$0FFF` before the damage flash restores the helmet palette",
+        );
+    }
+
+    #[test]
+    fn damage_flash_helmet_palette_load_sub_80d0_maps_each_helmet_to_the_12_word_overlay() {
+        let expected = [
+            "Pal_A1C72",
+            "Pal_A1CE4",
+            "Pal_A1E1C",
+            "Pal_A1DA4",
+            "Pal_A1DE0",
+            "Pal_A1E58",
+            "Pal_A1E94",
+            "Pal_A1D68",
+            "Pal_A1C8A",
+            "Pal_A1D26",
+        ];
+
+        for (helmet_id, palette_label) in expected.into_iter().enumerate() {
+            assert_eq!(
+                damage_flash_helmet_palette_load_sub_80D0(helmet_id as u16),
+                Some(SymbolicPaletteLoadSub1B2A4 {
+                    destination_word_offset: 0x0031,
+                    palette_label,
+                    word_count: 0x000C,
+                }),
+                "ASM sub_80D0 should copy the 12-word helmet palette {palette_label} into Palette_Buffer+$62 for helmet index {helmet_id}",
+            );
+        }
+
+        assert_eq!(
+            damage_flash_helmet_palette_load_sub_80D0(10),
+            None,
+            "native should reject out-of-range helmet indices instead of inventing a palette past ASM off_80F2",
         );
     }
 
