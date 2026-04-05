@@ -17199,114 +17199,80 @@ fn evanescent_block_not_triggered_twice() {
 // --- Shooter block tests ---
 
 #[test]
-fn shooter_block_fires_immediately_when_it_enters_view() {
+fn shooter_block_sub_f096_fires_when_kid_enters_scan_column() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.set_block_grid(grid_with_shooter_blocks(&[(22, 3, 0x02)]));
+    runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
     runtime.projectiles.clear();
+    runtime.block_state.shooter_last_scanned_col = 1;
+    runtime.block_state.shooter_last_scanned_row = 3;
 
-    let hidden_slice = shooter_test_slice(0, 0);
-    runtime.step_shooter_blocks(&hidden_slice);
-    assert!(
-        runtime.projectiles.is_empty(),
-        "off-screen shooter should not register or fire"
-    );
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (2 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
+    runtime.step_shooter_blocks(&slice);
 
-    let visible_slice = shooter_test_slice(16, 0);
-    runtime.step_shooter_blocks(&visible_slice);
     assert_eq!(runtime.projectiles.len(), 1, "should fire one projectile");
     assert!(
         runtime.projectiles[0].x_velocity > 0,
-        "projectile should move right"
+        "ASM sub_F096 should register the `kid_x_block+3` shooter column when Kid crosses into a new block"
     );
     assert_eq!(runtime.projectiles[0].y_velocity, 0);
 }
 
 #[test]
-fn shooter_block_keeps_per_block_cadence_after_late_visibility() {
+fn shooter_block_sub_f096_fires_when_kid_enters_scan_row() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x02), (22, 3, 0x02)]));
+    runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 7, 0x02)]));
     runtime.projectiles.clear();
+    runtime.block_state.shooter_last_scanned_col = 5;
+    runtime.block_state.shooter_last_scanned_row = 4;
 
-    let early_slice = shooter_test_slice(0, 0);
-    runtime.step_shooter_blocks(&early_slice);
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (5 * 16) << 16;
+    slice.player.y_pos = (5 * 16) << 16;
+    runtime.step_shooter_blocks(&slice);
+
     assert_eq!(
         runtime.projectiles.len(),
         1,
-        "first visible shooter should fire"
-    );
-
-    for _ in 0..5 {
-        runtime.step_shooter_blocks(&early_slice);
-    }
-
-    let late_slice = shooter_test_slice(16, 0);
-    runtime.step_shooter_blocks(&late_slice);
-    assert_eq!(
-        runtime.projectiles.len(),
-        2,
-        "newly visible shooter should fire immediately instead of waiting on a global timer"
-    );
-
-    for _ in 0..15 {
-        runtime.step_shooter_blocks(&late_slice);
-    }
-    assert_eq!(
-        runtime.projectiles.len(),
-        2,
-        "registered shooters should not refire before their 22-frame slot expires"
-    );
-
-    runtime.step_shooter_blocks(&late_slice);
-    assert_eq!(
-        runtime.projectiles.len(),
-        3,
-        "the early shooter should re-register and fire again after 22 frames"
+        "ASM sub_F096 should register the `kid_y_block+2` shooter row when Kid moves down into a new block"
     );
 }
 
 #[test]
-fn shooter_block_rearms_when_it_leaves_and_reenters_view() {
+fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
-    runtime.set_block_grid(grid_with_shooter_blocks(&[(22, 3, 0x02)]));
+    runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
     runtime.projectiles.clear();
+    runtime.block_state.shooter_last_scanned_col = 1;
+    runtime.block_state.shooter_last_scanned_row = 3;
 
-    let hidden_left = shooter_test_slice(0, 0);
-    let visible = shooter_test_slice(16, 0);
-    let hidden_right = shooter_test_slice(400, 0);
-
-    runtime.step_shooter_blocks(&visible);
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (2 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
+    runtime.step_shooter_blocks(&slice);
     assert_eq!(
         runtime.projectiles.len(),
         1,
-        "first visible stint should fire"
-    );
-    assert_eq!(
-        runtime.block_state.shooter_blocks.len(),
-        1,
-        "visible shooter should keep a live registration"
+        "the first registered shooter worker should fire immediately"
     );
 
-    runtime.step_shooter_blocks(&hidden_right);
+    for _ in 0..20 {
+        runtime.step_shooter_blocks(&slice);
+    }
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM sub_F096 keeps the live shooter slot resident for its 22-frame lifetime instead of re-registering each frame"
+    );
+
+    runtime.step_shooter_blocks(&slice);
     assert!(
         runtime.block_state.shooter_blocks.is_empty(),
-        "leaving the viewport should drop the shooter registration"
-    );
-
-    runtime.projectiles.clear();
-    runtime.step_shooter_blocks(&hidden_left);
-    assert!(
-        runtime.projectiles.is_empty(),
-        "remaining off-screen should not re-register or fire"
-    );
-
-    runtime.step_shooter_blocks(&visible);
-    assert_eq!(
-        runtime.projectiles.len(),
-        1,
-        "re-entering view should register and fire again immediately"
+        "the worker should expire once its 22-frame slot lifetime ends"
     );
 }
 
@@ -32216,9 +32182,13 @@ fn shooter_player_in_range_sub_f536_rejects_just_outside_window() {
 fn shooter_block_fires_all_four_directions() {
     // Skin byte 0x0F = all directions (up + right + down + left)
     let mut rt = NativeRuntime::new(manifest());
-    rt.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x0F)]));
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x0F)]));
+    rt.block_state.shooter_last_scanned_col = 1;
+    rt.block_state.shooter_last_scanned_row = 3;
 
-    let slice = shooter_test_slice(0, 0);
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (2 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
     rt.step_shooter_blocks(&slice);
 
     assert_eq!(
@@ -32243,9 +32213,13 @@ fn shooter_block_fires_all_four_directions() {
 fn shooter_block_single_direction_up_only() {
     // Skin byte 0x01 = up only
     let mut rt = NativeRuntime::new(manifest());
-    rt.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x01)]));
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x01)]));
+    rt.block_state.shooter_last_scanned_col = 1;
+    rt.block_state.shooter_last_scanned_row = 3;
 
-    let slice = shooter_test_slice(0, 0);
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (2 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
     rt.step_shooter_blocks(&slice);
 
     assert_eq!(rt.projectiles.len(), 1);
@@ -32257,9 +32231,13 @@ fn shooter_block_single_direction_up_only() {
 fn shooter_block_pruned_when_cell_no_longer_shooter() {
     // If the grid cell changes (e.g. block destroyed), the shooter entry should be pruned.
     let mut rt = NativeRuntime::new(manifest());
-    rt.set_block_grid(grid_with_shooter_blocks(&[(2, 3, 0x02)]));
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
+    rt.block_state.shooter_last_scanned_col = 1;
+    rt.block_state.shooter_last_scanned_row = 3;
 
-    let slice = shooter_test_slice(0, 0);
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (2 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
     rt.step_shooter_blocks(&slice);
     assert_eq!(rt.block_state.shooter_blocks.len(), 1);
 
@@ -32267,7 +32245,7 @@ fn shooter_block_pruned_when_cell_no_longer_shooter() {
     rt.block_grid
         .as_mut()
         .unwrap()
-        .set_cell_at(2, 3, terrain::Cell::from_be_bytes(0, 0));
+        .set_cell_at(5, 3, terrain::Cell::from_be_bytes(0, 0));
 
     rt.step_shooter_blocks(&slice);
     assert!(

@@ -520,7 +520,7 @@ pub struct SpawnProbeInspection {
 }
 
 /// Block interaction state: evanescent, ghost, shooter, and lift blocks.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct BlockInteractionState {
     pub(crate) evanescent_blocks: Vec<EvanescentEntry>,
     pub(crate) ghost_groups: Vec<GhostGroup>,
@@ -532,6 +532,10 @@ pub(crate) struct BlockInteractionState {
     /// hit from below queue transient deleted-tile workers for the struck cell
     /// and any empty support cells above it.
     pub(crate) shooter_headbutt_workers: Vec<ShooterHeadbuttWorker>,
+    /// ASM sub_F06A resets `$FFFFF8BE/$FFFFF8C0` to -1 so sub_F096 can detect
+    /// the next shooter scan line entering Kid's local block window.
+    pub(crate) shooter_last_scanned_col: i16,
+    pub(crate) shooter_last_scanned_row: i16,
     /// Prize blocks headbutted from below: ASM sub_1007A owns the full
     /// lifecycle — keep the cell Solid (0x6F), run the bounce coroutine,
     /// then clear the tile and spawn the prize object.
@@ -539,6 +543,32 @@ pub(crate) struct BlockInteractionState {
     /// ASM sub_10DE4: rubber-block contact toggles the same cell between two
     /// skins with 2/1/1/1/2/2/3/3 frame hibernate gaps.
     pub(crate) rubber_block_animations: Vec<RubberBlockAnimation>,
+}
+
+impl Default for BlockInteractionState {
+    fn default() -> Self {
+        Self {
+            evanescent_blocks: Vec::new(),
+            ghost_groups: Vec::new(),
+            lift_platforms: Vec::new(),
+            shooter_blocks: Vec::new(),
+            shooter_headbutt_workers: Vec::new(),
+            shooter_last_scanned_col: -1,
+            shooter_last_scanned_row: -1,
+            deferred_ceiling_clears: Vec::new(),
+            rubber_block_animations: Vec::new(),
+        }
+    }
+}
+
+impl BlockInteractionState {
+    #[allow(non_snake_case)]
+    pub(crate) fn reset_shooter_state_sub_F06A(&mut self) {
+        self.shooter_blocks.clear();
+        self.shooter_headbutt_workers.clear();
+        self.shooter_last_scanned_col = -1;
+        self.shooter_last_scanned_row = -1;
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

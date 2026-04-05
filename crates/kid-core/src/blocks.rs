@@ -447,58 +447,85 @@ impl NativeRuntime {
             return;
         };
 
-        // ASM loc_EB72: scan the visible layout window and register each
-        // visible shooter cell at most once while its slot is alive.
-        let cam_x = slice.camera.x_pos >> 16;
-        let cam_y = slice.camera.y_pos >> 16;
-        let start_col = (cam_x / 16).saturating_sub(1) as u16;
-        let end_col = ((cam_x + 320) / 16 + 2).min(u32::from(grid.width_cells)) as u16;
-        let start_row = (cam_y / 16).saturating_sub(1) as u16;
-        let end_row = ((cam_y + 224) / 16 + 2).min(u32::from(grid.height_cells)) as u16;
+        let kid_block_col = ((slice.player.x_pos >> 16) >> 4) as i16;
+        let kid_block_row = ((slice.player.y_pos >> 16) >> 4) as i16;
+        let max_col = i16::try_from(grid.width_cells.saturating_sub(1))
+            .expect("block grids should fit in i16");
+        let max_row = i16::try_from(grid.height_cells.saturating_sub(1))
+            .expect("block grids should fit in i16");
+        let previous_col = self.block_state.shooter_last_scanned_col;
+        let previous_row = self.block_state.shooter_last_scanned_row;
+        let mut pending_entries = Vec::new();
+        let mut queue_scan = |col: u16, row: u16, skin: u8| {
+            let already_registered = self
+                .block_state
+                .shooter_blocks
+                .iter()
+                .any(|entry| entry.col == col && entry.row == row);
+            let already_pending = pending_entries
+                .iter()
+                .any(|(pending_col, pending_row, _)| *pending_col == col && *pending_row == row);
+            if !already_registered && !already_pending {
+                pending_entries.push((col, row, skin));
+            }
+        };
 
-        self.block_state.shooter_blocks.retain(|entry| {
-            entry.col >= start_col
-                && entry.col < end_col
-                && entry.row >= start_row
-                && entry.row < end_row
-        });
-
-        for row in start_row..end_row {
-            for col in start_col..end_col {
-                let cell = grid.cell_at(col, row);
-                if !cell.has_block || cell.block_type != terrain::BlockType::Shooter {
-                    continue;
-                }
-                let already_registered = self
-                    .block_state
-                    .shooter_blocks
-                    .iter()
-                    .any(|entry| entry.col == col && entry.row == row);
-                if !already_registered {
-                    self.block_state.shooter_blocks.push(ShooterBlockEntry {
-                        col,
-                        row,
-                        directions: cell.skin,
-                        age: 0,
-                    });
+        if previous_col != kid_block_col {
+            let entering_col = if previous_col < kid_block_col {
+                (kid_block_col + 3).min(max_col)
+            } else {
+                (kid_block_col - 3).max(0)
+            } as u16;
+            let start_row = (kid_block_row - 5).max(0) as u16;
+            let end_row = (kid_block_row + 2).min(max_row) as u16;
+            for row in start_row..=end_row {
+                let cell = grid.cell_at(entering_col, row);
+                if cell.has_block && cell.block_type == terrain::BlockType::Shooter {
+                    queue_scan(entering_col, row, cell.skin);
                 }
             }
         }
 
+        if previous_row != kid_block_row {
+            let entering_row = if previous_row < kid_block_row {
+                (kid_block_row + 2).min(max_row)
+            } else {
+                (kid_block_row - 5).max(0)
+            } as u16;
+            let start_col = (kid_block_col - 3).max(0) as u16;
+            let end_col = (kid_block_col + 3).min(max_col) as u16;
+            for col in start_col..=end_col {
+                let cell = grid.cell_at(col, entering_row);
+                if cell.has_block && cell.block_type == terrain::BlockType::Shooter {
+                    queue_scan(col, entering_row, cell.skin);
+                }
+            }
+        }
+
+        self.block_state.shooter_last_scanned_col = kid_block_col;
+        self.block_state.shooter_last_scanned_row = kid_block_row;
+        self.block_state
+            .shooter_blocks
+            .extend(
+                pending_entries
+                    .into_iter()
+                    .map(|(col, row, directions)| ShooterBlockEntry {
+                        col,
+                        row,
+                        directions,
+                        age: 0,
+                    }),
+            );
+
         self.block_state.shooter_blocks.retain_mut(|entry| {
-            let still_visible = entry.col >= start_col
-                && entry.col < end_col
-                && entry.row >= start_row
-                && entry.row < end_row;
-            let still_shooter = still_visible
-                && matches!(
-                    grid.cell_at(entry.col, entry.row),
-                    terrain::Cell {
-                        has_block: true,
-                        block_type: terrain::BlockType::Shooter,
-                        ..
-                    }
-                );
+            let still_shooter = matches!(
+                grid.cell_at(entry.col, entry.row),
+                terrain::Cell {
+                    has_block: true,
+                    block_type: terrain::BlockType::Shooter,
+                    ..
+                }
+            );
             if !still_shooter {
                 return false;
             }
