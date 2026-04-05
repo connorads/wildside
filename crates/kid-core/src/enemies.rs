@@ -1903,7 +1903,9 @@ pub(crate) fn step_bouncer_with_rng(
         );
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
-            enemy.facing = opposite_direction(enemy.facing);
+            if !matches!(enemy.family, EnemyFamily::Fireball) {
+                enemy.facing = opposite_direction(enemy.facing);
+            }
         }
 
         // Floor bounce
@@ -5054,6 +5056,15 @@ mod tests {
         }
     }
 
+    fn fireball_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Fireball,
+            hit_points: 1,
+            facing: Direction::Right,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
     fn ninja_test_enemy() -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::Ninja,
@@ -5162,6 +5173,29 @@ mod tests {
             enemy.x_velocity, -0x0001_C000,
             "ASM Mini_Hopping_Skull.asm loc_3F1AA negates the live X velocity, so wall hits must preserve boosted magnitude"
         );
+    }
+
+    #[test]
+    fn fireball_wall_bounce_keeps_facing_through_loc_32c60_dispatch() {
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = fireball_test_enemy();
+        enemy.on_ground = false;
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 23 << 16;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = 0x0001_8000;
+        enemy.y_velocity = 0;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Fireball.asm loc_32C60/loc_32C86 dispatches the wall-collision handler, and Enemy19_Fireball_BounceWall only negates x_vel without touching x_direction"
+        );
+        assert_eq!(enemy.x_velocity, -0x0001_8000);
     }
 
     #[test]
