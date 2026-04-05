@@ -388,6 +388,12 @@ pub(crate) struct SoundDriverWriteSubE1338 {
     pub(crate) queued_bytes: [u8; 2],
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteSubE133C {
+    pub(crate) queued_bytes: [u8; 0],
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -418,6 +424,14 @@ pub(crate) fn sound_driver_write_sub_E1338() -> SoundDriverWriteSubE1338 {
     SoundDriverWriteSubE1338 {
         queued_bytes: [0xFF, 0x0D],
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E133C() -> SoundDriverWriteSubE133C {
+    // ASM sub_E133C -> loc_E1576 (kid.asm:49508, 49847): enter the shared
+    // Z80 write critical section, then return without queueing any command.
+    SoundDriverWriteSubE133C { queued_bytes: [] }
 }
 
 #[derive(Debug, Clone, Copy)]

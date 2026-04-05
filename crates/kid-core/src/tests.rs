@@ -794,6 +794,17 @@ fn sound_driver_write_sub_e1338_queues_ff_0d_without_payload() {
     );
 }
 
+#[test]
+fn sound_driver_write_sub_e133c_only_enters_the_shared_flush_path() {
+    let write = sound_driver_write_sub_E133C();
+
+    assert_eq!(
+        write,
+        SoundDriverWriteSubE133C { queued_bytes: [] },
+        "ASM sub_E133C should thunk to loc_E1576, enter the shared critical section, and return without queueing a GEMS command byte",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }
