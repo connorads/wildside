@@ -900,6 +900,33 @@ fn sound_driver_write_byte_sub_e148e_writes_one_ring_byte_and_wraps_head() {
     );
 }
 
+#[test]
+fn sound_driver_write_long_low_byte_sub_e149c_writes_only_the_first_payload_byte() {
+    let write = sound_driver_write_long_low_byte_sub_E149C(0x12, 0x44332211);
+
+    assert_eq!(
+        write,
+        SoundDriverWriteLongLowByteSubE149C {
+            begin_write: SoundDriverBeginWriteSubE143A {
+                command_head_address: 0xA00036,
+                ring_buffer_address: 0xA01A40,
+                write_index: 0x12,
+                interrupt_mask: 0x0700,
+                requests_z80_bus: true,
+                waits_for_bus_grant: true,
+            },
+            write: SoundDriverWriteByteSubE148E {
+                queued_byte: 0x11,
+                next_write_index: 0x13,
+                committed_write_index: 0x13,
+            },
+            releases_z80_bus: true,
+            restores_previous_sr: true,
+        },
+        "ASM sub_E149C should enter sub_E143A, queue only the low byte from `8(a6)` through sub_E148E, then drop `$A11100` and restore SR in loc_E1470",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

@@ -442,6 +442,15 @@ pub(crate) struct SoundDriverWriteByteSubE148E {
     pub(crate) committed_write_index: u8,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteLongLowByteSubE149C {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) write: SoundDriverWriteByteSubE148E,
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -566,6 +575,23 @@ pub(crate) fn sound_driver_write_byte_sub_E148E(
         queued_byte: command_byte,
         next_write_index,
         committed_write_index: next_write_index,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_long_low_byte_sub_E149C(
+    command_head_byte: u8,
+    value: u32,
+) -> SoundDriverWriteLongLowByteSubE149C {
+    // ASM sub_E149C (kid.asm:49697): enter the shared Z80/GEMS write section,
+    // queue only the low byte from `8(a6)` through sub_E148E, then drop the
+    // bus request and restore the caller SR in loc_E1470.
+    SoundDriverWriteLongLowByteSubE149C {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        write: sound_driver_write_byte_sub_E148E(command_head_byte, value as u8),
+        releases_z80_bus: true,
+        restores_previous_sr: true,
     }
 }
 
