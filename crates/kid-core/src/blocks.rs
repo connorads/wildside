@@ -15,6 +15,16 @@ pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeBlockDeletedTileLoc101D8 {
+    pub(crate) written_cell: terrain::Cell,
+    pub(crate) fg_queue_entry: (u16, u16, u16),
+    pub(crate) child_display_enabled: bool,
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) animation_script_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -188,6 +198,28 @@ impl NativeRuntime {
             layout_word_addr,
             gfx_x_pos: block_col << 4,
             gfx_y_pos: block_row << 4,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_deleted_tile_loc_101D8(
+        block_col: u16,
+        block_row: u16,
+        deleted_skin: u8,
+    ) -> PrizeBlockDeletedTileLoc101D8 {
+        // ASM loc_101D8 (kid.asm:21459): write the deleted-solid tile by
+        // storing `d4` into `(a0)` and then overriding only the high byte with
+        // `$6F`, queue the same `(d0,d1,d4)` triple into
+        // `FGUpdateQueueCell_NextSlot`, clear the child display byte with
+        // `st $13(a3)`, then preserve `d0` across the `sfx_Block_hit` call and
+        // seed `d7` with `stru_10296`.
+        PrizeBlockDeletedTileLoc101D8 {
+            written_cell: terrain::Cell::from_be_bytes(0x6F, deleted_skin),
+            fg_queue_entry: (block_col, block_row, u16::from(deleted_skin)),
+            child_display_enabled: false,
+            sound_effect_label: "sfx_Block_hit",
+            animation_script_addr: 0x0001_0296,
         }
     }
 

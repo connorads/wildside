@@ -6425,6 +6425,34 @@ fn prize_block_headbutt_worker_loc_1002e_preserves_layout_pointer_and_converts_c
 }
 
 #[test]
+fn prize_block_deleted_tile_loc_101d8_queues_the_deleted_solid_cell_before_the_bounce() {
+    let result = NativeRuntime::prize_block_deleted_tile_loc_101D8(0x0012, 0x0007, 0x05);
+
+    assert_eq!(
+        result.written_cell,
+        terrain::Cell::from_be_bytes(0x6F, 0x05),
+        "ASM loc_101D8 should finish the `(a0)` write as `$6Fxx` by storing the deleted skin in `d4` and then overriding only the high byte with `$6F`",
+    );
+    assert_eq!(
+        result.fg_queue_entry,
+        (0x0012, 0x0007, 0x0005),
+        "ASM loc_101D8 should queue the same `(d0,d1,d4)` triple into `FGUpdateQueueCell_NextSlot` immediately after writing the layout cell",
+    );
+    assert!(
+        !result.child_display_enabled,
+        "ASM loc_101D8 should execute `st $13(a3)`, leaving the child gfx-object display byte cleared before the wobble starts",
+    );
+    assert_eq!(
+        result.sound_effect_label, "sfx_Block_hit",
+        "ASM loc_101D8 should preserve `d0`, call `j_PlaySound` with `sfx_Block_hit`, then restore `d0` for the later rise loop",
+    );
+    assert_eq!(
+        result.animation_script_addr, 0x0001_0296,
+        "ASM loc_101D8 should seed `d7` with `stru_10296` before the six-frame `loc_10228` rise loop begins",
+    );
+}
+
+#[test]
 fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
     let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();
 
