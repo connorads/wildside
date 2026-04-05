@@ -60,6 +60,67 @@ fn expected_level0_respawn_bootstrap_pose() -> (u32, u32) {
     )
 }
 
+fn crawl_escape_test_grid(left_solid: bool, right_solid: bool) -> terrain::BlockGrid {
+    let width = 8u16;
+    let height = 4u16;
+    let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+    if left_solid {
+        data[(usize::from(width) + 2) * 2] = 0x60;
+    }
+    if right_solid {
+        data[(usize::from(width) + 4) * 2] = 0x60;
+    }
+    terrain::BlockGrid::from_level_layout(&data, width, height)
+}
+
+#[test]
+fn crawl_wall_escape_sub_81b4_snaps_left_on_the_first_open_side() {
+    let grid = crawl_escape_test_grid(false, true);
+
+    let result = crawl_wall_escape_sub_81B4(&grid, 50 << 16, 32 << 16, 14);
+
+    assert_eq!(
+        result,
+        CrawlWallEscapeSub81B4 {
+            x_pos: 33 << 16,
+            blocked: false,
+        },
+        "ASM sub_81B4 should take loc_81D8 immediately when the left sample is not `$6000`, even if the right sample would be solid",
+    );
+}
+
+#[test]
+fn crawl_wall_escape_sub_81b4_snaps_right_when_left_is_solid_and_right_is_open() {
+    let grid = crawl_escape_test_grid(true, false);
+
+    let result = crawl_wall_escape_sub_81B4(&grid, 50 << 16, 32 << 16, 14);
+
+    assert_eq!(
+        result,
+        CrawlWallEscapeSub81B4 {
+            x_pos: 78 << 16,
+            blocked: false,
+        },
+        "ASM sub_81B4 should take loc_81FA when the left sample is `$6000` and the right sample is not",
+    );
+}
+
+#[test]
+fn crawl_wall_escape_sub_81b4_reports_blocked_when_both_sides_are_solid() {
+    let grid = crawl_escape_test_grid(true, true);
+
+    let result = crawl_wall_escape_sub_81B4(&grid, 50 << 16, 32 << 16, 14);
+
+    assert_eq!(
+        result,
+        CrawlWallEscapeSub81B4 {
+            x_pos: 50 << 16,
+            blocked: true,
+        },
+        "ASM sub_81B4 should return d7=1 and leave x_pos unchanged when both side samples read `$6000`",
+    );
+}
+
 #[test]
 fn sub_6874_hides_only_sprites_whose_masked_tiles_overlap_pause_menu_vram() {
     let mut sprites = [

@@ -2750,6 +2750,13 @@ pub(crate) struct DownHoldAlignmentSub7A10 {
     pub(crate) blocked: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct CrawlWallEscapeSub81B4 {
+    pub(crate) x_pos: u32,
+    pub(crate) blocked: bool,
+}
+
 pub(crate) fn update_level_one_slope_ground_velocity(
     x_vel: i32,
     facing: Direction,
@@ -2979,5 +2986,58 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
     DownHoldAlignmentSub7A10 {
         x_pos: (aligned_x_px.max(0) as u32) << 16,
         blocked: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn crawl_wall_escape_sub_81B4(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    half_width: i32,
+) -> CrawlWallEscapeSub81B4 {
+    // ASM sub_81B4 (kid.asm:8952): probe one row 16px above the feet at
+    // `x_pos ± half_width`, take the first non-solid side, and snap the player
+    // flush to that tile boundary. Only return blocked when both side probes
+    // are solid (`$6000`).
+    let center_x_px = (x_pos >> 16) as i32;
+    let foot_y_px = (y_pos >> 16) as i32;
+    let sample_y_offset_px = -16;
+    let original_x_pos = (center_x_px.max(0) as u32) << 16;
+
+    if terrain::probe_relative_collision_sub_B55C(
+        grid,
+        center_x_px,
+        foot_y_px,
+        -half_width,
+        sample_y_offset_px,
+    ) != terrain::CollisionKind::Solid
+    {
+        let snapped_x_px = ((center_x_px - half_width) & !0xF) + 0xF - half_width;
+        return CrawlWallEscapeSub81B4 {
+            x_pos: (snapped_x_px.max(0) as u32) << 16,
+            blocked: false,
+        };
+    }
+
+    if terrain::probe_relative_collision_sub_B55C(
+        grid,
+        center_x_px,
+        foot_y_px,
+        half_width,
+        sample_y_offset_px,
+    ) != terrain::CollisionKind::Solid
+    {
+        let snapped_x_px = ((center_x_px + half_width) & !0xF) + half_width;
+        return CrawlWallEscapeSub81B4 {
+            x_pos: (snapped_x_px.max(0) as u32) << 16,
+            blocked: false,
+        };
+    }
+
+    CrawlWallEscapeSub81B4 {
+        x_pos: original_x_pos,
+        blocked: true,
     }
 }
