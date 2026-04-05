@@ -2005,6 +2005,123 @@ pub fn grounded_walk_sprite_mapping_sub_8446(helmet_id: u16, phase: u16) -> Opti
 }
 
 #[allow(non_snake_case)]
+pub fn helmet_motion_sprite_mapping_sub_942A(helmet_id: u16, phase: u16) -> Option<&'static str> {
+    // ASM sub_942A (kid.asm:10877): for the non-Skycutter/non-Juggernaut path
+    // indexed through `off_9618`, use `Current_Helmet` to select one of the
+    // six-frame mapping tables before writing `addroffset_sprite(a3)`.
+    const SPRITE_TABLES: [[Option<&str>; 6]; 10] = [
+        [
+            Some("LnkTo_unk_A4A22-Data_Index"),
+            Some("LnkTo_unk_A4BA8-Data_Index"),
+            Some("LnkTo_unk_A4D2E-Data_Index"),
+            Some("LnkTo_unk_A4EB4-Data_Index"),
+            Some("LnkTo_unk_A503A-Data_Index"),
+            Some("LnkTo_unk_A51C0-Data_Index"),
+        ],
+        [None, None, None, None, None, None],
+        [
+            Some("LnkTo_unk_BB996-Data_Index"),
+            Some("LnkTo_unk_BBB1C-Data_Index"),
+            Some("LnkTo_unk_BBCA2-Data_Index"),
+            Some("LnkTo_unk_BBE28-Data_Index"),
+            Some("LnkTo_unk_BBFAE-Data_Index"),
+            Some("LnkTo_unk_BC134-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_B5F94-Data_Index"),
+            Some("LnkTo_unk_B617A-Data_Index"),
+            Some("LnkTo_unk_B6360-Data_Index"),
+            Some("LnkTo_unk_B6546-Data_Index"),
+            Some("LnkTo_unk_B672C-Data_Index"),
+            Some("LnkTo_unk_B6912-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_B8ED8-Data_Index"),
+            Some("LnkTo_unk_B915E-Data_Index"),
+            Some("LnkTo_unk_B9364-Data_Index"),
+            Some("LnkTo_unk_B95EA-Data_Index"),
+            Some("LnkTo_unk_B9870-Data_Index"),
+            Some("LnkTo_unk_B9A76-Data_Index"),
+        ],
+        [None, None, None, None, None, None],
+        [
+            Some("LnkTo_unk_C4420-Data_Index"),
+            Some("LnkTo_unk_C46A6-Data_Index"),
+            Some("LnkTo_unk_C492C-Data_Index"),
+            Some("LnkTo_unk_C4BB2-Data_Index"),
+            Some("LnkTo_unk_C4E38-Data_Index"),
+            Some("LnkTo_unk_C50BE-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_AE24E-Data_Index"),
+            Some("LnkTo_unk_AE4D4-Data_Index"),
+            Some("LnkTo_unk_AE75A-Data_Index"),
+            Some("LnkTo_unk_AE9E0-Data_Index"),
+            Some("LnkTo_unk_AEC66-Data_Index"),
+            Some("LnkTo_unk_AEEEC-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_A7C04-Data_Index"),
+            Some("LnkTo_unk_A7E0A-Data_Index"),
+            Some("LnkTo_unk_A8090-Data_Index"),
+            Some("LnkTo_unk_A8276-Data_Index"),
+            Some("LnkTo_unk_A83FC-Data_Index"),
+            Some("LnkTo_unk_A85E2-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_ACE86-Data_Index"),
+            Some("LnkTo_unk_ACF4C-Data_Index"),
+            Some("LnkTo_unk_AD012-Data_Index"),
+            Some("LnkTo_unk_AD0D8-Data_Index"),
+            Some("LnkTo_unk_AD19E-Data_Index"),
+            Some("LnkTo_unk_AD264-Data_Index"),
+        ],
+    ];
+
+    SPRITE_TABLES
+        .get(usize::from(helmet_id))
+        .and_then(|phases| phases.get(usize::from(phase)))
+        .copied()
+        .flatten()
+}
+
+#[allow(non_snake_case)]
+pub fn juggernaut_spin_sprite_mapping_sub_942A(phase: u16) -> Option<&'static str> {
+    // ASM sub_942A (kid.asm:10877): Juggernaut indexes `off_94E6` with
+    // `($FFFFF8F0).w >> 8` and stores the selected mapping unless animation
+    // locking suppresses the write.
+    const SPRITE_TABLE: [&str; 8] = [
+        "LnkTo_unk_C0246-Data_Index",
+        "LnkTo_unk_C03CC-Data_Index",
+        "LnkTo_unk_C0552-Data_Index",
+        "LnkTo_unk_C06D8-Data_Index",
+        "LnkTo_unk_C0246-Data_Index",
+        "LnkTo_unk_C03CC-Data_Index",
+        "LnkTo_unk_C0552-Data_Index",
+        "LnkTo_unk_C06D8-Data_Index",
+    ];
+
+    SPRITE_TABLE.get(usize::from(phase)).copied()
+}
+
+#[allow(non_snake_case)]
+pub fn berzerker_charge_sprite_mapping_sub_942A(phase: u16) -> Option<&'static str> {
+    // ASM sub_942A (kid.asm:10877): the Berzerker charge-overflow branch
+    // indexes `off_9688` with `($FFFFF8F0).w >> 8` after setting
+    // `Berzerker_charging`.
+    const SPRITE_TABLE: [&str; 6] = [
+        "LnkTo_unk_AD32A-Data_Index",
+        "LnkTo_unk_AD5B0-Data_Index",
+        "LnkTo_unk_AD836-Data_Index",
+        "LnkTo_unk_ADABC-Data_Index",
+        "LnkTo_unk_ADD42-Data_Index",
+        "LnkTo_unk_ADFC8-Data_Index",
+    ];
+
+    SPRITE_TABLE.get(usize::from(phase)).copied()
+}
+
+#[allow(non_snake_case)]
 pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
     // ASM sub_1C896 (kid.asm:31542): copy 0x40 words from `Pal_1C97C`
     // straight into `Palette_Buffer` starting at word offset 0.
@@ -6147,6 +6264,135 @@ AddrTbl_LevelNames:   ;1A842
             None,
             "native should reject phase indices past the three-word `off_84CA` rows",
         );
+    }
+
+    #[test]
+    fn helmet_motion_sprite_mapping_sub_942a_maps_each_non_special_helmet_phase_to_off_9618() {
+        let expected = [
+            [
+                "LnkTo_unk_A4A22-Data_Index",
+                "LnkTo_unk_A4BA8-Data_Index",
+                "LnkTo_unk_A4D2E-Data_Index",
+                "LnkTo_unk_A4EB4-Data_Index",
+                "LnkTo_unk_A503A-Data_Index",
+                "LnkTo_unk_A51C0-Data_Index",
+            ],
+            [""; 6],
+            [
+                "LnkTo_unk_BB996-Data_Index",
+                "LnkTo_unk_BBB1C-Data_Index",
+                "LnkTo_unk_BBCA2-Data_Index",
+                "LnkTo_unk_BBE28-Data_Index",
+                "LnkTo_unk_BBFAE-Data_Index",
+                "LnkTo_unk_BC134-Data_Index",
+            ],
+            [
+                "LnkTo_unk_B5F94-Data_Index",
+                "LnkTo_unk_B617A-Data_Index",
+                "LnkTo_unk_B6360-Data_Index",
+                "LnkTo_unk_B6546-Data_Index",
+                "LnkTo_unk_B672C-Data_Index",
+                "LnkTo_unk_B6912-Data_Index",
+            ],
+            [
+                "LnkTo_unk_B8ED8-Data_Index",
+                "LnkTo_unk_B915E-Data_Index",
+                "LnkTo_unk_B9364-Data_Index",
+                "LnkTo_unk_B95EA-Data_Index",
+                "LnkTo_unk_B9870-Data_Index",
+                "LnkTo_unk_B9A76-Data_Index",
+            ],
+            [""; 6],
+            [
+                "LnkTo_unk_C4420-Data_Index",
+                "LnkTo_unk_C46A6-Data_Index",
+                "LnkTo_unk_C492C-Data_Index",
+                "LnkTo_unk_C4BB2-Data_Index",
+                "LnkTo_unk_C4E38-Data_Index",
+                "LnkTo_unk_C50BE-Data_Index",
+            ],
+            [
+                "LnkTo_unk_AE24E-Data_Index",
+                "LnkTo_unk_AE4D4-Data_Index",
+                "LnkTo_unk_AE75A-Data_Index",
+                "LnkTo_unk_AE9E0-Data_Index",
+                "LnkTo_unk_AEC66-Data_Index",
+                "LnkTo_unk_AEEEC-Data_Index",
+            ],
+            [
+                "LnkTo_unk_A7C04-Data_Index",
+                "LnkTo_unk_A7E0A-Data_Index",
+                "LnkTo_unk_A8090-Data_Index",
+                "LnkTo_unk_A8276-Data_Index",
+                "LnkTo_unk_A83FC-Data_Index",
+                "LnkTo_unk_A85E2-Data_Index",
+            ],
+            [
+                "LnkTo_unk_ACE86-Data_Index",
+                "LnkTo_unk_ACF4C-Data_Index",
+                "LnkTo_unk_AD012-Data_Index",
+                "LnkTo_unk_AD0D8-Data_Index",
+                "LnkTo_unk_AD19E-Data_Index",
+                "LnkTo_unk_AD264-Data_Index",
+            ],
+        ];
+
+        for (helmet_id, phases) in expected.into_iter().enumerate() {
+            for (phase, sprite_mapping_label) in phases.into_iter().enumerate() {
+                let expected = if sprite_mapping_label.is_empty() {
+                    None
+                } else {
+                    Some(sprite_mapping_label)
+                };
+                assert_eq!(
+                    helmet_motion_sprite_mapping_sub_942A(helmet_id as u16, phase as u16),
+                    expected,
+                    "ASM sub_942A should select `off_9618` phase {phase} for helmet index {helmet_id}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn juggernaut_spin_sprite_mapping_sub_942a_maps_the_off_94e6_cycle() {
+        let expected = [
+            "LnkTo_unk_C0246-Data_Index",
+            "LnkTo_unk_C03CC-Data_Index",
+            "LnkTo_unk_C0552-Data_Index",
+            "LnkTo_unk_C06D8-Data_Index",
+            "LnkTo_unk_C0246-Data_Index",
+            "LnkTo_unk_C03CC-Data_Index",
+            "LnkTo_unk_C0552-Data_Index",
+            "LnkTo_unk_C06D8-Data_Index",
+        ];
+
+        for (phase, sprite_mapping_label) in expected.into_iter().enumerate() {
+            assert_eq!(
+                juggernaut_spin_sprite_mapping_sub_942A(phase as u16),
+                Some(sprite_mapping_label),
+                "ASM sub_942A should index Juggernaut phase {phase} through `off_94E6`",
+            );
+        }
+    }
+
+    #[test]
+    fn berzerker_charge_sprite_mapping_sub_942a_maps_the_off_9688_cycle() {
+        let expected = [
+            "LnkTo_unk_AD32A-Data_Index",
+            "LnkTo_unk_AD5B0-Data_Index",
+            "LnkTo_unk_AD836-Data_Index",
+            "LnkTo_unk_ADABC-Data_Index",
+            "LnkTo_unk_ADD42-Data_Index",
+            "LnkTo_unk_ADFC8-Data_Index",
+        ];
+
+        for (phase, sprite_mapping_label) in expected.into_iter().enumerate() {
+            assert_eq!(
+                berzerker_charge_sprite_mapping_sub_942A(phase as u16),
+                Some(sprite_mapping_label),
+                "ASM sub_942A should index Berzerker charge phase {phase} through `off_9688`",
+            );
+        }
     }
 
     #[test]
