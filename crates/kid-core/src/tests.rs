@@ -20200,6 +20200,7 @@ fn teleporter_lookup_by_position() {
         prize_blocks: vec![],
         ghost_blocks: vec![],
         teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0x0000,
             col: 5,
             row: 3,
             dest_map_id: 2,
@@ -31952,6 +31953,7 @@ fn process_block_effects_teleporter_warps_player() {
         prize_blocks: vec![],
         ghost_blocks: vec![],
         teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0x0000,
             col: 5,
             row: 3,
             dest_map_id: 0,

@@ -467,6 +467,7 @@ impl PrizeContent {
 /// A single prize block entry from the Block List.
 #[derive(Debug, Clone, Copy)]
 pub struct PrizeBlockEntry {
+    pub layout_addr: u16,
     pub col: u16,
     pub row: u16,
     pub content: PrizeContent,
@@ -497,6 +498,7 @@ pub struct GhostBlockEntry {
 /// Touching this block transports the player to the destination.
 #[derive(Debug, Clone, Copy)]
 pub struct TeleporterEntry {
+    pub layout_addr: u16,
     pub col: u16,
     pub row: u16,
     /// Destination level/map ID.
@@ -524,6 +526,7 @@ pub struct BlockList {
 /// Hidden blocks are invisible until the player headbutts them from below.
 #[derive(Debug, Clone)]
 pub struct HiddenBlockEntry {
+    pub layout_addr: u16,
     pub col: u16,
     pub row: u16,
     /// The block type that gets revealed (Prize, Evanescent, Teleporter, etc.).
@@ -566,6 +569,7 @@ impl BlockList {
             }
 
             prize_blocks.push(PrizeBlockEntry {
+                layout_addr,
                 col,
                 row,
                 content,
@@ -621,6 +625,7 @@ impl BlockList {
             let dest_x = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
 
             teleporters.push(TeleporterEntry {
+                layout_addr,
                 col,
                 row,
                 dest_map_id,
@@ -646,6 +651,7 @@ impl BlockList {
             let block_type = data[offset + 6];
             let block_setting = data[offset + 7];
             hidden_blocks.push(HiddenBlockEntry {
+                layout_addr,
                 col,
                 row,
                 block_type,
@@ -682,6 +688,20 @@ impl BlockList {
         self.hidden_blocks
             .iter()
             .find(|entry| entry.col == col && entry.row == row)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_by_layout_addr_sub_E37A(
+        &self,
+        layout_addr: u16,
+    ) -> Option<&HiddenBlockEntry> {
+        // ASM sub_E37A (kid.asm:17818) binary-searches the 8-byte hidden-block
+        // list at `$FFFFF8EC` by the current Level_Layout address in `a2`.
+        self.hidden_blocks
+            .binary_search_by_key(&layout_addr, |entry| entry.layout_addr)
+            .ok()
+            .and_then(|index| self.hidden_blocks.get(index))
     }
 }
 
@@ -1958,6 +1978,7 @@ mod tests {
 
         // Prize assertions — every field must be exact
         assert_eq!(bl.prize_blocks.len(), 1);
+        assert_eq!(bl.prize_blocks[0].layout_addr, 0x0012);
         assert_eq!(bl.prize_blocks[0].col, 7);
         assert_eq!(bl.prize_blocks[0].row, 3);
         assert!(bl.prize_blocks[0].disguised);
@@ -1976,6 +1997,7 @@ mod tests {
 
         // Teleporter assertions
         assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters[0].layout_addr, 0x0040);
         assert_eq!(bl.teleporters[0].col, 9);
         assert_eq!(bl.teleporters[0].row, 2);
         assert_eq!(bl.teleporters[0].dest_map_id, 5);
@@ -1984,6 +2006,7 @@ mod tests {
 
         // Hidden block assertions
         assert_eq!(bl.hidden_blocks.len(), 1);
+        assert_eq!(bl.hidden_blocks[0].layout_addr, 0x0008);
         assert_eq!(bl.hidden_blocks[0].col, 1);
         assert_eq!(bl.hidden_blocks[0].row, 10);
         assert_eq!(bl.hidden_blocks[0].block_type, 0xAB);
@@ -2019,15 +2042,84 @@ mod tests {
         data.extend_from_slice(&[0x00, 0x00]); // hidden terminator
 
         let bl = BlockList::from_raw(&data, 20);
-        let hb = bl.hidden_block_at(3, 7);
-        assert!(
-            hb.is_some(),
-            "hidden block at (3,7) should exist, got {:?}",
-            bl.hidden_blocks
-        );
-        assert_eq!(hb.unwrap().block_type, 0x42);
-        assert_eq!(hb.unwrap().block_setting, 0x01);
+        let hb = bl
+            .hidden_block_at(3, 7)
+            .expect("hidden block at (3,7) should exist");
+        assert_eq!(hb.layout_addr, 0x0010);
+        assert_eq!(hb.block_type, 0x42);
+        assert_eq!(hb.block_setting, 0x01);
         assert!(bl.hidden_block_at(99, 99).is_none());
+    }
+
+    #[test]
+    fn hidden_block_by_layout_addr_sub_e37a_binary_searches_sorted_entries() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![
+                HiddenBlockEntry {
+                    layout_addr: 0x0008,
+                    col: 1,
+                    row: 0,
+                    block_type: 0x01,
+                    block_setting: 0x00,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0020,
+                    col: 4,
+                    row: 1,
+                    block_type: 0x04,
+                    block_setting: 0x07,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0048,
+                    col: 9,
+                    row: 3,
+                    block_type: 0x0C,
+                    block_setting: 0x02,
+                },
+            ],
+        };
+
+        let found = bl
+            .hidden_block_by_layout_addr_sub_E37A(0x0020)
+            .expect("ASM sub_E37A should find the matching hidden-block entry");
+
+        assert_eq!(found.col, 4);
+        assert_eq!(found.row, 1);
+        assert_eq!(found.block_type, 0x04);
+        assert_eq!(found.block_setting, 0x07);
+    }
+
+    #[test]
+    fn hidden_block_by_layout_addr_sub_e37a_returns_none_when_absent() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![
+                HiddenBlockEntry {
+                    layout_addr: 0x0010,
+                    col: 2,
+                    row: 2,
+                    block_type: 0x05,
+                    block_setting: 0x01,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0030,
+                    col: 6,
+                    row: 4,
+                    block_type: 0x08,
+                    block_setting: 0x00,
+                },
+            ],
+        };
+
+        assert!(
+            bl.hidden_block_by_layout_addr_sub_E37A(0x0020).is_none(),
+            "ASM sub_E37A should leave `a4` unresolved when no hidden-block entry matches the layout address",
+        );
     }
 
     #[test]
