@@ -2652,6 +2652,21 @@ fn changes_form_and_hitpoints_from_helmet_queue() {
 }
 
 #[test]
+fn transform_hitpoints_sub_7eb2_adds_extra_slots_to_the_base_helmet_value() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.extra_hitpoint_slots = 2;
+    runtime.queue_form_change(PlayerForm::IronKnight);
+
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(
+        runtime.progression.number_hitpoints, 7,
+        "ASM sub_7EB2 should load Iron Knight's `unk_7EC2` base value `5` and add `Extra_hitpoint_slots` before storing `Number_Hitpoints`",
+    );
+}
+
+#[test]
 fn opening_hazard_strips_helmet_before_life_loss() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

@@ -35,6 +35,12 @@ fn transform_anim_frames(form: PlayerForm) -> u16 {
     }
 }
 
+fn transform_hitpoints_sub_7eb2(form: PlayerForm, extra_hitpoint_slots: u16) -> u16 {
+    // ASM sub_7EB2 (kid.asm:8614): load the base hitpoint byte from `unk_7EC2`
+    // using the helmet id, extend it to a word, then add `Extra_hitpoint_slots`.
+    form.max_hitpoints().saturating_add(extra_hitpoint_slots)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EnemyDeathBurstInitSub37002 {
     pub(crate) sound_effect_label: &'static str,
@@ -2181,7 +2187,8 @@ impl NativeRuntime {
         };
         let old_form = self.progression.current_form;
         self.progression.current_form = form;
-        self.progression.number_hitpoints = form.max_hitpoints();
+        self.progression.number_hitpoints =
+            transform_hitpoints_sub_7eb2(form, self.progression.extra_hitpoint_slots);
         // ASM Kid_Transform calls sub_B41C which sets per-helmet half-width.
         // During Hibernate frames, the GFX collision system resolves any overlap
         // between the new wider hitbox and adjacent walls by pushing x_pos.

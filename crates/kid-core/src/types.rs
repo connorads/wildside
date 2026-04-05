@@ -613,6 +613,7 @@ pub(crate) struct PlayerProgression {
     pub(crate) number_lives: u16,
     pub(crate) number_continues: u8,
     pub(crate) number_hitpoints: u16,
+    pub(crate) extra_hitpoint_slots: u16,
     pub(crate) invulnerable_frames: usize,
     /// Visual flash countdown after form change (0=inactive).
     pub(crate) form_change_flash_frames: u8,
@@ -636,6 +637,7 @@ impl Default for PlayerProgression {
             number_lives: 3,
             number_continues: 3,
             number_hitpoints: PlayerForm::TheKid.max_hitpoints(),
+            extra_hitpoint_slots: 0,
             invulnerable_frames: 0,
             form_change_flash_frames: 0,
             diamond_count: 0,
