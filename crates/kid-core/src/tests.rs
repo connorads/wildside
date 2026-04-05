@@ -966,6 +966,37 @@ fn sound_driver_write_pointer_sub_e14ac_queues_three_low_to_high_pointer_bytes()
     );
 }
 
+#[test]
+fn sound_driver_write_sub_e151c_queues_ff10_and_the_sound_id() {
+    let write = sound_driver_write_sub_E151C(0x3F, 0xA5);
+
+    assert_eq!(
+        write,
+        SoundDriverWriteCommandAndByte {
+            begin_write: SoundDriverBeginWriteSubE143A {
+                command_head_address: 0xA00036,
+                ring_buffer_address: 0xA01A40,
+                write_index: 0x3F,
+                interrupt_mask: 0x0700,
+                requests_z80_bus: true,
+                waits_for_bus_grant: true,
+            },
+            command_write: SoundDriverWriteCommandSubE1482 {
+                queued_bytes: [0xFF, 0x10],
+                next_write_index: 0x01,
+            },
+            payload_write: SoundDriverWriteByteSubE148E {
+                queued_byte: 0xA5,
+                next_write_index: 0x02,
+                committed_write_index: 0x02,
+            },
+            releases_z80_bus: true,
+            restores_previous_sr: true,
+        },
+        "ASM sub_E151C should enter sub_E143A, queue `FF 10` through sub_E1482, then queue the low byte from `8(a6)` through sub_E148E before finishing in loc_E1470",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

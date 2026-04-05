@@ -460,6 +460,16 @@ pub(crate) struct SoundDriverWritePointerSubE14AC {
     pub(crate) restores_previous_sr: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteCommandAndByte {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) command_write: SoundDriverWriteCommandSubE1482,
+    pub(crate) payload_write: SoundDriverWriteByteSubE148E,
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -621,6 +631,25 @@ pub(crate) fn sound_driver_write_pointer_sub_E14AC(
     SoundDriverWritePointerSubE14AC {
         begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
         writes: [first, second, third],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E151C(
+    command_head_byte: u8,
+    sound_id: u8,
+) -> SoundDriverWriteCommandAndByte {
+    // ASM sub_E151C (kid.asm:49766): enter the shared Z80/GEMS write section,
+    // queue `FF 10` through sub_E1482, then queue the low byte from `8(a6)`
+    // through sub_E148E before releasing the bus in loc_E1470.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x10);
+    SoundDriverWriteCommandAndByte {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_write: sound_driver_write_byte_sub_E148E(command_write.next_write_index, sound_id),
         releases_z80_bus: true,
         restores_previous_sr: true,
     }
