@@ -1122,6 +1122,12 @@ impl NativeRuntime {
             };
 
             if overlap_x && overlap_y {
+                // ASM loc_1000A / loc_1001E (kid.asm:21302-21312) hibernate
+                // the collected clock object and keep recomputing `x_pos/y_pos`
+                // from the cached camera-relative words at `$3E/$42` until the
+                // final delete. Native does not model that lingering sprite, so
+                // collection only flips the removal flag and leaves the cached
+                // coordinates untouched until `step_visual_effects` removes it.
                 item.collected = true;
                 if item.content == terrain::PrizeContent::Diamond {
                     collected_prize_diamonds += 1;

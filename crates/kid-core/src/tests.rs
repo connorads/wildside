@@ -6537,6 +6537,47 @@ fn floating_helmet_prize_entering_lower_body_collects() {
 }
 
 #[test]
+fn collecting_clock_preserves_item_coords_until_visual_cleanup() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.floating_items.push(FloatingItem {
+        x_pos: 72 << 16,
+        y_pos: i64::from(100 << 16),
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 4,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Clock,
+        collected: false,
+    });
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 72 << 16;
+    slice.player.y_pos = 100 << 16;
+
+    runtime.collect_floating_items(&mut slice);
+
+    assert!(runtime.floating_items[0].collected);
+    assert_eq!(
+        runtime.floating_items[0].x_pos,
+        72 << 16,
+        "ASM loc_1000A should keep the collected clock pinned from its cached camera-relative X until the delete loop ends"
+    );
+    assert_eq!(
+        runtime.floating_items[0].y_pos,
+        i64::from(100 << 16),
+        "ASM loc_1001E should keep the collected clock pinned from its cached camera-relative Y until the delete loop ends"
+    );
+
+    runtime.step_visual_effects();
+
+    assert!(
+        runtime.floating_items.is_empty(),
+        "native collapses the loc_1000A/loc_1001E linger to next-frame visual cleanup"
+    );
+}
+
+#[test]
 fn smash_block_headbutt_does_not_grant_diamond() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_blocks());
