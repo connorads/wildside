@@ -4183,17 +4183,21 @@ pub(crate) fn step_dragon_walking(
 // Native approximation: periodic projectile drop with ASM-matched timing.
 // Random dormant delay: (RNG >> 2) XOR kid_x ≈ 0-63f average ~32f.
 // Forming animation: ~35f. Total interval ≈ 67f average.
-// Drop: 10px/frame for 12 frames in ASM (animation-driven, not physics).
-// Native uses physics projectile with gravity $2000 for similar trajectory.
+// Drop child starts with zero vertical speed, then gains $2000/frame gravity
+// until it hits the floor. ASM loc_33424 clears `$2A(a1)` before the fall and
+// loc_3345C adds `#$2000` every frame.
 // Surface-crawl spawning (max 5 crawlers, x_vel=$3000) not implemented —
 // would require multi-object child spawning system.
 /// Drop interval: forming animation (~35f) + average random delay (~32f) = ~67f.
 pub(crate) const DRIPS_DROP_INTERVAL: u16 = 67;
-/// Drop Y speed: ASM drops at 10px/frame (line 106: addi.w #$A,y_pos).
-/// Native uses initial velocity + gravity to approximate the trajectory.
-pub(crate) const DRIPS_DROP_Y_SPEED: i32 = 0xA_0000; // 10px/frame in FP16.16
-/// Gravity accumulation: $2000/frame (Drips.asm line 93).
+/// ASM loc_33424 clears the drop child's y-velocity before the fall begins.
+pub(crate) const DRIPS_DROP_INITIAL_Y_SPEED: i32 = 0;
+/// Gravity accumulation: ASM loc_3345C `addi.l #$2000,$2A(a1)`.
 pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;
+/// Native fallback lifetime for the falling drop. The ROM deletes on terrain
+/// contact after the splash sequence; native keeps a generous timer in case the
+/// projectile never reaches solid terrain.
+pub(crate) const DRIPS_DROP_LIFETIME: u16 = 120;
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
@@ -4203,18 +4207,20 @@ pub(crate) fn step_drips(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyPro
         enemy.wait_timer -= 1;
         return;
     }
-    // Drop a projectile straight down (Drips.asm line 106: 10px/frame)
+    // ASM loc_33424/loc_3345C: the drop starts from rest and accelerates
+    // downward under `$2000` gravity until it reaches the floor.
     projectiles.push(EnemyProjectile {
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
         x_velocity: 0,
-        y_velocity: DRIPS_DROP_Y_SPEED,
-        lifetime: 30, // 12-frame ASM drop + splash ≈ 30f total
+        y_velocity: DRIPS_DROP_INITIAL_Y_SPEED,
+        lifetime: DRIPS_DROP_LIFETIME,
         gravity: DRIPS_DROP_GRAVITY,
         friendly: false,
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        terrain_kill: true,
         ..Default::default()
     });
     enemy.wait_timer = DRIPS_DROP_INTERVAL;

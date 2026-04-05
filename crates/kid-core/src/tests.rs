@@ -15325,7 +15325,18 @@ fn drips_drops_projectile_on_timer_expiry() {
     step_drips(&mut enemy, &mut projectiles);
     assert_eq!(projectiles.len(), 1, "should drop one projectile");
     assert_eq!(projectiles[0].x_velocity, 0, "drops straight down");
-    assert!(projectiles[0].y_velocity > 0, "falls downward");
+    assert_eq!(
+        projectiles[0].y_velocity, DRIPS_DROP_INITIAL_Y_SPEED,
+        "ASM loc_33424 clears the drop child's y velocity before the fall begins"
+    );
+    assert_eq!(
+        projectiles[0].gravity, DRIPS_DROP_GRAVITY,
+        "ASM loc_3345C accelerates the drop by `$2000` each frame"
+    );
+    assert!(
+        projectiles[0].terrain_kill,
+        "native drop should expire on terrain contact instead of only a short timer"
+    );
     assert!(!projectiles[0].friendly);
     assert_eq!(enemy.wait_timer, DRIPS_DROP_INTERVAL);
 }
