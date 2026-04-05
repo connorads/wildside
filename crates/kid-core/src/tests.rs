@@ -6534,6 +6534,17 @@ fn deleted_tile_wobble_y_deltas_loc_10244_use_five_hibernated_fall_frames() {
 }
 
 #[test]
+fn deleted_tile_wobble_y_deltas_loc_10252_use_five_hibernated_rise_frames() {
+    let deltas = NativeRuntime::deleted_tile_wobble_y_deltas_loc_10200();
+
+    assert_eq!(
+        &deltas[17..22],
+        &[2, 2, 2, 2, 2],
+        "ASM loc_10252 should spend five hibernated frames on `addq.w #2,y_pos(a3)` because `moveq #4,d1` still yields five inclusive DBF iterations",
+    );
+}
+
+#[test]
 fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
     let mut grid = grid_with_blocks();
 

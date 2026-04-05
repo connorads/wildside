@@ -242,7 +242,8 @@ impl NativeRuntime {
         // six `addq.w #2,y_pos(a3)` hibernate steps for the deleted tile.
         // ASM loc_10244 (kid.asm:21499) then reloads `d0` with `#4`, so the
         // next `subq.w #2,y_pos(a3)` phase lasts five frames before the later
-        // rebound loops continue.
+        // rebound loops continue. ASM loc_10252 (kid.asm:21505) reloads `d1`
+        // with `#4`, so the next rebound is five `addq.w #2,y_pos(a3)` steps.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
     }
 
