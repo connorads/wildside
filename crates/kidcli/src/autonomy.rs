@@ -3282,6 +3282,7 @@ fn correlate_release_gate_failure_with_state_sweep(
     repo_root: &Path,
     release_gate_detail: &str,
 ) -> Option<String> {
+    let failed_focus = extract_release_gate_failed_focus("1p-accurate", release_gate_detail)?;
     let failed_field = extract_release_gate_failed_field(release_gate_detail)?;
     let history_path = repo_root.join(".cache/metrics/sweep-history.jsonl");
     let contents = fs::read_to_string(&history_path).ok()?;
@@ -3305,19 +3306,23 @@ fn correlate_release_gate_failure_with_state_sweep(
         .get("release_gate_focus")
         .and_then(serde_json::Value::as_array)
         .and_then(|entries| {
-            entries.iter().find_map(|entry| {
-                entry
-                    .get("field")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|field| field == failed_field)
-                    .then(|| {
+            entries
+                .iter()
+                .find(|entry| release_gate_focus_entry_matches(entry, &failed_focus))
+                .or_else(|| {
+                    entries.iter().find(|entry| {
                         entry
-                            .get("summary")
+                            .get("field")
                             .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned)
+                            .is_some_and(|field| field == failed_field)
                     })
-                    .flatten()
-            })
+                })
+                .and_then(|entry| {
+                    entry
+                        .get("summary")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                })
         })
     {
         return Some(format!(
@@ -3369,6 +3374,121 @@ fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
     }
     let field = field.trim_matches('_').to_owned();
     if field.is_empty() { None } else { Some(field) }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ReleaseGateFocusLookup {
+    target: String,
+    step_name: String,
+    checkpoint: Option<String>,
+    field: String,
+    native_value: Option<String>,
+    oracle_value: Option<String>,
+}
+
+fn extract_release_gate_failed_focus(target: &str, detail: &str) -> Option<ReleaseGateFocusLookup> {
+    let (step_name, step_detail) = detail.split_once(": ")?;
+    let field = extract_release_gate_failed_field(step_detail)?;
+    let checkpoint = extract_release_gate_failed_checkpoint(step_detail);
+    let (native_value, oracle_value) = extract_release_gate_failed_values(step_detail)
+        .map_or((None, None), |(native, oracle)| {
+            (Some(native), Some(oracle))
+        });
+    Some(ReleaseGateFocusLookup {
+        target: target.to_owned(),
+        step_name: step_name.to_owned(),
+        checkpoint,
+        field,
+        native_value,
+        oracle_value,
+    })
+}
+
+fn extract_release_gate_failed_checkpoint(detail: &str) -> Option<String> {
+    let (_, tail) = detail.split_once("state ")?;
+    let checkpoint = tail
+        .split_once(" diverged in ")
+        .map(|(checkpoint, _)| checkpoint.trim())
+        .filter(|checkpoint| !checkpoint.is_empty())?;
+    Some(checkpoint.to_owned())
+}
+
+fn normalise_release_gate_value(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let hex = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+    if !hex.is_empty() && hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        format!("0x{}", hex.to_ascii_lowercase())
+    } else {
+        trimmed.to_ascii_lowercase()
+    }
+}
+
+fn extract_release_gate_failed_values(detail: &str) -> Option<(String, String)> {
+    let (_, tail) = detail.split_once("(native ")?;
+    let (native_raw, tail) = tail.split_once(", oracle ")?;
+    let (oracle_raw, _) = tail.split_once(')')?;
+    Some((
+        normalise_release_gate_value(native_raw),
+        normalise_release_gate_value(oracle_raw),
+    ))
+}
+
+fn release_gate_focus_entry_matches(
+    entry: &serde_json::Value,
+    focus: &ReleaseGateFocusLookup,
+) -> bool {
+    let field_matches = entry
+        .get("field")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|field| field == focus.field);
+    if !field_matches {
+        return false;
+    }
+
+    let target_matches = entry
+        .get("target")
+        .and_then(serde_json::Value::as_str)
+        .map(|target| target == focus.target)
+        .unwrap_or(false);
+    let step_matches = entry
+        .get("step_name")
+        .and_then(serde_json::Value::as_str)
+        .map(|step_name| step_name == focus.step_name)
+        .unwrap_or(false);
+    let checkpoint_matches = match (
+        entry.get("checkpoint").and_then(serde_json::Value::as_str),
+        focus.checkpoint.as_deref(),
+    ) {
+        (Some(entry_checkpoint), Some(focus_checkpoint)) => entry_checkpoint == focus_checkpoint,
+        (None, None) => true,
+        _ => false,
+    };
+    let native_matches = match (
+        entry
+            .get("native_value")
+            .and_then(serde_json::Value::as_str),
+        focus.native_value.as_deref(),
+    ) {
+        (Some(entry_native), Some(focus_native)) => {
+            normalise_release_gate_value(entry_native) == focus_native
+        }
+        (None, None) => true,
+        _ => false,
+    };
+    let oracle_matches = match (
+        entry
+            .get("oracle_value")
+            .and_then(serde_json::Value::as_str),
+        focus.oracle_value.as_deref(),
+    ) {
+        (Some(entry_oracle), Some(focus_oracle)) => {
+            normalise_release_gate_value(entry_oracle) == focus_oracle
+        }
+        (None, None) => true,
+        _ => false,
+    };
+
+    target_matches && step_matches && checkpoint_matches && native_matches && oracle_matches
 }
 
 fn format_divergence_summary_value(summary: Option<&serde_json::Value>) -> Option<String> {
@@ -4704,6 +4824,52 @@ mod tests {
                 .detail
                 .contains("excludes checkpoint family level_settle"),
             "signal should preserve the exact-pair checkpoint-family miss from release_gate_focus"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_prefers_exact_focus_entry_over_field_only_match() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775367135",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "gameplay_compare:pause_resume_level1",
+                  "status": "failed",
+                  "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775367561","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":191,"accumulation":0,"rng":0,"oracle_limitation":668},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":13,"levels":12,"level_ids":["0x00","0x09","0x32","0x33","0x45","0x48","0x50","0x54","0x57","0x61","0x62","0x63"],"checkpoints":["idle_tail","level_settle"],"checkpoint_counts":[{"checkpoint":"idle_tail","diffs":12},{"checkpoint":"level_settle","diffs":1}],"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":13}}],"release_gate_focus":[{"target":"1p-playable","step_name":"gameplay_compare:progress_two_transitions","checkpoint":"level_settle@719","field":"game_mode","native_value":"0x0008","oracle_value":"0x000c","summary":"wrong focus summary should not win"},{"target":"1p-accurate","step_name":"gameplay_compare:pause_resume_level1","checkpoint":"level_settle@719","field":"game_mode","native_value":"0x0008","oracle_value":"0x000c","summary":"right focus summary should win"}]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(!outcome.ok);
+        assert!(
+            outcome.detail.contains("right focus summary should win"),
+            "signal should prefer the exact target/step/checkpoint match"
+        );
+        assert!(
+            !outcome
+                .detail
+                .contains("wrong focus summary should not win"),
+            "signal should not stop at the first field-only match"
         );
     }
 
