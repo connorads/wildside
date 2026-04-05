@@ -245,7 +245,10 @@ impl NativeRuntime {
         // rebound loops continue. ASM loc_10252 (kid.asm:21505) reloads `d1`
         // with `#4`, so the next rebound is five `addq.w #2,y_pos(a3)` steps.
         // ASM loc_10260 (kid.asm:21511) then reloads `d0` with `#3`, which
-        // shortens the next `subq.w #2,y_pos(a3)` dip to four frames.
+        // shortens the next `subq.w #2,y_pos(a3)` dip to four frames. ASM
+        // loc_1026E (kid.asm:21517) reloads `d1` with `#4` for a final
+        // five-frame `addq.w #2,y_pos(a3)` rebound before the animation waits
+        // to finish and the worker deletes itself.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
     }
 
