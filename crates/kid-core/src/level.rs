@@ -46,6 +46,17 @@ pub(crate) struct ScratchDebrisRenderSub2A4C {
     pub(crate) number_sprites: u8,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FullscreenPaletteFadeSub73D0 {
+    pub(crate) palette_to_dma_enabled: bool,
+    pub(crate) palette_buffer_2: [u16; 0x40],
+    pub(crate) palette_buffer_3: [u16; 0x40],
+    pub(crate) fade_progress: u16,
+    pub(crate) pending_palette_0_mask: u32,
+    pub(crate) pending_palette_1_mask: u32,
+    pub(crate) allow_pausing: bool,
+}
+
 const SUB_292E_PIECE_COUNT: usize = 5;
 const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
 const SUB_292E_SLOT_FLAG_OFFSET: usize = 1;
@@ -258,6 +269,47 @@ pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
         return;
     }
     palette_buffer.swap(0x18, 0x1A);
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn initialise_fullscreen_palette_fade_sub_73D0(
+    palette_buffer: [u16; 0x40],
+    fill_colour: u16,
+) -> FullscreenPaletteFadeSub73D0 {
+    // ASM sub_73D0 / loc_73E2 / loc_73F4 (kid.asm:7527): clear
+    // `PaletteToDMA_Flag`, copy all `$40` palette words into
+    // `Palette_Buffer_2`, flood-fill `Palette_Buffer_3` with the word from
+    // `$FFFFFBCC`, and clear the shared fade progress word at `$FFFFF876`.
+    FullscreenPaletteFadeSub73D0 {
+        palette_to_dma_enabled: false,
+        palette_buffer_2: palette_buffer,
+        palette_buffer_3: [fill_colour; 0x40],
+        fade_progress: 0,
+        pending_palette_0_mask: 0,
+        pending_palette_1_mask: 0,
+        allow_pausing: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn step_fullscreen_palette_fade_sub_73D0(
+    state: &mut FullscreenPaletteFadeSub73D0,
+) -> bool {
+    // ASM sub_73D0 / loc_7414 / loc_7402 / loc_7420 (kid.asm:7527): each
+    // hibernating frame seeds both pending palette masks with `-1`, adds
+    // `$10` to `$FFFFF876`, and only exits once the progress word becomes
+    // strictly greater than `$0100`. The terminating frame also re-enables
+    // pausing before deleting the worker object.
+    state.pending_palette_0_mask = u32::MAX;
+    state.pending_palette_1_mask = u32::MAX;
+    state.fade_progress = state.fade_progress.wrapping_add(0x10);
+    if state.fade_progress > 0x0100 {
+        state.allow_pausing = true;
+        return true;
+    }
+    false
 }
 
 #[allow(non_snake_case)]

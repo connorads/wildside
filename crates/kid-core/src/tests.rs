@@ -10,13 +10,14 @@ use crate::boot::{
 };
 use crate::combat::*;
 use crate::level::{
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, SUB_28FC_SLOT_COUNT,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
-    drain_fg_update_queue_custom_sub_1596, fade_palette_span_sub_1C85E,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
+    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, apply_pending_palette_fade_sub_14C0,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
+    fade_palette_span_sub_1C85E, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
-    swap_forest_background_palette_entries_sub_129AE,
+    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -161,6 +162,65 @@ fn collision_rect_sub_1f52(
         top_px,
         bottom_px,
     }
+}
+
+#[test]
+fn sub_73d0_seeds_the_fullscreen_palette_fade_buffers() {
+    let palette_buffer = core::array::from_fn(|index| 0x0100 + index as u16);
+
+    let state = initialise_fullscreen_palette_fade_sub_73D0(palette_buffer, 0x0ACE);
+
+    assert_eq!(
+        state,
+        FullscreenPaletteFadeSub73D0 {
+            palette_to_dma_enabled: false,
+            palette_buffer_2: palette_buffer,
+            palette_buffer_3: [0x0ACE; 0x40],
+            fade_progress: 0,
+            pending_palette_0_mask: 0,
+            pending_palette_1_mask: 0,
+            allow_pausing: false,
+        },
+        "ASM sub_73D0 should clear PaletteToDMA_Flag, copy all `$40` words into Palette_Buffer_2, flood-fill Palette_Buffer_3 from `($FFFFFBCC).w`, and clear `($FFFFF876).w`",
+    );
+}
+
+#[test]
+fn sub_73d0_only_finishes_after_the_seventeenth_fade_refresh_frame() {
+    let mut state = initialise_fullscreen_palette_fade_sub_73D0([0x0000; 0x40], 0x0000);
+    let mut completed_on = None;
+
+    for frame in 1..=17 {
+        let completed = step_fullscreen_palette_fade_sub_73D0(&mut state);
+        if completed {
+            completed_on = Some(frame);
+            break;
+        }
+    }
+
+    assert_eq!(
+        completed_on,
+        Some(17),
+        "ASM sub_73D0 should loop until `addi.w #$10,($FFFFF876).w` pushes the progress word strictly past `$0100`",
+    );
+    assert_eq!(
+        state.fade_progress, 0x0110,
+        "the terminating sub_73D0 frame should leave the shared fade progress word at `$0110`",
+    );
+    assert_eq!(
+        state.pending_palette_0_mask,
+        u32::MAX,
+        "each sub_73D0 refresh should keep `($FFFFF888).w` seeded with `-1`",
+    );
+    assert_eq!(
+        state.pending_palette_1_mask,
+        u32::MAX,
+        "each sub_73D0 refresh should keep `($FFFFF88C).w` seeded with `-1`",
+    );
+    assert!(
+        state.allow_pausing,
+        "ASM sub_73D0 should restore Allow_Pausing on the terminating frame before deleting the worker",
+    );
 }
 
 fn collision_size_entry_sub_21f8(
