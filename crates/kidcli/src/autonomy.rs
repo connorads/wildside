@@ -1517,17 +1517,43 @@ fn evaluate_source_port_frontier_cycle(
                 }
             }
             _ => {
-                apply_stalled_recovery(
-                    &mut task_package,
-                    &base_progress_fingerprint,
-                    repeated_cycles,
-                    RecoveryStep::ReverifyCurrentLane,
-                    format!(
-                        "delegated fingerprint repeated for {} stalled cycles; re-verify the current lane before attempting another pivot",
-                        repeated_cycles
-                    ),
-                    delegated_goal,
-                );
+                // Stalled on a backlog-issue or unknown lane. Try proactive
+                // verification (enemy audits, loc_ coverage, mutation testing)
+                // before falling back to re-verify.
+                let pv_report =
+                    evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                if let Some(pv_task) = pv_report.task_package {
+                    let target = pv_task.progress_fingerprint.clone();
+                    task_package = TaskPackage {
+                        generated_at: autonomy_timestamp(),
+                        cycle,
+                        progress_fingerprint: base_progress_fingerprint.clone(),
+                        capability: CapabilityId::SourcePortFrontierTask,
+                        delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+                        delegated_target: Some(target.clone()),
+                        recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                        recovery_step: Some(RecoveryStep::PivotToNextLane),
+                        stalled_repetition_count: Some(repeated_cycles),
+                        pivot_reason: Some(format!(
+                            "backlog-issue stalled {} cycles; pivot to proactive-verification ({})",
+                            repeated_cycles, target
+                        )),
+                        next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
+                        ..pv_task
+                    };
+                } else {
+                    apply_stalled_recovery(
+                        &mut task_package,
+                        &base_progress_fingerprint,
+                        repeated_cycles,
+                        RecoveryStep::ReverifyCurrentLane,
+                        format!(
+                            "delegated fingerprint repeated for {} stalled cycles; proactive-verification exhausted, re-verify current lane",
+                            repeated_cycles
+                        ),
+                        delegated_goal,
+                    );
+                }
             }
         }
     }
