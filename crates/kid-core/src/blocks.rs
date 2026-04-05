@@ -883,6 +883,18 @@ impl NativeRuntime {
         });
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn lift_block_bob_deltas_sub_FB3E() -> &'static [i16] {
+        // ASM sub_FB3E (kid.asm:20905): before the lift platform spawns, the
+        // block bobs in three hibernating up/down passes: 6, 5, then 4/5
+        // frames at 2px per frame.
+        &[
+            -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2,
+            -2, -2, 2, 2, 2, 2, 2,
+        ]
+    }
+
     /// Process block hit effects from the current frame's slice (prizes, bounces,
     /// lifts, drills, teleporter warps).
     pub(crate) fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {

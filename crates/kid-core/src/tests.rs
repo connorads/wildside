@@ -32687,6 +32687,25 @@ fn lift_platform_carries_grounded_player() {
     );
 }
 
+#[test]
+fn lift_block_bob_deltas_sub_fb3e_match_the_three_hibernating_passes() {
+    let deltas = NativeRuntime::lift_block_bob_deltas_sub_FB3E();
+
+    assert_eq!(
+        deltas,
+        &[
+            -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2,
+            -2, -2, 2, 2, 2, 2, 2,
+        ],
+        "ASM sub_FB3E should bob the struck lift block through the `6/6 -> 5/5 -> 4/5` up/down hibernate passes before the platform hand-off",
+    );
+    assert_eq!(
+        deltas.iter().copied().sum::<i16>(),
+        2,
+        "ASM sub_FB3E should finish the bob cycle 2px below the starting point before the later animation and platform setup correct the anchor",
+    );
+}
+
 // --- Process block effects: lift block spawns platform ---
 
 #[test]
