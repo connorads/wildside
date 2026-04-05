@@ -126,6 +126,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // DragonWalking: HP = enemy_level + 1 (min 1). Speed $8000 at HP≤2, $18000 at HP=3.
         // ASM: Dragon.asm lines 64-74 — only HP==3 sets $10000 base, then always +$8000.
         EnemyFamily::DragonWalking => (2, 0x0000_8000, 0x0001_0000),
+        // Diamond.asm loc_3AD16/loc_3AD4C: `addq.w #2,d7` yields HP 2/3+, and
+        // the <=3 HP path walks at $10000 then $18000.
+        EnemyFamily::Diamond => (2, 0x0001_0000, 0x0000_8000),
         // Hand: HP = 1. Speed from table: $3000/$4800/$6000 by HP.
         EnemyFamily::Hand => (1, 0x0000_3000, 0x0000_1800),
         // SpinningTwins: walk speed $18000 after landing phase.
@@ -5077,6 +5080,20 @@ mod tests {
     }
 
     #[test]
+    fn diamond_hp_and_walk_speed_follow_loc_3ad16_and_loc_3ad4c() {
+        // ASM Diamond.asm loc_3AD16 copies `enemy_level(a3)` to d7, adds 2 HP,
+        // then loc_3AD4C applies the <=3 HP walk-speed tiers.
+        let hp2 = spawn_hit_points(EnemyFamily::Diamond, 0);
+        let hp3 = spawn_hit_points(EnemyFamily::Diamond, 1);
+
+        assert_eq!(hp2, 2);
+        assert_eq!(hp3, 3);
+
+        assert_eq!(pacer_walk_speed(EnemyFamily::Diamond, hp2), 0x0001_0000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Diamond, hp3), 0x0001_8000);
+    }
+
+    #[test]
     fn tank_spawn_faces_toward_player_per_loc_3b2e4() {
         assert_eq!(
             spawn_facing(EnemyFamily::Tank, 100 << 16, 80 << 16),
@@ -5358,8 +5375,8 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Shishkaboss => 20,
         EnemyFamily::BoomerangBosses => 30,
         EnemyFamily::BagelBrothers => 30,
-        // Existing families: Diamond and MiniHoppingSkull use raw level as
-        // HP with a minimum of 1 (legacy behaviour preserved).
+        EnemyFamily::Diamond => 2, // Diamond.asm loc_3AD16: `addq.w #2,d7`
+        // Mini Hopping Skull still uses raw level as HP with a minimum of 1.
         _ => 0,
     };
     (enemy_level + base).max(1)
