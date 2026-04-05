@@ -837,6 +837,22 @@ fn sound_driver_upload_sub_e13da_copies_driver_and_zero_fills_z80_ram() {
     fs::remove_dir_all(source_root).expect("temp sound dir should be removable");
 }
 
+#[test]
+fn sound_driver_reset_sub_e1416_asserts_reset_then_restarts_the_bus() {
+    let reset = sound_driver_reset_sub_E1416();
+
+    assert_eq!(
+        reset,
+        SoundDriverResetSubE1416 {
+            requests_z80_reset: true,
+            reset_assert_delay_iterations: 15,
+            restarts_z80_bus: true,
+            releases_z80_reset: true,
+        },
+        "ASM sub_E1416 should hold `$A11200` in reset for the fixed 15-iteration busy wait, restart `$A11100`, then release reset with `$0100`",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

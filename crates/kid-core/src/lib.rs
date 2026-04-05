@@ -407,6 +407,15 @@ pub(crate) struct SoundDriverUploadSubE13DA {
     pub(crate) preserves_a1: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverResetSubE1416 {
+    pub(crate) requests_z80_reset: bool,
+    pub(crate) reset_assert_delay_iterations: u32,
+    pub(crate) restarts_z80_bus: bool,
+    pub(crate) releases_z80_reset: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -469,6 +478,19 @@ pub(crate) fn sound_driver_upload_sub_E13DA(
         stops_z80: true,
         preserves_a1: true,
     })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_reset_sub_E1416() -> SoundDriverResetSubE1416 {
+    // ASM sub_E1416 (kid.asm:49626): assert Z80 reset, burn the fixed
+    // 15-iteration delay loop, restart the bus, then release reset.
+    SoundDriverResetSubE1416 {
+        requests_z80_reset: true,
+        reset_assert_delay_iterations: 15,
+        restarts_z80_bus: true,
+        releases_z80_reset: true,
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
