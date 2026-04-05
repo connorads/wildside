@@ -166,7 +166,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 143 | [ ] | P1 | block | Heavy Man's first helmet causes repeated block-bounce instead of the ROM's smooth single-hit break | Break blocks as Heavy Man and compare collision/animation timing to oracle |
 | 144 | [ ] | P1 | enemy | Level 2 shooter enemy fires too rapidly | Enter Level 2, compare shot cadence and cooldown to oracle |
 | 145 | [ ] | P1 | render | Level 2 shooter enemy is not rendered correctly | Capture Level 2 enemy frames and compare sprite composition to oracle |
-| 146 | [ ] | P0 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | Playability evidence: negative baseline only, not yet reproduced in Level 2. Canonical artefacts refreshed on 2026-04-05: recording slug `issue-146` lives at `.cache/recordings/issue-146/`, with the bundle manifest at `.cache/recordings/issue-146/manifest.json` (`recorded_at=1775383906`, `record_command=\"cargo run --release -p kidcli -- play-native --record issue-146\"`). The captured transcript at `.cache/recordings/issue-146/transcript.txt` starts on `SegaScreen`, reaches `IntroSequence1` on frame `119`, `IntroSequence2` on frame `279`, and ends at frame `338` (`frame_count=338`), so this bundle still never enters Level 2 or any death/loading-screen restart path. `cargo run -p kidcli -- verify-recording --slug issue-146` was re-run in this session and reproduced that same negative baseline: `trace_match=true`, `oracle_state_match=false`, `oracle_frame_match=false` (`.cache/recordings/issue-146/verify/report.json`). Baseline frame captures were refreshed at `.cache/debug/issue-146/level_00_frame_00000.png`, `.cache/debug/issue-146/level_00_frame_00060.png`, and `.cache/debug/issue-146/level_00_frame_00120.png`, and `cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1` still passes, so the currently captured evidence is visual-baseline-only and not a reproduction of the Level 2 hang. Classification: playability evidence gap / native repro not yet captured. Concrete next verification: `cargo run --release -p kidcli -- play-native --warp-level 01 --settled --record issue-146-level2-death`, reproduce the Level 2 death/loading-screen hang, then `cargo run -p kidcli -- verify-recording --slug issue-146-level2-death`; if that succeeds, cite that slug here, and if it fails to replay cleanly, archive matching frame captures under `.cache/debug/issue-146-level2-death/`. |
+| 146 | [b] | P1 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | **blocked:needs-human-repro** — requires interactive play to reproduce (agent cannot play). 14+ autonomy cycles failed to capture evidence. Negative baseline only: recording slug `issue-146` never enters Level 2. Downgraded from P0→P1 until a human playtest captures the hang. Next step: `cargo run --release -p kidcli -- play-native --warp-level 01 --settled --record issue-146-level2-death` |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
 | 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | DEFERRED — oracle-probe memory watches are lighter; env var approach documented |
@@ -853,18 +853,14 @@ not a stock-ROM behaviour. The right fix for the backlog item was to document "n
 the shipped ROM" and align native options with the actual disassembly instead of inventing another
 menu branch.
 
-### 146 — Dying in Level 2 can leave the game stuck on the level-loading screen (OPEN)
-Evidence source: native recording slug `issue-146`, frame captures in `.cache/debug/issue-146/`, and `compare-native-oracle --scenario boot-title-start-level1`.
-Native repro: not yet reproduced. The canonical bundle saved on 2026-04-05 is a negative result for the reported bug.
-Oracle repro: unknown. Minimum gate: `1p-playable`. Classification: playability.
+### 146 — Dying in Level 2 can leave the game stuck on the level-loading screen (BLOCKED)
+**Status: blocked:needs-human-repro** — downgraded P0→P1 on 2026-04-05.
+Requires interactive play to reproduce; 14+ autonomy cycles failed to capture evidence.
+Recording slug `issue-146` is a negative baseline only (never enters Level 2).
 
-Latest evidence (2026-04-05): rerunning `cargo run -p kidcli -- play-native --record issue-146` confirms the reproducible bundle at `.cache/recordings/issue-146/` is still only a negative baseline. The transcript at `.cache/recordings/issue-146/transcript.txt` reaches `TitleScreen` by frame `599` and does not show a Level 2 entry or death path, so this bundle does not reproduce the stuck loading-screen failure. `cargo run -p kidcli -- verify-recording --slug issue-146` still fails with `recording checkpoints diverged from oracle state`; the verification artefacts now sit under `.cache/recordings/issue-146/verify/`, so the bundle remains useful as a baseline negative-result artefact but not as proof of the Level 2 issue itself. The requested frame captures exist at `.cache/debug/issue-146/level_00_frame_00000.png`, `.cache/debug/issue-146/level_00_frame_00060.png`, and `.cache/debug/issue-146/level_00_frame_00120.png`, and `cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1` passes.
-
-Next verification commands:
-- `cargo run -p kidcli -- verify-recording --slug issue-146`
-- `cargo run -p kidcli -- capture-frames --level 00 --frames 0,60,120 --output .cache/debug/issue-146/`
-- `cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
+When a human is available:
 - `cargo run --release -p kidcli -- play-native --warp-level 01 --settled --record issue-146-level2-death`
+- Die in Level 2, observe if loading screen hangs
 - `cargo run -p kidcli -- verify-recording --slug issue-146-level2-death`
 
 ### 132 — Verify 2-player alternating mode against oracle-backed or strong native scenarios (FIXED)

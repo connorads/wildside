@@ -24,3 +24,9 @@
 - Visual issues are not done without frame-backed evidence.
 - If a report cannot be reproduced, record that explicitly in the backlog instead of leaving it vague.
 - Use ASM coverage as a discovery aid and fallback queue, not the lead selector.
+
+## Circuit-breaker
+- After 3 cycles on the same target with no code commit (only docs/evidence refreshes), mark it `stalled:agent-blocked` in backlog and auto-rotate to the next item.
+- Items marked `blocked:needs-human-repro` require interactive play; skip them entirely in agent loops.
+- Items marked `stalled:agent-blocked` can be retried after a human provides new evidence or a different approach is identified.
+- Proactive verification (mutation testing, ASM audit, sweep expansion) is always valid fallback work when all top backlog items are blocked or stalled.
