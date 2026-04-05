@@ -760,6 +760,12 @@ pub(crate) fn run_autonomous_loop(
             fs::remove_file(&next_task_path)
                 .with_context(|| format!("failed to remove {}", next_task_path.display()))?;
         }
+        if matches!(goal, AutonomyGoal::SweepParity) {
+            refresh_source_port_frontier_handoff_from_latest_evidence(
+                repo_root,
+                routines_per_task,
+            )?;
+        }
 
         ledger.cycles_run = cycle_number;
         ledger.complete = cycle.goal_complete;
@@ -880,6 +886,39 @@ fn load_goal_ledger_if_present(repo_root: &Path, goal: AutonomyGoal) -> Result<O
         return Ok(None);
     }
     load_ledger(&path).map(Some)
+}
+
+fn refresh_source_port_frontier_handoff_from_latest_evidence(
+    repo_root: &Path,
+    routines_per_task: u32,
+) -> Result<()> {
+    let frontier_path = repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH);
+    if !frontier_path.is_file() {
+        return Ok(());
+    }
+    let next_cycle = load_goal_ledger_if_present(repo_root, AutonomyGoal::SourcePortFrontier)?
+        .map(|ledger| ledger.cycles_run.saturating_add(1))
+        .unwrap_or(1);
+    let cycle = evaluate_source_port_frontier_cycle(repo_root, next_cycle, routines_per_task)?;
+    let Some(task) = cycle.task_package else {
+        return Ok(());
+    };
+    let next_task_path = repo_root
+        .join(".cache/autonomy")
+        .join(AutonomyGoal::SourcePortFrontier.slug())
+        .join("next-task.json");
+    if let Some(parent) = next_task_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    write_json(&next_task_path, &task)?;
+    if let (Some(note), Some(frontier)) = (
+        task.next_agent_note.as_ref(),
+        task.frontier_context.as_ref(),
+    ) {
+        write_source_port_next_agent_note(repo_root, note, frontier, &task)?;
+    }
+    Ok(())
 }
 
 fn case_queue_gate_status(candidate: &CaseQueueCandidate) -> &'static str {
@@ -3307,11 +3346,15 @@ fn correlate_release_gate_failure_with_state_sweep(
 ) -> Option<String> {
     let failed_focus = extract_release_gate_failed_focus("1p-accurate", release_gate_detail)?;
     let failed_field = extract_release_gate_failed_field(release_gate_detail)?;
-    if let Some((release_gate_focus_summary, report_path)) =
+    if let Some((release_gate_focus_summary, report_path, timestamp)) =
         latest_state_sweep_focus_summary(repo_root, &failed_focus, &failed_field)
     {
+        let freshness = timestamp
+            .as_deref()
+            .map(|timestamp| format!("timestamp={timestamp}, "))
+            .unwrap_or_default();
         return Some(format!(
-            "latest state sweep reports: {release_gate_focus_summary} (report={report_path})"
+            "latest state sweep reports: {release_gate_focus_summary} ({freshness}report={report_path})"
         ));
     }
     let latest = latest_state_sweep_history_entry(repo_root)?;
@@ -3319,6 +3362,7 @@ fn correlate_release_gate_failure_with_state_sweep(
         .get("report_path")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("unknown");
+    let timestamp = latest.get("timestamp").and_then(serde_json::Value::as_str);
     let field_entry = latest
         .get("field_summary")
         .and_then(serde_json::Value::as_array)
@@ -3339,8 +3383,11 @@ fn correlate_release_gate_failure_with_state_sweep(
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
     let categories = format_divergence_summary_value(field_entry.get("divergence_summary"))?;
+    let freshness = timestamp
+        .map(|timestamp| format!("timestamp={timestamp}, "))
+        .unwrap_or_default();
     Some(format!(
-        "latest state sweep classifies `{failed_field}` as {categories} across {levels} levels ({total_diffs} diffs, report={report_path})"
+        "latest state sweep classifies `{failed_field}` as {categories} across {levels} levels ({freshness}{total_diffs} diffs, report={report_path})"
     ))
 }
 
@@ -3365,13 +3412,17 @@ fn latest_state_sweep_focus_summary(
     repo_root: &Path,
     failed_focus: &ReleaseGateFocusLookup,
     failed_field: &str,
-) -> Option<(String, String)> {
+) -> Option<(String, String, Option<String>)> {
     let latest = latest_state_sweep_history_entry(repo_root)?;
     let report_path = latest
         .get("report_path")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("unknown")
         .to_owned();
+    let timestamp = latest
+        .get("timestamp")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
     let summary = latest
         .get("release_gate_focus")
         .and_then(serde_json::Value::as_array)
@@ -3394,7 +3445,7 @@ fn latest_state_sweep_focus_summary(
                         .map(str::to_owned)
                 })
         })?;
-    Some((summary, report_path))
+    Some((summary, report_path, timestamp))
 }
 
 fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
@@ -3423,16 +3474,36 @@ fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<
         })?;
     let name = failed_step.get("name")?.as_str()?;
     let detail = failed_step.get("detail")?.as_str()?;
-    Some((format!("{name}: {detail}"), latest_path))
+    let timestamp = report
+        .get("timestamp")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    let report_path = if timestamp == "unknown" {
+        None
+    } else {
+        let candidate = latest_path
+            .parent()
+            .map(|parent| parent.join(timestamp).join("report.json"))?;
+        Some(candidate)
+    };
+    let freshness = report_path
+        .as_ref()
+        .map(|report_path| format!(" (timestamp {timestamp}, report={})", report_path.display()))
+        .unwrap_or_else(|| format!(" (timestamp {timestamp})"));
+    Some((format!("{name}: {detail}{freshness}"), latest_path))
 }
 
 fn release_gate_focus_evidence(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
     let (detail, _) = latest_release_gate_failure_detail(repo_root, target)?;
     let failed_focus = extract_release_gate_failed_focus(target, &detail)?;
     let failed_field = extract_release_gate_failed_field(&detail)?;
-    let (summary, report_path) =
+    let (summary, report_path, timestamp) =
         latest_state_sweep_focus_summary(repo_root, &failed_focus, &failed_field)?;
-    Some((summary, PathBuf::from(report_path)))
+    let freshness = timestamp
+        .as_deref()
+        .map(|timestamp| format!(" (timestamp {timestamp}, report={report_path})"))
+        .unwrap_or_else(|| format!(" (report={report_path})"));
+    Some((format!("{summary}{freshness}"), PathBuf::from(report_path)))
 }
 
 fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
@@ -5431,14 +5502,16 @@ mod tests {
             task.evidence
                 .iter()
                 .any(|item| item.label == "release-gate-failure"
-                    && item.detail.contains("gameplay_compare:pause_resume_level1")),
+                    && item.detail.contains("gameplay_compare:pause_resume_level1")
+                    && item.detail.contains("timestamp 1775368044")),
             "task should carry the live release-gate failure detail"
         );
         assert!(
             task.evidence
                 .iter()
                 .any(|item| item.label == "release-gate-focus"
-                    && item.detail.contains("exact pair 0x0008->0x000c")),
+                    && item.detail.contains("exact pair 0x0008->0x000c")
+                    && item.detail.contains("timestamp 1775367006")),
             "task should carry the correlated state-sweep focus summary"
         );
         assert!(
@@ -5446,8 +5519,78 @@ mod tests {
             "next-agent note should surface the live gate failure"
         );
         assert!(
+            rendered_note.contains("timestamp 1775368044"),
+            "next-agent note should surface the refreshed release-gate timestamp"
+        );
+        assert!(
             rendered_note.contains("Latest state-sweep correlation: 1p-accurate failing field game_mode=13 diffs across 12 levels"),
             "next-agent note should surface the persisted sweep correlation"
+        );
+        assert!(
+            rendered_note.contains("timestamp 1775367006"),
+            "next-agent note should surface the refreshed state-sweep timestamp"
+        );
+    }
+
+    #[test]
+    fn sweep_parity_refresh_updates_source_port_handoff_note() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1775369194",
+  "target": "1p-accurate",
+  "passed": false,
+  "steps": [
+    {
+      "name": "gameplay_compare:pause_resume_level1",
+      "status": "failed",
+      "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+    }
+  ]
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775369195","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":191,"accumulation":0,"rng":0,"oracle_limitation":668},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":13,"levels":12,"level_ids":["0x00","0x09","0x32","0x33","0x45","0x48","0x50","0x54","0x57","0x61","0x62","0x63"],"checkpoints":["idle_tail","level_settle"],"checkpoint_counts":[{"checkpoint":"idle_tail","diffs":12},{"checkpoint":"level_settle","diffs":1}],"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":13}}],"release_gate_focus":[{"target":"1p-accurate","step_name":"gameplay_compare:pause_resume_level1","checkpoint":"level_settle@719","field":"game_mode","native_value":"0x0008","oracle_value":"0x000c","summary":"1p-accurate failing field game_mode=13 diffs across 12 levels for pause_resume_level1 @ level_settle@719 [oracle_limitations=13] [0x00, 0x09, 0x32, 0x33, 0x45, +7 more] [includes scenario level 0x00] [excludes checkpoint level_settle@719] [includes checkpoint family level_settle] checkpoints=[idle_tail=12, level_settle=1] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x0008->0x000c seen on levels [0x09, 0x32, 0x33, 0x45, 0x48, +6 more] checkpoints=[idle_tail=11]; excludes scenario level 0x00; excludes checkpoint level_settle@719; excludes checkpoint family level_settle]"}]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        super::refresh_source_port_frontier_handoff_from_latest_evidence(temp_dir.path(), 1)
+            .expect("frontier handoff refresh should succeed");
+
+        let note = fs::read_to_string(temp_dir.path().join(SOURCE_PORT_FRONTIER_NOTE_PATH))
+            .expect("next-agent note should write");
+        assert!(
+            note.contains("timestamp 1775369194"),
+            "refreshed note should include the latest release-gate timestamp"
+        );
+        assert!(
+            note.contains("timestamp 1775369195"),
+            "refreshed note should include the latest state-sweep timestamp"
         );
     }
 
