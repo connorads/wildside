@@ -8753,6 +8753,24 @@ fn hidden_block_jump_window_sub_dfb0_swaps_horizontal_reach_for_left_facing_kid(
 }
 
 #[test]
+fn hidden_block_reveal_worker_sub_e0f8_seeds_the_loc_e304_burst_worker() {
+    let worker = hidden_block_reveal_worker_sub_E0F8(0x0002, 0x0003, 0x00FF_4A48, 0x1114);
+
+    assert_eq!(
+        worker,
+        HiddenBlockRevealWorkerSubE0F8 {
+            allocation_spec: 0x2001,
+            object_handler_addr: 0x0000_E304,
+            block_col: 0x0002,
+            block_row: 0x0003,
+            layout_word_addr: 0x00FF_4A48,
+            sprite_mapping: 0x1114,
+        },
+        "ASM sub_E0F8 should allocate a `$2001` worker, install `loc_E304`, copy `$44/$46/$48`, and pull the next `unk_E11E` word into `$4E(a0)`",
+    );
+}
+
+#[test]
 fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
     let mut display_enabled = [true, false, true, true, false, true];
 
