@@ -987,7 +987,7 @@ pub(crate) fn activate_enemies_with_rng(
     player_x: u32,
     blank_top_rows: u16,
     killed: &std::collections::HashSet<(usize, usize)>,
-    _rng: &mut RomRandomState,
+    rng: &mut RomRandomState,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
@@ -1088,7 +1088,7 @@ pub(crate) fn activate_enemies_with_rng(
                 },
                 damage_flash_frames: 0,
                 palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
-                wait_timer: spawn_wait_timer(family, enemy_level),
+                wait_timer: spawn_wait_timer(family, enemy_level, player_x, rng),
                 dragon_phase: spawn_dragon_phase(family),
                 dragon_phase_frames: 0,
                 dragon_script_variant: dragon_variant,
@@ -5163,8 +5163,37 @@ mod tests {
 
     #[test]
     fn armadillo_initial_patrol_timer_matches_loc_3c7f8() {
-        assert_eq!(spawn_wait_timer(EnemyFamily::Armadillo, 0), 0x012C);
-        assert_eq!(spawn_wait_timer(EnemyFamily::Armadillo, 2), 0x012C);
+        let mut rng = RomRandomState::default();
+        assert_eq!(
+            spawn_wait_timer(EnemyFamily::Armadillo, 0, 0, &mut rng),
+            0x012C
+        );
+        assert_eq!(
+            spawn_wait_timer(EnemyFamily::Armadillo, 2, 0, &mut rng),
+            0x012C
+        );
+    }
+
+    #[test]
+    fn emo_rock_spawn_wait_timer_matches_loc_361f4_rng_mix() {
+        let mut rng = RomRandomState::default();
+
+        assert_eq!(
+            emo_rock_wait_timer_with_rng(&mut rng, 0x0123_0000),
+            0x009F,
+            "ASM Emo_Rock.asm loc_361F4 seeds d0 with `$3C`, XORs the first RNG byte with Kid X low byte `$23`, clears bit 7, then adds the result"
+        );
+    }
+
+    #[test]
+    fn emo_rock_spawn_wait_timer_stays_within_loc_361f4_masked_range() {
+        let mut rng = RomRandomState::default();
+        let delay = emo_rock_wait_timer_with_rng(&mut rng, 0);
+
+        assert!(
+            (0x003C..=0x00BB).contains(&delay),
+            "ASM Emo_Rock.asm loc_361F4 clears bit 7 before adding the `$3C` base delay, so the hover seed must stay within 60..187 frames"
+        );
     }
 
     #[test]
@@ -5382,11 +5411,22 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
     (enemy_level + base).max(1)
 }
 
-pub(crate) fn spawn_wait_timer(family: EnemyFamily, enemy_level: u8) -> u16 {
+pub(crate) fn emo_rock_wait_timer_with_rng(rng: &mut RomRandomState, player_x: u32) -> u16 {
+    // ASM Emo_Rock.asm loc_361F4: seed d0 with `$3C`, XOR the RNG byte with
+    // Kid's X low byte, clear bit 7, then add the masked offset.
+    let random_byte = rng.next_byte();
+    let kid_x_low_byte = ((player_x >> 16) & 0xFF) as u8;
+    u16::from((random_byte ^ kid_x_low_byte) & 0x7F) + 0x003C
+}
+
+pub(crate) fn spawn_wait_timer(
+    family: EnemyFamily,
+    enemy_level: u8,
+    player_x: u32,
+    rng: &mut RomRandomState,
+) -> u16 {
     match family {
-        // EmoRock: base $3C (60) frames hover wait before first drop attempt.
-        // Original adds a random offset; we use the fixed base.
-        EnemyFamily::EmoRock => 60,
+        EnemyFamily::EmoRock => emo_rock_wait_timer_with_rng(rng, player_x),
         // Tank: fire first bullet after one full interval.
         EnemyFamily::Tank => TANK_FIRE_INTERVAL,
         // Archer: fire first arrow after one full interval (HP1 rate).
