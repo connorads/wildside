@@ -23,6 +23,12 @@ pub(crate) struct ReleaseGateFocusSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) exact_value_pair_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) exact_value_pair_levels: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) exact_value_pair_level_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) exact_value_pair_scenario_level_matched_in_state_sweep: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) exact_value_pair_checkpoint_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) exact_value_pair_checkpoint_family_matched_in_state_sweep: Option<bool>,
@@ -298,6 +304,27 @@ pub(super) fn summarise_release_gate_focuses(
             let matched = field_summary
                 .iter()
                 .find(|entry| entry.field == focus.field);
+            let exact_value_pair_level_ids = match (&focus.native_value, &focus.oracle_value) {
+                (Some(native_value), Some(oracle_value)) => {
+                    let mut level_ids = results
+                        .iter()
+                        .filter(|result| {
+                            result.state_diffs.iter().any(|diff| {
+                                diff.field == focus.field
+                                    && normalise_release_gate_value(&diff.native_value)
+                                        == *native_value
+                                    && normalise_release_gate_value(&diff.oracle_value)
+                                        == *oracle_value
+                            })
+                        })
+                        .map(|result| format!("{:#04x}", result.level_id))
+                        .collect::<Vec<_>>();
+                    level_ids.sort();
+                    level_ids.dedup();
+                    level_ids
+                }
+                _ => Vec::new(),
+            };
             let exact_value_pair_checkpoints = match (&focus.native_value, &focus.oracle_value) {
                 (Some(native_value), Some(oracle_value)) => {
                     let mut counts: std::collections::BTreeMap<String, usize> =
@@ -362,6 +389,23 @@ pub(super) fn summarise_release_gate_focuses(
                 } else {
                     None
                 };
+            let exact_value_pair_levels = exact_value_pair_matched_in_state_sweep.map(|matched| {
+                if matched {
+                    exact_value_pair_level_ids.len()
+                } else {
+                    0
+                }
+            });
+            let exact_value_pair_scenario_level_matched_in_state_sweep = focus
+                .scenario_level_id
+                .as_ref()
+                .zip(exact_value_pair_matched_in_state_sweep)
+                .map(|(level_id, matched_anywhere)| {
+                    matched_anywhere
+                        && exact_value_pair_level_ids
+                            .iter()
+                            .any(|candidate| candidate == level_id)
+                });
             let exact_value_pair_checkpoint_matched_in_state_sweep = focus
                 .checkpoint
                 .as_ref()
@@ -390,6 +434,28 @@ pub(super) fn summarise_release_gate_focuses(
                             " [exact pair {native_value}->{oracle_value} absent from latest state sweep; same field class, different concrete miss]"
                         )
                     } else {
+                        let level_note = if exact_value_pair_level_ids.is_empty() {
+                            String::new()
+                        } else {
+                            format!(
+                                " on levels{}",
+                                format_field_level_preview(&exact_value_pair_level_ids)
+                            )
+                        };
+                        let scenario_level_note = focus
+                            .scenario_level_id
+                            .as_deref()
+                            .map(|level_id| {
+                                if exact_value_pair_level_ids
+                                    .iter()
+                                    .any(|candidate| candidate == level_id)
+                                {
+                                    format!("; includes scenario level {level_id}")
+                                } else {
+                                    format!("; excludes scenario level {level_id}")
+                                }
+                            })
+                            .unwrap_or_default();
                         let family_note = focus
                             .checkpoint
                             .as_deref()
@@ -420,9 +486,10 @@ pub(super) fn summarise_release_gate_focuses(
                             })
                             .unwrap_or_default();
                         format!(
-                            " [exact pair {native_value}->{oracle_value} seen{}{}]",
+                            " [exact pair {native_value}->{oracle_value} seen{level_note}{}{}{}]",
                             format_checkpoint_count_preview(&exact_value_pair_checkpoints)
-                                ,
+                            ,
+                            scenario_level_note,
                             family_note
                         )
                     }
@@ -447,6 +514,9 @@ pub(super) fn summarise_release_gate_focuses(
                 checkpoint_matched_in_state_sweep,
                 checkpoint_family_matched_in_state_sweep,
                 exact_value_pair_matched_in_state_sweep,
+                exact_value_pair_levels,
+                exact_value_pair_level_ids,
+                exact_value_pair_scenario_level_matched_in_state_sweep,
                 exact_value_pair_checkpoint_matched_in_state_sweep,
                 exact_value_pair_checkpoint_family_matched_in_state_sweep,
                 total_diffs: matched.map(|entry| entry.total_diffs),
