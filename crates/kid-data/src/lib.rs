@@ -2421,10 +2421,87 @@ pub fn zero_longword_vram_write_plan_sub_C346(
     }
 }
 
+const NIBBLE_MASK_PATTERN_OFFSETS_SUB_C3DA: [u8; 16] = [
+    0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A, 0x0A, 0x18,
+];
+
+#[allow(non_snake_case)]
+pub fn nibble_mask_longwords_sub_C3DA(
+    source_longwords: &[u32],
+    pattern_index: u16,
+    row_count: u16,
+) -> Result<Vec<u32>> {
+    // ASM sub_C3DA (kid.asm:16029): load `unk_C418[d0]` as the first nibble
+    // offset, then call sub_C3F6 three times at offsets `base`, `base+4`,
+    // and `base+$20` to AND one nibble out of each `$20`-byte row.
+    let Some(&base_nibble_offset) =
+        NIBBLE_MASK_PATTERN_OFFSETS_SUB_C3DA.get(usize::from(pattern_index))
+    else {
+        bail!("sub_C3DA pattern {pattern_index:#06X} falls outside the 16-entry `unk_C418` table");
+    };
+
+    let mut bytes = longwords_to_be_bytes(source_longwords);
+    apply_row_nibble_mask_sub_C3F6(&mut bytes, base_nibble_offset, row_count)?;
+    apply_row_nibble_mask_sub_C3F6(&mut bytes, base_nibble_offset.wrapping_add(0x04), row_count)?;
+    apply_row_nibble_mask_sub_C3F6(&mut bytes, base_nibble_offset.wrapping_add(0x20), row_count)?;
+    be_bytes_to_longwords_sub_C3DA(&bytes)
+}
+
+#[allow(non_snake_case)]
+fn apply_row_nibble_mask_sub_C3F6(
+    bytes: &mut [u8],
+    nibble_offset: u8,
+    row_count: u16,
+) -> Result<()> {
+    // ASM sub_C3F6 (kid.asm:16045): `lsr.w #1,d3` converts the nibble selector
+    // into a byte offset and uses the carry to choose `$0F` (clear high nibble)
+    // or `$F0` (clear low nibble), then `and.b` repeats every `$20` bytes.
+    if row_count == 0 {
+        return Ok(());
+    }
+
+    let byte_mask = if nibble_offset & 1 == 0 { 0x0F } else { 0xF0 };
+    let start = usize::from(nibble_offset >> 1);
+    let last = start + (usize::from(row_count) - 1) * 0x20;
+    ensure!(
+        last < bytes.len(),
+        "sub_C3F6 nibble {nibble_offset:#04X} over row_count {row_count:#06X} needs byte index {last:#06X} but the buffer is only {:#06X} bytes",
+        bytes.len()
+    );
+
+    for row in 0..usize::from(row_count) {
+        let index = start + row * 0x20;
+        bytes[index] &= byte_mask;
+    }
+
+    Ok(())
+}
+
 fn vdp_write_control_longword(vram_byte_address: u16) -> u32 {
     let high_word = (vram_byte_address & 0x3FFF) | 0x4000;
     let low_word = vram_byte_address.rotate_left(2) & 0x0003;
     (u32::from(high_word) << 16) | u32::from(low_word)
+}
+
+fn longwords_to_be_bytes(source_longwords: &[u32]) -> Vec<u8> {
+    source_longwords
+        .iter()
+        .flat_map(|longword| longword.to_be_bytes())
+        .collect()
+}
+
+#[allow(non_snake_case)]
+fn be_bytes_to_longwords_sub_C3DA(bytes: &[u8]) -> Result<Vec<u32>> {
+    ensure!(
+        bytes.len().is_multiple_of(4),
+        "sub_C3DA needs a whole-number longword buffer but received {:#06X} bytes",
+        bytes.len()
+    );
+
+    Ok(bytes
+        .chunks_exact(4)
+        .map(|chunk| u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect())
 }
 
 fn dma_source_register_words(source_address: u32) -> [u16; 3] {
@@ -6823,6 +6900,73 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(
             plan.writes[1].vdp_control_longword, 0x44C0_0003,
             "ASM sub_C346 should keep the same bank bits while stepping down the next `$20`-byte row",
+        );
+    }
+
+    #[test]
+    fn nibble_mask_longwords_sub_c3da_masks_the_three_selected_nibbles_in_every_20_byte_row() {
+        let masked = nibble_mask_longwords_sub_C3DA(&vec![0xFFFF_FFFF; 0x0400], 0, 0x0080)
+            .expect("ASM sub_C3DA should accept the full `$1000`-byte VRAM buffer for pattern 0");
+        let bytes = longwords_to_be_bytes(&masked);
+
+        assert_eq!(bytes[0x0000], 0x0F);
+        assert_eq!(bytes[0x0002], 0x0F);
+        assert_eq!(bytes[0x0010], 0x0F);
+        assert_eq!(
+            bytes[0x0FE0], 0x0F,
+            "ASM sub_C3DA should keep masking the same first nibble across all `$80` rows",
+        );
+        assert_eq!(
+            bytes[0x0FE2], 0x0F,
+            "ASM sub_C3DA should keep the `base+4` nibble aligned on the last row too",
+        );
+        assert_eq!(
+            bytes[0x0FF0], 0x0F,
+            "ASM sub_C3DA should also mask the `base+$20` stripe through the last row",
+        );
+        assert_eq!(
+            bytes[0x0001], 0xFF,
+            "ASM sub_C3DA should leave neighbouring bytes untouched when only one nibble column is selected",
+        );
+    }
+
+    #[test]
+    fn nibble_mask_longwords_sub_c3da_uses_odd_table_offsets_to_clear_the_low_nibble_only() {
+        let masked = nibble_mask_longwords_sub_C3DA(&vec![0xFFFF_FFFF; 0x0400], 4, 0x0080)
+            .expect("ASM sub_C3DA should accept pattern 4's odd-nibble offsets");
+        let bytes = longwords_to_be_bytes(&masked);
+
+        assert_eq!(bytes[0x0004], 0xF0);
+        assert_eq!(bytes[0x0006], 0xF0);
+        assert_eq!(bytes[0x0014], 0xF0);
+        assert_eq!(
+            bytes[0x0FE4], 0xF0,
+            "ASM sub_C3DA should preserve the high nibble while clearing the low nibble on the last row too",
+        );
+    }
+
+    #[test]
+    fn nibble_mask_longwords_sub_c3da_rejects_pattern_indices_outside_unk_c418() {
+        let error = nibble_mask_longwords_sub_C3DA(&vec![0; 0x0400], 0x0010, 0x0080).expect_err(
+            "ASM sub_C3DA should reject pattern selectors beyond the 16-entry lookup table",
+        );
+
+        assert!(
+            error
+                .to_string()
+                .contains("falls outside the 16-entry `unk_C418` table"),
+            "the error should mention the exact ROM lookup table that bounds `d0`",
+        );
+    }
+
+    #[test]
+    fn nibble_mask_longwords_sub_c3da_rejects_short_longword_buffers() {
+        let error = nibble_mask_longwords_sub_C3DA(&vec![0xFFFF_FFFF; 0x03FF], 15, 0x0080)
+            .expect_err("ASM sub_C3DA should require the full last-row byte span for pattern 15");
+
+        assert!(
+            error.to_string().contains("needs byte index 0x0FFC"),
+            "the error should describe the exact final byte touched by sub_C3F6's `$20`-byte row stride",
         );
     }
 
