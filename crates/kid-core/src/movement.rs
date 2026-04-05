@@ -106,6 +106,28 @@ pub(crate) fn gfx_object_unlink_loc_100E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_insertion_predecessor_index_loc_101C(
+    next_indices: &[Option<usize>],
+    priority_words: &[u16],
+    target_priority_word: u16,
+) -> usize {
+    // ASM loc_101C (kid.asm:1937): restart from the sentinel, keep following
+    // `0(a4)` while each candidate's `$A(a4)` priority word is less than or
+    // equal to `d5`, then insert after the last such node.
+    let mut cursor_index = 0usize;
+    loop {
+        let Some(next_index) = next_indices[cursor_index] else {
+            return cursor_index;
+        };
+        if priority_words[next_index] > target_priority_word {
+            return cursor_index;
+        }
+        cursor_index = next_index;
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     object_slot_address: u32,
     gfx_slot_address: u32,

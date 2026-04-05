@@ -163,6 +163,24 @@ fn gfx_object_unlink_loc_100e_splices_the_target_successor_over_the_predecessor_
 }
 
 #[test]
+fn gfx_object_insertion_predecessor_index_loc_101c_skips_equal_priorities_before_reinsertion() {
+    let next_indices = [
+        Some(1), // sentinel -> first live node
+        Some(2), // priority 4
+        Some(3), // equal priority 6
+        Some(4), // higher priority 9
+        None,
+    ];
+    let priority_words = [0, 4, 6, 9, 6];
+
+    assert_eq!(
+        gfx_object_insertion_predecessor_index_loc_101C(&next_indices, &priority_words, 6),
+        2,
+        "ASM loc_101C should keep walking while `$A(a4) <= d5`, so a reinserted priority-6 worker lands after existing priority-6 nodes and before the first higher-priority node",
+    );
+}
+
+#[test]
 fn crawl_wall_escape_sub_81b4_snaps_right_when_left_is_solid_and_right_is_open() {
     let grid = crawl_escape_test_grid(true, false);
 
