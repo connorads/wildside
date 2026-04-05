@@ -17277,6 +17277,44 @@ fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
 }
 
 #[test]
+fn shooter_slot_tick_sub_f730_advances_the_zero_state_into_the_negative_visibility_ladder() {
+    assert_eq!(
+        NativeRuntime::shooter_slot_tick_sub_F730(1, 0, 4, 6),
+        (2, 0x8001),
+        "ASM sub_F730 loc_F8A6 should turn a zero state into `$8001` and reload the slot timer with a 2-frame delay",
+    );
+    assert_eq!(
+        NativeRuntime::shooter_slot_tick_sub_F730(1, 0x8001, 4, 6),
+        (2, 0x8002),
+        "ASM sub_F730 loc_F79A should advance `$8001 -> $8002` with the same 2-frame delay",
+    );
+    assert_eq!(
+        NativeRuntime::shooter_slot_tick_sub_F730(1, 0x8002, 4, 6),
+        (6, 3),
+        "ASM sub_F730 loc_F78C should leave the negative ladder at state `3` and restore the slot reload delay",
+    );
+}
+
+#[test]
+fn shooter_slot_tick_sub_f730_wraps_live_states_back_to_zero_after_the_flash_pair() {
+    assert_eq!(
+        NativeRuntime::shooter_slot_tick_sub_F730(1, 5, 4, 6),
+        (2, 0x8004),
+        "ASM sub_F730 loc_F898 should turn any positive live state into `$8004` after the timer expires",
+    );
+    assert_eq!(
+        NativeRuntime::shooter_slot_tick_sub_F730(1, 0x8004, 4, 6),
+        (2, 0x8005),
+        "ASM sub_F730 loc_F79A should advance `$8004 -> $8005` on the next expiry",
+    );
+    assert_eq!(
+        NativeRuntime::shooter_slot_tick_sub_F730(1, 0x8005, 4, 6),
+        (4, 0),
+        "ASM sub_F730 loc_F7AA should clear the state word and restore the active delay after `$8005` expires",
+    );
+}
+
+#[test]
 fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
     let mut rt = NativeRuntime::new(manifest());
     rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));

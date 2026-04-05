@@ -426,6 +426,37 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_slot_tick_sub_F730(
+        timer: u16,
+        state: u16,
+        active_delay: u16,
+        reload_delay: u16,
+    ) -> (u16, u16) {
+        // ASM sub_F730 (kid.asm:20400): decrement the slot timer first, then
+        // advance the visible-state word through the `0 -> $8001 -> $8002 ->
+        // 3` and `n -> $8004 -> $8005 -> 0` countdown ladders.
+        let decremented_timer = timer.wrapping_sub(1);
+        if decremented_timer != 0 {
+            return (decremented_timer, state);
+        }
+
+        if state & 0x8000 != 0 {
+            return match state {
+                0x8001 | 0x8004 => (decremented_timer.wrapping_add(2), state.wrapping_add(1)),
+                0x8002 => (reload_delay, 3),
+                _ => (active_delay, 0),
+            };
+        }
+
+        if state == 0 {
+            (decremented_timer.wrapping_add(2), 0x8001)
+        } else {
+            (decremented_timer.wrapping_add(2), 0x8004)
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_player_in_range_sub_F536(
         player_x_pos: u32,
         player_y_pos: u32,
