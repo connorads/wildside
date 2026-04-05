@@ -805,6 +805,38 @@ fn sound_driver_write_sub_e133c_only_enters_the_shared_flush_path() {
     );
 }
 
+#[test]
+fn sound_driver_upload_sub_e13da_copies_driver_and_zero_fills_z80_ram() {
+    let source_root = unique_temp_path("sub-e13da-source");
+    fs::create_dir_all(source_root.join("sound")).expect("sound dir should be creatable");
+    fs::write(
+        source_root.join("sound/GEMS_Sounddriver.bin"),
+        [0x12, 0x34, 0x56, 0x78],
+    )
+    .expect("driver should be writable");
+    let mut manifest = manifest();
+    manifest.source_root = source_root.clone();
+
+    let upload = sound_driver_upload_sub_E13DA(&manifest).expect("driver upload plan should load");
+
+    assert_eq!(
+        upload,
+        SoundDriverUploadSubE13DA {
+            source_relative_path: "sound/GEMS_Sounddriver.bin",
+            destination_start: 0xA00000,
+            destination_end_exclusive: 0xA02000,
+            driver_bytes: vec![0x12, 0x34, 0x56, 0x78],
+            zero_fill_len: 0x2000 - 4,
+            requests_z80_reset: true,
+            stops_z80: true,
+            preserves_a1: true,
+        },
+        "ASM sub_E13DA should copy `sound/GEMS_Sounddriver.bin` into `$A00000` and zero-fill the rest of Z80 RAM through `$A01FFF` after asserting reset and stopping the bus",
+    );
+
+    fs::remove_dir_all(source_root).expect("temp sound dir should be removable");
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

@@ -394,6 +394,19 @@ pub(crate) struct SoundDriverWriteSubE133C {
     pub(crate) queued_bytes: [u8; 0],
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SoundDriverUploadSubE13DA {
+    pub(crate) source_relative_path: &'static str,
+    pub(crate) destination_start: u32,
+    pub(crate) destination_end_exclusive: u32,
+    pub(crate) driver_bytes: Vec<u8>,
+    pub(crate) zero_fill_len: usize,
+    pub(crate) requests_z80_reset: bool,
+    pub(crate) stops_z80: bool,
+    pub(crate) preserves_a1: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -432,6 +445,30 @@ pub(crate) fn sound_driver_write_sub_E133C() -> SoundDriverWriteSubE133C {
     // ASM sub_E133C -> loc_E1576 (kid.asm:49508, 49847): enter the shared
     // Z80 write critical section, then return without queueing any command.
     SoundDriverWriteSubE133C { queued_bytes: [] }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_upload_sub_E13DA(
+    manifest: &AssetManifest,
+) -> std::io::Result<SoundDriverUploadSubE13DA> {
+    // ASM sub_E13DA (kid.asm:49599): assert Z80 reset, stop the Z80 bus,
+    // copy `sound/GEMS_Sounddriver.bin` into `$A00000`, then zero-fill the
+    // remainder of `$A00000..$A02000` before restoring `a1`.
+    let source_relative_path = "sound/GEMS_Sounddriver.bin";
+    let driver_bytes = fs::read(manifest.source_root.join(source_relative_path))?;
+    let z80_ram_len = 0x2000usize;
+    let zero_fill_len = z80_ram_len.saturating_sub(driver_bytes.len());
+    Ok(SoundDriverUploadSubE13DA {
+        source_relative_path,
+        destination_start: 0xA00000,
+        destination_end_exclusive: 0xA02000,
+        driver_bytes,
+        zero_fill_len,
+        requests_z80_reset: true,
+        stops_z80: true,
+        preserves_a1: true,
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
