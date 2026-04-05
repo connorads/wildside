@@ -1,12 +1,13 @@
 use super::*;
 use crate::boot::{
-    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC, IoPortFlagsSub6E24,
+    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
+    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
     PauseMenuSpriteEntrySub6874, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
-    init_hud_animation_frames_sub_44B0, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -297,6 +298,119 @@ fn sub_6874_hides_only_sprites_whose_masked_tiles_overlap_pause_menu_vram() {
     assert_eq!(
         sprites[3].y_pos, 0x0086,
         "ASM sub_6874 should leave sprites above tile $68E visible",
+    );
+}
+
+#[test]
+fn sub_bd0a_seeds_the_fixed_timer_hud_row_when_tracking_is_disabled() {
+    let layout = hud_timer_sprite_layout_sub_BD0A(
+        HudTimerSpriteLayoutSubBD0A {
+            minutes: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            separator: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            seconds_tens: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            seconds_ones: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+        },
+        false,
+        false,
+        0,
+        0,
+        0,
+        0,
+    );
+
+    assert_eq!(
+        layout,
+        HudTimerSpriteLayoutSubBD0A {
+            minutes: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x0090,
+            },
+            separator: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x0098,
+            },
+            seconds_tens: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x009D,
+            },
+            seconds_ones: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x00A5,
+            },
+        },
+        "ASM sub_BD0A should seed the four timer sprites onto the fixed HUD row at `y=$90` with the `unk_BD8E` X positions",
+    );
+}
+
+#[test]
+fn sub_bd0a_hides_minutes_and_tracks_the_seconds_digits_over_kid() {
+    let seeded = hud_timer_sprite_layout_sub_BD0A(
+        HudTimerSpriteLayoutSubBD0A {
+            minutes: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            separator: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            seconds_tens: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+            seconds_ones: HudTimerSpritePositionSubBD0A { y_pos: 0, x_pos: 0 },
+        },
+        false,
+        false,
+        0,
+        0,
+        0,
+        0,
+    );
+
+    let layout =
+        hud_timer_sprite_layout_sub_BD0A(seeded, true, false, 0x0130, 0x0180, 0x0100, 0x0120);
+
+    assert_eq!(
+        layout,
+        HudTimerSpriteLayoutSubBD0A {
+            minutes: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x0001,
+            },
+            separator: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x0001,
+            },
+            seconds_tens: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x00B4,
+                x_pos: 0x00A9,
+            },
+            seconds_ones: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x00B4,
+                x_pos: 0x00B1,
+            },
+        },
+        "ASM sub_BD0A should preserve the seeded `y=$90` row for the hidden minute sprites, then place the seconds digits at `Kid-Camera` screen space with the `unk_BD8A` offsets `-7` and `+1`",
+    );
+}
+
+#[test]
+fn sub_bd0a_leaves_the_existing_layout_untouched_while_the_timer_is_frozen() {
+    let seeded = HudTimerSpriteLayoutSubBD0A {
+        minutes: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x0090,
+        },
+        separator: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x0098,
+        },
+        seconds_tens: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x009D,
+        },
+        seconds_ones: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x00A5,
+        },
+    };
+
+    assert_eq!(
+        hud_timer_sprite_layout_sub_BD0A(seeded, true, true, 0x0130, 0x0180, 0x0100, 0x0120),
+        seeded,
+        "ASM sub_BD0A should return immediately from loc_BD38 when `$FFFFFB4B` is set, preserving the last seeded sprite layout",
     );
 }
 

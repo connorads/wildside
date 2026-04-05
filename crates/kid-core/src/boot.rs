@@ -144,6 +144,20 @@ pub(crate) struct FlagHudDmaUploadSub44DC {
     pub(crate) frame_table_byte_offset: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudTimerSpritePositionSubBD0A {
+    pub(crate) y_pos: u16,
+    pub(crate) x_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudTimerSpriteLayoutSubBD0A {
+    pub(crate) minutes: HudTimerSpritePositionSubBD0A,
+    pub(crate) separator: HudTimerSpritePositionSubBD0A,
+    pub(crate) seconds_tens: HudTimerSpritePositionSubBD0A,
+    pub(crate) seconds_ones: HudTimerSpritePositionSubBD0A,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HudAnimationStepSub44DC {
     pub(crate) next_state: HudAnimationStateSub44DC,
@@ -152,6 +166,62 @@ pub(crate) struct HudAnimationStepSub44DC {
     pub(crate) clock_upload: Option<HudFrameUploadSub44DC>,
     pub(crate) diamond_upload: Option<DiamondHudDmaTransferSub5D4A>,
     pub(crate) flag_upload: Option<FlagHudDmaUploadSub44DC>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn hud_timer_sprite_layout_sub_BD0A(
+    mut layout: HudTimerSpriteLayoutSubBD0A,
+    track_kid: bool,
+    timer_frozen: bool,
+    kid_x_pos: u16,
+    kid_y_pos: u16,
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+) -> HudTimerSpriteLayoutSubBD0A {
+    // ASM sub_BD0A (kid.asm:15286): when `d7==0`, seed the four timer sprites
+    // onto the fixed HUD row at `y=$90` with X positions `$90,$98,$9D,$A5`.
+    // When `d7!=0`, bail out early if `$FFFFFB4B` is set; otherwise hide the
+    // minute and separator sprites at `x=1` and pin the two seconds digits to
+    // Kid's screen position using `x_pos-Camera_X_pos+$80` and
+    // `y_pos-Camera_Y_pos-$2C+$80`.
+    if !track_kid {
+        return HudTimerSpriteLayoutSubBD0A {
+            minutes: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x0090,
+            },
+            separator: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x0098,
+            },
+            seconds_tens: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x009D,
+            },
+            seconds_ones: HudTimerSpritePositionSubBD0A {
+                y_pos: 0x0090,
+                x_pos: 0x00A5,
+            },
+        };
+    }
+
+    if timer_frozen {
+        return layout;
+    }
+
+    let kid_screen_x = kid_x_pos.wrapping_sub(camera_x_pos).wrapping_add(0x0080);
+    let kid_screen_y = kid_y_pos
+        .wrapping_sub(camera_y_pos)
+        .wrapping_sub(0x002C)
+        .wrapping_add(0x0080);
+    layout.minutes.x_pos = 1;
+    layout.separator.x_pos = 1;
+    layout.seconds_tens.y_pos = kid_screen_y;
+    layout.seconds_tens.x_pos = kid_screen_x.wrapping_sub(7);
+    layout.seconds_ones.y_pos = kid_screen_y;
+    layout.seconds_ones.x_pos = kid_screen_x.wrapping_add(1);
+    layout
 }
 
 fn step_hud_animation_pair_table(
