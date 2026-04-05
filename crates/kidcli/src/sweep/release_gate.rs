@@ -23,6 +23,8 @@ pub(crate) struct ReleaseGateFocusSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) exact_value_pair_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) exact_value_pair_checkpoint_matched_in_state_sweep: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) exact_value_pair_checkpoint_family_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) total_diffs: Option<usize>,
@@ -360,6 +362,16 @@ pub(super) fn summarise_release_gate_focuses(
                 } else {
                     None
                 };
+            let exact_value_pair_checkpoint_matched_in_state_sweep = focus
+                .checkpoint
+                .as_ref()
+                .zip(exact_value_pair_matched_in_state_sweep)
+                .map(|(checkpoint, matched_anywhere)| {
+                    matched_anywhere
+                        && exact_value_pair_checkpoints
+                            .iter()
+                            .any(|entry| &entry.checkpoint == checkpoint)
+                });
             let exact_value_pair_checkpoint_family_matched_in_state_sweep = focus
                 .checkpoint
                 .as_ref()
@@ -381,16 +393,29 @@ pub(super) fn summarise_release_gate_focuses(
                         let family_note = focus
                             .checkpoint
                             .as_deref()
-                            .map(checkpoint_family)
-                            .filter(|family| !family.is_empty())
-                            .map(|family| {
-                                if exact_value_pair_checkpoints
+                            .map(|checkpoint| {
+                                let checkpoint_note = if exact_value_pair_checkpoints
                                     .iter()
-                                    .any(|entry| checkpoint_family(&entry.checkpoint) == family)
+                                    .any(|entry| entry.checkpoint == checkpoint)
                                 {
-                                    format!("; includes checkpoint family {family}")
+                                    format!("; includes checkpoint {checkpoint}")
                                 } else {
-                                    format!("; excludes checkpoint family {family}")
+                                    format!("; excludes checkpoint {checkpoint}")
+                                };
+                                let family_note = checkpoint_family(checkpoint);
+                                if family_note.is_empty() {
+                                    checkpoint_note
+                                } else if exact_value_pair_checkpoints
+                                    .iter()
+                                    .any(|entry| checkpoint_family(&entry.checkpoint) == family_note)
+                                {
+                                    format!(
+                                        "{checkpoint_note}; includes checkpoint family {family_note}"
+                                    )
+                                } else {
+                                    format!(
+                                        "{checkpoint_note}; excludes checkpoint family {family_note}"
+                                    )
                                 }
                             })
                             .unwrap_or_default();
@@ -422,6 +447,7 @@ pub(super) fn summarise_release_gate_focuses(
                 checkpoint_matched_in_state_sweep,
                 checkpoint_family_matched_in_state_sweep,
                 exact_value_pair_matched_in_state_sweep,
+                exact_value_pair_checkpoint_matched_in_state_sweep,
                 exact_value_pair_checkpoint_family_matched_in_state_sweep,
                 total_diffs: matched.map(|entry| entry.total_diffs),
                 levels: matched.map(|entry| entry.levels),
