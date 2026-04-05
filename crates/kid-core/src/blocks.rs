@@ -3,6 +3,12 @@ use crate::combat::CollisionRectSub1F52;
 
 impl NativeRuntime {
     #[allow(non_snake_case)]
+    pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
+        // ASM sub_FD00 (kid.asm:21064): `move.l $E(a3),d7; add.l d7,6(a3)`.
+        y_pos.wrapping_add_signed(y_velocity)
+    }
+
+    #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_collision_rects_sub_F568(
         kid_hitbox: CollisionRectSub1F52,
@@ -818,8 +824,7 @@ impl NativeRuntime {
                 // Phase 1: rise at 2px/frame
                 let delta = -(LIFT_RISE_SPEED_PX << 16);
                 lift.y_velocity = delta;
-                lift.y_pos =
-                    (i64::from(lift.y_pos) + i64::from(delta)).clamp(0, i64::from(u32::MAX)) as u32;
+                lift.y_pos = Self::lift_platform_vertical_step_sub_FD00(lift.y_pos, delta);
             } else if lift.age <= LIFT_RISE_FRAMES + LIFT_FALL_FRAMES {
                 // Phase 2: erase block from grid (once, at start of fall phase)
                 if !lift.block_erased {
@@ -836,8 +841,7 @@ impl NativeRuntime {
                 // Phase 3: fall at 1px/frame
                 let delta = LIFT_FALL_SPEED_PX << 16;
                 lift.y_velocity = delta;
-                lift.y_pos =
-                    (i64::from(lift.y_pos) + i64::from(delta)).clamp(0, i64::from(u32::MAX)) as u32;
+                lift.y_pos = Self::lift_platform_vertical_step_sub_FD00(lift.y_pos, delta);
             } else {
                 // Phase 4: delete
                 return false;

@@ -32725,6 +32725,16 @@ fn process_block_effects_lift_spawns_platform() {
     assert!(!rt.block_state.lift_platforms[0].block_erased);
 }
 
+#[test]
+fn lift_platform_vertical_step_sub_fd00_adds_signed_velocity_to_fp16_y() {
+    let next_y = NativeRuntime::lift_platform_vertical_step_sub_FD00(0x0080_0000, -0x0000_0708);
+
+    assert_eq!(
+        next_y, 0x007F_F8F8,
+        "ASM sub_FD00 should add `$E(a3)` directly into `6(a3)`, preserving the fractional carry/borrow",
+    );
+}
+
 // --- Process block effects: prize block hit creates destroy effect ---
 
 #[test]
