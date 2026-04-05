@@ -32225,6 +32225,56 @@ fn shooter_player_in_range_sub_f536_rejects_just_outside_window() {
 }
 
 #[test]
+fn shooter_collision_rects_sub_f568_emits_two_upward_rectangles_inside_the_kid_window() {
+    let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+        CollisionRectSub1F52 {
+            left_px: 80,
+            right_px: 96,
+            top_px: 96,
+            bottom_px: 112,
+        },
+        &[(6, 7, 0x01)],
+    );
+
+    assert_eq!(
+        rects,
+        vec![
+            CollisionRectSub1F52 {
+                left_px: 98,
+                right_px: 110,
+                top_px: 99,
+                bottom_px: 111,
+            },
+            CollisionRectSub1F52 {
+                left_px: 101,
+                right_px: 107,
+                top_px: 103,
+                bottom_px: 111,
+            },
+        ],
+        "ASM sub_F568 should emit the two upward collision rectangles from loc_F5B0 when the shooter sits inside Kid's expanded block window",
+    );
+}
+
+#[test]
+fn shooter_collision_rects_sub_f568_rejects_edges_that_touch_the_window_border() {
+    let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+        CollisionRectSub1F52 {
+            left_px: 80,
+            right_px: 96,
+            top_px: 96,
+            bottom_px: 112,
+        },
+        &[(4, 7, 0x08), (8, 7, 0x02)],
+    );
+
+    assert!(
+        rects.is_empty(),
+        "ASM sub_F568 skips the left/right-facing rectangles when the source row or column lands exactly on the expanded Kid window edge",
+    );
+}
+
+#[test]
 fn shooter_block_fires_all_four_directions() {
     // Skin byte 0x0F = all directions (up + right + down + left)
     let mut rt = NativeRuntime::new(manifest());

@@ -1,6 +1,108 @@
 use super::*;
+use crate::combat::CollisionRectSub1F52;
 
 impl NativeRuntime {
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_collision_rects_sub_F568(
+        kid_hitbox: CollisionRectSub1F52,
+        shooter_blocks: &[(u16, u16, u8)],
+    ) -> Vec<CollisionRectSub1F52> {
+        // ASM sub_F568 (kid.asm:20196): convert Kid's pixel hitbox to a
+        // slightly-expanded block window, then emit up to two collision
+        // rectangles per visible shooter edge inside that window.
+        let left_block = (((i32::from(kid_hitbox.left_px)) >> 4) - 1).max(0) as i16;
+        let top_block = (((i32::from(kid_hitbox.top_px)) >> 4) - 1).max(0) as i16;
+        let right_block = ((i32::from(kid_hitbox.right_px) + 0x0F) >> 4) as i16 + 1;
+        let bottom_block = ((i32::from(kid_hitbox.bottom_px) + 0x0F) >> 4) as i16 + 1;
+        let mut rects = Vec::new();
+
+        for &(col, row, directions) in shooter_blocks {
+            let col = col as i16;
+            let row = row as i16;
+            if col < left_block || col > right_block || row < top_block || row > bottom_block {
+                continue;
+            }
+
+            let x = col << 4;
+            let y = row << 4;
+            if directions & 0x01 != 0
+                && row - top_block >= 2
+                && col != left_block
+                && col != right_block
+            {
+                rects.push(CollisionRectSub1F52 {
+                    left_px: x + 2,
+                    right_px: x + 14,
+                    top_px: y - 13,
+                    bottom_px: y - 1,
+                });
+                rects.push(CollisionRectSub1F52 {
+                    left_px: x + 5,
+                    right_px: x + 11,
+                    top_px: y - 9,
+                    bottom_px: y - 1,
+                });
+            }
+            if directions & 0x02 != 0
+                && col < right_block - 1
+                && row != top_block
+                && row != bottom_block
+            {
+                rects.push(CollisionRectSub1F52 {
+                    left_px: (col + 1) << 4,
+                    right_px: ((col + 1) << 4) + 8,
+                    top_px: y + 1,
+                    bottom_px: y + 13,
+                });
+                rects.push(CollisionRectSub1F52 {
+                    left_px: (col + 1) << 4,
+                    right_px: ((col + 1) << 4) + 12,
+                    top_px: y + 4,
+                    bottom_px: y + 10,
+                });
+            }
+            if directions & 0x04 != 0
+                && row < bottom_block - 1
+                && col != left_block
+                && col != right_block
+            {
+                rects.push(CollisionRectSub1F52 {
+                    left_px: x + 2,
+                    right_px: x + 14,
+                    top_px: y + 15,
+                    bottom_px: y + 23,
+                });
+                rects.push(CollisionRectSub1F52 {
+                    left_px: x + 5,
+                    right_px: x + 11,
+                    top_px: y + 15,
+                    bottom_px: y + 27,
+                });
+            }
+            if directions & 0x08 != 0
+                && col - left_block >= 2
+                && row != top_block
+                && row != bottom_block
+            {
+                rects.push(CollisionRectSub1F52 {
+                    left_px: x - 8,
+                    right_px: x,
+                    top_px: y + 1,
+                    bottom_px: y + 13,
+                });
+                rects.push(CollisionRectSub1F52 {
+                    left_px: x - 12,
+                    right_px: x,
+                    top_px: y + 4,
+                    bottom_px: y + 10,
+                });
+            }
+        }
+
+        rects
+    }
+
     // Oracle-backed sub_1007A timing for demo 0x1B:
     // hit frame N:      write 0x6F
     // frames N+1..N+32: keep 0x6F during the bounce coroutine
