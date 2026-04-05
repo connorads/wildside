@@ -73,6 +73,19 @@ fn crawl_escape_test_grid(left_solid: bool, right_solid: bool) -> terrain::Block
     terrain::BlockGrid::from_level_layout(&data, width, height)
 }
 
+fn crawl_slope_test_grid(left_slope_down: bool, right_slope_up: bool) -> terrain::BlockGrid {
+    let width = 8u16;
+    let height = 4u16;
+    let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+    if left_slope_down {
+        data[(2 * usize::from(width) + 2) * 2] = 0x50;
+    }
+    if right_slope_up {
+        data[(2 * usize::from(width) + 4) * 2] = 0x40;
+    }
+    terrain::BlockGrid::from_level_layout(&data, width, height)
+}
+
 #[test]
 fn crawl_wall_escape_sub_81b4_snaps_left_on_the_first_open_side() {
     let grid = crawl_escape_test_grid(false, true);
@@ -118,6 +131,54 @@ fn crawl_wall_escape_sub_81b4_reports_blocked_when_both_sides_are_solid() {
             blocked: true,
         },
         "ASM sub_81B4 should return d7=1 and leave x_pos unchanged when both side samples read `$6000`",
+    );
+}
+
+#[test]
+fn crawl_slope_snap_sub_83e6_nudges_left_on_rightward_slope_up_contact() {
+    let grid = crawl_slope_test_grid(false, true);
+
+    let result = crawl_slope_snap_sub_83E6(&grid, 50 << 16, 32 << 16, 0x0001_0000, 14);
+
+    assert_eq!(
+        result,
+        CrawlSlopeSnapSub83E6 {
+            x_pos: 49 << 16,
+            adjusted: true,
+        },
+        "ASM sub_83E6 should mirror the `$4000` right-side probe branch and subtract the low nibble plus one from x_pos",
+    );
+}
+
+#[test]
+fn crawl_slope_snap_sub_83e6_snaps_right_on_leftward_slope_down_contact() {
+    let grid = crawl_slope_test_grid(true, false);
+
+    let result = crawl_slope_snap_sub_83E6(&grid, 50 << 16, 32 << 16, -0x0001_0000, 14);
+
+    assert_eq!(
+        result,
+        CrawlSlopeSnapSub83E6 {
+            x_pos: 62 << 16,
+            adjusted: true,
+        },
+        "ASM sub_83E6 should mirror loc_841A and snap to the current tile column plus `half_width` on a `$5000` left-side probe",
+    );
+}
+
+#[test]
+fn crawl_slope_snap_sub_83e6_ignores_non_matching_slope_types() {
+    let grid = crawl_slope_test_grid(true, false);
+
+    let result = crawl_slope_snap_sub_83E6(&grid, 50 << 16, 32 << 16, 0x0001_0000, 14);
+
+    assert_eq!(
+        result,
+        CrawlSlopeSnapSub83E6 {
+            x_pos: 50 << 16,
+            adjusted: false,
+        },
+        "ASM sub_83E6 should leave x_pos alone when the motion-side probe does not match the expected slope nibble",
     );
 }
 

@@ -2757,6 +2757,13 @@ pub(crate) struct CrawlWallEscapeSub81B4 {
     pub(crate) blocked: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct CrawlSlopeSnapSub83E6 {
+    pub(crate) x_pos: u32,
+    pub(crate) adjusted: bool,
+}
+
 pub(crate) fn update_level_one_slope_ground_velocity(
     x_vel: i32,
     facing: Direction,
@@ -3039,5 +3046,56 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
     CrawlWallEscapeSub81B4 {
         x_pos: original_x_pos,
         blocked: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn crawl_slope_snap_sub_83E6(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    half_width: i32,
+) -> CrawlSlopeSnapSub83E6 {
+    // ASM sub_83E6 (kid.asm:9163): when crawling without a direct wall hit,
+    // inspect the motion-side foot cell. Rightward or neutral motion accepts
+    // only `$4000` slope-up and nudges left by the low nibble + 1; leftward
+    // motion accepts only `$5000` slope-down and snaps to the current tile
+    // column plus `half_width`. The ROM also clears `$1C(a3)` here, but that
+    // y-size scratch word is not modelled in native state.
+    let center_x_px = (x_pos >> 16) as i32;
+    let foot_y_px = (y_pos >> 16) as i32;
+    let original_x_pos = (center_x_px.max(0) as u32) << 16;
+
+    if x_velocity >= 0 {
+        if terrain::probe_relative_collision_sub_B55C(grid, center_x_px, foot_y_px, half_width, 0)
+            == terrain::CollisionKind::SlopeUp
+        {
+            let adjust_px = ((center_x_px + half_width) & 0xF) + 1;
+            let snapped_x_px = center_x_px - adjust_px;
+            return CrawlSlopeSnapSub83E6 {
+                x_pos: (snapped_x_px.max(0) as u32) << 16,
+                adjusted: true,
+            };
+        }
+    } else if terrain::probe_relative_collision_sub_B55C(
+        grid,
+        center_x_px,
+        foot_y_px,
+        -half_width,
+        0,
+    ) == terrain::CollisionKind::SlopeDown
+    {
+        let snapped_x_px = (center_x_px & !0xF) + half_width;
+        return CrawlSlopeSnapSub83E6 {
+            x_pos: (snapped_x_px.max(0) as u32) << 16,
+            adjusted: true,
+        };
+    }
+
+    CrawlSlopeSnapSub83E6 {
+        x_pos: original_x_pos,
+        adjusted: false,
     }
 }
