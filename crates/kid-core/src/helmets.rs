@@ -25,6 +25,94 @@ fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         && !projectile.terrain_kill
 }
 
+const MOVE_ID_STANDINGSTILL: u16 = 0;
+const MOVE_ID_WALKING: u16 = 2;
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct JuggernautCompanionStateSub975C {
+    pub(crate) byte_15_active: bool,
+    pub(crate) byte_18_active: bool,
+    pub(crate) blocked_latch: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum JuggernautCompanionVisualSub975C {
+    PreserveCurrent,
+    InitAnimation(&'static str),
+    SetMapping(&'static str),
+    None,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct JuggernautCompanionStepSub975C {
+    pub(crate) byte_15_active: bool,
+    pub(crate) blocked_latch: bool,
+    pub(crate) visual: JuggernautCompanionVisualSub975C,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn juggernaut_companion_step_sub_975C(
+    state: JuggernautCompanionStateSub975C,
+    wall_scan_blocked: bool,
+    object_overlap: bool,
+    down_held: bool,
+    character_movement: u16,
+    walking_table_byte_offset: u16,
+) -> JuggernautCompanionStepSub975C {
+    // ASM sub_975C (kid.asm:11286): byte `$15(a4)` keeps the current support
+    // animation locked until byte `$18(a4)` becomes non-zero. Once unlocked,
+    // the shared `$FFFFFA6C` latch flips between `stru_9812` and `stru_981C`
+    // based on the tile/object/down predicates, otherwise the routine picks a
+    // standing or walking mapping for the support sprite.
+    if state.byte_15_active && !state.byte_18_active {
+        return JuggernautCompanionStepSub975C {
+            byte_15_active: state.byte_15_active,
+            blocked_latch: state.blocked_latch,
+            visual: JuggernautCompanionVisualSub975C::PreserveCurrent,
+        };
+    }
+
+    let blocked = wall_scan_blocked || object_overlap || down_held;
+    let visual = if state.blocked_latch {
+        if blocked {
+            JuggernautCompanionVisualSub975C::None
+        } else {
+            JuggernautCompanionVisualSub975C::InitAnimation("stru_9812")
+        }
+    } else if blocked {
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_981C")
+    } else if character_movement == MOVE_ID_STANDINGSTILL {
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index")
+    } else if character_movement == MOVE_ID_WALKING {
+        const WALK_TABLE: [&str; 6] = [
+            "LnkTo_unk_BEDF0-Data_Index",
+            "LnkTo_unk_BEF76-Data_Index",
+            "LnkTo_unk_BF0FC-Data_Index",
+            "LnkTo_unk_BF282-Data_Index",
+            "LnkTo_unk_BF408-Data_Index",
+            "LnkTo_unk_BF58E-Data_Index",
+        ];
+        let table_index = usize::from(walking_table_byte_offset >> 1);
+        WALK_TABLE
+            .get(table_index)
+            .copied()
+            .map(JuggernautCompanionVisualSub975C::SetMapping)
+            .unwrap_or(JuggernautCompanionVisualSub975C::None)
+    } else {
+        JuggernautCompanionVisualSub975C::None
+    };
+
+    JuggernautCompanionStepSub975C {
+        byte_15_active: false,
+        blocked_latch: blocked,
+        visual,
+    }
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u32, u32, i32) {
     // ASM sub_87B0 (kid.asm:9625): the spawned skull starts 8px above Kid and

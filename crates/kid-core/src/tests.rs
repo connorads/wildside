@@ -9,7 +9,11 @@ use crate::boot::{
     vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
-use crate::helmets::red_stealth_swing_anchor_sub_868E;
+use crate::helmets::{
+    JuggernautCompanionStateSub975C, JuggernautCompanionStepSub975C,
+    JuggernautCompanionVisualSub975C, juggernaut_companion_step_sub_975C,
+    red_stealth_swing_anchor_sub_868E,
+};
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
     SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
@@ -19818,6 +19822,112 @@ fn grounded_helmet_state_sub_78e8_clears_inactive_maniaxe_axe() {
     assert!(
         !rt.helmet.maniaxe_axe_active,
         "ASM sub_78E8 should return Maniaxe to the grounded default pose once the thrown axe is gone",
+    );
+}
+
+#[test]
+fn juggernaut_companion_step_sub_975c_preserves_a_live_animation_until_byte_18_arms() {
+    assert_eq!(
+        juggernaut_companion_step_sub_975C(
+            JuggernautCompanionStateSub975C {
+                byte_15_active: true,
+                byte_18_active: false,
+                blocked_latch: true,
+            },
+            false,
+            false,
+            false,
+            0,
+            0,
+        ),
+        JuggernautCompanionStepSub975C {
+            byte_15_active: true,
+            blocked_latch: true,
+            visual: JuggernautCompanionVisualSub975C::PreserveCurrent,
+        },
+        "ASM sub_975C should return early while `$15(a4)` stays set and `$18(a4)` is still clear",
+    );
+}
+
+#[test]
+fn juggernaut_companion_step_sub_975c_flips_the_latch_between_raise_and_lower_animations() {
+    assert_eq!(
+        juggernaut_companion_step_sub_975C(
+            JuggernautCompanionStateSub975C {
+                byte_15_active: false,
+                byte_18_active: false,
+                blocked_latch: false,
+            },
+            true,
+            false,
+            false,
+            0,
+            0,
+        ),
+        JuggernautCompanionStepSub975C {
+            byte_15_active: false,
+            blocked_latch: true,
+            visual: JuggernautCompanionVisualSub975C::InitAnimation("stru_981C"),
+        },
+        "ASM loc_97BE should start `stru_981C` and set `$FFFFFA6C` when any predicate blocks the support sprite",
+    );
+    assert_eq!(
+        juggernaut_companion_step_sub_975C(
+            JuggernautCompanionStateSub975C {
+                byte_15_active: false,
+                byte_18_active: false,
+                blocked_latch: true,
+            },
+            false,
+            false,
+            false,
+            0,
+            0,
+        ),
+        JuggernautCompanionStepSub975C {
+            byte_15_active: false,
+            blocked_latch: false,
+            visual: JuggernautCompanionVisualSub975C::InitAnimation("stru_9812"),
+        },
+        "ASM loc_9790 should start `stru_9812` and clear `$FFFFFA6C` once the scan, overlap, and Down gates all open",
+    );
+}
+
+#[test]
+fn juggernaut_companion_step_sub_975c_selects_standing_and_walking_mappings() {
+    assert_eq!(
+        juggernaut_companion_step_sub_975C(
+            JuggernautCompanionStateSub975C {
+                byte_15_active: false,
+                byte_18_active: false,
+                blocked_latch: false,
+            },
+            false,
+            false,
+            false,
+            0,
+            0,
+        )
+        .visual,
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index"),
+        "ASM loc_97D4 should use `LnkTo_unk_BEDF0` while `Character_Movement == MoveID_Standingstill`",
+    );
+    assert_eq!(
+        juggernaut_companion_step_sub_975C(
+            JuggernautCompanionStateSub975C {
+                byte_15_active: false,
+                byte_18_active: false,
+                blocked_latch: false,
+            },
+            false,
+            false,
+            false,
+            2,
+            4,
+        )
+        .visual,
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BF0FC-Data_Index"),
+        "ASM loc_97E8 should index `off_9826` by the caller-provided byte offset when `Character_Movement == MoveID_Walking`",
     );
 }
 
