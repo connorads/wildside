@@ -14,6 +14,12 @@ pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
     pub(crate) gfx_y_pos: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
+    -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
+    2, 2, 2, 2,
+];
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -183,6 +189,16 @@ impl NativeRuntime {
             gfx_x_pos: block_col << 4,
             gfx_y_pos: block_row << 4,
         }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_wobble_y_deltas_sub_1007A() -> &'static [i16; 31] {
+        // ASM loc_100DA (kid.asm:21373) starts the prize-block wobble by
+        // repeating `subq.w #2,y_pos(a3)` for the inclusive `dbf d0` count
+        // seeded from `moveq #5,d0`, then the later `loc_100E8/100F6/10104/
+        // 10112/10120` loops mirror the remaining 6/5/5/4/5-frame bounces.
+        &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
     }
 
     fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {

@@ -6373,6 +6373,47 @@ fn prize_block_headbutt_worker_loc_1002e_preserves_layout_pointer_and_converts_c
 }
 
 #[test]
+fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
+    let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();
+
+    assert_eq!(
+        deltas.len(),
+        31,
+        "ASM sub_1007A should spend 31 hibernated frames across the six `dbf`-driven wobble loops",
+    );
+    assert_eq!(
+        &deltas[..6],
+        &[-2, -2, -2, -2, -2, -2],
+        "ASM loc_100DA should run the first `subq.w #2,y_pos(a3)` loop for six frames because `dbf` includes the zero count",
+    );
+    assert_eq!(
+        &deltas[6..12],
+        &[2, 2, 2, 2, 2, 2],
+        "ASM loc_100E8 should mirror that first rise with six `addq.w #2,y_pos(a3)` frames",
+    );
+    assert_eq!(
+        &deltas[12..17],
+        &[-2, -2, -2, -2, -2],
+        "ASM loc_100F6 should shorten the next fall to five frames after `moveq #4,d0`",
+    );
+    assert_eq!(
+        &deltas[17..22],
+        &[2, 2, 2, 2, 2],
+        "ASM loc_10104 should keep the matching five-frame rise",
+    );
+    assert_eq!(
+        &deltas[22..26],
+        &[-2, -2, -2, -2],
+        "ASM loc_10112 should shrink the penultimate fall to four frames after `moveq #3,d0`",
+    );
+    assert_eq!(
+        &deltas[26..],
+        &[2, 2, 2, 2, 2],
+        "ASM loc_10120 should finish with the last five-frame rise before `Hibernate_UntilAnimFinished` takes over",
+    );
+}
+
+#[test]
 fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
     let mut grid = grid_with_blocks();
 
