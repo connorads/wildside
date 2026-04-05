@@ -205,6 +205,61 @@ fn crawl_slope_snap_sub_83e6_ignores_non_matching_slope_types() {
 }
 
 #[test]
+fn sub_bbe2_promotes_the_right_solid_block_after_kid_crosses_the_source_column() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 2 * 2], 4, 2);
+    grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0xE1, 0x01));
+    grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0xEB, 0x02));
+
+    let probe = terrain::kid_block_interaction_probe_sub_BBE2(&grid, 0x0002, 0x0020)
+        .expect("ASM sub_BBE2 should select the right-hand solid block once Kid has moved into the next column");
+
+    assert_eq!(
+        probe,
+        terrain::KidBlockInteractionProbeSubBBE2 {
+            selected_layout_addr: 0x0004,
+            selected_col: 2,
+            selected_row: 0,
+            dispatch_table_offset: 0x002C,
+        },
+        "ASM sub_BBE2 should advance `d3` by two bytes, increment `d1`, and convert block type `$B` into the `off_BB80` byte offset `$2C`",
+    );
+}
+
+#[test]
+fn sub_bbe2_keeps_the_base_block_when_kid_has_not_passed_the_source_column() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 2 * 2], 4, 2);
+    grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0xE4, 0x03));
+    grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0xEB, 0x04));
+
+    let probe = terrain::kid_block_interaction_probe_sub_BBE2(&grid, 0x0002, 0x001F)
+        .expect("ASM sub_BBE2 should stay on the source tile until Kid's `x_pos>>4` becomes strictly greater than the source column");
+
+    assert_eq!(
+        probe,
+        terrain::KidBlockInteractionProbeSubBBE2 {
+            selected_layout_addr: 0x0002,
+            selected_col: 1,
+            selected_row: 0,
+            dispatch_table_offset: 0x0010,
+        },
+        "ASM sub_BBE2 should keep the original layout address and map block type `$4` to the `off_BB80` byte offset `$10` when the strict `cmp.w d1,d7` / `ble` check holds",
+    );
+}
+
+#[test]
+fn sub_bbe2_returns_none_when_the_selected_tile_is_missing_bit_15() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 2 * 2], 4, 2);
+    grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0xE1, 0x01));
+    grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+    assert_eq!(
+        terrain::kid_block_interaction_probe_sub_BBE2(&grid, 0x0002, 0x0020),
+        None,
+        "ASM sub_BBE2 checks `$6000` on the right-hand candidate first, but still clears bit 15 afterwards; a collision-only tile must therefore zero `d3` instead of falling back to the base block",
+    );
+}
+
+#[test]
 fn sub_6874_hides_only_sprites_whose_masked_tiles_overlap_pause_menu_vram() {
     let mut sprites = [
         PauseMenuSpriteEntrySub6874 {

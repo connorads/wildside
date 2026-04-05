@@ -212,6 +212,64 @@ pub struct HorizontalCollisionScan {
     pub lead_column_blocked: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidBlockInteractionProbeSubBBE2 {
+    pub(crate) selected_layout_addr: u16,
+    pub(crate) selected_col: u16,
+    pub(crate) selected_row: u16,
+    pub(crate) dispatch_table_offset: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_block_interaction_probe_sub_BBE2(
+    grid: &BlockGrid,
+    layout_addr: u16,
+    x_pos_px: u16,
+) -> Option<KidBlockInteractionProbeSubBBE2> {
+    // ASM sub_BBE2 (kid.asm:15142): derive `(col,row)` from the current
+    // `Level_Layout` address, and when Kid has moved past that source column,
+    // probe the tile immediately to the right. Only a right-hand tile whose
+    // collision bits equal `$6000` may replace the base tile, and whichever
+    // tile wins must still have bit 15 set before its block-type nibble is
+    // converted into the `off_BB80` dispatch-table byte offset.
+    if grid.width_cells == 0 {
+        return None;
+    }
+
+    let cell_index = usize::from(layout_addr >> 1);
+    let base_col = (cell_index % usize::from(grid.width_cells)) as u16;
+    let base_row = (cell_index / usize::from(grid.width_cells)) as u16;
+    let player_col = x_pos_px >> 4;
+
+    let mut selected_layout_addr = layout_addr;
+    let mut selected_col = base_col;
+    let selected_row = base_row;
+    let mut selected_cell = grid.cell_at(base_col, base_row);
+
+    if player_col > base_col {
+        let right_col = base_col.wrapping_add(1);
+        let right_cell = grid.cell_at(right_col, base_row);
+        if matches!(right_cell.collision, CollisionKind::Solid) {
+            selected_layout_addr = layout_addr.wrapping_add(2);
+            selected_col = right_col;
+            selected_cell = right_cell;
+        }
+    }
+
+    if !selected_cell.has_block {
+        return None;
+    }
+
+    Some(KidBlockInteractionProbeSubBBE2 {
+        selected_layout_addr,
+        selected_col,
+        selected_row,
+        dispatch_table_offset: u16::from(selected_cell.block_type as u8) << 2,
+    })
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn juggernaut_wall_scan_sub_96E8(
