@@ -20,11 +20,12 @@ use crate::helmets::{
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
     SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, apply_pending_palette_fade_sub_14C0,
+    ScratchDebrisSpriteSub2A4C, SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0,
     blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
     compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
     fade_palette_span_sub_1C85E, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_scratch_queue_sub_28FC, scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
+    initialise_scratch_queue_sub_28FC, initialise_sprite_frame_state_sub_B52,
+    scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
     step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
@@ -107,6 +108,19 @@ fn crawl_wall_escape_sub_81b4_snaps_left_on_the_first_open_side() {
             blocked: false,
         },
         "ASM sub_81B4 should take loc_81D8 immediately when the left sample is not `$6000`, even if the right sample would be solid",
+    );
+}
+
+#[test]
+fn initialise_sprite_frame_state_sub_b52_resets_the_shared_sprite_cursors() {
+    assert_eq!(
+        initialise_sprite_frame_state_sub_B52(),
+        SpriteFrameStateSubB52 {
+            number_sprites: 0,
+            next_sprite_slot_addr: 0xFFFF_0000,
+            dynamic_sprite_art_addr: 0xFFFF_0500,
+        },
+        "ASM sub_B52 should clear `Number_Sprites`, restore `Addr_NextSpriteSlot=Sprite_Table`, and reset `$FFFFF838` to `$FFFF0500`",
     );
 }
 

@@ -15,6 +15,16 @@ pub(crate) struct FgPlaneCustomWriteSub1596 {
 
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
+const SPRITE_TABLE_ADDR_SUB_B52: u32 = 0xFFFF_0000;
+const SPRITE_DYNAMIC_ART_ADDR_SUB_B52: u32 = 0xFFFF_0500;
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SpriteFrameStateSubB52 {
+    pub(crate) number_sprites: u8,
+    pub(crate) next_sprite_slot_addr: u32,
+    pub(crate) dynamic_sprite_art_addr: u32,
+}
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,6 +89,19 @@ const SUB_292E_X_VELOCITIES: [[i16; SUB_292E_PIECE_COUNT]; 4] = [
 const SUB_2A4C_GRAVITY_STEP_FP: i32 = 0x0000_36B0;
 const SUB_2A4C_SPRITE_TILE_WORD: u16 = 0x8228;
 const SUB_2A4C_SPRITE_COORD_BIAS: i16 = 0x0080;
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
+    // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
+    // `Addr_NextSpriteSlot` at `Sprite_Table`, and reset the dynamic-art
+    // staging cursor at `$FFFF0500`.
+    SpriteFrameStateSubB52 {
+        number_sprites: 0,
+        next_sprite_slot_addr: SPRITE_TABLE_ADDR_SUB_B52,
+        dynamic_sprite_art_addr: SPRITE_DYNAMIC_ART_ADDR_SUB_B52,
+    }
+}
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
