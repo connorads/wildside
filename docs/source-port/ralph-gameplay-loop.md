@@ -112,3 +112,15 @@ Extend `physics.rs`-style proptests to `enemies.rs`, `combat.rs`, `terrain.rs`:
 - Collision overlap symmetric, hitbox dimensions non-negative, damage values bounded
 
 **Important**: proptests catch bounds violations but miss `+`→`-` or `<`→`>` mutations. Always pair with exact-value unit tests from ASM.
+
+---
+
+## Autonomous goal: `--goal proactive-verification`
+
+The strategies above are also available as an autonomous loop goal:
+
+```bash
+cargo run -p kidcli -- autonomous-loop --goal proactive-verification --emit-json
+```
+
+The goal runs a priority cascade through the enabled strategies in `docs/source-port/proactive-verification-config.yaml`. The `source-port-frontier` goal automatically delegates to `proactive-verification` when all `sub_` labels are covered and no backlog/case-queue work is actionable.

@@ -157,7 +157,7 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 3. If no active frontier, follow `docs/source-port/ralph-gameplay-loop.md`:
    a. Pick the highest-priority open backlog item (skip `blocked:needs-human-repro` and `stalled:agent-blocked`)
    b. If a backlog item has "root cause identified" in its evidence, jump straight to implementation
-   c. If all backlog items are blocked/stalled, fall through to **Proactive verification** in `ralph-gameplay-loop.md` (mutation testing, enemy audit, sweep expansion, ASM coverage drive)
+   c. If all backlog items are blocked/stalled, fall through to **Proactive verification** in `ralph-gameplay-loop.md` (mutation testing, enemy audit, sweep expansion, ASM coverage drive). The `--goal proactive-verification` autonomy goal automates this cascade via `docs/source-port/proactive-verification-config.yaml`; `source-port-frontier` delegates to it automatically when all `sub_` labels are covered.
 4. Mark `[~]` when starting work
 5. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug

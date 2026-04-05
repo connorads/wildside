@@ -87,6 +87,10 @@ pub(crate) enum AutonomyGoal {
     #[value(name = "gameplay-backlog")]
     #[serde(rename = "gameplay-backlog")]
     GameplayBacklog,
+    /// Proactive verification: loc_ coverage, enemy audits, mutation testing.
+    #[value(name = "proactive-verification")]
+    #[serde(rename = "proactive-verification")]
+    ProactiveVerification,
 }
 
 impl AutonomyGoal {
@@ -100,6 +104,7 @@ impl AutonomyGoal {
             Self::SourcePortFrontier => "source-port-frontier",
             Self::CaseQueue => "case-queue",
             Self::GameplayBacklog => "gameplay-backlog",
+            Self::ProactiveVerification => "proactive-verification",
         }
     }
 
@@ -120,6 +125,9 @@ impl AutonomyGoal {
             Self::SourcePortFrontier => repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH),
             Self::CaseQueue => repo_root.join(SOURCE_PORT_CASE_CACHE_PATH),
             Self::GameplayBacklog => repo_root.join("docs/source-port/asm-coverage.yaml"),
+            Self::ProactiveVerification => {
+                repo_root.join("docs/source-port/proactive-verification-config.yaml")
+            }
         }
     }
 }
@@ -148,6 +156,7 @@ pub(crate) enum CapabilityId {
     SourcePortFrontierTask,
     SourcePortCaseQueueTask,
     GameplayBacklogTask,
+    ProactiveVerificationTask,
 }
 
 impl CapabilityId {
@@ -174,6 +183,7 @@ impl CapabilityId {
             Self::SourcePortFrontierTask => "source_port_frontier_task",
             Self::SourcePortCaseQueueTask => "source_port_case_queue_task",
             Self::GameplayBacklogTask => "gameplay_backlog_task",
+            Self::ProactiveVerificationTask => "proactive_verification_task",
         }
     }
 }
@@ -712,6 +722,7 @@ pub(crate) fn run_autonomous_loop(
         AutonomyGoal::SourcePortFrontier => GoalState::SourcePortFrontier,
         AutonomyGoal::CaseQueue => GoalState::CaseQueue,
         AutonomyGoal::GameplayBacklog => GoalState::GameplayBacklog,
+        AutonomyGoal::ProactiveVerification => GoalState::ProactiveVerification,
         _ => {
             let rom_path = rom_path.context("autonomy goal requires a ROM path")?;
             let upstream_dir = upstream_dir.context("autonomy goal requires an upstream dir")?;
@@ -834,6 +845,7 @@ enum GoalState {
     SourcePortFrontier,
     CaseQueue,
     GameplayBacklog,
+    ProactiveVerification,
 }
 
 impl GoalState {
@@ -843,6 +855,7 @@ impl GoalState {
             Self::SourcePortFrontier => SOURCE_PORT_FRONTIER_TITLE,
             Self::CaseQueue => SOURCE_PORT_CASE_QUEUE_TITLE,
             Self::GameplayBacklog => "ASM-driven gameplay backlog",
+            Self::ProactiveVerification => "Proactive verification",
         }
     }
 
@@ -864,6 +877,9 @@ impl GoalState {
             Self::CaseQueue => evaluate_case_queue_cycle(repo_root, cycle_number),
             Self::GameplayBacklog => {
                 evaluate_gameplay_backlog_cycle(repo_root, cycle_number, routines_per_task)
+            }
+            Self::ProactiveVerification => {
+                evaluate_proactive_verification_cycle(repo_root, cycle_number, routines_per_task)
             }
         }
     }
@@ -1313,18 +1329,47 @@ fn evaluate_source_port_frontier_cycle(
                         summary,
                     )
                 } else {
-                    let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
-                    let summary = format!(
-                        "TAS frontier {} is closed through frame {}; no actionable case-queue, backlog evidence task, or uncovered sub_ labels remain, so source-port pivots to sweep parity hardening.",
-                        frontier.slug, frontier.authoritative_clean_through
-                    );
-                    (
-                        task,
-                        Some(AutonomyGoal::SweepParity),
-                        Some("state-sweep".to_owned()),
-                        Some("state-sweep".to_owned()),
-                        summary,
-                    )
+                    // No uncovered sub_ labels. Try proactive verification
+                    // (loc_ coverage, enemy audits, mutation testing) before
+                    // falling through to sweep-parity.
+                    let pv_report =
+                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    if let Some(pv_task) = pv_report.task_package {
+                        let target = pv_task.progress_fingerprint.clone();
+                        let summary = format!(
+                            "TAS frontier {} closed; delegated to proactive-verification ({}).",
+                            frontier.slug, target
+                        );
+                        (
+                            TaskPackage {
+                                capability: CapabilityId::SourcePortFrontierTask,
+                                delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+                                delegated_target: Some(target.clone()),
+                                delegation_reason: Some(
+                                    "all sub_ labels covered; proactive verification has work"
+                                        .to_owned(),
+                                ),
+                                ..pv_task
+                            },
+                            Some(AutonomyGoal::ProactiveVerification),
+                            Some(target.clone()),
+                            Some(target),
+                            summary,
+                        )
+                    } else {
+                        let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
+                        let summary = format!(
+                            "TAS frontier {} is closed through frame {}; all proactive verification strategies exhausted, so source-port pivots to sweep parity hardening.",
+                            frontier.slug, frontier.authoritative_clean_through
+                        );
+                        (
+                            task,
+                            Some(AutonomyGoal::SweepParity),
+                            Some("state-sweep".to_owned()),
+                            Some("state-sweep".to_owned()),
+                            summary,
+                        )
+                    }
                 }
             }
         }
@@ -1392,23 +1437,48 @@ fn evaluate_source_port_frontier_cycle(
                         ..backlog_task
                     };
                 } else {
-                    let sweep_task = source_port_frontier_sweep_task(repo_root, frontier, &note);
-                    task_package = TaskPackage {
-                        generated_at: autonomy_timestamp(),
-                        cycle,
-                        progress_fingerprint: base_progress_fingerprint.clone(),
-                        delegated_goal: Some(AutonomyGoal::SweepParity),
-                        delegated_target: Some("state-sweep".to_owned()),
-                        recovery_mode: Some(RecoveryMode::StalledFingerprint),
-                        recovery_step: Some(RecoveryStep::PivotToNextLane),
-                        stalled_repetition_count: Some(repeated_cycles),
-                        pivot_reason: Some(format!(
-                            "case-queue delegated fingerprint repeated for {} stalled cycles; all sub_ covered, pivot to sweep-parity",
-                            repeated_cycles
-                        )),
-                        next_fallback_goal: Some(AutonomyGoal::SweepParity),
-                        ..sweep_task
-                    };
+                    // All sub_ covered; try proactive verification before sweep-parity
+                    let pv_report =
+                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    if let Some(pv_task) = pv_report.task_package {
+                        let target = pv_task.progress_fingerprint.clone();
+                        task_package = TaskPackage {
+                            generated_at: autonomy_timestamp(),
+                            cycle,
+                            progress_fingerprint: base_progress_fingerprint.clone(),
+                            capability: CapabilityId::SourcePortFrontierTask,
+                            delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+                            delegated_target: Some(target.clone()),
+                            recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                            recovery_step: Some(RecoveryStep::PivotToNextLane),
+                            stalled_repetition_count: Some(repeated_cycles),
+                            pivot_reason: Some(format!(
+                                "case-queue stalled {} cycles; all sub_ covered, pivot to proactive-verification ({})",
+                                repeated_cycles, target
+                            )),
+                            next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
+                            ..pv_task
+                        };
+                    } else {
+                        let sweep_task =
+                            source_port_frontier_sweep_task(repo_root, frontier, &note);
+                        task_package = TaskPackage {
+                            generated_at: autonomy_timestamp(),
+                            cycle,
+                            progress_fingerprint: base_progress_fingerprint.clone(),
+                            delegated_goal: Some(AutonomyGoal::SweepParity),
+                            delegated_target: Some("state-sweep".to_owned()),
+                            recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                            recovery_step: Some(RecoveryStep::PivotToNextLane),
+                            stalled_repetition_count: Some(repeated_cycles),
+                            pivot_reason: Some(format!(
+                                "case-queue stalled {} cycles; all sub_ covered, proactive-verification exhausted, pivot to sweep-parity",
+                                repeated_cycles
+                            )),
+                            next_fallback_goal: Some(AutonomyGoal::SweepParity),
+                            ..sweep_task
+                        };
+                    }
                 }
             }
             Some(AutonomyGoal::SweepParity) => {
@@ -2297,6 +2367,626 @@ fn evaluate_gameplay_backlog_cycle(
     })
 }
 
+// ---------------------------------------------------------------------------
+// Proactive verification config types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct ProactiveVerificationConfig {
+    strategies: Vec<ProactiveStrategy>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "name", rename_all = "kebab-case")]
+enum ProactiveStrategy {
+    RootCauseBacklog {
+        enabled: bool,
+        root_cause_marker: String,
+    },
+    EnemyFamilyAudit {
+        enabled: bool,
+        priority_order: Vec<String>,
+    },
+    LocCoverageDrive {
+        enabled: bool,
+        min_cluster_size: usize,
+        #[serde(default)]
+        focus_subsystems: Vec<String>,
+    },
+    MutationTesting {
+        enabled: bool,
+        output_dir: String,
+        targets: Vec<MutationTarget>,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+struct MutationTarget {
+    module: String,
+    package: String,
+    tier: u8,
+}
+
+const PROACTIVE_VERIFICATION_CONFIG_PATH: &str =
+    "docs/source-port/proactive-verification-config.yaml";
+
+fn load_proactive_verification_config(repo_root: &Path) -> Result<ProactiveVerificationConfig> {
+    let config_path = repo_root.join(PROACTIVE_VERIFICATION_CONFIG_PATH);
+    if config_path.is_file() {
+        let content = fs::read_to_string(&config_path)
+            .with_context(|| format!("failed to read {}", config_path.display()))?;
+        serde_yaml::from_str(&content)
+            .with_context(|| format!("failed to parse {}", config_path.display()))
+    } else {
+        // Hardcoded fallback so the goal works without a config file.
+        Ok(ProactiveVerificationConfig {
+            strategies: vec![
+                ProactiveStrategy::RootCauseBacklog {
+                    enabled: true,
+                    root_cause_marker: "Root cause identified".to_owned(),
+                },
+                ProactiveStrategy::EnemyFamilyAudit {
+                    enabled: true,
+                    priority_order: vec![
+                        "enemy_tank".to_owned(),
+                        "enemy_tank_shooting".to_owned(),
+                        "enemy_mini_hopping_skull".to_owned(),
+                        "enemy_drips".to_owned(),
+                        "enemy_ninja".to_owned(),
+                        "enemy_fireball".to_owned(),
+                        "enemy_armadillo".to_owned(),
+                        "enemy_diamond".to_owned(),
+                        "enemy_emo_rock".to_owned(),
+                        "enemy_sphere".to_owned(),
+                    ],
+                },
+                ProactiveStrategy::LocCoverageDrive {
+                    enabled: true,
+                    min_cluster_size: 3,
+                    focus_subsystems: Vec::new(),
+                },
+                ProactiveStrategy::MutationTesting {
+                    enabled: true,
+                    output_dir: ".cache/mutants".to_owned(),
+                    targets: vec![
+                        MutationTarget {
+                            module: "enemies.rs".to_owned(),
+                            package: "kid-core".to_owned(),
+                            tier: 1,
+                        },
+                        MutationTarget {
+                            module: "combat.rs".to_owned(),
+                            package: "kid-core".to_owned(),
+                            tier: 1,
+                        },
+                        MutationTarget {
+                            module: "blocks.rs".to_owned(),
+                            package: "kid-core".to_owned(),
+                            tier: 1,
+                        },
+                    ],
+                },
+            ],
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Proactive verification cycle evaluator
+// ---------------------------------------------------------------------------
+
+fn evaluate_proactive_verification_cycle(
+    repo_root: &Path,
+    cycle: u32,
+    routines_per_task: u32,
+) -> Result<CycleReport> {
+    let config = load_proactive_verification_config(repo_root)?;
+
+    for strategy in &config.strategies {
+        match strategy {
+            ProactiveStrategy::RootCauseBacklog {
+                enabled,
+                root_cause_marker,
+            } if *enabled => {
+                if let Some(report) =
+                    try_root_cause_backlog_strategy(repo_root, cycle, root_cause_marker)?
+                {
+                    return Ok(report);
+                }
+            }
+            ProactiveStrategy::EnemyFamilyAudit {
+                enabled,
+                priority_order,
+            } if *enabled => {
+                if let Some(report) =
+                    try_enemy_family_audit_strategy(repo_root, cycle, priority_order)?
+                {
+                    return Ok(report);
+                }
+            }
+            ProactiveStrategy::LocCoverageDrive {
+                enabled,
+                min_cluster_size,
+                focus_subsystems,
+            } if *enabled => {
+                if let Some(report) = try_loc_coverage_drive_strategy(
+                    repo_root,
+                    cycle,
+                    routines_per_task,
+                    *min_cluster_size,
+                    focus_subsystems,
+                )? {
+                    return Ok(report);
+                }
+            }
+            ProactiveStrategy::MutationTesting {
+                enabled,
+                output_dir,
+                targets,
+            } if *enabled => {
+                if let Some(report) =
+                    try_mutation_testing_strategy(repo_root, cycle, output_dir, targets)?
+                {
+                    return Ok(report);
+                }
+            }
+            _ => {} // disabled strategies
+        }
+    }
+
+    // All strategies exhausted — goal complete.
+    Ok(CycleReport {
+        goal: AutonomyGoal::ProactiveVerification.slug().to_owned(),
+        cycle,
+        goal_complete: true,
+        stalled: false,
+        task_package: None,
+        selected_task: None,
+        blocker: None,
+        progress_fingerprint: "proactive-verification:all-exhausted".to_owned(),
+        capabilities: vec![CapabilityReport {
+            id: CapabilityId::ProactiveVerificationTask,
+            title: "Proactive verification".to_owned(),
+            status: CapabilityStatus::Complete,
+            summary: "All proactive verification strategies exhausted.".to_owned(),
+        }],
+    })
+}
+
+fn proactive_verification_report(
+    cycle: u32,
+    strategy_name: &str,
+    target: &str,
+    task: TaskPackage,
+) -> CycleReport {
+    let fingerprint = format!("proactive-verification:{}:{}", strategy_name, target);
+    let task = TaskPackage {
+        generated_at: autonomy_timestamp(),
+        cycle,
+        progress_fingerprint: fingerprint.clone(),
+        ..task
+    };
+    CycleReport {
+        goal: AutonomyGoal::ProactiveVerification.slug().to_owned(),
+        cycle,
+        goal_complete: false,
+        stalled: false,
+        task_package: Some(task.clone()),
+        selected_task: Some(task),
+        blocker: None,
+        progress_fingerprint: fingerprint,
+        capabilities: vec![CapabilityReport {
+            id: CapabilityId::ProactiveVerificationTask,
+            title: "Proactive verification".to_owned(),
+            status: CapabilityStatus::Ready,
+            summary: format!("Strategy: {}, target: {}", strategy_name, target),
+        }],
+    }
+}
+
+fn try_root_cause_backlog_strategy(
+    repo_root: &Path,
+    cycle: u32,
+    root_cause_marker: &str,
+) -> Result<Option<CycleReport>> {
+    let issues = load_open_backlog_issues(repo_root)?;
+    let marker_lower = root_cause_marker.to_ascii_lowercase();
+    let ready_issue = issues
+        .iter()
+        .find(|issue| issue.summary.to_ascii_lowercase().contains(&marker_lower));
+
+    let issue = match ready_issue {
+        Some(issue) => issue,
+        None => return Ok(None),
+    };
+
+    let impl_target = match issue.system.as_str() {
+        "enemy" => "crates/kid-core/src/enemies.rs",
+        "block" | "platform" => "crates/kid-core/src/blocks.rs",
+        "player" => "crates/kid-core/src/kid_main.rs",
+        "combat" => "crates/kid-core/src/combat.rs",
+        "render" => "crates/kid-core/src/render.rs",
+        _ => "crates/kid-core/src/lib.rs",
+    };
+
+    let task = TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: format!("Fix backlog #{}: {}", issue.id, issue.summary),
+        summary: format!(
+            "Backlog #{} ({}, {}) has root-cause evidence. Implement the fix, add a regression test citing the ASM label, run verify-slice-fast.",
+            issue.id, issue.system, issue.priority
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+            "docs/source-port/ralph-gameplay-loop.md".to_owned(),
+            ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+        ],
+        implementation_targets: vec![impl_target.to_owned()],
+        commands: vec![
+            "mise run verify-slice-fast".to_owned(),
+            "cargo run -p kidcli -- asm-coverage --update".to_owned(),
+        ],
+        done_criteria: vec![
+            format!("Backlog #{} marked [x].", issue.id),
+            "verify-slice-fast passes.".to_owned(),
+            "Regression test cites ASM label.".to_owned(),
+        ],
+        evidence: vec![EvidenceItem {
+            label: "root-cause-backlog".to_owned(),
+            status: "ready".to_owned(),
+            detail: format!("#{}: {}", issue.id, issue.summary),
+            artefact_path: Some(PathBuf::from(SOURCE_PORT_BACKLOG_PATH)),
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: None,
+    };
+
+    Ok(Some(proactive_verification_report(
+        cycle,
+        "root-cause-backlog",
+        &issue.id,
+        task,
+    )))
+}
+
+fn try_enemy_family_audit_strategy(
+    repo_root: &Path,
+    cycle: u32,
+    priority_order: &[String],
+) -> Result<Option<CycleReport>> {
+    use crate::asm_coverage;
+
+    let coverage_path = repo_root.join("docs/source-port/asm-coverage.yaml");
+    if !coverage_path.is_file() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&coverage_path)?;
+
+    #[derive(Deserialize)]
+    struct CovMap {
+        subsystems: BTreeMap<String, CovSub>,
+    }
+    #[derive(Deserialize)]
+    struct CovSub {
+        loc_cited: usize,
+        #[serde(default)]
+        asm_source: Option<String>,
+        labels: Vec<CovLabel>,
+    }
+    #[derive(Deserialize)]
+    struct CovLabel {
+        label: String,
+        kind: asm_coverage::LabelKind,
+        asm_file: String,
+        line_number: usize,
+        #[serde(default)]
+        cited_in: Vec<String>,
+    }
+
+    let map: CovMap = serde_yaml::from_str(&content)?;
+
+    for family in priority_order {
+        if let Some(sub) = map.subsystems.get(family)
+            && sub.loc_cited == 0
+        {
+            let asm_file = sub
+                .asm_source
+                .clone()
+                .unwrap_or_else(|| format!("code/enemy/{}.asm", family));
+            let target_routines: Vec<TargetRoutine> = sub
+                .labels
+                .iter()
+                .filter(|l| l.kind == asm_coverage::LabelKind::Loc && l.cited_in.is_empty())
+                .map(|l| TargetRoutine {
+                    label: l.label.clone(),
+                    subsystem: family.clone(),
+                    asm_file: l.asm_file.clone(),
+                    line_number: l.line_number,
+                })
+                .collect();
+
+            let task = TaskPackage {
+                capability: CapabilityId::ProactiveVerificationTask,
+                title: format!("Audit enemy family {} against ASM", family),
+                summary: format!(
+                    "Enemy family {} has zero loc_ citations. Read the ASM, compare to Rust, write tests for divergences, fix bugs.",
+                    family
+                ),
+                generated_at: String::new(),
+                cycle: 0,
+                progress_fingerprint: String::new(),
+                sources: vec![
+                    format!(".cache/upstream/kid-chameleon-disasm/{}", asm_file),
+                    "crates/kid-core/src/enemies.rs".to_owned(),
+                    ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+                    ".cache/upstream/kid-chameleon-disasm/variables.asm".to_owned(),
+                ],
+                implementation_targets: vec!["crates/kid-core/src/enemies.rs".to_owned()],
+                commands: vec![
+                    format!(
+                        "cargo run -p kidcli -- asm-coverage --uncovered --subsystem {}",
+                        family
+                    ),
+                    "mise run verify-slice-fast".to_owned(),
+                    "cargo run -p kidcli -- asm-coverage --update".to_owned(),
+                ],
+                done_criteria: vec![
+                    format!("At least one loc_ in {} now cited.", family),
+                    "verify-slice-fast passes.".to_owned(),
+                ],
+                evidence: vec![EvidenceItem {
+                    label: "enemy-family-audit".to_owned(),
+                    status: "zero-loc-coverage".to_owned(),
+                    detail: format!(
+                        "{}: {} uncovered loc_ labels",
+                        family,
+                        target_routines.len()
+                    ),
+                    artefact_path: Some(coverage_path.clone()),
+                }],
+                frontier_context: None,
+                case_queue_context: None,
+                delegated_goal: None,
+                delegated_target: None,
+                delegation_reason: None,
+                recovery_mode: None,
+                recovery_step: None,
+                stalled_repetition_count: None,
+                pivot_reason: None,
+                next_fallback_goal: None,
+                next_agent_note: None,
+                target_routines: if target_routines.is_empty() {
+                    None
+                } else {
+                    Some(target_routines)
+                },
+            };
+
+            return Ok(Some(proactive_verification_report(
+                cycle,
+                "enemy-family-audit",
+                family,
+                task,
+            )));
+        }
+    }
+
+    Ok(None)
+}
+
+fn try_loc_coverage_drive_strategy(
+    repo_root: &Path,
+    cycle: u32,
+    routines_per_task: u32,
+    min_cluster_size: usize,
+    focus_subsystems: &[String],
+) -> Result<Option<CycleReport>> {
+    let uncovered = collect_uncovered_loc_labels(repo_root)?;
+    if uncovered.is_empty() {
+        return Ok(None);
+    }
+
+    // Group by subsystem, pick the one with the most uncovered labels.
+    let mut by_subsystem: BTreeMap<&str, Vec<&(String, String, String, usize, Option<String>)>> =
+        BTreeMap::new();
+    for entry in &uncovered {
+        if focus_subsystems.is_empty() || focus_subsystems.iter().any(|f| f == &entry.0) {
+            by_subsystem.entry(&entry.0).or_default().push(entry);
+        }
+    }
+
+    if by_subsystem.is_empty() {
+        return Ok(None);
+    }
+
+    // Pick subsystem with most uncovered labels.
+    let (best_subsystem, best_entries) = by_subsystem
+        .iter()
+        .max_by_key(|(_, entries)| entries.len())
+        .unwrap();
+
+    if best_entries.len() < min_cluster_size {
+        return Ok(None);
+    }
+
+    let batch_size = (routines_per_task as usize).min(best_entries.len());
+    let batch = &best_entries[..batch_size];
+
+    let target_routines: Vec<TargetRoutine> = batch
+        .iter()
+        .map(|(sub, lbl, file, line, _)| TargetRoutine {
+            label: lbl.clone(),
+            subsystem: sub.clone(),
+            asm_file: file.clone(),
+            line_number: *line,
+        })
+        .collect();
+
+    let first_label = &batch[0].1;
+
+    let task = TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: format!("Audit {} loc_ labels in {}", batch_size, best_subsystem),
+        summary: format!(
+            "{} uncovered loc_ labels in {} (total uncovered: {}). Read the ASM for each, compare to native code, write tests.",
+            batch_size,
+            best_subsystem,
+            uncovered.len()
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            format!(".cache/upstream/kid-chameleon-disasm/{}", batch[0].2),
+            ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+            ".cache/upstream/kid-chameleon-disasm/variables.asm".to_owned(),
+        ],
+        implementation_targets: vec!["crates/kid-core/src/".to_owned()],
+        commands: vec![
+            "mise run verify-slice-fast".to_owned(),
+            "cargo run -p kidcli -- asm-coverage --update".to_owned(),
+        ],
+        done_criteria: vec![
+            format!(
+                "At least {} loc_ labels in {} now cited.",
+                batch_size.min(3),
+                best_subsystem
+            ),
+            "verify-slice-fast passes.".to_owned(),
+        ],
+        evidence: vec![EvidenceItem {
+            label: "loc-coverage-drive".to_owned(),
+            status: "uncovered".to_owned(),
+            detail: format!(
+                "{}: {} uncovered loc_ labels, batch of {}",
+                best_subsystem,
+                best_entries.len(),
+                batch_size
+            ),
+            artefact_path: Some(repo_root.join("docs/source-port/asm-coverage.yaml")),
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: Some(target_routines),
+    };
+
+    Ok(Some(proactive_verification_report(
+        cycle,
+        "loc-coverage-drive",
+        first_label,
+        task,
+    )))
+}
+
+fn try_mutation_testing_strategy(
+    repo_root: &Path,
+    cycle: u32,
+    output_dir: &str,
+    targets: &[MutationTarget],
+) -> Result<Option<CycleReport>> {
+    // Sort by tier, then pick first module without outcomes.json.
+    let mut sorted: Vec<&MutationTarget> = targets.iter().collect();
+    sorted.sort_by_key(|t| t.tier);
+
+    for target in sorted {
+        let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
+        let outcomes_path = repo_root
+            .join(output_dir)
+            .join(module_stem)
+            .join("outcomes.json");
+        if !outcomes_path.exists() {
+            let command = format!(
+                "cargo mutants -p {} -f {} -j 4 --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
+                target.package,
+                target.module,
+                PathBuf::from(output_dir).join(module_stem).display()
+            );
+
+            let task = TaskPackage {
+                capability: CapabilityId::ProactiveVerificationTask,
+                title: format!(
+                    "Run mutation testing on {} (tier {})",
+                    target.module, target.tier
+                ),
+                summary: format!(
+                    "Run cargo-mutants on {} in package {}. For each surviving mutant: find the ASM routine, determine if it's a real bug or a test gap, and fix accordingly.",
+                    target.module, target.package
+                ),
+                generated_at: String::new(),
+                cycle: 0,
+                progress_fingerprint: String::new(),
+                sources: vec![
+                    format!("crates/{}/src/{}", target.package, target.module),
+                    ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+                    ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+                ],
+                implementation_targets: vec![format!(
+                    "crates/{}/src/{}",
+                    target.package, target.module
+                )],
+                commands: vec![command, "mise run verify-slice-fast".to_owned()],
+                done_criteria: vec![
+                    format!("Mutation testing outcomes.json exists for {}.", module_stem),
+                    "Surviving mutants triaged: bugs fixed or tests added.".to_owned(),
+                    "verify-slice-fast passes.".to_owned(),
+                ],
+                evidence: vec![EvidenceItem {
+                    label: "mutation-testing".to_owned(),
+                    status: "not-run".to_owned(),
+                    detail: format!(
+                        "{} (tier {}) has no mutation testing results yet",
+                        target.module, target.tier
+                    ),
+                    artefact_path: None,
+                }],
+                frontier_context: None,
+                case_queue_context: None,
+                delegated_goal: None,
+                delegated_target: None,
+                delegation_reason: None,
+                recovery_mode: None,
+                recovery_step: None,
+                stalled_repetition_count: None,
+                pivot_reason: None,
+                next_fallback_goal: None,
+                next_agent_note: None,
+                target_routines: None,
+            };
+
+            return Ok(Some(proactive_verification_report(
+                cycle,
+                "mutation-testing",
+                module_stem,
+                task,
+            )));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Collect uncovered sub_ labels from asm-coverage, sorted by priority then subsystem gap.
 /// Returns: Vec<(subsystem, label, asm_file, line_number, priority)>
 fn collect_uncovered_sub_labels(
@@ -2347,6 +3037,91 @@ fn collect_uncovered_sub_labels(
     for (subsystem, sub) in &map.subsystems {
         for label in &sub.labels {
             if label.kind == asm_coverage::LabelKind::Sub && label.cited_in.is_empty() {
+                uncovered.push((
+                    subsystem.clone(),
+                    label.label.clone(),
+                    label.asm_file.clone(),
+                    label.line_number,
+                    label.priority.clone(),
+                ));
+            }
+        }
+    }
+
+    // Sort: explicit priority first, then open backlog signals, then subsystem/name.
+    uncovered.sort_by(|a, b| {
+        fn priority_rank(p: &Option<String>) -> u8 {
+            match p.as_deref() {
+                Some("high") => 0,
+                Some("medium") => 1,
+                Some("low") => 2,
+                _ => 3,
+            }
+        }
+        fn subsystem_signal_rank(subsystem: &str, issues: &[BacklogIssueCandidate]) -> u8 {
+            let has_enemy_signal = issues.iter().any(|issue| issue.system == "enemy");
+            let has_core_signal = issues.iter().any(|issue| {
+                matches!(
+                    issue.system.as_str(),
+                    "player" | "block" | "render" | "level" | "camera" | "form" | "menu"
+                )
+            });
+            let matches_backlog_signal = (subsystem.starts_with("enemy_") && has_enemy_signal)
+                || (subsystem == "kid_main" && has_core_signal);
+            if matches_backlog_signal { 0 } else { 1 }
+        }
+        priority_rank(&a.4)
+            .cmp(&priority_rank(&b.4))
+            .then_with(|| {
+                subsystem_signal_rank(&a.0, &backlog_issues)
+                    .cmp(&subsystem_signal_rank(&b.0, &backlog_issues))
+            })
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| a.1.cmp(&b.1))
+    });
+
+    Ok(uncovered)
+}
+
+/// Collect uncovered loc_ labels from asm-coverage, sorted by priority then subsystem gap.
+/// Returns: Vec<(subsystem, label, asm_file, line_number, priority)>
+fn collect_uncovered_loc_labels(
+    repo_root: &Path,
+) -> Result<Vec<(String, String, String, usize, Option<String>)>> {
+    use crate::asm_coverage;
+
+    let coverage_path = repo_root.join("docs/source-port/asm-coverage.yaml");
+    let content = fs::read_to_string(&coverage_path)
+        .with_context(|| format!("failed to read {}", coverage_path.display()))?;
+
+    #[derive(Deserialize)]
+    struct CovMap {
+        subsystems: std::collections::BTreeMap<String, CovSub>,
+    }
+    #[derive(Deserialize)]
+    struct CovSub {
+        labels: Vec<CovLabel>,
+    }
+    #[derive(Deserialize)]
+    struct CovLabel {
+        label: String,
+        kind: asm_coverage::LabelKind,
+        asm_file: String,
+        line_number: usize,
+        #[serde(default)]
+        cited_in: Vec<String>,
+        #[serde(default)]
+        priority: Option<String>,
+    }
+
+    let map: CovMap =
+        serde_yaml::from_str(&content).with_context(|| "failed to parse asm-coverage.yaml")?;
+    let backlog_issues = load_open_backlog_issues(repo_root).unwrap_or_default();
+
+    let mut uncovered: Vec<(String, String, String, usize, Option<String>)> = Vec::new();
+    for (subsystem, sub) in &map.subsystems {
+        for label in &sub.labels {
+            if label.kind == asm_coverage::LabelKind::Loc && label.cited_in.is_empty() {
                 uncovered.push((
                     subsystem.clone(),
                     label.label.clone(),
@@ -4368,6 +5143,10 @@ fn capability_completion_summary(
             false,
             "The gameplay backlog task is generated from asm-coverage.yaml.".to_owned(),
         ),
+        CapabilityId::ProactiveVerificationTask => (
+            false,
+            "The proactive verification task is generated from the strategy cascade.".to_owned(),
+        ),
     }
 }
 
@@ -4574,6 +5353,7 @@ fn evidence_for_capability(
         CapabilityId::SourcePortFrontierTask => Vec::new(),
         CapabilityId::SourcePortCaseQueueTask => Vec::new(),
         CapabilityId::GameplayBacklogTask => Vec::new(),
+        CapabilityId::ProactiveVerificationTask => Vec::new(),
     }
 }
 

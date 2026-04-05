@@ -1,0 +1,37 @@
+strategies:
+  - name: root-cause-backlog
+    enabled: true
+    # Backlog items whose summary contains this marker are ready to implement
+    root_cause_marker: "Root cause identified"
+
+  - name: enemy-family-audit
+    enabled: true
+    # Ordered by backlog overlap, then gap size
+    priority_order:
+      - enemy_tank
+      - enemy_tank_shooting
+      - enemy_mini_hopping_skull
+      - enemy_drips
+      - enemy_tar_monster
+      - enemy_ninja
+      - enemy_fireball
+      - enemy_armadillo
+      - enemy_diamond
+      - enemy_emo_rock
+      - enemy_sphere
+
+  - name: loc-coverage-drive
+    enabled: true
+    min_cluster_size: 3
+    # Empty = all subsystems; could focus on kid_main or block code
+    focus_subsystems: []
+
+  - name: mutation-testing
+    enabled: true
+    output_dir: .cache/mutants
+    targets:
+      - { module: enemies.rs, package: kid-core, tier: 1 }
+      - { module: combat.rs, package: kid-core, tier: 1 }
+      - { module: blocks.rs, package: kid-core, tier: 1 }
+      - { module: physics.rs, package: kid-core, tier: 2 }
+      - { module: terrain.rs, package: kid-core, tier: 2 }

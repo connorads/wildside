@@ -1203,6 +1203,7 @@ fn main() -> Result<()> {
                 AutonomyGoal::SourcePortFrontier
                     | AutonomyGoal::CaseQueue
                     | AutonomyGoal::GameplayBacklog
+                    | AutonomyGoal::ProactiveVerification
             ) {
                 (None, None)
             } else {
