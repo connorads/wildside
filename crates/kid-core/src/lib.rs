@@ -525,6 +525,21 @@ impl NativeRuntime {
         self.z80_running = false;
     }
 
+    #[allow(dead_code)]
+    fn start_z80_guard_sub_924(&mut self) {
+        // ASM sub_924 (kid.asm:1038): decrement the shared byte, branch on a
+        // signed `bgt` if nested stops remain, otherwise clear the byte,
+        // restore SR=`$2500`, and call `j_Start_z80`.
+        let remaining_depth = self.z80_stop_request_depth.wrapping_sub(1);
+        self.z80_stop_request_depth = remaining_depth;
+        if (remaining_depth as i8) > 0 {
+            return;
+        }
+        self.z80_stop_request_depth = 0;
+        self.z80_guard_sr = 0x2500;
+        self.z80_running = true;
+    }
+
     fn load_platform_script_table(&mut self) {
         let scripts_path = self.assets.source_root.join("level/platform_scripts.asm");
         if let Ok(contents) = std::fs::read_to_string(&scripts_path) {

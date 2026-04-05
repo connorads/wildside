@@ -380,6 +380,49 @@ fn stop_z80_guard_sub_914_nests_the_stop_request_and_raises_sr() {
     );
 }
 
+#[test]
+fn start_z80_guard_sub_924_keeps_nested_stops_halted() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.stop_z80_guard_sub_914();
+    runtime.stop_z80_guard_sub_914();
+
+    runtime.start_z80_guard_sub_924();
+
+    assert_eq!(
+        runtime.z80_stop_request_depth, 1,
+        "ASM sub_924 should keep `$FFFFF805` at the remaining nested depth when the signed `bgt` path is taken",
+    );
+    assert_eq!(
+        runtime.z80_guard_sr, 0x2700,
+        "ASM sub_924 should leave SR untouched while nested stops remain",
+    );
+    assert!(
+        !runtime.z80_running,
+        "ASM sub_924 should not restart the Z80 until the final nested stop releases",
+    );
+}
+
+#[test]
+fn start_z80_guard_sub_924_clears_zero_depth_and_restarts_z80() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.stop_z80_guard_sub_914();
+
+    runtime.start_z80_guard_sub_924();
+
+    assert_eq!(
+        runtime.z80_stop_request_depth, 0,
+        "ASM sub_924 should clear `$FFFFF805` on the final release before `j_Start_z80`",
+    );
+    assert_eq!(
+        runtime.z80_guard_sr, 0x2500,
+        "ASM sub_924 should restore SR to `$2500` when the final stop request releases",
+    );
+    assert!(
+        runtime.z80_running,
+        "ASM sub_924 should restart the native Z80 mirror once no nested stops remain",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }
