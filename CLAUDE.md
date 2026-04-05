@@ -154,7 +154,10 @@ Compact live frontier state: `docs/source-port/frontier-state.yaml`
 ### Session protocol
 1. Run `mise run frontier-status` and read `docs/source-port/frontier-state.yaml` before scanning wider prose
 2. If there is an active frontier, continue that work unless a higher-priority backlog item now blocks it
-3. If no active frontier, follow `docs/source-port/ralph-gameplay-loop.md`: run `kidcli asm-coverage --uncovered`, pick the highest-priority uncovered routine
+3. If no active frontier, follow `docs/source-port/ralph-gameplay-loop.md`:
+   a. Pick the highest-priority open backlog item (skip `blocked:needs-human-repro` and `stalled:agent-blocked`)
+   b. If a backlog item has "root cause identified" in its evidence, jump straight to implementation
+   c. If all backlog items are blocked/stalled, fall through to **Proactive verification** in `ralph-gameplay-loop.md` (mutation testing, enemy audit, sweep expansion, ASM coverage drive)
 4. Mark `[~]` when starting work
 5. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug

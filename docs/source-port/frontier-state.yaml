@@ -132,18 +132,29 @@
       "Re-read the exact ASM routine for the proven write site, then update this frontier state with the result."
     ]
   },
+  "next_actions": {
+    "ready_to_implement": [
+      "#144 — Tank enemy ID 0x0B not mapped (root cause identified, see backlog evidence)",
+      "#145 — Tank two-object rendering missing (root cause identified, see backlog evidence)"
+    ],
+    "proactive_verification": [
+      "Run cargo mutants on enemies.rs, combat.rs, blocks.rs (see ralph-gameplay-loop.md Strategy 1)",
+      "Audit mini_hopping_skull family (92 uncovered locs, see Strategy 2)",
+      "Audit drips family (74 uncovered locs)",
+      "Audit ninja family (48 uncovered locs)",
+      "Enable enemy-state sweep comparison (see Strategy 3)"
+    ]
+  },
   "bootstrap": {
     "read_first": [
       "docs/source-port/frontier-state.yaml",
       "docs/source-port/backlog.md",
-      "docs/source-port/tas-roadmap.md"
+      "docs/source-port/ralph-gameplay-loop.md"
     ],
     "commands": [
       "mise run frontier-status",
-      "cargo run -p kidcli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 21765 --bisect",
-      "cargo run -p kidcli -- tas-diff --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 23244 --frame-end 23252 --include-advisory",
       "mise run verify-slice-fast"
     ],
-    "notes": "This file is the compact source of truth for the live frontier. Update it whenever the frontier, current hypothesis, or rejected-hypothesis ledger changes."
+    "notes": "TAS frontier is complete through frame 37759. The active work is now proactive verification: mutation testing, enemy audits, and backlog items with root causes already identified. See ralph-gameplay-loop.md for the full strategy menu."
   }
 }
