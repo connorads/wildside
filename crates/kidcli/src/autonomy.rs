@@ -888,7 +888,7 @@ fn load_goal_ledger_if_present(repo_root: &Path, goal: AutonomyGoal) -> Result<O
     load_ledger(&path).map(Some)
 }
 
-fn refresh_source_port_frontier_handoff_from_latest_evidence(
+pub(crate) fn refresh_source_port_frontier_handoff_from_latest_evidence(
     repo_root: &Path,
     routines_per_task: u32,
 ) -> Result<()> {
