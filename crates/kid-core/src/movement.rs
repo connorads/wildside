@@ -89,6 +89,39 @@ pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockJumpWindowSubDFB0 {
+    pub(crate) left_reach_px: u16,
+    pub(crate) right_reach_px: u16,
+    pub(crate) vertical_reach_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_jump_window_sub_DFB0(
+    form: PlayerForm,
+    facing: Direction,
+) -> HiddenBlockJumpWindowSubDFB0 {
+    // ASM sub_DFB0 (kid.asm:17317): when `Character_Movement == MoveID_Jump`,
+    // index `unk_E246` by `Current_Helmet`, load two horizontal reach words
+    // plus one vertical reach word, then swap the horizontal pair when
+    // `x_direction(a3)` is non-zero before probing hidden blocks.
+    let (mut left_reach_px, mut right_reach_px, vertical_reach_px) = match form {
+        PlayerForm::Juggernaut => (0x0010, 0x0010, 0x0010),
+        PlayerForm::Micromax => (0x0002, 0x0002, 0x0010),
+        _ => (0x0004, 0x0004, 0x0020),
+    };
+    if facing == Direction::Left {
+        std::mem::swap(&mut left_reach_px, &mut right_reach_px);
+    }
+    HiddenBlockJumpWindowSubDFB0 {
+        left_reach_px,
+        right_reach_px,
+        vertical_reach_px,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn hide_end_sequence_credits_glyphs_sub_1D7E6(display_enabled: &mut [bool; 6]) {

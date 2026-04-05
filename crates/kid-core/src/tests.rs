@@ -8711,6 +8711,48 @@ fn allocate_object_and_gfx_links_sub_e02_cross_links_the_new_slots() {
 }
 
 #[test]
+fn hidden_block_jump_window_sub_dfb0_uses_the_juggernaut_probe_box() {
+    let window = hidden_block_jump_window_sub_DFB0(PlayerForm::Juggernaut, Direction::Right);
+
+    assert_eq!(
+        window,
+        HiddenBlockJumpWindowSubDFB0 {
+            left_reach_px: 0x0010,
+            right_reach_px: 0x0010,
+            vertical_reach_px: 0x0010,
+        },
+        "ASM sub_DFB0 should read the Juggernaut `unk_E246` entry as a symmetric `$10/$10/$10` jump probe",
+    );
+}
+
+#[test]
+fn hidden_block_jump_window_sub_dfb0_uses_the_micromax_short_probe_box() {
+    let window = hidden_block_jump_window_sub_DFB0(PlayerForm::Micromax, Direction::Right);
+
+    assert_eq!(
+        window,
+        HiddenBlockJumpWindowSubDFB0 {
+            left_reach_px: 0x0002,
+            right_reach_px: 0x0002,
+            vertical_reach_px: 0x0010,
+        },
+        "ASM sub_DFB0 should read Micromax's final `unk_E246` entry as the tighter `$2/$2/$10` jump probe",
+    );
+}
+
+#[test]
+fn hidden_block_jump_window_sub_dfb0_swaps_horizontal_reach_for_left_facing_kid() {
+    let window = hidden_block_jump_window_sub_DFB0(PlayerForm::TheKid, Direction::Left);
+
+    assert_eq!(
+        window.left_reach_px, 0x0004,
+        "ASM sub_DFB0 should swap the horizontal words when `x_direction(a3)` is non-zero, even though Kid's default entry is symmetric",
+    );
+    assert_eq!(window.right_reach_px, 0x0004);
+    assert_eq!(window.vertical_reach_px, 0x0020);
+}
+
+#[test]
 fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
     let mut display_enabled = [true, false, true, true, false, true];
 
