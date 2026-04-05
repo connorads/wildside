@@ -98,7 +98,8 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // Goat: HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
         // Player-tracking callback (Goat.asm loc_3CC18) wired in step dispatch.
         EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
-        // Armadillo: HP = enemy_level + 1 (min 1). Base speed $8000, step $10000.
+        // Armadillo.asm loc_3C756/loc_3C766: `enemy_level + 1` yields HP 1/2/3+,
+        // then the walk-speed slot starts at `$8000` and gains `$10000` at each tier.
         EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
         // Crab: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
         EnemyFamily::Crab => (2, 0x0000_8000, 0x0001_0000),
@@ -4962,7 +4963,8 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         EnemyFamily::Hand => Direction::Right,
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
-        // ASM Dragon.asm loc_3CD70 and Tank.asm loc_3B2E4: face TOWARD the
+        // ASM Armadillo.asm loc_3C718, Dragon.asm loc_3CD70, and Tank.asm loc_3B2E4:
+        // face TOWARD the
         // player at spawn.
         // `move.w x_pos(a4),d4; cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
         // x_direction=0 → LEFT (default VRAM orientation), x_direction=$FF → RIGHT (flipped).
@@ -5106,6 +5108,46 @@ mod tests {
         assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp2), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp3), 0x0001_0000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp4), 0x0001_8000);
+    }
+
+    #[test]
+    fn armadillo_spawn_faces_toward_player_per_loc_3c718() {
+        assert_eq!(
+            spawn_facing(EnemyFamily::Armadillo, 100 << 16, 80 << 16),
+            Direction::Left
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Armadillo, 100 << 16, 100 << 16),
+            Direction::Right
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Armadillo, 100 << 16, 120 << 16),
+            Direction::Right
+        );
+    }
+
+    #[test]
+    fn armadillo_hp_and_walk_speed_follow_loc_3c756_and_loc_3c766() {
+        // ASM Armadillo.asm loc_3C756/loc_3C766: enemy_level is copied to d7,
+        // then `addq.w #1,d7` produces HP 1/2/3. The walk-speed slot receives
+        // `$8000` base plus one `$10000` increment per tier.
+        let hp1 = spawn_hit_points(EnemyFamily::Armadillo, 0);
+        let hp2 = spawn_hit_points(EnemyFamily::Armadillo, 1);
+        let hp3 = spawn_hit_points(EnemyFamily::Armadillo, 2);
+
+        assert_eq!(hp1, 1);
+        assert_eq!(hp2, 2);
+        assert_eq!(hp3, 3);
+
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp1), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp2), 0x0001_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp3), 0x0002_8000);
+    }
+
+    #[test]
+    fn armadillo_initial_patrol_timer_matches_loc_3c7f8() {
+        assert_eq!(spawn_wait_timer(EnemyFamily::Armadillo, 0), 0x012C);
+        assert_eq!(spawn_wait_timer(EnemyFamily::Armadillo, 2), 0x012C);
     }
 
     #[test]
@@ -5342,6 +5384,9 @@ pub(crate) fn spawn_wait_timer(family: EnemyFamily, enemy_level: u8) -> u16 {
         EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
+        // Armadillo.asm loc_3C7F8 seeds `$54(a5)` with `$12C` before entering
+        // the shared grounded walker loop.
+        EnemyFamily::Armadillo => 0x012C,
         // ASM UFO.asm `unk_3588C`: 60/40/30 by raw layout level.
         EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[usize::from(enemy_level).min(2)],
         // SpinningTwins: orbit-to-walk is collision-triggered, no timer needed.
