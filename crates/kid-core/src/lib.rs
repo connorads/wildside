@@ -1530,6 +1530,10 @@ impl NativeRuntime {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LiftPlatform;
         }
 
+        if slice.player.on_ground {
+            self.refresh_grounded_helmet_state_sub_78E8();
+        }
+
         // Shooter blocks: fire projectiles periodically
         self.step_shooter_blocks(&slice);
 

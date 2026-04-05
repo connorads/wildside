@@ -145,6 +145,41 @@ pub(crate) fn diamond_power_object_reset_sub_3F63C(
 }
 
 impl NativeRuntime {
+    #[allow(non_snake_case)]
+    pub(crate) fn refresh_grounded_helmet_state_sub_78E8(&mut self) {
+        // ASM sub_78E8 (kid.asm:7973): grounded frames reset the default
+        // helmet pose unless the form-specific grounded action is still live.
+        match self.progression.current_form {
+            PlayerForm::Maniaxe => {
+                if self.helmet.maniaxe_axe_active {
+                    let live_axe = self.projectiles.iter().any(|projectile| {
+                        projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
+                    });
+                    if live_axe {
+                        return;
+                    }
+                }
+                self.helmet.maniaxe_axe_active = false;
+            }
+            PlayerForm::RedStealth => {
+                if self.helmet.red_stealth_sword_timer > 0 {
+                    return;
+                }
+                self.helmet.red_stealth_sword_timer = 0;
+            }
+            PlayerForm::Eyeclops => {
+                self.helmet.eyeclops_beam_active = self
+                    .projectiles
+                    .iter()
+                    .any(|projectile| projectile.friendly && projectile.lifetime > 0);
+            }
+            _ => {
+                self.helmet.maniaxe_axe_active = false;
+                self.helmet.red_stealth_sword_timer = 0;
+            }
+        }
+    }
+
     pub(crate) fn step_skycutter_flipboard(
         &mut self,
         slice: &mut OpeningSliceState,

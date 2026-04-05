@@ -19153,6 +19153,20 @@ fn red_stealth_sword_kill_marks_layout_enemy_dead() {
 }
 
 #[test]
+fn grounded_helmet_state_sub_78e8_keeps_live_red_stealth_swing() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, RED_STEALTH_ACTIVE_FRAMES,
+        "ASM sub_78E8 should preserve Red Stealth's grounded sword pose while the swing timer is live",
+    );
+}
+
+#[test]
 fn red_stealth_sword_no_hit_when_out_of_range() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::RedStealth;
@@ -19218,6 +19232,47 @@ fn maniaxe_non_maniaxe_form_clears_state() {
     rt.step_maniaxe_axe(&slice, FrameInput::default());
 
     assert!(!rt.helmet.maniaxe_axe_active);
+}
+
+#[test]
+fn grounded_helmet_state_sub_78e8_keeps_live_maniaxe_axe() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 0x2_0000,
+        y_velocity: 0,
+        lifetime: 30,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    });
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        rt.helmet.maniaxe_axe_active,
+        "ASM sub_78E8 should preserve Maniaxe's grounded throw pose while the axe is still live",
+    );
+}
+
+#[test]
+fn grounded_helmet_state_sub_78e8_clears_inactive_maniaxe_axe() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM sub_78E8 should return Maniaxe to the grounded default pose once the thrown axe is gone",
+    );
 }
 
 // --- Eyeclops beam tests ---
