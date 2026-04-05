@@ -1948,6 +1948,63 @@ pub fn helmet_accent_palette_load_sub_813C(helmet_id: u16) -> Option<SymbolicPal
 }
 
 #[allow(non_snake_case)]
+pub fn grounded_walk_sprite_mapping_sub_8446(helmet_id: u16, phase: u16) -> Option<&'static str> {
+    // ASM sub_8446 (kid.asm:9205): add the high-byte walk phase to the
+    // `off_84A2` table indexed by `Current_Helmet`, then write the selected
+    // `addroffset_sprite(a3)` mapping.
+    const SPRITE_TABLES: [[Option<&str>; 3]; 10] = [
+        [
+            Some("LnkTo_unk_A54CC-Data_Index"),
+            Some("LnkTo_unk_A5612-Data_Index"),
+            Some("LnkTo_unk_A5758-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_A94AC-Data_Index"),
+            Some("LnkTo_unk_A94AC-Data_Index"),
+            Some("LnkTo_unk_A94AC-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_BC2BA-Data_Index"),
+            Some("LnkTo_unk_BC400-Data_Index"),
+            Some("LnkTo_unk_BC546-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_B6AF8-Data_Index"),
+            Some("LnkTo_unk_B6C3E-Data_Index"),
+            Some("LnkTo_unk_B6D84-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_B9CFC-Data_Index"),
+            Some("LnkTo_unk_B9E42-Data_Index"),
+            Some("LnkTo_unk_B9F88-Data_Index"),
+        ],
+        [None, None, None],
+        [
+            Some("LnkTo_PowersOfTen4-Data_Index"),
+            Some("LnkTo_unk_C548A-Data_Index"),
+            Some("LnkTo_unk_C55D0-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_B1E6A-Data_Index"),
+            Some("LnkTo_unk_B1FB0-Data_Index"),
+            Some("LnkTo_unk_B20F6-Data_Index"),
+        ],
+        [
+            Some("LnkTo_unk_A8768-Data_Index"),
+            Some("LnkTo_unk_A88AE-Data_Index"),
+            Some("LnkTo_unk_A89B4-Data_Index"),
+        ],
+        [None, None, None],
+    ];
+
+    SPRITE_TABLES
+        .get(usize::from(helmet_id))
+        .and_then(|phases| phases.get(usize::from(phase)))
+        .copied()
+        .flatten()
+}
+
+#[allow(non_snake_case)]
 pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
     // ASM sub_1C896 (kid.asm:31542): copy 0x40 words from `Pal_1C97C`
     // straight into `Palette_Buffer` starting at word offset 0.
@@ -6012,6 +6069,83 @@ AddrTbl_LevelNames:   ;1A842
             helmet_accent_palette_load_sub_813C(10),
             None,
             "native should reject out-of-range helmet indices instead of inventing a palette past ASM off_8162",
+        );
+    }
+
+    #[test]
+    fn grounded_walk_sprite_mapping_sub_8446_maps_each_helmet_and_phase_to_the_rom_table() {
+        let expected = [
+            [
+                "LnkTo_unk_A54CC-Data_Index",
+                "LnkTo_unk_A5612-Data_Index",
+                "LnkTo_unk_A5758-Data_Index",
+            ],
+            [
+                "LnkTo_unk_A94AC-Data_Index",
+                "LnkTo_unk_A94AC-Data_Index",
+                "LnkTo_unk_A94AC-Data_Index",
+            ],
+            [
+                "LnkTo_unk_BC2BA-Data_Index",
+                "LnkTo_unk_BC400-Data_Index",
+                "LnkTo_unk_BC546-Data_Index",
+            ],
+            [
+                "LnkTo_unk_B6AF8-Data_Index",
+                "LnkTo_unk_B6C3E-Data_Index",
+                "LnkTo_unk_B6D84-Data_Index",
+            ],
+            [
+                "LnkTo_unk_B9CFC-Data_Index",
+                "LnkTo_unk_B9E42-Data_Index",
+                "LnkTo_unk_B9F88-Data_Index",
+            ],
+            [""; 3],
+            [
+                "LnkTo_PowersOfTen4-Data_Index",
+                "LnkTo_unk_C548A-Data_Index",
+                "LnkTo_unk_C55D0-Data_Index",
+            ],
+            [
+                "LnkTo_unk_B1E6A-Data_Index",
+                "LnkTo_unk_B1FB0-Data_Index",
+                "LnkTo_unk_B20F6-Data_Index",
+            ],
+            [
+                "LnkTo_unk_A8768-Data_Index",
+                "LnkTo_unk_A88AE-Data_Index",
+                "LnkTo_unk_A89B4-Data_Index",
+            ],
+            [""; 3],
+        ];
+
+        for (helmet_id, phases) in expected.into_iter().enumerate() {
+            for (phase, sprite_mapping_label) in phases.into_iter().enumerate() {
+                let expected = if sprite_mapping_label.is_empty() {
+                    None
+                } else {
+                    Some(sprite_mapping_label)
+                };
+                assert_eq!(
+                    grounded_walk_sprite_mapping_sub_8446(helmet_id as u16, phase as u16),
+                    expected,
+                    "ASM sub_8446 should select phase {phase} from `off_84A2` for helmet index {helmet_id}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn grounded_walk_sprite_mapping_sub_8446_rejects_out_of_range_inputs() {
+        assert_eq!(
+            grounded_walk_sprite_mapping_sub_8446(10, 0),
+            None,
+            "native should reject helmet ids past ASM `off_84A2` instead of inventing a sprite mapping",
+        );
+        assert_eq!(
+            grounded_walk_sprite_mapping_sub_8446(0, 3),
+            None,
+            "native should reject phase indices past the three-word `off_84CA` rows",
         );
     }
 
