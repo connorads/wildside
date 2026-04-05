@@ -2577,7 +2577,9 @@ mod tests {
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(false),
+                checkpoint_family_matched_in_state_sweep: Some(false),
                 exact_value_pair_matched_in_state_sweep: Some(false),
+                exact_value_pair_checkpoint_family_matched_in_state_sweep: Some(false),
                 total_diffs: Some(3),
                 levels: Some(2),
                 level_ids: vec!["0x00".into(), "0x01".into()],
@@ -2593,7 +2595,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 0,
                 },
-                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=3] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c absent from latest state sweep; same field class, different concrete miss]".into(),
+                summary: "1p-accurate failing field game_mode=3 diffs across 2 levels for boot_title_start_level1 @ title@360 [advisory=3] [0x00, 0x01] [includes scenario level 0x00] [excludes checkpoint title@360] [excludes checkpoint family title] checkpoints=[idle_tail=3] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c absent from latest state sweep; same field class, different concrete miss]".into(),
             }],
             per_level: vec![SweepHistoryLevelEntry {
                 level: "0x00".into(),
@@ -2644,7 +2646,15 @@ mod tests {
             false
         );
         assert_eq!(
+            value["release_gate_focus"][0]["checkpoint_family_matched_in_state_sweep"],
+            false
+        );
+        assert_eq!(
             value["release_gate_focus"][0]["exact_value_pair_matched_in_state_sweep"],
+            false
+        );
+        assert_eq!(
+            value["release_gate_focus"][0]["exact_value_pair_checkpoint_family_matched_in_state_sweep"],
             false
         );
         assert_eq!(value["per_level"][0]["fields"][0], "game_mode");
@@ -2702,7 +2712,9 @@ mod tests {
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(true),
+                checkpoint_family_matched_in_state_sweep: Some(true),
                 exact_value_pair_matched_in_state_sweep: Some(true),
+                exact_value_pair_checkpoint_family_matched_in_state_sweep: Some(true),
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
@@ -2727,7 +2739,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c seen checkpoints=[title@360=5]]".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] [includes checkpoint family title] checkpoints=[idle_tail=10, title@360=5] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c seen checkpoints=[title@360=5]; includes checkpoint family title]".into(),
             }],
         };
 
@@ -2747,7 +2759,15 @@ mod tests {
             true
         );
         assert_eq!(
+            value["release_gate_focus"][0]["checkpoint_family_matched_in_state_sweep"],
+            true
+        );
+        assert_eq!(
             value["release_gate_focus"][0]["exact_value_pair_matched_in_state_sweep"],
+            true
+        );
+        assert_eq!(
+            value["release_gate_focus"][0]["exact_value_pair_checkpoint_family_matched_in_state_sweep"],
             true
         );
         assert_eq!(
@@ -2999,7 +3019,7 @@ mod tests {
 
         assert_eq!(
             format_release_gate_focus_summary(&field_summary, &focus),
-            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] [excludes checkpoint title@360] checkpoints=[idle_tail=9, level_settle=6] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof)"
+            "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x09, 0x32, 0x33, 0x50, 0x57, +1 more] [excludes scenario level 0x00] [excludes checkpoint title@360] [excludes checkpoint family title] checkpoints=[idle_tail=9, level_settle=6] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof)"
         );
     }
 
@@ -3052,7 +3072,9 @@ mod tests {
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(true),
+                checkpoint_family_matched_in_state_sweep: Some(true),
                 exact_value_pair_matched_in_state_sweep: Some(false),
+                exact_value_pair_checkpoint_family_matched_in_state_sweep: Some(false),
                 total_diffs: Some(15),
                 levels: Some(15),
                 level_ids: vec!["0x00".into(), "0x09".into()],
@@ -3074,7 +3096,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 15,
                 },
-                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[idle_tail=10, title@360=5] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c absent from latest state sweep; same field class, different concrete miss]".into(),
+                summary: "1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [0x00, 0x09] [includes scenario level 0x00] [includes checkpoint title@360] [includes checkpoint family title] checkpoints=[idle_tail=10, title@360=5] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c absent from latest state sweep; same field class, different concrete miss]".into(),
             }]
         );
     }
@@ -3104,7 +3126,9 @@ mod tests {
                 matched_in_state_sweep: false,
                 scenario_level_matched_in_state_sweep: Some(false),
                 checkpoint_matched_in_state_sweep: Some(false),
+                checkpoint_family_matched_in_state_sweep: Some(false),
                 exact_value_pair_matched_in_state_sweep: Some(false),
+                exact_value_pair_checkpoint_family_matched_in_state_sweep: Some(false),
                 total_diffs: None,
                 levels: None,
                 level_ids: Vec::new(),
@@ -3192,7 +3216,9 @@ mod tests {
                 matched_in_state_sweep: true,
                 scenario_level_matched_in_state_sweep: Some(true),
                 checkpoint_matched_in_state_sweep: Some(true),
+                checkpoint_family_matched_in_state_sweep: Some(true),
                 exact_value_pair_matched_in_state_sweep: Some(true),
+                exact_value_pair_checkpoint_family_matched_in_state_sweep: Some(true),
                 total_diffs: Some(2),
                 levels: Some(1),
                 level_ids: vec!["0x00".into()],
@@ -3211,7 +3237,7 @@ mod tests {
                     rng: 0,
                     oracle_limitation: 2,
                 },
-                summary: "1p-accurate failing field game_mode=2 diffs across 1 levels for boot_title_start_level1 @ title@360 [oracle_limitations=2] [0x00] [includes scenario level 0x00] [includes checkpoint title@360] checkpoints=[title@360=2] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c seen checkpoints=[title@360=2]]".into(),
+                summary: "1p-accurate failing field game_mode=2 diffs across 1 levels for boot_title_start_level1 @ title@360 [oracle_limitations=2] [0x00] [includes scenario level 0x00] [includes checkpoint title@360] [includes checkpoint family title] checkpoints=[title@360=2] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c seen checkpoints=[title@360=2]; includes checkpoint family title]".into(),
             }]
         );
     }

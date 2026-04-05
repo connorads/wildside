@@ -19,7 +19,11 @@ pub(crate) struct ReleaseGateFocusSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) checkpoint_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) checkpoint_family_matched_in_state_sweep: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) exact_value_pair_matched_in_state_sweep: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) exact_value_pair_checkpoint_family_matched_in_state_sweep: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) total_diffs: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -52,6 +56,13 @@ fn compact_release_gate_step_name(step_name: &str) -> String {
         .map(|(_, tail)| tail)
         .unwrap_or(step_name)
         .to_owned()
+}
+
+fn checkpoint_family(checkpoint: &str) -> &str {
+    checkpoint
+        .split_once('@')
+        .map(|(head, _)| head)
+        .unwrap_or(checkpoint)
 }
 
 pub(super) fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
@@ -221,10 +232,27 @@ pub(super) fn format_release_gate_focus_summary(
                     }
                 })
                 .unwrap_or_default();
+            let checkpoint_family_note = focus
+                .checkpoint
+                .as_deref()
+                .map(checkpoint_family)
+                .filter(|family| !family.is_empty())
+                .map(|family| {
+                    if entry
+                        .checkpoints
+                        .iter()
+                        .any(|candidate| checkpoint_family(candidate) == family)
+                    {
+                        format!(" [includes checkpoint family {family}]")
+                    } else {
+                        format!(" [excludes checkpoint family {family}]")
+                    }
+                })
+                .unwrap_or_default();
             let checkpoint_preview = format_checkpoint_count_preview(&entry.checkpoint_counts);
 
             format!(
-                "{} failing field {}={} diffs across {} levels for {}{}{}{}{}{}{} (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof)",
+                "{} failing field {}={} diffs across {} levels for {}{}{}{}{}{}{}{} (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof)",
                 focus.target,
                 entry.field,
                 entry.total_diffs,
@@ -239,6 +267,7 @@ pub(super) fn format_release_gate_focus_summary(
                 format_field_level_preview(&entry.level_ids),
                 scenario_level_note,
                 checkpoint_note,
+                checkpoint_family_note,
                 checkpoint_preview
             )
         }
@@ -315,12 +344,33 @@ pub(super) fn summarise_release_gate_focuses(
                         .any(|candidate| candidate == checkpoint)
                 })
             });
+            let checkpoint_family_matched_in_state_sweep =
+                focus.checkpoint.as_ref().map(|checkpoint| {
+                    let family = checkpoint_family(checkpoint);
+                    matched.is_some_and(|entry| {
+                        entry
+                            .checkpoints
+                            .iter()
+                            .any(|candidate| checkpoint_family(candidate) == family)
+                    })
+                });
             let exact_value_pair_matched_in_state_sweep =
                 if focus.native_value.is_some() && focus.oracle_value.is_some() {
                     Some(!exact_value_pair_checkpoints.is_empty())
                 } else {
                     None
                 };
+            let exact_value_pair_checkpoint_family_matched_in_state_sweep = focus
+                .checkpoint
+                .as_ref()
+                .zip(exact_value_pair_matched_in_state_sweep)
+                .map(|(checkpoint, matched_anywhere)| {
+                    let family = checkpoint_family(checkpoint);
+                    matched_anywhere
+                        && exact_value_pair_checkpoints
+                            .iter()
+                            .any(|entry| checkpoint_family(&entry.checkpoint) == family)
+                });
             let exact_pair_note = match (&focus.native_value, &focus.oracle_value) {
                 (Some(native_value), Some(oracle_value)) => {
                     if exact_value_pair_checkpoints.is_empty() {
@@ -328,9 +378,27 @@ pub(super) fn summarise_release_gate_focuses(
                             " [exact pair {native_value}->{oracle_value} absent from latest state sweep; same field class, different concrete miss]"
                         )
                     } else {
+                        let family_note = focus
+                            .checkpoint
+                            .as_deref()
+                            .map(checkpoint_family)
+                            .filter(|family| !family.is_empty())
+                            .map(|family| {
+                                if exact_value_pair_checkpoints
+                                    .iter()
+                                    .any(|entry| checkpoint_family(&entry.checkpoint) == family)
+                                {
+                                    format!("; includes checkpoint family {family}")
+                                } else {
+                                    format!("; excludes checkpoint family {family}")
+                                }
+                            })
+                            .unwrap_or_default();
                         format!(
-                            " [exact pair {native_value}->{oracle_value} seen{}]",
+                            " [exact pair {native_value}->{oracle_value} seen{}{}]",
                             format_checkpoint_count_preview(&exact_value_pair_checkpoints)
+                                ,
+                            family_note
                         )
                     }
                 }
@@ -352,7 +420,9 @@ pub(super) fn summarise_release_gate_focuses(
                 matched_in_state_sweep: matched.is_some(),
                 scenario_level_matched_in_state_sweep,
                 checkpoint_matched_in_state_sweep,
+                checkpoint_family_matched_in_state_sweep,
                 exact_value_pair_matched_in_state_sweep,
+                exact_value_pair_checkpoint_family_matched_in_state_sweep,
                 total_diffs: matched.map(|entry| entry.total_diffs),
                 levels: matched.map(|entry| entry.levels),
                 level_ids: matched
