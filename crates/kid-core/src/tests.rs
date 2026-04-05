@@ -32181,6 +32181,38 @@ fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_bl
 // --- Shooter blocks: multi-direction and cell-change pruning ---
 
 #[test]
+fn shooter_player_in_range_sub_f536_accepts_both_inclusive_edges() {
+    assert!(
+        NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 2, 3),
+        "ASM sub_F536 should accept the left/top inclusive edge of Kid's `x_block-4 .. x_block+4` and `y_block-6 .. y_block+3` window",
+    );
+    assert!(
+        NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 10, 12),
+        "ASM sub_F536 should also accept the right/bottom inclusive edge of that same block-space window",
+    );
+}
+
+#[test]
+fn shooter_player_in_range_sub_f536_rejects_just_outside_window() {
+    assert!(
+        !NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 1, 3),
+        "ASM sub_F536 should reject source columns left of `kid_x_block-4`",
+    );
+    assert!(
+        !NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 11, 12),
+        "ASM sub_F536 should reject source columns right of `kid_x_block+4`",
+    );
+    assert!(
+        !NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 2, 2),
+        "ASM sub_F536 should reject source rows above `kid_y_block-6`",
+    );
+    assert!(
+        !NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 10, 13),
+        "ASM sub_F536 should reject source rows below `kid_y_block+3`",
+    );
+}
+
+#[test]
 fn shooter_block_fires_all_four_directions() {
     // Skin byte 0x0F = all directions (up + right + down + left)
     let mut rt = NativeRuntime::new(manifest());

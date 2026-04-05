@@ -322,6 +322,36 @@ impl NativeRuntime {
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
     const SHOOTER_HEADBUTT_HOLD_FRAMES: u8 = 8;
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_player_in_range_sub_F536(
+        player_x_pos: u32,
+        player_y_pos: u32,
+        shooter_col: u16,
+        shooter_row: u16,
+    ) -> bool {
+        // ASM sub_F536 (kid.asm:20167): convert Kid to block-space, then accept
+        // the shooter when `kid_x_block-4 .. kid_x_block+4` contains the
+        // source col and `kid_y_block-6 .. kid_y_block+3` contains the source
+        // row. The comparisons are inclusive because the ROM uses `bgt`/`bmi`
+        // after subtracting the shooter coordinates.
+        let mut delta_x = ((player_x_pos >> 16) as i32 >> 4) - 4 - i32::from(shooter_col);
+        if delta_x > 0 {
+            return false;
+        }
+        delta_x += 8;
+        if delta_x < 0 {
+            return false;
+        }
+
+        let mut delta_y = ((player_y_pos >> 16) as i32 >> 4) - 6 - i32::from(shooter_row);
+        if delta_y > 0 {
+            return false;
+        }
+        delta_y += 9;
+        delta_y >= 0
+    }
+
     fn shooter_deleted_tile_for_sub_114c0(skin: u8) -> terrain::Cell {
         terrain::Cell::from_be_bytes(0xEF, skin)
     }
