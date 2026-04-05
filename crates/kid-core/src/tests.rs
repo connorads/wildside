@@ -11,9 +11,10 @@ use crate::boot::{
 use crate::combat::*;
 use crate::helmets::{
     IronKnightClimbVisualSubA3BC, JuggernautCompanionStateSub975C, JuggernautCompanionStepSub975C,
-    JuggernautCompanionVisualSub975C, RedStealthFloorImpactKindSubB000,
-    SkycutterVisualStateSub98F2, iron_knight_climb_visual_sub_A3BC,
-    juggernaut_companion_step_sub_975C, red_stealth_floor_impact_sub_B000,
+    JuggernautCompanionVisualSub975C, KidAirborneVisualInputSubB270, KidAirborneVisualKindSubB270,
+    RedStealthFloorImpactKindSubB000, SkycutterVisualStateSub98F2,
+    iron_knight_climb_visual_sub_A3BC, juggernaut_companion_step_sub_975C,
+    kid_airborne_visual_sub_B270, red_stealth_floor_impact_sub_B000,
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
@@ -19912,6 +19913,118 @@ fn red_stealth_floor_impact_sub_b000_ignores_non_rom_block_types() {
         "ASM sub_B000 rejects block types above `$5` before it ever loads `off_B058`",
     );
     assert_eq!(impact.bounce_y_velocity, 0);
+}
+
+#[test]
+fn kid_airborne_visual_sub_b270_uses_red_stealth_downward_slash_frames() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::RedStealth.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        y_velocity: 0x0000_5000,
+        jump_threshold: 0x0001_0000,
+        c_held: true,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_B40DE-Data_Index"),
+        "ASM sub_B270 should switch Red Stealth's fast-falling C-held branch to the first downward slash frame",
+    );
+    assert_eq!(step.next_red_stealth_sword_swing, 0x10);
+    assert_eq!(
+        step.queued_sound,
+        Some(QueuedSoundEffect::RedStealthAttackDown)
+    );
+}
+
+#[test]
+fn kid_airborne_visual_sub_b270_advances_cyclone_spin_phase_from_accumulator() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::Cyclone.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: true,
+        cyclone_y_accel: 0x2000,
+        cyclone_frame_accum: 0x01FF,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        y_velocity: 0,
+        jump_threshold: 0,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_BA7E0-Data_Index"),
+        "ASM sub_B270 should bucket `$FFFFF8F0 >> 8` into the middle Cyclone spin frame when the accumulated phase stays in `$100..$1FF`",
+    );
+    assert_eq!(step.next_cyclone_frame_accum, 0x01FF);
+    assert!(!step.next_airborne_latch_active);
+}
+
+#[test]
+fn kid_airborne_visual_sub_b270_preserves_maniaxe_throw_animation_while_airborne() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::Maniaxe.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: true,
+        y_velocity: 0,
+        jump_threshold: 0,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::PreserveCurrent,
+        "ASM sub_B270 should keep Maniaxe's active throw pose until `$18(a3)` says Kid has landed",
+    );
+    assert!(step.next_maniaxe_throwing_axe);
+}
+
+#[test]
+fn kid_airborne_visual_sub_b270_uses_generic_airborne_table_for_the_kid() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::TheKid.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        y_velocity: -0x0000_3000,
+        jump_threshold: -0x0001_0000,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_A3CEC-Data_Index"),
+        "ASM sub_B270 should take the second Kid airborne bucket when `y_vel<<2` is still above the shared upward threshold",
+    );
 }
 
 // --- Maniaxe axe tests ---

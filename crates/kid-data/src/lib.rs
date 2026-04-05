@@ -2123,6 +2123,114 @@ pub fn skycutter_board_sprite_mapping_sub_98F2(phase: u16, crawling: bool) -> Op
 }
 
 #[allow(non_snake_case)]
+pub fn airborne_helmet_sprite_mapping_sub_B270(
+    helmet_id: u16,
+    state_index: u16,
+) -> Option<&'static str> {
+    // ASM sub_B270 `off_B3B8` (kid.asm:14266): each helmet gets four airborne
+    // mappings selected by the shared `y_vel(a3) << 2` threshold buckets.
+    const SPRITE_TABLES: [[&str; 4]; 10] = [
+        [
+            "LnkTo_unk_A3B66-Data_Index",
+            "LnkTo_unk_A3CEC-Data_Index",
+            "LnkTo_unk_A3CEC-Data_Index",
+            "LnkTo_unk_A3CEC-Data_Index",
+        ],
+        [
+            "LnkTo_unk_A978A-Data_Index",
+            "LnkTo_unk_A978A-Data_Index",
+            "LnkTo_unk_A978A-Data_Index",
+            "LnkTo_unk_A978A-Data_Index",
+        ],
+        [
+            "LnkTo_unk_BADB2-Data_Index",
+            "LnkTo_unk_BAF98-Data_Index",
+            "LnkTo_unk_BAF98-Data_Index",
+            "LnkTo_unk_BB11E-Data_Index",
+        ],
+        [
+            "LnkTo_unk_B4AB6-Data_Index",
+            "LnkTo_unk_B4AB6-Data_Index",
+            "LnkTo_unk_B4C9C-Data_Index",
+            "LnkTo_unk_B4C9C-Data_Index",
+        ],
+        [
+            "LnkTo_unk_B772E-Data_Index",
+            "LnkTo_unk_B772E-Data_Index",
+            "LnkTo_unk_B79B4-Data_Index",
+            "LnkTo_unk_B79B4-Data_Index",
+        ],
+        [
+            "LnkTo_unk_BFAE0-Data_Index",
+            "LnkTo_unk_BFD26-Data_Index",
+            "LnkTo_unk_BFD26-Data_Index",
+            "LnkTo_unk_C0000-Data_Index",
+        ],
+        [
+            "LnkTo_unk_C244A-Data_Index",
+            "LnkTo_unk_C26D0-Data_Index",
+            "LnkTo_unk_C26D0-Data_Index",
+            "LnkTo_unk_C2956-Data_Index",
+        ],
+        [
+            "LnkTo_unk_B007C-Data_Index",
+            "LnkTo_unk_B0282-Data_Index",
+            "LnkTo_unk_B0282-Data_Index",
+            "LnkTo_unk_B0508-Data_Index",
+        ],
+        [
+            "LnkTo_unk_A5B7C-Data_Index",
+            "LnkTo_unk_A5B7C-Data_Index",
+            "LnkTo_unk_A63AE-Data_Index",
+            "LnkTo_unk_A63AE-Data_Index",
+        ],
+        [
+            "LnkTo_unk_ABB8E-Data_Index",
+            "LnkTo_unk_ABC54-Data_Index",
+            "LnkTo_unk_ABC54-Data_Index",
+            "LnkTo_unk_ABD1A-Data_Index",
+        ],
+    ];
+
+    SPRITE_TABLES
+        .get(usize::from(helmet_id))
+        .and_then(|states| states.get(usize::from(state_index)))
+        .copied()
+}
+
+#[allow(non_snake_case)]
+pub fn cyclone_flight_sprite_mapping_sub_B270(phase_index: u16) -> Option<&'static str> {
+    // ASM sub_B270 loc_B2A0..loc_B2DC (kid.asm:14151): the Cyclone flight
+    // accumulator buckets `$FFFFF8F0 >> 8` into three spinning sprite frames.
+    const SPRITE_TABLE: [&str; 3] = [
+        "LnkTo_unk_BA55A-Data_Index",
+        "LnkTo_unk_BA7E0-Data_Index",
+        "LnkTo_unk_BAA66-Data_Index",
+    ];
+
+    SPRITE_TABLE.get(usize::from(phase_index)).copied()
+}
+
+#[allow(non_snake_case)]
+pub fn red_stealth_downward_slash_sprite_mapping_sub_B270(
+    sword_swing_counter: u8,
+) -> Option<&'static str> {
+    // ASM sub_B270 loc_B380..return_B3A6 (kid.asm:14235): after adding `$10`
+    // to `Red_Stealth_sword_swing`, bucket `counter >> 5` through four
+    // downward-slash airborne mappings.
+    const SPRITE_TABLE: [&str; 4] = [
+        "LnkTo_unk_B40DE-Data_Index",
+        "LnkTo_unk_B42C4-Data_Index",
+        "LnkTo_unk_B45EA-Data_Index",
+        "LnkTo_unk_B4870-Data_Index",
+    ];
+
+    SPRITE_TABLE
+        .get(usize::from((sword_swing_counter >> 5).min(3)))
+        .copied()
+}
+
+#[allow(non_snake_case)]
 pub fn juggernaut_spin_sprite_mapping_sub_942A(phase: u16) -> Option<&'static str> {
     // ASM sub_942A (kid.asm:10877): Juggernaut indexes `off_94E6` with
     // `($FFFFF8F0).w >> 8` and stores the selected mapping unless animation

@@ -234,6 +234,186 @@ pub(crate) struct SkycutterVisualStepSub98F2 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KidAirborneVisualKindSubB270 {
+    PreserveCurrent,
+    DelegateToSkycutter,
+    UseMapping(&'static str),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidAirborneVisualInputSubB270 {
+    pub(crate) helmet_id: u16,
+    pub(crate) is_animated: bool,
+    pub(crate) on_ground: bool,
+    pub(crate) global_lock_active: bool,
+    pub(crate) airborne_latch_active: bool,
+    pub(crate) cyclone_flying: bool,
+    pub(crate) cyclone_y_accel: i16,
+    pub(crate) cyclone_frame_accum: u16,
+    pub(crate) juggernaut_companion_animation_active: bool,
+    pub(crate) maniaxe_throwing_axe: bool,
+    pub(crate) y_velocity: i32,
+    pub(crate) jump_threshold: i32,
+    pub(crate) c_held: bool,
+    pub(crate) red_stealth_sword_swing: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidAirborneVisualStepSubB270 {
+    pub(crate) visual: KidAirborneVisualKindSubB270,
+    pub(crate) next_is_animated: bool,
+    pub(crate) next_airborne_latch_active: bool,
+    pub(crate) next_cyclone_frame_accum: u16,
+    pub(crate) next_maniaxe_throwing_axe: bool,
+    pub(crate) next_red_stealth_sword_swing: u8,
+    pub(crate) queued_sound: Option<QueuedSoundEffect>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_airborne_visual_sub_B270(
+    input: KidAirborneVisualInputSubB270,
+) -> KidAirborneVisualStepSubB270 {
+    // ASM sub_B270 (kid.asm:14132): early-out for Eyeclops animation, the
+    // shared `$FFFFFA66/$FFFFFA67` locks, Cyclone flight, and Juggernaut's
+    // helper cloud before the common four-state airborne mapping table.
+    if input.helmet_id == PlayerForm::Eyeclops.helmet_id() && input.is_animated {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+            next_is_animated: input.is_animated,
+            next_airborne_latch_active: input.airborne_latch_active,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    if input.global_lock_active || (input.airborne_latch_active && !input.on_ground) {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+            next_is_animated: input.is_animated,
+            next_airborne_latch_active: input.airborne_latch_active,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    if input.cyclone_flying {
+        let mut phase_word = (0i16)
+            .wrapping_sub(input.cyclone_y_accel)
+            .wrapping_add(0x2000) as u16;
+        phase_word = phase_word.wrapping_shl(2);
+        phase_word >>= 8;
+        phase_word = phase_word.wrapping_add(input.cyclone_frame_accum);
+        if phase_word >= 0x0300 {
+            phase_word = phase_word.wrapping_sub(0x0300);
+        }
+        let mapping = kid_data::cyclone_flight_sprite_mapping_sub_B270(phase_word >> 8)
+            .expect("ASM sub_B270 Cyclone phase should stay within 0..=2");
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
+            next_is_animated: input.is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: phase_word,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    let mut next_is_animated = input.is_animated;
+    if input.helmet_id == PlayerForm::Juggernaut.helmet_id()
+        && input.juggernaut_companion_animation_active
+    {
+        if !input.on_ground {
+            return KidAirborneVisualStepSubB270 {
+                visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+                next_is_animated,
+                next_airborne_latch_active: false,
+                next_cyclone_frame_accum: input.cyclone_frame_accum,
+                next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+                next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+                queued_sound: None,
+            };
+        }
+        next_is_animated = false;
+    }
+
+    if input.helmet_id == PlayerForm::Skycutter.helmet_id() {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::DelegateToSkycutter,
+            next_is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    if input.helmet_id == PlayerForm::Maniaxe.helmet_id()
+        && input.maniaxe_throwing_axe
+        && !input.on_ground
+    {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+            next_is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: true,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    let scaled_y_velocity = input.y_velocity.wrapping_shl(2);
+    let state_index = if scaled_y_velocity < 0 {
+        if scaled_y_velocity > input.jump_threshold {
+            1
+        } else {
+            0
+        }
+    } else if scaled_y_velocity > input.jump_threshold {
+        3
+    } else {
+        2
+    };
+
+    if input.helmet_id == PlayerForm::RedStealth.helmet_id() && state_index == 3 && input.c_held {
+        let next_sword = input.red_stealth_sword_swing.saturating_add(0x10).min(0x7F);
+        let mapping = kid_data::red_stealth_downward_slash_sprite_mapping_sub_B270(next_sword)
+            .expect("ASM sub_B270 Red Stealth slash should stay within 0..=3");
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
+            next_is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: false,
+            next_red_stealth_sword_swing: next_sword,
+            queued_sound: (next_sword == 0x10).then_some(QueuedSoundEffect::RedStealthAttackDown),
+        };
+    }
+
+    let mapping = kid_data::airborne_helmet_sprite_mapping_sub_B270(input.helmet_id, state_index)
+        .expect("ASM sub_B270 off_B3B8 should cover all live helmet ids");
+    KidAirborneVisualStepSubB270 {
+        visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
+        next_is_animated,
+        next_airborne_latch_active: false,
+        next_cyclone_frame_accum: input.cyclone_frame_accum,
+        next_maniaxe_throwing_axe: false,
+        next_red_stealth_sword_swing: 0,
+        queued_sound: None,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IronKnightClimbVisualSubA3BC {
     pub(crate) pose_accum: u16,
     pub(crate) sprite_mapping: &'static str,

@@ -3,6 +3,7 @@ use super::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
+    RedStealthAttackDown,
     #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
