@@ -3408,22 +3408,107 @@ fn latest_state_sweep_history_entry(repo_root: &Path) -> Option<serde_json::Valu
     })
 }
 
+#[derive(Debug, Clone)]
+struct StateSweepEvidence {
+    source_path: PathBuf,
+    report_path: String,
+    timestamp: Option<String>,
+    payload: serde_json::Value,
+}
+
+fn latest_state_sweep_report_entry(repo_root: &Path) -> Option<StateSweepEvidence> {
+    let sweep_runs_dir = repo_root.join(".cache/sweep-runs");
+    let mut latest: Option<StateSweepEvidence> = None;
+    for entry in fs::read_dir(&sweep_runs_dir).ok()? {
+        let entry = entry.ok()?;
+        let path = entry.path();
+        if !entry.file_type().ok()?.is_dir() {
+            continue;
+        }
+        let timestamp = path.file_name()?.to_str()?.to_owned();
+        let report_path = path.join("report.json");
+        let contents = fs::read_to_string(&report_path).ok()?;
+        let payload = serde_json::from_str::<serde_json::Value>(&contents).ok()?;
+        if !is_state_sweep_payload(&payload) {
+            continue;
+        }
+        let candidate = StateSweepEvidence {
+            source_path: report_path.clone(),
+            report_path: report_path.to_string_lossy().into_owned(),
+            timestamp: Some(timestamp),
+            payload,
+        };
+        if latest.as_ref().is_none_or(|current| {
+            state_sweep_timestamp_key(&candidate) > state_sweep_timestamp_key(current)
+        }) {
+            latest = Some(candidate);
+        }
+    }
+    latest
+}
+
+fn latest_state_sweep_evidence(repo_root: &Path) -> Option<StateSweepEvidence> {
+    let history = latest_state_sweep_history_entry(repo_root).map(|payload| StateSweepEvidence {
+        source_path: repo_root.join(".cache/metrics/sweep-history.jsonl"),
+        report_path: payload
+            .get("report_path")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_owned(),
+        timestamp: payload
+            .get("timestamp")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned),
+        payload,
+    });
+    let report = latest_state_sweep_report_entry(repo_root);
+    match (history, report) {
+        (Some(history), Some(report)) => {
+            if state_sweep_timestamp_key(&report) > state_sweep_timestamp_key(&history) {
+                Some(report)
+            } else {
+                Some(history)
+            }
+        }
+        (Some(history), None) => Some(history),
+        (None, Some(report)) => Some(report),
+        (None, None) => None,
+    }
+}
+
+fn is_state_sweep_payload(value: &serde_json::Value) -> bool {
+    if value
+        .get("tier")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|tier| tier == "state")
+    {
+        return true;
+    }
+    value
+        .get("levels")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|levels| levels.first())
+        .and_then(|level| level.get("tier"))
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|tier| tier == "state")
+}
+
+fn state_sweep_timestamp_key(entry: &StateSweepEvidence) -> u64 {
+    entry
+        .timestamp
+        .as_deref()
+        .and_then(|timestamp| timestamp.parse::<u64>().ok())
+        .unwrap_or(0)
+}
+
 fn latest_state_sweep_focus_summary(
     repo_root: &Path,
     failed_focus: &ReleaseGateFocusLookup,
     failed_field: &str,
 ) -> Option<(String, String, Option<String>)> {
-    let latest = latest_state_sweep_history_entry(repo_root)?;
-    let report_path = latest
-        .get("report_path")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown")
-        .to_owned();
-    let timestamp = latest
-        .get("timestamp")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_owned);
+    let latest = latest_state_sweep_evidence(repo_root)?;
     let summary = latest
+        .payload
         .get("release_gate_focus")
         .and_then(serde_json::Value::as_array)
         .and_then(|entries| {
@@ -3445,7 +3530,7 @@ fn latest_state_sweep_focus_summary(
                         .map(str::to_owned)
                 })
         })?;
-    Some((summary, report_path, timestamp))
+    Some((summary, latest.report_path, latest.timestamp))
 }
 
 fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
@@ -3670,61 +3755,44 @@ fn format_divergence_summary_value(summary: Option<&serde_json::Value>) -> Optio
 
 fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
     let history_path = repo_root.join(".cache/metrics/sweep-history.jsonl");
-    let contents = match fs::read_to_string(&history_path) {
-        Ok(contents) => contents,
-        Err(error) => {
-            return CheckOutcome::failing(
-                format!("missing sweep history artefact: {error}"),
-                Some(history_path),
-            );
-        }
-    };
-    let latest = contents.lines().rev().find_map(|line| {
-        let parsed = serde_json::from_str::<serde_json::Value>(line).ok()?;
-        if parsed
-            .get("tier")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|tier| tier == "state")
-        {
-            Some(parsed)
-        } else {
-            None
-        }
-    });
+    let latest = latest_state_sweep_evidence(repo_root);
     let Some(latest) = latest else {
         return CheckOutcome::failing(
-            "no state-tier sweep run found in sweep history",
+            "no persisted state-tier sweep artefact found in sweep history or sweep-runs cache",
             Some(history_path),
         );
     };
     let passed = latest
+        .payload
         .get("failed")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(1)
         == 0
         && latest
+            .payload
             .get("errors")
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(1)
             == 0;
-    let report_path = latest
-        .get("report_path")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown");
+    let report_path = &latest.report_path;
     let failed = latest
+        .payload
         .get("failed")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
     let errors = latest
+        .payload
         .get("errors")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
     let advisory = latest
+        .payload
         .get("divergence_summary")
         .and_then(|summary| summary.get("advisory"))
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
     let oracle_limitations = latest
+        .payload
         .get("divergence_summary")
         .and_then(|summary| summary.get("oracle_limitation"))
         .and_then(serde_json::Value::as_u64)
@@ -3734,14 +3802,14 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
             format!(
                 "latest state sweep passed (failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
             ),
-            Some(history_path),
+            Some(latest.source_path),
         )
     } else {
         CheckOutcome::failing(
             format!(
                 "latest state sweep reported failures (failed={failed}, errors={errors}, report={report_path})"
             ),
-            Some(history_path),
+            Some(latest.source_path),
         )
     }
 }
@@ -5631,6 +5699,88 @@ mod tests {
         assert!(
             note.contains("timestamp 1775369195"),
             "refreshed note should include the latest state-sweep timestamp"
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_prefers_newer_state_sweep_report_when_history_lags() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        let fresh_sweep_dir = temp_dir.path().join(".cache/sweep-runs/1775371457");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::create_dir_all(&fresh_sweep_dir).expect("fresh sweep dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1775371457",
+  "target": "1p-accurate",
+  "passed": false,
+  "steps": [
+    {
+      "name": "gameplay_compare:pause_resume_level1",
+      "status": "failed",
+      "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+    }
+  ]
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775371156","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":191,"accumulation":0,"rng":0,"oracle_limitation":668},"report_path":"/tmp/stale-report.json","field_summary":[{"field":"game_mode","total_diffs":13,"levels":12,"level_ids":["0x00"],"checkpoints":["idle_tail"],"checkpoint_counts":[{"checkpoint":"idle_tail","diffs":12}],"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":13}}],"release_gate_focus":[{"target":"1p-accurate","step_name":"gameplay_compare:pause_resume_level1","checkpoint":"level_settle@719","field":"game_mode","native_value":"0x0008","oracle_value":"0x000c","summary":"stale summary"}]}
+"#,
+        )
+        .expect("stale sweep history should write");
+        fs::write(
+            fresh_sweep_dir.join("report.json"),
+            "{\n  \"timestamp\": \"1775371457\",\n  \"kid_core_hash\": \"deadbeef\",\n  \"levels\": [{\"level_id\": 0, \"slug\": \"idle_level_00\", \"tier\": \"state\", \"passed\": true, \"state_diffs\": [], \"mae\": null, \"diff_images\": [], \"error\": null, \"divergence_summary\": {\"authoritative\": 0, \"advisory\": 0, \"accumulation\": 0, \"rng\": 0, \"oracle_limitation\": 0}}],\n  \"passed\": 69,\n  \"failed\": 0,\n  \"errors\": 0,\n  \"divergence_summary\": {\"authoritative\": 0, \"advisory\": 191, \"accumulation\": 0, \"rng\": 0, \"oracle_limitation\": 668},\n  \"field_summary\": [{\"field\": \"game_mode\", \"total_diffs\": 13, \"levels\": 12, \"level_ids\": [\"0x00\"], \"checkpoints\": [\"idle_tail\", \"level_settle\"], \"checkpoint_counts\": [{\"checkpoint\": \"idle_tail\", \"diffs\": 12}, {\"checkpoint\": \"level_settle\", \"diffs\": 1}], \"divergence_summary\": {\"authoritative\": 0, \"advisory\": 0, \"accumulation\": 0, \"rng\": 0, \"oracle_limitation\": 13}}],\n  \"release_gate_focus\": [{\"target\": \"1p-accurate\", \"step_name\": \"gameplay_compare:pause_resume_level1\", \"checkpoint\": \"level_settle@719\", \"field\": \"game_mode\", \"native_value\": \"0x0008\", \"oracle_value\": \"0x000c\", \"summary\": \"fresh summary from report\"}]\n}\n",
+        )
+        .expect("fresh sweep report should write");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        let rendered_note = render_source_port_next_agent_note(
+            task.frontier_context
+                .as_ref()
+                .expect("frontier context should exist"),
+            &task,
+        );
+
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "release-gate-focus"
+                    && item.detail.contains("fresh summary from report")
+                    && item.detail.contains("timestamp 1775371457")
+                    && item
+                        .artefact_path
+                        .as_ref()
+                        .is_some_and(|path| path == &fresh_sweep_dir.join("report.json"))),
+            "task should prefer the newer persisted sweep report when history is stale"
+        );
+        assert!(
+            rendered_note.contains("fresh summary from report"),
+            "next-agent note should surface the newer sweep report summary"
         );
     }
 
