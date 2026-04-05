@@ -73,6 +73,21 @@ Start with `kidcli project-status` or `mise run project-status`.
   - `./kid.bin`
   - `./kc.md`
 
+## Cleanup
+
+Generated artefacts can grow quickly. The repo now exposes manual cleanup tasks:
+
+- `mise run clean-build` removes `target/`
+- `mise run clean-cache` prunes disposable cache artefacts and old run histories while preserving expensive bootstrap/toolchain caches such as `.cache/oracles/`, `.cache/oracle-cache/`, `.cache/generated/`, and `.cache/tooling/`
+- `mise run clean-all` removes `target/` and performs aggressive cache cleanup, including those expensive caches
+
+Inspect what would be deleted without removing anything:
+
+```bash
+python3 scripts/cleanup_generated.py --dry-run
+python3 scripts/cleanup_generated.py --aggressive --dry-run
+```
+
 ## Quick start
 
 ```bash

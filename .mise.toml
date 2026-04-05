@@ -196,3 +196,20 @@ description = "Single RL/Codex source-port run that pipes the live delegated pro
 [tasks.audit-debug-fields]
 run = "python3 scripts/audit_debug_fields.py"
 description = "Check that emitted debug fields are registered and stale candidates are promoted or exempted"
+
+[tasks.clean-build]
+run = "cargo clean"
+description = "Remove Cargo build artefacts under target/"
+
+[tasks.clean-cache]
+run = "python3 scripts/cleanup_generated.py --balanced --skip-build"
+description = "Prune generated cache artefacts while preserving expensive bootstrap/toolchain caches"
+
+[tasks.clean-all]
+run = """
+sh -ec '
+cargo clean
+python3 scripts/cleanup_generated.py --aggressive --skip-build
+'
+"""
+description = "Remove Cargo build artefacts plus aggressive generated-cache cleanup"
