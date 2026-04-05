@@ -360,6 +360,22 @@ fn collision_size_entry_sub_21f8(
     }
 }
 
+fn support_overlap_candidate_sub_9832(
+    x_anchor_px: i16,
+    y_anchor_px: i16,
+    mirrored: bool,
+    active: bool,
+    collision_sizes: Vec<CollisionSizeEntrySub21F8>,
+) -> SupportOverlapCandidateSub9832 {
+    SupportOverlapCandidateSub9832 {
+        x_anchor_px,
+        y_anchor_px,
+        mirrored,
+        active,
+        collision_sizes,
+    }
+}
+
 #[test]
 fn stop_z80_guard_sub_914_nests_the_stop_request_and_raises_sr() {
     let mut runtime = NativeRuntime::new(manifest());
@@ -884,6 +900,61 @@ fn first_shooter_projectile_overlap_sub_226a_mirrors_offsets_before_subtracting_
             projectile_index: 0,
         }),
         "ASM loc_22D2 negates the mirrored left offset, anchors the facing edge first, and only then subtracts the width back across the sprite body",
+    );
+}
+
+#[test]
+fn juggernaut_support_overlap_sub_9832_skips_inactive_and_zero_sentinel_entries() {
+    assert!(
+        juggernaut_support_overlap_sub_9832(
+            120,
+            80,
+            &[
+                support_overlap_candidate_sub_9832(
+                    120,
+                    80,
+                    false,
+                    false,
+                    vec![collision_size_entry_sub_21f8(-2, 4, -20, 10)],
+                ),
+                support_overlap_candidate_sub_9832(
+                    120,
+                    80,
+                    false,
+                    true,
+                    vec![
+                        collision_size_entry_sub_21f8(0, 4, -20, 10),
+                        collision_size_entry_sub_21f8(-2, 4, -20, 10),
+                    ],
+                ),
+                support_overlap_candidate_sub_9832(
+                    120,
+                    80,
+                    false,
+                    true,
+                    vec![collision_size_entry_sub_21f8(-2, 4, -20, 10)],
+                ),
+            ],
+        ),
+        "ASM sub_9832 should skip deleted objects, stop each object on a zero CollisionSize sentinel, then return on the first inclusive overlap",
+    );
+}
+
+#[test]
+fn juggernaut_support_overlap_sub_9832_mirrors_collision_boxes_for_set_x_direction() {
+    assert!(
+        juggernaut_support_overlap_sub_9832(
+            120,
+            80,
+            &[support_overlap_candidate_sub_9832(
+                155,
+                80,
+                true,
+                true,
+                vec![collision_size_entry_sub_21f8(-5, 10, -20, 10)],
+            )],
+        ),
+        "ASM loc_98B0 should negate the left offset for mirrored objects before subtracting width back toward the opposite edge",
     );
 }
 

@@ -2513,6 +2513,16 @@ pub(crate) struct KidProjectileHitboxCandidateSub226A {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SupportOverlapCandidateSub9832 {
+    pub(crate) x_anchor_px: i16,
+    pub(crate) y_anchor_px: i16,
+    pub(crate) mirrored: bool,
+    pub(crate) active: bool,
+    pub(crate) collision_sizes: Vec<CollisionSizeEntrySub21F8>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterProjectileOverlapSub226A {
     pub(crate) shooter_index: usize,
@@ -2602,6 +2612,66 @@ pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     }
 
     None
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn juggernaut_support_overlap_sub_9832(
+    x_px: i16,
+    y_px: i16,
+    candidates: &[SupportOverlapCandidateSub9832],
+) -> bool {
+    // ASM sub_9832 (kid.asm:11367): build Kid's support rectangle as
+    // `x_pos-$28 .. x_pos+$28` and `y_pos-$1F .. y_pos-$0F`, then walk the
+    // live object list from `$FFFFF86A`. Deleted objects (`$3D(a2)`) are
+    // skipped, and each candidate scans successive 8-byte CollisionSize
+    // entries until a zero first word terminates that object.
+    let kid_left_px = x_px.saturating_sub(0x28);
+    let kid_right_px = x_px.saturating_add(0x28);
+    let kid_top_px = y_px.saturating_sub(0x1F);
+    let kid_bottom_px = kid_top_px.saturating_add(0x10);
+
+    for candidate in candidates {
+        if !candidate.active {
+            continue;
+        }
+
+        for collision_size in &candidate.collision_sizes {
+            if collision_size.left_offset_px == 0 {
+                break;
+            }
+
+            let (left_px, right_px) = if !candidate.mirrored {
+                let left_px = candidate
+                    .x_anchor_px
+                    .saturating_add(collision_size.left_offset_px);
+                let right_px = left_px.saturating_add(collision_size.width_px);
+                (left_px, right_px)
+            } else {
+                let right_px = candidate
+                    .x_anchor_px
+                    .saturating_sub(collision_size.left_offset_px);
+                let left_px = right_px.saturating_sub(collision_size.width_px);
+                (left_px, right_px)
+            };
+            let top_px = candidate
+                .y_anchor_px
+                .saturating_add(collision_size.top_offset_px);
+            let bottom_px = top_px.saturating_add(collision_size.height_px);
+
+            if left_px > kid_right_px
+                || right_px < kid_left_px
+                || top_px > kid_bottom_px
+                || bottom_px < kid_top_px
+            {
+                continue;
+            }
+
+            return true;
+        }
+    }
+
+    false
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
