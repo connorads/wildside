@@ -382,6 +382,12 @@ pub(crate) struct SoundDriverWriteSubE1334 {
     pub(crate) queued_bytes: [u8; 2],
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteSubE1338 {
+    pub(crate) queued_bytes: [u8; 2],
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -401,6 +407,16 @@ pub(crate) fn sound_driver_write_sub_E1334() -> SoundDriverWriteSubE1334 {
     // into the GEMS ring with no extra payload byte.
     SoundDriverWriteSubE1334 {
         queued_bytes: [0xFF, 0x0C],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E1338() -> SoundDriverWriteSubE1338 {
+    // ASM sub_E1338 -> sub_E1568 (kid.asm:49499, 49840): queue `FF 0D`
+    // into the GEMS ring with no extra payload byte.
+    SoundDriverWriteSubE1338 {
+        queued_bytes: [0xFF, 0x0D],
     }
 }
 

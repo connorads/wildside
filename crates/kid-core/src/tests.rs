@@ -781,6 +781,19 @@ fn sound_driver_write_sub_e1334_queues_ff_0c_without_payload() {
     );
 }
 
+#[test]
+fn sound_driver_write_sub_e1338_queues_ff_0d_without_payload() {
+    let write = sound_driver_write_sub_E1338();
+
+    assert_eq!(
+        write,
+        SoundDriverWriteSubE1338 {
+            queued_bytes: [0xFF, 0x0D],
+        },
+        "ASM sub_E1338 should thunk to sub_E1568 and queue `FF 0D` into the GEMS ring with no trailing payload byte",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }
