@@ -592,6 +592,7 @@ pub(crate) struct HelmetState {
     pub(crate) eyeclops_beam_active: bool,
     pub(crate) maniaxe_axe_active: bool,
     pub(crate) maniaxe_turnaround: u8,
+    pub(crate) juggernaut_skull_delay_frames: u8,
     pub(crate) iron_knight_climbing: bool,
     pub(crate) iron_knight_climb_accel: i16,
     pub(crate) berzerker_charge_accum: u8,

@@ -17,6 +17,33 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     (x_px << 16, y_px << 16)
 }
 
+fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
+    projectile.friendly
+        && projectile.gravity == JUGGERNAUT_SKULL_GRAVITY
+        && projectile.homing_accel == 0
+        && projectile.speed_cap == 0
+        && !projectile.terrain_kill
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u32, u32, i32) {
+    // ASM sub_87B0 (kid.asm:9625): the spawned skull starts 8px above Kid and
+    // 26px toward the current facing, with `x_vel=±4px/frame`.
+    let x_offset_px = if player.facing == Direction::Right {
+        JUGGERNAUT_SKULL_OFFSET_X
+    } else {
+        -JUGGERNAUT_SKULL_OFFSET_X
+    };
+    let x_vel = if player.facing == Direction::Right {
+        JUGGERNAUT_SKULL_X_SPEED
+    } else {
+        -JUGGERNAUT_SKULL_X_SPEED
+    };
+    let x_px = ((player.x_pos >> 16) as i32 + x_offset_px).max(0) as u32;
+    let y_px = ((player.y_pos >> 16) as i32 + JUGGERNAUT_SKULL_OFFSET_Y).max(0) as u32;
+    (x_px << 16, y_px << 16, x_vel)
+}
+
 /// Diamond Power type active for the current activation.
 /// ASM: DiamondPower_Init_Index (kid.asm:44375) maps form+tier to power type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -906,42 +933,51 @@ impl NativeRuntime {
     /// Juggernaut skull shot: C fires a skull projectile with gravity arc.
     pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Juggernaut {
+            self.helmet.juggernaut_skull_delay_frames = 0;
             return;
+        }
+
+        if self.helmet.juggernaut_skull_delay_frames > 0 {
+            self.helmet.juggernaut_skull_delay_frames -= 1;
+            if self.helmet.juggernaut_skull_delay_frames == 0 {
+                let (x_pos, y_pos, x_velocity) =
+                    juggernaut_skull_spawn_anchor_sub_87B0(&slice.player);
+                self.projectiles.push(EnemyProjectile {
+                    x_pos,
+                    y_pos,
+                    x_velocity,
+                    y_velocity: 0,
+                    lifetime: JUGGERNAUT_SKULL_LIFETIME,
+                    friendly: true,
+                    gravity: JUGGERNAUT_SKULL_GRAVITY,
+                    homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
+                    reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                    ..Default::default()
+                });
+            }
         }
 
         let c_pressed = input.c && !self.prior_input.c;
-        if !c_pressed {
+        if !c_pressed || self.helmet.juggernaut_skull_delay_frames > 0 {
             return;
         }
 
-        // Max 8 skulls active at once (ASM: cmpi.w #8,($FFFFFB70))
+        // ASM loc_8D2C (kid.asm:10136) checks the shared live-skull count
+        // before it allocates the deferred `sub_86FA` worker.
         let active_skulls = self
             .projectiles
             .iter()
-            .filter(|p| p.friendly && p.gravity != 0)
+            .filter(|projectile| is_juggernaut_skull_projectile(projectile))
             .count();
         if active_skulls >= JUGGERNAUT_MAX_SKULLS {
             return;
         }
 
-        let dir = if slice.player.facing == Direction::Right {
-            1
-        } else {
-            -1
-        };
-        self.projectiles.push(EnemyProjectile {
-            x_pos: slice.player.x_pos,
-            y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
-            x_velocity: JUGGERNAUT_SKULL_X_SPEED * dir,
-            y_velocity: 0,
-            lifetime: JUGGERNAUT_SKULL_LIFETIME,
-            friendly: true,
-            gravity: JUGGERNAUT_SKULL_GRAVITY,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
-            ..Default::default()
-        });
+        // ASM sub_86FA (kid.asm:9568) hibernates for three frames while the
+        // firing worker tracks Kid, then spawns `sub_87B0`.
+        self.helmet.juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES;
     }
 
     /// Diamond Power: Start+A with 20+ diamonds activates a per-form special.

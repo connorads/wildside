@@ -19770,7 +19770,7 @@ fn eyeclops_c_held_does_not_fire() {
 // --- Juggernaut skull shot tests ---
 
 #[test]
-fn juggernaut_c_press_fires_skull() {
+fn juggernaut_c_press_arms_sub_86fa_before_spawning_sub_87b0() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::Juggernaut;
     let slice = combat_slice();
@@ -19781,9 +19781,34 @@ fn juggernaut_c_press_fires_skull() {
 
     rt.step_juggernaut_skull(&slice, input);
 
-    assert_eq!(rt.projectiles.len(), 1, "should spawn a skull projectile");
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM sub_86FA should hibernate before the skull worker appears"
+    );
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
+
+    for expected in [2, 1] {
+        rt.prior_input = input;
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, expected);
+        assert!(rt.projectiles.is_empty());
+    }
+
+    rt.prior_input = FrameInput::default();
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+
+    assert_eq!(rt.projectiles.len(), 1, "third wake should spawn the skull");
     assert!(rt.projectiles[0].friendly);
     assert_eq!(rt.projectiles[0].gravity, JUGGERNAUT_SKULL_GRAVITY);
+    assert_eq!(
+        rt.projectiles[0].x_pos,
+        ((128 + JUGGERNAUT_SKULL_OFFSET_X) as u32) << 16
+    );
+    assert_eq!(
+        rt.projectiles[0].y_pos,
+        ((256 + JUGGERNAUT_SKULL_OFFSET_Y) as u32) << 16
+    );
+    assert_eq!(rt.projectiles[0].x_velocity, JUGGERNAUT_SKULL_X_SPEED);
 }
 
 #[test]

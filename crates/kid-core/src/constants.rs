@@ -524,6 +524,10 @@ pub(crate) const JUGGERNAUT_SKULL_X_SPEED: i32 = 0x4_0000; // 4 px/frame
 pub(crate) const JUGGERNAUT_SKULL_GRAVITY: i32 = 0x1000; // $1000/frame gravity on y_vel
 pub(crate) const JUGGERNAUT_SKULL_LIFETIME: u16 = 120;
 pub(crate) const JUGGERNAUT_MAX_SKULLS: usize = 8;
+pub(crate) const JUGGERNAUT_SKULL_STARTUP_FRAMES: u8 = 3;
+pub(crate) const JUGGERNAUT_SKULL_OFFSET_X: i32 = 26;
+pub(crate) const JUGGERNAUT_SKULL_OFFSET_Y: i32 = -8;
+pub(crate) const JUGGERNAUT_SKULL_BOUNCES: u8 = 4;
 
 // === Berzerker ===
 
