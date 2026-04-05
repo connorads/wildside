@@ -108,11 +108,14 @@ pub(crate) fn apply_platform_collision(
             if platform.x_velocity == 0 && platform.y_velocity == 0 {
                 continue;
             }
-            let plat_x_px = (platform.x_pos >> 16) as i32;
             let plat_y_px = (platform.y_pos >> 16) as i32;
-            let plat_right = plat_x_px + i32::from(platform.width_px);
-
-            if player_right < plat_x_px || player_left > plat_right {
+            if platform_support_check_sub_8ED0(
+                Some(platform),
+                slice.player.x_pos,
+                PLAYER_HALF_WIDTH,
+                PlayerForm::TheKid,
+                false,
+            ) {
                 continue;
             }
             // Player feet within snap distance of platform top → riding it
@@ -180,4 +183,36 @@ pub(crate) fn apply_platform_collision(
             return;
         }
     }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn platform_support_check_sub_8ED0(
+    platform: Option<&ActivePlatform>,
+    player_x_pos: u32,
+    collision_half_width_px: i32,
+    current_form: PlayerForm,
+    crawling: bool,
+) -> bool {
+    // ASM sub_8ED0 (kid.asm:10282): if no active platform is recorded, set
+    // `collision_type=4` and return unsupported. Otherwise, check whether
+    // Kid's centre ± active half-width still overlaps the platform span.
+    let Some(platform) = platform else {
+        return true;
+    };
+
+    let support_half_width_px = if crawling {
+        if current_form == PlayerForm::TheKid {
+            5
+        } else {
+            7
+        }
+    } else {
+        collision_half_width_px
+    };
+    let player_x_px = (player_x_pos >> 16) as i32;
+    let platform_left_px = (platform.x_pos >> 16) as i32;
+    let platform_right_px = platform_left_px + i32::from(platform.width_px);
+
+    player_x_px + support_half_width_px < platform_left_px
+        || player_x_px - support_half_width_px > platform_right_px
 }

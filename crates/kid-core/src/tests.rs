@@ -14741,6 +14741,74 @@ fn platform_collision_lands_falling_player() {
 }
 
 #[test]
+fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
+    assert!(
+        platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),
+        "ASM sub_8ED0 should return unsupported when Addr_PlatformStandingOn is zero",
+    );
+}
+
+#[test]
+fn platform_support_check_sub_8ed0_uses_the_supplied_half_width_when_not_crawling() {
+    let platform = make_test_platform(40, 100, 2, 0);
+
+    assert!(
+        !platform_support_check_sub_8ED0(
+            Some(&platform),
+            35u32 << 16,
+            7,
+            PlayerForm::RedStealth,
+            false,
+        ),
+        "ASM sub_8ED0 should keep support when centre+half-width still overlaps the platform edge",
+    );
+    assert!(
+        platform_support_check_sub_8ED0(
+            Some(&platform),
+            32u32 << 16,
+            7,
+            PlayerForm::RedStealth,
+            false,
+        ),
+        "ASM sub_8ED0 should drop support once centre+half-width falls strictly left of the platform",
+    );
+}
+
+#[test]
+fn platform_support_check_sub_8ed0_uses_crawl_width_overrides() {
+    let platform = make_test_platform(40, 100, 2, 0);
+
+    assert!(
+        !platform_support_check_sub_8ED0(
+            Some(&platform),
+            34u32 << 16,
+            23,
+            PlayerForm::Juggernaut,
+            true,
+        ),
+        "ASM sub_8ED0 should clamp crawling non-Kid forms to a 7px support half-width",
+    );
+    assert!(
+        platform_support_check_sub_8ED0(
+            Some(&platform),
+            32u32 << 16,
+            23,
+            PlayerForm::Juggernaut,
+            true,
+        ),
+        "ASM sub_8ED0 should still drop crawling non-Kid forms once centre+7px misses the edge",
+    );
+    assert!(
+        !platform_support_check_sub_8ED0(Some(&platform), 35u32 << 16, 7, PlayerForm::TheKid, true,),
+        "ASM sub_8ED0 should narrow crawling Kid support to 5px, keeping the last overlapping position",
+    );
+    assert!(
+        platform_support_check_sub_8ED0(Some(&platform), 34u32 << 16, 7, PlayerForm::TheKid, true,),
+        "ASM sub_8ED0 should drop crawling Kid support one pixel earlier than the generic 7px path",
+    );
+}
+
+#[test]
 fn platform_collision_ignores_grounded_player() {
     let platform = make_test_platform(40, 100, 2, 0);
     let mut slice = make_airborne_slice(50, 100);
