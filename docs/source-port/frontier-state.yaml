@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-03-27T08:39:06Z",
+  "updated_at": "2026-04-05T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -96,7 +96,8 @@
       }
     ],
     "required_next_evidence": [
-      "No successor frontier is open in the published any-percent tail; rerun the full `verify-tas --frame-start 23250 --bisect` sweep only when a new regression or broader frontier is introduced."
+      "No successor frontier is open in the published any-percent tail; rerun the full `verify-tas --frame-start 23250 --bisect` sweep only when a new regression or broader frontier is introduced.",
+      "`issue-137` is blocked as a gameplay case: `verify-recording --slug issue-137` still reports `trace_match: true` with `oracle_state_match: false` / `oracle_frame_match: false`, the transcript only reaches `TitleScreen` on frame 599 and never enters gameplay, and the derived `issue-137_case_00000_00120` bundle is non-authoritative because the source recording replay length drifted (`recorded 2239`, `replay 120`). Re-record from settled Level 00 gameplay before reopening this lane as an actionable case."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_frame_32005 -- --nocapture",
