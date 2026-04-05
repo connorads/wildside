@@ -360,6 +360,26 @@ fn collision_size_entry_sub_21f8(
     }
 }
 
+#[test]
+fn stop_z80_guard_sub_914_nests_the_stop_request_and_raises_sr() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.stop_z80_guard_sub_914();
+
+    assert_eq!(
+        runtime.z80_stop_request_depth, 1,
+        "ASM sub_914 should increment `$FFFFF805` before stopping the Z80",
+    );
+    assert_eq!(
+        runtime.z80_guard_sr, 0x2700,
+        "ASM sub_914 should raise SR to `$2700` before `j_Stop_z80`",
+    );
+    assert!(
+        !runtime.z80_running,
+        "ASM sub_914 should halt the native Z80 mirror after the guard enters",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

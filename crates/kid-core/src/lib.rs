@@ -111,6 +111,18 @@ pub struct NativeRuntime {
     blocks_hit_this_frame: u8,
     /// Sound test play pending (consumed each frame).
     sound_test_play_pending: bool,
+    /// ASM sub_914 / sub_924 nest counter at `$FFFFF805`: active Z80 stop
+    /// requests. Zero means the Z80 bus may run; non-zero keeps it halted.
+    #[allow(dead_code)]
+    z80_stop_request_depth: u8,
+    /// ASM sub_914 / sub_924 writes SR directly before stopping/starting the
+    /// Z80 so later gameplay code can observe the current interrupt mask.
+    #[allow(dead_code)]
+    z80_guard_sr: u16,
+    /// Native mirror of the Z80 run state toggled by ASM `j_Stop_z80` /
+    /// `j_Start_z80`.
+    #[allow(dead_code)]
+    z80_running: bool,
     /// ASM OptionScreen_Input `Option_2PInput`: false = one controller, true = two.
     options_two_player_two_controllers: bool,
     /// ASM OptionScreen_Input `Options_Suboption_Controls`: 0..=5.
@@ -415,6 +427,9 @@ impl NativeRuntime {
             rom_random: RomRandomState::default(),
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
+            z80_stop_request_depth: 0,
+            z80_guard_sr: 0x2500,
+            z80_running: true,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,
             options_speed_button_fast: false,
@@ -497,6 +512,17 @@ impl NativeRuntime {
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
         runtime
+    }
+
+    #[allow(non_snake_case)]
+    #[allow(dead_code)]
+    fn stop_z80_guard_sub_914(&mut self) {
+        // ASM sub_914 (kid.asm:1027): increment `$FFFFF805`, raise SR to
+        // `$2700`, then call `j_Stop_z80` unconditionally. Nested callers keep
+        // stacking the byte counter even though the bus is already halted.
+        self.z80_stop_request_depth = self.z80_stop_request_depth.wrapping_add(1);
+        self.z80_guard_sr = 0x2700;
+        self.z80_running = false;
     }
 
     fn load_platform_script_table(&mut self) {
