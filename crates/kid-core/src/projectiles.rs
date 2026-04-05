@@ -27,6 +27,89 @@ pub(crate) fn kid_projectile_collision_passes_sub_1D76() -> [KidProjectileCollis
 }
 
 impl NativeRuntime {
+    fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
+        projectile.friendly
+            && projectile.gravity == JUGGERNAUT_SKULL_GRAVITY
+            && projectile.homing_accel == 0
+            && projectile.speed_cap == 0
+            && !projectile.terrain_kill
+    }
+
+    fn solid_terrain_at(grid: &terrain::BlockGrid, x_px: i32, y_px: i32) -> bool {
+        let col = terrain::pixel_to_cell(x_px).max(0) as u16;
+        let row = terrain::pixel_to_cell(y_px).max(0) as u16;
+        let cell = grid.cell_at(col, row);
+        cell.has_block && cell.collision != terrain::CollisionKind::Empty
+    }
+
+    #[allow(non_snake_case)]
+    fn step_juggernaut_skull_sub_87B0(
+        projectile: &mut EnemyProjectile,
+        grid: Option<&terrain::BlockGrid>,
+    ) -> bool {
+        let Some(grid) = grid else {
+            projectile.x_pos = (projectile.x_pos as i64 + i64::from(projectile.x_velocity)) as u32;
+            projectile.y_pos = (projectile.y_pos as i64 + i64::from(projectile.y_velocity)) as u32;
+            return true;
+        };
+
+        let original_y = projectile.y_pos;
+        let x_velocity = projectile.x_velocity;
+        let next_x = (i64::from(projectile.x_pos) + i64::from(x_velocity)) as u32;
+        projectile.x_pos = next_x;
+        let next_x_px = (next_x >> 16) as i32;
+        let current_y_px = (original_y >> 16) as i32;
+
+        if Self::solid_terrain_at(grid, next_x_px, current_y_px) {
+            let snapped_x_px = if x_velocity >= 0 {
+                (next_x_px & !0xF) - 1
+            } else {
+                (next_x_px & !0xF) + 16
+            };
+            projectile.x_pos = (snapped_x_px.max(0) as u32) << 16;
+            projectile.reaim_countdown = projectile.reaim_countdown.saturating_sub(1);
+            if projectile.reaim_countdown == 0 {
+                return false;
+            }
+
+            let decayed_x_velocity = if x_velocity > 0x1_0000 {
+                x_velocity - 0x1_0000
+            } else if x_velocity < -0x1_0000 {
+                x_velocity + 0x1_0000
+            } else {
+                x_velocity
+            };
+            projectile.x_velocity = -decayed_x_velocity;
+        }
+
+        let y_velocity = projectile.y_velocity;
+        let next_y = (i64::from(projectile.y_pos) + i64::from(y_velocity)) as u32;
+        projectile.y_pos = next_y;
+        let current_x_px = (projectile.x_pos >> 16) as i32;
+        let next_y_px = (next_y >> 16) as i32;
+        if Self::solid_terrain_at(grid, current_x_px, next_y_px) {
+            let snapped_y_px = if y_velocity >= 0 {
+                (next_y_px & !0xF) - 1
+            } else {
+                (next_y_px & !0xF) + 16
+            };
+            projectile.y_pos = (snapped_y_px.max(0) as u32) << 16;
+            projectile.reaim_countdown = projectile.reaim_countdown.saturating_sub(1);
+            if projectile.reaim_countdown == 0 {
+                return false;
+            }
+
+            // ASM sub_87B0 (kid.asm:9625): on a floor/ceiling hit, negate the
+            // current y-velocity then keep 3/4 of that rebound speed.
+            let negated = -y_velocity;
+            let half = negated >> 1;
+            let quarter = half >> 1;
+            projectile.y_velocity = half + quarter;
+        }
+
+        true
+    }
+
     fn release_lion_projectile_owners(&mut self, owners: Vec<EnemyProjectileOwner>) {
         for owner in owners {
             if let Some(enemy) = self.active_enemies.iter_mut().find(|enemy| {
@@ -100,6 +183,10 @@ impl NativeRuntime {
                     p.y_velocity = p.y_velocity.clamp(-p.speed_cap, p.speed_cap);
                 }
             }
+            if Self::is_juggernaut_skull_projectile(p) {
+                return Self::step_juggernaut_skull_sub_87B0(p, grid);
+            }
+
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
 

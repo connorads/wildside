@@ -19837,6 +19837,66 @@ fn juggernaut_skull_has_gravity() {
 }
 
 #[test]
+fn juggernaut_skull_sub_87b0_horizontal_bounce_reduces_speed_and_budget() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 30 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x4_0000,
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    let projectile = &rt.projectiles[0];
+    assert_eq!(
+        projectile.x_velocity, -0x3_0000,
+        "ASM sub_87B0 should reduce a +4px/frame skull rebound to -3px/frame after the first wall hit",
+    );
+    assert_eq!(
+        projectile.reaim_countdown,
+        u16::from(JUGGERNAUT_SKULL_BOUNCES - 1),
+        "ASM sub_87B0 should spend one of the four skull rebounds on that hit",
+    );
+}
+
+#[test]
+fn juggernaut_skull_sub_87b0_deletes_on_the_fourth_bounce() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 30 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x4_0000,
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        reaim_countdown: 1,
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM sub_87B0 should delete the skull when the last rebound is spent",
+    );
+}
+
+#[test]
 fn juggernaut_max_skull_limit() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::Juggernaut;
@@ -19849,7 +19909,11 @@ fn juggernaut_max_skull_limit() {
     // Fire 8 skulls
     for _ in 0..8 {
         rt.step_juggernaut_skull(&slice, input);
-        rt.prior_input = FrameInput::default(); // reset so next C is rising edge
+        rt.prior_input = input;
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        rt.prior_input = FrameInput::default();
     }
     assert_eq!(rt.projectiles.len(), 8);
 
