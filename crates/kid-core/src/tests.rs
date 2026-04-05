@@ -20426,6 +20426,58 @@ fn grounded_helmet_state_sub_78e8_clears_inactive_maniaxe_axe() {
 }
 
 #[test]
+fn grounded_special_state_reset_sub_db22_clears_transient_helmet_actions() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.helmet.cyclone_flying = true;
+    rt.helmet.skycutter_flipboard = 0x11;
+    rt.helmet.skycutter_on_board = true;
+    rt.helmet.red_stealth_sword_timer = 0x70;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.berzerker_charge_accum = 0xFF;
+    rt.helmet.berzerker_charging = true;
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = -0x2000;
+    rt.helmet.iron_knight_climb_pose_accum = 0x0123;
+
+    rt.clear_special_movement_state_sub_DB22();
+
+    assert!(
+        !rt.helmet.cyclone_flying,
+        "ASM sub_DB22 should clear `Cyclone_flying` on the shared grounded reset path",
+    );
+    assert_eq!(
+        rt.helmet.skycutter_flipboard, 0,
+        "ASM sub_DB22 should clear `$FFFFFA69` so Skycutter's transient flipboard pose stops immediately",
+    );
+    assert!(
+        !rt.helmet.skycutter_on_board,
+        "ASM sub_DB22 should clear `$FFFFFA6A` so Skycutter drops the mounted-board latch",
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM sub_DB22 should clear `Red_Stealth_sword_swing` once the shared airborne action ends",
+    );
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM sub_DB22 should clear `Maniaxe_throwing_axe` on the default-pose reset",
+    );
+    assert_eq!(
+        rt.helmet.berzerker_charge_accum, 0,
+        "ASM sub_DB22 should clear the Berzerker charge accumulator alongside `Berzerker_charging`",
+    );
+    assert!(
+        !rt.helmet.berzerker_charging,
+        "ASM sub_DB22 should clear `Berzerker_charging` before grounded movement resumes",
+    );
+    assert!(
+        !rt.helmet.iron_knight_climbing,
+        "ASM sub_DB22 should end Iron Knight's shared special-motion state on grounded reset",
+    );
+    assert_eq!(rt.helmet.iron_knight_climb_accel, 0);
+    assert_eq!(rt.helmet.iron_knight_climb_pose_accum, 0);
+}
+
+#[test]
 fn juggernaut_companion_step_sub_975c_preserves_a_live_animation_until_byte_18_arms() {
     assert_eq!(
         juggernaut_companion_step_sub_975C(

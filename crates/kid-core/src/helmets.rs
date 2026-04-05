@@ -692,26 +692,44 @@ pub(crate) fn diamond_power_object_reset_sub_3F63C(
 
 impl NativeRuntime {
     #[allow(non_snake_case)]
+    pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
+        // ASM sub_DB22 (kid.asm:17170): grounded/default-pose recovery clears
+        // the per-form transient action flags: Cyclone flight, Skycutter's
+        // flipboard/on-board latch, Red Stealth's downward slash, Maniaxe's
+        // thrown-axe state, and Berzerker / Iron Knight special motion.
+        self.helmet.cyclone_flying = false;
+        self.helmet.skycutter_on_board = false;
+        self.helmet.skycutter_flipboard = 0;
+        self.helmet.red_stealth_sword_timer = 0;
+        self.helmet.maniaxe_axe_active = false;
+        self.helmet.berzerker_charging = false;
+        self.helmet.berzerker_charge_accum = 0;
+        self.helmet.iron_knight_climbing = false;
+        self.helmet.iron_knight_climb_accel = 0;
+        self.helmet.iron_knight_climb_pose_accum = 0;
+    }
+
+    #[allow(non_snake_case)]
     pub(crate) fn refresh_grounded_helmet_state_sub_78E8(&mut self) {
         // ASM sub_78E8 (kid.asm:7973): grounded frames reset the default
         // helmet pose unless the form-specific grounded action is still live.
+        let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
+        let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
+        self.clear_special_movement_state_sub_DB22();
         match self.progression.current_form {
             PlayerForm::Maniaxe => {
-                if self.helmet.maniaxe_axe_active {
-                    let live_axe = self.projectiles.iter().any(|projectile| {
+                if previous_maniaxe_axe_active
+                    && self.projectiles.iter().any(|projectile| {
                         projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
-                    });
-                    if live_axe {
-                        return;
-                    }
+                    })
+                {
+                    self.helmet.maniaxe_axe_active = true;
                 }
-                self.helmet.maniaxe_axe_active = false;
             }
             PlayerForm::RedStealth => {
-                if self.helmet.red_stealth_sword_timer > 0 {
-                    return;
+                if previous_red_stealth_sword_timer > 0 {
+                    self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
                 }
-                self.helmet.red_stealth_sword_timer = 0;
             }
             PlayerForm::Eyeclops => {
                 self.helmet.eyeclops_beam_active = self
@@ -719,10 +737,7 @@ impl NativeRuntime {
                     .iter()
                     .any(|projectile| projectile.friendly && projectile.lifetime > 0);
             }
-            _ => {
-                self.helmet.maniaxe_axe_active = false;
-                self.helmet.red_stealth_sword_timer = 0;
-            }
+            _ => {}
         }
     }
 
