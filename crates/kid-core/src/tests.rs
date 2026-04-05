@@ -11,8 +11,9 @@ use crate::boot::{
 use crate::combat::*;
 use crate::helmets::{
     IronKnightClimbVisualSubA3BC, JuggernautCompanionStateSub975C, JuggernautCompanionStepSub975C,
-    JuggernautCompanionVisualSub975C, SkycutterVisualStateSub98F2,
-    iron_knight_climb_visual_sub_A3BC, juggernaut_companion_step_sub_975C,
+    JuggernautCompanionVisualSub975C, RedStealthFloorImpactKindSubB000,
+    SkycutterVisualStateSub98F2, iron_knight_climb_visual_sub_A3BC,
+    juggernaut_companion_step_sub_975C, red_stealth_floor_impact_sub_B000,
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
@@ -19846,6 +19847,71 @@ fn red_stealth_sword_no_hit_when_out_of_range() {
         rt.active_enemies[0].hit_points, 3,
         "out-of-range enemy should not be hit"
     );
+}
+
+#[test]
+fn red_stealth_floor_impact_sub_b000_breaks_smash_blocks_and_bounces_kid() {
+    let mut grid = grid_with_floor_at_row(10);
+    grid.set_cell_at(4, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+
+    let impact = red_stealth_floor_impact_sub_B000(
+        PlayerForm::RedStealth,
+        true,
+        &grid,
+        4 * 16 + 8,
+        2 * 16 - 1,
+    );
+
+    assert_eq!(
+        impact.kind,
+        RedStealthFloorImpactKindSubB000::Smash,
+        "ASM sub_B000 should route block type `$0` through `loc_B070` after the `sub_B55C` floor sample",
+    );
+    assert_eq!(impact.block_col, 4);
+    assert_eq!(impact.block_row, 2);
+    assert_eq!(impact.bounce_y_velocity, -0x0003_8000);
+}
+
+#[test]
+fn red_stealth_floor_impact_sub_b000_bounces_on_teleporters_without_breaking_them() {
+    let mut grid = grid_with_floor_at_row(10);
+    grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0xE4, 0x11));
+
+    let impact = red_stealth_floor_impact_sub_B000(
+        PlayerForm::RedStealth,
+        true,
+        &grid,
+        6 * 16 + 8,
+        3 * 16 - 1,
+    );
+
+    assert_eq!(
+        impact.kind,
+        RedStealthFloorImpactKindSubB000::BounceOnly,
+        "ASM sub_B000's `return_B056` path still forces `y_vel=-$38000` for block types `$3/$4` even though no destroy helper runs",
+    );
+    assert_eq!(impact.bounce_y_velocity, -0x0003_8000);
+}
+
+#[test]
+fn red_stealth_floor_impact_sub_b000_ignores_non_rom_block_types() {
+    let mut grid = grid_with_floor_at_row(10);
+    grid.set_cell_at(7, 4, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+
+    let impact = red_stealth_floor_impact_sub_B000(
+        PlayerForm::RedStealth,
+        true,
+        &grid,
+        7 * 16 + 8,
+        4 * 16 - 1,
+    );
+
+    assert_eq!(
+        impact.kind,
+        RedStealthFloorImpactKindSubB000::None,
+        "ASM sub_B000 rejects block types above `$5` before it ever loads `off_B058`",
+    );
+    assert_eq!(impact.bounce_y_velocity, 0);
 }
 
 // --- Maniaxe axe tests ---

@@ -17,6 +17,84 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     (x_px << 16, y_px << 16)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RedStealthFloorImpactKindSubB000 {
+    None,
+    Smash,
+    Prize,
+    Ice,
+    BounceOnly,
+    MetalBounce,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RedStealthFloorImpactSubB000 {
+    pub(crate) kind: RedStealthFloorImpactKindSubB000,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) bounce_y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn red_stealth_floor_impact_sub_B000(
+    current_form: PlayerForm,
+    sword_swing_active: bool,
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+) -> RedStealthFloorImpactSubB000 {
+    // ASM sub_B000 (kid.asm:13864): only Red Stealth with a live sword swing
+    // samples `sub_B55C` at `(x_pos(a3), y_pos(a3)+1)`. Solid block types
+    // `$0..$5` all force `y_vel(a3)=-$38000`; Smash/Prize/Ice and Metal route
+    // to their block helpers, while SolidGhost and Teleporter only bounce.
+    let none = RedStealthFloorImpactSubB000 {
+        kind: RedStealthFloorImpactKindSubB000::None,
+        block_col: 0,
+        block_row: 0,
+        bounce_y_velocity: 0,
+    };
+
+    if current_form != PlayerForm::RedStealth || !sword_swing_active {
+        return none;
+    }
+
+    if terrain::probe_relative_collision_sub_B55C(grid, center_x_px, foot_y_px, 0, 1)
+        != terrain::CollisionKind::Solid
+    {
+        return none;
+    }
+
+    let probe = terrain::probe_at(grid, center_x_px, foot_y_px + 1);
+    if !probe.cell.has_block {
+        return none;
+    }
+
+    let kind = match probe.cell.block_type {
+        terrain::BlockType::Smash => RedStealthFloorImpactKindSubB000::Smash,
+        terrain::BlockType::Prize => RedStealthFloorImpactKindSubB000::Prize,
+        terrain::BlockType::Ice => RedStealthFloorImpactKindSubB000::Ice,
+        terrain::BlockType::SolidGhost | terrain::BlockType::Teleporter => {
+            RedStealthFloorImpactKindSubB000::BounceOnly
+        }
+        terrain::BlockType::Metal => RedStealthFloorImpactKindSubB000::MetalBounce,
+        _ => RedStealthFloorImpactKindSubB000::None,
+    };
+
+    if kind == RedStealthFloorImpactKindSubB000::None {
+        return none;
+    }
+
+    RedStealthFloorImpactSubB000 {
+        kind,
+        block_col: probe.cell_x,
+        block_row: probe.cell_y,
+        bounce_y_velocity: -0x0003_8000,
+    }
+}
+
 fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
     projectile.friendly
         && projectile.gravity == JUGGERNAUT_SKULL_GRAVITY
