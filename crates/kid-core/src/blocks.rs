@@ -9,6 +9,34 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    pub(crate) fn step_lift_platform_sub_FCA6(
+        lift: &mut LiftPlatform,
+        level_height_pixels: u16,
+    ) -> bool {
+        // ASM sub_FCA6 (kid.asm:21021): hibernate one frame, call sub_FD00,
+        // increment `d1` only when the integer `6(a3)` word changes, apply the
+        // pre-/post-`$32` acceleration, then delete once `6(a3)` reaches the
+        // signed level height.
+        lift.age = lift.age.saturating_add(1);
+        lift.y_pos = Self::lift_platform_vertical_step_sub_FD00(lift.y_pos, lift.y_velocity);
+
+        let current_integer_y = (lift.y_pos >> 16) as u16;
+        if current_integer_y != lift.last_integer_y {
+            lift.moved_y_steps = lift.moved_y_steps.wrapping_add(1);
+            lift.last_integer_y = current_integer_y;
+        }
+
+        if lift.moved_y_steps > 0x32 {
+            lift.y_velocity = lift.y_velocity.wrapping_add(0x07D0);
+        } else {
+            lift.y_velocity = lift.y_velocity.wrapping_sub(0x0708);
+        }
+
+        let signed_integer_y = i32::from(i16::from_ne_bytes(current_integer_y.to_ne_bytes()));
+        signed_integer_y < i32::from(level_height_pixels)
+    }
+
+    #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_collision_rects_sub_F568(
         kid_hitbox: CollisionRectSub1F52,
@@ -812,38 +840,20 @@ impl NativeRuntime {
         grid.set_cell_at(col, foot_row, terrain::Cell::from_be_bytes(0, 0));
     }
 
-    /// Step lift platforms using ASM coroutine timing (sub_113C0).
-    /// Phase 1 (rise): 2px/frame up × 8 frames.
-    /// Phase 2 (erase): block erased from grid at frame 8.
-    /// Phase 3 (fall): 1px/frame down × 16 frames, then delete.
     pub(crate) fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
         self.block_state.lift_platforms.retain_mut(|lift| {
-            lift.age += 1;
-
-            if lift.age <= LIFT_RISE_FRAMES {
-                // Phase 1: rise at 2px/frame
-                let delta = -(LIFT_RISE_SPEED_PX << 16);
-                lift.y_velocity = delta;
-                lift.y_pos = Self::lift_platform_vertical_step_sub_FD00(lift.y_pos, delta);
-            } else if lift.age <= LIFT_RISE_FRAMES + LIFT_FALL_FRAMES {
-                // Phase 2: erase block from grid (once, at start of fall phase)
-                if !lift.block_erased {
-                    if let Some(grid) = &mut self.block_grid {
-                        grid.set_cell_at(
-                            lift.source_col,
-                            lift.source_row,
-                            terrain::Cell::from_be_bytes(0, 0),
-                        );
-                    }
-                    lift.block_erased = true;
+            if !lift.block_erased {
+                if let Some(grid) = &mut self.block_grid {
+                    grid.set_cell_at(
+                        lift.source_col,
+                        lift.source_row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
                 }
+                lift.block_erased = true;
+            }
 
-                // Phase 3: fall at 1px/frame
-                let delta = LIFT_FALL_SPEED_PX << 16;
-                lift.y_velocity = delta;
-                lift.y_pos = Self::lift_platform_vertical_step_sub_FD00(lift.y_pos, delta);
-            } else {
-                // Phase 4: delete
+            if !Self::step_lift_platform_sub_FCA6(lift, slice.level_bounds.height_pixels) {
                 return false;
             }
 
@@ -1004,6 +1014,8 @@ impl NativeRuntime {
                 y_pos: u32::from(y_px) << 16,
                 y_velocity: 0,
                 age: 0,
+                last_integer_y: y_px,
+                moved_y_steps: 0,
                 width_px: 16,
                 source_col: col,
                 source_row: row,

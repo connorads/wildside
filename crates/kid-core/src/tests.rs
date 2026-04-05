@@ -2126,6 +2126,8 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         y_pos: 0x0080_0000,
         y_velocity: 0,
         age: 3,
+        last_integer_y: 0x0080,
+        moved_y_steps: 0,
         width_px: 16,
         source_col: 7,
         source_row: 8,
@@ -6719,46 +6721,70 @@ fn lift_block_headbutt_spawns_platform() {
 }
 
 #[test]
-fn lift_platform_rises_then_falls_asm_timing() {
-    // ASM sub_113C0: 2px/frame × 8 frames up, then 1px/frame × 16 frames down
-    let start_y: u32 = 100 << 16;
-    let lift = LiftPlatform {
+fn lift_platform_step_sub_fca6_counts_only_integer_y_changes() {
+    let mut lift = LiftPlatform {
         x_pos: 32 << 16,
-        y_pos: start_y,
+        y_pos: 100 << 16,
         y_velocity: 0,
         age: 0,
+        last_integer_y: 100,
+        moved_y_steps: 0,
         width_px: 16,
         source_col: 2,
         source_row: 6,
         block_erased: false,
     };
 
-    // Simulate rise: 8 frames × 2px/frame = 16px up
-    let mut rt = NativeRuntime::new(manifest());
-    rt.block_state.lift_platforms.push(lift);
-    let bounds = LevelBounds {
-        width_pixels: 320,
-        height_pixels: 256,
-    };
-    let mut slice = OpeningSliceState::new(bounds);
-    slice.player.x_pos = 0; // away from platform
-    for _ in 0..8 {
-        rt.step_lift_platforms(&mut slice);
-    }
-    assert_eq!(rt.block_state.lift_platforms.len(), 1);
-    let y_after_rise = rt.block_state.lift_platforms[0].y_pos >> 16;
-    assert_eq!(y_after_rise, 100 - 16, "should rise 16px in 8 frames");
+    assert!(NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256));
+    assert_eq!(lift.y_pos, 100 << 16);
+    assert_eq!(lift.y_velocity, -0x0708);
+    assert_eq!(lift.moved_y_steps, 0);
 
-    // Simulate fall: 16 frames × 1px/frame = 16px down
-    for _ in 0..16 {
-        rt.step_lift_platforms(&mut slice);
-    }
-    // After 24 total frames the last fall frame runs; frame 25 deletes
-    rt.step_lift_platforms(&mut slice);
-    assert!(
-        rt.block_state.lift_platforms.is_empty(),
-        "lift should be deleted after rise+fall phases"
+    assert!(NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256));
+    assert_eq!(lift.y_pos, 0x0063_F8F8);
+    assert_eq!(lift.y_velocity, -0x0E10);
+    assert_eq!(lift.last_integer_y, 99);
+    assert_eq!(lift.moved_y_steps, 1);
+    assert_eq!(
+        lift.age, 2,
+        "ASM sub_FCA6 should only advance `d1` once `sub_FD00` changes the integer `6(a3)` word",
     );
+}
+
+#[test]
+fn lift_platform_step_sub_fca6_switches_accel_after_0x32_moved_rows_and_deletes_at_level_height() {
+    let mut lift = LiftPlatform {
+        x_pos: 32 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        age: 0,
+        last_integer_y: 100,
+        moved_y_steps: 0,
+        width_px: 16,
+        source_col: 2,
+        source_row: 6,
+        block_erased: false,
+    };
+
+    for _ in 0..69 {
+        assert!(NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256));
+    }
+    assert_eq!(lift.moved_y_steps, 51);
+    assert_eq!(lift.y_velocity, -0x1D650);
+
+    for _ in 69..264 {
+        assert!(NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256));
+    }
+    assert_eq!(
+        (lift.y_pos >> 16) as u16,
+        0x00FE,
+        "ASM sub_FCA6 should still keep the platform alive while `6(a3)` is below `Level_height_pixels`",
+    );
+    assert!(
+        !NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256),
+        "ASM sub_FCA6 should delete the platform on the first frame where signed `6(a3)` reaches the level height",
+    );
+    assert_eq!((lift.y_pos >> 16) as u16, 0x0102);
 }
 
 fn grid_with_hidden_block() -> terrain::BlockGrid {
@@ -32659,6 +32685,8 @@ fn lift_platform_carries_grounded_player() {
         y_pos: lift_y,
         y_velocity: 0,
         age: 0,
+        last_integer_y: 100,
+        moved_y_steps: 0,
         width_px: 16,
         source_col: 2,
         source_row: 6,
@@ -32672,15 +32700,23 @@ fn lift_platform_carries_grounded_player() {
     slice.player.on_ground = true;
     slice.terrain.floor_y_pos = lift_y;
 
-    // Step: lift rises at 2px/frame
     rt.step_lift_platforms(&mut slice);
+    assert_eq!(
+        rt.block_state.lift_platforms[0].y_pos, lift_y,
+        "ASM sub_FCA6 should leave `6(a3)` unchanged on the first frame because `$E(a3)` starts at zero",
+    );
+    assert_eq!(
+        slice.player.y_pos,
+        lift_y.wrapping_add_signed(-0x0708),
+        "grounded riders should still inherit the newly updated `$E(a3)` even before the integer `6(a3)` word changes",
+    );
 
-    let expected_lift_y = (100 - 2) << 16;
+    rt.step_lift_platforms(&mut slice);
+    let expected_lift_y = 0x0063_F8F8;
     assert_eq!(
         rt.block_state.lift_platforms[0].y_pos, expected_lift_y as u32,
-        "lift should rise 2px"
+        "ASM sub_FCA6 should move the lift by the fractional `sub_FD00` step on the second frame",
     );
-    // Player should have been carried along
     assert!(
         slice.player.y_pos < lift_y,
         "player should be carried upward with the lift"
@@ -32722,6 +32758,8 @@ fn process_block_effects_lift_spawns_platform() {
     assert_eq!(rt.block_state.lift_platforms[0].source_col, 48 / 16);
     assert_eq!(rt.block_state.lift_platforms[0].source_row, 80 / 16);
     assert_eq!(rt.block_state.lift_platforms[0].age, 0);
+    assert_eq!(rt.block_state.lift_platforms[0].last_integer_y, 80);
+    assert_eq!(rt.block_state.lift_platforms[0].moved_y_steps, 0);
     assert!(!rt.block_state.lift_platforms[0].block_erased);
 }
 

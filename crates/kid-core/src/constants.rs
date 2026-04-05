@@ -585,15 +585,6 @@ pub(crate) const MICROMAX_DETACH_Y_VEL: i32 = -0x4_0000;
 /// Micromax detach X speed: 2.0 FP (kick away from surface).
 pub(crate) const MICROMAX_DETACH_X_SPEED: i32 = 0x2_0000;
 
-// === Lift blocks ===
-
-/// Lift block rise: 2px/frame × 8 frames (ASM sub_113C0 loc_113F4: dbf d0=#7, subq.w #2).
-pub(crate) const LIFT_RISE_SPEED_PX: i32 = 2;
-pub(crate) const LIFT_RISE_FRAMES: u16 = 8;
-/// Lift block fall: 1px/frame × 16 frames (ASM sub_113C0 loc_1141E: dbf d0=#$F, subq.w #1).
-pub(crate) const LIFT_FALL_SPEED_PX: i32 = 1;
-pub(crate) const LIFT_FALL_FRAMES: u16 = 16;
-
 // === Murder wall ===
 
 /// Murder wall acceleration per frame (kid.asm:7456 `addi.l #$100`).

@@ -1212,6 +1212,11 @@ pub(crate) struct LiftPlatform {
     pub(crate) y_velocity: i32,
     /// Frames since activation.
     pub(crate) age: u16,
+    /// ASM sub_FCA6 keeps the previous integer `6(a3)` word in `d0` so it can
+    /// count only the frames where the platform actually moves to a new pixel.
+    pub(crate) last_integer_y: u16,
+    /// ASM sub_FCA6 increments `d1` only when `6(a3)` changes.
+    pub(crate) moved_y_steps: u16,
     /// Width in pixels (one block = 16px).
     pub(crate) width_px: u16,
     /// Grid column of the source block (for erasing after rise phase).
