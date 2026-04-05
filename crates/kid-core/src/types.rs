@@ -1702,10 +1702,13 @@ impl LevelTimer {
         let new_seconds = self.seconds + super::LEVEL_TIMER_CLOCK_BONUS_SECONDS;
         if new_seconds >= super::LEVEL_TIMER_MAX_SECONDS {
             self.seconds = super::LEVEL_TIMER_MAX_SECONDS;
-            self.sub_frames = super::LEVEL_TIMER_FRAMES_PER_SECOND;
         } else {
             self.seconds = new_seconds;
         }
+        // ASM loc_FFFC (kid.asm:21295) runs immediately before the clock
+        // collect tail at loc_10002 and always writes `#1` to
+        // `Time_SubSeconds`, even when the timer does not cap at 10:00.
+        self.sub_frames = 1;
     }
 }
 

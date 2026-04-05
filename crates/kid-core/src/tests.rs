@@ -17158,8 +17158,13 @@ fn level_timer_clock_bonus_adds_three_minutes() {
         timer.tick();
     }
     assert_eq!(timer.seconds, 120); // 2:00 remaining
+    timer.sub_frames = 37;
     timer.add_clock_bonus();
     assert_eq!(timer.seconds, 300); // 5:00 remaining
+    assert_eq!(
+        timer.sub_frames, 1,
+        "ASM loc_FFFC / loc_10002 should reset `Time_SubSeconds` to 1 on every collected clock"
+    );
 }
 
 #[test]
@@ -17172,8 +17177,13 @@ fn level_timer_clock_bonus_caps_at_ten_minutes() {
     timer.add_clock_bonus();
     assert_eq!(timer.seconds, 540);
     // Add another → would be 12:00, capped to 10:00
+    timer.sub_frames = 23;
     timer.add_clock_bonus();
     assert_eq!(timer.seconds, 600);
+    assert_eq!(
+        timer.sub_frames, 1,
+        "ASM loc_FFFC should still reset `Time_SubSeconds` to 1 when the 10:00 cap path clamps the timer"
+    );
 }
 
 #[test]
