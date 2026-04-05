@@ -62,6 +62,33 @@ pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsG
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ObjectGfxLinksSubE02 {
+    pub(crate) object_slot_address: u32,
+    pub(crate) gfx_slot_address: u32,
+    pub(crate) gfx_to_object_link: u32,
+    pub(crate) object_to_gfx_link: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn allocate_object_and_gfx_links_sub_E02(
+    object_slot_address: u32,
+    gfx_slot_address: u32,
+) -> ObjectGfxLinksSubE02 {
+    // ASM sub_E02 (kid.asm:1622): `Allocate_ObjectSlot` leaves the new object
+    // in `a0`, `Allocate_GfxObjectSlot_a1` leaves the gfx object in `a1`,
+    // then the routine cross-links them through object `$36(a0)` and gfx
+    // `$C(a1)` before returning.
+    ObjectGfxLinksSubE02 {
+        object_slot_address,
+        gfx_slot_address,
+        gfx_to_object_link: object_slot_address,
+        object_to_gfx_link: gfx_slot_address,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn hide_end_sequence_credits_glyphs_sub_1D7E6(display_enabled: &mut [bool; 6]) {

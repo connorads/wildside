@@ -8697,6 +8697,20 @@ fn end_sequence_credits_glyph_init_sub_1d786_uses_the_expected_gfx_object_defaul
 }
 
 #[test]
+fn allocate_object_and_gfx_links_sub_e02_cross_links_the_new_slots() {
+    let links = allocate_object_and_gfx_links_sub_E02(0x00FF_8000, 0x00FF_9000);
+
+    assert_eq!(
+        links.gfx_to_object_link, 0x00FF_8000,
+        "ASM sub_E02 should write the allocated object slot pointer into gfx `$C(a1)`",
+    );
+    assert_eq!(
+        links.object_to_gfx_link, 0x00FF_9000,
+        "ASM sub_E02 should write the allocated gfx slot pointer into object `$36(a0)`",
+    );
+}
+
+#[test]
 fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
     let mut display_enabled = [true, false, true, true, false, true];
 
