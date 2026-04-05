@@ -22,12 +22,13 @@ use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, FullscreenPaletteFadeSub73D0, LinkedObjectSlotInit,
     SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
-    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_scratch_queue_sub_28FC, initialise_sprite_frame_state_sub_B52,
+    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
+    drain_fg_update_queue_custom_sub_1596, fade_palette_span_sub_1C85E,
+    flagpole_scoreboard_step_sub_C254, initialise_evanesc_object_slots_sub_EABC,
+    initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
+    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
     scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
     step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
 };
@@ -1131,6 +1132,45 @@ fn initialise_evanesc_object_slots_sub_eabc_chains_all_40_slots_and_clears_the_a
             .windows(2)
             .all(|pair| pair[0].next_slot_addr == pair[1].slot_addr),
         "ASM sub_EABC should build a contiguous `$0C`-stride free list through all 40 evanescent slots",
+    );
+}
+
+#[test]
+fn initialise_shooter_object_slots_sub_f06a_chains_all_20_slots_and_resets_last_hit_coords() {
+    let state: ShooterObjectSlotsSubF06A = initialise_shooter_object_slots_sub_F06A();
+
+    assert_eq!(state.next_free_shooter_object_slot_addr, 0xFFFF_E7F2);
+    assert_eq!(state.first_shooter_object_slot_addr, 0);
+    assert_eq!(state.shooter_slots.len(), 20);
+    assert_eq!(state.last_shooter_block_col, -1);
+    assert_eq!(state.last_shooter_block_row, -1);
+    assert_eq!(
+        state.shooter_slots[0],
+        LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_E7F2,
+            next_slot_addr: 0xFFFF_E800,
+        }
+    );
+    assert_eq!(
+        state.shooter_slots[18],
+        LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_E8EE,
+            next_slot_addr: 0xFFFF_E8FC,
+        }
+    );
+    assert_eq!(
+        state.shooter_slots[19],
+        LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_E8FC,
+            next_slot_addr: 0,
+        }
+    );
+    assert!(
+        state
+            .shooter_slots
+            .windows(2)
+            .all(|pair| pair[0].next_slot_addr == pair[1].slot_addr),
+        "ASM sub_F06A should build a contiguous `$0E`-stride free list through all 20 shooter slots",
     );
 }
 

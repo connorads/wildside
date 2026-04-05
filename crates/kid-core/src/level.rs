@@ -38,6 +38,9 @@ const SPRITE_DYNAMIC_ART_ADDR_SUB_B52: u32 = 0xFFFF_0500;
 const EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC: u32 = 0xFFFF_EBDA;
 const EVANESCENT_OBJECT_SLOT_STRIDE_SUB_EABC: u16 = 0x000C;
 const EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC: usize = 40;
+const SHOOTER_OBJECT_RAM_ADDR_SUB_F06A: u32 = 0xFFFF_E7F2;
+const SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A: u16 = 0x000E;
+const SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A: usize = 20;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +71,16 @@ pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
     pub(crate) first_evanescent_object_slot_addr: u32,
     pub(crate) evanescent_slots: Vec<LinkedObjectSlotInit>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShooterObjectSlotsSubF06A {
+    pub(crate) next_free_shooter_object_slot_addr: u32,
+    pub(crate) first_shooter_object_slot_addr: u32,
+    pub(crate) shooter_slots: Vec<LinkedObjectSlotInit>,
+    pub(crate) last_shooter_block_col: i16,
+    pub(crate) last_shooter_block_row: i16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,6 +191,38 @@ pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObject
         next_free_evanescent_object_slot_addr: EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC,
         first_evanescent_object_slot_addr: 0,
         evanescent_slots,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {
+    // ASM sub_F06A (kid.asm:19595): seed the shooter-object free list at
+    // `$FFFFE7F2` as 20 contiguous `$0E`-byte slots whose `$C(a0)` word points
+    // to the next slot, clear `Addr_FirstShooterObjectSlot`, then reset the
+    // last-triggered shooter cell coordinates at `$FFFFF8BE/$FFFFF8C0` to -1.
+    let mut shooter_slots = Vec::with_capacity(SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A);
+    let mut slot_addr = SHOOTER_OBJECT_RAM_ADDR_SUB_F06A;
+    for slot_index in 0..SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A {
+        let is_last = slot_index + 1 == SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A;
+        let next_slot_addr = if is_last {
+            0
+        } else {
+            slot_addr + u32::from(SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A)
+        };
+        shooter_slots.push(LinkedObjectSlotInit {
+            slot_addr,
+            next_slot_addr,
+        });
+        slot_addr += u32::from(SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A);
+    }
+
+    ShooterObjectSlotsSubF06A {
+        next_free_shooter_object_slot_addr: SHOOTER_OBJECT_RAM_ADDR_SUB_F06A,
+        first_shooter_object_slot_addr: 0,
+        shooter_slots,
+        last_shooter_block_col: -1,
+        last_shooter_block_row: -1,
     }
 }
 
