@@ -6382,6 +6382,59 @@ fn form_transform_iron_knight_changes_form_and_hitpoints() {
     );
 }
 
+#[test]
+fn transform_overlap_column_blocked_sub_7bea_scans_upward_for_bit_14_tiles() {
+    let grid = grid_with_cells(8, 8, &[(2, 3, 0x60, 0x00)]);
+
+    assert!(
+        terrain::transform_overlap_column_blocked_sub_7bea(&grid, 32, 79, 1),
+        "ASM sub_7BEA should start on the `y_pos(a3)>>4` row and keep scanning upward until the DBF count is exhausted",
+    );
+    assert!(
+        !terrain::transform_overlap_column_blocked_sub_7bea(&grid, 32, 79, 0),
+        "with a zero DBF count, sub_7BEA should only test the starting row",
+    );
+}
+
+#[test]
+fn resolve_transform_overlap_sub_7b30_pushes_right_from_a_left_wall() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[(1, 4, 0x60, 0x00)]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let cleared_x = runtime
+        .resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight)
+        .expect("ASM sub_7B30 should push right into the next tile gap when only the left probe is blocked");
+
+    assert_eq!(
+        cleared_x, 39,
+        "ASM sub_7B30 should compute `((x-half_width)&$FFF0)+$10+half_width` for the left-wall recovery",
+    );
+}
+
+#[test]
+fn resolve_transform_overlap_sub_7b30_pushes_left_from_the_right_boundary() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[]));
+    let mut slice = OpeningSliceState::new(LevelBounds {
+        width_pixels: 128,
+        height_pixels: 128,
+    });
+    slice.player.x_pos = 122 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let cleared_x = runtime
+        .resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight)
+        .expect("ASM sub_7B30 should fall back to the mirrored left push when the right edge reaches `Level_width_pixels`");
+
+    assert_eq!(
+        cleared_x, 120,
+        "ASM sub_7B30 should compute `((x+half_width)&$FFF0)-1-half_width` for the right-boundary recovery",
+    );
+}
+
 // -----------------------------------------------------------------------
 // MiniHoppingSkull hopper behaviour
 // -----------------------------------------------------------------------

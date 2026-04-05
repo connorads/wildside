@@ -1106,34 +1106,79 @@ impl NativeRuntime {
         if self.progression.form_width_delta == 0 {
             return;
         }
-        let Some(grid) = self.block_grid.as_ref() else {
+        if self.block_grid.is_none() {
             self.progression.form_width_delta = 0;
             return;
-        };
+        }
 
-        let x_px = (slice.player.x_pos >> 16) as i32;
-        let y_px = (slice.player.y_pos >> 16) as i32;
-        let new_half = self.progression.current_form.half_width();
-
-        // Probe left edge (x - half_width)
-        let left_edge = x_px - new_half;
-        let left_probe = terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, false);
-        if left_probe.hit {
-            // Push right: align to tile boundary + half_width
-            let aligned = (left_edge & !0xF) + 16 + new_half;
-            slice.player.x_pos = (aligned as u32) << 16;
-        } else {
-            // Probe right edge (x + half_width)
-            let right_edge = x_px + new_half;
-            let right_probe = terrain::probe_wall(grid, x_px, y_px, new_half, PLAYER_HEIGHT, true);
-            if right_probe.hit {
-                // Push left: ASM formula (right_edge & 0xFFF0) - 1 - half_width
-                let aligned = (right_edge & !0xF) - 1 - new_half;
-                slice.player.x_pos = (aligned as u32) << 16;
-            }
+        if let Some(aligned_x) =
+            self.resolve_transform_overlap_sub_7b30(slice, self.progression.current_form)
+        {
+            slice.player.x_pos = (aligned_x as u32) << 16;
         }
 
         self.progression.form_width_delta = 0;
+    }
+
+    fn resolve_transform_overlap_sub_7b30(
+        &self,
+        slice: &OpeningSliceState,
+        target_form: PlayerForm,
+    ) -> Option<i32> {
+        let grid = self.block_grid.as_ref()?;
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let foot_y_px = (slice.player.y_pos >> 16) as i32;
+        let half_width = target_form.half_width();
+        let probe_height = target_form.ceiling_probe_height() + 1;
+        let mut rows_up = if probe_height == 0x10 { 0 } else { 1 };
+        if foot_y_px & 0xF != 0xF {
+            rows_up += 1;
+        }
+
+        let left_edge = x_px - half_width;
+        if left_edge < 0 {
+            let cleared_x = half_width;
+            let right_edge = cleared_x + half_width;
+            return if terrain::transform_overlap_column_blocked_sub_7bea(
+                grid, right_edge, foot_y_px, rows_up,
+            ) {
+                None
+            } else {
+                Some(cleared_x)
+            };
+        }
+
+        if terrain::transform_overlap_column_blocked_sub_7bea(grid, left_edge, foot_y_px, rows_up) {
+            let cleared_x = (left_edge & !0xF) + 16 + half_width;
+            let right_edge = cleared_x + half_width;
+            return if terrain::transform_overlap_column_blocked_sub_7bea(
+                grid, right_edge, foot_y_px, rows_up,
+            ) {
+                None
+            } else {
+                Some(cleared_x)
+            };
+        }
+
+        let right_edge = x_px + half_width;
+        if right_edge < grid.width_pixels()
+            && !terrain::transform_overlap_column_blocked_sub_7bea(
+                grid, right_edge, foot_y_px, rows_up,
+            )
+        {
+            return Some(x_px);
+        }
+
+        let cleared_x = (right_edge & !0xF) - 1 - half_width;
+        if cleared_x < 0 {
+            return None;
+        }
+        let left_edge = cleared_x - half_width;
+        if terrain::transform_overlap_column_blocked_sub_7bea(grid, left_edge, foot_y_px, rows_up) {
+            None
+        } else {
+            Some(cleared_x)
+        }
     }
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {

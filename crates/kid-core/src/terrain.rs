@@ -1029,6 +1029,42 @@ fn sets_collision_bit_14(cell: Cell) -> bool {
     )
 }
 
+pub(crate) fn transform_overlap_column_blocked_sub_7bea(
+    grid: &BlockGrid,
+    x_px: i32,
+    foot_y_px: i32,
+    rows_up: u16,
+) -> bool {
+    // ASM sub_7BEA (kid.asm:8317): start from the row containing `y_pos(a3)`,
+    // walk upward one row per `suba.w Level_width_tiles,a4`, and stop as soon
+    // as any scanned cell carries bit `$4000`.
+    if x_px < 0 || foot_y_px < 0 {
+        return false;
+    }
+
+    let column = pixel_to_cell(x_px);
+    if column < 0 || column >= i32::from(grid.width_cells) {
+        return false;
+    }
+
+    let mut row = pixel_to_cell(foot_y_px);
+    if row < 0 {
+        return false;
+    }
+
+    for _ in 0..=rows_up {
+        if row >= 0
+            && row < i32::from(grid.height_cells)
+            && sets_collision_bit_14(grid.cell_at(column as u16, row as u16))
+        {
+            return true;
+        }
+        row -= 1;
+    }
+
+    false
+}
+
 fn horizontal_collision_scan(
     grid: &BlockGrid,
     center_x_px: i32,
