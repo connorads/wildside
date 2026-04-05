@@ -6453,6 +6453,24 @@ fn prize_block_deleted_tile_loc_101d8_queues_the_deleted_solid_cell_before_the_b
 }
 
 #[test]
+fn prize_block_deleted_tile_loc_10200_keeps_the_advanced_queue_state_for_the_bounce_coroutine() {
+    let result = NativeRuntime::prize_block_deleted_tile_loc_101D8(0x0012, 0x0007, 0x05);
+
+    assert!(
+        !result.child_display_enabled,
+        "ASM loc_10200 should execute `st $13(a3)` before the bounce coroutine, leaving the child gfx-object hidden while the deleted tile wobbles",
+    );
+    assert_eq!(
+        result.sound_effect_label, "sfx_Block_hit",
+        "ASM loc_10200 should preserve `d0` across `j_PlaySound` so the queued block column still feeds the later hibernated bounce",
+    );
+    assert_eq!(
+        result.animation_script_addr, 0x0001_0296,
+        "ASM loc_10200 should load `stru_10296` into `d7` before handing control to `j_Init_Animation`",
+    );
+}
+
+#[test]
 fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
     let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();
 

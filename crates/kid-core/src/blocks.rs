@@ -211,9 +211,10 @@ impl NativeRuntime {
         // ASM loc_101D8 (kid.asm:21459): write the deleted-solid tile by
         // storing `d4` into `(a0)` and then overriding only the high byte with
         // `$6F`, queue the same `(d0,d1,d4)` triple into
-        // `FGUpdateQueueCell_NextSlot`, clear the child display byte with
-        // `st $13(a3)`, then preserve `d0` across the `sfx_Block_hit` call and
-        // seed `d7` with `stru_10296`.
+        // `FGUpdateQueueCell_NextSlot`. ASM loc_10200 (kid.asm:21474) then
+        // publishes that advanced queue pointer, clears the child display byte
+        // with `st $13(a3)`, preserves `d0` across the `sfx_Block_hit` call,
+        // and seeds `d7` with `stru_10296` before the bounce coroutine.
         PrizeBlockDeletedTileLoc101D8 {
             written_cell: terrain::Cell::from_be_bytes(0x6F, deleted_skin),
             fg_queue_entry: (block_col, block_row, u16::from(deleted_skin)),
