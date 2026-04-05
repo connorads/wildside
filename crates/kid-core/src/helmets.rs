@@ -72,6 +72,17 @@ pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
     }
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn juggernaut_five_way_shot_ready_sub_7428(
+    current_form: PlayerForm,
+    input: FrameInput,
+    diamond_count: u16,
+) -> bool {
+    // ASM sub_7428 (kid.asm:7569): only Juggernaut with Start+A held and at
+    // least 5 diamonds may arm `FiveWayShotReady`.
+    current_form == PlayerForm::Juggernaut && input.start && input.a && diamond_count >= 5
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
@@ -1028,8 +1039,14 @@ impl NativeRuntime {
             return;
         }
 
-        // Juggernaut 5-Way Shot only costs 5 diamonds (ASM: special case)
-        let cost = if self.progression.current_form == PlayerForm::Juggernaut {
+        // ASM sub_7428 (kid.asm:7569) arms Juggernaut's 5-way shot once
+        // Start+A is held with 5+ diamonds; the shared DiamondPower_Run path
+        // then spends that reduced cost instead of the normal 20.
+        let cost = if juggernaut_five_way_shot_ready_sub_7428(
+            self.progression.current_form,
+            input,
+            self.progression.diamond_count,
+        ) {
             5
         } else {
             20

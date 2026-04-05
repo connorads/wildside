@@ -6033,6 +6033,56 @@ fn diamond_power_juggernaut_costs_5_diamonds() {
 }
 
 #[test]
+fn juggernaut_five_way_shot_ready_sub_7428_requires_start_a_and_five_diamonds() {
+    assert!(
+        helmets::juggernaut_five_way_shot_ready_sub_7428(
+            PlayerForm::Juggernaut,
+            FrameInput {
+                start: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            5,
+        ),
+        "ASM sub_7428 should arm `FiveWayShotReady` only when Juggernaut holds Start+A with at least 5 diamonds",
+    );
+    assert!(
+        !helmets::juggernaut_five_way_shot_ready_sub_7428(
+            PlayerForm::Juggernaut,
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            },
+            5,
+        ),
+        "ASM sub_7428 should reject missing A"
+    );
+    assert!(
+        !helmets::juggernaut_five_way_shot_ready_sub_7428(
+            PlayerForm::Juggernaut,
+            FrameInput {
+                a: true,
+                ..FrameInput::default()
+            },
+            5,
+        ),
+        "ASM sub_7428 should reject missing Start"
+    );
+    assert!(
+        !helmets::juggernaut_five_way_shot_ready_sub_7428(
+            PlayerForm::Juggernaut,
+            FrameInput {
+                start: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            4,
+        ),
+        "ASM sub_7428 should reject fewer than 5 diamonds"
+    );
+}
+
+#[test]
 fn diamond_power_iron_knight_tier2_grants_hp() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
