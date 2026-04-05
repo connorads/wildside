@@ -20,16 +20,16 @@ use crate::helmets::{
 };
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, FullscreenPaletteFadeSub73D0, SUB_28FC_SLOT_COUNT,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0,
+    FlagpoleScoreboardStepSubC254, FullscreenPaletteFadeSub73D0, LinkedObjectSlotInit,
+    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0,
     blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
     compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
     fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
-    initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
-    initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    swap_forest_background_palette_entries_sub_129AE,
+    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
+    initialise_scratch_queue_sub_28FC, initialise_sprite_frame_state_sub_B52,
+    scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
+    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -1094,6 +1094,43 @@ fn initialise_scratch_queue_sub_28fc_clears_all_slots_and_rewinds_the_cursor() {
     assert_eq!(
         queue.slots_remaining, 6,
         "ASM sub_28FC should reload `$FFFFFAA0` with six available scratch slots",
+    );
+}
+
+#[test]
+fn initialise_evanesc_object_slots_sub_eabc_chains_all_40_slots_and_clears_the_active_head() {
+    let state = initialise_evanesc_object_slots_sub_EABC();
+
+    assert_eq!(state.next_free_evanescent_object_slot_addr, 0xFFFF_EBDA);
+    assert_eq!(state.first_evanescent_object_slot_addr, 0);
+    assert_eq!(state.evanescent_slots.len(), 40);
+    assert_eq!(
+        state.evanescent_slots[0],
+        LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_EBDA,
+            next_slot_addr: 0xFFFF_EBE6,
+        }
+    );
+    assert_eq!(
+        state.evanescent_slots[38],
+        LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_EDA2,
+            next_slot_addr: 0xFFFF_EDAE,
+        }
+    );
+    assert_eq!(
+        state.evanescent_slots[39],
+        LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_EDAE,
+            next_slot_addr: 0,
+        }
+    );
+    assert!(
+        state
+            .evanescent_slots
+            .windows(2)
+            .all(|pair| pair[0].next_slot_addr == pair[1].slot_addr),
+        "ASM sub_EABC should build a contiguous `$0C`-stride free list through all 40 evanescent slots",
     );
 }
 

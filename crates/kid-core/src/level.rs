@@ -35,6 +35,9 @@ pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
 const SPRITE_TABLE_ADDR_SUB_B52: u32 = 0xFFFF_0000;
 const SPRITE_DYNAMIC_ART_ADDR_SUB_B52: u32 = 0xFFFF_0500;
+const EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC: u32 = 0xFFFF_EBDA;
+const EVANESCENT_OBJECT_SLOT_STRIDE_SUB_EABC: u16 = 0x000C;
+const EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC: usize = 40;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,6 +53,21 @@ pub(crate) struct ScratchQueueSub28FC {
     pub(crate) slots: [[u8; SUB_28FC_SLOT_STRIDE_BYTES]; SUB_28FC_SLOT_COUNT],
     pub(crate) next_slot: usize,
     pub(crate) slots_remaining: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LinkedObjectSlotInit {
+    pub(crate) slot_addr: u32,
+    pub(crate) next_slot_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EvanescShooterObjectSlotsSubEABC {
+    pub(crate) next_free_evanescent_object_slot_addr: u32,
+    pub(crate) first_evanescent_object_slot_addr: u32,
+    pub(crate) evanescent_slots: Vec<LinkedObjectSlotInit>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,6 +149,35 @@ pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
         slots: [[0; SUB_28FC_SLOT_STRIDE_BYTES]; SUB_28FC_SLOT_COUNT],
         next_slot: 0,
         slots_remaining: SUB_28FC_SLOT_COUNT as u16,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObjectSlotsSubEABC {
+    // ASM sub_EABC (kid.asm:18834): seed the evanescent-object free list at
+    // `$FFFFEBDA` as 40 contiguous `$0C`-byte slots whose `$A(a0)` word points
+    // to the next slot, then clear `Addr_FirstEvanescObjectSlot`.
+    let mut evanescent_slots = Vec::with_capacity(EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC);
+    let mut slot_addr = EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC;
+    for slot_index in 0..EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC {
+        let is_last = slot_index + 1 == EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC;
+        let next_slot_addr = if is_last {
+            0
+        } else {
+            slot_addr + u32::from(EVANESCENT_OBJECT_SLOT_STRIDE_SUB_EABC)
+        };
+        evanescent_slots.push(LinkedObjectSlotInit {
+            slot_addr,
+            next_slot_addr,
+        });
+        slot_addr += u32::from(EVANESCENT_OBJECT_SLOT_STRIDE_SUB_EABC);
+    }
+
+    EvanescShooterObjectSlotsSubEABC {
+        next_free_evanescent_object_slot_addr: EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC,
+        first_evanescent_object_slot_addr: 0,
+        evanescent_slots,
     }
 }
 
