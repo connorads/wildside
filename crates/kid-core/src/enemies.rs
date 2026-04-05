@@ -2755,11 +2755,21 @@ pub(crate) fn step_driller(
     drilled
 }
 
-/// Ninja detection cone: player must be 0x20–0x50 pixels above and ±0x10 pixels
-/// horizontally (Ninja.asm lines 148-161).
+/// Ninja detection cone: player must be 0x20–0x50 pixels above and in the
+/// half-open X range [-0x10, +0x10) (Ninja.asm loc_3D706).
 pub(crate) const NINJA_DETECT_Y_MIN: i32 = 0x20;
 pub(crate) const NINJA_DETECT_Y_MAX: i32 = 0x50;
 pub(crate) const NINJA_DETECT_X_RANGE: i32 = 0x10;
+
+fn ninja_detects_player_while_stealthed(dx_px: i64, dy_px: i64) -> bool {
+    // ASM loc_3D706: attack only when kid_y - ninja_y is in [-$50, -$20] and
+    // kid_x - ninja_x is in [-$10, +$10). The right edge is exclusive because
+    // `cmpi.w #$10,d4` falls through only on `d4 < $10`.
+    dy_px >= NINJA_DETECT_Y_MIN as i64
+        && dy_px <= NINJA_DETECT_Y_MAX as i64
+        && dx_px >= -(NINJA_DETECT_X_RANGE as i64)
+        && dx_px < NINJA_DETECT_X_RANGE as i64
+}
 
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
@@ -2791,11 +2801,8 @@ pub(crate) fn step_ninja(
             let dx = (px as i64 - enemy.x_pos as i64) >> 16;
             let dy = (enemy.y_pos as i64 - py as i64) >> 16;
 
-            // Player must be 0x20–0x50 px above ninja and within ±0x10 px horizontally
-            if dy >= NINJA_DETECT_Y_MIN as i64
-                && dy <= NINJA_DETECT_Y_MAX as i64
-                && dx.abs() <= NINJA_DETECT_X_RANGE as i64
-            {
+            // Player must be 0x20–0x50 px above ninja and in [-0x10, +0x10).
+            if ninja_detects_player_while_stealthed(dx, dy) {
                 // Face the player
                 enemy.facing = if dx >= 0 {
                     Direction::Right
@@ -5047,6 +5054,15 @@ mod tests {
         }
     }
 
+    fn ninja_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Ninja,
+            hit_points: 2,
+            facing: Direction::Left,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
     #[test]
     fn tank_spawn_faces_toward_player_per_loc_3b2e4() {
         assert_eq!(
@@ -5182,6 +5198,27 @@ mod tests {
         step_tar_monster(&mut enemy, &mut projectiles);
 
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
+    }
+
+    #[test]
+    fn ninja_stealth_detection_excludes_positive_0x10_edge_per_loc_3d706() {
+        let mut enemy = ninja_test_enemy();
+        let player_x = (enemy.x_pos as i64 + ((NINJA_DETECT_X_RANGE as i64) << 16)) as u32;
+        let player_y = (enemy.y_pos as i64 - ((NINJA_DETECT_Y_MIN as i64) << 16)) as u32;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::TheKid,
+        );
+
+        assert_eq!(enemy.ninja_state, NinjaState::Stealth);
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM Ninja.asm loc_3D706 only enters the jump branch when kid_x - ninja_x < $10; the +$10 edge must stay in stealth"
+        );
     }
 }
 
