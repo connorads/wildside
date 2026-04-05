@@ -3576,7 +3576,8 @@ pub(crate) fn step_orca(
 //   Initial idle: 4f then 90f ($5A)
 //   Emerge animation: 24f (stru_3272E, 6 sprites × 4fps)
 //   Visible hold: 50f ($32) before attack
-//   Attack: 24f (8+8+8 wind-up/fire/wind-down), fires horizontal glob shot
+//   Attack: 27f (9+9+9 from `moveq #8,d0` + `dbf` in loc_3231C/loc_32348/loc_32360),
+//   fires the horizontal glob shot after the first 9-frame wind-up
 //   Submerge animation: 24f (stru_3274C, reverse of emerge)
 /// Initial submerged wait before first emergence (Tar_Monster.asm unk_32264: 4 + 90).
 pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 94;
@@ -3584,9 +3585,11 @@ pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 94;
 pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 24;
 /// Visible hold before attack sequence ($32 = 50 frames from bytecode).
 pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 50;
-/// Attack sequence: 8f wind-up + 8f fire + 8f wind-down = 24f.
-pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 24;
-/// Frame within attack at which glob shot fires (after 8f wind-up).
+/// Attack sequence duration. ASM loc_32310/loc_3231C/loc_32348/loc_32360:
+/// three `moveq #8,d0` + `dbf` loops, so each phase lasts 9 frames.
+pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 27;
+/// Zero-based elapsed frame index for the glob shot. ASM loc_3231C fires after
+/// the first 9-frame `dbf` loop, which is elapsed frame 8 in the native countdown.
 pub(crate) const TAR_MONSTER_ATTACK_FIRE_FRAME: u16 = 8;
 /// Submerge animation duration (24 frames, reverse of emerge).
 pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 24;
@@ -3605,7 +3608,7 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
         if enemy.tar_monster_state == TarMonsterState::Attacking {
             let elapsed = TAR_MONSTER_ATTACK_FRAMES - enemy.wait_timer;
             if elapsed == TAR_MONSTER_ATTACK_FIRE_FRAME {
-                // Fire horizontal glob shot (Tar_Monster.asm Op 5 line 175)
+                // ASM loc_3231C/loc_32348: spawn the glob after the first `dbf` loop.
                 let xv = match enemy.facing {
                     Direction::Right => TAR_MONSTER_GLOB_SPEED_X,
                     Direction::Left => -TAR_MONSTER_GLOB_SPEED_X,
@@ -5033,6 +5036,17 @@ mod tests {
         grid
     }
 
+    fn tar_monster_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::TarMonster,
+            hit_points: 2,
+            facing: Direction::Right,
+            tar_monster_state: TarMonsterState::Attacking,
+            wait_timer: TAR_MONSTER_ATTACK_FRAMES,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
     #[test]
     fn tank_spawn_faces_toward_player_per_loc_3b2e4() {
         assert_eq!(
@@ -5132,6 +5146,42 @@ mod tests {
             enemy.x_velocity, -0x0001_C000,
             "ASM Mini_Hopping_Skull.asm loc_3F1AA negates the live X velocity, so wall hits must preserve boosted magnitude"
         );
+    }
+
+    #[test]
+    fn tar_monster_attack_waits_nine_frames_before_firing_per_loc_32310() {
+        let mut enemy = tar_monster_test_enemy();
+        let mut projectiles = Vec::new();
+
+        for frame in 0..8 {
+            step_tar_monster(&mut enemy, &mut projectiles);
+            assert!(
+                projectiles.is_empty(),
+                "ASM Tar_Monster.asm loc_3231C uses `moveq #8,d0` + `dbf`, so frame {} is still part of the 9-frame wind-up",
+                frame + 1
+            );
+        }
+
+        step_tar_monster(&mut enemy, &mut projectiles);
+
+        assert_eq!(projectiles.len(), 1);
+    }
+
+    #[test]
+    fn tar_monster_attack_runs_twenty_seven_frames_per_loc_3231c() {
+        let mut enemy = tar_monster_test_enemy();
+        let mut projectiles = Vec::new();
+
+        for _ in 0..27 {
+            step_tar_monster(&mut enemy, &mut projectiles);
+        }
+
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Attacking);
+        assert_eq!(enemy.wait_timer, 0);
+
+        step_tar_monster(&mut enemy, &mut projectiles);
+
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
     }
 }
 
