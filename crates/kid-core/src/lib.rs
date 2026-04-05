@@ -434,6 +434,14 @@ pub(crate) struct SoundDriverWriteCommandSubE1482 {
     pub(crate) next_write_index: u8,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteByteSubE148E {
+    pub(crate) queued_byte: u8,
+    pub(crate) next_write_index: u8,
+    pub(crate) committed_write_index: u8,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -541,6 +549,23 @@ pub(crate) fn sound_driver_write_command_sub_E1482(
     SoundDriverWriteCommandSubE1482 {
         queued_bytes: [0xFF, command_byte],
         next_write_index: write_index.wrapping_add(2) & 0x3F,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_byte_sub_E148E(
+    write_index: u8,
+    command_byte: u8,
+) -> SoundDriverWriteByteSubE148E {
+    // ASM sub_E148E (kid.asm:49685): write `d0` into `(a1,d1.w)`, advance the
+    // 6-bit GEMS ring index by one, then commit the updated head byte through
+    // `a0`.
+    let next_write_index = write_index.wrapping_add(1) & 0x3F;
+    SoundDriverWriteByteSubE148E {
+        queued_byte: command_byte,
+        next_write_index,
+        committed_write_index: next_write_index,
     }
 }
 

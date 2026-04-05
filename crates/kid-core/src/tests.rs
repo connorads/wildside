@@ -885,6 +885,21 @@ fn sound_driver_write_command_sub_e1482_queues_ff_prefix_and_wraps_the_head_byte
     );
 }
 
+#[test]
+fn sound_driver_write_byte_sub_e148e_writes_one_ring_byte_and_wraps_head() {
+    let write = sound_driver_write_byte_sub_E148E(0x3F, 0xA5);
+
+    assert_eq!(
+        write,
+        SoundDriverWriteByteSubE148E {
+            queued_byte: 0xA5,
+            next_write_index: 0x00,
+            committed_write_index: 0x00,
+        },
+        "ASM sub_E148E should write `d0` into `(a1,d1.w)`, advance the 6-bit ring head by one, and store the committed head byte back through `a0`",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }
