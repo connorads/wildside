@@ -541,6 +541,16 @@ pub(crate) struct HiddenBlockRevealSubE3C6 {
     pub(crate) sprite_mapping: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockColumnUpdateSubE446 {
+    pub(crate) layout_addr: u16,
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) cell: Cell,
+    pub(crate) sprite_mapping: u16,
+    pub(crate) duration_frames: u16,
+}
+
 impl BlockList {
     /// Parse prize block entries from the raw Block List RAM dump.
     ///
@@ -755,6 +765,52 @@ impl BlockList {
             cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
             sprite_mapping,
         })
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_column_updates_sub_E446(
+        &self,
+        grid: &mut BlockGrid,
+        col: u16,
+        start_row: u16,
+        row_count_inclusive: u16,
+    ) -> Vec<HiddenBlockColumnUpdateSubE446> {
+        // ASM sub_E446 (kid.asm:17963) walks one visible column in
+        // Level_Layout, reveals every HiddenBlock cell it can resolve through
+        // sub_E37A/sub_E3C6, writes the new cell back immediately, and queues
+        // a `$12C`-frame object plus a foreground plane upload for the same
+        // location.
+        let mut updates = Vec::new();
+        for offset in 0..=row_count_inclusive {
+            let row = start_row.saturating_add(offset);
+            if row >= grid.height_cells || col >= grid.width_cells {
+                break;
+            }
+
+            let layout_addr =
+                (((u32::from(row) * u32::from(grid.width_cells)) + u32::from(col)) * 2) as u16;
+            if grid.cell_at(col, row).collision != CollisionKind::HiddenBlock {
+                continue;
+            }
+            let Some(entry) = self.hidden_block_by_layout_addr_sub_E37A(layout_addr) else {
+                continue;
+            };
+            let Some(reveal) = self.hidden_block_reveal_sub_E3C6(entry) else {
+                continue;
+            };
+
+            grid.set_cell_at(col, row, reveal.cell);
+            updates.push(HiddenBlockColumnUpdateSubE446 {
+                layout_addr,
+                col,
+                row,
+                cell: reveal.cell,
+                sprite_mapping: reveal.sprite_mapping,
+                duration_frames: 0x012C,
+            });
+        }
+        updates
     }
 }
 
@@ -2267,6 +2323,107 @@ mod tests {
             .is_none(),
             "ASM sub_E3C6 walks the prize list for type 1, so a hidden prize without a matching layout entry should not resolve",
         );
+    }
+
+    #[test]
+    fn hidden_block_column_updates_sub_e446_reveals_each_hidden_cell_inclusive_span() {
+        let width = 4u16;
+        let height = 5u16;
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        let set_cell = |data: &mut [u8], col: u16, row: u16, hi: u8, lo: u8| {
+            let offset = (usize::from(row) * usize::from(width) + usize::from(col)) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 1, 1, 0xA0, 0x00);
+        set_cell(&mut data, 1, 2, 0xA0, 0x00);
+        set_cell(&mut data, 1, 3, 0x60, 0x00);
+        let mut grid = BlockGrid::from_level_layout(&data, width, height);
+
+        let bl = BlockList {
+            prize_blocks: vec![PrizeBlockEntry {
+                layout_addr: 0x000A,
+                col: 1,
+                row: 1,
+                content: PrizeContent::Diamond,
+                disguised: false,
+            }],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![
+                HiddenBlockEntry {
+                    layout_addr: 0x000A,
+                    col: 1,
+                    row: 1,
+                    block_type: 0x01,
+                    block_setting: 0x02,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0012,
+                    col: 1,
+                    row: 2,
+                    block_type: 0x0A,
+                    block_setting: 0x01,
+                },
+            ],
+        };
+
+        let updates = bl.hidden_block_column_updates_sub_E446(&mut grid, 1, 1, 2);
+
+        assert_eq!(
+            updates,
+            vec![
+                HiddenBlockColumnUpdateSubE446 {
+                    layout_addr: 0x000A,
+                    col: 1,
+                    row: 1,
+                    cell: Cell::from_be_bytes(0xE1, 0x04),
+                    sprite_mapping: 0x1060,
+                    duration_frames: 0x012C,
+                },
+                HiddenBlockColumnUpdateSubE446 {
+                    layout_addr: 0x0012,
+                    col: 1,
+                    row: 2,
+                    cell: Cell::from_be_bytes(0xEA, 0x1D),
+                    sprite_mapping: 0x10E4,
+                    duration_frames: 0x012C,
+                },
+            ],
+            "ASM sub_E446 should walk the requested rows inclusively, reveal each resolvable HiddenBlock cell, and attach the `$12C` worker lifetime",
+        );
+        assert_eq!(grid.cell_at(1, 1), Cell::from_be_bytes(0xE1, 0x04));
+        assert_eq!(grid.cell_at(1, 2), Cell::from_be_bytes(0xEA, 0x1D));
+        assert_eq!(
+            grid.cell_at(1, 3),
+            Cell::from_be_bytes(0x60, 0x00),
+            "non-hidden cells in the walked column should be left alone",
+        );
+    }
+
+    #[test]
+    fn hidden_block_column_updates_sub_e446_skips_unresolved_hidden_cells() {
+        let width = 3u16;
+        let height = 4u16;
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        let offset = (usize::from(1u16) * usize::from(width) + usize::from(2u16)) * 2;
+        data[offset] = 0xA0;
+        let mut grid = BlockGrid::from_level_layout(&data, width, height);
+
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        let updates = bl.hidden_block_column_updates_sub_E446(&mut grid, 2, 1, 0);
+
+        assert!(
+            updates.is_empty(),
+            "ASM sub_E446 should leave HiddenBlock cells untouched when sub_E37A/sub_E3C6 cannot resolve them",
+        );
+        assert_eq!(grid.cell_at(2, 1), Cell::from_be_bytes(0xA0, 0x00));
     }
 
     #[test]
