@@ -25,6 +25,15 @@ pub(crate) struct PrizeBlockDeletedTileLoc101D8 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeBlockSpawnFlashLoc102B8 {
+    pub(crate) display_enabled: bool,
+    pub(crate) palette_line: u8,
+    pub(crate) addroffset_sprite: u16,
+    pub(crate) animation_script_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -250,6 +259,21 @@ impl NativeRuntime {
         // five-frame `addq.w #2,y_pos(a3)` rebound before the animation waits
         // to finish and the worker deletes itself.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_spawn_flash_loc_102B8() -> PrizeBlockSpawnFlashLoc102B8 {
+        // ASM loc_102B8 (kid.asm:21542): follow the worker's `$36(a5)` gfx
+        // link, hide it via `st $13(a3)`, force palette line 0, seed
+        // `addroffset_sprite(a3)` with `LnkTo_unk_E0F2E`, then run `stru_102DE`
+        // until completion before the worker deletes itself.
+        PrizeBlockSpawnFlashLoc102B8 {
+            display_enabled: false,
+            palette_line: 0,
+            addroffset_sprite: 0x0F2E,
+            animation_script_addr: 0x0001_02DE,
+        }
     }
 
     fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {

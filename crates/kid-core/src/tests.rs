@@ -6490,6 +6490,28 @@ fn prize_block_deleted_tile_loc_10200_keeps_the_advanced_queue_state_for_the_bou
 }
 
 #[test]
+fn prize_block_spawn_flash_loc_102b8_hides_the_child_gfx_and_runs_stru_102de() {
+    let result = NativeRuntime::prize_block_spawn_flash_loc_102B8();
+
+    assert!(
+        !result.display_enabled,
+        "ASM loc_102B8 should execute `st $13(a3)` on the worker's linked gfx object, leaving the spawned flash hidden until the animation script advances it",
+    );
+    assert_eq!(
+        result.palette_line, 0,
+        "ASM loc_102B8 should force `palette_line(a3)` to 0 before the flash animation begins",
+    );
+    assert_eq!(
+        result.addroffset_sprite, 0x0F2E,
+        "ASM loc_102B8 should seed `addroffset_sprite(a3)` with `LnkTo_unk_E0F2E-Data_Index` before `j_Init_Animation`",
+    );
+    assert_eq!(
+        result.animation_script_addr, 0x0001_02DE,
+        "ASM loc_102B8 should load `stru_102DE` into `d7` and wait for that flash script to finish before deleting the worker",
+    );
+}
+
+#[test]
 fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
     let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();
 
