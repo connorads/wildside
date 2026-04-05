@@ -1705,6 +1705,12 @@ impl OpeningSliceState {
                     form,
                     self.terrain.floor_terrain_type,
                 )
+            } else if form == PlayerForm::Skycutter {
+                physics::update_skycutter_horizontal_velocity_sub_9A20(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
+                )
             } else {
                 physics::update_horizontal_velocity(
                     self.player.x_velocity,
@@ -1919,6 +1925,12 @@ impl OpeningSliceState {
                     collision,
                     form,
                     self.terrain.floor_terrain_type,
+                )
+            } else if form == PlayerForm::Skycutter {
+                physics::update_skycutter_horizontal_velocity_sub_9A20(
+                    self.player.x_velocity,
+                    self.player.facing,
+                    h_input,
                 )
             } else {
                 physics::update_horizontal_velocity(

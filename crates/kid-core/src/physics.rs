@@ -466,6 +466,52 @@ pub fn update_horizontal_velocity(
     }
 }
 
+/// Update Skycutter ground velocity on flat terrain.
+///
+/// ASM sub_9A20 (kid.asm:11588): unlike the shared loc_9B2E walker tables,
+/// Skycutter uses fixed walk/run caps of `$20000/$40000` with `$2000/$4000`
+/// steps and keeps the current facing as the primary branch selector.
+#[allow(non_snake_case)]
+pub fn update_skycutter_horizontal_velocity_sub_9A20(
+    x_vel: i32,
+    facing: Direction,
+    input: HorizontalInput,
+) -> (i32, Direction) {
+    let facing_right = match facing {
+        Direction::Right => !input.left,
+        Direction::Left => input.right,
+    };
+    let next_facing = if input.right {
+        Direction::Right
+    } else if input.left {
+        Direction::Left
+    } else {
+        facing
+    };
+
+    let next_vel = if facing_right {
+        if input.run {
+            (x_vel + 0x4000).min(0x4_0000)
+        } else if x_vel < 0x2_0000 {
+            (x_vel + 0x2000).min(0x2_0000)
+        } else if x_vel <= 0x4_0000 {
+            x_vel - 0x2000
+        } else {
+            0x4_0000
+        }
+    } else if input.run {
+        (x_vel - 0x4000).max(-0x4_0000)
+    } else if x_vel > -0x2_0000 {
+        (x_vel - 0x2000).max(-0x2_0000)
+    } else if x_vel >= -0x4_0000 {
+        x_vel + 0x2000
+    } else {
+        -0x4_0000
+    };
+
+    (next_vel, next_facing)
+}
+
 /// Facing right, holding right — loc_9B2E..loc_9B7E.
 fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
     if run {
@@ -771,6 +817,49 @@ mod tests {
             right: false,
             run: false,
         }
+    }
+
+    #[test]
+    fn skycutter_sub_9a20_walk_right_caps_at_walk_speed() {
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(0x1_E000, Direction::Right, right_walk());
+
+        assert_eq!(vel, 0x2_0000);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
+    fn skycutter_sub_9a20_walk_right_decelerates_back_from_run_speed() {
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(0x2_2000, Direction::Right, right_walk());
+
+        assert_eq!(vel, 0x2_0000);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
+    fn skycutter_sub_9a20_pressing_away_flips_facing_and_uses_left_branch() {
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, left_walk());
+
+        assert_eq!(vel, -0x2000);
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn skycutter_sub_9a20_run_left_clamps_to_negative_run_cap() {
+        let (vel, dir) = update_skycutter_horizontal_velocity_sub_9A20(
+            -0x3_E000,
+            Direction::Left,
+            HorizontalInput {
+                left: true,
+                right: false,
+                run: true,
+            },
+        );
+
+        assert_eq!(vel, -0x4_0000);
+        assert_eq!(dir, Direction::Left);
     }
 
     #[test]
