@@ -132,6 +132,125 @@ pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u
     (x_px << 16, y_px << 16, x_vel)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SkycutterVisualStateSub98F2 {
+    pub(crate) flipboard_counter: u8,
+    pub(crate) on_board: bool,
+    pub(crate) facing: Direction,
+    pub(crate) motion_phase: u8,
+    pub(crate) motion_timer: u8,
+    pub(crate) motion_script_index: Option<u8>,
+    pub(crate) roll_accum: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SkycutterVisualStepSub98F2 {
+    pub(crate) state: SkycutterVisualStateSub98F2,
+    pub(crate) player_sprite_mapping: Option<&'static str>,
+    pub(crate) board_sprite_mapping: Option<&'static str>,
+    pub(crate) board_priority_word: u16,
+    pub(crate) board_y_offset_px: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn skycutter_visual_step_sub_98F2(
+    mut state: SkycutterVisualStateSub98F2,
+    a_held: bool,
+    crawling: bool,
+) -> SkycutterVisualStepSub98F2 {
+    // ASM sub_98F2 (kid.asm:11454): `$FFFFFA69` runs the transient flipboard
+    // deploy/retract pose, toggling `$FFFFFA6A` and `x_direction(a3)` at
+    // counter `$11`. With no transient pose active, the routine advances the
+    // helper-board animation script `unk_96AC`, rolls `$FFFFFA0C`, and picks
+    // the `off_99FE` mapping unless crawling forces `LnkTo_unk_A94AC`.
+    const SCRIPT: [(u8, u8); 18] = [
+        (0, 6),
+        (1, 0x0A),
+        (2, 0x1E),
+        (3, 0x14),
+        (4, 6),
+        (5, 0x0A),
+        (0, 0x0A),
+        (1, 8),
+        (2, 0x0C),
+        (3, 8),
+        (4, 0x0A),
+        (5, 0x0C),
+        (0, 0x0F),
+        (1, 0x0F),
+        (2, 0x19),
+        (3, 0x0F),
+        (4, 0x19),
+        (5, 0x0A),
+    ];
+
+    if state.flipboard_counter != 0 {
+        let next_counter = state
+            .flipboard_counter
+            .saturating_add(SKYCUTTER_COUNTER_STEP);
+        if next_counter >= SKYCUTTER_FLIPBOARD_TIMEOUT {
+            state.flipboard_counter = 0;
+        } else {
+            if next_counter == SKYCUTTER_MOUNT_FRAME {
+                state.on_board = !state.on_board;
+                state.facing = match state.facing {
+                    Direction::Right => Direction::Left,
+                    Direction::Left => Direction::Right,
+                };
+            }
+            state.flipboard_counter = next_counter;
+            return SkycutterVisualStepSub98F2 {
+                player_sprite_mapping: kid_data::skycutter_flipboard_sprite_mapping_sub_98F2(
+                    next_counter,
+                ),
+                board_sprite_mapping: None,
+                board_priority_word: 0,
+                board_y_offset_px: 0,
+                state,
+            };
+        }
+    }
+
+    if state.motion_timer <= 1 {
+        let index = usize::from(state.motion_script_index.unwrap_or(u8::MAX));
+        let (phase, timer, next_index) = if let Some(&(phase, timer)) = SCRIPT.get(index) {
+            (phase, timer, Some((index + 1) as u8))
+        } else {
+            let (phase, timer) = SCRIPT[0];
+            (phase, timer, Some(1))
+        };
+        state.motion_phase = phase;
+        state.motion_timer = timer;
+        state.motion_script_index = next_index;
+    } else {
+        state.motion_timer -= 1;
+    }
+
+    state.roll_accum = state
+        .roll_accum
+        .wrapping_add(if a_held { 0x20 } else { 0x10 });
+    let board_priority_word = match state.roll_accum.wrapping_mul(2) {
+        0x00..=0x54 => 0x012C,
+        0x55..=0xA9 => 0x0130,
+        _ => 0x0134,
+    };
+    let board_mapping = kid_data::skycutter_board_sprite_mapping_sub_98F2(
+        u16::from(state.motion_phase.min(5)),
+        crawling,
+    );
+
+    SkycutterVisualStepSub98F2 {
+        player_sprite_mapping: board_mapping,
+        board_sprite_mapping: board_mapping,
+        board_priority_word,
+        board_y_offset_px: if state.on_board { -0x1A } else { 0 },
+        state,
+    }
+}
+
 /// Diamond Power type active for the current activation.
 /// ASM: DiamondPower_Init_Index (kid.asm:44375) maps form+tier to power type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -343,7 +462,15 @@ impl NativeRuntime {
                 if self.helmet.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME
                     && next >= SKYCUTTER_MOUNT_FRAME
                 {
+                    // ASM sub_98F2 / loc_991A: midpoint `$11` toggles both
+                    // `$FFFFFA6A` and `x_direction(a3)`, so the mounted board
+                    // reverses Kid's facing on the same frame it flips the
+                    // board latch.
                     self.helmet.skycutter_on_board = !self.helmet.skycutter_on_board;
+                    slice.player.facing = match slice.player.facing {
+                        Direction::Right => Direction::Left,
+                        Direction::Left => Direction::Right,
+                    };
                 }
                 self.helmet.skycutter_flipboard = next;
             }

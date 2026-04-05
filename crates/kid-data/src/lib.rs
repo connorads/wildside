@@ -2086,6 +2086,43 @@ pub fn helmet_motion_sprite_mapping_sub_942A(helmet_id: u16, phase: u16) -> Opti
 }
 
 #[allow(non_snake_case)]
+pub fn skycutter_flipboard_sprite_mapping_sub_98F2(counter: u8) -> Option<&'static str> {
+    // ASM sub_98F2 (kid.asm:11454): while `$FFFFFA69` is non-zero, add 2 to
+    // the flipboard counter, bucket it by `counter >> 3`, and pick one of the
+    // four `off_993A` mappings for Kid's temporary deploy/retract pose.
+    const SPRITE_TABLE: [&str; 4] = [
+        "LnkTo_unk_AA3AE-Data_Index",
+        "LnkTo_unk_AA5B4-Data_Index",
+        "LnkTo_unk_AA5B4-Data_Index",
+        "LnkTo_unk_AA3AE-Data_Index",
+    ];
+
+    SPRITE_TABLE.get(usize::from(counter >> 3)).copied()
+}
+
+#[allow(non_snake_case)]
+pub fn skycutter_board_sprite_mapping_sub_98F2(phase: u16, crawling: bool) -> Option<&'static str> {
+    // ASM sub_98F2 loc_998A..loc_99A6 (kid.asm:11491): once the transient
+    // flipboard pose ends, the helper sprite uses `off_99FE[d6]`, except the
+    // crawling state forces the shared `LnkTo_unk_A94AC` mapping regardless of
+    // the animation script phase.
+    if crawling {
+        return Some("LnkTo_unk_A94AC-Data_Index");
+    }
+
+    const SPRITE_TABLE: [&str; 6] = [
+        "LnkTo_unk_A978A-Data_Index",
+        "LnkTo_unk_A9990-Data_Index",
+        "LnkTo_unk_A9B96-Data_Index",
+        "LnkTo_unk_A9D9C-Data_Index",
+        "LnkTo_unk_A9FA2-Data_Index",
+        "LnkTo_unk_AA1A8-Data_Index",
+    ];
+
+    SPRITE_TABLE.get(usize::from(phase)).copied()
+}
+
+#[allow(non_snake_case)]
 pub fn juggernaut_spin_sprite_mapping_sub_942A(phase: u16) -> Option<&'static str> {
     // ASM sub_942A (kid.asm:10877): Juggernaut indexes `off_94E6` with
     // `($FFFFF8F0).w >> 8` and stores the selected mapping unless animation
@@ -6351,6 +6388,50 @@ AddrTbl_LevelNames:   ;1A842
                 );
             }
         }
+    }
+
+    #[test]
+    fn skycutter_flipboard_sprite_mapping_sub_98f2_maps_the_off_993a_cycle() {
+        let expected = [
+            "LnkTo_unk_AA3AE-Data_Index",
+            "LnkTo_unk_AA5B4-Data_Index",
+            "LnkTo_unk_AA5B4-Data_Index",
+            "LnkTo_unk_AA3AE-Data_Index",
+        ];
+
+        for (counter, sprite_mapping_label) in [0u8, 8, 16, 24].into_iter().zip(expected) {
+            assert_eq!(
+                skycutter_flipboard_sprite_mapping_sub_98F2(counter),
+                Some(sprite_mapping_label),
+                "ASM off_993A should select the expected Skycutter deploy mapping for counter {counter:#04x}",
+            );
+        }
+    }
+
+    #[test]
+    fn skycutter_board_sprite_mapping_sub_98f2_maps_off_99fe_and_crawling_override() {
+        let expected = [
+            "LnkTo_unk_A978A-Data_Index",
+            "LnkTo_unk_A9990-Data_Index",
+            "LnkTo_unk_A9B96-Data_Index",
+            "LnkTo_unk_A9D9C-Data_Index",
+            "LnkTo_unk_A9FA2-Data_Index",
+            "LnkTo_unk_AA1A8-Data_Index",
+        ];
+
+        for (phase, sprite_mapping_label) in expected.into_iter().enumerate() {
+            assert_eq!(
+                skycutter_board_sprite_mapping_sub_98F2(phase as u16, false),
+                Some(sprite_mapping_label),
+                "ASM off_99FE should select the expected Skycutter helper mapping for phase {phase}",
+            );
+        }
+
+        assert_eq!(
+            skycutter_board_sprite_mapping_sub_98F2(4, true),
+            Some("LnkTo_unk_A94AC-Data_Index"),
+            "ASM loc_999A..loc_99A6 should force the crawl mapping regardless of phase",
+        );
     }
 
     #[test]

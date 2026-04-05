@@ -11,8 +11,9 @@ use crate::boot::{
 use crate::combat::*;
 use crate::helmets::{
     JuggernautCompanionStateSub975C, JuggernautCompanionStepSub975C,
-    JuggernautCompanionVisualSub975C, juggernaut_companion_step_sub_975C,
-    red_stealth_swing_anchor_sub_868E,
+    JuggernautCompanionVisualSub975C, SkycutterVisualStateSub98F2,
+    juggernaut_companion_step_sub_975C, red_stealth_swing_anchor_sub_868E,
+    skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
@@ -18055,6 +18056,80 @@ fn skycutter_non_skycutter_form_clears_state() {
 
     assert!(!rt.helmet.skycutter_on_board);
     assert_eq!(rt.helmet.skycutter_flipboard, 0);
+}
+
+#[test]
+fn skycutter_flipboard_midpoint_flips_board_latch_and_facing() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_flipboard = 0x0F;
+    rt.helmet.skycutter_on_board = false;
+    let mut slice = airborne_slice();
+    slice.player.facing = Direction::Right;
+
+    rt.step_skycutter_flipboard(&mut slice, FrameInput::default());
+
+    assert_eq!(rt.helmet.skycutter_flipboard, 0x11);
+    assert!(rt.helmet.skycutter_on_board);
+    assert_eq!(
+        slice.player.facing,
+        Direction::Left,
+        "ASM sub_98F2 loc_991A should flip `x_direction(a3)` on the `$11` midpoint frame",
+    );
+}
+
+#[test]
+fn skycutter_visual_step_sub_98f2_restarts_board_script_and_rolls_priority() {
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 0,
+            motion_script_index: None,
+            roll_accum: 0,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(step.state.motion_phase, 0);
+    assert_eq!(step.state.motion_timer, 6);
+    assert_eq!(step.state.motion_script_index, Some(1));
+    assert_eq!(step.state.roll_accum, 0x10);
+    assert_eq!(step.board_priority_word, 0x012C);
+    assert_eq!(
+        step.player_sprite_mapping,
+        Some("LnkTo_unk_A978A-Data_Index"),
+        "ASM sub_98F2 loc_9968..loc_99A6 should restart from `unk_96AC` and use the first helper-board mapping",
+    );
+}
+
+#[test]
+fn skycutter_visual_step_sub_98f2_midpoint_uses_transient_flipboard_mapping() {
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0x0F,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 3,
+            motion_timer: 9,
+            motion_script_index: Some(7),
+            roll_accum: 0x80,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(step.state.flipboard_counter, 0x11);
+    assert!(step.state.on_board);
+    assert_eq!(step.state.facing, Direction::Left);
+    assert_eq!(
+        step.player_sprite_mapping,
+        Some("LnkTo_unk_AA5B4-Data_Index"),
+        "ASM off_993A should drive the temporary midpoint flipboard frame",
+    );
+    assert_eq!(step.board_sprite_mapping, None);
 }
 
 // --- Cyclone flight tests ---
