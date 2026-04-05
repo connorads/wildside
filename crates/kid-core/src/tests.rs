@@ -7267,6 +7267,19 @@ fn prize_content_clock_adds_time() {
 }
 
 #[test]
+fn prize_content_clock_increments_clocks_collected() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.apply_prize_content(terrain::PrizeContent::Clock);
+
+    assert_eq!(
+        runtime.clocks_collected, 1,
+        "ASM loc_10002 should increment `Clocks_collected` once for each collected clock prize"
+    );
+}
+
+#[test]
 fn prize_content_ten_diamonds_adds_ten() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

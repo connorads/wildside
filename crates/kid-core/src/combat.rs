@@ -2036,6 +2036,8 @@ impl NativeRuntime {
             }
             terrain::PrizeContent::Clock => {
                 self.level_timer.add_clock_bonus();
+                // ASM loc_10002 (kid.asm:21298) increments `Clocks_collected`
+                // after the timer bonus/sub-second reset path completes.
                 self.clocks_collected += 1;
             }
             terrain::PrizeContent::Continue => {
